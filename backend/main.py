@@ -26,9 +26,7 @@ app = FastAPI(title="Fair Value Calculator API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://babi-calculator-inatorul.vercel.app",
-        "http://localhost:5173",
-        "http://localhost:3000",
+        "https://proiect-calculator-fair-value.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
