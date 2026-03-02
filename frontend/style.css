@@ -51,19 +51,25 @@ body {
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
 }
 
-/* Header */
+/* Header Base (Mobile First) */
 .header {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 3rem;
     flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 3rem;
     gap: 1rem;
 }
 
+.logo {
+    order: 1;
+}
+
 .logo h1 {
-    font-size: 2rem;
+    font-size: 1.4rem;
+    /* Smaller for mobile to fit watchlist */
     font-weight: 800;
+    line-height: 1.2;
 }
 
 .logo span {
@@ -79,8 +85,38 @@ body {
     display: flex;
     gap: 0.5rem;
     width: 100%;
-    max-width: 600px;
     align-items: center;
+    order: 3;
+    /* Pushed below on mobile */
+}
+
+/* Desktop Header Layout */
+@media (min-width: 768px) {
+    .header {
+        flex-wrap: nowrap;
+    }
+
+    .logo {
+        flex-shrink: 0;
+    }
+
+    .logo h1 {
+        font-size: 2rem;
+    }
+
+    .search-container {
+        order: 2;
+        /* Between logo and watchlist */
+        max-width: 500px;
+        flex: 1;
+        margin: 0 1rem;
+    }
+
+    #nav-watchlist-btn {
+        order: 3 !important;
+        /* Move to right */
+        flex-shrink: 0;
+    }
 }
 
 .autocomplete-wrapper {
@@ -188,6 +224,8 @@ body {
 }
 
 #nav-watchlist-btn {
+    order: 2;
+    /* Mobile: right side */
     padding: 0.5rem 1rem;
     font-size: 0.9rem;
     background: transparent;
