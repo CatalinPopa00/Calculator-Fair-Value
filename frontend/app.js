@@ -77,7 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
         loadingState.style.display = 'flex';
 
         try {
-            const response = await fetch(`https://babi-calculator-inatorul-ixvk.onrender.com/api/valuation/${encodeURIComponent(query)}`);
+            const response = await fetch(`https://calculator-fair-value.onrender.com/api/valuation/${encodeURIComponent(query)}`);
             if (!response.ok) throw new Error('Network response was not ok');
 
             const data = await response.json();
@@ -522,7 +522,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const saveWatchlist = () => {
         localStorage.setItem('fairValueWatchlist', JSON.stringify(watchlist));
-        fetch('https://babi-calculator-inatorul-ixvk.onrender.com/api/watchlist', {
+        fetch('https://calculator-fair-value.onrender.com/api/watchlist', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ tickers: watchlist })
@@ -776,7 +776,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Fetch data for all watchlist items
         try {
             const promises = watchlist.map(ticker =>
-                fetch(`https://babi-calculator-inatorul-ixvk.onrender.com/api/valuation/${encodeURIComponent(ticker)}`).then(res => res.json())
+                fetch(`https://calculator-fair-value.onrender.com/api/valuation/${encodeURIComponent(ticker)}`).then(res => res.json())
             );
 
             let results = await Promise.all(promises);
@@ -843,7 +843,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         searchTimeout = setTimeout(async () => {
             try {
-                const res = await fetch(`https://babi-calculator-inatorul-ixvk.onrender.com/api/search/${encodeURIComponent(query)}`);
+                const res = await fetch(`https://calculator-fair-value.onrender.com/api/search/${encodeURIComponent(query)}`);
                 const data = await res.json();
 
                 autocompleteList.innerHTML = '';
@@ -1202,7 +1202,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     });
-    fetch('https://babi-calculator-inatorul-ixvk.onrender.com/api/watchlist')
+    fetch('https://calculator-fair-value.onrender.com/api/watchlist')
         .then(res => res.json())
         .then(data => {
             if (Array.isArray(data) && data.length > 0) {
