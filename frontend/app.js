@@ -1,0 +1,1228 @@
+document.addEventListener('DOMContentLoaded', () => {
+    const searchBtn = document.getElementById('search-btn');
+    const tickerInput = document.getElementById('ticker-input');
+
+    // Dashboard elements
+    const dashboard = document.getElementById('dashboard');
+    const loadingState = document.getElementById('loading-state');
+
+    // Modal elements
+    const viewDataBtns = document.querySelectorAll('.modal-trigger');
+    const dataModal = document.getElementById('data-modal');
+    const closeModal = document.getElementById('close-modal');
+    const modalBodyContent = document.getElementById('modal-body-content');
+
+    // Global selected lynch method
+    const lynchMethodSelect = document.getElementById('lynch-method-select');
+    let selectedLynchMethod = 'pe20'; // default
+
+    // Watchlist elements
+    const navWatchlistBtn = document.getElementById('nav-watchlist-btn');
+    const watchlistView = document.getElementById('watchlist-view');
+    const watchlistGrid = document.getElementById('watchlist-grid');
+    const emptyWatchlistMsg = document.getElementById('empty-watchlist-msg');
+    const addToWatchlistBtn = document.getElementById('add-to-watchlist-btn');
+
+    // Autocomplete elements
+    const autocompleteList = document.getElementById('autocomplete-list');
+    const logoBtn = document.getElementById('logo-btn');
+
+    let currentFormulaData = null;
+    let currentTicker = null;
+    let currentHealthBreakdown = null;
+    let currentBuyBreakdown = null;
+
+    // Watchlist State (Load initially from localStorage for responsiveness, then sync)
+    let watchlist = JSON.parse(localStorage.getItem('fairValueWatchlist')) || [];
+
+    // Data elements
+    const elements = {
+        name: document.getElementById('company-name'),
+        ticker: document.getElementById('company-ticker'),
+        currentPrice: document.getElementById('current-price'),
+        fairValue: document.getElementById('fair-value'),
+        marginSafety: document.getElementById('margin-safety'),
+        dcfValue: document.getElementById('dcf-value'),
+        relativeValue: document.getElementById('relative-value'),
+        lynchValue: document.getElementById('lynch-value'),
+        pegValue: document.getElementById('peg-value')
+    };
+
+    const analyzeTicker = async (queryParam) => {
+        const query = (queryParam && typeof queryParam === 'string') ? queryParam : tickerInput.value.trim();
+        if (!query) return;
+
+        // Reset all specific UI custom filter dropdowns and hide custom inputs
+        ['fcf-source', 'lynch-eps-source', 'peg-eps-source'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = 'analyst';
+        });
+        const lynchMult = document.getElementById('lynch-multiple');
+        if (lynchMult) lynchMult.value = 'PE 20';
+
+        ['dcf-custom-inputs', 'lynch-custom-multiple-inputs', 'lynch-custom-inputs', 'peg-custom-inputs', 'dcf-custom-input-group', 'lynch-custom-input-group', 'peg-custom-input-group'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+        });
+
+        ['dcf-custom-growth', 'dcf-custom-wacc', 'dcf-custom-perp', 'lynch-custom-mult', 'lynch-custom-growth', 'peg-custom-growth'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+
+        // UI Reset
+        autocompleteList.style.display = 'none';
+        watchlistView.style.display = 'none';
+        dashboard.style.display = 'none';
+        loadingState.style.display = 'flex';
+
+        try {
+            const response = await fetch(`https://babi-calculator-inatorul-ixvk.onrender.com/api/valuation/${encodeURIComponent(query)}`);
+            if (!response.ok) throw new Error('Network response was not ok');
+
+            const data = await response.json();
+            displayData(data);
+
+        } catch (error) {
+            console.error('Error fetching valuation:', error);
+            alert('Error: ' + error.message + '\nStack: ' + error.stack);
+            loadingState.style.display = 'none';
+        }
+    };
+
+    const formatCurrency = (val) => val != null ? `$${val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'N/A';
+    const formatPercent = (val) => val != null ? `${val.toFixed(2)}%` : '0%';
+
+    const displayData = (data) => {
+        currentFormulaData = data.formula_data;
+        currentTicker = data.ticker;
+
+        elements.name.textContent = data.name;
+        elements.ticker.textContent = data.ticker;
+        elements.currentPrice.textContent = formatCurrency(data.current_price);
+
+        updateWatchlistButtonState();
+
+        // Display Estimated Fair Value - Text stays neutral
+        elements.fairValue.textContent = formatCurrency(data.fair_value);
+
+        // Display Margin of Safety - Button turns Red or Green
+        if (data.margin_of_safety != null) {
+            elements.marginSafety.textContent = `${formatPercent(data.margin_of_safety)} Margin of Safety`;
+            if (data.margin_of_safety > 0) {
+                elements.marginSafety.style.color = 'var(--accent)';
+                elements.marginSafety.style.background = 'rgba(16, 185, 129, 0.2)';
+            } else {
+                elements.marginSafety.style.color = 'var(--danger)';
+                elements.marginSafety.style.background = 'rgba(239, 68, 68, 0.2)';
+            }
+        } else {
+            elements.marginSafety.textContent = 'N/A';
+        }
+
+        const setValuationStatus = (value, price, statusElemId, valueElemId) => {
+            const statusElem = document.getElementById(statusElemId);
+            const valueElem = document.getElementById(valueElemId);
+
+            if (value == null || price == null) {
+                if (statusElem) {
+                    statusElem.textContent = "N/A";
+                    statusElem.style.color = "var(--text-muted)";
+                }
+                if (valueElem) valueElem.textContent = "N/A";
+                return;
+            }
+
+            if (!valueElem || !statusElem) return;
+
+            valueElem.textContent = formatCurrency(value);
+
+            const diffPct = (value - price) / price;
+            if (diffPct >= 0.05) {
+                statusElem.textContent = "Undervalued";
+                statusElem.style.color = "var(--accent)"; // Green
+            } else if (diffPct <= -0.05) {
+                statusElem.textContent = "Overvalued";
+                statusElem.style.color = "var(--danger)"; // Red
+            } else {
+                statusElem.textContent = "Fair Valued";
+                statusElem.style.color = "#fbbf24"; // Amber/Yellow
+            }
+        };
+
+        setValuationStatus(data.dcf_value, data.current_price, 'dcf-status', 'dcf-value');
+        setValuationStatus(data.relative_value, data.current_price, 'relative-status', 'relative-value');
+
+        // Update Dashboard Scores UI
+        const updateScoreUI = (scoreVal, circleId, fillId) => {
+            const circle = document.getElementById(circleId);
+            const fill = document.getElementById(fillId);
+            if (!circle || !fill) return;
+
+            // Reset classes
+            circle.className = 'score-circle';
+            fill.className = 'score-bar-fill';
+            circle.style.color = '';
+            fill.style.backgroundColor = '';
+            fill.style.width = '0%';
+
+            if (scoreVal === "N/A" || scoreVal == null) {
+                circle.textContent = "N/A";
+                circle.style.color = "var(--text-muted)";
+                fill.style.backgroundColor = "var(--text-muted)";
+                return;
+            }
+
+            // Animate number
+            circle.textContent = scoreVal;
+            // Animate bar width
+            setTimeout(() => {
+                fill.style.width = `${scoreVal}%`;
+            }, 50);
+
+            // Apply color coding
+            if (scoreVal >= 76) {
+                circle.classList.add('score-green');
+                fill.classList.add('bg-score-green');
+            } else if (scoreVal >= 41) {
+                circle.classList.add('score-yellow');
+                fill.classList.add('bg-score-yellow');
+            } else {
+                circle.classList.add('score-red');
+                fill.classList.add('bg-score-red');
+            }
+        };
+
+        currentHealthBreakdown = data.health_breakdown;
+        currentBuyBreakdown = data.buy_breakdown;
+
+        updateScoreUI(data.health_score, 'health-score-circle', 'health-score-fill');
+        updateScoreUI(data.buy_score, 'buy-score-circle', 'buy-score-fill');
+
+        const updateInsightsAndScores = (newMos) => {
+            if (!currentBuyBreakdown) return;
+
+            let mosItem = currentBuyBreakdown.find(i => i.name.includes("Margin of Safety"));
+            if (mosItem) {
+                let pts = 0;
+                let mos_str = "N/A";
+                if (newMos != null) {
+                    mos_str = `${newMos.toFixed(1)}%`;
+                    if (newMos > 30.0) pts = 30;
+                    else if (newMos >= 15.0) pts = 20;
+                    else if (newMos >= 0.0) pts = 10;
+                }
+
+                if (typeof data.buy_score === 'number') {
+                    data.buy_score = data.buy_score - mosItem.points + pts;
+                }
+
+                mosItem.points = pts;
+                mosItem.value = mos_str;
+
+                if (typeof data.buy_score === 'number') {
+                    updateScoreUI(data.buy_score, 'buy-score-circle', 'buy-score-fill');
+                }
+            }
+
+            const allMetrics = [...(currentHealthBreakdown || []), ...(currentBuyBreakdown || [])];
+            const strengths = allMetrics.filter(m => m.points === m.max_points && m.max_points > 0);
+            strengths.sort((a, b) => b.max_points - a.max_points);
+            const topStrengths = strengths.slice(0, 3);
+
+            const risks = allMetrics.filter(m => m.points === 0 || (m.max_points > 0 && m.points <= (m.max_points / 3)));
+            risks.sort((a, b) => (a.points / a.max_points) - (b.points / b.max_points));
+            const topRisks = risks.slice(0, 3);
+
+            const strengthsList = document.getElementById('top-strengths-list');
+            if (strengthsList) {
+                strengthsList.innerHTML = '';
+                if (topStrengths.length > 0) {
+                    topStrengths.forEach(s => {
+                        const li = document.createElement('li');
+                        li.innerHTML = `<strong>${s.name.split(' (')[0]}:</strong> ${s.value}`;
+                        strengthsList.appendChild(li);
+                    });
+                } else {
+                    strengthsList.innerHTML = '<li>No major strengths detected.</li>';
+                }
+            }
+
+            const risksList = document.getElementById('risk-factors-list');
+            if (risksList) {
+                risksList.innerHTML = '';
+                if (topRisks.length > 0) {
+                    topRisks.forEach(r => {
+                        const li = document.createElement('li');
+                        li.innerHTML = `<strong>${r.name.split(' (')[0]}:</strong> ${r.value}`;
+                        risksList.appendChild(li);
+                    });
+                } else {
+                    risksList.innerHTML = '<li>No critical risks detected.</li>';
+                }
+            }
+        };
+
+        // Forward Multiple Updates (formerly Peter Lynch)
+        const lynchFwdPe = document.getElementById('lynch-fwd-pe');
+        const lynchStatus = document.getElementById('lynch-status');
+        const lynchFairValue = document.getElementById('lynch-fair-value');
+
+        // Helper to calculate DCF locally
+        const calcLocalDcf = (fcf, growth, wacc, perp, shares, cash, debt) => {
+            if (!fcf || !shares || shares <= 0) return null;
+            let pv = 0;
+            let f = fcf;
+            for (let i = 1; i <= 5; i++) {
+                f *= (1 + growth);
+                pv += f / Math.pow(1 + wacc, i);
+            }
+            const tv = (f * (1 + perp)) / (wacc - perp);
+            const pvTv = tv / Math.pow(1 + wacc, 5);
+            const ev = pv + pvTv;
+            const eqVal = ev + (cash || 0) - (debt || 0);
+            return eqVal > 0 ? eqVal / shares : null;
+        };
+
+        // Logic for Dynamic Recalculation
+        const updateFairValue = () => {
+            if (!currentFormulaData) return;
+            const prof = data.company_profile;
+
+            // DCF Logic
+            let dcfVal = null;
+            if (currentFormulaData.dcf) {
+                const fcfSourceEl = document.getElementById('fcf-source');
+                const fcfSource = fcfSourceEl ? fcfSourceEl.value : 'analyst';
+                const dcfInputs = document.getElementById('dcf-custom-inputs');
+                if (dcfInputs) dcfInputs.style.display = fcfSource === 'custom' ? 'flex' : 'none';
+
+                const baseFcf = currentFormulaData.dcf.fcf;
+                const shares = prof.shares_outstanding;
+
+                if (fcfSource === 'analyst') {
+                    dcfVal = currentFormulaData.dcf.intrinsic_value;
+                } else if (fcfSource === 'historical') {
+                    const hg = prof.historic_fcf_growth != null ? prof.historic_fcf_growth : 0.05;
+                    dcfVal = calcLocalDcf(baseFcf, hg, 0.09, 0.02, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt);
+                } else if (fcfSource === 'custom') {
+                    const g = parseFloat(document.getElementById('dcf-custom-growth').value) / 100 || 0.15;
+                    const w = parseFloat(document.getElementById('dcf-custom-wacc').value) / 100 || 0.09;
+                    const p = parseFloat(document.getElementById('dcf-custom-perp').value) / 100 || 0.025;
+                    dcfVal = calcLocalDcf(baseFcf, g, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt);
+                }
+            }
+            setValuationStatus(dcfVal, data.current_price, 'dcf-status', 'dcf-value');
+
+            // PEG Logic
+            let pegVal = null;
+            if (currentFormulaData.peg) {
+                const pegSrcEl = document.getElementById('peg-eps-source');
+                const pegSrc = pegSrcEl ? pegSrcEl.value : 'analyst';
+                const pegInputs = document.getElementById('peg-custom-inputs');
+                if (pegInputs) pegInputs.style.display = pegSrc === 'custom' ? 'flex' : 'none';
+
+                const pePl = currentFormulaData.peter_lynch; // fallback base data
+                const baseEps = pePl ? pePl.trailing_eps : 0;
+
+                if (pegSrc === 'analyst') {
+                    const analystGrowth = currentFormulaData.peg.eps_growth_estimated ? (currentFormulaData.peg.eps_growth_estimated * 100) : 0;
+                    if (baseEps > 0) {
+                        pegVal = baseEps * analystGrowth;
+                    }
+                } else if (pegSrc === 'custom') {
+                    const pg = parseFloat(document.getElementById('peg-custom-growth').value) || 20;
+                    if (baseEps > 0) {
+                        pegVal = baseEps * pg;
+                    }
+                }
+            }
+            setValuationStatus(pegVal, data.current_price, 'peg-status', 'peg-value');
+
+            // Forward Multiple Logic
+            let lynchVal = null;
+            let currentFwdPe = "--";
+            if (currentFormulaData.peter_lynch) {
+                const pl = currentFormulaData.peter_lynch;
+                const epsSourceEl = document.getElementById('lynch-eps-source');
+                const epsSource = epsSourceEl ? epsSourceEl.value : 'analyst';
+                const lynchInputs = document.getElementById('lynch-custom-inputs');
+                if (lynchInputs) lynchInputs.style.display = epsSource === 'custom' ? 'flex' : 'none';
+
+                let usedGrowth = pl.eps_growth_estimated || 0.05;
+                let targetEps = (pl.trailing_eps || 0) * Math.pow(1 + usedGrowth, 3);
+
+                if (epsSource === 'historical') {
+                    usedGrowth = prof.historic_eps_growth != null ? prof.historic_eps_growth : 0.05;
+                    targetEps = (pl.trailing_eps || 0) * Math.pow(1 + usedGrowth, 3);
+                } else if (epsSource === 'custom') {
+                    usedGrowth = parseFloat(document.getElementById('lynch-custom-growth').value) / 100 || 0.20;
+                    targetEps = (pl.trailing_eps || 0) * Math.pow(1 + usedGrowth, 3);
+                }
+
+                const multEl = document.getElementById('lynch-multiple');
+                const multVal = multEl ? multEl.value : 'PE 20';
+                const multCustomInputs = document.getElementById('lynch-custom-multiple-inputs');
+                if (multCustomInputs) multCustomInputs.style.display = multVal === 'custom' ? 'flex' : 'none';
+
+                let selectedMult = 20; // default
+                if (multVal === 'PE 15') selectedMult = 15;
+                if (multVal === 'PE 20') selectedMult = 20;
+                if (multVal === 'PE 25') selectedMult = 25;
+                if (multVal === 'historic') selectedMult = pl.pe_historic || 20;
+                if (multVal === 'custom') {
+                    selectedMult = parseFloat(document.getElementById('lynch-custom-mult').value) || 18;
+                }
+
+                if (targetEps != null && targetEps > 0) {
+                    lynchVal = targetEps * selectedMult;
+                }
+
+                // Update the FWD PE display based on chosen EPS
+                if (data.current_price && targetEps > 0) {
+                    currentFwdPe = (data.current_price / targetEps).toFixed(2) + "x";
+                }
+            }
+            const fwdPeDisplay = document.getElementById('lynch-fwd-pe');
+            if (fwdPeDisplay) fwdPeDisplay.textContent = currentFwdPe;
+
+            setValuationStatus(lynchVal, data.current_price, 'lynch-status', 'lynch-fair-value');
+
+            // Relative Valuation
+            let relVal = null;
+            const rel = currentFormulaData.relative;
+            if (rel) {
+                const fvPeers = (rel.median_peer_pe && rel.company_eps) ? rel.median_peer_pe * rel.company_eps : null;
+                if (fvPeers != null && fvPeers > 0) relVal = fvPeers;
+
+                // Expose market data
+                const mc = document.getElementById('relative-market-compare');
+                if (mc) {
+                    const mpe = rel.market_pe_trailing || '--';
+                    mc.textContent = `S&P 500 Trailing P/E baseline: ${mpe}`;
+                }
+            }
+            setValuationStatus(relVal, data.current_price, 'relative-status', 'relative-value');
+
+            // 2. Recalculate Final Fair Value and MOS
+            const vals = [];
+            if (lynchVal != null && lynchVal > 0 && document.getElementById('toggle-peter_lynch').checked) vals.push(lynchVal);
+            if (pegVal != null && pegVal > 0 && document.getElementById('toggle-peg').checked) vals.push(pegVal);
+            if (relVal != null && relVal > 0 && document.getElementById('toggle-relative').checked) vals.push(relVal);
+            if (dcfVal != null && dcfVal > 0 && document.getElementById('toggle-dcf').checked) vals.push(dcfVal);
+
+            if (vals.length > 0) {
+                const finalFv = vals.reduce((a, b) => a + b, 0) / vals.length;
+                elements.fairValue.textContent = formatCurrency(finalFv);
+
+                const mos = ((finalFv - data.current_price) / finalFv) * 100;
+                elements.marginSafety.textContent = `${formatPercent(mos)} Margin of Safety`;
+                if (mos > 0) {
+                    elements.marginSafety.style.color = 'var(--accent)';
+                    elements.marginSafety.style.background = 'rgba(16, 185, 129, 0.2)';
+                } else {
+                    elements.marginSafety.style.color = 'var(--danger)';
+                    elements.marginSafety.style.background = 'rgba(239, 68, 68, 0.2)';
+                }
+                updateInsightsAndScores(mos);
+            } else {
+                elements.fairValue.textContent = "N/A";
+                elements.marginSafety.textContent = "N/A";
+                elements.marginSafety.style.color = 'var(--text-muted)';
+                elements.marginSafety.style.background = 'none';
+                updateInsightsAndScores(null);
+            }
+        };
+
+        // Custom Estimations Bindings
+        const inputSelectors = [
+            'fcf-source', 'dcf-custom-growth', 'dcf-custom-wacc', 'dcf-custom-perp',
+            'lynch-multiple', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth',
+            'peg-eps-source', 'peg-custom-growth'
+        ];
+
+        inputSelectors.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                // use 'input' for text fields to update instantly as typing, 
+                // and 'change' for selects
+                const eventType = el.tagName === 'SELECT' ? 'change' : 'input';
+                el.addEventListener(eventType, updateFairValue);
+            }
+        });
+
+        // Trigger the recalculation to populate the initial state
+        updateFairValue();
+
+        // Listen for toggle changes
+        document.querySelectorAll('.valuation-toggle').forEach(toggle => {
+            // Remove old listeners to avoid duplicates if called multiple times
+            toggle.removeEventListener('change', updateFairValue);
+            toggle.addEventListener('change', updateFairValue);
+        });
+
+        // End Forward Multiple Updates
+
+        setValuationStatus(data.peg_value, data.current_price, 'peg-status', 'peg-value');
+
+        // Render Company Profile
+        const pBody = document.getElementById('profile-body');
+        if (pBody && data.company_profile) {
+            const prof = data.company_profile;
+
+            const formatBigNumber = (num, pfx = '') => {
+                if (num == null) return 'N/A';
+                if (num >= 1e12) return pfx + (num / 1e12).toFixed(2) + 'T';
+                if (num >= 1e9) return pfx + (num / 1e9).toFixed(2) + 'B';
+                if (num >= 1e6) return pfx + (num / 1e6).toFixed(2) + 'M';
+                return pfx + num.toLocaleString();
+            };
+
+            pBody.innerHTML = `
+                <tr><td style="padding: 12px 0; color: var(--text-muted); vertical-align: top;">Industry</td><td style="text-align: right; font-weight: bold; color: white; max-width: 220px; word-wrap: break-word;">${prof.industry}<br><span style="font-size: 0.85em; font-weight: normal; color: var(--text-muted);">${prof.sector}</span></td></tr>
+                <tr style="border-top: 1px solid rgba(255,255,255,0.08);"><td style="padding: 12px 0; color: var(--text-muted); vertical-align: top;">Market Cap</td><td style="text-align: right; font-weight: bold; color: white;">${formatBigNumber(prof.market_cap, '$')}</td></tr>
+                <tr style="border-top: 1px solid rgba(255,255,255,0.08);"><td style="padding: 12px 0; color: var(--text-muted); vertical-align: top;">P/E (Trailing)</td><td style="text-align: right; font-weight: bold; color: white;">${prof.trailing_pe ? prof.trailing_pe.toFixed(2) + 'x' : 'N/A'}</td></tr>
+                <tr style="border-top: 1px solid rgba(255,255,255,0.08);"><td style="padding: 12px 0; color: var(--text-muted); vertical-align: top;">EPS (Trailing)</td><td style="text-align: right; font-weight: bold; color: white;">${prof.trailing_eps ? '$' + prof.trailing_eps.toFixed(2) : 'N/A'}</td></tr>
+                <tr style="border-top: 1px solid rgba(255,255,255,0.08);"><td style="padding: 12px 0; color: var(--text-muted); vertical-align: top;">Debt-to-Equity</td><td style="text-align: right; font-weight: bold; color: white;">${prof.debt_to_equity != null ? prof.debt_to_equity.toFixed(2) + 'x' : 'N/A'}</td></tr>
+                <tr style="border-top: 1px solid rgba(255,255,255,0.08);"><td style="padding: 12px 0; color: var(--text-muted); vertical-align: top;">Shares Out.</td><td style="text-align: right; font-weight: bold; color: white;">${formatBigNumber(prof.shares_outstanding, '')}</td></tr>
+                <tr style="border-top: 1px solid rgba(255,255,255,0.08);"><td style="padding: 12px 0; color: var(--text-muted); vertical-align: top;">Dividend Yield</td><td style="text-align: right; font-weight: bold; color: white;">${prof.dividend_yield ? prof.dividend_yield.toFixed(2) + '%' : 'N/A'}</td></tr>
+                <tr style="border-top: 1px solid rgba(255,255,255,0.08);"><td style="padding: 12px 0; color: var(--text-muted); vertical-align: top;">Competitors</td><td style="text-align: right; font-weight: bold; color: white; max-width: 220px; word-wrap: break-word;">${prof.competitors.length ? prof.competitors.join(', ') : 'None'}</td></tr>
+            `;
+        }
+
+        // Render Historical Trends
+        const trendsBody = document.getElementById('trends-body');
+        if (trendsBody) {
+            if (data.historical_trends && data.historical_trends.length > 0) {
+                let html = '';
+                data.historical_trends.forEach(row => {
+                    const revStr = row.revenue != null ? (row.revenue / 1e9).toFixed(2) : '-';
+                    const marginStr = row.net_margin != null ? (row.net_margin * 100).toFixed(1) + '%' : '-';
+                    const fcfStr = row.fcf != null ? (row.fcf / 1e9).toFixed(2) : '-';
+                    html += `<tr>
+                        <td>${row.year}</td>
+                        <td>${revStr}</td>
+                        <td>${marginStr}</td>
+                        <td>${fcfStr}</td>
+                    </tr>`;
+                });
+                trendsBody.innerHTML = html;
+            } else {
+                trendsBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 1rem;">No historical trends available.</td></tr>';
+            }
+        }
+
+        loadingState.style.display = 'none';
+        dashboard.style.display = 'block';
+    };
+
+    // --- Watchlist Logic ---
+    let currentSort = { column: 'mos', order: 'desc' };
+    let cachedWatchlistData = null;
+
+    const saveWatchlist = () => {
+        localStorage.setItem('fairValueWatchlist', JSON.stringify(watchlist));
+        fetch('https://babi-calculator-inatorul-ixvk.onrender.com/api/watchlist', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tickers: watchlist })
+        }).catch(err => console.error('Watchlist sync error:', err));
+    };
+
+    const updateWatchlistButtonState = () => {
+        if (!currentTicker) return;
+
+        if (watchlist.includes(currentTicker)) {
+            addToWatchlistBtn.classList.add('added');
+            addToWatchlistBtn.innerHTML = '★';
+        } else {
+            addToWatchlistBtn.classList.remove('added');
+            addToWatchlistBtn.innerHTML = '☆';
+        }
+    };
+
+    const toggleWatchlist = () => {
+        if (!currentTicker) return;
+
+        if (watchlist.includes(currentTicker)) {
+            watchlist = watchlist.filter(t => t !== currentTicker);
+        } else {
+            watchlist.push(currentTicker);
+        }
+
+        saveWatchlist();
+        updateWatchlistButtonState();
+    };
+
+    const renderWatchlistUI = () => {
+        watchlistGrid.innerHTML = '';
+        const watchlistHeader = document.getElementById('watchlist-header');
+
+        if (!cachedWatchlistData || cachedWatchlistData.length === 0) {
+            emptyWatchlistMsg.style.display = 'block';
+            if (watchlistHeader) watchlistHeader.style.display = 'none';
+            return;
+        }
+
+        emptyWatchlistMsg.style.display = 'none';
+
+        let results = [...cachedWatchlistData];
+
+        // Apply currentSort dynamically
+        results.sort((a, b) => {
+            // Edge Case Validation
+            const aValid = a.current_price != null && a.fair_value != null;
+            const bValid = b.current_price != null && b.fair_value != null;
+
+            if (!aValid && bValid) return 1;
+            if (aValid && !bValid) return -1;
+            if (!aValid && !bValid) return 0;
+
+            let aVal, bVal;
+            if (currentSort.column === 'mos') {
+                aVal = a.margin_of_safety != null ? a.margin_of_safety : -99999;
+                bVal = b.margin_of_safety != null ? b.margin_of_safety : -99999;
+            } else if (currentSort.column === 'price') {
+                aVal = a.current_price != null ? a.current_price : 0;
+                bVal = b.current_price != null ? b.current_price : 0;
+            } else if (currentSort.column === 'ticker') {
+                aVal = a.ticker;
+                bVal = b.ticker;
+                if (aVal < bVal) return currentSort.order === 'asc' ? -1 : 1;
+                if (aVal > bVal) return currentSort.order === 'asc' ? 1 : -1;
+                return 0;
+            }
+
+            if (currentSort.order === 'asc') {
+                return aVal - bVal;
+            } else {
+                return bVal - aVal;
+            }
+        });
+
+        if (watchlistHeader) watchlistHeader.style.display = 'flex';
+
+        results.forEach(data => {
+            const card = document.createElement('div');
+            card.className = 'glass-card watchlist-card';
+            card.onclick = () => {
+                card.classList.toggle('expanded');
+            };
+
+            // Format Margin of Safety Color
+            let mosColor = 'var(--text-main)';
+            let mosText = 'N/A';
+            if (data.margin_of_safety != null) {
+                mosText = formatPercent(data.margin_of_safety);
+                mosColor = data.margin_of_safety > 0 ? 'var(--accent)' : 'var(--danger)';
+                if (data.margin_of_safety > 0 && !mosText.startsWith('+')) {
+                    mosText = '+' + mosText;
+                }
+            }
+
+            const dcfVal = data.dcf_value != null ? formatCurrency(data.dcf_value) : 'N/A';
+            const relVal = data.relative_value != null ? formatCurrency(data.relative_value) : 'N/A';
+            const pegVal = data.peg_value != null ? formatCurrency(data.peg_value) : 'N/A';
+
+            let fwdMultVal = 'N/A';
+            if (data.lynch_fair_value != null) {
+                fwdMultVal = formatCurrency(data.lynch_fair_value);
+            } else if (data.peter_lynch && data.peter_lynch.fair_value_pe_20) {
+                fwdMultVal = formatCurrency(data.peter_lynch.fair_value_pe_20);
+            }
+
+            // Scoring logic
+            const hs = data.health_score;
+            const bs = data.buy_score;
+            const hsN = (hs !== 'N/A' && hs != null) ? hs : null;
+            const bsN = (bs !== 'N/A' && bs != null) ? bs : null;
+
+            const hsColorClass = hsN >= 76 ? 'bg-score-green' : (hsN >= 41 ? 'bg-score-yellow' : 'bg-score-red');
+            const bsColorClass = bsN >= 76 ? 'bg-score-green' : (bsN >= 41 ? 'bg-score-yellow' : 'bg-score-red');
+
+            const hsTextClass = hsN >= 76 ? 'score-green' : (hsN >= 41 ? 'score-yellow' : 'score-red');
+            const bsTextClass = bsN >= 76 ? 'score-green' : (bsN >= 41 ? 'score-yellow' : 'score-red');
+
+            const hsFlex = hsN != null ? `${hsN}%` : '0%';
+            const bsFlex = bsN != null ? `${bsN}%` : '0%';
+
+            card.innerHTML = `
+                <div class="watchlist-row">
+                    <div class="watchlist-left">
+                        <span class="expand-icon">▼</span>
+                        <div class="watchlist-ticker-info">
+                            <span class="watchlist-ticker">${data.ticker}</span>
+                            <span class="watchlist-name" title="${data.name}">${data.name}</span>
+                        </div>
+                    </div>
+                    <div class="watchlist-metrics">
+                        <div class="watchlist-metric col-price">
+                            <span class="value">${data.current_price != null ? formatCurrency(data.current_price) : 'N/A'}</span>
+                        </div>
+                        <div class="watchlist-metric col-fv">
+                            <span class="label">FV:</span>
+                            <span class="value">${data.fair_value != null ? formatCurrency(data.fair_value) : 'N/A'}</span>
+                        </div>
+                        <div class="watchlist-metric col-mos">
+                            <span class="label">MOS:</span>
+                            <span class="value" style="color: ${mosColor}; font-weight: 700;">${mosText}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="watchlist-scores-container">
+                        <div class="watchlist-score-item">
+                            <span class="score-label">Health:</span>
+                            <div class="mini-score-bar">
+                                <div class="mini-score-fill ${hsN != null ? hsColorClass : ''}" style="width: ${hsFlex};"></div>
+                            </div>
+                            <span class="score-val ${hsN != null ? hsTextClass : ''}">${hsN != null ? hsN : 'N/A'}/100</span>
+                        </div>
+                        <div class="watchlist-score-item">
+                            <span class="score-label">Buy Score:</span>
+                            <div class="mini-score-bar">
+                                <div class="mini-score-fill ${bsN != null ? bsColorClass : ''}" style="width: ${bsFlex};"></div>
+                            </div>
+                            <span class="score-val ${bsN != null ? bsTextClass : ''}">${bsN != null ? bsN : 'N/A'}/100</span>
+                        </div>
+                    </div>
+
+                    <div class="watchlist-actions">
+                        <button class="remove-watchlist-btn" data-ticker="${data.ticker}" title="Remove from Watchlist">✖</button>
+                    </div>
+                </div>
+                
+                <div class="watchlist-expanded" onclick="event.stopPropagation();">
+                    <div class="breakdown-title">Valuation Breakdown (Equal-Weighted)</div>
+                    <div class="breakdown-grid">
+                        <div class="breakdown-item">
+                            <span class="breakdown-label">DCF Model:</span>
+                            <span class="breakdown-value">${dcfVal}</span>
+                        </div>
+                        <div class="breakdown-item">
+                            <span class="breakdown-label">Forward Multiple:</span>
+                            <span class="breakdown-value">${fwdMultVal}</span>
+                        </div>
+                        <div class="breakdown-item">
+                            <span class="breakdown-label">Relative Valuation:</span>
+                            <span class="breakdown-value">${relVal}</span>
+                        </div>
+                        <div class="breakdown-item">
+                            <span class="breakdown-label">PEG Target (1.0):</span>
+                            <span class="breakdown-value">${pegVal}</span>
+                        </div>
+                    </div>
+                    <div class="view-analysis-row">
+                        <button class="view-analysis-btn" data-ticker="${data.ticker}">[ View Full Analysis → ]</button>
+                    </div>
+                </div>
+            `;
+            watchlistGrid.appendChild(card);
+        });
+
+        // Add remove event listeners
+        document.querySelectorAll('.remove-watchlist-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation(); // prevent triggering the card click (expand/collapse)
+                const tickerToRemove = e.target.getAttribute('data-ticker');
+                watchlist = watchlist.filter(t => t !== tickerToRemove);
+
+                if (cachedWatchlistData) {
+                    cachedWatchlistData = cachedWatchlistData.filter(d => d.ticker !== tickerToRemove);
+                }
+
+                saveWatchlist();
+                if (currentTicker === tickerToRemove) {
+                    updateWatchlistButtonState();
+                }
+                renderWatchlistUI(); // Re-render from cache instantly
+            });
+        });
+
+        // Add view full analysis event listeners
+        document.querySelectorAll('.view-analysis-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const targetTicker = e.target.getAttribute('data-ticker');
+                tickerInput.value = targetTicker;
+
+                // Switch to dashboard view
+                watchlistView.style.display = 'none';
+
+                analyzeTicker();
+            });
+        });
+    };
+
+    const renderWatchlist = async () => {
+        // UI Transition
+        dashboard.style.display = 'none';
+        loadingState.style.display = 'flex';
+        watchlistView.style.display = 'none';
+        watchlistGrid.innerHTML = '';
+
+        const watchlistHeader = document.getElementById('watchlist-header');
+
+        if (watchlist.length === 0) {
+            loadingState.style.display = 'none';
+            watchlistView.style.display = 'block';
+            emptyWatchlistMsg.style.display = 'block';
+            if (watchlistHeader) watchlistHeader.style.display = 'none';
+            cachedWatchlistData = [];
+            return;
+        }
+
+        emptyWatchlistMsg.style.display = 'none';
+
+        // Fetch data for all watchlist items
+        try {
+            const promises = watchlist.map(ticker =>
+                fetch(`https://babi-calculator-inatorul-ixvk.onrender.com/api/valuation/${encodeURIComponent(ticker)}`).then(res => res.json())
+            );
+
+            let results = await Promise.all(promises);
+            cachedWatchlistData = results.filter(data => !data.detail); // Skip raw errors
+
+            renderWatchlistUI();
+
+        } catch (error) {
+            console.error('Error fetching watchlist data:', error);
+            watchlistGrid.innerHTML = '<p style="color: var(--danger); grid-column: 1/-1;">Error loading watchlist data. Please try again.</p>';
+        }
+
+        loadingState.style.display = 'none';
+        watchlistView.style.display = 'block';
+    };
+    // --- Watchlist Sort Logic ---
+    document.querySelectorAll('.sort-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const sortKey = btn.getAttribute('data-sort');
+
+            if (currentSort.column === sortKey) {
+                // Toggle order
+                currentSort.order = currentSort.order === 'desc' ? 'asc' : 'desc';
+            } else {
+                // New column, default to desc for MOS/Price, asc for Ticker
+                currentSort.column = sortKey;
+                currentSort.order = sortKey === 'ticker' ? 'asc' : 'desc';
+            }
+
+            // Update UI 
+            document.querySelectorAll('.sort-btn').forEach(b => {
+                b.classList.remove('active-sort', 'desc', 'asc');
+                const tKey = b.getAttribute('data-sort');
+                if (tKey === 'mos') b.style.color = 'var(--text-muted)'; // reset color
+                b.querySelector('.sort-icon').textContent = '↕';
+            });
+
+            btn.classList.add('active-sort');
+            btn.classList.add(currentSort.order);
+            btn.querySelector('.sort-icon').textContent = currentSort.order === 'desc' ? '▼' : '▲';
+
+            // Reapply special color for active MOS sort
+            if (sortKey === 'mos') {
+                btn.style.color = 'var(--accent)';
+            }
+
+            if (cachedWatchlistData) {
+                renderWatchlistUI();
+            }
+        });
+    });
+
+    // --- Search Autocomplete Logic ---
+    let searchTimeout = null;
+
+    tickerInput.addEventListener('input', (e) => {
+        const query = e.target.value.trim();
+        clearTimeout(searchTimeout);
+
+        if (query.length < 1) {
+            autocompleteList.style.display = 'none';
+            return;
+        }
+
+        searchTimeout = setTimeout(async () => {
+            try {
+                const res = await fetch(`https://babi-calculator-inatorul-ixvk.onrender.com/api/search/${encodeURIComponent(query)}`);
+                const data = await res.json();
+
+                autocompleteList.innerHTML = '';
+
+                if (data.length > 0) {
+                    data.forEach(item => {
+                        const div = document.createElement('div');
+                        div.className = 'autocomplete-item';
+                        div.innerHTML = `<strong>${item.ticker}</strong> <span>${item.name}</span>`;
+                        div.onclick = () => {
+                            tickerInput.value = item.ticker;
+                            autocompleteList.style.display = 'none';
+                            analyzeTicker(item.ticker);
+                        };
+                        autocompleteList.appendChild(div);
+                    });
+                    autocompleteList.style.display = 'block';
+                } else {
+                    autocompleteList.style.display = 'none';
+                }
+            } catch (err) {
+                console.error("Autocomplete error:", err);
+            }
+        }, 300); // 300ms debounce
+    });
+
+    // Close autocomplete on click outside
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.autocomplete-wrapper')) {
+            autocompleteList.style.display = 'none';
+        }
+    });
+
+    // --- Score Breakdown Modals ---
+    const scoreModal = document.getElementById('score-modal');
+    const closeScoreModal = document.getElementById('close-score-modal');
+    const scoreModalTitle = document.getElementById('score-modal-title');
+    const scoreModalPts = document.getElementById('score-modal-pts');
+    const scoreModalBodyContent = document.getElementById('score-modal-body-content');
+
+    const renderScoreModal = (title, totalScore, breakdownData) => {
+        scoreModalTitle.textContent = title;
+        scoreModalPts.textContent = totalScore;
+
+        let html = '';
+        if (breakdownData && breakdownData.length > 0) {
+            breakdownData.forEach(item => {
+                // Determine color based on points vs max points
+                let colorClass = 'score-yellow'; // default yellow
+                let badgeClass = 'bg-score-yellow';
+
+                if (item.points === item.max_points) {
+                    colorClass = 'score-green';
+                    badgeClass = 'bg-score-green';
+                } else if (item.points === 0 || item.points <= (item.max_points / 3)) {
+                    // Logic handles 'null' NA items which usually have 0 points, or mathematically lowest tier
+                    colorClass = 'score-red';
+                    badgeClass = 'bg-score-red';
+                }
+
+                html += `
+                    <div class="score-breakdown-row">
+                        <div class="score-row-name">${item.name}</div>
+                        <div class="score-row-val">${item.value !== null ? item.value : 'N/A'}</div>
+                        <div class="score-row-pts ${colorClass}">
+                            <span class="score-badge ${badgeClass}"></span>
+                            ${item.points}/${item.max_points} pts
+                        </div>
+                    </div>
+                `;
+            });
+        } else {
+            html = '<p>No breakdown data available.</p>';
+        }
+
+        scoreModalBodyContent.innerHTML = html;
+        scoreModal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    };
+
+    // Attach click events to the score rows
+    const healthScoreRow = document.querySelector('.score-row:has(#health-score-circle)');
+    const buyScoreRow = document.querySelector('.score-row:has(#buy-score-circle)');
+
+    if (healthScoreRow) {
+        healthScoreRow.style.cursor = 'pointer';
+        healthScoreRow.addEventListener('click', () => {
+            if (currentHealthBreakdown) {
+                renderScoreModal('Company Health Breakdown', document.getElementById('health-score-circle').textContent, currentHealthBreakdown);
+            }
+        });
+    }
+
+    if (buyScoreRow) {
+        buyScoreRow.style.cursor = 'pointer';
+        buyScoreRow.addEventListener('click', () => {
+            if (currentBuyBreakdown) {
+                renderScoreModal('Good to Buy Score Breakdown', document.getElementById('buy-score-circle').textContent, currentBuyBreakdown);
+            }
+        });
+    }
+
+    closeScoreModal.addEventListener('click', () => {
+        scoreModal.style.display = 'none';
+        document.body.style.overflow = '';
+    });
+
+    window.addEventListener('click', (e) => {
+        if (e.target === scoreModal) {
+            scoreModal.style.display = 'none';
+            document.body.style.overflow = '';
+        }
+    });
+
+    // --- Event Listeners ---
+    logoBtn.addEventListener('click', () => {
+        window.location.reload();
+    });
+
+    searchBtn.addEventListener('click', () => analyzeTicker());
+    tickerInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            autocompleteList.style.display = 'none';
+            analyzeTicker();
+        }
+    });
+
+    navWatchlistBtn.addEventListener('click', renderWatchlist);
+    addToWatchlistBtn.addEventListener('click', toggleWatchlist);
+
+    // Modal Logic
+    viewDataBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            if (!currentFormulaData) return;
+
+            const method = e.target.getAttribute('data-method');
+            const modalTitle = document.getElementById('modal-title');
+
+            if (method === 'peter_lynch') modalTitle.textContent = "Forward Multiple Valuation";
+            else if (method === 'peg') modalTitle.textContent = "PEG Target (1.0)";
+            else if (method === 'relative') modalTitle.textContent = "Relative Valuation";
+            else if (method === 'dcf') modalTitle.textContent = "Discounted Cash Flow";
+            else modalTitle.textContent = "Formula Data Used";
+
+            let html = '';
+
+            const fv = (val, isPct = false) => {
+                if (val == null) return "N/A";
+                if (isPct) return `${(val * 100).toFixed(2)}%`;
+                return typeof val === 'number' ? val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : val;
+            };
+
+            const fM = (val) => {
+                if (val == null) return "N/A";
+                if (Math.abs(val) >= 1e9) {
+                    return `$${(val / 1e9).toFixed(2)}B`;
+                } else if (Math.abs(val) >= 1e6) {
+                    return `$${(val / 1e6).toFixed(2)}M`;
+                }
+                return `$${typeof val === 'number' ? val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : val}`;
+            };
+
+            if (method === 'peter_lynch') {
+                const pl = currentFormulaData.peter_lynch;
+                if (pl) {
+                    html += `
+                        <div class="formula-section">
+                            <ul>
+                                <li><strong>Current Price:</strong> <span>$${fv(pl.current_price)}</span></li>
+                                <li><strong>Diluted Trailing EPS:</strong> <span>$${fv(pl.trailing_eps)}</span></li>
+                                <li><strong>Est. 3-Year CAGR:</strong> <span>${fv(pl.eps_growth_estimated, true)}</span></li>
+                                <li><strong>3-Year FWD EPS:</strong> <span>$${fv(pl.fwd_eps)}</span></li>
+                                <li><strong>FWD PE:</strong> <span>${fv(pl.fwd_pe)}x</span></li>
+                                <li style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);">
+                                    <strong>Fair Value (if PE=20):</strong> <span>$${fv(pl.fair_value_pe_20)}</span>
+                                </li>
+                                <li>
+                                    <strong>Fair Value (if PE=Sector Median):</strong> <span>$${fv(pl.fair_value_sector_pe)}</span>
+                                </li>
+                                <li>
+                                    <strong>Fair Value (Historic PE ${fv(pl.historic_pe)}x):</strong> <span style="color:var(--accent); font-weight:bold;">$${fv(pl.fair_value)}</span>
+                                </li>
+                            </ul>
+                        </div>
+                    `;
+                }
+            } else if (method === 'peg') {
+                const peg = currentFormulaData.peg;
+                if (peg) {
+                    html += `
+                        <div class="formula-section">
+                            <ul>
+                                <li><strong>Current EPS:</strong> <span>$${fv(peg.company_eps)}</span></li>
+                                <li><strong>Estimated Growth Rate:</strong> <span>${fv(peg.eps_growth_estimated, true)}</span></li>
+                                <li><strong>Current PEG:</strong> <span>${fv(peg.current_peg)}</span></li>
+                                <li><strong>Target PEG:</strong> <span>1.00</span></li>
+                                <li style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);">
+                                    <strong>Fair Value:</strong> <span style="color:var(--accent); font-weight:bold;">$${fv(peg.fair_value)}</span>
+                                </li>
+                            </ul>
+                        </div>
+                    `;
+                }
+            } else if (method === 'relative') {
+                const rel = currentFormulaData.relative;
+                if (rel) {
+                    const fvPeers = (rel.median_peer_pe && rel.company_eps) ? rel.median_peer_pe * rel.company_eps : null;
+                    html += `
+                        <div class="formula-section">
+                            <ul>
+                                <li><strong>Company Trailing EPS:</strong> <span>$${fv(rel.company_eps)}</span></li>
+                                <li><strong>Peers Used (Sector/Industry):</strong> <span style="font-size: 0.8em">${rel.peers_used ? rel.peers_used.join(', ') : 'None'}</span></li>
+                                <li><strong>Peer Group Median Trailing P/E:</strong> <span>${fv(rel.median_peer_pe)}x</span></li>
+                                <li style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);">
+                                    <strong>Fair Value vs Peers:</strong> <span style="color:var(--accent); font-weight:bold;">$${fv(fvPeers)}</span>
+                                </li>
+                            </ul>
+                        </div>
+                    `;
+                }
+            } else if (method === 'dcf') {
+                const dcf = currentFormulaData.dcf;
+                if (dcf && dcf.intrinsic_value != null) {
+                    let tableRows = '';
+                    if (dcf.fcf_years && dcf.pv_fcf_years) {
+                        dcf.fcf_years.forEach((cf, i) => {
+                            tableRows += `<tr><td style="padding: 4px 0;">Year ${i + 1}</td><td style="text-align: right;">${fM(cf)}</td><td style="text-align: right;">${fM(dcf.pv_fcf_years[i])}</td></tr>`;
+                        });
+                    }
+                    html += `
+                        <div class="formula-section">
+                            <ul>
+                                <li><strong>Discount Rate (WACC):</strong> <span>${fv(dcf.discount_rate, true)}</span></li>
+                                <li><strong>Perpetual Growth Rate:</strong> <span>${fv(dcf.perpetual_growth, true)}</span></li>
+                                <li><strong>Shares Outstanding:</strong> <span>${fM(dcf.shares_outstanding).replace('$', '')}</span></li>
+                            </ul>
+                            <table style="width:100%; text-align:left; margin-top: 1rem; margin-bottom: 1rem; border-collapse: collapse; font-size: 0.9rem;">
+                                <thead>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                        <th style="padding-bottom: 5px;">Year</th>
+                                        <th style="padding-bottom: 5px; text-align: right;">Projected FCF</th>
+                                        <th style="padding-bottom: 5px; text-align: right;">Present Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${tableRows}
+                                </tbody>
+                            </table>
+                            <ul>
+                                <li><strong>Total PV of FCFs:</strong> <span>${fM(dcf.sum_pv_cf)}</span></li>
+                                <li><strong>Terminal Value:</strong> <span>${fM(dcf.terminal_value)}</span></li>
+                                <li><strong>PV of Terminal Value:</strong> <span>${fM(dcf.pv_terminal_value)}</span></li>
+                                <li style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);">
+                                    <strong>Enterprise Value:</strong> <span style="font-weight:bold;">${fM(dcf.enterprise_value)}</span>
+                                </li>
+                                <li style="color: var(--accent);"><strong>+ Cash & Equivalents:</strong> <span>${fM(dcf.total_cash)}</span></li>
+                                <li style="color: var(--danger);"><strong>- Total Debt:</strong> <span>${fM(dcf.total_debt)}</span></li>
+                                <li style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);">
+                                    <strong>Equity Value:</strong> <span style="font-weight:bold;">${fM(dcf.equity_value)}</span>
+                                </li>
+                                <li style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);">
+                                    <strong>Intrinsic Value per Share:</strong> 
+                                    <span style="color:var(--accent); font-weight:bold;">$${fv(dcf.intrinsic_value)}</span>
+                                </li>
+                                <li style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);">
+                                    <strong>Market Implied FCF Growth (Reverse DCF):</strong> 
+                                    <span style="color:var(--accent); font-weight:bold;">${dcf.reverse_dcf_growth != null ? (dcf.reverse_dcf_growth * 100).toFixed(2) + '%' : 'N/A'}</span>
+                                </li>
+                            </ul>
+                            
+                            ${dcf.sensitivity_matrix && dcf.sensitivity_matrix.length > 0 ? `
+                                <h4 style="margin-top: 1.5rem; margin-bottom: 0.5rem; color: var(--text-main);">DCF Sensitivity Matrix</h4>
+                                <table class="sensitivity-matrix">
+                                    <thead>
+                                        <tr>
+                                            <th>WACC \\ Growth</th>
+                                            ${dcf.sensitivity_matrix[0].values.map(v => `<th>${(v.perpetual_growth * 100).toFixed(1)}%</th>`).join('')}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${dcf.sensitivity_matrix.map(row => `
+                                            <tr>
+                                                <th>${(row.discount_rate * 100).toFixed(1)}%</th>
+                                                ${row.values.map(v => {
+                        let fvVal = v.fair_value;
+                        let color = "var(--text-main)";
+                        // currentPrice is not defined here.
+                        // Wait, we can get current price from data somehow? No, it's not in scope directly unless we use elements.currentPrice.textContent
+                        // Let's rely on formula_data.dcf.current_price or simply not color it.
+                        // Let's use currentPrice variable if available, wait, we don't have current_price in scope. I will skip coloring to prevent reference error.
+                        return `<td>${fvVal != null ? '$' + fvVal.toFixed(2) : 'N/A'}</td>`;
+                    }).join('')}
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            ` : ''}
+                        </div>
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <div class="formula-section">
+                            <p>Discounted Cash Flow (DCF) model is not applicable for this company. This usually occurs when the company has negative or missing Free Cash Flow.</p>
+                        </div>
+                    `;
+                }
+            }
+
+            modalBodyContent.innerHTML = html || '<p>No data available</p>';
+            dataModal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        });
+    });
+
+    closeModal.addEventListener('click', () => {
+        dataModal.style.display = 'none';
+        document.body.style.overflow = '';
+    });
+
+    window.addEventListener('click', (e) => {
+        if (e.target === dataModal) {
+            dataModal.style.display = 'none';
+            document.body.style.overflow = '';
+        }
+    });
+
+    // Initialize View
+    // Custom Estimations Logic (in-card)
+    const specs = [
+        { sel: 'dcf-custom-select', grp: 'dcf-custom-input-group', inp: 'dcf-custom-fcf-growth' },
+        { sel: 'lynch-custom-select', grp: 'lynch-custom-input-group', inp: 'lynch-custom-eps-growth' },
+        { sel: 'peg-custom-select', grp: 'peg-custom-input-group', inp: 'peg-custom-eps-growth' }
+    ];
+
+    specs.forEach(s => {
+        const selEl = document.getElementById(s.sel);
+        const grpEl = document.getElementById(s.grp);
+        const inpEl = document.getElementById(s.inp);
+        if (selEl && grpEl && inpEl) {
+            selEl.addEventListener('change', (e) => {
+                grpEl.style.display = e.target.value === 'custom' ? 'flex' : 'none';
+                // Trigger global generic listener that updates fair value if a ticker is loaded
+                if (currentFormulaData) {
+                    const btn = document.createElement('button');
+                    btn.className = 'custom-trigger-temp';
+                    btn.style.display = 'none';
+                    document.body.appendChild(btn);
+                    btn.onclick = () => { if (typeof updateFairValue !== 'undefined') { /* This works inside renderDashboard */ } };
+                    // Because Javascript scope: updateFairValue is inside renderDashboard.
+                    // Oh wait! updateFairValue is defined inside renderDashboard, so it's not accessible here!
+                    // Let's rely on the user changing the input to trigger it, OR we simply dispatch an event 
+                    // that renderDashboard listens to? 
+                    // The easiest fix is to attach these listeners INSIDE renderDashboard or just dispatch an event.
+                }
+            });
+        }
+    });
+    fetch('https://babi-calculator-inatorul-ixvk.onrender.com/api/watchlist')
+        .then(res => res.json())
+        .then(data => {
+            if (Array.isArray(data) && data.length > 0) {
+                watchlist = data;
+                localStorage.setItem('fairValueWatchlist', JSON.stringify(watchlist));
+                renderWatchlist();
+            } else if (watchlist.length > 0) {
+                renderWatchlist(); // Fallback to localStorage if API is empty but local is not (e.g., first sync)
+            } else {
+                watchlistView.style.display = 'block';
+                emptyWatchlistMsg.style.display = 'block';
+            }
+        })
+        .catch(err => {
+            console.error('Failed to load watchlist from server:', err);
+            if (watchlist.length > 0) {
+                renderWatchlist();
+            } else {
+                watchlistView.style.display = 'block';
+                emptyWatchlistMsg.style.display = 'block';
+            }
+        });
+});

@@ -1,0 +1,16 @@
+{
+  "name": "Babi Calculator-inatorul Platform",
+  "short_name": "Babi Calc",
+  "description": "Stock valuation and fundamental analysis platform based on DCF, PEG, and Peter Lynch strategies.",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png"
+    }
+  ]
+}
