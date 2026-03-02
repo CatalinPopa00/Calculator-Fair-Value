@@ -3,6 +3,28 @@ import urllib.request
 import urllib.parse
 import json
 import concurrent.futures
+import time
+import random
+import requests
+
+USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+]
+
+def get_random_agent():
+    return random.choice(USER_AGENTS)
+
+def get_yf_session():
+    session = requests.Session()
+    session.headers.update({
+        'User-Agent': get_random_agent(),
+        'Accept': '*/*',
+        'Connection': 'keep-alive'
+    })
+    return session
 
 def get_nasdaq_earnings_growth(ticker: str, trailing_eps: float) -> float:
     """Fetches the 1-year forward earnings growth estimate from Nasdaq."""
@@ -10,7 +32,7 @@ def get_nasdaq_earnings_growth(ticker: str, trailing_eps: float) -> float:
         return None
     try:
         url = f'https://api.nasdaq.com/api/analyst/{ticker.upper()}/earnings-forecast'
-        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        req = urllib.request.Request(url, headers={'User-Agent': get_random_agent()})
         with urllib.request.urlopen(req) as response:
             data = json.loads(response.read())
             
@@ -26,41 +48,47 @@ def get_nasdaq_earnings_growth(ticker: str, trailing_eps: float) -> float:
 
 def resolve_company_name(query: str) -> str:
     """Uses Yahoo Finance search to resolve a company name to a ticker symbol."""
-    try:
-        url = f'https://query2.finance.yahoo.com/v1/finance/search?q={urllib.parse.quote(query)}'
-        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-        with urllib.request.urlopen(req) as response:
-            data = json.loads(response.read())
-            quotes = data.get('quotes', [])
-            for q in quotes:
-                if q.get('quoteType') == 'EQUITY':
-                    return q.get('symbol')
-            if quotes:
-                return quotes[0].get('symbol')
-    except Exception as e:
-        print(f"Error resolving name {query}: {e}")
+    for attempt in range(3):
+        try:
+            url = f'https://query2.finance.yahoo.com/v1/finance/search?q={urllib.parse.quote(query)}'
+            req = urllib.request.Request(url, headers={'User-Agent': get_random_agent()})
+            with urllib.request.urlopen(req) as response:
+                data = json.loads(response.read())
+                quotes = data.get('quotes', [])
+                for q in quotes:
+                    if q.get('quoteType') == 'EQUITY':
+                        return q.get('symbol')
+                if quotes:
+                    return quotes[0].get('symbol')
+        except Exception as e:
+            if "429" in str(e) or attempt == 2:
+                print(f"Error resolving name {query}: {e}")
+            time.sleep(1 + attempt)
     return query
 
 def search_companies(query: str) -> list:
     """Uses Yahoo Finance search to get an autocomplete list of companies."""
-    try:
-        url = f'https://query2.finance.yahoo.com/v1/finance/search?q={urllib.parse.quote(query)}'
-        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-        with urllib.request.urlopen(req) as response:
-            data = json.loads(response.read())
-            quotes = data.get('quotes', [])
-            results = []
-            for q in quotes:
-                if q.get('quoteType') in ['EQUITY', 'ETF'] and q.get('symbol'):
-                    results.append({
-                        "ticker": q.get('symbol'),
-                        "name": q.get('shortname') or q.get('longname', q.get('symbol'))
-                    })
-                if len(results) >= 5:
-                    break
-            return results
-    except Exception as e:
-        print(f"Error fetching search results for {query}: {e}")
+    for attempt in range(3):
+        try:
+            url = f'https://query2.finance.yahoo.com/v1/finance/search?q={urllib.parse.quote(query)}'
+            req = urllib.request.Request(url, headers={'User-Agent': get_random_agent()})
+            with urllib.request.urlopen(req) as response:
+                data = json.loads(response.read())
+                quotes = data.get('quotes', [])
+                results = []
+                for q in quotes:
+                    if q.get('quoteType') in ['EQUITY', 'ETF'] and q.get('symbol'):
+                        results.append({
+                            "ticker": q.get('symbol'),
+                            "name": q.get('shortname') or q.get('longname', q.get('symbol'))
+                        })
+                    if len(results) >= 5:
+                        break
+                return results
+        except Exception as e:
+            if "429" in str(e) or attempt == 2:
+                print(f"Error fetching search results for {query}: {e}")
+            time.sleep(1 + attempt)
     return []
 
 def get_company_data(ticker_symbol: str):
@@ -68,7 +96,8 @@ def get_company_data(ticker_symbol: str):
     Fetches comprehensive data from Yahoo Finance as the primary/fallback data source.
     """
     try:
-        stock = yf.Ticker(ticker_symbol)
+        session = get_yf_session()
+        stock = yf.Ticker(ticker_symbol, session=session)
         info = stock.info
         
         # If it's a name instead of a ticker, Yahoo might return empty/basic info. Fallback to search query.
@@ -76,7 +105,7 @@ def get_company_data(ticker_symbol: str):
             resolved = resolve_company_name(ticker_symbol)
             if resolved and resolved != ticker_symbol:
                 ticker_symbol = resolved
-                stock = yf.Ticker(ticker_symbol)
+                stock = yf.Ticker(ticker_symbol, session=session)
                 info = stock.info
         
         # Basic Price and Identifying Info
@@ -316,7 +345,7 @@ def get_competitors_data(ticker: str, sector: str, industry: str, market_cap: fl
             
             try:
                 url = f"https://query2.finance.yahoo.com/v6/finance/recommendationsbysymbol/{current_ticker}"
-                req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+                req = urllib.request.Request(url, headers={'User-Agent': get_random_agent()})
                 with urllib.request.urlopen(req, timeout=5) as response:
                     data = json.loads(response.read().decode('utf-8'))
                     recs = data.get('finance', {}).get('result', [{}])[0].get('recommendedSymbols', [])
@@ -330,8 +359,9 @@ def get_competitors_data(ticker: str, sector: str, industry: str, market_cap: fl
                 
             # Process in concurrent batches to check info faster
             if new_symbols:
+                session = get_yf_session()
                 with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(new_symbols), 10)) as exc:
-                    futures = {exc.submit(lambda t: yf.Ticker(t).info, t): t for t in new_symbols}
+                    futures = {exc.submit(lambda t: yf.Ticker(t, session=session).info, t): t for t in new_symbols}
                     for future in concurrent.futures.as_completed(futures):
                         try:
                             info = future.result()
@@ -397,7 +427,8 @@ def get_market_averages():
     Returns S&P 500 P/E metrics using SPY as a proxy.
     """
     try:
-        spy = yf.Ticker("SPY")
+        session = get_yf_session()
+        spy = yf.Ticker("SPY", session=session)
         info = spy.info
         return {
             "trailing_pe": info.get('trailingPE'),
