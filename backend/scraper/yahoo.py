@@ -69,11 +69,15 @@ def search_companies(query: str) -> list:
                 results = []
                 for q in quotes:
                     if q.get('quoteType') in ['EQUITY', 'ETF'] and q.get('symbol'):
+                        exch = q.get('exchDisp') or q.get('exchange', '')
+                        name = q.get('shortname') or q.get('longname', q.get('symbol'))
+                        if exch:
+                            name = f"{name} ({exch})"
                         results.append({
                             "ticker": q.get('symbol'),
-                            "name": q.get('shortname') or q.get('longname', q.get('symbol'))
+                            "name": name
                         })
-                    if len(results) >= 5:
+                    if len(results) >= 10:
                         break
                 return results
         except Exception as e:
