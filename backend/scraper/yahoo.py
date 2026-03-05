@@ -17,15 +17,6 @@ USER_AGENTS = [
 def get_random_agent():
     return random.choice(USER_AGENTS)
 
-def get_yf_session():
-    session = requests.Session()
-    session.headers.update({
-        'User-Agent': get_random_agent(),
-        'Accept': '*/*',
-        'Connection': 'keep-alive'
-    })
-    return session
-
 def get_nasdaq_earnings_growth(ticker: str, trailing_eps: float) -> float:
     """Fetches the 1-year forward earnings growth estimate from Nasdaq."""
     if not trailing_eps or trailing_eps <= 0:
@@ -96,8 +87,7 @@ def get_company_data(ticker_symbol: str):
     Fetches comprehensive data from Yahoo Finance as the primary/fallback data source.
     """
     try:
-        session = get_yf_session()
-        stock = yf.Ticker(ticker_symbol, session=session)
+        stock = yf.Ticker(ticker_symbol)
         info = stock.info
         
         # If it's a name instead of a ticker, Yahoo might return empty/basic info. Fallback to search query.
@@ -105,7 +95,7 @@ def get_company_data(ticker_symbol: str):
             resolved = resolve_company_name(ticker_symbol)
             if resolved and resolved != ticker_symbol:
                 ticker_symbol = resolved
-                stock = yf.Ticker(ticker_symbol, session=session)
+                stock = yf.Ticker(ticker_symbol)
                 info = stock.info
         
         # Basic Price and Identifying Info
@@ -359,9 +349,8 @@ def get_competitors_data(ticker: str, sector: str, industry: str, market_cap: fl
                 
             # Process in concurrent batches to check info faster
             if new_symbols:
-                session = get_yf_session()
                 with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(new_symbols), 10)) as exc:
-                    futures = {exc.submit(lambda t: yf.Ticker(t, session=session).info, t): t for t in new_symbols}
+                    futures = {exc.submit(lambda t: yf.Ticker(t).info, t): t for t in new_symbols}
                     for future in concurrent.futures.as_completed(futures):
                         try:
                             info = future.result()
@@ -427,8 +416,7 @@ def get_market_averages():
     Returns S&P 500 P/E metrics using SPY as a proxy.
     """
     try:
-        session = get_yf_session()
-        spy = yf.Ticker("SPY", session=session)
+        spy = yf.Ticker("SPY")
         info = spy.info
         return {
             "trailing_pe": info.get('trailingPE'),
