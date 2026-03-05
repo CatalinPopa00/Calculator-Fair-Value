@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from cachetools import TTLCache
 import uvicorn
 import math
 import statistics
@@ -22,6 +23,9 @@ from models.valuation import (
 from models.scoring import calculate_health_score, calculate_buy_score
 
 app = FastAPI(title="Fair Value Calculator API")
+
+# Initialize in-memory cache with a 24-hour TTL (86400 seconds)
+valuation_cache = TTLCache(maxsize=1000, ttl=24 * 60 * 60)
 
 app.add_middleware(
     CORSMiddleware,
@@ -84,6 +88,10 @@ def save_watchlist(req: WatchlistRequest):
 
 @app.get("/api/valuation/{ticker}", response_model=ValuationResponse)
 def get_valuation(ticker: str):
+    ticker_upper = ticker.upper()
+    if ticker_upper in valuation_cache:
+        return valuation_cache[ticker_upper]
+
     # 1. Scrape Yahoo Data
     data = get_company_data(ticker)
     if not data or not data.get("current_price"):
@@ -251,7 +259,7 @@ def get_valuation(ticker: str):
             all_sorted = sorted(all_breakdowns, key=lambda x: x.get("points", 100))
             risk_factors = all_sorted[:2]
 
-    return {
+    response_data = {
         "ticker": data["ticker"],
         "name": data["name"],
         "current_price": sanitize(current_price),
@@ -289,6 +297,9 @@ def get_valuation(ticker: str):
             "risk_factors": risk_factors
         }
     }
+    
+    valuation_cache[ticker_upper] = response_data
+    return response_data
 
 @app.get("/api/search/{query}")
 def search_tickers(query: str):
