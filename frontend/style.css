@@ -17,12 +17,18 @@
     box-sizing: border-box;
 }
 
+html,
+body {
+    overflow-x: hidden;
+    width: 100%;
+    position: relative;
+}
+
 body {
     font-family: 'Outfit', sans-serif;
     background-color: var(--bg-dark);
     color: var(--text-main);
     min-height: 100vh;
-    overflow-x: hidden;
     background-image:
         radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.15), transparent 25%),
         radial-gradient(circle at 85% 30%, rgba(16, 185, 129, 0.15), transparent 25%);
@@ -64,6 +70,7 @@ body {
 
 .logo {
     order: 1;
+    flex: 1;
 }
 
 .logo h1 {
@@ -229,7 +236,8 @@ body {
     padding: 0.4rem 0.6rem;
     font-size: 0.85rem;
     background: transparent;
-    border: 1px solid var(--accent);
+    border: 2px solid var(--accent);
+    /* Added 2px thicker border */
     color: var(--accent);
     border-radius: 8px;
     cursor: pointer;
@@ -676,6 +684,11 @@ body {
 }
 
 @media (max-width: 768px) {
+    .app-container {
+        padding: 1rem 0.5rem;
+        overflow-x: hidden;
+    }
+
     .hero-section {
         grid-template-columns: 1fr;
     }
@@ -1285,6 +1298,12 @@ body {
     .watchlist-header-row {
         display: none;
         /* Hide column headers on mobile */
+    }
+
+    .watchlist-view {
+        overflow-x: hidden;
+        width: 100%;
+        max-width: 100vw;
     }
 
     .watchlist-row {
