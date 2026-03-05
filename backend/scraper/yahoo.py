@@ -381,7 +381,8 @@ def get_competitors_data(ticker: str, sector: str, industry: str, market_cap: fl
             "FISV": ["V", "MA", "PYPL", "GPN"],
             "FI": ["V", "MA", "PYPL", "GPN"],
             "TSLA": ["RIVN", "LCID", "F", "GM"],
-            "AMZN": ["MSFT", "GOOGL", "META", "AAPL"]
+            "AMZN": ["MSFT", "GOOGL", "META", "AAPL"],
+            "UPS": ["FDX", "DHLGY", "XPO", "ODFL"]
         }
         peers_map = {
             "Technology": ["MSFT", "AAPL", "GOOGL", "META"],
@@ -389,7 +390,8 @@ def get_competitors_data(ticker: str, sector: str, industry: str, market_cap: fl
             "Software - Application": ["ADBE", "CRM", "INTU", "WDAY"],
             "Consumer Cyclical": ["AMZN", "TSLA", "HD", "MCD"],
             "Financial Services": ["JPM", "BAC", "V", "MA"],
-            "Healthcare": ["JNJ", "UNH", "LLY", "ABBV"]
+            "Healthcare": ["JNJ", "UNH", "LLY", "ABBV"],
+            "Integrated Freight & Logistics": ["UPS", "FDX", "DHLGY", "XPO"]
         }
         fallback_tickers = hardcoded_peers.get(target_ticker)
         if not fallback_tickers:

@@ -446,8 +446,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (el) {
                 // use 'input' for text fields to update instantly as typing, 
                 // and 'change' for selects
-                const eventType = el.tagName === 'SELECT' ? 'change' : 'input';
-                el.addEventListener(eventType, updateFairValue);
+                if (el.tagName === 'SELECT') {
+                    el.onchange = updateFairValue;
+                } else {
+                    el.oninput = updateFairValue;
+                }
             }
         });
 
@@ -456,9 +459,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Listen for toggle changes
         document.querySelectorAll('.valuation-toggle').forEach(toggle => {
-            // Remove old listeners to avoid duplicates if called multiple times
-            toggle.removeEventListener('change', updateFairValue);
-            toggle.addEventListener('change', updateFairValue);
+            // Use onchange to automatically replace any old function closures
+            toggle.onchange = updateFairValue;
         });
 
         // End Forward Multiple Updates
