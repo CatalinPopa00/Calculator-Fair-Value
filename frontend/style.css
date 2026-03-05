@@ -22,6 +22,7 @@ body {
     background-color: var(--bg-dark);
     color: var(--text-main);
     min-height: 100vh;
+    overflow-x: hidden;
     background-image:
         radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.15), transparent 25%),
         radial-gradient(circle at 85% 30%, rgba(16, 185, 129, 0.15), transparent 25%);
@@ -66,8 +67,7 @@ body {
 }
 
 .logo h1 {
-    font-size: 1.4rem;
-    /* Smaller for mobile to fit watchlist */
+    font-size: 1.15rem;
     font-weight: 800;
     line-height: 1.2;
 }
@@ -226,8 +226,8 @@ body {
 #nav-watchlist-btn {
     order: 2;
     /* Mobile: right side */
-    padding: 0.5rem 1rem;
-    font-size: 0.9rem;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.85rem;
     background: transparent;
     border: 1px solid var(--accent);
     color: var(--accent);
@@ -682,6 +682,13 @@ body {
 
     .search-container {
         flex-wrap: nowrap;
+        order: 3;
+        width: 100%;
+    }
+
+    .header {
+        align-items: center;
+        gap: 0.5rem;
     }
 
     .autocomplete-wrapper {
@@ -1133,12 +1140,20 @@ body {
 .formula-section ul li {
     margin-bottom: 0.4rem;
     display: flex;
+    flex-wrap: wrap;
     justify-content: space-between;
+    gap: 0.5rem;
 }
 
 .formula-section ul li strong {
     color: var(--text-muted);
     font-weight: normal;
+    white-space: nowrap;
+}
+
+.formula-section ul li span {
+    text-align: right;
+    word-break: break-word;
 }
 
 /* Trends Table */
@@ -1225,10 +1240,106 @@ body {
     transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
 }
 
+.table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 1rem;
+}
+
+#top-strengths-list li,
+#risk-factors-list li {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.6rem;
+    padding-left: 8px;
+    border-left: 2px solid;
+    word-break: break-word;
+}
+
+#top-strengths-list li {
+    border-color: var(--accent);
+}
+
+#risk-factors-list li {
+    border-color: var(--danger);
+}
+
+#top-strengths-list li strong,
+#risk-factors-list li strong {
+    color: white;
+    white-space: nowrap;
+}
+
 .valuation-toggle:checked {
     background: var(--accent);
 }
 
 .valuation-toggle:checked::after {
     transform: translateX(14px);
+}
+
+/* Watchlist Mobile Layout */
+@media (max-width: 768px) {
+    .watchlist-header-row {
+        display: none;
+        /* Hide column headers on mobile */
+    }
+
+    .watchlist-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    .watchlist-left {
+        width: 100%;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        padding-bottom: 0.5rem;
+    }
+
+    .watchlist-metrics {
+        width: 100%;
+        justify-content: space-between;
+        gap: 0.5rem;
+    }
+
+    .col-price,
+    .col-fv,
+    .col-mos {
+        width: auto;
+        border: none;
+        padding-left: 0;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.2rem;
+    }
+
+    .watchlist-scores-container {
+        width: 100%;
+        margin-left: 0;
+        padding: 0;
+        border-left: none;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        padding-top: 0.8rem;
+    }
+
+    .watchlist-actions {
+        margin-left: 0;
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        background: var(--card-bg);
+        border-radius: 8px;
+    }
+
+    .watchlist-card {
+        padding: 1rem;
+        position: relative;
+    }
+
+    .breakdown-grid {
+        grid-template-columns: 1fr;
+    }
 }

@@ -488,7 +488,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <tr style="border-top: 1px solid rgba(255,255,255,0.08);"><td style="padding: 12px 0; color: var(--text-muted); vertical-align: top;">Debt-to-Equity</td><td style="text-align: right; font-weight: bold; color: white;">${prof.debt_to_equity != null ? prof.debt_to_equity.toFixed(2) + 'x' : 'N/A'}</td></tr>
                 <tr style="border-top: 1px solid rgba(255,255,255,0.08);"><td style="padding: 12px 0; color: var(--text-muted); vertical-align: top;">Shares Out.</td><td style="text-align: right; font-weight: bold; color: white;">${formatBigNumber(prof.shares_outstanding, '')}</td></tr>
                 <tr style="border-top: 1px solid rgba(255,255,255,0.08);"><td style="padding: 12px 0; color: var(--text-muted); vertical-align: top;">Dividend Yield</td><td style="text-align: right; font-weight: bold; color: white;">${prof.dividend_yield ? prof.dividend_yield.toFixed(2) + '%' : 'N/A'}</td></tr>
-                <tr style="border-top: 1px solid rgba(255,255,255,0.08);"><td style="padding: 12px 0; color: var(--text-muted); vertical-align: top;">Competitors</td><td style="text-align: right; font-weight: bold; color: white; max-width: 220px; word-wrap: break-word;">${prof.competitors.length ? prof.competitors.join(', ') : 'None'}</td></tr>
+                <tr style="border-top: 1px solid rgba(255,255,255,0.08);"><td style="padding: 12px 0; color: var(--text-muted); vertical-align: top; white-space: nowrap;">Competitors</td><td style="text-align: right; font-weight: bold; color: white; word-wrap: break-word;">${prof.competitors.length ? prof.competitors.join(', ') : 'None'}</td></tr>
             `;
         }
 
@@ -1082,18 +1082,20 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <li><strong>Perpetual Growth Rate:</strong> <span>${fv(dcf.perpetual_growth, true)}</span></li>
                                 <li><strong>Shares Outstanding:</strong> <span>${fM(dcf.shares_outstanding).replace('$', '')}</span></li>
                             </ul>
-                            <table style="width:100%; text-align:left; margin-top: 1rem; margin-bottom: 1rem; border-collapse: collapse; font-size: 0.9rem;">
-                                <thead>
-                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
-                                        <th style="padding-bottom: 5px;">Year</th>
-                                        <th style="padding-bottom: 5px; text-align: right;">Projected FCF</th>
-                                        <th style="padding-bottom: 5px; text-align: right;">Present Value</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${tableRows}
-                                </tbody>
-                            </table>
+                            <div class="table-responsive">
+                                <table style="width:100%; min-width: 400px; text-align:left; margin-top: 1rem; margin-bottom: 1rem; border-collapse: collapse; font-size: 0.9rem;">
+                                    <thead>
+                                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                            <th style="padding-bottom: 5px;">Year</th>
+                                            <th style="padding-bottom: 5px; text-align: right;">Projected FCF</th>
+                                            <th style="padding-bottom: 5px; text-align: right;">Present Value</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${tableRows}
+                                    </tbody>
+                                </table>
+                            </div>
                             <ul>
                                 <li><strong>Total PV of FCFs:</strong> <span>${fM(dcf.sum_pv_cf)}</span></li>
                                 <li><strong>Terminal Value:</strong> <span>${fM(dcf.terminal_value)}</span></li>
@@ -1118,30 +1120,27 @@ document.addEventListener('DOMContentLoaded', () => {
                             
                             ${dcf.sensitivity_matrix && dcf.sensitivity_matrix.length > 0 ? `
                                 <h4 style="margin-top: 1.5rem; margin-bottom: 0.5rem; color: var(--text-main);">DCF Sensitivity Matrix</h4>
-                                <table class="sensitivity-matrix">
-                                    <thead>
-                                        <tr>
-                                            <th>WACC \\ Growth</th>
-                                            ${dcf.sensitivity_matrix[0].values.map(v => `<th>${(v.perpetual_growth * 100).toFixed(1)}%</th>`).join('')}
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        ${dcf.sensitivity_matrix.map(row => `
+                                <div class="table-responsive">
+                                    <table class="sensitivity-matrix" style="min-width: 450px;">
+                                        <thead>
                                             <tr>
-                                                <th>${(row.discount_rate * 100).toFixed(1)}%</th>
-                                                ${row.values.map(v => {
+                                                <th>WACC \\ Growth</th>
+                                                ${dcf.sensitivity_matrix[0].values.map(v => `<th>${(v.perpetual_growth * 100).toFixed(1)}%</th>`).join('')}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${dcf.sensitivity_matrix.map(row => `
+                                                <tr>
+                                                    <th>${(row.discount_rate * 100).toFixed(1)}%</th>
+                                                    ${row.values.map(v => {
                         let fvVal = v.fair_value;
-                        let color = "var(--text-main)";
-                        // currentPrice is not defined here.
-                        // Wait, we can get current price from data somehow? No, it's not in scope directly unless we use elements.currentPrice.textContent
-                        // Let's rely on formula_data.dcf.current_price or simply not color it.
-                        // Let's use currentPrice variable if available, wait, we don't have current_price in scope. I will skip coloring to prevent reference error.
                         return `<td>${fvVal != null ? '$' + fvVal.toFixed(2) : 'N/A'}</td>`;
                     }).join('')}
-                                            </tr>
-                                        `).join('')}
-                                    </tbody>
-                                </table>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
                             ` : ''}
                         </div>
                         </div>
