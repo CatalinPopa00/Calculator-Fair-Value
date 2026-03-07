@@ -221,6 +221,7 @@ def get_valuation(ticker: str):
         },
         "relative": {
             "company_eps": sanitize(data.get("trailing_eps")),
+            "company_trailing_pe": sanitize(pe_historic),
             "peers_used": [p.get("ticker") for p in peers_data] if peers_data else [],
             "median_peer_pe": sanitize(median_peer_pe),
             "market_pe_trailing": sanitize(market_data.get("trailing_pe")),

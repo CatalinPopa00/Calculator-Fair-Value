@@ -324,50 +324,98 @@ def get_company_data(ticker_symbol: str):
 
 def get_competitors_data(ticker: str, sector: str, industry: str, market_cap: float = 0, limit: int = 4):
     """
-    Find real industry peers using the Yahoo Finance Screener (via yfinance.EquityQuery).
-    Filters by exact same industry and a generous market-cap range (10x either side).
-    Falls back to recommendationsbysymbol (with strict industry check) if screener fails.
+    Find real industry peers using three strategies in order of reliability:
+      1. yfinance EquityQuery screener (industry + market-cap filter)
+      2. Yahoo Finance v1 screener HTTP API (direct POST, industry filter)
+      3. recommendationsbysymbol with strict same-industry validation
     """
     target_ticker = ticker.upper()
     target_tickers = []
 
-    # ── 1. Primary: Yahoo screener filtered by exact industry + market-cap range ──
+    # ── Strategy 1: yfinance EquityQuery screener ──────────────────────────────
     if industry and market_cap and market_cap > 0:
         try:
-            import yfinance as yf_screen
-            from yfinance import EquityQuery
-
-            mc_low  = int(market_cap * 0.10)   # 10× smaller
-            mc_high = int(market_cap * 10.0)   # 10× larger
+            from yfinance import EquityQuery, screen as yf_screen
+            mc_low  = int(market_cap * 0.05)   # 20× smaller
+            mc_high = int(market_cap * 20.0)   # 20× larger
 
             q = EquityQuery('and', [
                 EquityQuery('eq', ['industry', industry]),
                 EquityQuery('btwn', ['intradaymarketcap', mc_low, mc_high]),
             ])
 
-            result = yf_screen.screen(q, sortField='intradaymarketcap', sortAsc=False, size=20)
+            result = yf_screen(q, sortField='intradaymarketcap', sortAsc=False, size=25)
             quotes = result.get('quotes', []) if isinstance(result, dict) else []
 
             for quote in quotes:
-                sym = quote.get('symbol', '').upper()
+                sym = (quote.get('symbol') or '').upper()
                 if sym and sym != target_ticker and sym not in target_tickers:
                     target_tickers.append(sym)
                 if len(target_tickers) >= limit:
                     break
 
-            print(f"[Screener] Found {len(target_tickers)} industry peers for {target_ticker} in '{industry}'")
+            print(f"[Strategy1] EquityQuery found {len(target_tickers)} peers for {target_ticker} in '{industry}'")
         except Exception as e:
-            print(f"[Screener] EquityQuery failed for {target_ticker}: {e}")
+            print(f"[Strategy1] EquityQuery failed: {e}")
             target_tickers = []
 
-    # ── 2. Fallback: recommendationsbysymbol with strict industry guard ──
+    # ── Strategy 2: Yahoo Finance v1 screener via HTTP POST ────────────────────
+    if len(target_tickers) < limit and industry:
+        try:
+            payload = {
+                "size": 25,
+                "offset": 0,
+                "sortField": "intradaymarketcap",
+                "sortType": "DESC",
+                "quoteType": "EQUITY",
+                "query": {
+                    "operator": "AND",
+                    "operands": [
+                        {"operator": "EQ", "operands": ["industry", industry]},
+                    ]
+                },
+                "userId": "",
+                "userIdType": "guid"
+            }
+            if market_cap and market_cap > 0:
+                payload["query"]["operands"].append({
+                    "operator": "BTWN",
+                    "operands": ["intradaymarketcap", int(market_cap * 0.05), int(market_cap * 20)]
+                })
+
+            url = "https://query2.finance.yahoo.com/v1/finance/screener"
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(payload).encode('utf-8'),
+                headers={
+                    'Content-Type': 'application/json',
+                    'User-Agent': get_random_agent(),
+                },
+                method='POST'
+            )
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                sdata = json.loads(resp.read().decode('utf-8'))
+                sq = sdata.get('finance', {}).get('result', [{}])[0].get('quotes', [])
+
+            for q in sq:
+                sym = (q.get('symbol') or '').upper()
+                if sym and sym != target_ticker and sym not in target_tickers:
+                    target_tickers.append(sym)
+                if len(target_tickers) >= limit:
+                    break
+
+            print(f"[Strategy2] HTTP screener found {len(target_tickers)} peers for {target_ticker}")
+        except Exception as e:
+            print(f"[Strategy2] HTTP screener failed: {e}")
+
+    # ── Strategy 3: recommendationsbysymbol + strict same-industry validation ──
     if len(target_tickers) < limit and industry:
         try:
             url = f"https://query2.finance.yahoo.com/v6/finance/recommendationsbysymbol/{target_ticker}"
             req = urllib.request.Request(url, headers={'User-Agent': get_random_agent()})
             with urllib.request.urlopen(req, timeout=5) as response:
-                data = json.loads(response.read().decode('utf-8'))
-                recs = data.get('finance', {}).get('result', [{}])[0].get('recommendedSymbols', [])
+                rdata = json.loads(response.read().decode('utf-8'))
+                recs = rdata.get('finance', {}).get('result', [{}])[0].get('recommendedSymbols', [])
                 candidates = [r['symbol'] for r in recs if r.get('symbol') and r['symbol'].upper() != target_ticker]
 
             if candidates:
@@ -379,7 +427,7 @@ def get_competitors_data(ticker: str, sector: str, industry: str, market_cap: fl
                             sym = futures[future].upper()
                             sym_industry = info.get('industry', '')
                             sym_mc = info.get('marketCap', 0)
-                            mc_ok = market_cap <= 0 or (market_cap * 0.10 <= sym_mc <= market_cap * 10.0)
+                            mc_ok = market_cap <= 0 or (market_cap * 0.05 <= sym_mc <= market_cap * 20)
                             if sym_industry == industry and mc_ok and sym not in target_tickers:
                                 target_tickers.append(sym)
                         except Exception:
@@ -387,13 +435,13 @@ def get_competitors_data(ticker: str, sector: str, industry: str, market_cap: fl
                         if len(target_tickers) >= limit:
                             break
 
-            print(f"[Fallback] After recommendations, total peers: {len(target_tickers)} for {target_ticker}")
+            print(f"[Strategy3] Recommendations found {len(target_tickers)} peers for {target_ticker}")
         except Exception as e:
-            print(f"[Fallback] recommendationsbysymbol failed for {target_ticker}: {e}")
+            print(f"[Strategy3] Recommendations failed: {e}")
 
     target_tickers = target_tickers[:limit]
 
-    # ── 3. Fetch full data for validated peers ──
+    # ── Fetch full data for validated peers ────────────────────────────────────
     peer_data = []
     if target_tickers:
         with concurrent.futures.ThreadPoolExecutor(max_workers=len(target_tickers)) as executor:

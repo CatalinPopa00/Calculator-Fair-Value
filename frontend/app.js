@@ -1118,17 +1118,42 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (method === 'relative') {
                 const rel = currentFormulaData.relative;
                 if (rel) {
-                    const fvPeers = (rel.median_peer_pe && rel.company_eps) ? rel.median_peer_pe * rel.company_eps : null;
+                    const fvPeers = (rel.median_peer_pe && rel.company_eps) ? (rel.median_peer_pe * rel.company_eps).toFixed(2) : null;
+                    const fvSP500 = (rel.market_pe_trailing && rel.company_eps) ? (rel.market_pe_trailing * rel.company_eps).toFixed(2) : null;
+                    const peersHtml = rel.peers_used && rel.peers_used.length
+                        ? rel.peers_used.map(p => `<span style="display:inline-block;background:rgba(255,255,255,0.07);border-radius:4px;padding:1px 6px;margin:2px 2px;font-size:0.82em;">${p}</span>`).join('')
+                        : '<span style="color:var(--text-muted)">None found</span>';
+
+                    const row = (label, value, highlight = false) => `
+                        <tr style="border-bottom:1px solid rgba(255,255,255,0.07);">
+                            <td style="padding:10px 0 10px 0;color:var(--text-muted);white-space:nowrap;vertical-align:top;padding-right:16px;">${label}</td>
+                            <td style="padding:10px 0;text-align:right;font-weight:${highlight ? 700 : 500};color:${highlight ? 'var(--accent)' : 'white'};word-break:break-word;">${value}</td>
+                        </tr>`;
+
                     html += `
                         <div class="formula-section">
-                            <ul>
-                                <li><strong>Company Trailing EPS:</strong> <span>$${fv(rel.company_eps)}</span></li>
-                                <li><strong>Peers Used (Sector/Industry):</strong> <span style="font-size: 0.8em">${rel.peers_used ? rel.peers_used.join(', ') : 'None'}</span></li>
-                                <li><strong>Peer Group Median Trailing P/E:</strong> <span>${fv(rel.median_peer_pe)}x</span></li>
-                                <li style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);">
-                                    <strong>Fair Value vs Peers:</strong> <span style="color:var(--accent); font-weight:bold;">$${fv(fvPeers)}</span>
-                                </li>
-                            </ul>
+                            <table style="width:100%;border-collapse:collapse;">
+                                ${row('Company Trailing EPS:', `$${fv(rel.company_eps)}`)}
+                                ${row('Company Trailing P/E:', rel.company_trailing_pe != null ? `${fv(rel.company_trailing_pe)}x` : 'N/A')}
+                                <tr style="border-bottom:1px solid rgba(255,255,255,0.07);">
+                                    <td style="padding:10px 0;color:var(--text-muted);white-space:nowrap;vertical-align:top;padding-right:16px;">Peers Used (Industry):</td>
+                                    <td style="padding:10px 0;text-align:right;">${peersHtml}</td>
+                                </tr>
+                                ${row('Peer Group Median Trailing P/E:', rel.median_peer_pe != null ? `${fv(rel.median_peer_pe)}x` : 'N/A')}
+                                <tr style="border-top:2px solid rgba(255,255,255,0.12);">
+                                    <td style="padding:12px 0 6px 0;color:var(--text-muted);white-space:nowrap;vertical-align:middle;padding-right:16px;">Fair Value vs. Peers:</td>
+                                    <td style="padding:12px 0 6px 0;text-align:right;font-weight:700;font-size:1.1em;color:${fvPeers ? 'var(--accent)' : 'var(--text-muted)'};">${fvPeers ? '$' + fvPeers : 'N/A'}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding:6px 0 12px 0;color:var(--text-muted);white-space:nowrap;vertical-align:middle;padding-right:16px;">Fair Value vs. S&amp;P 500:</td>
+                                    <td style="padding:6px 0 12px 0;text-align:right;font-weight:700;font-size:1.1em;color:${fvSP500 ? 'var(--accent)' : 'var(--text-muted)'};">${fvSP500 ? '$' + fvSP500 : 'N/A'}</td>
+                                </tr>
+                                <tr>
+                                    <td colspan="2" style="padding:4px 0;font-size:0.78em;color:var(--text-muted);">
+                                        S&amp;P 500 Trailing P/E used: ${rel.market_pe_trailing != null ? rel.market_pe_trailing + 'x' : 'N/A'} &nbsp;|&nbsp; Forward P/E: ${rel.market_pe_forward != null ? rel.market_pe_forward + 'x' : 'N/A'}
+                                    </td>
+                                </tr>
+                            </table>
                         </div>
                     `;
                 }

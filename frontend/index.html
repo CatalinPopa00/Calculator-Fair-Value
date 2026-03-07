@@ -19,7 +19,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=9">
+    <link rel="stylesheet" href="style.css?v=10">
 </head>
 
 <body>
@@ -393,19 +393,34 @@
             <h2>My Watchlist</h2>
 
             <div class="watchlist-header-row" id="watchlist-header" style="display: none;">
-                <div class="watchlist-header-left">
+                <!-- Drag handle spacer (matches .drag-handle width) -->
+                <div style="width: 1.3rem; padding-right: 0.5rem; flex-shrink: 0;"></div>
+
+                <div class="watchlist-header-left" style="width: 250px; display: flex; align-items: center; gap: 1rem;">
                     <span style="width: 15px;"></span> <!-- Spacer for expand icon -->
                     <button class="sort-btn" data-sort="ticker">TICKER <span class="sort-icon">↕</span></button>
                 </div>
-                <div class="watchlist-header-right">
+
+                <div class="watchlist-header-right"
+                    style="display: flex; align-items: center; justify-content: flex-end; gap: 3rem; flex-grow: 1;">
                     <button class="sort-btn" data-sort="price" style="width: 100px; justify-content: flex-end;">PRICE
                         <span class="sort-icon">↕</span></button>
-                    <span class="header-label" style="width: 160px;">FAIR VALUE</span>
+                    <!-- width + padding matching .col-fv -->
+                    <span class="header-label"
+                        style="width: 160px; padding-left: 1.5rem; justify-content: flex-end;">FAIR VALUE</span>
+                    <!-- width + padding matching .col-mos -->
                     <button class="sort-btn active-sort desc" data-sort="mos"
-                        style="width: 160px; justify-content: flex-end; color: var(--accent);">MOS <span
-                            class="sort-icon">▼</span></button>
-                    <span class="header-spacer"></span>
+                        style="width: 160px; justify-content: flex-end; color: var(--accent); padding-left: 1.5rem;">MOS
+                        <span class="sort-icon">▼</span></button>
                 </div>
+
+                <!-- Matches .watchlist-scores-container width and margin -->
+                <div style="width: 200px; padding: 0 1rem; margin-left: 2rem; display: flex; justify-content: center;">
+                    <span class="header-label" style="color: var(--text-muted);">SCORES</span>
+                </div>
+
+                <!-- Matches .watchlist-actions width and margin -->
+                <div style="margin-left: 2rem; width: 34px;"></div>
             </div>
 
             <div id="watchlist-grid" class="watchlist-container">
@@ -455,7 +470,7 @@
 
     </div>
 
-    <script src="app.js?v=9"></script>
+    <script src="app.js?v=10"></script>
 </body>
 
 </html>
