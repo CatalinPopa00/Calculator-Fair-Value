@@ -87,12 +87,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // UI Reset
         autocompleteList.style.display = 'none';
         watchlistView.style.display = 'none';
-        document.getElementById('analyst-view').style.display = 'none';
         dashboard.style.display = 'none';
         loadingState.style.display = 'flex';
-
-        // Show analyst tab button now that a real company is loaded
-        document.getElementById('nav-analyst-btn').style.display = 'inline-block';
 
         try {
             const response = await fetch(`https://calculator-fair-value.onrender.com/api/valuation/${encodeURIComponent(query)}`);
@@ -740,21 +736,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // Obsolete separate view logic - just trigger inline instead or stay here
         if (currentTicker) renderAnalystEstimatesInline(currentTicker);
     };
-    document.getElementById('pt-avg').textContent = pt.avg ? `$${pt.avg.toFixed(2)}` : '--';
-    document.getElementById('pt-high').textContent = pt.high ? `$${pt.high.toFixed(2)}` : '--';
-
-    if (pt.upside_pct != null) {
-        const upsideEl = document.getElementById('pt-upside');
-        upsideEl.textContent = `${pt.upside_pct > 0 ? '+' : ''}${pt.upside_pct.toFixed(1)}%`;
-        upsideEl.style.color = pt.upside_pct > 0 ? 'var(--accent)' : 'var(--danger)';
-    }
-
-    // Populate Recommendation
-    const rec = data.recommendation || {};
-    const statuses = { "1": "Strong Buy", "2": "Buy", "3": "Hold", "4": "Sell", "5": "Strong Sell" };
-    let statusText = statuses[Math.round(rec.mean)] || rec.key.replace('_', ' ') || '--';
-
-    const reqStatusEl = document.getElementById('rec-status');
     const renderWatchlistUI = () => {
         watchlistGrid.innerHTML = '';
         const watchlistHeader = document.getElementById('watchlist-header');
@@ -1229,7 +1210,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentTicker && currentFormulaData) {
             // If we have a ticker loaded, just switch back to dashboard view
             watchlistView.style.display = 'none';
-            document.getElementById('analyst-view').style.display = 'none';
             dashboard.style.display = 'block';
         } else {
             window.location.reload();
@@ -1246,11 +1226,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     navWatchlistBtn.addEventListener('click', () => {
         dashboard.style.display = 'none';
-        document.getElementById('analyst-view').style.display = 'none';
         renderWatchlist();
     });
-
-    document.getElementById('nav-analyst-btn').addEventListener('click', renderAnalystEstimates);
 
     addToWatchlistBtn.addEventListener('click', toggleWatchlist);
 
