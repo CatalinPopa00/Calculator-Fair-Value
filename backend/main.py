@@ -292,7 +292,6 @@ def get_valuation(ticker: str):
         "company_profile": {
             "industry": data.get("industry") or "N/A",
             "sector": data.get("sector") or "N/A",
-            "competitors": [p.get("ticker", p) if isinstance(p, dict) else p for p in peers_data] if peers_data else [],
             "market_cap": data.get("shares_outstanding", 0) * current_price if data.get("shares_outstanding") else None,
             "current_pe": sanitize(data.get("forward_pe")),
             "trailing_pe": sanitize(pe_historic),
@@ -302,7 +301,9 @@ def get_valuation(ticker: str):
             "historic_fcf_growth": sanitize(data.get("historic_fcf_growth")),
             "debt_to_equity": sanitize(data.get("debt_to_equity")),
             "shares_outstanding": sanitize(data.get("shares_outstanding")),
-            "dividend_yield": sanitize(data.get("dividend_yield") * 100 if data.get("dividend_yield") and data.get("dividend_yield") < 0.20 else data.get("dividend_yield"))
+            "buyback_rate": sanitize(data.get("historic_buyback_rate") * 100 if data.get("historic_buyback_rate") else None),
+            "dividend_yield": sanitize(data.get("dividend_yield") * 100 if data.get("dividend_yield") and data.get("dividend_yield") < 0.20 else data.get("dividend_yield")),
+            "competitors": [p.get("ticker", p) if isinstance(p, dict) else p for p in peers_data] if peers_data else []
         },
         "historical_trends": historical_trends,
         "formula_data": formula_data,

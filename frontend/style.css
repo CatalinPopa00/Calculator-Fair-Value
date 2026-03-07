@@ -1516,4 +1516,98 @@ body {
     .trends-table td {
         padding: 0.3rem 0.35rem;
     }
+
+    /* Analyst Estimates Mobile Styling */
+    .analyst-tabs-nav {
+        display: flex !important;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .tab-btn {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--card-border);
+        color: var(--text-muted);
+        padding: 0.4rem 0.8rem;
+        border-radius: 6px;
+        cursor: pointer;
+        font-family: inherit;
+        font-size: 0.8rem;
+        white-space: nowrap;
+        transition: all 0.2s;
+    }
+
+    .tab-btn.active {
+        background: var(--primary);
+        color: white;
+        border-color: var(--primary);
+    }
+
+    .analyst-grid-layout {
+        display: block !important;
+        /* Single column for mobile */
+    }
+
+    .tab-content {
+        display: none !important;
+    }
+
+    .tab-content.active {
+        display: block !important;
+    }
+
+    .analyst-col {
+        border: none !important;
+        padding: 0 !important;
+    }
+}
+
+/* Analyst General Styles (placed after mobile/desktop standard media queries if needed) */
+.analyst-estimates-section {
+    width: 100%;
+}
+
+.analyst-card h3 {
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.col-title {
+    display: none;
+    /* Only show in non-tabbed or logic context if needed */
+}
+
+/* Rec Bars styling */
+.rec-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 2px;
+}
+
+.rec-bar-label {
+    width: 70px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.rec-bar-bg {
+    flex-grow: 1;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.rec-bar-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 3px;
+}
+
+.rec-bar-count {
+    width: 25px;
+    font-size: 0.75rem;
+    text-align: right;
+    color: var(--text-main);
 }

@@ -394,46 +394,30 @@ def get_competitors_data(target_ticker: str, sector: str, industry: str, market_
     if sector and industry:
         try:
             payload = {
-                "offset": 0,
-                "size": 10,
-                "sortField": "intradaymarketcap",
-                "sortType": "DESC",
-                "quoteType": "EQUITY",
-                "query": {
-                    "operator": "AND",
-                    "operands": [
-                        {"operator": "EQ", "operands": ["industry", industry]},
-                    ]
-                },
-                "userId": "",
-                "userIdType": "guid"
+                "offset": 0, "size": 10, "sortField": "intradaymarketcap", "sortType": "DESC", "quoteType": "EQUITY",
+                "query": {"operator": "AND", "operands": [{"operator": "EQ", "operands": ["industry", industry]}]},
+                "userId": "", "userIdType": "guid"
             }
             if market_cap and market_cap > 0:
                 payload["query"]["operands"].append({
                     "operator": "BTWN",
-                    "operands": ["intradaymarketcap", int(market_cap * 0.05), int(market_cap * 20)]
+                    "operands": ["intradaymarketcap", int(market_cap * 0.2), int(market_cap * 10)]
                 })
 
             url = "https://query2.finance.yahoo.com/v1/finance/screener"
-            req = urllib.request.Request(
-                url,
-                data=json.dumps(payload).encode('utf-8'),
-                headers={
-                    'Content-Type': 'application/json',
-                    'User-Agent': get_random_agent(),
-                },
-                method='POST'
-            )
-            with urllib.request.urlopen(req, timeout=8) as resp:
-                sdata = json.loads(resp.read().decode('utf-8'))
+            headers = {
+                'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                'Content-Type': 'application/json'
+            }
+            r = requests.post(url, json=payload, headers=headers, timeout=10)
+            if r.status_code == 200:
+                sdata = r.json()
                 sq = sdata.get('finance', {}).get('result', [{}])[0].get('quotes', [])
-
-            for q in sq:
-                sym = (q.get('symbol') or '').upper()
-                if sym and sym != target_ticker and sym not in target_tickers:
-                    target_tickers.append(sym)
-                if len(target_tickers) >= limit:
-                    break
+                for q in sq:
+                    sym = (q.get('symbol') or '').upper()
+                    if sym and sym != target_ticker and sym not in target_tickers:
+                        target_tickers.append(sym)
+                    if len(target_tickers) >= limit: break
         except Exception as e:
             print(f"Screener strategy failed: {e}")
 
@@ -441,30 +425,43 @@ def get_competitors_data(target_ticker: str, sector: str, industry: str, market_
     if len(target_tickers) < limit:
         try:
             url = f"https://query2.finance.yahoo.com/v6/finance/recommendationsbysymbol/{target_ticker}"
-            req = urllib.request.Request(url, headers={'User-Agent': get_random_agent()})
-            with urllib.request.urlopen(req, timeout=5) as response:
-                rdata = json.loads(response.read().decode('utf-8'))
+            headers = {'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+            r = requests.get(url, headers=headers, timeout=10)
+            if r.status_code == 200:
+                rdata = r.json()
                 recs = rdata.get('finance', {}).get('result', [{}])[0].get('recommendedSymbols', [])
                 candidates = [r['symbol'] for r in recs if r.get('symbol') and r['symbol'].upper() != target_ticker]
-
-            if candidates:
-                # Validate candidates belong to same industry (Parallel)
-                with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(candidates), 8)) as exc:
-                    futures = {exc.submit(lambda t: yf.Ticker(t).info, t): t for t in candidates}
-                    for future in concurrent.futures.as_completed(futures):
-                        try:
-                            info = future.result()
-                            sym = futures[future].upper()
-                            sym_industry = info.get('industry', '')
-                            # Only add if industry matches or we are desperate
-                            if (not industry or sym_industry == industry) and sym not in target_tickers:
-                                target_tickers.append(sym)
-                        except Exception:
-                            pass
-                        if len(target_tickers) >= limit:
-                            break
+                
+                if candidates:
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(candidates), 8)) as exc:
+                        futures = {exc.submit(lambda t: yf.Ticker(t).info, t): t for t in candidates}
+                        for future in concurrent.futures.as_completed(futures):
+                            try:
+                                info = future.result()
+                                sym = futures[future].upper()
+                                sym_ind = info.get('industry', '')
+                                if (not industry or sym_ind == industry) and sym not in target_tickers:
+                                    target_tickers.append(sym)
+                            except: pass
+                            if len(target_tickers) >= limit: break
         except Exception as e:
             print(f"Recommendations strategy failed: {e}")
+
+    # Strategy 3: Search Fallback (Industry/Sector based search)
+    if len(target_tickers) < limit:
+        try:
+            query = industry or sector or target_ticker
+            url = f"https://query2.finance.yahoo.com/v1/finance/search?q={urllib.parse.quote(query)}"
+            headers = {'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+            r = requests.get(url, headers=headers, timeout=5)
+            if r.status_code == 200:
+                sq = r.json().get('quotes', [])
+                for q in sq:
+                    sym = q.get('symbol')
+                    if sym and sym.upper() != target_ticker and q.get('quoteType') == 'EQUITY' and sym not in target_tickers:
+                        target_tickers.append(sym)
+                    if len(target_tickers) >= limit: break
+        except: pass
 
     target_tickers = target_tickers[:limit]
 
@@ -482,6 +479,20 @@ def get_competitors_data(target_ticker: str, sector: str, industry: str, market_
                     pass
 
     return peer_data
+
+def get_lightweight_company_data(ticker_symbol: str):
+    """Fetches a minimal set of data for competitor comparison."""
+    try:
+        stock = yf.Ticker(ticker_symbol)
+        info = stock.info
+        return {
+            "ticker": ticker_symbol.upper(),
+            "name": info.get('shortName') or info.get('longName') or ticker_symbol,
+            "price": info.get('currentPrice') or info.get('regularMarketPrice'),
+            "pe_ratio": info.get('trailingPE') or info.get('forwardPE')
+        }
+    except Exception:
+        return None
 
 
 def get_market_averages():

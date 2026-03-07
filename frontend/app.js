@@ -546,8 +546,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 <tr style="border-top: 1px solid rgba(255,255,255,0.08);"><td style="padding: 12px 0; color: var(--text-muted); vertical-align: top;">EPS (Trailing)</td><td style="text-align: right; font-weight: bold; color: white;">${prof.trailing_eps ? '$' + prof.trailing_eps.toFixed(2) : 'N/A'}</td></tr>
                 <tr style="border-top: 1px solid rgba(255,255,255,0.08);"><td style="padding: 12px 0; color: var(--text-muted); vertical-align: top;">Debt-to-Equity</td><td style="text-align: right; font-weight: bold; color: white;">${prof.debt_to_equity != null ? prof.debt_to_equity.toFixed(2) + 'x' : 'N/A'}</td></tr>
                 <tr style="border-top: 1px solid rgba(255,255,255,0.08);"><td style="padding: 12px 0; color: var(--text-muted); vertical-align: top;">Shares Out.</td><td style="text-align: right; font-weight: bold; color: white;">${formatBigNumber(prof.shares_outstanding, '')}</td></tr>
+                <tr style="border-top: 1px solid rgba(255,255,255,0.08);"><td style="padding: 12px 0; color: var(--text-muted); vertical-align: top;">Buyback rate</td><td style="text-align: right; font-weight: bold; color: white;">${prof.buyback_rate != null ? (prof.buyback_rate > 0 ? '+' : '') + prof.buyback_rate.toFixed(2) + '%' : 'N/A'}</td></tr>
                 <tr style="border-top: 1px solid rgba(255,255,255,0.08);"><td style="padding: 12px 0; color: var(--text-muted); vertical-align: top;">Dividend Yield</td><td style="text-align: right; font-weight: bold; color: white;">${prof.dividend_yield ? prof.dividend_yield.toFixed(2) + '%' : 'N/A'}</td></tr>
-                <tr style="border-top: 1px solid rgba(255,255,255,0.08);"><td style="padding: 12px 0; color: var(--text-muted); vertical-align: top; white-space: nowrap;">Competitors</td><td style="text-align: right; font-weight: bold; color: white; word-wrap: break-word;">${prof.competitors.length ? prof.competitors.join(', ') : 'None'}</td></tr>
+                <tr style="border-top: 1px solid rgba(255,255,255,0.08);"><td style="padding: 12px 0; color: var(--text-muted); vertical-align: top; white-space: nowrap;">Competitors</td><td style="text-align: right; font-weight: bold; color: white; word-wrap: break-word;">${prof.competitors && prof.competitors.length ? prof.competitors.join(', ') : 'None'}</td></tr>
             `;
         }
 
@@ -575,6 +576,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         loadingState.style.display = 'none';
         dashboard.style.display = 'block';
+
+        // Fetch and show Analyst Estimates inline
+        renderAnalystEstimatesInline(data.ticker);
     };
 
     // --- Watchlist Logic ---
@@ -620,170 +624,137 @@ document.addEventListener('DOMContentLoaded', () => {
     let manualOrder = false; // set true after a drag so sort is skipped
 
     // --- Analyst Estimates Logic ---
-    const navAnalystBtn = document.getElementById('nav-analyst-btn');
-    const analystView = document.getElementById('analyst-view');
-    const analystContent = document.getElementById('analyst-content');
-    const analystLoading = document.getElementById('analyst-loading');
-    const analystError = document.getElementById('analyst-error');
+    const analystCard = document.getElementById('analyst-estimates-card');
 
-    const renderAnalystEstimates = async () => {
-        if (!currentTicker) return;
+    const renderAnalystEstimatesInline = async (ticker) => {
+        if (!ticker || !analystCard) return;
 
-        dashboard.style.display = 'none';
-        watchlistView.style.display = 'none';
-        analystView.style.display = 'block';
-
-        document.getElementById('analyst-ticker-label').textContent = currentTicker;
-        analystContent.style.display = 'none';
-        analystError.style.display = 'none';
-        analystLoading.style.display = 'flex';
+        analystCard.style.display = 'block';
+        // Clear previous data
+        document.getElementById('pt-avg').textContent = '...';
+        document.getElementById('rec-status').textContent = '...';
+        document.querySelector('#eps-est-table tbody').innerHTML = '';
+        document.querySelector('#rev-est-table tbody').innerHTML = '';
+        document.querySelector('#eps-history-table tbody').innerHTML = '';
 
         try {
-            const res = await fetch(`https://calculator-fair-value.onrender.com/api/analyst/${currentTicker}`);
+            const res = await fetch(`https://calculator-fair-value.onrender.com/api/analyst/${ticker}`);
             if (!res.ok) throw new Error('API Error');
             const data = await res.json();
 
             if (data.error) throw new Error(data.error);
 
-            // Populate Price Targets
+            // Price Targets
             const pt = data.price_target || {};
-            document.getElementById('pt-low').textContent = pt.low ? `$${pt.low.toFixed(2)}` : '--';
             document.getElementById('pt-avg').textContent = pt.avg ? `$${pt.avg.toFixed(2)}` : '--';
+            document.getElementById('pt-upside').textContent = pt.upside_pct ? `${pt.upside_pct > 0 ? '+' : ''}${pt.upside_pct.toFixed(1)}%` : '--';
+            document.getElementById('pt-upside').style.color = (pt.upside_pct > 0) ? 'var(--accent)' : (pt.upside_pct < 0 ? 'var(--danger)' : 'var(--text-muted)');
+            document.getElementById('pt-low').textContent = pt.low ? `$${pt.low.toFixed(2)}` : '--';
             document.getElementById('pt-high').textContent = pt.high ? `$${pt.high.toFixed(2)}` : '--';
 
-            if (pt.upside_pct != null) {
-                const upsideEl = document.getElementById('pt-upside');
-                upsideEl.textContent = `${pt.upside_pct > 0 ? '+' : ''}${pt.upside_pct.toFixed(1)}%`;
-                upsideEl.style.color = pt.upside_pct > 0 ? 'var(--accent)' : 'var(--danger)';
-            }
-
-            // Populate Recommendation
+            // Recommendation
             const rec = data.recommendation || {};
-            const statuses = { "1": "Strong Buy", "2": "Buy", "3": "Hold", "4": "Sell", "5": "Strong Sell" };
-            let statusText = statuses[Math.round(rec.mean)] || rec.key.replace('_', ' ') || '--';
+            const statusElem = document.getElementById('rec-status');
+            statusElem.textContent = (rec.key || 'N/A').replace('_', ' ');
+            document.getElementById('rec-mean').textContent = `Score: ${rec.mean ? rec.mean.toFixed(2) : '--'} (1-5)`;
 
-            const reqStatusEl = document.getElementById('rec-status');
-            reqStatusEl.textContent = statusText;
-            if (rec.mean && rec.mean <= 2.5) reqStatusEl.style.color = 'var(--accent)';
-            else if (rec.mean && rec.mean >= 3.5) reqStatusEl.style.color = 'var(--danger)';
-            else reqStatusEl.style.color = '#fbbf24'; // yellow
+            // Rec Bars
+            const counts = rec.counts || {};
+            const maxVal = Math.max(...Object.values(counts), 1);
+            const barsContainer = document.getElementById('rec-bars');
+            barsContainer.innerHTML = '';
 
-            document.getElementById('rec-mean').textContent = `Score: ${rec.mean ? rec.mean.toFixed(1) : '--'} / 5.0`;
+            const labels = { strongBuy: 'S. Buy', buy: 'Buy', hold: 'Hold', sell: 'Sell', strongSell: 'S. Sell' };
+            ['strongBuy', 'buy', 'hold', 'sell', 'strongSell'].forEach(k => {
+                const count = counts[k] || 0;
+                const pct = (count / maxVal) * 100;
+                barsContainer.innerHTML += `
+                    <div class="rec-bar-row">
+                        <span class="rec-bar-label">${labels[k]}</span>
+                        <div class="rec-bar-bg"><div class="rec-bar-fill" style="width: ${pct}%;"></div></div>
+                        <span class="rec-bar-count">${count}</span>
+                    </div>
+                `;
+            });
 
-            const barsCont = document.getElementById('rec-bars');
-            barsCont.innerHTML = '';
-            const cnts = rec.counts || {};
-            const totalRecs = Object.values(cnts).reduce((a, b) => a + b, 0);
-            if (totalRecs > 0) {
-                const keys = [
-                    { k: 'strongBuy', l: 'Strong Buy', c: 'var(--accent)' },
-                    { k: 'buy', l: 'Buy', c: 'var(--accent)' },
-                    { k: 'hold', l: 'Hold', c: '#fbbf24' },
-                    { k: 'sell', l: 'Sell', c: 'var(--danger)' },
-                    { k: 'strongSell', l: 'Strong Sell', c: 'var(--danger)' }
-                ];
-                keys.forEach(obj => {
-                    const ct = cnts[obj.k] || 0;
-                    const pct = (ct / totalRecs) * 100;
-                    barsCont.innerHTML += `
-                        <div style="display:flex; align-items:center; gap:10px;">
-                            <span style="width:70px; text-align:right;">${obj.l}</span>
-                            <div style="flex-grow:1; background:rgba(255,255,255,0.1); height:8px; border-radius:4px;">
-                                <div style="width:${pct}%; background:${obj.c}; height:100%; border-radius:4px;"></div>
-                            </div>
-                            <span style="width:20px;">${ct}</span>
-                        </div>
-                    `;
-                });
-            } else {
-                barsCont.innerHTML = '<i>No detailed breakdown available</i>';
-            }
-
-            // Populate EPS Estimates
-            const fvScale = (v) => v ? `$${v.toFixed(2)}` : '--';
-            const fvPct = (v) => v ? `${(v * 100).toFixed(1)}%` : '--';
-
-            const epsBody = document.querySelector('#eps-est-table tbody');
-            epsBody.innerHTML = '';
-            if (data.eps_estimates && data.eps_estimates.length) {
-                data.eps_estimates.forEach(row => {
-                    const lowHigh = (row.low && row.high) ? `$${row.low.toFixed(2)} - $${row.high.toFixed(2)}` : '--';
-                    epsBody.innerHTML += `
-                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                            <td style="padding: 0.5rem;">${row.period}</td>
-                            <td style="text-align: right; padding: 0.5rem; font-weight:600;">${fvScale(row.avg)}</td>
-                            <td style="text-align: right; padding: 0.5rem; color:var(--text-muted);">${lowHigh}</td>
-                            <td style="text-align: right; padding: 0.5rem;">${fvPct(row.growth)}</td>
-                        </tr>
-                    `;
-                });
-            } else {
-                epsBody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:1rem;">No data available</td></tr>';
-            }
-
-            // Populate Rev Estimates
+            // Tables Shared Helpers
+            const fvScale = (v) => v != null ? `$${v.toFixed(2)}` : '--';
+            const fvPct = (v) => v != null ? `${(v * 100).toFixed(1)}%` : '--';
             const fvM = (v) => {
-                if (!v) return '--';
-                if (v >= 1e9) return `$${(v / 1e9).toFixed(2)}B`;
-                if (v >= 1e6) return `$${(v / 1e6).toFixed(2)}M`;
-                return `$${v.toLocaleString()}`;
+                if (v == null) return '--';
+                return (v / 1e9).toFixed(2); // In Billions
             };
 
+            // EPS Table
+            const epsBody = document.querySelector('#eps-est-table tbody');
+            (data.eps_estimates || []).slice(0, 4).forEach(row => {
+                epsBody.innerHTML += `<tr>
+                    <td style="padding: 0.4rem 0;">${row.period}</td>
+                    <td style="text-align: right; font-weight: 600;">${fvScale(row.avg)}</td>
+                    <td style="text-align: right;">${fvPct(row.growth)}</td>
+                </tr>`;
+            });
+
+            // Revenue Table
             const revBody = document.querySelector('#rev-est-table tbody');
-            revBody.innerHTML = '';
-            if (data.rev_estimates && data.rev_estimates.length) {
-                data.rev_estimates.forEach(row => {
-                    const lh = (row.low && row.high) ? `${fvM(row.low)} - ${fvM(row.high)}` : '--';
-                    revBody.innerHTML += `
-                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                            <td style="padding: 0.5rem;">${row.period}</td>
-                            <td style="text-align: right; padding: 0.5rem; font-weight:600;">${fvM(row.avg)}</td>
-                            <td style="text-align: right; padding: 0.5rem; color:var(--text-muted);">${lh}</td>
-                            <td style="text-align: right; padding: 0.5rem;">${fvPct(row.growth)}</td>
-                        </tr>
-                    `;
-                });
-            } else {
-                revBody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:1rem;">No data available</td></tr>';
-            }
+            (data.rev_estimates || []).slice(0, 4).forEach(row => {
+                revBody.innerHTML += `<tr>
+                    <td style="padding: 0.4rem 0;">${row.period}</td>
+                    <td style="text-align: right; font-weight: 600;">${fvM(row.avg)}</td>
+                    <td style="text-align: right;">${fvPct(row.growth)}</td>
+                </tr>`;
+            });
 
-            // Populate Surprise History
-            const histBody = document.querySelector('#eps-history-table tbody');
-            histBody.innerHTML = '';
-            if (data.eps_history && data.eps_history.length) {
-                data.eps_history.forEach(row => {
-                    let surColor = 'var(--text-main)';
-                    let surText = '--';
-                    if (row.surprise != null) {
-                        surText = `${row.surprise > 0 ? '+' : ''}${row.surprise.toFixed(2)}`;
-                        if (row.surprise_pct != null) surText += ` (${(row.surprise_pct * 100).toFixed(1)}%)`;
-                        if (row.surprise > 0) surColor = 'var(--accent)';
-                        else if (row.surprise < 0) surColor = 'var(--danger)';
-                    }
-                    histBody.innerHTML += `
-                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                            <td style="padding: 0.5rem;">${row.quarter || '--'}</td>
-                            <td style="text-align: right; padding: 0.5rem;">${fvScale(row.estimate)}</td>
-                            <td style="text-align: right; padding: 0.5rem; font-weight:600;">${fvScale(row.actual)}</td>
-                            <td style="text-align: right; padding: 0.5rem; color:${surColor};">${surText}</td>
-                        </tr>
-                    `;
-                });
-            } else {
-                histBody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:1rem;">No data available</td></tr>';
-            }
-
-            analystLoading.style.display = 'none';
-            analystContent.style.display = 'flex';
+            // Surprise Table
+            const surpBody = document.querySelector('#eps-history-table tbody');
+            (data.eps_history || []).forEach(row => {
+                const sPct = row.surprise_pct != null ? (row.surprise_pct * 100).toFixed(1) + '%' : '--';
+                const sColor = row.surprise > 0 ? 'var(--accent)' : (row.surprise < 0 ? 'var(--danger)' : 'white');
+                surpBody.innerHTML += `<tr>
+                    <td style="padding: 0.4rem 0;">${row.quarter || '--'}</td>
+                    <td style="text-align: right; font-weight: 600;">${fvScale(row.actual)}</td>
+                    <td style="text-align: right; color: ${sColor};">${sPct}</td>
+                </tr>`;
+            });
 
         } catch (err) {
-            console.error(err);
-            analystLoading.style.display = 'none';
-            analystError.style.display = 'block';
+            console.error("Analyst inline error:", err);
+            analystCard.style.display = 'none';
         }
     };
 
+    // Mobile Tab Switching Logic
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const targetTab = btn.getAttribute('data-tab');
+            // Update Buttons
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            // Update Contents
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById(`tab-${targetTab}`).classList.add('active');
+        });
+    });
 
+    const renderAnalystEstimates = async () => {
+        // Obsolete separate view logic - just trigger inline instead or stay here
+        if (currentTicker) renderAnalystEstimatesInline(currentTicker);
+    };
+    document.getElementById('pt-avg').textContent = pt.avg ? `$${pt.avg.toFixed(2)}` : '--';
+    document.getElementById('pt-high').textContent = pt.high ? `$${pt.high.toFixed(2)}` : '--';
+
+    if (pt.upside_pct != null) {
+        const upsideEl = document.getElementById('pt-upside');
+        upsideEl.textContent = `${pt.upside_pct > 0 ? '+' : ''}${pt.upside_pct.toFixed(1)}%`;
+        upsideEl.style.color = pt.upside_pct > 0 ? 'var(--accent)' : 'var(--danger)';
+    }
+
+    // Populate Recommendation
+    const rec = data.recommendation || {};
+    const statuses = { "1": "Strong Buy", "2": "Buy", "3": "Hold", "4": "Sell", "5": "Strong Sell" };
+    let statusText = statuses[Math.round(rec.mean)] || rec.key.replace('_', ' ') || '--';
+
+    const reqStatusEl = document.getElementById('rec-status');
     const renderWatchlistUI = () => {
         watchlistGrid.innerHTML = '';
         const watchlistHeader = document.getElementById('watchlist-header');

@@ -42,9 +42,6 @@
             <button id="nav-watchlist-btn">
                 ★ Watchlist
             </button>
-            <button id="nav-analyst-btn" style="display:none;">
-                📊 Estimates
-            </button>
         </header>
 
         <!-- Main Dashboard Content (Hidden initially until search) -->
@@ -394,6 +391,130 @@
                     </div>
                 </section>
 
+                <!-- Analyst Estimates Card -->
+                <section class="analyst-estimates-section" style="margin-top: 2rem;">
+                    <div class="glass-card analyst-card" id="analyst-estimates-card"
+                        style="padding: 1.5rem; display: none;">
+                        <h3
+                            style="margin-bottom: 1.5rem; color: var(--text-main); font-size: 1.2rem; text-align: center;">
+                            ANALYST ESTIMATES & CONSENSUS</h3>
+
+                        <!-- Mobile Tabs Navigation -->
+                        <div class="analyst-tabs-nav"
+                            style="display: none; overflow-x: auto; -webkit-overflow-scrolling: touch; border-bottom: 1px solid var(--card-border); margin-bottom: 1.5rem; padding-bottom: 5px;">
+                            <button class="tab-btn active" data-tab="pt">Price Target</button>
+                            <button class="tab-btn" data-tab="rec">Recommendation</button>
+                            <button class="tab-btn" data-tab="eps">EPS Est.</button>
+                            <button class="tab-btn" data-tab="rev">Revenue</button>
+                            <button class="tab-btn" data-tab="surp">Surprise</button>
+                        </div>
+
+                        <div class="analyst-grid-layout"
+                            style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 1rem;">
+                            <!-- Price Target -->
+                            <div class="analyst-col tab-content active" id="tab-pt"
+                                style="border-right: 1px solid var(--card-border); padding-right: 1rem;">
+                                <h4
+                                    style="font-size: 0.9rem; color: var(--text-muted); text-align: center; margin-bottom: 1rem;">
+                                    Price Target</h4>
+                                <div class="pt-content" style="text-align: center;">
+                                    <div
+                                        style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">
+                                        Average</div>
+                                    <div id="pt-avg"
+                                        style="font-size: 1.5rem; font-weight: 800; color: var(--accent); margin: 5px 0;">
+                                        --</div>
+                                    <div id="pt-upside" style="font-size: 0.85rem; font-weight: 600;">--</div>
+                                    <div
+                                        style="display: flex; justify-content: space-between; margin-top: 1rem; font-size: 0.75rem; border-top: 1px solid var(--card-border); padding-top: 8px;">
+                                        <div>Low: <span id="pt-low" style="color: white;">--</span></div>
+                                        <div>High: <span id="pt-high" style="color: white;">--</span></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Recommendation -->
+                            <div class="analyst-col tab-content" id="tab-rec"
+                                style="border-right: 1px solid var(--card-border); padding: 0 1rem;">
+                                <h4
+                                    style="font-size: 0.9rem; color: var(--text-muted); text-align: center; margin-bottom: 1rem;">
+                                    Recommendation</h4>
+                                <div class="rec-content" style="text-align: center;">
+                                    <div id="rec-status"
+                                        style="font-size: 1.2rem; font-weight: 800; color: var(--accent); text-transform: uppercase;">
+                                        --</div>
+                                    <div id="rec-mean"
+                                        style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">Score: --
+                                    </div>
+                                    <div id="rec-bars"
+                                        style="margin-top: 0.8rem; display: flex; flex-direction: column; gap: 0.3rem; text-align: left;">
+                                        <!-- Injected by JS -->
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- EPS Estimates -->
+                            <div class="analyst-col tab-content" id="tab-eps"
+                                style="border-right: 1px solid var(--card-border); padding: 0 1rem;">
+                                <h4
+                                    style="font-size: 0.9rem; color: var(--text-muted); text-align: center; margin-bottom: 0.5rem;">
+                                    EPS Estimates</h4>
+                                <table style="width: 100%; border-collapse: collapse; font-size: 0.75rem;"
+                                    id="eps-est-table">
+                                    <thead>
+                                        <tr
+                                            style="color: var(--text-muted); text-align: right; border-bottom: 1px solid var(--card-border);">
+                                            <th style="text-align: left; padding: 0.3rem 0;">Period</th>
+                                            <th style="padding: 0.3rem 0;">Avg</th>
+                                            <th style="padding: 0.3rem 0;">Growth</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+
+                            <!-- Revenue Estimates -->
+                            <div class="analyst-col tab-content" id="tab-rev"
+                                style="border-right: 1px solid var(--card-border); padding: 0 1rem;">
+                                <h4
+                                    style="font-size: 0.9rem; color: var(--text-muted); text-align: center; margin-bottom: 0.5rem;">
+                                    Revenue (B)</h4>
+                                <table style="width: 100%; border-collapse: collapse; font-size: 0.75rem;"
+                                    id="rev-est-table">
+                                    <thead>
+                                        <tr
+                                            style="color: var(--text-muted); text-align: right; border-bottom: 1px solid var(--card-border);">
+                                            <th style="text-align: left; padding: 0.3rem 0;">Period</th>
+                                            <th style="padding: 0.3rem 0;">Avg</th>
+                                            <th style="padding: 0.3rem 0;">Growth</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+
+                            <!-- EPS Surprise -->
+                            <div class="analyst-col tab-content" id="tab-surp" style="padding-left: 1rem;">
+                                <h4
+                                    style="font-size: 0.9rem; color: var(--text-muted); text-align: center; margin-bottom: 0.5rem;">
+                                    Surprises</h4>
+                                <table style="width: 100%; border-collapse: collapse; font-size: 0.75rem;"
+                                    id="eps-history-table">
+                                    <thead>
+                                        <tr
+                                            style="color: var(--text-muted); text-align: right; border-bottom: 1px solid var(--card-border);">
+                                            <th style="text-align: left; padding: 0.3rem 0;">Date</th>
+                                            <th style="padding: 0.3rem 0;">Actual</th>
+                                            <th style="padding: 0.3rem 0;">Surp.</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
                 <!-- Historical Anchors -->
                 <section class="trends-section" style="margin-top: 2rem;">
                     <h3 style="margin-bottom: 1rem; color: var(--text-main);">Historical Anchors (Trends)</h3>
@@ -470,130 +591,6 @@
             </p>
         </main>
 
-        <!-- Analyst Estimates Content -->
-        <main class="analyst-view" id="analyst-view" style="display: none;">
-            <!-- Top Section with basic info -->
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-                <h2>Analyst Estimates <span id="analyst-ticker-label"
-                        style="color: var(--accent); font-size: 1.5rem; margin-left:10px;"></span></h2>
-            </div>
-
-            <div id="analyst-loading" class="loading-state" style="display: none; height: 300px;">
-                <div class="spinner"></div>
-                <p>Fetching analyst data...</p>
-            </div>
-
-            <div id="analyst-error"
-                style="display: none; color: var(--danger); text-align: center; background: rgba(239, 68, 68, 0.1); padding: 2rem; border-radius: 8px;">
-                Failed to load estimates.
-            </div>
-
-            <div id="analyst-content" style="display: none; flex-direction: column; gap: 2rem;">
-                <!-- Row 1: Price Targets & Recs -->
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
-                    <div class="glass-card" style="padding: 1.5rem;">
-                        <h3
-                            style="margin-bottom: 1rem; color: var(--text-main); font-size: 1.1rem; border-bottom: 1px solid var(--card-border); padding-bottom: 0.5rem;">
-                            Price Target Consensus</h3>
-                        <div
-                            style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 1rem;">
-                            <div style="text-align: center;">
-                                <div style="font-size: 0.8rem; color: var(--text-muted);">Low</div>
-                                <div id="pt-low" style="font-size: 1.1rem; font-weight: 600;">--</div>
-                            </div>
-                            <div style="text-align: center; color: var(--accent);">
-                                <div style="font-size: 0.9rem; margin-bottom: 4px;">Average</div>
-                                <div id="pt-avg" style="font-size: 1.8rem; font-weight: 800;">--</div>
-                                <div id="pt-upside" style="font-size: 0.9rem; font-weight: 600; margin-top: 4px;">--
-                                </div>
-                            </div>
-                            <div style="text-align: center;">
-                                <div style="font-size: 0.8rem; color: var(--text-muted);">High</div>
-                                <div id="pt-high" style="font-size: 1.1rem; font-weight: 600;">--</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="glass-card" style="padding: 1.5rem;">
-                        <h3
-                            style="margin-bottom: 1rem; color: var(--text-main); font-size: 1.1rem; border-bottom: 1px solid var(--card-border); padding-bottom: 0.5rem;">
-                            Analyst Recommendation</h3>
-                        <div style="display: flex; gap: 2rem; align-items: stretch;">
-                            <div
-                                style="display: flex; flex-direction: column; justify-content: center; align-items: center; min-width: 100px;">
-                                <div id="rec-status"
-                                    style="font-size: 1.4rem; font-weight: 800; color: var(--accent); text-align: center; text-transform: uppercase;">
-                                    --</div>
-                                <div id="rec-mean"
-                                    style="font-size: 0.9rem; color: var(--text-muted); margin-top: 0.5rem;">Score: --
-                                </div>
-                            </div>
-                            <!-- Simple bar chart for distribution -->
-                            <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 0.4rem; font-size: 0.8rem;"
-                                id="rec-bars">
-                                <!-- Injected by JS -->
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Row 2: EPS & Rev Estimates -->
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
-                    <div class="glass-card" style="padding: 1.5rem; overflow-x: auto;">
-                        <h3 style="margin-bottom: 1rem; color: var(--text-main); font-size: 1.1rem;">Earnings (EPS)
-                            Estimates</h3>
-                        <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;" class="trends-table"
-                            id="eps-est-table">
-                            <thead>
-                                <tr
-                                    style="color: var(--text-muted); text-align: right; border-bottom: 1px solid var(--card-border);">
-                                    <th style="text-align: left; padding: 0.5rem;">Period</th>
-                                    <th style="padding: 0.5rem;">Avg</th>
-                                    <th style="padding: 0.5rem;">Low-High</th>
-                                    <th style="padding: 0.5rem;">Growth</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                    <div class="glass-card" style="padding: 1.5rem; overflow-x: auto;">
-                        <h3 style="margin-bottom: 1rem; color: var(--text-main); font-size: 1.1rem;">Revenue Estimates
-                        </h3>
-                        <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;" class="trends-table"
-                            id="rev-est-table">
-                            <thead>
-                                <tr
-                                    style="color: var(--text-muted); text-align: right; border-bottom: 1px solid var(--card-border);">
-                                    <th style="text-align: left; padding: 0.5rem;">Period</th>
-                                    <th style="padding: 0.5rem;">Avg</th>
-                                    <th style="padding: 0.5rem;">Low-High</th>
-                                    <th style="padding: 0.5rem;">Growth</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- Row 3: Surprise History -->
-                <div class="glass-card" style="padding: 1.5rem; overflow-x: auto;">
-                    <h3 style="margin-bottom: 1rem; color: var(--text-main); font-size: 1.1rem;">Recent Earnings
-                        Surprises</h3>
-                    <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;" class="trends-table"
-                        id="eps-history-table">
-                        <thead>
-                            <tr
-                                style="color: var(--text-muted); text-align: right; border-bottom: 1px solid var(--card-border);">
-                                <th style="text-align: left; padding: 0.5rem;">Quarter</th>
-                                <th style="padding: 0.5rem;">Estimate</th>
-                                <th style="padding: 0.5rem;">Actual</th>
-                                <th style="padding: 0.5rem;">Surprise</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
-                </div>
-            </div>
-        </main>
 
         <!-- Data Transparency Modal -->
         <div id="data-modal" class="modal-overlay" style="display: none; z-index: 1000;">
