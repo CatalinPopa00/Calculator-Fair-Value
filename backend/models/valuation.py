@@ -170,7 +170,8 @@ def calculate_relative_valuation(company_ticker: str, company_metrics: dict, com
         return None
         
     # A simple relative value based on median P/E of peers
-    valid_pes = [p.get('pe_ratio') for p in competitors_metrics if p.get('pe_ratio')]
+    valid_pes = [p.get('pe_ratio') if isinstance(p, dict) else None for p in competitors_metrics]
+    valid_pes = [v for v in valid_pes if v is not None]
     if not valid_pes:
         return None
         

@@ -239,7 +239,7 @@ def get_valuation(ticker: str):
         "relative": {
             "company_eps": sanitize(data.get("trailing_eps")),
             "company_trailing_pe": sanitize(pe_historic),
-            "peers_used": [p.get("ticker") for p in peers_data] if peers_data else [],
+            "peers_used": [p.get("ticker", p) if isinstance(p, dict) else p for p in peers_data] if peers_data else [],
             "median_peer_pe": sanitize(median_peer_pe),
             "market_pe_trailing": sanitize(market_data.get("trailing_pe")),
             "market_pe_forward": sanitize(market_data.get("forward_pe"))
@@ -292,7 +292,7 @@ def get_valuation(ticker: str):
         "company_profile": {
             "industry": data.get("industry") or "N/A",
             "sector": data.get("sector") or "N/A",
-            "competitors": [p.get("ticker") for p in peers_data] if peers_data else [],
+            "competitors": [p.get("ticker", p) if isinstance(p, dict) else p for p in peers_data] if peers_data else [],
             "market_cap": data.get("shares_outstanding", 0) * current_price if data.get("shares_outstanding") else None,
             "current_pe": sanitize(data.get("forward_pe")),
             "trailing_pe": sanitize(pe_historic),
