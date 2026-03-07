@@ -602,22 +602,21 @@ def get_market_averages():
 
 def get_period_labels(ticker_info: dict) -> dict:
     """
-    Returns a mapping from '0q', '+1q', '0y', '+1y' to human-readable 
+    Returns a mapping from '0q', '+1q', '+2q', '+3q', '0y', '+1y' to human-readable 
     labels like 'Q1 2026', 'FY 2026' based on fiscal year end.
     """
-    from datetime import datetime, timedelta
+    from datetime import datetime
     now = datetime.now()
     curr_year = now.year
-    curr_month = now.month
     
-    # fiscalYearEnd is usually the timestamp of the last month/day of the FY
-    fye_timestamp = ticker_info.get('fiscalYearEnd')
     # mostRecentQuarter is timestamp of the last reported quarter end
     mrq_timestamp = ticker_info.get('mostRecentQuarter')
     
     mapping = {
         "0q": "Current Qtr",
         "+1q": "Next Qtr",
+        "+2q": "QTR +2",
+        "+3q": "QTR +3",
         "0y": f"FY {curr_year}",
         "+1y": f"FY {curr_year + 1}"
     }
@@ -625,41 +624,32 @@ def get_period_labels(ticker_info: dict) -> dict:
     try:
         if mrq_timestamp:
             mrq_dt = datetime.fromtimestamp(mrq_timestamp)
-            # MRQ is the most recently REPORTED quarter.
-            # 0q is the quarter CURRENTLY in progress (after MRQ).
             
-            # Estimate which quarter is next
-            # Q1 = MRQ_month + 3, etc.
-            next_q_month = mrq_dt.month + 3
-            next_q_year = mrq_dt.year
-            if next_q_month > 12:
-                next_q_month -= 12
-                next_q_year += 1
+            # Start from the next quarter (0q)
+            curr_q_month = mrq_dt.month
+            curr_q_year = mrq_dt.year
             
-            q_num = (next_q_month - 1) // 3 + 1
-            mapping["0q"] = f"Q{q_num} {next_q_year}"
-            
-            # Next Quarter (+1q)
-            nn_q_month = next_q_month + 3
-            nn_q_year = next_q_year
-            if nn_q_month > 12:
-                nn_q_month -= 12
-                nn_q_year += 1
-            nn_q_num = (nn_q_month - 1) // 3 + 1
-            mapping["+1q"] = f"Q{nn_q_num} {nn_q_year}"
+            for i in range(1, 5): # 0q, +1q, +2q, +3q
+                next_q_month = curr_q_month + 3
+                next_q_year = curr_q_year
+                if next_q_month > 12:
+                    next_q_month -= 12
+                    next_q_year += 1
+                
+                q_num = (next_q_month - 1) // 3 + 1
+                q_label = f"Q{q_num} {next_q_year}"
+                
+                key = "0q" if i == 1 else f"+{i-1}q"
+                mapping[key] = q_label
+                
+                curr_q_month = next_q_month
+                curr_q_year = next_q_year
 
-        # Smarter FY mapping
-        # If we are in March 2026, and FY 2025 ended in Nov 2025 (Adobe):
-        # 0y is FY 2026.
-        # Yahoo '0y' usually refers to the CURRENT fiscal year estimates.
-        # We can try to pick up the year from info if it mentions forward years.
-        
-        # Simple but effective: Yahoo 0y is almost always the Year that includes Today.
+        # FY handling
+        # If today is after the last fiscal year end, 0y usually refers to the CURRENT fiscal year.
+        # Yahoo's 0y/1y are usually aligned with the current and next full fiscal year estimates.
         mapping["0y"] = f"FY {curr_year}"
         mapping["+1y"] = f"FY {curr_year + 1}"
-        
-        # Special case: if FY ends in Jan/Feb, FY 2026 might actually mean fiscal year 2025.
-        # But per user request: "Pentru companii care sunt in FY 2026, next year va fi 2027".
     except:
         pass
         
@@ -675,6 +665,7 @@ def get_analyst_data(ticker_symbol: str) -> dict:
     - EPS history (actual vs estimate, last 4 quarters)
     """
     try:
+        from datetime import datetime
         stock = yf.Ticker(ticker_symbol)
         info  = stock.info
         labels = get_period_labels(info)
@@ -698,13 +689,14 @@ def get_analyst_data(ticker_symbol: str) -> dict:
             rec_df = stock.recommendations_summary          # DataFrame with period, strongBuy, buy, hold, sell, strongSell
             if rec_df is not None and not rec_df.empty:
                 latest = rec_df.iloc[0]
-                for k in rec_counts:
-                    rec_counts[k] = int(latest.get(k, 0))
         except Exception:
             pass
 
-        # ── EPS Estimates ────────────────────────────────────────────────────────
+        # ── INITIALIZE LISTS ──────────────────────────────────────────────────
         eps_estimates = []
+        rev_estimates = []
+
+        # ── Yahoo EPS Estimates ──────────────────────────────────────────────────
         try:
             import pandas as pd
             ef = stock.earnings_estimate
@@ -724,10 +716,9 @@ def get_analyst_data(ticker_symbol: str) -> dict:
                         "growth": float(growth) if growth is not None and not (isinstance(growth, float) and pd.isna(growth)) else None,
                     })
         except Exception as e:
-            print(f"[Analyst] EPS estimates error: {e}")
+            print(f"[Analyst] Yahoo EPS error: {e}")
 
-        # ── Revenue Estimates ─────────────────────────────────────────────────────
-        rev_estimates = []
+        # ── Yahoo Revenue Estimates ─────────────────────────────────────────────
         try:
             import pandas as pd
             rf = stock.revenue_estimate
@@ -735,19 +726,76 @@ def get_analyst_data(ticker_symbol: str) -> dict:
                 for period_idx, row in rf.iterrows():
                     p_key = str(period_idx)
                     avg = row.get('avg') if hasattr(row, 'get') else None
-                    low_r = row.get('low') if hasattr(row, 'get') else None
-                    high_r = row.get('high') if hasattr(row, 'get') else None
                     growth = row.get('growth') if hasattr(row, 'get') else None
                     rev_estimates.append({
                         "period": labels.get(p_key, p_key),
                         "period_code": p_key,
                         "avg": float(avg) if avg is not None and not (isinstance(avg, float) and pd.isna(avg)) else None,
-                        "low": float(low_r) if low_r is not None and not (isinstance(low_r, float) and pd.isna(low_r)) else None,
-                        "high": float(high_r) if high_r is not None and not (isinstance(high_r, float) and pd.isna(high_r)) else None,
                         "growth": float(growth) if growth is not None and not (isinstance(growth, float) and pd.isna(growth)) else None,
                     })
         except Exception as e:
-            print(f"[Analyst] Revenue estimates error: {e}")
+            print(f"[Analyst] Yahoo Revenue error: {e}")
+
+        # ── FALLBACK: Nasdaq (fetch missing quarters) ──────────────────────────
+        n_data = None
+        if len([e for e in eps_estimates if 'q' in e['period_code']]) < 4 or len([e for e in rev_estimates if 'q' in e['period_code']]) < 4:
+            try:
+                nasdaq_url = f"https://api.nasdaq.com/api/analyst/{ticker_symbol}/earnings-forecast"
+                headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"}
+                req = urllib.request.Request(nasdaq_url, headers=headers)
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    n_data = json.loads(resp.read())
+            except Exception as ne:
+                print(f"Nasdaq fallback fetch failed: {ne}")
+
+        if n_data:
+            # Nasdaq EPS Quarters
+            q_forecasts = n_data.get('data', {}).get('quarterlyForecast', {}).get('rows', [])
+            for i, qf in enumerate(q_forecasts[:4]):
+                p_code = "0q" if i == 0 else f"+{i}q"
+                existing = next((e for e in eps_estimates if e['period_code'] == p_code), None)
+                avg = qf.get('consensusEPSForecast')
+                if avg and avg != "N/A":
+                    avg_val = float(str(avg).replace('$', '').replace(',', ''))
+                    if existing:
+                        existing['avg'] = avg_val
+                    else:
+                        eps_estimates.append({"period": labels.get(p_code, p_code), "period_code": p_code, "avg": avg_val, "low": None, "high": None, "growth": None})
+            
+            # Nasdaq Revenue Quarters
+            r_forecasts = n_data.get('data', {}).get('revenueForecast', {}).get('rows', [])
+            for i, rf in enumerate(r_forecasts[:4]):
+                p_code = "0q" if i == 0 else f"+{i}q"
+                existing = next((e for e in rev_estimates if e['period_code'] == p_code), None)
+                avg = rf.get('consensusRevenueForecast')
+                if avg and avg != "N/A":
+                    avg_str = str(avg).replace('$', '').replace(',', '').replace('B', '').replace('M', '').strip()
+                    try:
+                        avg_val = float(avg_str)
+                        if 'M' in str(avg): avg_val /= 1000.0
+                        if existing:
+                            existing['avg'] = avg_val
+                        else:
+                            rev_estimates.append({"period": labels.get(p_code, p_code), "period_code": p_code, "avg": avg_val, "growth": None})
+                    except: pass
+
+        # ── POST-PROCESSING: Growth & Sorting ───────────────────────────────────
+        last_fy_eps = info.get('trailingEps')
+        for est in eps_estimates:
+            if est['period_code'] == '0y' and est['avg'] and last_fy_eps:
+                if est['growth'] is None:
+                    est['growth'] = (est['avg'] - last_fy_eps) / abs(last_fy_eps)
+
+        def sort_key(e):
+            code = e['period_code']
+            order = {"0q": 1, "+1q": 2, "+2q": 3, "+3q": 4, "0y": 5, "+1y": 6}
+            return order.get(code, 99)
+
+        eps_estimates.sort(key=sort_key)
+        eps_estimates = eps_estimates[:6]
+
+        rev_estimates.sort(key=sort_key)
+        rev_estimates = rev_estimates[:6]
 
         # ── EPS Surprise History (last 4 quarters) ────────────────────────────────
         eps_history = []

@@ -699,7 +699,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // EPS Table
             const epsBody = document.querySelector('#eps-est-table tbody');
-            (data.eps_estimates || []).slice(0, 4).forEach(row => {
+            (data.eps_estimates || []).slice(0, 6).forEach(row => {
                 epsBody.innerHTML += `<tr>
                     <td style="padding: 0.4rem 0;">${row.period}</td>
                     <td style="text-align: right; font-weight: 600;">${fvScale(row.avg)}</td>
@@ -709,7 +709,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Revenue Table
             const revBody = document.querySelector('#rev-est-table tbody');
-            (data.rev_estimates || []).slice(0, 4).forEach(row => {
+            (data.rev_estimates || []).slice(0, 6).forEach(row => {
                 revBody.innerHTML += `<tr>
                     <td style="padding: 0.4rem 0;">${row.period}</td>
                     <td style="text-align: right; font-weight: 600;">${fvM(row.avg)}</td>
