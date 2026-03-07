@@ -60,15 +60,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const lynchMult = document.getElementById('lynch-multiple');
         if (lynchMult) lynchMult.value = 'PE 20';
 
-        ['dcf-custom-inputs', 'lynch-custom-multiple-inputs', 'lynch-custom-inputs', 'peg-custom-inputs', 'dcf-custom-input-group', 'lynch-custom-input-group', 'peg-custom-input-group'].forEach(id => {
+        ['dcf-custom-inputs', 'lynch-custom-multiple-inputs', 'lynch-custom-inputs', 'peg-custom-inputs', 'dcf-custom-input-group', 'lynch-custom-input-group', 'peg-custom-input-group', 'dcf-buyback-custom-inputs'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.style.display = 'none';
         });
 
-        ['dcf-custom-growth', 'dcf-custom-wacc', 'dcf-custom-perp', 'lynch-custom-mult', 'lynch-custom-growth', 'peg-custom-growth'].forEach(id => {
+        ['dcf-custom-growth', 'dcf-custom-wacc', 'dcf-custom-perp', 'lynch-custom-mult', 'lynch-custom-growth', 'peg-custom-growth', 'dcf-custom-buyback'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.value = '';
         });
+
+        // Reset buyback selector to "None"
+        const buybackSel = document.getElementById('dcf-buyback-source');
+        if (buybackSel) buybackSel.value = 'none';
 
         // UI Reset
         autocompleteList.style.display = 'none';
@@ -268,8 +272,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const lynchStatus = document.getElementById('lynch-status');
         const lynchFairValue = document.getElementById('lynch-fair-value');
 
-        // Helper to calculate DCF locally
-        const calcLocalDcf = (fcf, growth, wacc, perp, shares, cash, debt) => {
+        // Helper to calculate DCF locally (with optional share buyback rate)
+        const calcLocalDcf = (fcf, growth, wacc, perp, shares, cash, debt, buybackRate = 0) => {
             if (!fcf || !shares || shares <= 0) return null;
             let pv = 0;
             let f = fcf;
@@ -281,7 +285,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const pvTv = tv / Math.pow(1 + wacc, 5);
             const ev = pv + pvTv;
             const eqVal = ev + (cash || 0) - (debt || 0);
-            return eqVal > 0 ? eqVal / shares : null;
+            if (eqVal <= 0) return null;
+            // Apply buyback: shares reduce by buybackRate%/yr compounded over 5 years
+            const effectiveShares = shares * Math.pow(1 - (buybackRate || 0), 5);
+            return eqVal / (effectiveShares > 0 ? effectiveShares : shares);
         };
 
         // Logic for Dynamic Recalculation
@@ -297,19 +304,40 @@ document.addEventListener('DOMContentLoaded', () => {
                 const dcfInputs = document.getElementById('dcf-custom-inputs');
                 if (dcfInputs) dcfInputs.style.display = fcfSource === 'custom' ? 'flex' : 'none';
 
+                // Buyback
+                const buybackEl = document.getElementById('dcf-buyback-source');
+                const buybackSrc = buybackEl ? buybackEl.value : 'none';
+                const buybackCustomInputs = document.getElementById('dcf-buyback-custom-inputs');
+                if (buybackCustomInputs) buybackCustomInputs.style.display = buybackSrc === 'custom' ? 'flex' : 'none';
+
+                let buybackRate = 0;
+                if (buybackSrc === 'historical') {
+                    buybackRate = currentFormulaData.dcf.historic_buyback_rate || 0;
+                } else if (buybackSrc === 'custom') {
+                    buybackRate = parseFloat(document.getElementById('dcf-custom-buyback').value) / 100 || 0;
+                }
+
                 const baseFcf = currentFormulaData.dcf.fcf;
                 const shares = prof.shares_outstanding;
 
                 if (fcfSource === 'analyst') {
-                    dcfVal = currentFormulaData.dcf.intrinsic_value;
+                    if (buybackRate === 0) {
+                        dcfVal = currentFormulaData.dcf.intrinsic_value;
+                    } else {
+                        // Re-calculate with buyback rate applied on top of analyst FCF value
+                        const g = currentFormulaData.dcf.eps_growth_estimated || 0.10;
+                        const w = currentFormulaData.dcf.discount_rate || 0.09;
+                        const p = currentFormulaData.dcf.perpetual_growth || 0.02;
+                        dcfVal = calcLocalDcf(baseFcf, g, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate);
+                    }
                 } else if (fcfSource === 'historical') {
                     const hg = prof.historic_fcf_growth != null ? prof.historic_fcf_growth : 0.05;
-                    dcfVal = calcLocalDcf(baseFcf, hg, 0.09, 0.02, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt);
+                    dcfVal = calcLocalDcf(baseFcf, hg, 0.09, 0.02, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate);
                 } else if (fcfSource === 'custom') {
                     const g = parseFloat(document.getElementById('dcf-custom-growth').value) / 100 || 0.15;
                     const w = parseFloat(document.getElementById('dcf-custom-wacc').value) / 100 || 0.09;
                     const p = parseFloat(document.getElementById('dcf-custom-perp').value) / 100 || 0.025;
-                    dcfVal = calcLocalDcf(baseFcf, g, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt);
+                    dcfVal = calcLocalDcf(baseFcf, g, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate);
                 }
             }
             setValuationStatus(dcfVal, data.current_price, 'dcf-status', 'dcf-value');
@@ -437,6 +465,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Custom Estimations Bindings
         const inputSelectors = [
             'fcf-source', 'dcf-custom-growth', 'dcf-custom-wacc', 'dcf-custom-perp',
+            'dcf-buyback-source', 'dcf-custom-buyback',
             'lynch-multiple', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth',
             'peg-eps-source', 'peg-custom-growth'
         ];

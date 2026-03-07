@@ -41,13 +41,18 @@ def calculate_peg_fair_value(eps: float, growth_rate: float):
         
     return eps * (growth_rate * 100)
 
-def calculate_dcf(fcf: float, growth_rate: float, discount_rate: float, perpetual_growth: float, shares_outstanding: int, total_cash: float = 0, total_debt: float = 0, years: int = 5):
+def calculate_dcf(fcf: float, growth_rate: float, discount_rate: float, perpetual_growth: float, shares_outstanding: int, total_cash: float = 0, total_debt: float = 0, years: int = 5, buyback_rate: float = 0.0):
     """
     Discounted Cash Flow (DCF). Returns granular dictionary.
+    buyback_rate: annual share reduction rate (e.g. 0.03 = 3%/yr buyback).
+      After `years` years, effective shares = shares * (1 - buyback_rate)^years.
+      This increases per-share intrinsic value proportionally.
     """
     if not all([fcf, shares_outstanding]):
         return None
-        
+
+    buyback_rate = float(buyback_rate or 0.0)
+
     cash_flows = []
     pv_cash_flows_list = []
     current_fcf = fcf
@@ -56,23 +61,28 @@ def calculate_dcf(fcf: float, growth_rate: float, discount_rate: float, perpetua
         cash_flows.append(current_fcf)
         pv = current_fcf / ((1 + discount_rate) ** i)
         pv_cash_flows_list.append(pv)
-        
+
     # Discount Cash Flows Additive
     sum_pv_cf = sum(pv_cash_flows_list)
-    
+
     # Terminal Value
     terminal_value = (cash_flows[-1] * (1 + perpetual_growth)) / (discount_rate - perpetual_growth)
     pv_terminal_value = terminal_value / ((1 + discount_rate) ** years)
-    
+
     total_enterprise_value = sum_pv_cf + pv_terminal_value
-    
+
     # Bridge to Equity Value
     safe_cash = total_cash if total_cash is not None else 0
     safe_debt = total_debt if total_debt is not None else 0
     equity_value = total_enterprise_value + safe_cash - safe_debt
-    
-    implied_value_per_share = equity_value / shares_outstanding
-    
+
+    # Apply share buyback: shares shrink each year, boosting per-share value
+    effective_shares = shares_outstanding * ((1 - buyback_rate) ** years)
+    if effective_shares <= 0:
+        effective_shares = shares_outstanding
+
+    implied_value_per_share = equity_value / effective_shares
+
     return {
         "fair_value": implied_value_per_share,
         "fcf_years": cash_flows,
@@ -83,7 +93,9 @@ def calculate_dcf(fcf: float, growth_rate: float, discount_rate: float, perpetua
         "enterprise_value": total_enterprise_value,
         "total_cash": safe_cash,
         "total_debt": safe_debt,
-        "equity_value": equity_value
+        "equity_value": equity_value,
+        "effective_shares": effective_shares,
+        "buyback_rate_applied": buyback_rate
     }
     
 def calculate_dcf_sensitivity(fcf: float, growth_rate: float, shares_outstanding: int, total_cash: float = 0, total_debt: float = 0, years: int = 5, base_discount: float = 0.09, base_perp: float = 0.02):

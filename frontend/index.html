@@ -19,7 +19,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=10">
+    <link rel="stylesheet" href="style.css?v=11">
 </head>
 
 <body>
@@ -209,6 +209,28 @@
                                             style="font-size: 0.8rem; color: var(--text-muted);">Perpetual Growth
                                             (%)</label>
                                         <input type="number" id="dcf-custom-perp" placeholder="2.5"
+                                            style="width: 60px; background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--card-border); border-radius: 4px; padding: 0.2rem; outline: none; text-align: right;">
+                                    </div>
+                                </div>
+                                <!-- Share Buybacks row -->
+                                <div
+                                    style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-top: 0.5rem;">
+                                    <label for="dcf-buyback-source"
+                                        style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500; white-space: nowrap;">Buybacks</label>
+                                    <select id="dcf-buyback-source"
+                                        style="background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--card-border); border-radius: 4px; padding: 0.3rem 0.5rem; font-family: 'Outfit', sans-serif; font-size: 0.85rem; outline: none; cursor: pointer;">
+                                        <option value="none">None</option>
+                                        <option value="historical">Historical</option>
+                                        <option value="custom">Custom</option>
+                                    </select>
+                                </div>
+                                <div id="dcf-buyback-custom-inputs"
+                                    style="display: none; flex-direction: column; gap: 0.4rem; margin-top: 0.3rem;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <label for="dcf-custom-buyback"
+                                            style="font-size: 0.8rem; color: var(--text-muted);">Buyback Rate
+                                            (%/yr)</label>
+                                        <input type="number" id="dcf-custom-buyback" placeholder="2"
                                             style="width: 60px; background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--card-border); border-radius: 4px; padding: 0.2rem; outline: none; text-align: right;">
                                     </div>
                                 </div>
@@ -470,7 +492,7 @@
 
     </div>
 
-    <script src="app.js?v=10"></script>
+    <script src="app.js?v=11"></script>
 </body>
 
 </html>

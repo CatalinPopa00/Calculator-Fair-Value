@@ -1141,6 +1141,8 @@ body {
     max-width: 600px;
     max-height: 80vh;
     overflow-y: auto;
+    overflow-x: hidden;
+    box-sizing: border-box;
     position: relative;
 }
 
@@ -1460,5 +1462,34 @@ body {
     .breakdown-grid {
         grid-template-columns: 1fr;
         gap: 0.5rem;
+    }
+
+    /* Modal: prevent overflow on S25 / narrow screens */
+    .modal-content {
+        width: 95%;
+        box-sizing: border-box;
+        overflow-x: hidden;
+    }
+
+    .formula-section {
+        padding: 0.75rem;
+    }
+
+    .table-responsive {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        max-width: 100%;
+    }
+
+    .sensitivity-matrix,
+    .trends-table {
+        font-size: 0.78rem;
+    }
+
+    .sensitivity-matrix th,
+    .sensitivity-matrix td,
+    .trends-table th,
+    .trends-table td {
+        padding: 0.3rem 0.35rem;
     }
 }

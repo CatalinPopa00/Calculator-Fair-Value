@@ -241,6 +241,34 @@ def get_company_data(ticker_symbol: str):
         # Using revenueGrowth as a proxy for the next 3 years if specific analyst estimates aren't pulled
         next_3y_rev_est = info.get('revenueGrowth')
 
+        # Historic Buyback Rate: avg annual reduction in shares outstanding (positive = buyback)
+        historic_buyback_rate = None
+        try:
+            bs = stock.balance_sheet
+            if 'Ordinary Shares Number' in bs.index:
+                shares_row = bs.loc['Ordinary Shares Number'].dropna()
+            elif 'Share Issued' in bs.index:
+                shares_row = bs.loc['Share Issued'].dropna()
+            elif 'Common Stock' in bs.index:
+                shares_row = bs.loc['Common Stock'].dropna()
+            else:
+                shares_row = None
+
+            if shares_row is not None and len(shares_row) >= 2:
+                vals = shares_row.head(3).tolist()  # newest first
+                yoy_rates = []
+                for i in range(len(vals) - 1):
+                    s_new = vals[i]
+                    s_old = vals[i + 1]
+                    if s_old > 0:
+                        change = (s_old - s_new) / s_old  # positive means reduction (buyback)
+                        yoy_rates.append(change)
+                if yoy_rates:
+                    historic_buyback_rate = sum(yoy_rates) / len(yoy_rates)
+                    historic_buyback_rate = max(0.0, historic_buyback_rate)  # clamp: ignore share issuance
+        except Exception:
+            pass
+
         # Historical Trends for anchor charts (Revenue, Net Margin, FCF)
         historical_trends = []
         try:
@@ -296,6 +324,7 @@ def get_company_data(ticker_symbol: str):
             "eps_growth": eps_growth,
             "fcf": fcf,
             "historic_fcf_growth": historic_fcf_growth,
+            "historic_buyback_rate": historic_buyback_rate,
             "shares_outstanding": shares_outstanding,
             "total_cash": total_cash,
             "total_debt": total_debt,

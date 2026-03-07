@@ -201,6 +201,7 @@ def get_valuation(ticker: str):
             "discount_rate": discount_rate,
             "perpetual_growth": perpetual_growth,
             "shares_outstanding": shares,
+            "historic_buyback_rate": sanitize(data.get("historic_buyback_rate")),
             "fcf_years": [sanitize(x) for x in dcf_result.get("fcf_years", [])] if dcf_result else [],
             "pv_fcf_years": [sanitize(x) for x in dcf_result.get("pv_fcf_years", [])] if dcf_result else [],
             "terminal_value": sanitize(dcf_result.get("terminal_value")) if dcf_result else None,
