@@ -131,9 +131,10 @@ def get_company_data(ticker_symbol: str):
         sector = info.get('sector')
         industry = info.get('industry')
         
-        # Start Nasdaq growth fetch in background while processing info
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as nasdaq_executor:
+        # Start background fetches while processing info
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as nasdaq_executor:
             future_growth = nasdaq_executor.submit(get_nasdaq_earnings_growth, ticker_symbol, info.get('trailingEps'))
+            future_est = nasdaq_executor.submit(lambda: stock.earnings_estimate)
 
             # Valuation Multiples & EPS
             trailing_eps = info.get('trailingEps') or info.get('epsTrailingTwelveMonths')
@@ -142,10 +143,21 @@ def get_company_data(ticker_symbol: str):
             forward_pe = info.get('forwardPE')
             ps_ratio = info.get('priceToSalesTrailing12Months')
             
-            # Get next year growth
+            # 1. Try Nasdaq growth
             eps_growth = future_growth.result(timeout=5)
             
-            # Fallback to Yahoo if Nasdaq fails
+            # 2. Try YF earnings_estimate for +1y (Forward Year)
+            if eps_growth is None:
+                try:
+                    ef = future_est.result(timeout=2)
+                    if ef is not None and not ef.empty and '+1y' in ef.index:
+                        growth_val = ef.loc['+1y'].get('growth')
+                        if growth_val is not None:
+                            eps_growth = float(growth_val)
+                except Exception:
+                    pass
+
+            # 3. Fallback to info.get('earningsGrowth') or trailing/forward calc
             if eps_growth is None:
                 eps_growth = info.get('earningsGrowth')
                 if not eps_growth and forward_eps and trailing_eps and trailing_eps > 0:
@@ -625,8 +637,15 @@ def get_analyst_data(ticker_symbol: str) -> dict:
         except Exception as e:
             print(f"[Analyst] EPS history error: {e}")
 
-        # ── 5-yr EPS CAGR from info ───────────────────────────────────────────────
-        eps_5yr_growth = info.get('earningsGrowth')  # or use analyst long-term growth
+        # ── EPS growth from estimates ─────────────────────────────────────────────
+        # Try to find a stable forward growth rate to match calculations
+        eps_forward_growth = info.get('earningsGrowth') # fallback
+        if eps_estimates:
+            # Prefer +1y growth which is what users usually see in the table
+            for est in eps_estimates:
+                if est['period'] == '+1y' and est['growth'] is not None:
+                    eps_forward_growth = est['growth']
+                    break
 
         return {
             "ticker": ticker_symbol.upper(),
@@ -644,7 +663,7 @@ def get_analyst_data(ticker_symbol: str) -> dict:
                 "mean": rec_mean,
                 "counts": rec_counts
             },
-            "eps_5yr_growth": eps_5yr_growth,
+            "eps_5yr_growth": eps_forward_growth, # Renamed or repurposed for consistency
             "eps_estimates":  eps_estimates,
             "rev_estimates":  rev_estimates,
             "eps_history":    eps_history

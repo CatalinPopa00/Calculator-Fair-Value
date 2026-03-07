@@ -430,29 +430,31 @@ document.addEventListener('DOMContentLoaded', () => {
             let relVal = null;
             const rel = currentFormulaData.relative;
             if (rel) {
-                const fvPeers = (rel.median_peer_pe && rel.company_eps) ? rel.median_peer_pe * rel.company_eps : null;
+                const fvMedian = (rel.median_peer_pe && rel.company_eps) ? rel.median_peer_pe * rel.company_eps : null;
+                const fvMean = (rel.mean_peer_pe && rel.company_eps) ? rel.mean_peer_pe * rel.company_eps : null;
                 const fvSP500 = (rel.market_pe_trailing && rel.company_eps) ? rel.market_pe_trailing * rel.company_eps : null;
 
                 const variantEl = document.getElementById('relative-variant');
                 const variant = variantEl ? variantEl.value : 'peers';
 
                 if (variant === 'peers') {
-                    relVal = fvPeers;
+                    relVal = fvMedian;
+                } else if (variant === 'average') {
+                    relVal = fvMean;
                 } else if (variant === 'sp500') {
                     relVal = fvSP500;
-                } else if (variant === 'average') {
-                    const available = [fvPeers, fvSP500].filter(v => v != null && v > 0);
-                    relVal = available.length > 0 ? available.reduce((a, b) => a + b, 0) / available.length : null;
                 }
 
                 // Update info text
                 const mc = document.getElementById('relative-market-compare');
                 if (mc) {
                     const mpe = rel.market_pe_trailing != null ? rel.market_pe_trailing.toFixed(1) + 'x' : '--';
-                    const peerPe = rel.median_peer_pe != null ? rel.median_peer_pe.toFixed(1) + 'x' : '--';
-                    if (variant === 'peers') mc.textContent = `Peer Median P/E: ${peerPe}`;
+                    const peerMedianPe = rel.median_peer_pe != null ? rel.median_peer_pe.toFixed(1) + 'x' : '--';
+                    const peerMeanPe = rel.mean_peer_pe != null ? rel.mean_peer_pe.toFixed(1) + 'x' : '--';
+
+                    if (variant === 'peers') mc.textContent = `Peer Median P/E: ${peerMedianPe}`;
+                    else if (variant === 'average') mc.textContent = `Peer Mean P/E: ${peerMeanPe}`;
                     else if (variant === 'sp500') mc.textContent = `S&P 500 Trailing P/E: ${mpe}`;
-                    else mc.textContent = `Peers: ${peerPe} · S&P 500: ${mpe}`;
                 }
             }
             setValuationStatus(relVal, data.current_price, 'relative-status', 'relative-value');

@@ -179,12 +179,14 @@ def get_valuation(ticker: str):
             return None
         return round(val, 2)
         
-    # Calculate Median Peer PE safely
+    # Calculate Peer PE stats safely
     median_peer_pe = None
+    mean_peer_pe = None
     if peers_data:
         valid_pes = [p.get('pe_ratio') for p in peers_data if p.get('pe_ratio')]
         if valid_pes:
             median_peer_pe = statistics.median(valid_pes)
+            mean_peer_pe = sum(valid_pes) / len(valid_pes)
 
     # Calculate Current PE for PEG transparency
     current_pe = current_price / data.get("trailing_eps") if data.get("trailing_eps") and data.get("trailing_eps") > 0 else None
@@ -199,16 +201,14 @@ def get_valuation(ticker: str):
             "historic_pe": sanitize(pe_historic),
             "fwd_pe": sanitize(lynch_fwd_pe),
             "fair_value": sanitize(lynch_fair_value),
-            "fair_value_pe_20": sanitize(lynch_result.get("fair_value_pe_20")),
-            "fair_value_sector_pe": sanitize(lynch_result.get("fwd_eps") * median_peer_pe) if lynch_result.get("fwd_eps") and median_peer_pe else None
+            "fair_value_pe_20": sanitize(lynch_pe20_val),
+            "status": lynch_status
         },
         "peg": {
-            "current_price": sanitize(current_price),
             "company_eps": sanitize(data.get("trailing_eps")),
             "current_pe": sanitize(current_pe),
             "eps_growth_estimated": sanitize(data.get("eps_growth")),
-            "current_peg": sanitize(data.get("peg_ratio")),
-            "peg_ratio_used": 1.0,
+            "current_peg": sanitize(current_pe / (data.get("eps_growth") * 100)) if current_pe and data.get("eps_growth") and data.get("eps_growth") > 0 else None,
             "fair_value": sanitize(peg_value)
         },
         "dcf": {
