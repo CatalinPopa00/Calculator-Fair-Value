@@ -323,87 +323,78 @@ def get_company_data(ticker_symbol: str):
         return None
 
 def get_competitors_data(ticker: str, sector: str, industry: str, market_cap: float = 0, limit: int = 4):
+    """
+    Find real industry peers using the Yahoo Finance Screener (via yfinance.EquityQuery).
+    Filters by exact same industry and a generous market-cap range (10x either side).
+    Falls back to recommendationsbysymbol (with strict industry check) if screener fails.
+    """
     target_ticker = ticker.upper()
     target_tickers = []
-    
-    # 1. Dynamic BFS using Yahoo recommendationsbysymbol if parameters allow
+
+    # ── 1. Primary: Yahoo screener filtered by exact industry + market-cap range ──
     if industry and market_cap and market_cap > 0:
-        queue = [target_ticker]
-        seen = {target_ticker}
-        queries = 0
-        max_queries = 25 # prevent infinite loop or extreme delays
-        
-        while queue and len(target_tickers) < limit and queries < max_queries:
-            current_ticker = queue.pop(0)
-            queries += 1
-            
-            try:
-                url = f"https://query2.finance.yahoo.com/v6/finance/recommendationsbysymbol/{current_ticker}"
-                req = urllib.request.Request(url, headers={'User-Agent': get_random_agent()})
-                with urllib.request.urlopen(req, timeout=5) as response:
-                    data = json.loads(response.read().decode('utf-8'))
-                    recs = data.get('finance', {}).get('result', [{}])[0].get('recommendedSymbols', [])
-                    new_symbols = [r['symbol'] for r in recs if r.get('symbol') and r['symbol'] not in seen]
-            except Exception:
-                new_symbols = []
-                
-            for symbol in new_symbols:
-                seen.add(symbol)
-                queue.append(symbol)
-                
-            # Process in concurrent batches to check info faster
-            if new_symbols:
-                with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(new_symbols), 10)) as exc:
-                    futures = {exc.submit(lambda t: yf.Ticker(t).info, t): t for t in new_symbols}
+        try:
+            import yfinance as yf_screen
+            from yfinance import EquityQuery
+
+            mc_low  = int(market_cap * 0.10)   # 10× smaller
+            mc_high = int(market_cap * 10.0)   # 10× larger
+
+            q = EquityQuery('and', [
+                EquityQuery('eq', ['industry', industry]),
+                EquityQuery('btwn', ['intradaymarketcap', mc_low, mc_high]),
+            ])
+
+            result = yf_screen.screen(q, sortField='intradaymarketcap', sortAsc=False, size=20)
+            quotes = result.get('quotes', []) if isinstance(result, dict) else []
+
+            for quote in quotes:
+                sym = quote.get('symbol', '').upper()
+                if sym and sym != target_ticker and sym not in target_tickers:
+                    target_tickers.append(sym)
+                if len(target_tickers) >= limit:
+                    break
+
+            print(f"[Screener] Found {len(target_tickers)} industry peers for {target_ticker} in '{industry}'")
+        except Exception as e:
+            print(f"[Screener] EquityQuery failed for {target_ticker}: {e}")
+            target_tickers = []
+
+    # ── 2. Fallback: recommendationsbysymbol with strict industry guard ──
+    if len(target_tickers) < limit and industry:
+        try:
+            url = f"https://query2.finance.yahoo.com/v6/finance/recommendationsbysymbol/{target_ticker}"
+            req = urllib.request.Request(url, headers={'User-Agent': get_random_agent()})
+            with urllib.request.urlopen(req, timeout=5) as response:
+                data = json.loads(response.read().decode('utf-8'))
+                recs = data.get('finance', {}).get('result', [{}])[0].get('recommendedSymbols', [])
+                candidates = [r['symbol'] for r in recs if r.get('symbol') and r['symbol'].upper() != target_ticker]
+
+            if candidates:
+                with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(candidates), 8)) as exc:
+                    futures = {exc.submit(lambda t: yf.Ticker(t).info, t): t for t in candidates}
                     for future in concurrent.futures.as_completed(futures):
                         try:
                             info = future.result()
-                            sym = futures[future]
-                            sym_industry = info.get('industry')
+                            sym = futures[future].upper()
+                            sym_industry = info.get('industry', '')
                             sym_mc = info.get('marketCap', 0)
-                            
-                            if sym_industry == industry and (market_cap * 0.2) <= sym_mc <= (market_cap * 5.0):
-                                if sym not in target_tickers and sym != target_ticker:
-                                    target_tickers.append(sym)
+                            mc_ok = market_cap <= 0 or (market_cap * 0.10 <= sym_mc <= market_cap * 10.0)
+                            if sym_industry == industry and mc_ok and sym not in target_tickers:
+                                target_tickers.append(sym)
                         except Exception:
                             pass
-                            
-            if len(target_tickers) >= limit:
-                break
-                
-        target_tickers = target_tickers[:limit]
+                        if len(target_tickers) >= limit:
+                            break
 
-    # 2. Fallback to hardcoded list if the dynamic crawler fails to find enough peers
-    if len(target_tickers) < limit:
-        hardcoded_peers = {
-            "SOFI": ["UPST", "AFRM", "NU", "HOOD"],
-            "PLTR": ["SNOW", "DDOG", "NET", "CRWD"],
-            "FISV": ["V", "MA", "PYPL", "GPN"],
-            "FI": ["V", "MA", "PYPL", "GPN"],
-            "TSLA": ["RIVN", "LCID", "F", "GM"],
-            "AMZN": ["MSFT", "GOOGL", "META", "AAPL"],
-            "UPS": ["FDX", "DHLGY", "XPO", "ODFL"]
-        }
-        peers_map = {
-            "Technology": ["MSFT", "AAPL", "GOOGL", "META"],
-            "Software - Infrastructure": ["ADBE", "CRM", "INTU", "ORCL"],
-            "Software - Application": ["ADBE", "CRM", "INTU", "WDAY"],
-            "Consumer Cyclical": ["AMZN", "TSLA", "HD", "MCD"],
-            "Financial Services": ["JPM", "BAC", "V", "MA"],
-            "Healthcare": ["JNJ", "UNH", "LLY", "ABBV"],
-            "Integrated Freight & Logistics": ["UPS", "FDX", "DHLGY", "XPO"]
-        }
-        fallback_tickers = hardcoded_peers.get(target_ticker)
-        if not fallback_tickers:
-            fallback_tickers = peers_map.get(industry, peers_map.get(sector, ["MSFT", "AAPL"]))
-        
-        for ft in fallback_tickers:
-            if ft != target_ticker and ft not in target_tickers:
-                target_tickers.append(ft)
-        target_tickers = target_tickers[:limit]
-        
+            print(f"[Fallback] After recommendations, total peers: {len(target_tickers)} for {target_ticker}")
+        except Exception as e:
+            print(f"[Fallback] recommendationsbysymbol failed for {target_ticker}: {e}")
+
+    target_tickers = target_tickers[:limit]
+
+    # ── 3. Fetch full data for validated peers ──
     peer_data = []
-    # 3. Fetch full data for the validated competitors
     if target_tickers:
         with concurrent.futures.ThreadPoolExecutor(max_workers=len(target_tickers)) as executor:
             futures = {executor.submit(get_company_data, t): t for t in target_tickers}
@@ -414,8 +405,9 @@ def get_competitors_data(ticker: str, sector: str, industry: str, market_cap: fl
                         peer_data.append(data)
                 except Exception as e:
                     print(f"Error fetching full data for competitor {futures[future]}: {e}")
-                    
+
     return peer_data
+
 
 def get_market_averages():
     """
