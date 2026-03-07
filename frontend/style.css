@@ -1252,8 +1252,9 @@ body {
 .sensitivity-matrix th,
 .sensitivity-matrix td {
     border: 1px solid rgba(255, 255, 255, 0.1);
-    padding: 0.5rem;
+    padding: 0.6rem 0.4rem;
     text-align: center;
+    min-width: 65px;
 }
 
 .sensitivity-matrix th {
@@ -1471,13 +1472,14 @@ body {
     }
 
     .score-label {
-        width: 60px;
+        width: 75px;
         font-size: 0.78rem;
     }
 
     .score-val {
         font-size: 0.78rem;
-        width: 40px;
+        width: 45px;
+        text-align: right;
     }
 
     /* Expanded breakdown: single column */

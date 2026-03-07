@@ -1330,7 +1330,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     <strong>Fair Value (if PE=20):</strong> <span>$${fv(pl.fair_value_pe_20)}</span>
                                 </li>
                                 <li>
-                                    <strong>Fair Value (if PE=Sector Median):</strong> <span>$${fv(pl.fair_value_sector_pe)}</span>
+                                    <strong>Fair Value (PE=Sector Median):</strong> <span>$${fv(pl.fair_value_sector_pe)}</span>
                                 </li>
                                 <li>
                                     <strong>Fair Value (Historic PE ${fv(pl.historic_pe)}x):</strong> <span style="color:var(--accent); font-weight:bold;">$${fv(pl.fair_value)}</span>
@@ -1367,8 +1367,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     const row = (label, value, highlight = false) => `
                         <tr style="border-bottom:1px solid rgba(255,255,255,0.07);">
-                            <td style="padding:10px 0 10px 0;color:var(--text-muted);white-space:nowrap;vertical-align:top;padding-right:16px;">${label}</td>
-                            <td style="padding:10px 0;text-align:right;font-weight:${highlight ? 700 : 500};color:${highlight ? 'var(--accent)' : 'white'};word-break:break-word;">${value}</td>
+                            <td style="padding:10px 0;color:var(--text-muted);vertical-align:top;padding-right:16px;">${label}</td>
+                            <td style="padding:10px 0 10px 12px;text-align:right;font-weight:${highlight ? 700 : 500};color:${highlight ? 'var(--accent)' : 'white'};word-break:break-word;">${value}</td>
                         </tr>`;
 
                     html += `
@@ -1377,17 +1377,17 @@ document.addEventListener('DOMContentLoaded', () => {
                                 ${row('Company Trailing EPS:', `$${fv(rel.company_eps)}`)}
                                 ${row('Company Trailing P/E:', rel.company_trailing_pe != null ? `${fv(rel.company_trailing_pe)}x` : 'N/A')}
                                 <tr style="border-bottom:1px solid rgba(255,255,255,0.07);">
-                                    <td style="padding:10px 0;color:var(--text-muted);white-space:nowrap;vertical-align:top;padding-right:16px;">Peers Used (Industry):</td>
-                                    <td style="padding:10px 0;text-align:right;">${peersHtml}</td>
+                                    <td style="padding:10px 0;color:var(--text-muted);vertical-align:top;padding-right:16px;">Peers Used (Industry):</td>
+                                    <td style="padding:10px 0 10px 12px;text-align:right;">${peersHtml}</td>
                                 </tr>
                                 ${row('Peer Group Median Trailing P/E:', rel.median_peer_pe != null ? `${fv(rel.median_peer_pe)}x` : 'N/A')}
                                 <tr style="border-top:2px solid rgba(255,255,255,0.12);">
-                                    <td style="padding:12px 0 6px 0;color:var(--text-muted);white-space:nowrap;vertical-align:middle;padding-right:16px;">Fair Value vs. Peers:</td>
-                                    <td style="padding:12px 0 6px 0;text-align:right;font-weight:700;font-size:1.1em;color:${fvPeers ? 'var(--accent)' : 'var(--text-muted)'};">${fvPeers ? '$' + fvPeers : 'N/A'}</td>
+                                    <td style="padding:12px 0 6px 0;color:var(--text-muted);vertical-align:middle;padding-right:16px;">Fair Value vs. Peers:</td>
+                                    <td style="padding:12px 0 6px 12px;text-align:right;font-weight:700;font-size:1.1em;color:${fvPeers ? 'var(--accent)' : 'var(--text-muted)'};">${fvPeers ? '$' + fvPeers : 'N/A'}</td>
                                 </tr>
                                 <tr>
-                                    <td style="padding:6px 0 12px 0;color:var(--text-muted);white-space:nowrap;vertical-align:middle;padding-right:16px;">Fair Value vs. S&amp;P 500:</td>
-                                    <td style="padding:6px 0 12px 0;text-align:right;font-weight:700;font-size:1.1em;color:${fvSP500 ? 'var(--accent)' : 'var(--text-muted)'};">${fvSP500 ? '$' + fvSP500 : 'N/A'}</td>
+                                    <td style="padding:6px 0 12px 0;color:var(--text-muted);vertical-align:middle;padding-right:16px;">Fair Value vs. S&amp;P 500:</td>
+                                    <td style="padding:6px 0 12px 12px;text-align:right;font-weight:700;font-size:1.1em;color:${fvSP500 ? 'var(--accent)' : 'var(--text-muted)'};">${fvSP500 ? '$' + fvSP500 : 'N/A'}</td>
                                 </tr>
                                 <tr>
                                     <td colspan="2" style="padding:4px 0;font-size:0.78em;color:var(--text-muted);">
@@ -1456,7 +1456,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     <table class="sensitivity-matrix" style="min-width: 450px;">
                                         <thead>
                                             <tr>
-                                                <th>WACC \\ Growth</th>
+                                                <th style="font-size: 0.8em; color: var(--text-muted); text-align: left;">WACC \\ g</th>
                                                 ${dcf.sensitivity_matrix[0].values.map(v => `<th>${(v.perpetual_growth * 100).toFixed(1)}%</th>`).join('')}
                                             </tr>
                                         </thead>
