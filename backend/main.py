@@ -241,6 +241,7 @@ def get_valuation(ticker: str):
             "company_trailing_pe": sanitize(pe_historic),
             "peers_used": [p.get("ticker", p) if isinstance(p, dict) else p for p in peers_data] if peers_data else [],
             "median_peer_pe": sanitize(median_peer_pe),
+            "mean_peer_pe": sanitize(mean_peer_pe),
             "market_pe_trailing": sanitize(market_data.get("trailing_pe")),
             "market_pe_forward": sanitize(market_data.get("forward_pe"))
         }

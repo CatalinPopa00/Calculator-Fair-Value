@@ -430,9 +430,9 @@ document.addEventListener('DOMContentLoaded', () => {
             let relVal = null;
             const rel = currentFormulaData.relative;
             if (rel) {
-                const fvMedian = (rel.median_peer_pe && rel.company_eps) ? rel.median_peer_pe * rel.company_eps : null;
-                const fvMean = (rel.mean_peer_pe && rel.company_eps) ? rel.mean_peer_pe * rel.company_eps : null;
-                const fvSP500 = (rel.market_pe_trailing && rel.company_eps) ? rel.market_pe_trailing * rel.company_eps : null;
+                const fvMedian = (rel.median_peer_pe != null && rel.company_eps != null) ? rel.median_peer_pe * rel.company_eps : null;
+                const fvMean = (rel.mean_peer_pe != null && rel.company_eps != null) ? rel.mean_peer_pe * rel.company_eps : null;
+                const fvSP500 = (rel.market_pe_trailing != null && rel.company_eps != null) ? rel.market_pe_trailing * rel.company_eps : null;
 
                 const variantEl = document.getElementById('relative-variant');
                 const variant = variantEl ? variantEl.value : 'peers';

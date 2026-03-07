@@ -143,19 +143,19 @@ def get_company_data(ticker_symbol: str):
             forward_pe = info.get('forwardPE')
             ps_ratio = info.get('priceToSalesTrailing12Months')
             
-            # 1. Try Nasdaq growth
-            eps_growth = future_growth.result(timeout=5)
+            # 1. Try YF earnings_estimate for +1y (Forward Year) - HIGHEST PRIORITY for consistency
+            try:
+                ef = future_est.result(timeout=2)
+                if ef is not None and not ef.empty and '+1y' in ef.index:
+                    growth_val = ef.loc['+1y'].get('growth')
+                    if growth_val is not None:
+                        eps_growth = float(growth_val)
+            except Exception:
+                pass
             
-            # 2. Try YF earnings_estimate for +1y (Forward Year)
+            # 2. Try Nasdaq growth
             if eps_growth is None:
-                try:
-                    ef = future_est.result(timeout=2)
-                    if ef is not None and not ef.empty and '+1y' in ef.index:
-                        growth_val = ef.loc['+1y'].get('growth')
-                        if growth_val is not None:
-                            eps_growth = float(growth_val)
-                except Exception:
-                    pass
+                eps_growth = future_growth.result(timeout=5)
 
             # 3. Fallback to info.get('earningsGrowth') or trailing/forward calc
             if eps_growth is None:
