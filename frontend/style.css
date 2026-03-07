@@ -822,6 +822,11 @@ body {
     justify-content: flex-end;
 }
 
+/* Mobile column label header — hidden on desktop */
+.watchlist-mobile-col-header {
+    display: none;
+}
+
 .watchlist-metric {
     display: flex;
     flex-direction: row;
@@ -1396,26 +1401,42 @@ body {
         right: 0.75rem;
     }
 
-    /* Metrics row: PRICE | FV | MOS all on one line */
+    /* Metrics section: CSS grid with header row + value row, 3 equal columns */
     .watchlist-metrics {
         width: 100%;
-        display: flex;
-        flex-direction: row;
-        justify-content: space-between;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        grid-template-rows: auto auto;
         gap: 0;
         flex-grow: unset;
+        align-items: unset;
     }
 
+    /* Mini header spans full 3 columns in row 1 */
+    .watchlist-mobile-col-header {
+        display: contents;
+        /* lets each span participate in the grid directly */
+    }
+
+    .watchlist-mobile-col-header span {
+        font-size: 0.68rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding-bottom: 0.15rem;
+    }
+
+    /* Each metric div goes in a grid cell (row 2) */
     .watchlist-metric {
-        flex: 1;
+        display: flex;
         flex-direction: column;
         align-items: flex-start;
-        gap: 0.15rem;
+        gap: 0;
     }
 
     .watchlist-metric .label {
-        font-size: 0.7rem;
-        margin-bottom: 0;
+        display: none;
+        /* hide inline labels — replaced by header */
     }
 
     .watchlist-metric .value {
@@ -1431,6 +1452,7 @@ body {
         padding-left: 0;
         justify-content: flex-start;
     }
+
 
     /* Scores row: side by side */
     .watchlist-scores-container {

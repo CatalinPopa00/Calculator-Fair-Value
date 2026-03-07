@@ -685,15 +685,18 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     </div>
                     <div class="watchlist-metrics">
+                        <div class="watchlist-mobile-col-header">
+                            <span>PRICE</span>
+                            <span>FAIR VALUE</span>
+                            <span>MOS</span>
+                        </div>
                         <div class="watchlist-metric col-price">
                             <span class="value">${data.current_price != null ? formatCurrency(data.current_price) : 'N/A'}</span>
                         </div>
                         <div class="watchlist-metric col-fv">
-                            <span class="label">FV:</span>
                             <span class="value">${data.fair_value != null ? formatCurrency(data.fair_value) : 'N/A'}</span>
                         </div>
                         <div class="watchlist-metric col-mos">
-                            <span class="label">MOS:</span>
                             <span class="value" style="color: ${mosColor}; font-weight: 700;">${mosText}</span>
                         </div>
                     </div>
