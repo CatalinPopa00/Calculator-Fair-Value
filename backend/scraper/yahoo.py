@@ -755,14 +755,23 @@ def get_analyst_data(ticker_symbol: str) -> dict:
             import pandas as pd
             eh = stock.earnings_history
             if eh is not None and not eh.empty:
-                for _, row in eh.tail(4).iterrows():
-                    date_val = row.get('quarter') if hasattr(row, 'get') else None
+                for idx, row in eh.tail(4).iterrows():
+                    # 'idx' is the date from DatetimeIndex
                     eps_act = row.get('epsActual') if hasattr(row, 'get') else None
                     eps_est = row.get('epsEstimate') if hasattr(row, 'get') else None
                     surprise = row.get('epsDifference') if hasattr(row, 'get') else None
                     surprise_pct = row.get('surprisePercent') if hasattr(row, 'get') else None
+                    
+                    # Format date to QX YYYY
+                    date_str = "--"
+                    if isinstance(idx, (pd.Timestamp, datetime)):
+                        q_num = (idx.month - 1) // 3 + 1
+                        date_str = f"Q{q_num} {idx.year}"
+                    elif idx:
+                        date_str = str(idx)
+
                     eps_history.append({
-                        "quarter": str(date_val) if date_val else None,
+                        "quarter": date_str,
                         "actual":   float(eps_act) if eps_act is not None and not (isinstance(eps_act, float) and pd.isna(eps_act)) else None,
                         "estimate": float(eps_est) if eps_est is not None and not (isinstance(eps_est, float) and pd.isna(eps_est)) else None,
                         "surprise": float(surprise) if surprise is not None and not (isinstance(surprise, float) and pd.isna(surprise)) else None,
