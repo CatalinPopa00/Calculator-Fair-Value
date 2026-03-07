@@ -17,6 +17,9 @@ USER_AGENTS = [
 def get_random_agent():
     return random.choice(USER_AGENTS)
 
+# Global cache for market averages (SPY) with 1-hour TTL
+_market_cache = {"data": None, "timestamp": 0}
+
 def get_nasdaq_earnings_growth(ticker: str, trailing_eps: float) -> float:
     """Fetches the 1-year forward earnings growth estimate from Nasdaq."""
     if not trailing_eps or trailing_eps <= 0:
@@ -92,41 +95,65 @@ def get_company_data(ticker_symbol: str):
     """
     try:
         stock = yf.Ticker(ticker_symbol)
-        info = stock.info
         
+        # Parallelize data fetching using ThreadPoolExecutor
+        # fetching info, cashflow, and financials simultaneously
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+            future_info = executor.submit(lambda: stock.info)
+            future_cf = executor.submit(lambda: stock.cashflow)
+            future_fin = executor.submit(lambda: stock.financials)
+            
+            # Wait for main info first as it is critical
+            try:
+                info = future_info.result(timeout=10)
+            except Exception:
+                info = {}
+
         # If it's a name instead of a ticker, Yahoo might return empty/basic info. Fallback to search query.
         if not info or ('shortName' not in info and 'currentPrice' not in info and 'regularMarketPrice' not in info):
             resolved = resolve_company_name(ticker_symbol)
             if resolved and resolved != ticker_symbol:
                 ticker_symbol = resolved
                 stock = yf.Ticker(ticker_symbol)
-                info = stock.info
-        
+                # Re-run parallel fetch for the resolved ticker
+                with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+                    future_info = executor.submit(lambda: stock.info)
+                    future_cf = executor.submit(lambda: stock.cashflow)
+                    future_fin = executor.submit(lambda: stock.financials)
+                    try:
+                        info = future_info.result(timeout=10)
+                    except Exception:
+                        info = {}
+
         # Basic Price and Identifying Info
         current_price = info.get('currentPrice') or info.get('regularMarketPrice')
         name = info.get('shortName', ticker_symbol)
         sector = info.get('sector')
         industry = info.get('industry')
         
-        # Valuation Multiples & EPS
-        trailing_eps = info.get('trailingEps') or info.get('epsTrailingTwelveMonths')
-        forward_eps = info.get('forwardEps')
-        pe_ratio = info.get('trailingPE')
-        forward_pe = info.get('forwardPE')
-        ps_ratio = info.get('priceToSalesTrailing12Months')
-        
-        # Calculate next year growth using NASDAQ explicitly as requested
-        eps_growth = get_nasdaq_earnings_growth(ticker_symbol, trailing_eps)
-        
-        # Fallback to Yahoo if Nasdaq fails
-        if eps_growth is None:
-            eps_growth = info.get('earningsGrowth')
-            if not eps_growth and forward_eps and trailing_eps and trailing_eps > 0:
-                eps_growth = (forward_eps - trailing_eps) / trailing_eps
-            elif not eps_growth:
-                eps_growth = info.get('revenueGrowth', 0.05)
+        # Start Nasdaq growth fetch in background while processing info
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as nasdaq_executor:
+            future_growth = nasdaq_executor.submit(get_nasdaq_earnings_growth, ticker_symbol, info.get('trailingEps'))
+
+            # Valuation Multiples & EPS
+            trailing_eps = info.get('trailingEps') or info.get('epsTrailingTwelveMonths')
+            forward_eps = info.get('forwardEps')
+            pe_ratio = info.get('trailingPE')
+            forward_pe = info.get('forwardPE')
+            ps_ratio = info.get('priceToSalesTrailing12Months')
             
-        # Calculate PEG explicitly based on next year's growth so it always aligns with user request
+            # Get next year growth
+            eps_growth = future_growth.result(timeout=5)
+            
+            # Fallback to Yahoo if Nasdaq fails
+            if eps_growth is None:
+                eps_growth = info.get('earningsGrowth')
+                if not eps_growth and forward_eps and trailing_eps and trailing_eps > 0:
+                    eps_growth = (forward_eps - trailing_eps) / trailing_eps
+                elif not eps_growth:
+                    eps_growth = info.get('revenueGrowth', 0.05)
+            
+        # Continue with other info data
         peg_ratio = None
         if pe_ratio and eps_growth and eps_growth > 0:
             peg_ratio = pe_ratio / (eps_growth * 100)
@@ -148,32 +175,30 @@ def get_company_data(ticker_symbol: str):
         debt_to_equity = info.get('debtToEquity')
         if debt_to_equity is not None:
             try:
-                debt_to_equity = float(debt_to_equity) / 100.0  # Yahoo returns this as a percentage e.g., 57.26 -> 0.57x
+                debt_to_equity = float(debt_to_equity) / 100.0
             except (ValueError, TypeError):
                 debt_to_equity = None
 
         current_ratio = info.get('currentRatio')
         roic = info.get('returnOnCapitalEmployed') or info.get('returnOnAssets') or info.get('returnOnEquity')
 
-        # Dividends for DDM
+        # Dividends
         dividend_rate = info.get('dividendRate') or info.get('trailingAnnualDividendRate')
         dividend_yield = info.get('dividendYield') or info.get('trailingAnnualDividendYield')
         payout_ratio = info.get('payoutRatio')
 
-        # FCF Trend (past 5 years newest to oldest)
+        # FCF Trend - using already fetched future_cf
         fcf_history = []
         historic_fcf_growth = None
         try:
-            cf = stock.cashflow
-            if 'Free Cash Flow' in cf.index:
+            cf = future_cf.result(timeout=2)
+            if cf is not None and not cf.empty and 'Free Cash Flow' in cf.index:
                 fcf_y = cf.loc['Free Cash Flow'].dropna().head(5).tolist()
-                fcf_history = fcf_y[:3]  # keep 3 for scoring compatibility
-                
+                fcf_history = fcf_y[:3]
                 if len(fcf_y) >= 2:
                     yoy_rates = []
                     for i in range(len(fcf_y)-1):
-                        new_val = fcf_y[i]
-                        old_val = fcf_y[i+1]
+                        new_val, old_val = fcf_y[i], fcf_y[i+1]
                         if old_val != 0:
                             yoy_rates.append((new_val - old_val) / abs(old_val))
                     if yoy_rates:
@@ -181,22 +206,26 @@ def get_company_data(ticker_symbol: str):
         except Exception:
             pass
             
-        # Historic EPS growth (Approximate 5 years Average YoY)
+        # Historic EPS growth - using already fetched future_fin
         historic_eps_growth = None
         try:
-            financials = stock.financials
-            if 'Basic EPS' in financials.index or 'Diluted EPS' in financials.index:
-                eps_row = financials.loc['Diluted EPS'] if 'Diluted EPS' in financials.index else financials.loc['Basic EPS']
-                eps_vals = eps_row.dropna().head(5).tolist()
-                if len(eps_vals) >= 2:
-                    yoy_rates = []
-                    for i in range(len(eps_vals)-1):
-                        new_val = eps_vals[i]
-                        old_val = eps_vals[i+1]
-                        if old_val != 0:
-                            yoy_rates.append((new_val - old_val) / abs(old_val))
-                    if yoy_rates:
-                        historic_eps_growth = sum(yoy_rates) / len(yoy_rates)
+            financials = future_fin.result(timeout=2)
+            if financials is not None and not financials.empty:
+                indices = financials.index
+                eps_row = None
+                if 'Diluted EPS' in indices: eps_row = financials.loc['Diluted EPS']
+                elif 'Basic EPS' in indices: eps_row = financials.loc['Basic EPS']
+                
+                if eps_row is not None:
+                    eps_vals = eps_row.dropna().head(5).tolist()
+                    if len(eps_vals) >= 2:
+                        yoy_rates = []
+                        for i in range(len(eps_vals)-1):
+                            new_val, old_val = eps_vals[i], eps_vals[i+1]
+                            if old_val != 0:
+                                yoy_rates.append((new_val - old_val) / abs(old_val))
+                        if yoy_rates:
+                            historic_eps_growth = sum(yoy_rates) / len(yoy_rates)
         except Exception:
             pass
             
@@ -470,18 +499,142 @@ def get_competitors_data(ticker: str, sector: str, industry: str, market_cap: fl
 
     target_tickers = target_tickers[:limit]
 
-    # ── Fetch full data for validated peers ────────────────────────────────────
+def get_lightweight_company_data(ticker_symbol: str):
+    """
+    Fetches only essential price and PE data for competitor analysis.
+    Significantly faster than get_company_data.
+    """
+    try:
+        stock = yf.Ticker(ticker_symbol)
+        info = stock.info
+        current_price = info.get('currentPrice') or info.get('regularMarketPrice')
+        trailing_eps = info.get('trailingEps') or info.get('epsTrailingTwelveMonths')
+        pe_ratio = info.get('trailingPE')
+        
+        if not current_price or not trailing_eps:
+            return None
+            
+        return {
+            "ticker": ticker_symbol,
+            "name": info.get('shortName', ticker_symbol),
+            "current_price": current_price,
+            "trailing_eps": trailing_eps,
+            "pe_ratio": pe_ratio or (current_price / trailing_eps if trailing_eps != 0 else None)
+        }
+    except Exception:
+        return None
+
+def get_competitors_data(target_ticker: str, sector: str, industry: str, market_cap: float, limit: int = 4) -> list:
+    """Gets relevant competitors using multiple search strategies."""
+    target_ticker = target_ticker.upper()
+    target_tickers = []
+
+    # ── Strategy 1: yfinance recommendations (Built-in) ─────────────────────────
+    try:
+        stock = yf.Ticker(target_ticker)
+        recs = stock.recommendations
+        if recs is not None and not recs.empty:
+            # yfinance often returns a DataFrame for recommendations summarizing analyst calls, 
+            # NOT similar symbols. The 'recommendations' attribute in newer yfinance versions
+            # is different. We should check 'recommendations_summary' or the 'recommendedSymbols' API.
+            pass
+    except Exception:
+        pass
+
+    # ── Strategy 2: HTTP Yahoo Finance Screener ─────────────────────────────────
+    if len(target_tickers) < limit and sector and industry:
+        try:
+            payload = {
+                "offset": 0,
+                "size": 10,
+                "sortField": "intradaymarketcap",
+                "sortType": "DESC",
+                "quoteType": "EQUITY",
+                "query": {
+                    "operator": "AND",
+                    "operands": [
+                        {"operator": "EQ", "operands": ["industry", industry]},
+                    ]
+                },
+                "userId": "",
+                "userIdType": "guid"
+            }
+            if market_cap and market_cap > 0:
+                payload["query"]["operands"].append({
+                    "operator": "BTWN",
+                    "operands": ["intradaymarketcap", int(market_cap * 0.05), int(market_cap * 20)]
+                })
+
+            url = "https://query2.finance.yahoo.com/v1/finance/screener"
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(payload).encode('utf-8'),
+                headers={
+                    'Content-Type': 'application/json',
+                    'User-Agent': get_random_agent(),
+                },
+                method='POST'
+            )
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                sdata = json.loads(resp.read().decode('utf-8'))
+                sq = sdata.get('finance', {}).get('result', [{}])[0].get('quotes', [])
+
+            for q in sq:
+                sym = (q.get('symbol') or '').upper()
+                if sym and sym != target_ticker and sym not in target_tickers:
+                    target_tickers.append(sym)
+                if len(target_tickers) >= limit:
+                    break
+
+            print(f"[Strategy2] HTTP screener found {len(target_tickers)} peers for {target_ticker}")
+        except Exception as e:
+            print(f"[Strategy2] HTTP screener failed: {e}")
+
+    # ── Strategy 3: recommendationsbysymbol + strict same-industry validation ──
+    if len(target_tickers) < limit and industry:
+        try:
+            url = f"https://query2.finance.yahoo.com/v6/finance/recommendationsbysymbol/{target_ticker}"
+            req = urllib.request.Request(url, headers={'User-Agent': get_random_agent()})
+            with urllib.request.urlopen(req, timeout=5) as response:
+                rdata = json.loads(response.read().decode('utf-8'))
+                recs = rdata.get('finance', {}).get('result', [{}])[0].get('recommendedSymbols', [])
+                candidates = [r['symbol'] for r in recs if r.get('symbol') and r['symbol'].upper() != target_ticker]
+
+            if candidates:
+                with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(candidates), 8)) as exc:
+                    futures = {exc.submit(lambda t: yf.Ticker(t).info, t): t for t in candidates}
+                    for future in concurrent.futures.as_completed(futures):
+                        try:
+                            info = future.result()
+                            sym = futures[future].upper()
+                            sym_industry = info.get('industry', '')
+                            sym_mc = info.get('marketCap', 0)
+                            mc_ok = market_cap <= 0 or (market_cap * 0.05 <= sym_mc <= market_cap * 20)
+                            if sym_industry == industry and mc_ok and sym not in target_tickers:
+                                target_tickers.append(sym)
+                        except Exception:
+                            pass
+                        if len(target_tickers) >= limit:
+                            break
+
+            print(f"[Strategy3] Recommendations found {len(target_tickers)} peers for {target_ticker}")
+        except Exception as e:
+            print(f"[Strategy3] Recommendations failed: {e}")
+
+    target_tickers = target_tickers[:limit]
+
+    # ── Fetch LIGHTWEIGHT data for validated peers ─────────────────────────────
     peer_data = []
     if target_tickers:
         with concurrent.futures.ThreadPoolExecutor(max_workers=len(target_tickers)) as executor:
-            futures = {executor.submit(get_company_data, t): t for t in target_tickers}
+            futures = {executor.submit(get_lightweight_company_data, t): t for t in target_tickers}
             for future in concurrent.futures.as_completed(futures):
                 try:
                     data = future.result()
                     if data:
                         peer_data.append(data)
                 except Exception as e:
-                    print(f"Error fetching full data for competitor {futures[future]}: {e}")
+                    print(f"Error fetching lightweight data for competitor {futures[future]}: {e}")
 
     return peer_data
 
@@ -489,14 +642,24 @@ def get_competitors_data(ticker: str, sector: str, industry: str, market_cap: fl
 def get_market_averages():
     """
     Returns S&P 500 P/E metrics using SPY as a proxy.
+    Includes a 1-hour in-memory cache to reduce network calls.
     """
+    global _market_cache
+    now = time.time()
+    
+    # Return cached data if valid (1 hour = 3600 seconds)
+    if _market_cache["data"] and (now - _market_cache["timestamp"] < 3600):
+        return _market_cache["data"]
+
     try:
         spy = yf.Ticker("SPY")
         info = spy.info
-        return {
+        data = {
             "trailing_pe": info.get('trailingPE'),
             "forward_pe": info.get('forwardPE') or info.get('trailingPE')
         }
+        _market_cache = {"data": data, "timestamp": now}
+        return data
     except Exception as e:
         print(f"Error fetching SPY market average: {e}")
         return {

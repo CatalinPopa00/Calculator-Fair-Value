@@ -24,7 +24,9 @@ from models.scoring import calculate_health_score, calculate_buy_score
 
 app = FastAPI(title="Fair Value Calculator API")
 
-# Initialize in-memory cache with a 24-hour TTL (86400 seconds)
+# Cache for search results (30 mins TTL)
+search_cache = TTLCache(maxsize=500, ttl=30 * 60)
+# Valuation cache (24 hours TTL)
 valuation_cache = TTLCache(maxsize=1000, ttl=24 * 60 * 60)
 
 app.add_middleware(
@@ -65,7 +67,11 @@ class ValuationResponse(BaseModel):
 
 @app.get("/api/search/{query}")
 def search(query: str):
-    return search_companies(query)
+    if query in search_cache:
+        return search_cache[query]
+    result = search_companies(query)
+    search_cache[query] = result
+    return result
 
 @app.get("/api/analyst/{ticker}")
 def get_analyst(ticker: str):
@@ -312,22 +318,6 @@ def get_valuation(ticker: str):
     
     valuation_cache[ticker_upper] = response_data
     return response_data
-
-@app.get("/api/search/{query}")
-def search_tickers(query: str):
-    try:
-        url = f"https://query2.finance.yahoo.com/v1/finance/search?q={urllib.parse.quote(query)}&quotesCount=6&newsCount=0"
-        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
-        with urllib.request.urlopen(req) as response:
-            data = json.loads(response.read().decode())
-            quotes = data.get("quotes", [])
-            # Filter for EQUITIES or ETFs to ensure we only show standard stocks
-            results = [{"ticker": q.get("symbol"), "name": q.get("shortname", q.get("longname", ""))} 
-                       for q in quotes if q.get("quoteType") in ["EQUITY", "ETF"]]
-            return results
-    except Exception as e:
-        print(f"Search API error: {e}")
-        return []
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
