@@ -87,8 +87,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // UI Reset
         autocompleteList.style.display = 'none';
         watchlistView.style.display = 'none';
+        document.getElementById('analyst-view').style.display = 'none';
         dashboard.style.display = 'none';
         loadingState.style.display = 'flex';
+
+        // Show analyst tab button now that a real company is loaded
+        document.getElementById('nav-analyst-btn').style.display = 'inline-block';
 
         try {
             const response = await fetch(`https://calculator-fair-value.onrender.com/api/valuation/${encodeURIComponent(query)}`);
@@ -615,6 +619,171 @@ document.addEventListener('DOMContentLoaded', () => {
     let dragSrcIndex = null;
     let manualOrder = false; // set true after a drag so sort is skipped
 
+    // --- Analyst Estimates Logic ---
+    const navAnalystBtn = document.getElementById('nav-analyst-btn');
+    const analystView = document.getElementById('analyst-view');
+    const analystContent = document.getElementById('analyst-content');
+    const analystLoading = document.getElementById('analyst-loading');
+    const analystError = document.getElementById('analyst-error');
+
+    const renderAnalystEstimates = async () => {
+        if (!currentTicker) return;
+
+        dashboard.style.display = 'none';
+        watchlistView.style.display = 'none';
+        analystView.style.display = 'block';
+
+        document.getElementById('analyst-ticker-label').textContent = currentTicker;
+        analystContent.style.display = 'none';
+        analystError.style.display = 'none';
+        analystLoading.style.display = 'flex';
+
+        try {
+            const res = await fetch(`https://calculator-fair-value.onrender.com/api/analyst/${currentTicker}`);
+            if (!res.ok) throw new Error('API Error');
+            const data = await res.json();
+
+            if (data.error) throw new Error(data.error);
+
+            // Populate Price Targets
+            const pt = data.price_target || {};
+            document.getElementById('pt-low').textContent = pt.low ? `$${pt.low.toFixed(2)}` : '--';
+            document.getElementById('pt-avg').textContent = pt.avg ? `$${pt.avg.toFixed(2)}` : '--';
+            document.getElementById('pt-high').textContent = pt.high ? `$${pt.high.toFixed(2)}` : '--';
+
+            if (pt.upside_pct != null) {
+                const upsideEl = document.getElementById('pt-upside');
+                upsideEl.textContent = `${pt.upside_pct > 0 ? '+' : ''}${pt.upside_pct.toFixed(1)}%`;
+                upsideEl.style.color = pt.upside_pct > 0 ? 'var(--accent)' : 'var(--danger)';
+            }
+
+            // Populate Recommendation
+            const rec = data.recommendation || {};
+            const statuses = { "1": "Strong Buy", "2": "Buy", "3": "Hold", "4": "Sell", "5": "Strong Sell" };
+            let statusText = statuses[Math.round(rec.mean)] || rec.key.replace('_', ' ') || '--';
+
+            const reqStatusEl = document.getElementById('rec-status');
+            reqStatusEl.textContent = statusText;
+            if (rec.mean && rec.mean <= 2.5) reqStatusEl.style.color = 'var(--accent)';
+            else if (rec.mean && rec.mean >= 3.5) reqStatusEl.style.color = 'var(--danger)';
+            else reqStatusEl.style.color = '#fbbf24'; // yellow
+
+            document.getElementById('rec-mean').textContent = `Score: ${rec.mean ? rec.mean.toFixed(1) : '--'} / 5.0`;
+
+            const barsCont = document.getElementById('rec-bars');
+            barsCont.innerHTML = '';
+            const cnts = rec.counts || {};
+            const totalRecs = Object.values(cnts).reduce((a, b) => a + b, 0);
+            if (totalRecs > 0) {
+                const keys = [
+                    { k: 'strongBuy', l: 'Strong Buy', c: 'var(--accent)' },
+                    { k: 'buy', l: 'Buy', c: 'var(--accent)' },
+                    { k: 'hold', l: 'Hold', c: '#fbbf24' },
+                    { k: 'sell', l: 'Sell', c: 'var(--danger)' },
+                    { k: 'strongSell', l: 'Strong Sell', c: 'var(--danger)' }
+                ];
+                keys.forEach(obj => {
+                    const ct = cnts[obj.k] || 0;
+                    const pct = (ct / totalRecs) * 100;
+                    barsCont.innerHTML += `
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span style="width:70px; text-align:right;">${obj.l}</span>
+                            <div style="flex-grow:1; background:rgba(255,255,255,0.1); height:8px; border-radius:4px;">
+                                <div style="width:${pct}%; background:${obj.c}; height:100%; border-radius:4px;"></div>
+                            </div>
+                            <span style="width:20px;">${ct}</span>
+                        </div>
+                    `;
+                });
+            } else {
+                barsCont.innerHTML = '<i>No detailed breakdown available</i>';
+            }
+
+            // Populate EPS Estimates
+            const fvScale = (v) => v ? `$${v.toFixed(2)}` : '--';
+            const fvPct = (v) => v ? `${(v * 100).toFixed(1)}%` : '--';
+
+            const epsBody = document.querySelector('#eps-est-table tbody');
+            epsBody.innerHTML = '';
+            if (data.eps_estimates && data.eps_estimates.length) {
+                data.eps_estimates.forEach(row => {
+                    const lowHigh = (row.low && row.high) ? `$${row.low.toFixed(2)} - $${row.high.toFixed(2)}` : '--';
+                    epsBody.innerHTML += `
+                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                            <td style="padding: 0.5rem;">${row.period}</td>
+                            <td style="text-align: right; padding: 0.5rem; font-weight:600;">${fvScale(row.avg)}</td>
+                            <td style="text-align: right; padding: 0.5rem; color:var(--text-muted);">${lowHigh}</td>
+                            <td style="text-align: right; padding: 0.5rem;">${fvPct(row.growth)}</td>
+                        </tr>
+                    `;
+                });
+            } else {
+                epsBody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:1rem;">No data available</td></tr>';
+            }
+
+            // Populate Rev Estimates
+            const fvM = (v) => {
+                if (!v) return '--';
+                if (v >= 1e9) return `$${(v / 1e9).toFixed(2)}B`;
+                if (v >= 1e6) return `$${(v / 1e6).toFixed(2)}M`;
+                return `$${v.toLocaleString()}`;
+            };
+
+            const revBody = document.querySelector('#rev-est-table tbody');
+            revBody.innerHTML = '';
+            if (data.rev_estimates && data.rev_estimates.length) {
+                data.rev_estimates.forEach(row => {
+                    const lh = (row.low && row.high) ? `${fvM(row.low)} - ${fvM(row.high)}` : '--';
+                    revBody.innerHTML += `
+                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                            <td style="padding: 0.5rem;">${row.period}</td>
+                            <td style="text-align: right; padding: 0.5rem; font-weight:600;">${fvM(row.avg)}</td>
+                            <td style="text-align: right; padding: 0.5rem; color:var(--text-muted);">${lh}</td>
+                            <td style="text-align: right; padding: 0.5rem;">${fvPct(row.growth)}</td>
+                        </tr>
+                    `;
+                });
+            } else {
+                revBody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:1rem;">No data available</td></tr>';
+            }
+
+            // Populate Surprise History
+            const histBody = document.querySelector('#eps-history-table tbody');
+            histBody.innerHTML = '';
+            if (data.eps_history && data.eps_history.length) {
+                data.eps_history.forEach(row => {
+                    let surColor = 'var(--text-main)';
+                    let surText = '--';
+                    if (row.surprise != null) {
+                        surText = `${row.surprise > 0 ? '+' : ''}${row.surprise.toFixed(2)}`;
+                        if (row.surprise_pct != null) surText += ` (${(row.surprise_pct * 100).toFixed(1)}%)`;
+                        if (row.surprise > 0) surColor = 'var(--accent)';
+                        else if (row.surprise < 0) surColor = 'var(--danger)';
+                    }
+                    histBody.innerHTML += `
+                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                            <td style="padding: 0.5rem;">${row.quarter || '--'}</td>
+                            <td style="text-align: right; padding: 0.5rem;">${fvScale(row.estimate)}</td>
+                            <td style="text-align: right; padding: 0.5rem; font-weight:600;">${fvScale(row.actual)}</td>
+                            <td style="text-align: right; padding: 0.5rem; color:${surColor};">${surText}</td>
+                        </tr>
+                    `;
+                });
+            } else {
+                histBody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:1rem;">No data available</td></tr>';
+            }
+
+            analystLoading.style.display = 'none';
+            analystContent.style.display = 'flex';
+
+        } catch (err) {
+            console.error(err);
+            analystLoading.style.display = 'none';
+            analystError.style.display = 'block';
+        }
+    };
+
+
     const renderWatchlistUI = () => {
         watchlistGrid.innerHTML = '';
         const watchlistHeader = document.getElementById('watchlist-header');
@@ -1086,7 +1255,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Event Listeners ---
     logoBtn.addEventListener('click', () => {
-        window.location.reload();
+        if (currentTicker && currentFormulaData) {
+            // If we have a ticker loaded, just switch back to dashboard view
+            watchlistView.style.display = 'none';
+            document.getElementById('analyst-view').style.display = 'none';
+            dashboard.style.display = 'block';
+        } else {
+            window.location.reload();
+        }
     });
 
     searchBtn.addEventListener('click', () => analyzeTicker());
@@ -1097,7 +1273,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    navWatchlistBtn.addEventListener('click', renderWatchlist);
+    navWatchlistBtn.addEventListener('click', () => {
+        dashboard.style.display = 'none';
+        document.getElementById('analyst-view').style.display = 'none';
+        renderWatchlist();
+    });
+
+    document.getElementById('nav-analyst-btn').addEventListener('click', renderAnalystEstimates);
+
     addToWatchlistBtn.addEventListener('click', toggleWatchlist);
 
     // Modal Logic

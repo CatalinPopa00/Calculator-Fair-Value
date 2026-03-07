@@ -542,15 +542,15 @@ body {
 }
 
 .score-circle {
-    font-size: 1.8rem;
+    font-size: 1.4rem;
     font-weight: 800;
-    width: 3.5rem;
+    width: 2.8rem;
     text-align: right;
 }
 
 .score-bar-wrapper {
     flex-grow: 1;
-    height: 8px;
+    height: 6px;
     background: rgba(255, 255, 255, 0.1);
     border-radius: 4px;
     overflow: hidden;

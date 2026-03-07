@@ -503,3 +503,134 @@ def get_market_averages():
             "trailing_pe": 25.0, # Fallback S&P avg
             "forward_pe": 21.0
         }
+
+
+def get_analyst_data(ticker_symbol: str) -> dict:
+    """
+    Fetches analyst estimates data:
+    - Price targets (low / average / high / current)
+    - Recommendation (Strong Buy / Buy / Hold / Sell / Strong Sell + counts)
+    - EPS estimates (current year, next year, next 5yr CAGR)
+    - Revenue estimates (current year, next year)
+    - EPS history (actual vs estimate, last 4 quarters)
+    """
+    try:
+        stock = yf.Ticker(ticker_symbol)
+        info  = stock.info
+
+        # ── Price Target ─────────────────────────────────────────────────────────
+        target_mean  = info.get('targetMeanPrice')
+        target_low   = info.get('targetLowPrice')
+        target_high  = info.get('targetHighPrice')
+        target_median = info.get('targetMedianPrice')
+        current_price = info.get('currentPrice') or info.get('regularMarketPrice')
+        upside = ((target_mean - current_price) / current_price * 100) if (target_mean and current_price) else None
+
+        # ── Analyst Recommendation ───────────────────────────────────────────────
+        rec_key = info.get('recommendationKey', '')       # e.g. "buy", "strong_buy"
+        rec_mean = info.get('recommendationMean')          # 1=Strong Buy … 5=Strong Sell
+        num_analysts = info.get('numberOfAnalystOpinions')
+
+        # Recommendation counts by category (from recommendations summary if available)
+        rec_counts = {"strongBuy": 0, "buy": 0, "hold": 0, "sell": 0, "strongSell": 0}
+        try:
+            rec_df = stock.recommendations_summary          # DataFrame with period, strongBuy, buy, hold, sell, strongSell
+            if rec_df is not None and not rec_df.empty:
+                latest = rec_df.iloc[0]
+                for k in rec_counts:
+                    rec_counts[k] = int(latest.get(k, 0))
+        except Exception:
+            pass
+
+        # ── EPS Estimates ────────────────────────────────────────────────────────
+        eps_estimates = []
+        try:
+            import pandas as pd
+            ef = stock.earnings_estimate   # index: 0q, +1q, 0y, +1y
+            if ef is not None and not ef.empty:
+                for period_idx, row in ef.iterrows():
+                    avg = row.get('avg') if hasattr(row, 'get') else row.get('Avg')
+                    low_e = row.get('low') if hasattr(row, 'get') else row.get('Low')
+                    high_e = row.get('high') if hasattr(row, 'get') else row.get('High')
+                    growth = row.get('growth') if hasattr(row, 'get') else row.get('Growth')
+                    eps_estimates.append({
+                        "period": str(period_idx),
+                        "avg": float(avg) if avg is not None and not (isinstance(avg, float) and pd.isna(avg)) else None,
+                        "low": float(low_e) if low_e is not None and not (isinstance(low_e, float) and pd.isna(low_e)) else None,
+                        "high": float(high_e) if high_e is not None and not (isinstance(high_e, float) and pd.isna(high_e)) else None,
+                        "growth": float(growth) if growth is not None and not (isinstance(growth, float) and pd.isna(growth)) else None,
+                    })
+        except Exception as e:
+            print(f"[Analyst] EPS estimates error: {e}")
+
+        # ── Revenue Estimates ─────────────────────────────────────────────────────
+        rev_estimates = []
+        try:
+            import pandas as pd
+            rf = stock.revenue_estimate
+            if rf is not None and not rf.empty:
+                for period_idx, row in rf.iterrows():
+                    avg = row.get('avg') if hasattr(row, 'get') else None
+                    low_r = row.get('low') if hasattr(row, 'get') else None
+                    high_r = row.get('high') if hasattr(row, 'get') else None
+                    growth = row.get('growth') if hasattr(row, 'get') else None
+                    rev_estimates.append({
+                        "period": str(period_idx),
+                        "avg": float(avg) if avg is not None and not (isinstance(avg, float) and pd.isna(avg)) else None,
+                        "low": float(low_r) if low_r is not None and not (isinstance(low_r, float) and pd.isna(low_r)) else None,
+                        "high": float(high_r) if high_r is not None and not (isinstance(high_r, float) and pd.isna(high_r)) else None,
+                        "growth": float(growth) if growth is not None and not (isinstance(growth, float) and pd.isna(growth)) else None,
+                    })
+        except Exception as e:
+            print(f"[Analyst] Revenue estimates error: {e}")
+
+        # ── EPS Surprise History (last 4 quarters) ────────────────────────────────
+        eps_history = []
+        try:
+            import pandas as pd
+            eh = stock.earnings_history
+            if eh is not None and not eh.empty:
+                for _, row in eh.tail(4).iterrows():
+                    date_val = row.get('quarter') if hasattr(row, 'get') else None
+                    eps_act = row.get('epsActual') if hasattr(row, 'get') else None
+                    eps_est = row.get('epsEstimate') if hasattr(row, 'get') else None
+                    surprise = row.get('epsDifference') if hasattr(row, 'get') else None
+                    surprise_pct = row.get('surprisePercent') if hasattr(row, 'get') else None
+                    eps_history.append({
+                        "quarter": str(date_val) if date_val else None,
+                        "actual":   float(eps_act) if eps_act is not None and not (isinstance(eps_act, float) and pd.isna(eps_act)) else None,
+                        "estimate": float(eps_est) if eps_est is not None and not (isinstance(eps_est, float) and pd.isna(eps_est)) else None,
+                        "surprise": float(surprise) if surprise is not None and not (isinstance(surprise, float) and pd.isna(surprise)) else None,
+                        "surprise_pct": float(surprise_pct) if surprise_pct is not None and not (isinstance(surprise_pct, float) and pd.isna(surprise_pct)) else None,
+                    })
+        except Exception as e:
+            print(f"[Analyst] EPS history error: {e}")
+
+        # ── 5-yr EPS CAGR from info ───────────────────────────────────────────────
+        eps_5yr_growth = info.get('earningsGrowth')  # or use analyst long-term growth
+
+        return {
+            "ticker": ticker_symbol.upper(),
+            "price_target": {
+                "current": current_price,
+                "low":    target_low,
+                "avg":    target_mean,
+                "median": target_median,
+                "high":   target_high,
+                "upside_pct": upside,
+                "num_analysts": num_analysts
+            },
+            "recommendation": {
+                "key":  rec_key,
+                "mean": rec_mean,
+                "counts": rec_counts
+            },
+            "eps_5yr_growth": eps_5yr_growth,
+            "eps_estimates":  eps_estimates,
+            "rev_estimates":  rev_estimates,
+            "eps_history":    eps_history
+        }
+
+    except Exception as e:
+        print(f"[Analyst] Data fetch failed for {ticker_symbol}: {e}")
+        return {"ticker": ticker_symbol.upper(), "error": str(e)}

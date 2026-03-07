@@ -11,7 +11,7 @@ import urllib.parse
 import json
 
 import os
-from scraper.yahoo import get_company_data, get_competitors_data, get_market_averages, search_companies
+from scraper.yahoo import get_company_data, get_competitors_data, get_market_averages, search_companies, get_analyst_data
 from models.valuation import (
     calculate_peter_lynch, 
     calculate_peg_fair_value, 
@@ -66,6 +66,16 @@ class ValuationResponse(BaseModel):
 @app.get("/api/search/{query}")
 def search(query: str):
     return search_companies(query)
+
+@app.get("/api/analyst/{ticker}")
+def get_analyst(ticker: str):
+    ticker_upper = ticker.upper()
+    cache_key = f"analyst_{ticker_upper}"
+    if cache_key in valuation_cache:
+        return valuation_cache[cache_key]
+    result = get_analyst_data(ticker_upper)
+    valuation_cache[cache_key] = result
+    return result
 
 @app.get("/api/watchlist")
 def get_watchlist():
