@@ -558,6 +558,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Drag & Drop State ---
     let dragSrcIndex = null;
+    let manualOrder = false; // set true after a drag so sort is skipped
 
     const renderWatchlistUI = () => {
         watchlistGrid.innerHTML = '';
@@ -571,49 +572,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
         emptyWatchlistMsg.style.display = 'none';
 
-        let results = [...cachedWatchlistData];
+        // Only sort if user hasn't manually reordered
+        let sortedResults = [...cachedWatchlistData];
+        if (!manualOrder) {
+            sortedResults.sort((a, b) => {
+                const aValid = a.current_price != null && a.fair_value != null;
+                const bValid = b.current_price != null && b.fair_value != null;
+                if (!aValid && bValid) return 1;
+                if (aValid && !bValid) return -1;
+                if (!aValid && !bValid) return 0;
 
-        // Apply currentSort dynamically
-        results.sort((a, b) => {
-            // Edge Case Validation
-            const aValid = a.current_price != null && a.fair_value != null;
-            const bValid = b.current_price != null && b.fair_value != null;
-
-            if (!aValid && bValid) return 1;
-            if (aValid && !bValid) return -1;
-            if (!aValid && !bValid) return 0;
-
-            let aVal, bVal;
-            if (currentSort.column === 'mos') {
-                aVal = a.margin_of_safety != null ? a.margin_of_safety : -99999;
-                bVal = b.margin_of_safety != null ? b.margin_of_safety : -99999;
-            } else if (currentSort.column === 'price') {
-                aVal = a.current_price != null ? a.current_price : 0;
-                bVal = b.current_price != null ? b.current_price : 0;
-            } else if (currentSort.column === 'ticker') {
-                aVal = a.ticker;
-                bVal = b.ticker;
-                if (aVal < bVal) return currentSort.order === 'asc' ? -1 : 1;
-                if (aVal > bVal) return currentSort.order === 'asc' ? 1 : -1;
-                return 0;
-            }
-
-            if (currentSort.order === 'asc') {
-                return aVal - bVal;
-            } else {
-                return bVal - aVal;
-            }
-        });
+                let aVal, bVal;
+                if (currentSort.column === 'mos') {
+                    aVal = a.margin_of_safety != null ? a.margin_of_safety : -99999;
+                    bVal = b.margin_of_safety != null ? b.margin_of_safety : -99999;
+                } else if (currentSort.column === 'price') {
+                    aVal = a.current_price != null ? a.current_price : 0;
+                    bVal = b.current_price != null ? b.current_price : 0;
+                } else if (currentSort.column === 'ticker') {
+                    aVal = a.ticker; bVal = b.ticker;
+                    if (aVal < bVal) return currentSort.order === 'asc' ? -1 : 1;
+                    if (aVal > bVal) return currentSort.order === 'asc' ? 1 : -1;
+                    return 0;
+                }
+                return currentSort.order === 'asc' ? aVal - bVal : bVal - aVal;
+            });
+        }
 
         if (watchlistHeader) watchlistHeader.style.display = 'flex';
 
-        results.forEach((data, index) => {
+        sortedResults.forEach((data, index) => {
             const card = document.createElement('div');
             card.className = 'glass-card watchlist-card';
             card.setAttribute('draggable', 'true');
-            card.setAttribute('data-index', index);
             card.onclick = (e) => {
-                // Don't expand if clicking the drag handle
                 if (e.target.closest('.drag-handle')) return;
                 card.classList.toggle('expanded');
             };
@@ -648,10 +640,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const hsColorClass = hsN >= 76 ? 'bg-score-green' : (hsN >= 41 ? 'bg-score-yellow' : 'bg-score-red');
             const bsColorClass = bsN >= 76 ? 'bg-score-green' : (bsN >= 41 ? 'bg-score-yellow' : 'bg-score-red');
-
             const hsTextClass = hsN >= 76 ? 'score-green' : (hsN >= 41 ? 'score-yellow' : 'score-red');
             const bsTextClass = bsN >= 76 ? 'score-green' : (bsN >= 41 ? 'score-yellow' : 'score-red');
-
             const hsFlex = hsN != null ? `${hsN}%` : '0%';
             const bsFlex = bsN != null ? `${bsN}%` : '0%';
 
@@ -730,54 +720,65 @@ document.addEventListener('DOMContentLoaded', () => {
             // --- Drag & Drop Events ---
             card.addEventListener('dragstart', (e) => {
                 dragSrcIndex = index;
-                card.classList.add('dragging');
                 e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', String(index));
+                // Delay adding class so screenshot isn't blank
+                setTimeout(() => card.classList.add('dragging'), 0);
             });
 
             card.addEventListener('dragend', () => {
                 card.classList.remove('dragging');
-                document.querySelectorAll('.watchlist-card').forEach(c => c.classList.remove('drag-over-top', 'drag-over-bottom'));
+                document.querySelectorAll('.watchlist-card').forEach(c => {
+                    c.classList.remove('drag-over-top', 'drag-over-bottom');
+                });
             });
 
             card.addEventListener('dragover', (e) => {
                 e.preventDefault();
                 e.dataTransfer.dropEffect = 'move';
-                document.querySelectorAll('.watchlist-card').forEach(c => c.classList.remove('drag-over-top', 'drag-over-bottom'));
                 if (dragSrcIndex === null || dragSrcIndex === index) return;
+                // Clear all first
+                document.querySelectorAll('.watchlist-card').forEach(c => {
+                    c.classList.remove('drag-over-top', 'drag-over-bottom');
+                });
                 const rect = card.getBoundingClientRect();
-                const midY = rect.top + rect.height / 2;
-                if (e.clientY < midY) {
+                if (e.clientY < rect.top + rect.height / 2) {
                     card.classList.add('drag-over-top');
                 } else {
                     card.classList.add('drag-over-bottom');
                 }
             });
 
-            card.addEventListener('dragleave', () => {
-                card.classList.remove('drag-over-top', 'drag-over-bottom');
+            card.addEventListener('dragleave', (e) => {
+                // Only remove if we really left this card (not just entering a child)
+                if (!card.contains(e.relatedTarget)) {
+                    card.classList.remove('drag-over-top', 'drag-over-bottom');
+                }
             });
 
             card.addEventListener('drop', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                if (dragSrcIndex === null || dragSrcIndex === index) return;
+                card.classList.remove('drag-over-top', 'drag-over-bottom');
+
+                const from = dragSrcIndex;
+                if (from === null || from === index) { dragSrcIndex = null; return; }
 
                 const rect = card.getBoundingClientRect();
-                const midY = rect.top + rect.height / 2;
-                let targetIndex = index;
-                if (e.clientY >= midY) {
-                    targetIndex = index + 1;
-                }
+                let to = (e.clientY >= rect.top + rect.height / 2) ? index + 1 : index;
 
-                // Reorder cachedWatchlistData
-                const movedData = cachedWatchlistData.splice(dragSrcIndex, 1)[0];
-                const adjustedTarget = dragSrcIndex < targetIndex ? targetIndex - 1 : targetIndex;
-                cachedWatchlistData.splice(adjustedTarget, 0, movedData);
+                // Operate on the currently displayed sorted array
+                const reordered = [...sortedResults];
+                const [moved] = reordered.splice(from, 1);
+                const insertAt = from < to ? to - 1 : to;
+                reordered.splice(insertAt, 0, moved);
 
-                // Sync watchlist order to match cachedWatchlistData
+                // Write back to the shared cache and watchlist
+                cachedWatchlistData = reordered;
                 watchlist = cachedWatchlistData.map(d => d.ticker);
-
+                manualOrder = true;
                 dragSrcIndex = null;
+
                 saveWatchlist();
                 renderWatchlistUI();
             });
@@ -890,6 +891,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (cachedWatchlistData) {
+                manualOrder = false; // re-enable sort when user explicitly clicks a sort button
                 renderWatchlistUI();
             }
         });
