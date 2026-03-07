@@ -198,6 +198,7 @@ def get_valuation(ticker: str):
             "trailing_eps": sanitize(data.get("trailing_eps")),
             "fwd_eps": sanitize(lynch_result.get("fwd_eps")),
             "eps_growth_estimated": sanitize(data.get("eps_growth")),
+            "eps_growth_period": data.get("eps_growth_period", "Next Year"),
             "historic_pe": sanitize(pe_historic),
             "fwd_pe": sanitize(lynch_fwd_pe),
             "fair_value": sanitize(lynch_fair_value),
@@ -208,12 +209,14 @@ def get_valuation(ticker: str):
             "company_eps": sanitize(data.get("trailing_eps")),
             "current_pe": sanitize(current_pe),
             "eps_growth_estimated": sanitize(data.get("eps_growth")),
+            "eps_growth_period": data.get("eps_growth_period", "Next Year"),
             "current_peg": sanitize(current_pe / (data.get("eps_growth") * 100)) if current_pe and data.get("eps_growth") and data.get("eps_growth") > 0 else None,
             "fair_value": sanitize(peg_value)
         },
         "dcf": {
             "fcf": sanitize(fcf),
             "eps_growth_estimated": sanitize(eps_growth),
+            "eps_growth_period": data.get("eps_growth_period", "Next Year"),
             "discount_rate": discount_rate,
             "perpetual_growth": perpetual_growth,
             "shares_outstanding": shares,

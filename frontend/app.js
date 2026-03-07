@@ -352,6 +352,20 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             setValuationStatus(dcfVal, data.current_price, 'dcf-status', 'dcf-value');
 
+            // Update Labels with Periods
+            const pegGrowthLabel = document.querySelector('label[for="peg-custom-growth"]');
+            if (pegGrowthLabel && currentFormulaData.peg.eps_growth_period) {
+                pegGrowthLabel.textContent = `Growth Rate (${currentFormulaData.peg.eps_growth_period}) (%)`;
+            }
+            const lynchGrowthLabel = document.querySelector('label[for="lynch-custom-growth"]');
+            if (lynchGrowthLabel && currentFormulaData.peter_lynch.eps_growth_period) {
+                lynchGrowthLabel.textContent = `Growth Rate (${currentFormulaData.peter_lynch.eps_growth_period})`;
+            }
+            const dcfGrowthLabel = document.querySelector('label[for="dcf-custom-growth"]');
+            if (dcfGrowthLabel && currentFormulaData.dcf.eps_growth_period) {
+                dcfGrowthLabel.textContent = `Growth Rate (${currentFormulaData.dcf.eps_growth_period})`;
+            }
+
             // PEG Logic
             let pegVal = null;
             if (currentFormulaData.peg) {

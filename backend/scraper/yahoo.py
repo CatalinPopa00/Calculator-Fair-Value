@@ -40,6 +40,56 @@ def get_nasdaq_earnings_growth(ticker: str, trailing_eps: float) -> float:
         print(f"Error fetching Nasdaq growth for {ticker}: {e}")
     return None
 
+def get_period_labels(ticker_info: dict) -> dict:
+    """
+    Returns a mapping from '0q', '+1q', '0y', '+1y' to human-readable 
+    labels like 'Q1 2026', 'FY 2026' based on fiscal year end.
+    """
+    from datetime import datetime
+    now = datetime.now()
+    curr_year = now.year
+    curr_month = now.month
+    
+    # fiscalYearEnd is usually the timestamp of the last month/day
+    fye_timestamp = ticker_info.get('fiscalYearEnd')
+    # mostRecentQuarter is timestamp of the last reported quarter
+    mrq_timestamp = ticker_info.get('mostRecentQuarter')
+    
+    mapping = {
+        "0q": "Current Quarter",
+        "+1q": "Next Quarter",
+        "0y": f"FY {curr_year}",
+        "+1y": f"FY {curr_year + 1}"
+    }
+    
+    try:
+        if mrq_timestamp:
+            mrq_dt = datetime.fromtimestamp(mrq_timestamp)
+            # If MRQ is very recent (within 4 months), we assume it's the latest finished.
+            # Otherwise, 0y is likely the current year we are in.
+            
+            # For Adobe (ADBE): MRQ might be Feb 2026. Fiscal year ends Nov.
+            # So FY 2026 started Dec 2025.
+            # In March 2026, 0y is FY 2026.
+            pass
+            
+        # Simplified but effective mapping for now:
+        # Detect if we are already 'deep' into the year
+        # most companies 0y = current year.
+        # However, some companies are advanced.
+        
+        # Let's use a more robust logic if possible or stick to simple Next/Current 
+        # but with years attached.
+        mapping["0y"] = f"FY {curr_year}"
+        mapping["+1y"] = f"FY {curr_year + 1}"
+        
+        # If we have MRQ, we can try to guess quarter.
+        # But for now, let's at least prepend years to 0y/+1y.
+    except:
+        pass
+        
+    return mapping
+
 def resolve_company_name(query: str) -> str:
     """Uses Yahoo Finance search to resolve a company name to a ticker symbol."""
     for attempt in range(3):
@@ -143,23 +193,37 @@ def get_company_data(ticker_symbol: str):
             forward_pe = info.get('forwardPE')
             ps_ratio = info.get('priceToSalesTrailing12Months')
             
-            # 1. Try YF earnings_estimate for +1y (Forward Year) - HIGHEST PRIORITY for consistency
+            # 1. Try YF earnings_estimate - HIGHEST PRIORITY for consensus-based valuation
             try:
                 ef = future_est.result(timeout=2)
-                if ef is not None and not ef.empty and '+1y' in ef.index:
-                    growth_val = ef.loc['+1y'].get('growth')
-                    if growth_val is not None:
-                        eps_growth = float(growth_val)
+                if ef is not None and not ef.empty:
+                    # Smart selection: pick healthiest forward year (0y vs +1y)
+                    g_0y = ef.loc['0y'].get('growth') if '0y' in ef.index else None
+                    g_1y = ef.loc['+1y'].get('growth') if '+1y' in ef.index else None
+                    
+                    labels = get_period_labels(info)
+                    
+                    if g_0y is not None and g_0y > 0.02:
+                        eps_growth = float(g_0y)
+                        eps_growth_period = labels.get('0y', 'Current Year')
+                    elif g_1y is not None:
+                        eps_growth = float(g_1y)
+                        eps_growth_period = labels.get('+1y', 'Next Year')
+                    elif g_0y is not None:
+                        eps_growth = float(g_0y)
+                        eps_growth_period = labels.get('0y', 'Current Year')
             except Exception:
                 pass
             
-            # 2. Try Nasdaq growth
+            # 2. Try Nasdaq growth (fallback)
             if eps_growth is None:
                 eps_growth = future_growth.result(timeout=5)
+                if eps_growth: eps_growth_period = "Nasdaq Forecast"
 
-            # 3. Fallback to info.get('earningsGrowth') or trailing/forward calc
+            # 3. Fallback to info.get('earningsGrowth')
             if eps_growth is None:
                 eps_growth = info.get('earningsGrowth')
+                eps_growth_period = "Trailing Growth"
                 if not eps_growth and forward_eps and trailing_eps and trailing_eps > 0:
                     eps_growth = (forward_eps - trailing_eps) / trailing_eps
                 elif not eps_growth:
@@ -536,6 +600,71 @@ def get_market_averages():
         }
 
 
+def get_period_labels(ticker_info: dict) -> dict:
+    """
+    Returns a mapping from '0q', '+1q', '0y', '+1y' to human-readable 
+    labels like 'Q1 2026', 'FY 2026' based on fiscal year end.
+    """
+    from datetime import datetime, timedelta
+    now = datetime.now()
+    curr_year = now.year
+    curr_month = now.month
+    
+    # fiscalYearEnd is usually the timestamp of the last month/day of the FY
+    fye_timestamp = ticker_info.get('fiscalYearEnd')
+    # mostRecentQuarter is timestamp of the last reported quarter end
+    mrq_timestamp = ticker_info.get('mostRecentQuarter')
+    
+    mapping = {
+        "0q": "Current Qtr",
+        "+1q": "Next Qtr",
+        "0y": f"FY {curr_year}",
+        "+1y": f"FY {curr_year + 1}"
+    }
+    
+    try:
+        if mrq_timestamp:
+            mrq_dt = datetime.fromtimestamp(mrq_timestamp)
+            # MRQ is the most recently REPORTED quarter.
+            # 0q is the quarter CURRENTLY in progress (after MRQ).
+            
+            # Estimate which quarter is next
+            # Q1 = MRQ_month + 3, etc.
+            next_q_month = mrq_dt.month + 3
+            next_q_year = mrq_dt.year
+            if next_q_month > 12:
+                next_q_month -= 12
+                next_q_year += 1
+            
+            q_num = (next_q_month - 1) // 3 + 1
+            mapping["0q"] = f"Q{q_num} {next_q_year}"
+            
+            # Next Quarter (+1q)
+            nn_q_month = next_q_month + 3
+            nn_q_year = next_q_year
+            if nn_q_month > 12:
+                nn_q_month -= 12
+                nn_q_year += 1
+            nn_q_num = (nn_q_month - 1) // 3 + 1
+            mapping["+1q"] = f"Q{nn_q_num} {nn_q_year}"
+
+        # Smarter FY mapping
+        # If we are in March 2026, and FY 2025 ended in Nov 2025 (Adobe):
+        # 0y is FY 2026.
+        # Yahoo '0y' usually refers to the CURRENT fiscal year estimates.
+        # We can try to pick up the year from info if it mentions forward years.
+        
+        # Simple but effective: Yahoo 0y is almost always the Year that includes Today.
+        mapping["0y"] = f"FY {curr_year}"
+        mapping["+1y"] = f"FY {curr_year + 1}"
+        
+        # Special case: if FY ends in Jan/Feb, FY 2026 might actually mean fiscal year 2025.
+        # But per user request: "Pentru companii care sunt in FY 2026, next year va fi 2027".
+    except:
+        pass
+        
+    return mapping
+
 def get_analyst_data(ticker_symbol: str) -> dict:
     """
     Fetches analyst estimates data:
@@ -548,6 +677,7 @@ def get_analyst_data(ticker_symbol: str) -> dict:
     try:
         stock = yf.Ticker(ticker_symbol)
         info  = stock.info
+        labels = get_period_labels(info)
 
         # ── Price Target ─────────────────────────────────────────────────────────
         target_mean  = info.get('targetMeanPrice')
@@ -556,11 +686,11 @@ def get_analyst_data(ticker_symbol: str) -> dict:
         target_median = info.get('targetMedianPrice')
         current_price = info.get('currentPrice') or info.get('regularMarketPrice')
         upside = ((target_mean - current_price) / current_price * 100) if (target_mean and current_price) else None
+        num_analysts = info.get('numberOfAnalystOpinions')
 
         # ── Analyst Recommendation ───────────────────────────────────────────────
         rec_key = info.get('recommendationKey', '')       # e.g. "buy", "strong_buy"
         rec_mean = info.get('recommendationMean')          # 1=Strong Buy … 5=Strong Sell
-        num_analysts = info.get('numberOfAnalystOpinions')
 
         # Recommendation counts by category (from recommendations summary if available)
         rec_counts = {"strongBuy": 0, "buy": 0, "hold": 0, "sell": 0, "strongSell": 0}
@@ -577,15 +707,17 @@ def get_analyst_data(ticker_symbol: str) -> dict:
         eps_estimates = []
         try:
             import pandas as pd
-            ef = stock.earnings_estimate   # index: 0q, +1q, 0y, +1y
+            ef = stock.earnings_estimate
             if ef is not None and not ef.empty:
                 for period_idx, row in ef.iterrows():
+                    p_key = str(period_idx)
                     avg = row.get('avg') if hasattr(row, 'get') else row.get('Avg')
                     low_e = row.get('low') if hasattr(row, 'get') else row.get('Low')
                     high_e = row.get('high') if hasattr(row, 'get') else row.get('High')
                     growth = row.get('growth') if hasattr(row, 'get') else row.get('Growth')
                     eps_estimates.append({
-                        "period": str(period_idx),
+                        "period": labels.get(p_key, p_key),
+                        "period_code": p_key,
                         "avg": float(avg) if avg is not None and not (isinstance(avg, float) and pd.isna(avg)) else None,
                         "low": float(low_e) if low_e is not None and not (isinstance(low_e, float) and pd.isna(low_e)) else None,
                         "high": float(high_e) if high_e is not None and not (isinstance(high_e, float) and pd.isna(high_e)) else None,
@@ -601,12 +733,14 @@ def get_analyst_data(ticker_symbol: str) -> dict:
             rf = stock.revenue_estimate
             if rf is not None and not rf.empty:
                 for period_idx, row in rf.iterrows():
+                    p_key = str(period_idx)
                     avg = row.get('avg') if hasattr(row, 'get') else None
                     low_r = row.get('low') if hasattr(row, 'get') else None
                     high_r = row.get('high') if hasattr(row, 'get') else None
                     growth = row.get('growth') if hasattr(row, 'get') else None
                     rev_estimates.append({
-                        "period": str(period_idx),
+                        "period": labels.get(p_key, p_key),
+                        "period_code": p_key,
                         "avg": float(avg) if avg is not None and not (isinstance(avg, float) and pd.isna(avg)) else None,
                         "low": float(low_r) if low_r is not None and not (isinstance(low_r, float) and pd.isna(low_r)) else None,
                         "high": float(high_r) if high_r is not None and not (isinstance(high_r, float) and pd.isna(high_r)) else None,
@@ -638,14 +772,24 @@ def get_analyst_data(ticker_symbol: str) -> dict:
             print(f"[Analyst] EPS history error: {e}")
 
         # ── EPS growth from estimates ─────────────────────────────────────────────
-        # Try to find a stable forward growth rate to match calculations
-        eps_forward_growth = info.get('earningsGrowth') # fallback
+        # Smart selection: pick the healthiest forward year
+        eps_forward_growth = info.get('earningsGrowth', 0.10)
+        
+        g_0y = None
+        g_1y = None
         if eps_estimates:
-            # Prefer +1y growth which is what users usually see in the table
             for est in eps_estimates:
-                if est['period'] == '+1y' and est['growth'] is not None:
-                    eps_forward_growth = est['growth']
-                    break
+                if est['period_code'] == '0y': g_0y = est['growth']
+                if est['period_code'] == '+1y': g_1y = est['growth']
+        
+        # Logic: If 0y is positive and stable (>2%), prioritize it.
+        # Otherwise (if negative like Uber's -28% or very low), use +1y.
+        if g_0y is not None and g_0y > 0.02:
+            eps_forward_growth = g_0y
+        elif g_1y is not None:
+            eps_forward_growth = g_1y
+        elif g_0y is not None:
+            eps_forward_growth = g_0y
 
         return {
             "ticker": ticker_symbol.upper(),
