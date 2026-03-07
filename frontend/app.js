@@ -70,9 +70,19 @@ document.addEventListener('DOMContentLoaded', () => {
             if (el) el.value = '';
         });
 
-        // Reset buyback selector to "None"
-        const buybackSel = document.getElementById('dcf-buyback-source');
-        if (buybackSel) buybackSel.value = 'none';
+        // Reset all method selectors to defaults when a new ticker is analyzed
+        const selectorDefaults = {
+            'fcf-source': 'analyst',
+            'dcf-buyback-source': 'none',
+            'relative-variant': 'peers',
+            'lynch-multiple': 'PE 20',
+            'lynch-eps-source': 'analyst',
+            'peg-eps-source': 'analyst'
+        };
+        Object.entries(selectorDefaults).forEach(([id, val]) => {
+            const el = document.getElementById(id);
+            if (el) el.value = val;
+        });
 
         // UI Reset
         autocompleteList.style.display = 'none';
@@ -421,13 +431,28 @@ document.addEventListener('DOMContentLoaded', () => {
             const rel = currentFormulaData.relative;
             if (rel) {
                 const fvPeers = (rel.median_peer_pe && rel.company_eps) ? rel.median_peer_pe * rel.company_eps : null;
-                if (fvPeers != null && fvPeers > 0) relVal = fvPeers;
+                const fvSP500 = (rel.market_pe_trailing && rel.company_eps) ? rel.market_pe_trailing * rel.company_eps : null;
 
-                // Expose market data
+                const variantEl = document.getElementById('relative-variant');
+                const variant = variantEl ? variantEl.value : 'peers';
+
+                if (variant === 'peers') {
+                    relVal = fvPeers;
+                } else if (variant === 'sp500') {
+                    relVal = fvSP500;
+                } else if (variant === 'average') {
+                    const available = [fvPeers, fvSP500].filter(v => v != null && v > 0);
+                    relVal = available.length > 0 ? available.reduce((a, b) => a + b, 0) / available.length : null;
+                }
+
+                // Update info text
                 const mc = document.getElementById('relative-market-compare');
                 if (mc) {
-                    const mpe = rel.market_pe_trailing || '--';
-                    mc.textContent = `S&P 500 Trailing P/E baseline: ${mpe}`;
+                    const mpe = rel.market_pe_trailing != null ? rel.market_pe_trailing.toFixed(1) + 'x' : '--';
+                    const peerPe = rel.median_peer_pe != null ? rel.median_peer_pe.toFixed(1) + 'x' : '--';
+                    if (variant === 'peers') mc.textContent = `Peer Median P/E: ${peerPe}`;
+                    else if (variant === 'sp500') mc.textContent = `S&P 500 Trailing P/E: ${mpe}`;
+                    else mc.textContent = `Peers: ${peerPe} · S&P 500: ${mpe}`;
                 }
             }
             setValuationStatus(relVal, data.current_price, 'relative-status', 'relative-value');
@@ -466,6 +491,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const inputSelectors = [
             'fcf-source', 'dcf-custom-growth', 'dcf-custom-wacc', 'dcf-custom-perp',
             'dcf-buyback-source', 'dcf-custom-buyback',
+            'relative-variant',
             'lynch-multiple', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth',
             'peg-eps-source', 'peg-custom-growth'
         ];
