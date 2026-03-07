@@ -556,6 +556,9 @@ document.addEventListener('DOMContentLoaded', () => {
         updateWatchlistButtonState();
     };
 
+    // --- Drag & Drop State ---
+    let dragSrcIndex = null;
+
     const renderWatchlistUI = () => {
         watchlistGrid.innerHTML = '';
         const watchlistHeader = document.getElementById('watchlist-header');
@@ -604,10 +607,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (watchlistHeader) watchlistHeader.style.display = 'flex';
 
-        results.forEach(data => {
+        results.forEach((data, index) => {
             const card = document.createElement('div');
             card.className = 'glass-card watchlist-card';
-            card.onclick = () => {
+            card.setAttribute('draggable', 'true');
+            card.setAttribute('data-index', index);
+            card.onclick = (e) => {
+                // Don't expand if clicking the drag handle
+                if (e.target.closest('.drag-handle')) return;
                 card.classList.toggle('expanded');
             };
 
@@ -650,6 +657,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             card.innerHTML = `
                 <div class="watchlist-row">
+                    <div class="drag-handle" title="Drag to reorder">⠿</div>
                     <div class="watchlist-left">
                         <span class="expand-icon">▼</span>
                         <div class="watchlist-ticker-info">
@@ -718,6 +726,62 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>
             `;
+
+            // --- Drag & Drop Events ---
+            card.addEventListener('dragstart', (e) => {
+                dragSrcIndex = index;
+                card.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+            });
+
+            card.addEventListener('dragend', () => {
+                card.classList.remove('dragging');
+                document.querySelectorAll('.watchlist-card').forEach(c => c.classList.remove('drag-over-top', 'drag-over-bottom'));
+            });
+
+            card.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                document.querySelectorAll('.watchlist-card').forEach(c => c.classList.remove('drag-over-top', 'drag-over-bottom'));
+                if (dragSrcIndex === null || dragSrcIndex === index) return;
+                const rect = card.getBoundingClientRect();
+                const midY = rect.top + rect.height / 2;
+                if (e.clientY < midY) {
+                    card.classList.add('drag-over-top');
+                } else {
+                    card.classList.add('drag-over-bottom');
+                }
+            });
+
+            card.addEventListener('dragleave', () => {
+                card.classList.remove('drag-over-top', 'drag-over-bottom');
+            });
+
+            card.addEventListener('drop', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (dragSrcIndex === null || dragSrcIndex === index) return;
+
+                const rect = card.getBoundingClientRect();
+                const midY = rect.top + rect.height / 2;
+                let targetIndex = index;
+                if (e.clientY >= midY) {
+                    targetIndex = index + 1;
+                }
+
+                // Reorder cachedWatchlistData
+                const movedData = cachedWatchlistData.splice(dragSrcIndex, 1)[0];
+                const adjustedTarget = dragSrcIndex < targetIndex ? targetIndex - 1 : targetIndex;
+                cachedWatchlistData.splice(adjustedTarget, 0, movedData);
+
+                // Sync watchlist order to match cachedWatchlistData
+                watchlist = cachedWatchlistData.map(d => d.ticker);
+
+                dragSrcIndex = null;
+                saveWatchlist();
+                renderWatchlistUI();
+            });
+
             watchlistGrid.appendChild(card);
         });
 

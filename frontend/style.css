@@ -1000,6 +1000,42 @@ body {
     background: rgba(239, 68, 68, 0.1);
 }
 
+/* Drag Handle for Watchlist Cards */
+.drag-handle {
+    color: var(--text-muted);
+    font-size: 1.3rem;
+    cursor: grab;
+    padding: 0 0.5rem 0 0;
+    user-select: none;
+    opacity: 0;
+    transition: opacity 0.2s;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.watchlist-card:hover .drag-handle {
+    opacity: 1;
+}
+
+.drag-handle:active {
+    cursor: grabbing;
+}
+
+/* Dragging state */
+.watchlist-card.dragging {
+    opacity: 0.4;
+    border-color: var(--primary);
+}
+
+/* Drop target indicators */
+.watchlist-card.drag-over-top {
+    border-top: 3px solid var(--accent);
+}
+
+.watchlist-card.drag-over-bottom {
+    border-bottom: 3px solid var(--accent);
+}
+
 /* Expanded View Content */
 .watchlist-expanded {
     display: none;
