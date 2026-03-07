@@ -1331,9 +1331,10 @@ body {
 
 /* Watchlist Mobile Layout */
 @media (max-width: 768px) {
+
+    /* Hide column sort header on mobile — too cramped */
     .watchlist-header-row {
         display: none;
-        /* Hide column headers on mobile */
     }
 
     .watchlist-view {
@@ -1342,22 +1343,82 @@ body {
         max-width: 100vw;
     }
 
-    .watchlist-row {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 1rem;
+    .watchlist-card {
+        padding: 0.85rem 1rem;
+        position: relative;
     }
 
+    /* Main row: drag handle hidden on mobile (touch drag not supported),
+       then ticker info row on top, metrics row below */
+    .watchlist-row {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.6rem;
+    }
+
+    /* Hide drag handle on touch screens */
+    .drag-handle {
+        display: none;
+    }
+
+    /* Top line: expand icon + ticker name + delete button */
     .watchlist-left {
         width: 100%;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        padding-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding-right: 2.5rem;
+        /* room for the delete button */
     }
 
+    .watchlist-ticker-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .watchlist-ticker {
+        font-size: 1.05rem;
+    }
+
+    .watchlist-name {
+        max-width: 100%;
+        font-size: 0.8rem;
+    }
+
+    /* Delete button pinned top-right */
+    .watchlist-actions {
+        margin-left: 0;
+        position: absolute;
+        top: 0.85rem;
+        right: 0.75rem;
+    }
+
+    /* Metrics row: PRICE | FV | MOS all on one line */
     .watchlist-metrics {
         width: 100%;
+        display: flex;
+        flex-direction: row;
         justify-content: space-between;
-        gap: 0.5rem;
+        gap: 0;
+        flex-grow: unset;
+    }
+
+    .watchlist-metric {
+        flex: 1;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.15rem;
+    }
+
+    .watchlist-metric .label {
+        font-size: 0.7rem;
+        margin-bottom: 0;
+    }
+
+    .watchlist-metric .value {
+        font-size: 0.9rem;
+        font-weight: 700;
     }
 
     .col-price,
@@ -1366,35 +1427,38 @@ body {
         width: auto;
         border: none;
         padding-left: 0;
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 0.2rem;
+        justify-content: flex-start;
     }
 
+    /* Scores row: side by side */
     .watchlist-scores-container {
         width: 100%;
         margin-left: 0;
-        padding: 0;
+        padding: 0.6rem 0 0 0;
         border-left: none;
-        border-top: 1px solid rgba(255, 255, 255, 0.1);
-        padding-top: 0.8rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        flex-direction: column;
+        gap: 0.4rem;
     }
 
-    .watchlist-actions {
-        margin-left: 0;
-        position: absolute;
-        top: 1rem;
-        right: 1rem;
-        background: var(--card-bg);
-        border-radius: 8px;
+    .watchlist-score-item {
+        font-size: 0.8rem;
+        gap: 0.4rem;
     }
 
-    .watchlist-card {
-        padding: 1rem;
-        position: relative;
+    .score-label {
+        width: 60px;
+        font-size: 0.78rem;
     }
 
+    .score-val {
+        font-size: 0.78rem;
+        width: 40px;
+    }
+
+    /* Expanded breakdown: single column */
     .breakdown-grid {
         grid-template-columns: 1fr;
+        gap: 0.5rem;
     }
 }
