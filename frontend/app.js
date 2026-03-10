@@ -278,7 +278,6 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         // Forward Multiple Updates (formerly Peter Lynch)
-        const lynchFwdPe = document.getElementById('lynch-fwd-pe');
         const lynchStatus = document.getElementById('lynch-status');
         const lynchFairValue = document.getElementById('lynch-fair-value');
 
@@ -432,11 +431,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Update the FWD PE display based on chosen EPS
                 if (data.current_price && targetEps > 0) {
-                    currentFwdPe = (data.current_price / targetEps).toFixed(2) + "x";
                 }
             }
-            const fwdPeDisplay = document.getElementById('lynch-fwd-pe');
-            if (fwdPeDisplay) fwdPeDisplay.textContent = currentFwdPe;
 
             setValuationStatus(lynchVal, data.current_price, 'lynch-status', 'lynch-fair-value');
 
@@ -1295,7 +1291,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <li><strong>Diluted Trailing EPS:</strong> <span>$${fv(pl.trailing_eps)}</span></li>
                                 <li><strong>Est. 3-Year CAGR:</strong> <span>${fv(pl.eps_growth_estimated, true)}</span></li>
                                 <li><strong>3-Year FWD EPS:</strong> <span>$${fv(pl.fwd_eps)}</span></li>
-                                <li><strong>FWD PE:</strong> <span>${fv(pl.fwd_pe)}x</span></li>
+                                <li><strong>3Y FWD PE:</strong> <span>${fv(pl.fwd_pe)}x</span></li>
                                 <li style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);">
                                     <strong>Fair Value (if PE=20):</strong> <span>$${fv(pl.fair_value_pe_20)}</span>
                                 </li>

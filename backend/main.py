@@ -192,6 +192,10 @@ def get_valuation(ticker: str):
     current_pe = current_price / data.get("trailing_eps") if data.get("trailing_eps") and data.get("trailing_eps") > 0 else None
 
     # 5. Build Formula Data for Transparency
+    fair_value_sector_pe = None
+    if lynch_result.get("fwd_eps") and median_peer_pe:
+        fair_value_sector_pe = lynch_result.get("fwd_eps") * median_peer_pe
+
     formula_data = {
         "peter_lynch": {
             "current_price": sanitize(current_price),
@@ -203,6 +207,8 @@ def get_valuation(ticker: str):
             "fwd_pe": sanitize(lynch_fwd_pe),
             "fair_value": sanitize(lynch_fair_value),
             "fair_value_pe_20": sanitize(lynch_pe20_val),
+            "fair_value_sector_pe": sanitize(fair_value_sector_pe),
+            "sector_pe": sanitize(median_peer_pe),
             "status": lynch_status
         },
         "peg": {

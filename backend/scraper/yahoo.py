@@ -833,9 +833,6 @@ def get_analyst_data(ticker_symbol: str) -> dict:
                 if avg and avg != "N/A":
                     avg_val = float(str(avg).replace('$', '').replace(',', ''))
                     period_lbl = labels.get(p_code, p_code)
-                    if qf.get('fiscalEnd'):
-                        # parse 'Mar 2026' into 'Qx 2026' roughly or just use it
-                        period_lbl = qf.get('fiscalEnd')
                     if existing:
                         if not existing['avg']: existing['avg'] = avg_val
                         if existing['period'] in ['Current Qtr', 'Next Qtr']: existing['period'] = period_lbl
@@ -854,13 +851,20 @@ def get_analyst_data(ticker_symbol: str) -> dict:
                         avg_val = float(avg_str)
                         if 'M' in str(avg): avg_val /= 1000.0
                         period_lbl = labels.get(p_code, p_code)
-                        if rf.get('fiscalEnd'): period_lbl = rf.get('fiscalEnd')
                         if existing:
                             if not existing['avg']: existing['avg'] = avg_val
                             if existing['period'] in ['Current Qtr', 'Next Qtr']: existing['period'] = period_lbl
                         else:
                             rev_estimates.append({"period": period_lbl, "period_code": p_code, "avg": avg_val, "growth": None, "status": "estimate"})
                     except: pass
+
+        # ── PADDING QUARTERS ───────────────────────────────────────────
+        # Ensure that +2q and +3q exist even if empty, so the UI aligns
+        for prefix in ['0q', '+1q', '+2q', '+3q']:
+            if not any(e['period_code'] == prefix for e in eps_estimates):
+                eps_estimates.append({"period": labels.get(prefix, prefix), "period_code": prefix, "avg": None, "growth": None, "status": "estimate"})
+            if not any(r['period_code'] == prefix for r in rev_estimates):
+                rev_estimates.append({"period": labels.get(prefix, prefix), "period_code": prefix, "avg": None, "growth": None, "status": "estimate"})
 
         # ── POST-PROCESSING: Combine and Sort ───────────────────────────────────
         def sort_key(e):
