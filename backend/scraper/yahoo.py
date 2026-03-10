@@ -462,102 +462,125 @@ def get_company_data(ticker_symbol: str):
 def get_competitors_data(target_ticker: str, sector: str, industry: str, market_cap: float = 0, limit: int = 4) -> list:
     """
     Find relevant industry peers using multiple search strategies:
-      1. Yahoo Finance v1 screener HTTP API (direct POST, industry filter)
-      2. recommendationsbysymbol with strict same-industry validation
+      1. Yahoo screener (sector + region + market cap) with industry post-filter
+      2. recommendationsbysymbol with industry validation
+      3. Yahoo search fallback (industry keyword search)
     Returns a list of dictionaries (from get_lightweight_company_data).
     """
     target_ticker = target_ticker.upper()
-    target_tickers = []
+    peer_data = []
 
-    # Strategy 1: Yahoo Finance v1 screener via HTTP POST (Industry-based)
+    # Strategy 1: Authenticated screener → get same-sector US stocks → filter by industry
     if sector and industry:
         try:
+            # Use yfinance's authenticated session for the screener
+            stock = yf.Ticker(target_ticker)
+            
             payload = {
-                "offset": 0, "size": 10, "sortField": "intradaymarketcap", "sortType": "DESC", "quoteType": "EQUITY",
-                "query": {"operator": "AND", "operands": [{"operator": "EQ", "operands": ["industry", industry]}]},
+                "offset": 0, "size": 50, "sortField": "intradaymarketcap", "sortType": "DESC",
+                "quoteType": "EQUITY",
+                "query": {"operator": "AND", "operands": [
+                    {"operator": "eq", "operands": ["sector", sector]},
+                    {"operator": "eq", "operands": ["region", "us"]},
+                ]},
                 "userId": "", "userIdType": "guid"
             }
-            if market_cap and market_cap > 0:
-                payload["query"]["operands"].append({
-                    "operator": "BTWN",
-                    "operands": ["intradaymarketcap", int(market_cap * 0.2), int(market_cap * 10)]
-                })
-
-            url = "https://query2.finance.yahoo.com/v1/finance/screener"
-            headers = {
-                'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                'Content-Type': 'application/json'
-            }
-            r = requests.post(url, json=payload, headers=headers, timeout=10)
-            if r.status_code == 200:
-                sdata = r.json()
-                sq = sdata.get('finance', {}).get('result', [{}])[0].get('quotes', [])
-                for q in sq:
+            resp = stock._data.post(
+                'https://query2.finance.yahoo.com/v1/finance/screener',
+                body=payload, timeout=10
+            )
+            if resp.status_code == 200:
+                sdata = resp.json()
+                candidates = []
+                for q in sdata.get('finance', {}).get('result', [{}])[0].get('quotes', []):
                     sym = (q.get('symbol') or '').upper()
-                    if sym and sym != target_ticker and sym not in target_tickers:
-                        target_tickers.append(sym)
-                    if len(target_tickers) >= limit: break
+                    if sym and sym != target_ticker:
+                        candidates.append(sym)
+
+                # Fetch lightweight data in parallel and filter by industry
+                if candidates:
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(candidates), 10)) as exc:
+                        futures = {exc.submit(get_lightweight_company_data, t): t for t in candidates}
+                        for future in concurrent.futures.as_completed(futures, timeout=25):
+                            try:
+                                data = future.result(timeout=10)
+                                if data and data.get('industry') == industry:
+                                    peer_data.append(data)
+                                if len(peer_data) >= limit:
+                                    break
+                            except Exception:
+                                pass
         except Exception as e:
             print(f"Screener strategy failed: {e}")
 
-    # Strategy 2: recommendationsbysymbol (Related tickers)
-    if len(target_tickers) < limit:
+    # Strategy 2: recommendationsbysymbol + industry validation
+    if len(peer_data) < limit:
+        existing_tickers = {p['ticker'] for p in peer_data}
         try:
             url = f"https://query2.finance.yahoo.com/v6/finance/recommendationsbysymbol/{target_ticker}"
-            headers = {'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+            headers = {'User-Agent': get_random_agent()}
             r = requests.get(url, headers=headers, timeout=10)
             if r.status_code == 200:
                 rdata = r.json()
                 recs = rdata.get('finance', {}).get('result', [{}])[0].get('recommendedSymbols', [])
-                candidates = [r['symbol'] for r in recs if r.get('symbol') and r['symbol'].upper() != target_ticker]
+                rec_syms = [rec['symbol'].upper() for rec in recs
+                           if rec.get('symbol') and rec['symbol'].upper() != target_ticker
+                           and rec['symbol'].upper() not in existing_tickers]
                 
-                if candidates:
-                    with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(candidates), 8)) as exc:
-                        futures = {exc.submit(lambda t: yf.Ticker(t).info, t): t for t in candidates}
+                if rec_syms:
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(rec_syms), 5)) as exc:
+                        futures = {exc.submit(get_lightweight_company_data, t): t for t in rec_syms}
                         for future in concurrent.futures.as_completed(futures, timeout=15):
                             try:
-                                info = future.result(timeout=10)
-                                sym = futures[future].upper()
-                                sym_ind = info.get('industry', '')
-                                if (not industry or sym_ind == industry) and sym not in target_tickers:
-                                    target_tickers.append(sym)
-                            except: pass
-                            if len(target_tickers) >= limit: break
+                                data = future.result(timeout=10)
+                                if data:
+                                    # Prefer same-industry, but accept same-sector as last resort
+                                    if data.get('industry') == industry:
+                                        peer_data.insert(0, data)  # prioritize same-industry
+                                    elif not industry or len(peer_data) < limit:
+                                        peer_data.append(data)
+                                if len(peer_data) >= limit:
+                                    break
+                            except Exception:
+                                pass
         except Exception as e:
             print(f"Recommendations strategy failed: {e}")
 
-    # Strategy 3: Search Fallback (Industry/Sector based search)
-    if len(target_tickers) < limit:
+    # Strategy 3: Search Fallback (Industry keyword search)
+    if len(peer_data) < limit:
+        existing_tickers = {p['ticker'] for p in peer_data}
         try:
             query = industry or sector or target_ticker
             url = f"https://query2.finance.yahoo.com/v1/finance/search?q={urllib.parse.quote(query)}"
-            headers = {'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+            headers = {'User-Agent': get_random_agent()}
             r = requests.get(url, headers=headers, timeout=5)
             if r.status_code == 200:
-                sq = r.json().get('quotes', [])
-                for q in sq:
-                    sym = q.get('symbol')
-                    if sym and sym.upper() != target_ticker and q.get('quoteType') == 'EQUITY' and sym not in target_tickers:
-                        target_tickers.append(sym)
-                    if len(target_tickers) >= limit: break
-        except: pass
+                search_syms = []
+                for q in r.json().get('quotes', []):
+                    sym = (q.get('symbol') or '').upper()
+                    if (sym and sym != target_ticker and q.get('quoteType') == 'EQUITY'
+                            and sym not in existing_tickers and '.' not in sym):
+                        search_syms.append(sym)
+                    if len(search_syms) >= limit * 2:
+                        break
+                
+                if search_syms:
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(search_syms), 5)) as exc:
+                        futures = {exc.submit(get_lightweight_company_data, t): t for t in search_syms}
+                        for future in concurrent.futures.as_completed(futures, timeout=15):
+                            try:
+                                data = future.result(timeout=10)
+                                if data and data['ticker'] not in existing_tickers:
+                                    peer_data.append(data)
+                                    existing_tickers.add(data['ticker'])
+                                if len(peer_data) >= limit:
+                                    break
+                            except Exception:
+                                pass
+        except Exception as e:
+            print(f"Search fallback failed: {e}")
 
-    target_tickers = target_tickers[:limit]
-
-    # Fetch LIGHTWEIGHT data for validated peers (Parallel)
-    peer_data = []
-    if target_tickers:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=len(target_tickers)) as executor:
-            futures = {executor.submit(get_lightweight_company_data, t): t for t in target_tickers}
-            for future in concurrent.futures.as_completed(futures):
-                try:
-                    data = future.result()
-                    if data:
-                        peer_data.append(data)
-                except Exception:
-                    pass
-
-    return peer_data
+    return peer_data[:limit]
 
 def get_lightweight_company_data(ticker_symbol: str):
     """Fetches a minimal set of data for competitor comparison."""
@@ -568,7 +591,8 @@ def get_lightweight_company_data(ticker_symbol: str):
             "ticker": ticker_symbol.upper(),
             "name": info.get('shortName') or info.get('longName') or ticker_symbol,
             "price": info.get('currentPrice') or info.get('regularMarketPrice'),
-            "pe_ratio": info.get('trailingPE') or info.get('forwardPE')
+            "pe_ratio": info.get('trailingPE') or info.get('forwardPE'),
+            "industry": info.get('industry')
         }
     except Exception:
         return None
