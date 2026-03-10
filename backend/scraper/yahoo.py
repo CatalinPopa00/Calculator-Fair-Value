@@ -871,14 +871,12 @@ def get_analyst_data(ticker_symbol: str) -> dict:
         eps_estimates.sort(key=sort_key)
         rev_estimates.sort(key=sort_key)
 
-        # Merge history with forward estimates to get exactly 4 quarters + 2 years
-        eps_qtrs_target = 4 - len(reported_eps)
-        eps_qtrs = [e for e in eps_estimates if 'q' in e.get('period_code', '')][:eps_qtrs_target]
+        # Merge history with forward estimates to get exactly 4 forward quarters + 2 years + history
+        eps_qtrs = [e for e in eps_estimates if 'q' in e.get('period_code', '')][:4]
         eps_years = [e for e in eps_estimates if 'y' in e.get('period_code', '')][:2]
         unified_eps = reported_eps + eps_qtrs + eps_years
 
-        rev_qtrs_target = 4 - len(reported_rev)
-        rev_qtrs = [e for e in rev_estimates if 'q' in e.get('period_code', '')][:rev_qtrs_target]
+        rev_qtrs = [e for e in rev_estimates if 'q' in e.get('period_code', '')][:4]
         rev_years = [e for e in rev_estimates if 'y' in e.get('period_code', '')][:2]
         unified_rev = reported_rev + rev_qtrs + rev_years
 
