@@ -147,11 +147,12 @@ def get_company_data(ticker_symbol: str):
         stock = yf.Ticker(ticker_symbol)
         
         # Parallelize data fetching using ThreadPoolExecutor
-        # fetching info, cashflow, and financials simultaneously
-        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+        # fetching info, cashflow, financials, and balance_sheet simultaneously
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
             future_info = executor.submit(lambda: stock.info)
             future_cf = executor.submit(lambda: stock.cashflow)
             future_fin = executor.submit(lambda: stock.financials)
+            future_bs = executor.submit(lambda: stock.balance_sheet)
             
             # Wait for main info first as it is critical
             try:
@@ -166,10 +167,11 @@ def get_company_data(ticker_symbol: str):
                 ticker_symbol = resolved
                 stock = yf.Ticker(ticker_symbol)
                 # Re-run parallel fetch for the resolved ticker
-                with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+                with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
                     future_info = executor.submit(lambda: stock.info)
                     future_cf = executor.submit(lambda: stock.cashflow)
                     future_fin = executor.submit(lambda: stock.financials)
+                    future_bs = executor.submit(lambda: stock.balance_sheet)
                     try:
                         info = future_info.result(timeout=10)
                     except Exception:
@@ -266,8 +268,9 @@ def get_company_data(ticker_symbol: str):
         # FCF Trend - using already fetched future_cf
         fcf_history = []
         historic_fcf_growth = None
+        cf = None  # Store for reuse in historical trends
         try:
-            cf = future_cf.result(timeout=2)
+            cf = future_cf.result(timeout=10)
             if cf is not None and not cf.empty and 'Free Cash Flow' in cf.index:
                 fcf_y = cf.loc['Free Cash Flow'].dropna().head(5).tolist()
                 fcf_history = fcf_y[:3]
@@ -284,8 +287,9 @@ def get_company_data(ticker_symbol: str):
             
         # Historic EPS growth - using already fetched future_fin
         historic_eps_growth = None
+        financials = None  # Store for reuse in interest coverage and historical trends
         try:
-            financials = future_fin.result(timeout=2)
+            financials = future_fin.result(timeout=10)
             if financials is not None and not financials.empty:
                 indices = financials.index
                 eps_row = None
@@ -305,12 +309,11 @@ def get_company_data(ticker_symbol: str):
         except Exception:
             pass
             
-        # Interest coverage & EBIT Margin
+        # Interest coverage & EBIT Margin — reuse already-fetched financials
         interest_coverage = None
         ebit_margin = None
         try:
-            financials = stock.financials
-            if 'EBIT' in financials.index:
+            if financials is not None and not financials.empty and 'EBIT' in financials.index:
                 ebit = financials.loc['EBIT'].dropna()
                 
                 # Interest Coverage
@@ -346,40 +349,41 @@ def get_company_data(ticker_symbol: str):
         # Using revenueGrowth as a proxy for the next 3 years if specific analyst estimates aren't pulled
         next_3y_rev_est = info.get('revenueGrowth')
 
-        # Historic Buyback Rate: avg annual reduction in shares outstanding (positive = buyback)
+        # Historic Buyback Rate — reuse already-fetched balance_sheet
         historic_buyback_rate = None
         try:
-            bs = stock.balance_sheet
-            if 'Ordinary Shares Number' in bs.index:
-                shares_row = bs.loc['Ordinary Shares Number'].dropna()
-            elif 'Share Issued' in bs.index:
-                shares_row = bs.loc['Share Issued'].dropna()
-            elif 'Common Stock' in bs.index:
-                shares_row = bs.loc['Common Stock'].dropna()
-            else:
-                shares_row = None
+            bs = future_bs.result(timeout=10)
+            if bs is not None and not bs.empty:
+                if 'Ordinary Shares Number' in bs.index:
+                    shares_row = bs.loc['Ordinary Shares Number'].dropna()
+                elif 'Share Issued' in bs.index:
+                    shares_row = bs.loc['Share Issued'].dropna()
+                elif 'Common Stock' in bs.index:
+                    shares_row = bs.loc['Common Stock'].dropna()
+                else:
+                    shares_row = None
 
-            if shares_row is not None and len(shares_row) >= 2:
-                vals = shares_row.head(3).tolist()  # newest first
-                yoy_rates = []
-                for i in range(len(vals) - 1):
-                    s_new = vals[i]
-                    s_old = vals[i + 1]
-                    if s_old > 0:
-                        change = (s_old - s_new) / s_old  # positive means reduction (buyback)
-                        yoy_rates.append(change)
-                if yoy_rates:
-                    historic_buyback_rate = sum(yoy_rates) / len(yoy_rates)
-                    historic_buyback_rate = max(0.0, historic_buyback_rate)  # clamp: ignore share issuance
+                if shares_row is not None and len(shares_row) >= 2:
+                    vals = shares_row.head(3).tolist()  # newest first
+                    yoy_rates = []
+                    for i in range(len(vals) - 1):
+                        s_new = vals[i]
+                        s_old = vals[i + 1]
+                        if s_old > 0:
+                            change = (s_old - s_new) / s_old  # positive means reduction (buyback)
+                            yoy_rates.append(change)
+                    if yoy_rates:
+                        historic_buyback_rate = sum(yoy_rates) / len(yoy_rates)
+                        historic_buyback_rate = max(0.0, historic_buyback_rate)  # clamp: ignore share issuance
         except Exception:
             pass
 
-        # Historical Trends for anchor charts (Revenue, Net Margin, FCF)
+        # Historical Trends — reuse already-fetched financials and cashflow
         historical_trends = []
         try:
-            financials = stock.financials
-            cashflow = stock.cashflow
-            if not financials.empty and not cashflow.empty:
+            cashflow = cf  # Already fetched above
+            if financials is not None and not financials.empty and cashflow is not None and not cashflow.empty:
+                import pandas as pd
                 # Find common columns, sort by date descending
                 cols = list(set(financials.columns).intersection(cashflow.columns))
                 cols.sort(reverse=True)
@@ -389,7 +393,6 @@ def get_company_data(ticker_symbol: str):
                     rev = None
                     if 'Total Revenue' in financials.index:
                         rev_val = financials.loc['Total Revenue', year]
-                        import pandas as pd
                         rev = float(rev_val) if not pd.isna(rev_val) else None
                         
                     ni = None
@@ -511,9 +514,9 @@ def get_competitors_data(target_ticker: str, sector: str, industry: str, market_
                 if candidates:
                     with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(candidates), 8)) as exc:
                         futures = {exc.submit(lambda t: yf.Ticker(t).info, t): t for t in candidates}
-                        for future in concurrent.futures.as_completed(futures):
+                        for future in concurrent.futures.as_completed(futures, timeout=15):
                             try:
-                                info = future.result()
+                                info = future.result(timeout=10)
                                 sym = futures[future].upper()
                                 sym_ind = info.get('industry', '')
                                 if (not industry or sym_ind == industry) and sym not in target_tickers:
