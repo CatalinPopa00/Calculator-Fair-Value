@@ -647,7 +647,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('rec-status').textContent = '...';
         document.querySelector('#eps-est-table tbody').innerHTML = '';
         document.querySelector('#rev-est-table tbody').innerHTML = '';
-        document.querySelector('#eps-history-table tbody').innerHTML = '';
 
         try {
             const res = await fetch(`https://calculator-fair-value.onrender.com/api/analyst/${ticker}`);
@@ -700,32 +699,39 @@ document.addEventListener('DOMContentLoaded', () => {
             // EPS Table
             const epsBody = document.querySelector('#eps-est-table tbody');
             (data.eps_estimates || []).slice(0, 6).forEach(row => {
+                let colorKey = 'white';
+                let finalVal = fvPct(row.growth); // Use growth default
+
+                if (row.status === 'reported') {
+                    // It's a reported quarter, use surprise if possible
+                    colorKey = (row.surprise_pct > 0) ? 'var(--accent)' : (row.surprise_pct < 0 ? 'var(--danger)' : 'white');
+                    finalVal = (row.surprise_pct != null) ? fvPct(row.surprise_pct) : '--';
+                }
+
                 epsBody.innerHTML += `<tr>
                     <td style="padding: 0.4rem 0;">${row.period}</td>
                     <td style="text-align: right; font-weight: 600;">${fvScale(row.avg)}</td>
-                    <td style="text-align: right;">${fvPct(row.growth)}</td>
+                    <td style="text-align: right; color: ${colorKey};">${finalVal}</td>
                 </tr>`;
             });
 
             // Revenue Table
             const revBody = document.querySelector('#rev-est-table tbody');
             (data.rev_estimates || []).slice(0, 6).forEach(row => {
+                let colorKey = 'white';
+                let finalVal = fvPct(row.growth);
+
+                if (row.status === 'reported') {
+                    // Usually no clean surprise % for revenue available, so neutral unless set
+                    finalVal = (row.surprise_pct != null) ? fvPct(row.surprise_pct) : '--';
+                    if (row.surprise_pct > 0) colorKey = 'var(--accent)';
+                    else if (row.surprise_pct < 0) colorKey = 'var(--danger)';
+                }
+
                 revBody.innerHTML += `<tr>
                     <td style="padding: 0.4rem 0;">${row.period}</td>
                     <td style="text-align: right; font-weight: 600;">${fvM(row.avg)}</td>
-                    <td style="text-align: right;">${fvPct(row.growth)}</td>
-                </tr>`;
-            });
-
-            // Surprise Table
-            const surpBody = document.querySelector('#eps-history-table tbody');
-            (data.eps_history || []).forEach(row => {
-                const sPct = row.surprise_pct != null ? (row.surprise_pct * 100).toFixed(1) + '%' : '--';
-                const sColor = row.surprise > 0 ? 'var(--accent)' : (row.surprise < 0 ? 'var(--danger)' : 'white');
-                surpBody.innerHTML += `<tr>
-                    <td style="padding: 0.4rem 0;">${row.quarter || '--'}</td>
-                    <td style="text-align: right; font-weight: 600;">${fvScale(row.actual)}</td>
-                    <td style="text-align: right; color: ${sColor};">${sPct}</td>
+                    <td style="text-align: right; color: ${colorKey};">${finalVal}</td>
                 </tr>`;
             });
 

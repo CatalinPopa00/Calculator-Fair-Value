@@ -710,18 +710,70 @@ def get_analyst_data(ticker_symbol: str) -> dict:
         rec_key = info.get('recommendationKey', '')       # e.g. "buy", "strong_buy"
         rec_mean = info.get('recommendationMean')          # 1=Strong Buy … 5=Strong Sell
 
-        # Recommendation counts by category (from recommendations summary if available)
-        rec_counts = {"strongBuy": 0, "buy": 0, "hold": 0, "sell": 0, "strongSell": 0}
-        try:
-            rec_df = stock.recommendations_summary          # DataFrame with period, strongBuy, buy, hold, sell, strongSell
-            if rec_df is not None and not rec_df.empty:
-                latest = rec_df.iloc[0]
-        except Exception:
-            pass
-
         # ── INITIALIZE LISTS ──────────────────────────────────────────────────
         eps_estimates = []
         rev_estimates = []
+
+        # ── Recommendation Counts Fix ──────────────────────────────────────────
+        rec_counts = {"strongBuy": 0, "buy": 0, "hold": 0, "sell": 0, "strongSell": 0}
+        try:
+            rec_df = stock.recommendations_summary
+            if rec_df is not None and not rec_df.empty:
+                latest = rec_df.iloc[0]
+                rec_counts["strongBuy"] = int(latest.get('strongBuy', 0))
+                rec_counts["buy"] = int(latest.get('buy', 0))
+                rec_counts["hold"] = int(latest.get('hold', 0))
+                rec_counts["sell"] = int(latest.get('sell', 0))
+                rec_counts["strongSell"] = int(latest.get('strongSell', 0))
+        except Exception:
+            pass
+
+        # ── Historical Reported Data (EPS and Revenue) ───────────────────────────
+        reported_eps = []
+        reported_rev = []
+        try:
+            import pandas as pd
+            # EPS History
+            eh = stock.earnings_history
+            if eh is not None and not eh.empty:
+                for idx, row in eh.tail(2).iterrows(): # take up to last 2 reported
+                    eps_act = row.get('epsActual') if hasattr(row, 'get') else None
+                    eps_est = row.get('epsEstimate') if hasattr(row, 'get') else None
+                    surprise_pct = row.get('surprisePercent') if hasattr(row, 'get') else None
+                    
+                    date_str = "--"
+                    if isinstance(idx, (pd.Timestamp, datetime)):
+                        q_num = (idx.month - 1) // 3 + 1
+                        date_str = f"Q{q_num} {idx.year}"
+                    elif idx:
+                        date_str = str(idx)
+
+                    val = float(eps_act) if eps_act is not None and not (isinstance(eps_act, float) and pd.isna(eps_act)) else None
+                    if val is not None:
+                        reported_eps.append({
+                            "period": date_str, "avg": val, "status": "reported",
+                            "surprise_pct": float(surprise_pct) if surprise_pct is not None and not pd.isna(surprise_pct) else None
+                        })
+            
+            # Revenue History
+            istmt = stock.quarterly_income_stmt
+            if istmt is not None and not istmt.empty and 'Total Revenue' in istmt.index:
+                rev_row = istmt.loc['Total Revenue']
+                # rev_row index is dates (descending usually). Take latest 2.
+                for col_date in list(rev_row.index)[:2][::-1]: 
+                    rev_act = rev_row[col_date]
+                    if pd.isna(rev_act): continue
+                    
+                    date_str = "--"
+                    if isinstance(col_date, (pd.Timestamp, datetime)):
+                        q_num = (col_date.month - 1) // 3 + 1
+                        date_str = f"Q{q_num} {col_date.year}"
+                    
+                    reported_rev.append({
+                        "period": date_str, "avg": float(rev_act), "status": "reported", "surprise_pct": None
+                    })
+        except Exception as e:
+            print(f"[Analyst] Reported history error: {e}")
 
         # ── Yahoo EPS Estimates ──────────────────────────────────────────────────
         try:
@@ -731,16 +783,12 @@ def get_analyst_data(ticker_symbol: str) -> dict:
                 for period_idx, row in ef.iterrows():
                     p_key = str(period_idx)
                     avg = row.get('avg') if hasattr(row, 'get') else row.get('Avg')
-                    low_e = row.get('low') if hasattr(row, 'get') else row.get('Low')
-                    high_e = row.get('high') if hasattr(row, 'get') else row.get('High')
                     growth = row.get('growth') if hasattr(row, 'get') else row.get('Growth')
                     eps_estimates.append({
-                        "period": labels.get(p_key, p_key),
-                        "period_code": p_key,
+                        "period": labels.get(p_key, p_key), "period_code": p_key,
                         "avg": float(avg) if avg is not None and not (isinstance(avg, float) and pd.isna(avg)) else None,
-                        "low": float(low_e) if low_e is not None and not (isinstance(low_e, float) and pd.isna(low_e)) else None,
-                        "high": float(high_e) if high_e is not None and not (isinstance(high_e, float) and pd.isna(high_e)) else None,
                         "growth": float(growth) if growth is not None and not (isinstance(growth, float) and pd.isna(growth)) else None,
+                        "status": "estimate"
                     })
         except Exception as e:
             print(f"[Analyst] Yahoo EPS error: {e}")
@@ -755,10 +803,10 @@ def get_analyst_data(ticker_symbol: str) -> dict:
                     avg = row.get('avg') if hasattr(row, 'get') else None
                     growth = row.get('growth') if hasattr(row, 'get') else None
                     rev_estimates.append({
-                        "period": labels.get(p_key, p_key),
-                        "period_code": p_key,
+                        "period": labels.get(p_key, p_key), "period_code": p_key,
                         "avg": float(avg) if avg is not None and not (isinstance(avg, float) and pd.isna(avg)) else None,
                         "growth": float(growth) if growth is not None and not (isinstance(growth, float) and pd.isna(growth)) else None,
+                        "status": "estimate"
                     })
         except Exception as e:
             print(f"[Analyst] Yahoo Revenue error: {e}")
@@ -784,10 +832,15 @@ def get_analyst_data(ticker_symbol: str) -> dict:
                 avg = qf.get('consensusEPSForecast')
                 if avg and avg != "N/A":
                     avg_val = float(str(avg).replace('$', '').replace(',', ''))
+                    period_lbl = labels.get(p_code, p_code)
+                    if qf.get('fiscalEnd'):
+                        # parse 'Mar 2026' into 'Qx 2026' roughly or just use it
+                        period_lbl = qf.get('fiscalEnd')
                     if existing:
-                        existing['avg'] = avg_val
+                        if not existing['avg']: existing['avg'] = avg_val
+                        if existing['period'] in ['Current Qtr', 'Next Qtr']: existing['period'] = period_lbl
                     else:
-                        eps_estimates.append({"period": labels.get(p_code, p_code), "period_code": p_code, "avg": avg_val, "low": None, "high": None, "growth": None})
+                        eps_estimates.append({"period": period_lbl, "period_code": p_code, "avg": avg_val, "growth": None, "status": "estimate"})
             
             # Nasdaq Revenue Quarters
             r_forecasts = n_data.get('data', {}).get('revenueForecast', {}).get('rows', [])
@@ -800,60 +853,34 @@ def get_analyst_data(ticker_symbol: str) -> dict:
                     try:
                         avg_val = float(avg_str)
                         if 'M' in str(avg): avg_val /= 1000.0
+                        period_lbl = labels.get(p_code, p_code)
+                        if rf.get('fiscalEnd'): period_lbl = rf.get('fiscalEnd')
                         if existing:
-                            existing['avg'] = avg_val
+                            if not existing['avg']: existing['avg'] = avg_val
+                            if existing['period'] in ['Current Qtr', 'Next Qtr']: existing['period'] = period_lbl
                         else:
-                            rev_estimates.append({"period": labels.get(p_code, p_code), "period_code": p_code, "avg": avg_val, "growth": None})
+                            rev_estimates.append({"period": period_lbl, "period_code": p_code, "avg": avg_val, "growth": None, "status": "estimate"})
                     except: pass
 
-        # ── POST-PROCESSING: Growth & Sorting ───────────────────────────────────
-        last_fy_eps = info.get('trailingEps')
-        for est in eps_estimates:
-            if est['period_code'] == '0y' and est['avg'] and last_fy_eps:
-                if est['growth'] is None:
-                    est['growth'] = (est['avg'] - last_fy_eps) / abs(last_fy_eps)
-
+        # ── POST-PROCESSING: Combine and Sort ───────────────────────────────────
         def sort_key(e):
-            code = e['period_code']
+            code = e.get('period_code', '')
             order = {"0q": 1, "+1q": 2, "+2q": 3, "+3q": 4, "0y": 5, "+1y": 6}
             return order.get(code, 99)
 
         eps_estimates.sort(key=sort_key)
-        eps_estimates = eps_estimates[:6]
-
         rev_estimates.sort(key=sort_key)
-        rev_estimates = rev_estimates[:6]
 
-        # ── EPS Surprise History (last 4 quarters) ────────────────────────────────
-        eps_history = []
-        try:
-            import pandas as pd
-            eh = stock.earnings_history
-            if eh is not None and not eh.empty:
-                for idx, row in eh.tail(4).iterrows():
-                    # 'idx' is the date from DatetimeIndex
-                    eps_act = row.get('epsActual') if hasattr(row, 'get') else None
-                    eps_est = row.get('epsEstimate') if hasattr(row, 'get') else None
-                    surprise = row.get('epsDifference') if hasattr(row, 'get') else None
-                    surprise_pct = row.get('surprisePercent') if hasattr(row, 'get') else None
-                    
-                    # Format date to QX YYYY
-                    date_str = "--"
-                    if isinstance(idx, (pd.Timestamp, datetime)):
-                        q_num = (idx.month - 1) // 3 + 1
-                        date_str = f"Q{q_num} {idx.year}"
-                    elif idx:
-                        date_str = str(idx)
+        # Merge history with forward estimates to get exactly 4 quarters + 2 years
+        eps_qtrs_target = 4 - len(reported_eps)
+        eps_qtrs = [e for e in eps_estimates if 'q' in e.get('period_code', '')][:eps_qtrs_target]
+        eps_years = [e for e in eps_estimates if 'y' in e.get('period_code', '')][:2]
+        unified_eps = reported_eps + eps_qtrs + eps_years
 
-                    eps_history.append({
-                        "quarter": date_str,
-                        "actual":   float(eps_act) if eps_act is not None and not (isinstance(eps_act, float) and pd.isna(eps_act)) else None,
-                        "estimate": float(eps_est) if eps_est is not None and not (isinstance(eps_est, float) and pd.isna(eps_est)) else None,
-                        "surprise": float(surprise) if surprise is not None and not (isinstance(surprise, float) and pd.isna(surprise)) else None,
-                        "surprise_pct": float(surprise_pct) if surprise_pct is not None and not (isinstance(surprise_pct, float) and pd.isna(surprise_pct)) else None,
-                    })
-        except Exception as e:
-            print(f"[Analyst] EPS history error: {e}")
+        rev_qtrs_target = 4 - len(reported_rev)
+        rev_qtrs = [e for e in rev_estimates if 'q' in e.get('period_code', '')][:rev_qtrs_target]
+        rev_years = [e for e in rev_estimates if 'y' in e.get('period_code', '')][:2]
+        unified_rev = reported_rev + rev_qtrs + rev_years
 
         # ── EPS growth from estimates ─────────────────────────────────────────────
         # Smart selection: pick the healthiest forward year
@@ -891,10 +918,9 @@ def get_analyst_data(ticker_symbol: str) -> dict:
                 "mean": rec_mean,
                 "counts": rec_counts
             },
-            "eps_5yr_growth": eps_forward_growth, # Renamed or repurposed for consistency
-            "eps_estimates":  eps_estimates,
-            "rev_estimates":  rev_estimates,
-            "eps_history":    eps_history
+            "eps_5yr_growth": eps_forward_growth,
+            "eps_estimates":  unified_eps,
+            "rev_estimates":  unified_rev
         }
 
     except Exception as e:

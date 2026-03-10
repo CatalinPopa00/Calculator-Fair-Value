@@ -407,11 +407,10 @@
                             <button class="tab-btn" data-tab="rec">Recommendation</button>
                             <button class="tab-btn" data-tab="eps">EPS Est.</button>
                             <button class="tab-btn" data-tab="rev">Revenue</button>
-                            <button class="tab-btn" data-tab="surp">Surprise</button>
                         </div>
 
                         <div class="analyst-grid-layout"
-                            style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 1rem;">
+                            style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem;">
                             <!-- Price Target -->
                             <div class="analyst-col tab-content active" id="tab-pt"
                                 style="border-right: 1px solid var(--card-border); padding-right: 1rem;">
@@ -475,8 +474,7 @@
                             </div>
 
                             <!-- Revenue Estimates -->
-                            <div class="analyst-col tab-content" id="tab-rev"
-                                style="border-right: 1px solid var(--card-border); padding: 0 1rem;">
+                            <div class="analyst-col tab-content" id="tab-rev" style="padding-left: 1rem;">
                                 <h4
                                     style="font-size: 0.9rem; color: var(--text-muted); text-align: center; margin-bottom: 0.5rem;">
                                     Revenue (B)</h4>
@@ -487,26 +485,7 @@
                                             style="color: var(--text-muted); text-align: right; border-bottom: 1px solid var(--card-border);">
                                             <th style="text-align: left; padding: 0.3rem 0;">Period</th>
                                             <th style="padding: 0.3rem 0;">Avg</th>
-                                            <th style="padding: 0.3rem 0;">Growth</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody></tbody>
-                                </table>
-                            </div>
-
-                            <!-- EPS Surprise -->
-                            <div class="analyst-col tab-content" id="tab-surp" style="padding-left: 1rem;">
-                                <h4
-                                    style="font-size: 0.9rem; color: var(--text-muted); text-align: center; margin-bottom: 0.5rem;">
-                                    Surprises</h4>
-                                <table style="width: 100%; border-collapse: collapse; font-size: 0.75rem;"
-                                    id="eps-history-table">
-                                    <thead>
-                                        <tr
-                                            style="color: var(--text-muted); text-align: right; border-bottom: 1px solid var(--card-border);">
-                                            <th style="text-align: left; padding: 0.3rem 0;">Date</th>
-                                            <th style="padding: 0.3rem 0;">Actual</th>
-                                            <th style="padding: 0.3rem 0;">Surp.</th>
+                                            <th style="padding: 0.3rem 0;">Growth Y/Y</th>
                                         </tr>
                                     </thead>
                                     <tbody></tbody>
