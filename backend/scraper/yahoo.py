@@ -241,6 +241,8 @@ def get_company_data(ticker_symbol: str):
             
         # Financials for DCF & Margins
         fcf = info.get('freeCashflow')
+        if fcf is None:
+            fcf = info.get('operatingCashflow')
         shares_outstanding = info.get('sharesOutstanding')
         total_cash = info.get('totalCash')
         total_debt = info.get('totalDebt')
@@ -251,6 +253,13 @@ def get_company_data(ticker_symbol: str):
 
         # Scoring Metrics
         debt_to_equity = info.get('debtToEquity')
+        
+        # Fallback for Financials/Banks
+        if debt_to_equity is None and info.get('totalDebt') and info.get('bookValue') and shares_outstanding:
+            equity = info.get('bookValue') * shares_outstanding
+            if equity > 0:
+                debt_to_equity = (info.get('totalDebt') / equity) * 100.0
+
         if debt_to_equity is not None:
             try:
                 debt_to_equity = float(debt_to_equity) / 100.0
@@ -271,17 +280,23 @@ def get_company_data(ticker_symbol: str):
         cf = None  # Store for reuse in historical trends
         try:
             cf = future_cf.result(timeout=10)
-            if cf is not None and not cf.empty and 'Free Cash Flow' in cf.index:
-                fcf_y = cf.loc['Free Cash Flow'].dropna().head(5).tolist()
-                fcf_history = fcf_y[:3]
-                if len(fcf_y) >= 2:
-                    yoy_rates = []
-                    for i in range(len(fcf_y)-1):
-                        new_val, old_val = fcf_y[i], fcf_y[i+1]
-                        if old_val != 0:
-                            yoy_rates.append((new_val - old_val) / abs(old_val))
-                    if yoy_rates:
-                        historic_fcf_growth = sum(yoy_rates) / len(yoy_rates)
+            if cf is not None and not cf.empty:
+                fcf_y = []
+                if 'Free Cash Flow' in cf.index:
+                    fcf_y = cf.loc['Free Cash Flow'].dropna().head(5).tolist()
+                elif 'Operating Cash Flow' in cf.index:
+                    fcf_y = cf.loc['Operating Cash Flow'].dropna().head(5).tolist()
+                
+                if fcf_y:
+                    fcf_history = fcf_y[:3]
+                    if len(fcf_y) >= 2:
+                        yoy_rates = []
+                        for i in range(len(fcf_y)-1):
+                            new_val, old_val = fcf_y[i], fcf_y[i+1]
+                            if old_val != 0:
+                                yoy_rates.append((new_val - old_val) / abs(old_val))
+                        if yoy_rates:
+                            historic_fcf_growth = sum(yoy_rates) / len(yoy_rates)
         except Exception:
             pass
             
@@ -875,14 +890,14 @@ def get_analyst_data(ticker_symbol: str) -> dict:
         eps_estimates.sort(key=sort_key)
         rev_estimates.sort(key=sort_key)
 
-        # Merge history with forward estimates to get exactly 4 forward quarters + 2 years + history
+        # Merge forward estimates to get exactly 4 forward quarters + 2 years
         eps_qtrs = [e for e in eps_estimates if 'q' in e.get('period_code', '')][:4]
         eps_years = [e for e in eps_estimates if 'y' in e.get('period_code', '')][:2]
-        unified_eps = reported_eps + eps_qtrs + eps_years
+        unified_eps = eps_qtrs + eps_years
 
         rev_qtrs = [e for e in rev_estimates if 'q' in e.get('period_code', '')][:4]
         rev_years = [e for e in rev_estimates if 'y' in e.get('period_code', '')][:2]
-        unified_rev = reported_rev + rev_qtrs + rev_years
+        unified_rev = rev_qtrs + rev_years
 
         # ── EPS growth from estimates ─────────────────────────────────────────────
         # Smart selection: pick the healthiest forward year
