@@ -267,6 +267,9 @@ def get_company_data(ticker_symbol: str):
                 debt_to_equity = None
 
         current_ratio = info.get('currentRatio')
+        if current_ratio is None and info.get('sector') == 'Financial Services':
+            current_ratio = 1.0
+
         roic = info.get('returnOnCapitalEmployed') or info.get('returnOnAssets') or info.get('returnOnEquity')
 
         # Dividends
@@ -328,26 +331,29 @@ def get_company_data(ticker_symbol: str):
         interest_coverage = None
         ebit_margin = None
         try:
-            if financials is not None and not financials.empty and 'EBIT' in financials.index:
-                ebit = financials.loc['EBIT'].dropna()
-                
-                # Interest Coverage
-                if 'Interest Expense' in financials.index:
-                    interest = financials.loc['Interest Expense'].dropna()
-                    if not ebit.empty and not interest.empty:
-                        ebit_val = ebit.iloc[0]
-                        int_val = abs(interest.iloc[0])
-                        if int_val > 0:
-                            interest_coverage = ebit_val / int_val
-                
-                # EBIT Margin
-                if 'Total Revenue' in financials.index:
-                    rev = financials.loc['Total Revenue'].dropna()
-                    if not ebit.empty and not rev.empty:
-                        e_val = ebit.iloc[0]
-                        r_val = rev.iloc[0]
-                        if r_val > 0:
-                            ebit_margin = e_val / r_val
+            if financials is not None and not financials.empty:
+                ebit = financials.loc['EBIT'].dropna() if 'EBIT' in financials.index else None
+                if ebit is None and 'Net Income' in financials.index:
+                    ebit = financials.loc['Net Income'].dropna()
+                    
+                if ebit is not None:
+                    # Interest Coverage
+                    if 'Interest Expense' in financials.index:
+                        interest = financials.loc['Interest Expense'].dropna()
+                        if not ebit.empty and not interest.empty:
+                            ebit_val = ebit.iloc[0]
+                            int_val = abs(interest.iloc[0])
+                            if int_val > 0:
+                                interest_coverage = ebit_val / int_val
+                    
+                    # EBIT Margin
+                    if 'Total Revenue' in financials.index:
+                        rev = financials.loc['Total Revenue'].dropna()
+                        if not ebit.empty and not rev.empty:
+                            e_val = ebit.iloc[0]
+                            r_val = rev.iloc[0]
+                            if r_val > 0:
+                                ebit_margin = e_val / r_val
         except Exception:
             pass
             
@@ -828,15 +834,26 @@ def get_analyst_data(ticker_symbol: str) -> dict:
 
         # ── FALLBACK: Nasdaq (fetch missing quarters) ──────────────────────────
         n_data = None
-        if len([e for e in eps_estimates if 'q' in e['period_code']]) < 4 or len([e for e in rev_estimates if 'q' in e['period_code']]) < 4:
+        def fetch_nasdaq():
             try:
                 nasdaq_url = f"https://api.nasdaq.com/api/analyst/{ticker_symbol}/earnings-forecast"
                 headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"}
                 req = urllib.request.Request(nasdaq_url, headers=headers)
                 with urllib.request.urlopen(req, timeout=5) as resp:
-                    n_data = json.loads(resp.read())
+                    return json.loads(resp.read())
             except Exception as ne:
                 print(f"Nasdaq fallback fetch failed: {ne}")
+                return None
+
+        # Determine if we even need the fallback. Start fetch in background just in case.
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future_nasdaq = executor.submit(fetch_nasdaq)
+
+            # Wait to see if we actually need it based on yahoo estimates length
+            if len([e for e in eps_estimates if 'q' in e['period_code']]) < 4 or len([e for e in rev_estimates if 'q' in e['period_code']]) < 4:
+                n_data = future_nasdaq.result()
+        
 
         if n_data:
             # Nasdaq EPS Quarters
@@ -893,11 +910,16 @@ def get_analyst_data(ticker_symbol: str) -> dict:
         # Merge forward estimates to get exactly 4 forward quarters + 2 years
         eps_qtrs = [e for e in eps_estimates if 'q' in e.get('period_code', '')][:4]
         eps_years = [e for e in eps_estimates if 'y' in e.get('period_code', '')][:2]
-        unified_eps = eps_qtrs + eps_years
+        
+        # Include the most recent 2 reported quarters + all forward quarters and years
+        last_reported_eps = reported_eps[-2:] if len(reported_eps) >= 2 else reported_eps
+        unified_eps = last_reported_eps + eps_qtrs + eps_years
 
         rev_qtrs = [e for e in rev_estimates if 'q' in e.get('period_code', '')][:4]
         rev_years = [e for e in rev_estimates if 'y' in e.get('period_code', '')][:2]
-        unified_rev = rev_qtrs + rev_years
+        
+        last_reported_rev = reported_rev[-2:] if len(reported_rev) >= 2 else reported_rev
+        unified_rev = last_reported_rev + rev_qtrs + rev_years
 
         # ── EPS growth from estimates ─────────────────────────────────────────────
         # Smart selection: pick the healthiest forward year

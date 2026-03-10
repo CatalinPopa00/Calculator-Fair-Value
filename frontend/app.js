@@ -694,7 +694,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // EPS Table
             const epsBody = document.querySelector('#eps-est-table tbody');
-            (data.eps_estimates || []).slice(0, 6).forEach(row => {
+            (data.eps_estimates || []).slice(0, 8).forEach(row => {
                 let colorKey = 'white';
                 let finalVal = fvPct(row.growth); // Use growth default
 
@@ -713,7 +713,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Revenue Table
             const revBody = document.querySelector('#rev-est-table tbody');
-            (data.rev_estimates || []).slice(0, 6).forEach(row => {
+            (data.rev_estimates || []).slice(0, 8).forEach(row => {
                 let colorKey = 'white';
                 let finalVal = fvPct(row.growth);
 
