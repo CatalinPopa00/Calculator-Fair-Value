@@ -711,18 +711,25 @@ document.addEventListener('DOMContentLoaded', () => {
             // Recommendation
             const rec = data.recommendation || {};
             const statusElem = document.getElementById('rec-status');
-            statusElem.textContent = (rec.key || 'N/A').replace('_', ' ');
-            document.getElementById('rec-mean').textContent = `Score: ${rec.mean ? rec.mean.toFixed(2) : '--'} (1-5)`;
-
-            // Rec Bars
+            
+            // Rec Bars & Determine Max Category
             const counts = rec.counts || {};
             const maxVal = Math.max(...Object.values(counts), 1);
             const barsContainer = document.getElementById('rec-bars');
             barsContainer.innerHTML = '';
 
             const labels = { strongBuy: 'S. Buy', buy: 'Buy', hold: 'Hold', sell: 'Sell', strongSell: 'S. Sell' };
+            const fullLabels = { strongBuy: 'STRONG BUY', buy: 'BUY', hold: 'HOLD', sell: 'SELL', strongSell: 'STRONG SELL' };
+            
+            let topCategory = 'N/A';
+            let topCount = -1;
+
             ['strongBuy', 'buy', 'hold', 'sell', 'strongSell'].forEach(k => {
                 const count = counts[k] || 0;
+                if (count > topCount) {
+                    topCount = count;
+                    topCategory = fullLabels[k];
+                }
                 const pct = (count / maxVal) * 100;
                 barsContainer.innerHTML += `
                     <div class="rec-bar-row">
@@ -732,6 +739,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 `;
             });
+            
+            // Set logic: display the true category with the most votes, unless none exist
+            statusElem.textContent = topCount > 0 ? topCategory : ((rec.key || 'N/A').replace('_', ' ').toUpperCase());
+            document.getElementById('rec-mean').textContent = `Score: ${rec.mean ? rec.mean.toFixed(2) : '--'} (1-5)`;
 
             // Tables Shared Helpers
             const fvScale = (v) => v != null ? `$${v.toFixed(2)}` : '--';
