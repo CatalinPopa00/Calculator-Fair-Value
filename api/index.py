@@ -31,9 +31,7 @@ valuation_cache = TTLCache(maxsize=1000, ttl=24 * 60 * 60)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://proiect-calculator-fair-value.vercel.app",
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
