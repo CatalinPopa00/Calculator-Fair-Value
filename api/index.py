@@ -11,8 +11,8 @@ import urllib.parse
 import json
 
 import os
-from scraper.yahoo import get_company_data, get_competitors_data, get_market_averages, search_companies, get_analyst_data
-from models.valuation import (
+from .scraper.yahoo import get_company_data, get_competitors_data, get_market_averages, search_companies, get_analyst_data
+from .models.valuation import (
     calculate_peter_lynch, 
     calculate_peg_fair_value, 
     calculate_dcf, 
@@ -20,7 +20,7 @@ from models.valuation import (
     calculate_dcf_sensitivity,
     calculate_reverse_dcf
 )
-from models.scoring import calculate_health_score, calculate_buy_score
+from .models.scoring import calculate_health_score, calculate_buy_score
 
 app = FastAPI(title="Fair Value Calculator API")
 
