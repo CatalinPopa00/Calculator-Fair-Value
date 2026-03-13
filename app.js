@@ -357,8 +357,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 pegGrowthLabel.textContent = `Growth Rate (${currentFormulaData.peg.eps_growth_period}) (%)`;
             }
             const lynchGrowthLabel = document.querySelector('label[for="lynch-custom-growth"]');
-            if (lynchGrowthLabel && currentFormulaData.peter_lynch.eps_growth_period) {
-                lynchGrowthLabel.textContent = `Growth Rate (${currentFormulaData.peter_lynch.eps_growth_period})`;
+            if (lynchGrowthLabel) {
+                lynchGrowthLabel.textContent = `3Y Est. Growth Rate`;
             }
             const dcfGrowthLabel = document.querySelector('label[for="dcf-custom-growth"]');
             if (dcfGrowthLabel && currentFormulaData.dcf.eps_growth_period) {
