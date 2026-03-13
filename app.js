@@ -388,7 +388,43 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             }
-            setValuationStatus(pegVal, data.current_price, 'peg-status', 'peg-value');
+            const pegValueElem = document.getElementById('peg-value');
+            if (pegValueElem) pegValueElem.textContent = pegVal != null ? formatCurrency(pegVal) : 'N/A';
+            
+            const pegStatusElem = document.getElementById('peg-status');
+            if (pegStatusElem) {
+                const currentPeg = currentFormulaData.peg ? currentFormulaData.peg.current_peg : (prof.peg_ratio || null);
+                if (currentPeg != null) {
+                    const sector = prof.sector;
+                    let greenMax = 1.0;
+                    let orangeMax = 1.5;
+                    
+                    if (sector === 'Technology' || sector === 'Communication Services') {
+                        greenMax = 1.5;
+                        orangeMax = 2.0;
+                    } else if (sector === 'Financial Services' || sector === 'Energy' || sector === 'Utilities') {
+                        greenMax = 0.9;
+                        orangeMax = 1.2;
+                    } else if (sector === 'Consumer Defensive' || sector === 'Healthcare') {
+                        greenMax = 1.2;
+                        orangeMax = 1.5;
+                    }
+                    
+                    if (currentPeg <= greenMax) {
+                        pegStatusElem.textContent = `Subevaluat/Fair (${currentPeg.toFixed(2)})`;
+                        pegStatusElem.style.color = 'var(--accent)';
+                    } else if (currentPeg <= orangeMax) {
+                        pegStatusElem.textContent = `Premium (${currentPeg.toFixed(2)})`;
+                        pegStatusElem.style.color = '#fbbf24'; // Orange
+                    } else {
+                        pegStatusElem.textContent = `Supraevaluat (${currentPeg.toFixed(2)})`;
+                        pegStatusElem.style.color = 'var(--danger)'; // Red
+                    }
+                } else {
+                    pegStatusElem.textContent = "N/A";
+                    pegStatusElem.style.color = "var(--text-muted)";
+                }
+            }
 
             // Forward Multiple Logic
             let lynchVal = null;
@@ -529,10 +565,6 @@ document.addEventListener('DOMContentLoaded', () => {
             // Use onchange to automatically replace any old function closures
             toggle.onchange = updateFairValue;
         });
-
-        // End Forward Multiple Updates
-
-        setValuationStatus(data.peg_value, data.current_price, 'peg-status', 'peg-value');
 
         // Render Company Profile
         const pBody = document.getElementById('profile-body');
@@ -702,9 +734,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     // It's a reported quarter, use surprise if possible
                     colorKey = (row.surprise_pct > 0) ? 'var(--accent)' : (row.surprise_pct < 0 ? 'var(--danger)' : 'var(--text-main)');
                     finalVal = (row.surprise_pct != null) ? fvPct(row.surprise_pct) : '--';
-                } else if (row.growth != null) {
-                    // It's an estimate, color the growth
-                    colorKey = (row.growth > 0) ? 'var(--accent)' : (row.growth < 0 ? 'var(--danger)' : 'var(--text-main)');
                 }
 
                 epsBody.innerHTML += `<tr>
@@ -725,9 +754,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     finalVal = (row.surprise_pct != null) ? fvPct(row.surprise_pct) : '--';
                     if (row.surprise_pct > 0) colorKey = 'var(--accent)';
                     else if (row.surprise_pct < 0) colorKey = 'var(--danger)';
-                } else if (row.growth != null) {
-                    // It's an estimate, color the growth
-                    colorKey = (row.growth > 0) ? 'var(--accent)' : (row.growth < 0 ? 'var(--danger)' : 'var(--text-main)');
                 }
 
                 revBody.innerHTML += `<tr>
