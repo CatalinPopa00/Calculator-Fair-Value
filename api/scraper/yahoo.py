@@ -884,17 +884,22 @@ def get_analyst_data(ticker_symbol: str) -> dict:
         # Merge forward estimates to get exactly the quarters of the current year + 2 years
         current_year_str = str(datetime.now().year)
         
-        eps_qtrs = [e for e in eps_estimates if 'q' in e.get('period_code', '') and current_year_str in str(e.get('period', ''))]
-        eps_years = [e for e in eps_estimates if 'y' in e.get('period_code', '')][:2]
-        
         # Only include reported quarters from the current year
         curr_yr_reported_eps = [e for e in reported_eps if current_year_str in str(e.get('period', ''))]
+        reported_eps_periods = {e.get('period') for e in curr_yr_reported_eps if e.get('period')}
+        
+        # Pull estimates, but exclude any that match a period we already have reported data for
+        eps_qtrs = [e for e in eps_estimates if 'q' in e.get('period_code', '') and current_year_str in str(e.get('period', '')) and e.get('period') not in reported_eps_periods]
+        eps_years = [e for e in eps_estimates if 'y' in e.get('period_code', '')][:2]
+        
         unified_eps = curr_yr_reported_eps + eps_qtrs + eps_years
 
-        rev_qtrs = [e for e in rev_estimates if 'q' in e.get('period_code', '') and current_year_str in str(e.get('period', ''))]
+        curr_yr_reported_rev = [e for e in reported_rev if current_year_str in str(e.get('period', ''))]
+        reported_rev_periods = {e.get('period') for e in curr_yr_reported_rev if e.get('period')}
+
+        rev_qtrs = [e for e in rev_estimates if 'q' in e.get('period_code', '') and current_year_str in str(e.get('period', '')) and e.get('period') not in reported_rev_periods]
         rev_years = [e for e in rev_estimates if 'y' in e.get('period_code', '')][:2]
         
-        curr_yr_reported_rev = [e for e in reported_rev if current_year_str in str(e.get('period', ''))]
         unified_rev = curr_yr_reported_rev + rev_qtrs + rev_years
 
         # ── EPS growth from estimates ─────────────────────────────────────────────
