@@ -361,8 +361,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 lynchGrowthLabel.textContent = `3Y Est. Growth Rate`;
             }
             const dcfGrowthLabel = document.querySelector('label[for="dcf-custom-growth"]');
-            if (dcfGrowthLabel && currentFormulaData.dcf.eps_growth_period) {
-                dcfGrowthLabel.textContent = `Growth Rate (${currentFormulaData.dcf.eps_growth_period})`;
+            if (dcfGrowthLabel) {
+                dcfGrowthLabel.textContent = `Growth Rate (%)`;
             }
 
             // PEG Logic
@@ -389,10 +389,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             const pegValueElem = document.getElementById('peg-value');
-            if (pegValueElem) pegValueElem.textContent = pegVal != null ? formatCurrency(pegVal) : 'N/A';
             
             const pegStatusElem = document.getElementById('peg-status');
-            if (pegStatusElem) {
+            if (pegStatusElem && pegValueElem) {
                 const currentPeg = currentFormulaData.peg ? currentFormulaData.peg.current_peg : (prof.peg_ratio || null);
                 if (currentPeg != null) {
                     const sector = prof.sector;
@@ -410,19 +409,37 @@ document.addEventListener('DOMContentLoaded', () => {
                         orangeMax = 1.5;
                     }
                     
-                    if (currentPeg <= greenMax) {
-                        pegStatusElem.textContent = `Subevaluat/Fair (${currentPeg.toFixed(2)})`;
-                        pegStatusElem.style.color = 'var(--accent)';
-                    } else if (currentPeg <= orangeMax) {
-                        pegStatusElem.textContent = `Premium (${currentPeg.toFixed(2)})`;
-                        pegStatusElem.style.color = '#fbbf24'; // Orange
+                    let sectorPegDisplay = "--";
+                    // Try to get sector median PEG if available in relative data or profile
+                    if (currentFormulaData.relative && currentFormulaData.relative.median_peer_peg) {
+                        sectorPegDisplay = currentFormulaData.relative.median_peer_peg.toFixed(2);
+                    } else if (prof.sector_peg) {
+                        sectorPegDisplay = prof.sector_peg.toFixed(2);
                     } else {
-                        pegStatusElem.textContent = `Supraevaluat (${currentPeg.toFixed(2)})`;
+                        sectorPegDisplay = "N/A"; 
+                    }
+
+                    pegValueElem.textContent = `PEG = ${currentPeg.toFixed(2)} vs PEG Sector = ${sectorPegDisplay}`;
+                    pegValueElem.style.fontSize = "1rem"; // Make it fit nicely
+
+                    if (currentPeg <= greenMax) {
+                        pegStatusElem.textContent = `Subevaluat`;
+                        pegStatusElem.style.color = 'var(--accent)';
+                        pegValueElem.style.color = 'var(--accent)';
+                    } else if (currentPeg <= orangeMax) {
+                        pegStatusElem.textContent = `Fair / Premium`;
+                        pegStatusElem.style.color = '#fbbf24'; // Orange
+                        pegValueElem.style.color = '#fbbf24';
+                    } else {
+                        pegStatusElem.textContent = `Supraevaluat`;
                         pegStatusElem.style.color = 'var(--danger)'; // Red
+                        pegValueElem.style.color = 'var(--danger)';
                     }
                 } else {
                     pegStatusElem.textContent = "N/A";
                     pegStatusElem.style.color = "var(--text-muted)";
+                    pegValueElem.textContent = "--";
+                    pegValueElem.style.color = "var(--text-main)";
                 }
             }
 

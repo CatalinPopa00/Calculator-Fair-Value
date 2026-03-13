@@ -881,8 +881,16 @@ def get_analyst_data(ticker_symbol: str) -> dict:
         eps_estimates.sort(key=sort_key)
         rev_estimates.sort(key=sort_key)
 
-        # Merge forward estimates to get exactly the quarters of the current year + 2 years
+        # Extract the current fiscal year from the '0y' (current year) estimate
         current_year_str = str(datetime.now().year)
+        for e in eps_estimates:
+            if e.get('period_code') == '0y' and e.get('period'):
+                # Extract the 4 digit year from the string 'FY 2026' or '2026'
+                import re
+                match = re.search(r'\d{4}', str(e.get('period')))
+                if match:
+                    current_year_str = match.group(0)
+                break
         
         # Only include reported quarters from the current year
         curr_yr_reported_eps = [e for e in reported_eps if current_year_str in str(e.get('period', ''))]
