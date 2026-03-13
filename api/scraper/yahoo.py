@@ -613,6 +613,7 @@ def get_lightweight_company_data(ticker_symbol: str):
             "name": info.get('shortName') or info.get('longName') or ticker_symbol,
             "price": info.get('currentPrice') or info.get('regularMarketPrice'),
             "pe_ratio": info.get('trailingPE') or info.get('forwardPE'),
+            "peg_ratio": info.get('pegRatio'),
             "industry": info.get('industry')
         }
     except Exception:

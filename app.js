@@ -471,7 +471,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (multVal === 'PE 15') selectedMult = 15;
                 if (multVal === 'PE 20') selectedMult = 20;
                 if (multVal === 'PE 25') selectedMult = 25;
-                if (multVal === 'historic') selectedMult = pl.pe_historic || 20;
+                if (multVal === 'historic') selectedMult = pl.historic_pe || 20;
                 if (multVal === 'custom') {
                     selectedMult = parseFloat(document.getElementById('lynch-custom-mult').value) || 18;
                 }

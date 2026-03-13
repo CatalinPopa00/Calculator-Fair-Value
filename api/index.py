@@ -180,11 +180,16 @@ def get_valuation(ticker: str):
     # Calculate Peer PE stats safely
     median_peer_pe = None
     mean_peer_pe = None
+    median_peer_peg = None
     if peers_data:
         valid_pes = [p.get('pe_ratio') for p in peers_data if p.get('pe_ratio')]
         if valid_pes:
             median_peer_pe = statistics.median(valid_pes)
             mean_peer_pe = sum(valid_pes) / len(valid_pes)
+            
+        valid_pegs = [p.get('peg_ratio') for p in peers_data if p.get('peg_ratio')]
+        if valid_pegs:
+            median_peer_peg = statistics.median(valid_pegs)
 
     # Calculate Current PE for PEG transparency
     current_pe = current_price / data.get("trailing_eps") if data.get("trailing_eps") and data.get("trailing_eps") > 0 else None
@@ -248,6 +253,7 @@ def get_valuation(ticker: str):
             "company_trailing_pe": sanitize(pe_historic),
             "peers_used": [p.get("ticker", p) if isinstance(p, dict) else p for p in peers_data] if peers_data else [],
             "median_peer_pe": sanitize(median_peer_pe),
+            "median_peer_peg": sanitize(median_peer_peg),
             "mean_peer_pe": sanitize(mean_peer_pe),
             "market_pe_trailing": sanitize(market_data.get("trailing_pe")),
             "market_pe_forward": sanitize(market_data.get("forward_pe"))
