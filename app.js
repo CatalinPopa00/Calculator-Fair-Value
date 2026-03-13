@@ -425,13 +425,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     pegCompareElem.textContent = `PEG = ${currentPeg.toFixed(2)} vs PEG Sector = ${sectorPegDisplay}`;
 
                     if (currentPeg <= greenMax) {
-                        pegStatusElem.textContent = `Subevaluat`;
+                        pegStatusElem.textContent = `Undervalued`;
                         pegStatusElem.style.color = 'var(--accent)';
                     } else if (currentPeg <= orangeMax) {
-                        pegStatusElem.textContent = `Fair / Premium`;
+                        pegStatusElem.textContent = `Fair Value`;
                         pegStatusElem.style.color = '#fbbf24'; // Orange
                     } else {
-                        pegStatusElem.textContent = `Supraevaluat`;
+                        pegStatusElem.textContent = `Overvalued`;
                         pegStatusElem.style.color = 'var(--danger)'; // Red
                     }
                 } else {
