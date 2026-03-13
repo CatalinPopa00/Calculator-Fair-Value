@@ -389,9 +389,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             const pegValueElem = document.getElementById('peg-value');
+            if (pegValueElem) pegValueElem.textContent = pegVal != null ? formatCurrency(pegVal) : 'N/A';
             
             const pegStatusElem = document.getElementById('peg-status');
-            if (pegStatusElem && pegValueElem) {
+            const pegCompareElem = document.getElementById('peg-compare');
+            
+            if (pegStatusElem && pegCompareElem) {
                 const currentPeg = currentFormulaData.peg ? currentFormulaData.peg.current_peg : (prof.peg_ratio || null);
                 if (currentPeg != null) {
                     const sector = prof.sector;
@@ -419,27 +422,22 @@ document.addEventListener('DOMContentLoaded', () => {
                         sectorPegDisplay = "N/A"; 
                     }
 
-                    pegValueElem.textContent = `PEG = ${currentPeg.toFixed(2)} vs PEG Sector = ${sectorPegDisplay}`;
-                    pegValueElem.style.fontSize = "1rem"; // Make it fit nicely
+                    pegCompareElem.textContent = `PEG = ${currentPeg.toFixed(2)} vs PEG Sector = ${sectorPegDisplay}`;
 
                     if (currentPeg <= greenMax) {
                         pegStatusElem.textContent = `Subevaluat`;
                         pegStatusElem.style.color = 'var(--accent)';
-                        pegValueElem.style.color = 'var(--accent)';
                     } else if (currentPeg <= orangeMax) {
                         pegStatusElem.textContent = `Fair / Premium`;
                         pegStatusElem.style.color = '#fbbf24'; // Orange
-                        pegValueElem.style.color = '#fbbf24';
                     } else {
                         pegStatusElem.textContent = `Supraevaluat`;
                         pegStatusElem.style.color = 'var(--danger)'; // Red
-                        pegValueElem.style.color = 'var(--danger)';
                     }
                 } else {
                     pegStatusElem.textContent = "N/A";
                     pegStatusElem.style.color = "var(--text-muted)";
-                    pegValueElem.textContent = "--";
-                    pegValueElem.style.color = "var(--text-main)";
+                    pegCompareElem.textContent = "PEG = N/A vs PEG Sector = N/A";
                 }
             }
 
