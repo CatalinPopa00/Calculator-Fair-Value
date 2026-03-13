@@ -731,7 +731,7 @@ def get_analyst_data(ticker_symbol: str) -> dict:
             # EPS History
             eh = stock.earnings_history
             if eh is not None and not eh.empty:
-                for idx, row in eh.tail(2).iterrows(): # take up to last 2 reported
+                for idx, row in eh.tail(4).iterrows(): # take up to last 4 reported
                     eps_act = row.get('epsActual') if hasattr(row, 'get') else None
                     eps_est = row.get('epsEstimate') if hasattr(row, 'get') else None
                     surprise_pct = row.get('surprisePercent') if hasattr(row, 'get') else None
@@ -754,8 +754,8 @@ def get_analyst_data(ticker_symbol: str) -> dict:
             istmt = stock.quarterly_income_stmt
             if istmt is not None and not istmt.empty and 'Total Revenue' in istmt.index:
                 rev_row = istmt.loc['Total Revenue']
-                # rev_row index is dates (descending usually). Take latest 2.
-                for col_date in list(rev_row.index)[:2][::-1]: 
+                # rev_row index is dates (descending usually). Take latest 4.
+                for col_date in list(rev_row.index)[:4][::-1]: 
                     rev_act = rev_row[col_date]
                     if pd.isna(rev_act): continue
                     
@@ -881,19 +881,21 @@ def get_analyst_data(ticker_symbol: str) -> dict:
         eps_estimates.sort(key=sort_key)
         rev_estimates.sort(key=sort_key)
 
-        # Merge forward estimates to get exactly 4 forward quarters + 2 years
-        eps_qtrs = [e for e in eps_estimates if 'q' in e.get('period_code', '')][:4]
+        # Merge forward estimates to get exactly the quarters of the current year + 2 years
+        current_year_str = str(datetime.now().year)
+        
+        eps_qtrs = [e for e in eps_estimates if 'q' in e.get('period_code', '') and current_year_str in str(e.get('period', ''))]
         eps_years = [e for e in eps_estimates if 'y' in e.get('period_code', '')][:2]
         
-        # Include the most recent 2 reported quarters + all forward quarters and years
-        last_reported_eps = reported_eps[-2:] if len(reported_eps) >= 2 else reported_eps
-        unified_eps = last_reported_eps + eps_qtrs + eps_years
+        # Only include reported quarters from the current year
+        curr_yr_reported_eps = [e for e in reported_eps if current_year_str in str(e.get('period', ''))]
+        unified_eps = curr_yr_reported_eps + eps_qtrs + eps_years
 
-        rev_qtrs = [e for e in rev_estimates if 'q' in e.get('period_code', '')][:4]
+        rev_qtrs = [e for e in rev_estimates if 'q' in e.get('period_code', '') and current_year_str in str(e.get('period', ''))]
         rev_years = [e for e in rev_estimates if 'y' in e.get('period_code', '')][:2]
         
-        last_reported_rev = reported_rev[-2:] if len(reported_rev) >= 2 else reported_rev
-        unified_rev = last_reported_rev + rev_qtrs + rev_years
+        curr_yr_reported_rev = [e for e in reported_rev if current_year_str in str(e.get('period', ''))]
+        unified_rev = curr_yr_reported_rev + rev_qtrs + rev_years
 
         # ── EPS growth from estimates ─────────────────────────────────────────────
         # Smart selection: pick the healthiest forward year
