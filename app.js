@@ -702,6 +702,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     // It's a reported quarter, use surprise if possible
                     colorKey = (row.surprise_pct > 0) ? 'var(--accent)' : (row.surprise_pct < 0 ? 'var(--danger)' : 'var(--text-main)');
                     finalVal = (row.surprise_pct != null) ? fvPct(row.surprise_pct) : '--';
+                } else if (row.growth != null) {
+                    // It's an estimate, color the growth
+                    colorKey = (row.growth > 0) ? 'var(--accent)' : (row.growth < 0 ? 'var(--danger)' : 'var(--text-main)');
                 }
 
                 epsBody.innerHTML += `<tr>
@@ -722,6 +725,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     finalVal = (row.surprise_pct != null) ? fvPct(row.surprise_pct) : '--';
                     if (row.surprise_pct > 0) colorKey = 'var(--accent)';
                     else if (row.surprise_pct < 0) colorKey = 'var(--danger)';
+                } else if (row.growth != null) {
+                    // It's an estimate, color the growth
+                    colorKey = (row.growth > 0) ? 'var(--accent)' : (row.growth < 0 ? 'var(--danger)' : 'var(--text-main)');
                 }
 
                 revBody.innerHTML += `<tr>
