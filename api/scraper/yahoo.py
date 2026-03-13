@@ -656,50 +656,24 @@ def get_period_labels(ticker_info: dict) -> dict:
     from datetime import datetime
     now = datetime.now()
     curr_year = now.year
-    
-    # mostRecentQuarter is timestamp of the last reported quarter end
-    mrq_timestamp = ticker_info.get('mostRecentQuarter')
+    curr_q = (now.month - 1) // 3 + 1
     
     mapping = {
-        "0q": "Current Qtr",
-        "+1q": "Next Qtr",
-        "+2q": "QTR +2",
-        "+3q": "QTR +3",
+        "0q": f"Q{curr_q} {curr_year}",
         "0y": f"FY {curr_year}",
         "+1y": f"FY {curr_year + 1}"
     }
     
-    try:
-        if mrq_timestamp:
-            mrq_dt = datetime.fromtimestamp(mrq_timestamp)
-            
-            # Start from the next quarter (0q)
-            curr_q_month = mrq_dt.month
-            curr_q_year = mrq_dt.year
-            
-            for i in range(1, 5): # 0q, +1q, +2q, +3q
-                next_q_month = curr_q_month + 3
-                next_q_year = curr_q_year
-                if next_q_month > 12:
-                    next_q_month -= 12
-                    next_q_year += 1
-                
-                q_num = (next_q_month - 1) // 3 + 1
-                q_label = f"Q{q_num} {next_q_year}"
-                
-                key = "0q" if i == 1 else f"+{i-1}q"
-                mapping[key] = q_label
-                
-                curr_q_month = next_q_month
-                curr_q_year = next_q_year
-
-        # FY handling
-        # If today is after the last fiscal year end, 0y usually refers to the CURRENT fiscal year.
-        # Yahoo's 0y/1y are usually aligned with the current and next full fiscal year estimates.
-        mapping["0y"] = f"FY {curr_year}"
-        mapping["+1y"] = f"FY {curr_year + 1}"
-    except:
-        pass
+    # Calculate next quarters based on current
+    q_num = curr_q
+    q_year = curr_year
+    for i in range(1, 5):
+        q_num += 1
+        if q_num > 4:
+            q_num = 1
+            q_year += 1
+        
+        mapping[f"+{i}q"] = f"Q{q_num} {q_year}"
         
     return mapping
 

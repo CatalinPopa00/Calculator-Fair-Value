@@ -695,12 +695,12 @@ document.addEventListener('DOMContentLoaded', () => {
             // EPS Table
             const epsBody = document.querySelector('#eps-est-table tbody');
             (data.eps_estimates || []).slice(0, 8).forEach(row => {
-                let colorKey = 'white';
+                let colorKey = 'var(--text-main)';
                 let finalVal = fvPct(row.growth); // Use growth default
 
                 if (row.status === 'reported') {
                     // It's a reported quarter, use surprise if possible
-                    colorKey = (row.surprise_pct > 0) ? 'var(--accent)' : (row.surprise_pct < 0 ? 'var(--danger)' : 'white');
+                    colorKey = (row.surprise_pct > 0) ? 'var(--accent)' : (row.surprise_pct < 0 ? 'var(--danger)' : 'var(--text-main)');
                     finalVal = (row.surprise_pct != null) ? fvPct(row.surprise_pct) : '--';
                 }
 
@@ -714,7 +714,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Revenue Table
             const revBody = document.querySelector('#rev-est-table tbody');
             (data.rev_estimates || []).slice(0, 8).forEach(row => {
-                let colorKey = 'white';
+                let colorKey = 'var(--text-main)';
                 let finalVal = fvPct(row.growth);
 
                 if (row.status === 'reported') {
