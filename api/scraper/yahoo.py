@@ -424,45 +424,62 @@ def get_company_data(ticker_symbol: str):
         except Exception:
             pass
 
-        # Historical Trends — reuse already-fetched financials and cashflow
+        # Historical Trends (Original)
         historical_trends = []
         try:
-            cashflow = cf  # Already fetched above
             if financials is not None and not financials.empty and cashflow is not None and not cashflow.empty:
                 import pandas as pd
-                # Find common columns, sort by date descending
                 cols = list(set(financials.columns).intersection(cashflow.columns))
                 cols.sort(reverse=True)
-                years = cols[:10]  # Try to grab up to 10 years, though yfinance usually limits to 4 free
-                
-                for year in years:
-                    rev = None
-                    if 'Total Revenue' in financials.index:
-                        rev_val = financials.loc['Total Revenue', year]
-                        rev = float(rev_val) if not pd.isna(rev_val) else None
-                        
-                    ni = None
-                    if 'Net Income' in financials.index:
-                        ni_val = financials.loc['Net Income', year]
-                        ni = float(ni_val) if not pd.isna(ni_val) else None
-                        
-                    fcf_val = None
-                    if 'Free Cash Flow' in cashflow.index:
-                        fcf_tmp = cashflow.loc['Free Cash Flow', year]
-                        fcf_val = float(fcf_tmp) if not pd.isna(fcf_tmp) else None
-                    
+                years_trends = cols[:10]
+                for year in years_trends:
+                    rev = float(financials.loc['Total Revenue', year]) if 'Total Revenue' in financials.index and not pd.isna(financials.loc['Total Revenue', year]) else None
+                    ni = float(financials.loc['Net Income', year]) if 'Net Income' in financials.index and not pd.isna(financials.loc['Net Income', year]) else None
+                    fcf_v = float(cashflow.loc['Free Cash Flow', year]) if 'Free Cash Flow' in cashflow.index and not pd.isna(cashflow.loc['Free Cash Flow', year]) else None
                     margin = (ni / rev) if (ni and rev and rev > 0) else None
-                    
                     year_str = year.year if hasattr(year, 'year') else str(year)[:4]
-                    
                     historical_trends.append({
                         "year": year_str,
                         "revenue": rev,
                         "net_margin": margin,
-                        "fcf": fcf_val
+                        "fcf": fcf_v
                     })
         except Exception as e:
             print(f"Historical trends format issue: {e}")
+
+        # 4-Year Historical Data for Charts (Requested by User)
+        historical_data = {
+            "years": [],
+            "revenue": [],
+            "eps": [],
+            "fcf": [],
+            "shares": []
+        }
+        try:
+            if financials is not None and not financials.empty and cashflow is not None and not cashflow.empty:
+                import pandas as pd
+                common_cols = sorted(list(set(financials.columns).intersection(cashflow.columns)))
+                target_years = common_cols[-4:]
+                for year_ts in target_years:
+                    year_label = year_ts.year if hasattr(year_ts, 'year') else str(year_ts)[:4]
+                    rev_val = financials.loc['Total Revenue', year_ts] if 'Total Revenue' in financials.index else None
+                    eps_val = financials.loc['Diluted EPS', year_ts] if 'Diluted EPS' in financials.index else (financials.loc['Basic EPS', year_ts] if 'Basic EPS' in financials.index else None)
+                    fcf_val = cashflow.loc['Free Cash Flow', year_ts] if 'Free Cash Flow' in cashflow.index else (cashflow.loc['Operating Cash Flow', year_ts] if 'Operating Cash Flow' in cashflow.index else None)
+                    share_val = None
+                    for sk in ['Basic Average Shares', 'Diluted Average Shares', 'Ordinary Shares Number']:
+                        if sk in financials.index:
+                            share_val = financials.loc[sk, year_ts]
+                            break
+                        elif sk in cashflow.index:
+                            share_val = cashflow.loc[sk, year_ts]
+                            break
+                    historical_data["years"].append(str(year_label))
+                    historical_data["revenue"].append(float(rev_val) if rev_val is not None and not pd.isna(rev_val) else 0)
+                    historical_data["eps"].append(float(eps_val) if eps_val is not None and not pd.isna(eps_val) else 0)
+                    historical_data["fcf"].append(float(fcf_val) if fcf_val is not None and not pd.isna(fcf_val) else 0)
+                    historical_data["shares"].append(float(share_val) if share_val is not None and not pd.isna(share_val) else 0)
+        except Exception as e:
+            print(f"Error extracting historical_data for charts: {e}")
 
         return {
             "ticker": ticker_symbol.upper(),
@@ -496,6 +513,7 @@ def get_company_data(ticker_symbol: str):
             "payout_ratio": payout_ratio,
             "historic_eps_growth": historic_eps_growth,
             "historical_trends": historical_trends,
+            "historical_data": historical_data,
             "forward_eps": forward_eps,
             "ebit_margin": ebit_margin,
             "fwd_ps": fwd_ps,

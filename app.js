@@ -31,6 +31,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentTicker = null;
     let currentHealthBreakdown = null;
     let currentBuyBreakdown = null;
+    let chartRevFcf = null;
+    let chartEpsShares = null;
 
     // Watchlist State (Load initially from localStorage for responsiveness, then sync)
     let watchlist = JSON.parse(localStorage.getItem('fairValueWatchlist')) || [];
@@ -661,6 +663,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Fetch and show Analyst Estimates inline
         renderAnalystEstimatesInline(data.ticker);
+
+        // Render Historical Stability Charts
+        renderHistoricalCharts(data);
     };
 
     // --- Watchlist Logic ---
@@ -1628,4 +1633,121 @@ document.addEventListener('DOMContentLoaded', () => {
                 emptyWatchlistMsg.style.display = 'block';
             }
         });
+    const renderHistoricalCharts = (data) => {
+        const container = document.getElementById('historical-charts-container');
+        if (!data.historical_data || !data.historical_data.years || data.historical_data.years.length === 0) {
+            if (container) container.style.display = 'none';
+            return;
+        }
+
+        if (container) container.style.display = 'block';
+        const h = data.historical_data;
+
+        // Helper to format large numbers to Millions
+        const toM = (val) => (val / 1000000);
+
+        // Chart 1: Revenue & FCF (Bar Chart)
+        if (chartRevFcf) chartRevFcf.destroy();
+        const ctx1 = document.getElementById('chart-rev-fcf').getContext('2d');
+        chartRevFcf = new Chart(ctx1, {
+            type: 'bar',
+            data: {
+                labels: h.years,
+                datasets: [
+                    {
+                        label: 'Revenue (M)',
+                        data: h.revenue.map(toM),
+                        backgroundColor: 'rgba(56, 189, 248, 0.6)',
+                        borderColor: 'rgba(56, 189, 248, 1)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Free Cash Flow (M)',
+                        data: h.fcf.map(toM),
+                        backgroundColor: 'rgba(34, 197, 94, 0.6)',
+                        borderColor: 'rgba(34, 197, 94, 1)',
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(255,255,255,0.1)' },
+                        ticks: { color: 'rgba(255,255,255,0.6)' }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: 'rgba(255,255,255,0.6)' }
+                    }
+                },
+                plugins: {
+                    legend: { labels: { color: 'rgba(255,255,255,0.8)' } }
+                }
+            }
+        });
+
+        // Chart 2: EPS & Shares Outstanding (Dual Y Axis)
+        if (chartEpsShares) chartEpsShares.destroy();
+        const ctx2 = document.getElementById('chart-eps-shares').getContext('2d');
+        chartEpsShares = new Chart(ctx2, {
+            type: 'line',
+            data: {
+                labels: h.years,
+                datasets: [
+                    {
+                        label: 'EPS',
+                        data: h.eps,
+                        borderColor: 'rgba(234, 179, 8, 1)',
+                        backgroundColor: 'rgba(234, 179, 8, 0.2)',
+                        yAxisID: 'y',
+                        tension: 0.3,
+                        fill: true
+                    },
+                    {
+                        label: 'Shares (M)',
+                        data: h.shares.map(toM),
+                        borderColor: 'rgba(168, 85, 247, 1)',
+                        backgroundColor: 'rgba(168, 85, 247, 0.2)',
+                        yAxisID: 'y1',
+                        borderDash: [5, 5],
+                        type: 'bar'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        title: { display: true, text: 'EPS ($)', color: 'rgba(234, 179, 8, 1)' },
+                        grid: { color: 'rgba(255,255,255,0.1)' },
+                        ticks: { color: 'rgba(255,255,255,0.6)' }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        title: { display: true, text: 'Shares (Millions)', color: 'rgba(168, 85, 247, 1)' },
+                        grid: { drawOnChartArea: false },
+                        ticks: { color: 'rgba(255,255,255,0.6)' }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: 'rgba(255,255,255,0.6)' }
+                    }
+                },
+                plugins: {
+                    legend: { labels: { color: 'rgba(255,255,255,0.8)' } }
+                }
+            }
+        });
+    };
 });
+
