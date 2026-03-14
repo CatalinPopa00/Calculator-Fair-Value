@@ -143,6 +143,8 @@ def get_valuation(ticker: str, wacc: float = None):
     
     dcf_sensitivity = []
     reverse_dcf_growth = None
+    dcf_value = None
+    dcf_result = None
     
     # Dynamic WACC (CAPM)
     risk_free_rate = get_risk_free_rate()

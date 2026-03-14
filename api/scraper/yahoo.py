@@ -429,7 +429,6 @@ def get_company_data(ticker_symbol: str):
         historical_trends = []
         try:
             if financials is not None and not financials.empty and cashflow is not None and not cashflow.empty:
-                import pandas as pd
                 cols = list(set(financials.columns).intersection(cashflow.columns))
                 cols.sort(reverse=True)
                 years_trends = cols[:10]
@@ -458,7 +457,6 @@ def get_company_data(ticker_symbol: str):
         }
         try:
             if financials is not None and not financials.empty and cashflow is not None and not cashflow.empty:
-                import pandas as pd
                 common_cols = sorted(list(set(financials.columns).intersection(cashflow.columns)))
                 target_years = common_cols[-4:]
                 for year_ts in target_years:
