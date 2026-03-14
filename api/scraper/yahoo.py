@@ -257,7 +257,19 @@ def get_company_data(ticker_symbol: str):
                 elif not eps_growth:
                     eps_growth = info.get('revenueGrowth', 0.05)
             
-        # Continue with other info data
+        # Financials for DCF & Margins (Wait for results)
+        try:
+            financials = future_fin.result(timeout=10)
+        except Exception:
+            financials = None
+        try:
+            cashflow = future_cf.result(timeout=10)
+        except Exception:
+            cashflow = None
+        try:
+            bs = future_bs.result(timeout=10)
+        except Exception:
+            bs = None
         peg_ratio = None
         if pe_ratio and eps_growth and eps_growth > 0:
             peg_ratio = pe_ratio / (eps_growth * 100)
@@ -303,18 +315,16 @@ def get_company_data(ticker_symbol: str):
         dividend_yield = info.get('dividendYield') or info.get('trailingAnnualDividendYield')
         payout_ratio = info.get('payoutRatio')
 
-        # FCF Trend - using already fetched future_cf
+        # FCF Trend
         fcf_history = []
         historic_fcf_growth = None
-        cf = None  # Store for reuse in historical trends
         try:
-            cf = future_cf.result(timeout=10)
-            if cf is not None and not cf.empty:
+            if cashflow is not None and not cashflow.empty:
                 fcf_y = []
-                if 'Free Cash Flow' in cf.index:
-                    fcf_y = cf.loc['Free Cash Flow'].dropna().head(5).tolist()
-                elif 'Operating Cash Flow' in cf.index:
-                    fcf_y = cf.loc['Operating Cash Flow'].dropna().head(5).tolist()
+                if 'Free Cash Flow' in cashflow.index:
+                    fcf_y = cashflow.loc['Free Cash Flow'].dropna().head(5).tolist()
+                elif 'Operating Cash Flow' in cashflow.index:
+                    fcf_y = cashflow.loc['Operating Cash Flow'].dropna().head(5).tolist()
                 
                 if fcf_y:
                     fcf_history = fcf_y[:3]
@@ -329,11 +339,9 @@ def get_company_data(ticker_symbol: str):
         except Exception:
             pass
             
-        # Historic EPS growth - using already fetched future_fin
+        # Historic EPS growth
         historic_eps_growth = None
-        financials = None  # Store for reuse in interest coverage and historical trends
         try:
-            financials = future_fin.result(timeout=10)
             if financials is not None and not financials.empty:
                 indices = financials.index
                 eps_row = None
@@ -396,10 +404,9 @@ def get_company_data(ticker_symbol: str):
         # Using revenueGrowth as a proxy for the next 3 years if specific analyst estimates aren't pulled
         next_3y_rev_est = info.get('revenueGrowth')
 
-        # Historic Buyback Rate — reuse already-fetched balance_sheet
+        # Historic Buyback Rate
         historic_buyback_rate = None
         try:
-            bs = future_bs.result(timeout=10)
             if bs is not None and not bs.empty:
                 if 'Ordinary Shares Number' in bs.index:
                     shares_row = bs.loc['Ordinary Shares Number'].dropna()
