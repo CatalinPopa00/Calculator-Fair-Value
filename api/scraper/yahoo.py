@@ -540,10 +540,17 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
     """
     try:
         target_ticker = target_ticker.upper()
-        peer_data = []
-
+        
         if not target_industry:
             return []
+
+        # Ensure target_market_cap is a valid float
+        target_mcap = float(target_market_cap or 0)
+        
+        # Rule of Iron: Blacklist massive companies if target is not one (< $500B)
+        blacklist = []
+        if target_mcap < 500_000_000_000:
+            blacklist = ['BRK-A', 'BRK-B', 'AAPL', 'MSFT', 'GOOG', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA']
 
         # Strategy 1: Screener (Get candidates in the same sector)
         candidates = []
@@ -562,7 +569,7 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
             if resp.status_code == 200:
                 for q in resp.json().get('finance', {}).get('result', [{}])[0].get('quotes', []):
                     sym = (q.get('symbol') or '').upper()
-                    if sym and sym != target_ticker:
+                    if sym and sym != target_ticker and sym not in blacklist:
                         candidates.append(sym)
         except Exception as e:
             print(f"Screener failed: {e}")
@@ -601,10 +608,7 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
                     mcap = p.get('market_cap')
                     # Strict null check for mcap
                     if mcap is not None and mcap > 0:
-                        if target_mcap > 0:
-                            if (0.2 * target_mcap <= mcap <= 5.0 * target_mcap):
-                                tier1.append(p)
-                        else:
+                        if target_mcap > 0 and mcap is not None and (0.2 * target_mcap <= mcap <= 5.0 * target_mcap):
                             tier1.append(p)
             except Exception:
                 continue
@@ -620,10 +624,7 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
                 if p.get('sector') == target_sector:
                     mcap = p.get('market_cap')
                     if mcap is not None and mcap > 0:
-                        if target_mcap > 0:
-                            if (0.1 * target_mcap <= mcap <= 10.0 * target_mcap):
-                                tier2.append(p)
-                        else:
+                        if target_mcap > 0 and mcap is not None and (0.2 * target_mcap <= mcap <= 5.0 * target_mcap):
                             tier2.append(p)
             except Exception:
                 continue
@@ -631,8 +632,8 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
         if tier2:
             return tier2[:limit]
 
-        # Tier 3: Last Resort (Any valid tickers with data)
-        return raw_peers[:limit]
+        # Tier 3 (Generic Fallback) REMOVED
+        return []
         
     except Exception as e:
         print(f"Global competitors failure for {target_ticker}: {e}")
