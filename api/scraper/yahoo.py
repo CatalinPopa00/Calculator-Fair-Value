@@ -538,88 +538,105 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
     Find relevant industry peers strictly matching the target company's industry
      and having a market cap between 20% and 500% of the target's.
     """
-    target_ticker = target_ticker.upper()
-    peer_data = []
-
-    if not target_industry or not target_market_cap:
-        return []
-
-    # Strategy 1: Screener (Get candidates in the same sector)
-    candidates = []
     try:
-        stock = yf.Ticker(target_ticker)
-        payload = {
-            "offset": 0, "size": 100, "sortField": "intradaymarketcap", "sortType": "DESC",
-            "quoteType": "EQUITY",
-            "query": {"operator": "AND", "operands": [
-                {"operator": "eq", "operands": ["sector", sector]},
-                {"operator": "eq", "operands": ["region", "us"]},
-            ]},
-            "userId": "", "userIdType": "guid"
-        }
-        resp = stock._data.post('https://query2.finance.yahoo.com/v1/finance/screener', body=payload, timeout=10)
-        if resp.status_code == 200:
-            for q in resp.json().get('finance', {}).get('result', [{}])[0].get('quotes', []):
-                sym = (q.get('symbol') or '').upper()
-                if sym and sym != target_ticker:
-                    candidates.append(sym)
-    except Exception as e:
-        print(f"Screener failed: {e}")
+        target_ticker = target_ticker.upper()
+        peer_data = []
 
-    # Process candidates with progressive fallback tiers
-    if not candidates:
-        return []
+        if not target_industry:
+            return []
 
-    # Ensure target_market_cap is a valid float
-    target_mcap = float(target_market_cap or 0)
+        # Strategy 1: Screener (Get candidates in the same sector)
+        candidates = []
+        try:
+            stock = yf.Ticker(target_ticker)
+            payload = {
+                "offset": 0, "size": 100, "sortField": "intradaymarketcap", "sortType": "DESC",
+                "quoteType": "EQUITY",
+                "query": {"operator": "AND", "operands": [
+                    {"operator": "eq", "operands": ["sector", sector]},
+                    {"operator": "eq", "operands": ["region", "us"]},
+                ]},
+                "userId": "", "userIdType": "guid"
+            }
+            resp = stock._data.post('https://query2.finance.yahoo.com/v1/finance/screener', body=payload, timeout=10)
+            if resp.status_code == 200:
+                for q in resp.json().get('finance', {}).get('result', [{}])[0].get('quotes', []):
+                    sym = (q.get('symbol') or '').upper()
+                    if sym and sym != target_ticker:
+                        candidates.append(sym)
+        except Exception as e:
+            print(f"Screener failed: {e}")
 
-    import concurrent.futures
-    raw_peers = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as exc:
-        futures = {exc.submit(get_lightweight_company_data, t): t for t in candidates[:50]}
-        for future in concurrent.futures.as_completed(futures, timeout=30):
+        # Process candidates with progressive fallback tiers
+        if not candidates:
+            return []
+
+        # Ensure target_market_cap is a valid float
+        target_mcap = float(target_market_cap or 0)
+
+        # LIMIT TO 10 CANDIDATES to avoid 429
+        candidates = candidates[:10]
+
+        import concurrent.futures
+        raw_peers = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as exc:
+            futures = {exc.submit(get_lightweight_company_data, t): t for t in candidates}
+            for future in concurrent.futures.as_completed(futures, timeout=20):
+                try:
+                    data = future.result()
+                    if data and data.get('price') and data.get('ticker'):
+                        raw_peers.append(data)
+                except Exception:
+                    # Gracefully skip failed 429/timeout candidates
+                    continue
+
+        if not raw_peers:
+            return []
+
+        # Tier 1: Strict Industry Match + 20%-500% Market Cap
+        tier1 = []
+        for p in raw_peers:
             try:
-                data = future.result(timeout=10)
-                if data and data.get('price') and data.get('ticker'):
-                    raw_peers.append(data)
+                if p.get('industry') == target_industry:
+                    mcap = p.get('market_cap')
+                    # Strict null check for mcap
+                    if mcap is not None and mcap > 0:
+                        if target_mcap > 0:
+                            if (0.2 * target_mcap <= mcap <= 5.0 * target_mcap):
+                                tier1.append(p)
+                        else:
+                            tier1.append(p)
             except Exception:
-                pass
+                continue
+        
+        if tier1:
+            return tier1[:limit]
 
-    if not raw_peers:
+        # Tier 2: Sector Match + 10%-1000% Market Cap
+        target_sector = sector # Inherited from function arg
+        tier2 = []
+        for p in raw_peers:
+            try:
+                if p.get('sector') == target_sector:
+                    mcap = p.get('market_cap')
+                    if mcap is not None and mcap > 0:
+                        if target_mcap > 0:
+                            if (0.1 * target_mcap <= mcap <= 10.0 * target_mcap):
+                                tier2.append(p)
+                        else:
+                            tier2.append(p)
+            except Exception:
+                continue
+        
+        if tier2:
+            return tier2[:limit]
+
+        # Tier 3: Last Resort (Any valid tickers with data)
+        return raw_peers[:limit]
+        
+    except Exception as e:
+        print(f"Global competitors failure for {target_ticker}: {e}")
         return []
-
-    # Tier 1: Strict Industry Match + 20%-500% Market Cap
-    # Skip cap check if target_mcap is 0
-    tier1 = []
-    for p in raw_peers:
-        if p.get('industry') == target_industry:
-            if target_mcap == 0:
-                tier1.append(p)
-            else:
-                mcap = p.get('market_cap', 0)
-                if mcap > 0 and (0.2 * target_mcap <= mcap <= 5.0 * target_mcap):
-                    tier1.append(p)
-    
-    if tier1:
-        return tier1[:limit]
-
-    # Tier 2: Sector Match + 10%-1000% Market Cap
-    target_sector = sector # Inherited from function arg
-    tier2 = []
-    for p in raw_peers:
-        if p.get('sector') == target_sector:
-            if target_mcap == 0:
-                tier2.append(p)
-            else:
-                mcap = p.get('market_cap', 0)
-                if mcap > 0 and (0.1 * target_mcap <= mcap <= 10.0 * target_mcap):
-                    tier2.append(p)
-    
-    if tier2:
-        return tier2[:limit]
-
-    # Tier 3: Last Resort (Any valid tickers with data)
-    return raw_peers[:limit]
 
 def get_lightweight_company_data(ticker_symbol: str):
     """Fetches a minimal set of data for competitor comparison."""
