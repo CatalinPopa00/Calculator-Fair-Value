@@ -608,12 +608,17 @@ def get_lightweight_company_data(ticker_symbol: str):
     try:
         stock = yf.Ticker(ticker_symbol)
         info = stock.info
+        pe = info.get('trailingPE') or info.get('forwardPE')
+        peg = info.get('pegRatio') or info.get('trailingPegRatio')
+        if not peg and pe and info.get('earningsGrowth'):
+            peg = pe / (info.get('earningsGrowth') * 100)
+            
         return {
             "ticker": ticker_symbol.upper(),
             "name": info.get('shortName') or info.get('longName') or ticker_symbol,
             "price": info.get('currentPrice') or info.get('regularMarketPrice'),
-            "pe_ratio": info.get('trailingPE') or info.get('forwardPE'),
-            "peg_ratio": info.get('pegRatio'),
+            "pe_ratio": pe,
+            "peg_ratio": peg,
             "industry": info.get('industry')
         }
     except Exception:

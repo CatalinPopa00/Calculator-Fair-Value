@@ -187,7 +187,9 @@ def get_valuation(ticker: str):
             median_peer_pe = statistics.median(valid_pes)
             mean_peer_pe = sum(valid_pes) / len(valid_pes)
             
-        valid_pegs = [p.get('peg_ratio') for p in peers_data if p.get('peg_ratio')]
+        valid_pegs = [p.get('peg_ratio') for p in peers_data if p.get('peg_ratio') is not None]
+        print(f"Debug: peers_data={[(p.get('ticker'), p.get('peg_ratio')) for p in peers_data]}")
+        print(f"Debug: valid_pegs={valid_pegs}")
         if valid_pegs:
             median_peer_peg = statistics.median(valid_pegs)
 
@@ -320,7 +322,7 @@ def get_valuation(ticker: str):
             "competitors": [p.get("ticker", p) if isinstance(p, dict) else p for p in peers_data] if peers_data else []
         },
         "historical_trends": historical_trends,
-        "formula_data": formula_data,
+        "valuation_formula_data": formula_data,
         "health_score": health_score,
         "health_breakdown": health_breakdown,
         "buy_score": buy_score,
