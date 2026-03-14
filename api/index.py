@@ -11,7 +11,7 @@ import urllib.parse
 import json
 
 import os
-from .scraper.yahoo import get_company_data, get_competitors_data, get_market_averages, search_companies, get_analyst_data
+from .scraper.yahoo import get_company_data, get_competitors_data, get_market_averages, search_companies, get_analyst_data, get_risk_free_rate
 from .models.valuation import (
     calculate_peter_lynch, 
     calculate_peg_fair_value, 
@@ -101,7 +101,7 @@ def save_watchlist(req: WatchlistRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/valuation/{ticker}", response_model=ValuationResponse)
-def get_valuation(ticker: str):
+def get_valuation(ticker: str, wacc: float = None):
     ticker_upper = ticker.upper()
     if ticker_upper in valuation_cache:
         return valuation_cache[ticker_upper]
@@ -140,12 +140,20 @@ def get_valuation(ticker: str):
     shares = data.get("shares_outstanding")
     eps_growth = data.get("eps_growth", 0.05) if data.get("eps_growth") is not None else 0.05
     
-    dcf_value = None
-    dcf_result = None
     dcf_sensitivity = []
     reverse_dcf_growth = None
     
-    discount_rate = 0.09 # 9% WACC standard
+    # Dynamic WACC (CAPM)
+    risk_free_rate = get_risk_free_rate()
+    erp = 0.055 # Equity Risk Premium fallback
+    beta = data.get("beta")
+    if beta is None:
+        beta = 1.0 # Default beta
+        
+    dynamic_wacc = risk_free_rate + (beta * erp)
+    
+    # Use custom WACC if provided by frontend, else dynamic_wacc
+    discount_rate = (wacc / 100.0) if wacc is not None else dynamic_wacc
     perpetual_growth = 0.02 # 2% GDP growth standard
     if fcf and shares and fcf > 0:
         dcf_result = calculate_dcf(fcf, eps_growth, discount_rate, perpetual_growth, shares, data.get("total_cash"), data.get("total_debt"))
@@ -242,6 +250,8 @@ def get_valuation(ticker: str):
             "total_debt": sanitize(dcf_result.get("total_debt")) if dcf_result else None,
             "equity_value": sanitize(dcf_result.get("equity_value")) if dcf_result else None,
             "intrinsic_value": sanitize(dcf_value),
+            "current_price": sanitize(current_price),
+            "margin_of_safety": sanitize(((dcf_value - current_price) / dcf_value * 100)) if dcf_value and dcf_value > 0 else None,
             "sensitivity_matrix": [
                 {
                     "discount_rate": sanitize(row["discount_rate"]),

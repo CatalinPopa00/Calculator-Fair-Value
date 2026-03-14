@@ -165,6 +165,27 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         setValuationStatus(data.dcf_value, data.current_price, 'dcf-status', 'dcf-value');
+        
+        // Populate DCF Card MOS and Price
+        const dcfCardMosRow = document.getElementById('dcf-card-mos-row');
+        const dcfCardPrice = document.getElementById('dcf-card-price');
+        const dcfCardMos = document.getElementById('dcf-card-mos');
+        if (dcfCardMosRow && data.formula_data && data.formula_data.dcf) {
+            const dcf = data.formula_data.dcf;
+            dcfCardMosRow.style.display = 'flex';
+            dcfCardPrice.textContent = `Price: ${formatCurrency(dcf.current_price)}`;
+            if (dcf.margin_of_safety != null) {
+                const mos = dcf.margin_of_safety;
+                dcfCardMos.textContent = `MOS: ${formatPercent(mos)}`;
+                dcfCardMos.style.color = mos > 0 ? 'var(--accent)' : 'var(--danger)';
+            } else {
+                dcfCardMos.textContent = 'MOS: N/A';
+                dcfCardMos.style.color = 'var(--text-muted)';
+            }
+        } else if (dcfCardMosRow) {
+            dcfCardMosRow.style.display = 'none';
+        }
+
         setValuationStatus(data.relative_value, data.current_price, 'relative-status', 'relative-value');
 
         // Update Dashboard Scores UI
@@ -330,12 +351,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 const shares = prof.shares_outstanding;
 
                 if (fcfSource === 'analyst') {
-                    if (buybackRate === 0) {
+                    const waccInput = document.getElementById('dcf-custom-wacc');
+                    const backendWacc = currentFormulaData.dcf.discount_rate;
+                    if (waccInput && !waccInput.value && backendWacc) {
+                         waccInput.value = (backendWacc * 100).toFixed(2);
+                    }
+                    
+                    if (buybackRate === 0 && (!waccInput || !waccInput.value || parseFloat(waccInput.value)/100 === backendWacc)) {
                         dcfVal = currentFormulaData.dcf.intrinsic_value;
                     } else {
                         // Re-calculate with buyback rate applied on top of analyst FCF value
                         const g = currentFormulaData.dcf.eps_growth_estimated || 0.10;
-                        const w = currentFormulaData.dcf.discount_rate || 0.09;
+                        const w = waccInput && waccInput.value ? parseFloat(waccInput.value)/100 : (currentFormulaData.dcf.discount_rate || 0.09);
                         const p = currentFormulaData.dcf.perpetual_growth || 0.02;
                         dcfVal = calcLocalDcf(baseFcf, g, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate);
                     }
@@ -1428,7 +1455,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     let tableRows = '';
                     if (dcf.fcf_years && dcf.pv_fcf_years) {
                         dcf.fcf_years.forEach((cf, i) => {
-                            tableRows += `<tr><td style="padding: 4px 0;">Year ${i + 1}</td><td style="text-align: right;">${fM(cf)}</td><td style="text-align: right;">${fM(dcf.pv_fcf_years[i])}</td></tr>`;
+                            let growthStr = '--';
+                            if (i === 0) {
+                                // Growth from base FCF
+                                const baseFcf = dcf.fcf;
+                                if (baseFcf && baseFcf > 0) {
+                                    growthStr = `${((cf - baseFcf) / baseFcf * 100).toFixed(1)}%`;
+                                }
+                            } else {
+                                const prevFcf = dcf.fcf_years[i-1];
+                                if (prevFcf && prevFcf > 0) {
+                                    growthStr = `${((cf - prevFcf) / prevFcf * 100).toFixed(1)}%`;
+                                }
+                            }
+                            tableRows += `<tr>
+                                <td style="padding: 4px 0;">Year ${i + 1}</td>
+                                <td style="text-align: right;">${fM(cf)}</td>
+                                <td style="text-align: right; color: var(--text-muted); font-size: 0.85em;">${growthStr}</td>
+                                <td style="text-align: right;">${fM(dcf.pv_fcf_years[i])}</td>
+                            </tr>`;
                         });
                     }
                     html += `
@@ -1444,6 +1489,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                         <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
                                             <th style="padding-bottom: 5px;">Year</th>
                                             <th style="padding-bottom: 5px; text-align: right;">Projected FCF</th>
+                                            <th style="padding-bottom: 5px; text-align: right;">Growth (YoY)</th>
                                             <th style="padding-bottom: 5px; text-align: right;">Present Value</th>
                                         </tr>
                                     </thead>

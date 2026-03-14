@@ -19,6 +19,31 @@ def get_random_agent():
 
 # Global cache for market averages (SPY) with 1-hour TTL
 _market_cache = {"data": None, "timestamp": 0}
+_risk_free_cache = {"rate": None, "timestamp": 0}
+
+def get_risk_free_rate() -> float:
+    """
+    Fetches the 10-year Treasury yield (^TNX) as the risk-free rate.
+    Uses a 4.2% fallback and 1-hour cache.
+    """
+    global _risk_free_cache
+    now = time.time()
+    if _risk_free_cache["rate"] and (now - _risk_free_cache["timestamp"] < 3600):
+        return _risk_free_cache["rate"]
+        
+    try:
+        tnx = yf.Ticker("^TNX")
+        # currentPrice is usually the yield in percent for ^TNX on yfinance
+        rate = tnx.info.get('regularMarketPrice') or tnx.info.get('currentPrice')
+        if rate:
+            # yfinance returns 4.25 for 4.25%, we need 0.0425
+            val = float(rate) / 100.0
+            _risk_free_cache = {"rate": val, "timestamp": now}
+            return val
+    except Exception as e:
+        print(f"Error fetching ^TNX: {e}")
+        
+    return 0.042 # Fallback 4.2%
 
 def get_nasdaq_earnings_growth(ticker: str, trailing_eps: float) -> float:
     """Fetches the 1-year forward earnings growth estimate from Nasdaq."""
@@ -474,7 +499,8 @@ def get_company_data(ticker_symbol: str):
             "forward_eps": forward_eps,
             "ebit_margin": ebit_margin,
             "fwd_ps": fwd_ps,
-            "next_3y_rev_est": next_3y_rev_est
+            "next_3y_rev_est": next_3y_rev_est,
+            "beta": info.get('beta')
         }
     except Exception as e:
         print(f"Error fetching Yahoo Data for {ticker_symbol}: {e}")
