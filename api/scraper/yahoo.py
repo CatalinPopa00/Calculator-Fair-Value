@@ -221,6 +221,9 @@ def get_company_data(ticker_symbol: str):
             forward_pe = info.get('forwardPE')
             ps_ratio = info.get('priceToSalesTrailing12Months')
             
+            eps_growth = None
+            eps_growth_period = None
+
             # 1. Try YF earnings_estimate - HIGHEST PRIORITY for consensus-based valuation
             try:
                 ef = future_est.result(timeout=2)
