@@ -66,7 +66,11 @@ def calculate_dcf(fcf: float, growth_rate: float, discount_rate: float, perpetua
     sum_pv_cf = sum(pv_cash_flows_list)
 
     # Terminal Value
-    terminal_value = (cash_flows[-1] * (1 + perpetual_growth)) / (discount_rate - perpetual_growth)
+    terminal_denom = (discount_rate - perpetual_growth)
+    if abs(terminal_denom) < 0.0001:
+        terminal_denom = 0.0001
+        
+    terminal_value = (cash_flows[-1] * (1 + perpetual_growth)) / terminal_denom
     pv_terminal_value = terminal_value / ((1 + discount_rate) ** years)
 
     total_enterprise_value = sum_pv_cf + pv_terminal_value

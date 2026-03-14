@@ -658,6 +658,7 @@ def get_market_averages():
         return data
     except Exception as e:
         print(f"Error fetching SPY market average: {e}")
+        return {"trailing_pe": 20.0, "forward_pe": 18.0}
         return {
             "trailing_pe": 25.0, # Fallback S&P avg
             "forward_pe": 21.0
