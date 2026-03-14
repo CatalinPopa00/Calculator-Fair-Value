@@ -322,7 +322,7 @@ def get_valuation(ticker: str):
             "competitors": [p.get("ticker", p) if isinstance(p, dict) else p for p in peers_data] if peers_data else []
         },
         "historical_trends": historical_trends,
-        "valuation_formula_data": formula_data,
+        "formula_data": formula_data,
         "health_score": health_score,
         "health_breakdown": health_breakdown,
         "buy_score": buy_score,
