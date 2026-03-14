@@ -536,14 +536,17 @@ def get_company_data(ticker_symbol: str):
 
 def get_competitors_data(target_ticker: str, sector: str, target_industry: str, target_market_cap: float = 0, limit: int = 3) -> list:
     """
-    Find relevant industry peers using Finnhub API as the primary source.
+    Find relevant industry peers using Finnhub API.
+    Simplified version with diagnostic logging.
     """
     try:
         target_ticker = target_ticker.upper()
         FINNHUB_KEY = os.environ.get('FINNHUB_API_KEY')
         
+        # Diagnostic: Check if key is loaded
+        print(f"FINNHUB KEY loaded: {bool(FINNHUB_KEY)}")
+        
         if not FINNHUB_KEY:
-            print("Finnhub API key missing. Returning empty list.")
             return []
 
         # 1. Fetch peers from Finnhub
@@ -551,51 +554,37 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
         try:
             url = f"https://finnhub.io/api/v1/stock/peers?symbol={target_ticker}&token={FINNHUB_KEY}"
             resp = requests.get(url, timeout=10)
+            # Diagnostic: Raw response
+            print(f"Finnhub raw response: {resp.text}")
+            
             if resp.status_code == 200:
                 peers = resp.json()
         except Exception as e:
-            print(f"Finnhub API call failed: {e}")
+            print(f"Finnhub API call error: {e}")
             return []
 
         if not peers or not isinstance(peers, list):
             return []
 
-        # 2. Process tickers (Remove self, limit to first 10 for filtering)
-        candidates = [p.upper() for p in peers if p.upper() != target_ticker][:10]
+        # 2. Extract top 3 peers (excluding self)
+        candidates = [p.upper() for p in peers if p.upper() != target_ticker][:limit]
         
         if not candidates:
             return []
 
-        # 3. Fetch financial data using yfinance
-        import concurrent.futures
-        raw_peers = []
-        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as exc:
-            futures = {exc.submit(get_lightweight_company_data, t): t for t in candidates}
-            for future in concurrent.futures.as_completed(futures, timeout=20):
-                try:
-                    data = future.result()
-                    if data and data.get('price') and data.get('ticker'):
-                        raw_peers.append(data)
-                except Exception:
-                    continue
-
-        if not raw_peers:
-            return []
-
-        # Ensure target_mcap is a valid float
-        target_mcap = float(target_market_cap or 0)
-
-        # 4. Apply strict size filtering (Rule of Iron: 0.2x - 5.0x)
+        # 3. Fetch financial data using yfinance with individual error protection
         final_peers = []
-        for p in raw_peers:
-            mcap = p.get('market_cap')
-            if target_mcap > 0 and mcap is not None:
-                if (0.2 * target_mcap <= mcap <= 5.0 * target_mcap):
-                    final_peers.append(p)
-            elif target_mcap == 0:
-                final_peers.append(p)
+        for ticker in candidates:
+            try:
+                # Wrap peer fetch in protection
+                data = get_lightweight_company_data(ticker)
+                if data and data.get('price') and data.get('ticker'):
+                    final_peers.append(data)
+            except Exception as e:
+                print(f"Eroare YF peer {ticker}: {e}")
+                continue
 
-        return final_peers[:limit]
+        return final_peers
         
     except Exception as e:
         print(f"Global competitors failure for {target_ticker}: {e}")
