@@ -556,44 +556,43 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
     except Exception as e:
         print(f"Screener failed: {e}")
 
-    # Strategy 2: Recommendations
-    try:
-        url = f"https://query2.finance.yahoo.com/v6/finance/recommendationsbysymbol/{target_ticker}"
-        r = requests.get(url, headers={'User-Agent': get_random_agent()}, timeout=10)
-        if r.status_code == 200:
-            recs = r.json().get('finance', {}).get('result', [{}])[0].get('recommendedSymbols', [])
-            for rec in recs:
-                sym = rec['symbol'].upper()
-                if sym != target_ticker and sym not in candidates:
-                    candidates.append(sym)
-    except Exception:
-        pass
+    # Process candidates with progressive fallback tiers
+    if not candidates:
+        return []
 
-    # Process candidates with strict filtering
-    if candidates:
-        import concurrent.futures
-        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as exc:
-            futures = {exc.submit(get_lightweight_company_data, t): t for t in candidates[:50]}
-            for future in concurrent.futures.as_completed(futures, timeout=30):
-                try:
-                    data = future.result(timeout=10)
-                    if not data: continue
-                    
-                    # Strict Industry Match (Exact match)
-                    if data.get('industry') != target_industry:
-                        continue
-                        
-                    # Market Cap Check (20% - 500%)
-                    mcap = data.get('market_cap', 0)
-                    if mcap > 0 and (0.2 * target_market_cap <= mcap <= 5.0 * target_market_cap):
-                        peer_data.append(data)
-                    
-                    if len(peer_data) >= limit:
-                        break
-                except Exception:
-                    pass
+    import concurrent.futures
+    raw_peers = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as exc:
+        futures = {exc.submit(get_lightweight_company_data, t): t for t in candidates[:50]}
+        for future in concurrent.futures.as_completed(futures, timeout=30):
+            try:
+                data = future.result(timeout=10)
+                if data and data.get('price') and data.get('ticker'):
+                    raw_peers.append(data)
+            except Exception:
+                pass
 
-    return peer_data[:limit]
+    if not raw_peers:
+        return []
+
+    # Tier 1: Strict Industry Match + 20%-500% Market Cap
+    tier1 = [p for p in raw_peers if p.get('industry') == target_industry and 
+             p.get('market_cap', 0) > 0 and (0.2 * target_market_cap <= p.get('market_cap', 0) <= 5.0 * target_market_cap)]
+    
+    if tier1:
+        return tier1[:limit]
+
+    # Tier 2: Sector Match + 10%-1000% Market Cap
+    # Find the sector from target or first valid candidate as fallback
+    target_sector = sector # Inherited from function arg
+    tier2 = [p for p in raw_peers if p.get('sector') == target_sector and 
+             p.get('market_cap', 0) > 0 and (0.1 * target_market_cap <= p.get('market_cap', 0) <= 10.0 * target_market_cap)]
+    
+    if tier2:
+        return tier2[:limit]
+
+    # Tier 3: Last Resort (Any valid tickers with data)
+    return raw_peers[:limit]
 
 def get_lightweight_company_data(ticker_symbol: str):
     """Fetches a minimal set of data for competitor comparison."""
@@ -612,7 +611,8 @@ def get_lightweight_company_data(ticker_symbol: str):
             "pe_ratio": pe,
             "peg_ratio": peg,
             "market_cap": info.get('marketCap') or info.get('regularMarketCap'),
-            "industry": info.get('industry')
+            "industry": info.get('industry'),
+            "sector": info.get('sector')
         }
     except Exception:
         return None
