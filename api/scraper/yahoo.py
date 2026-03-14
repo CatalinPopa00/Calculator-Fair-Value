@@ -1,4 +1,5 @@
 import yfinance as yf
+import os
 import urllib.request
 import urllib.parse
 import json
@@ -535,55 +536,37 @@ def get_company_data(ticker_symbol: str):
 
 def get_competitors_data(target_ticker: str, sector: str, target_industry: str, target_market_cap: float = 0, limit: int = 3) -> list:
     """
-    Find relevant industry peers strictly matching the target company's industry
-     and having a market cap between 20% and 500% of the target's.
+    Find relevant industry peers using Finnhub API as the primary source.
     """
     try:
         target_ticker = target_ticker.upper()
+        FINNHUB_KEY = os.environ.get('FINNHUB_API_KEY')
         
-        if not target_industry:
+        if not FINNHUB_KEY:
+            print("Finnhub API key missing. Returning empty list.")
             return []
 
-        # Ensure target_market_cap is a valid float
-        target_mcap = float(target_market_cap or 0)
-        
-        # Rule of Iron: Blacklist massive companies if target is not one (< $500B)
-        blacklist = []
-        if target_mcap < 500_000_000_000:
-            blacklist = ['BRK-A', 'BRK-B', 'AAPL', 'MSFT', 'GOOG', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA']
-
-        # Strategy 1: Screener (Get candidates in the same sector)
-        candidates = []
+        # 1. Fetch peers from Finnhub
+        peers = []
         try:
-            stock = yf.Ticker(target_ticker)
-            payload = {
-                "offset": 0, "size": 100, "sortField": "intradaymarketcap", "sortType": "DESC",
-                "quoteType": "EQUITY",
-                "query": {"operator": "AND", "operands": [
-                    {"operator": "eq", "operands": ["sector", sector]},
-                    {"operator": "eq", "operands": ["region", "us"]},
-                ]},
-                "userId": "", "userIdType": "guid"
-            }
-            resp = stock._data.post('https://query2.finance.yahoo.com/v1/finance/screener', body=payload, timeout=10)
+            url = f"https://finnhub.io/api/v1/stock/peers?symbol={target_ticker}&token={FINNHUB_KEY}"
+            resp = requests.get(url, timeout=10)
             if resp.status_code == 200:
-                for q in resp.json().get('finance', {}).get('result', [{}])[0].get('quotes', []):
-                    sym = (q.get('symbol') or '').upper()
-                    if sym and sym != target_ticker and sym not in blacklist:
-                        candidates.append(sym)
+                peers = resp.json()
         except Exception as e:
-            print(f"Screener failed: {e}")
+            print(f"Finnhub API call failed: {e}")
+            return []
 
-        # Process candidates with progressive fallback tiers
+        if not peers or not isinstance(peers, list):
+            return []
+
+        # 2. Process tickers (Remove self, limit to first 10 for filtering)
+        candidates = [p.upper() for p in peers if p.upper() != target_ticker][:10]
+        
         if not candidates:
             return []
 
-        # Ensure target_market_cap is a valid float
-        target_mcap = float(target_market_cap or 0)
-
-        # LIMIT TO 10 CANDIDATES to avoid 429
-        candidates = candidates[:10]
-
+        # 3. Fetch financial data using yfinance
         import concurrent.futures
         raw_peers = []
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as exc:
@@ -594,46 +577,25 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
                     if data and data.get('price') and data.get('ticker'):
                         raw_peers.append(data)
                 except Exception:
-                    # Gracefully skip failed 429/timeout candidates
                     continue
 
         if not raw_peers:
             return []
 
-        # Tier 1: Strict Industry Match + 20%-500% Market Cap
-        tier1 = []
-        for p in raw_peers:
-            try:
-                if p.get('industry') == target_industry:
-                    mcap = p.get('market_cap')
-                    # Strict null check for mcap
-                    if mcap is not None and mcap > 0:
-                        if target_mcap > 0 and mcap is not None and (0.2 * target_mcap <= mcap <= 5.0 * target_mcap):
-                            tier1.append(p)
-            except Exception:
-                continue
-        
-        if tier1:
-            return tier1[:limit]
+        # Ensure target_mcap is a valid float
+        target_mcap = float(target_market_cap or 0)
 
-        # Tier 2: Sector Match + 10%-1000% Market Cap
-        target_sector = sector # Inherited from function arg
-        tier2 = []
+        # 4. Apply strict size filtering (Rule of Iron: 0.2x - 5.0x)
+        final_peers = []
         for p in raw_peers:
-            try:
-                if p.get('sector') == target_sector:
-                    mcap = p.get('market_cap')
-                    if mcap is not None and mcap > 0:
-                        if target_mcap > 0 and mcap is not None and (0.2 * target_mcap <= mcap <= 5.0 * target_mcap):
-                            tier2.append(p)
-            except Exception:
-                continue
-        
-        if tier2:
-            return tier2[:limit]
+            mcap = p.get('market_cap')
+            if target_mcap > 0 and mcap is not None:
+                if (0.2 * target_mcap <= mcap <= 5.0 * target_mcap):
+                    final_peers.append(p)
+            elif target_mcap == 0:
+                final_peers.append(p)
 
-        # Tier 3 (Generic Fallback) REMOVED
-        return []
+        return final_peers[:limit]
         
     except Exception as e:
         print(f"Global competitors failure for {target_ticker}: {e}")
