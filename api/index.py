@@ -117,7 +117,8 @@ def get_valuation(ticker: str, wacc: float = None):
     # 2. Get Competitors for Relative Valuation
     sector = data.get("sector")
     industry = data.get("industry")
-    peers_data = get_competitors_data(ticker, sector, industry, data.get("market_cap", 0))
+    target_market_cap = data.get("market_cap") or 0.0
+    peers_data = get_competitors_data(ticker, sector, industry, float(target_market_cap))
     market_data = get_market_averages()
     
     # 3. Compute Valuations

@@ -560,6 +560,9 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
     if not candidates:
         return []
 
+    # Ensure target_market_cap is a valid float
+    target_mcap = float(target_market_cap or 0)
+
     import concurrent.futures
     raw_peers = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=10) as exc:
@@ -576,17 +579,31 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
         return []
 
     # Tier 1: Strict Industry Match + 20%-500% Market Cap
-    tier1 = [p for p in raw_peers if p.get('industry') == target_industry and 
-             p.get('market_cap', 0) > 0 and (0.2 * target_market_cap <= p.get('market_cap', 0) <= 5.0 * target_market_cap)]
+    # Skip cap check if target_mcap is 0
+    tier1 = []
+    for p in raw_peers:
+        if p.get('industry') == target_industry:
+            if target_mcap == 0:
+                tier1.append(p)
+            else:
+                mcap = p.get('market_cap', 0)
+                if mcap > 0 and (0.2 * target_mcap <= mcap <= 5.0 * target_mcap):
+                    tier1.append(p)
     
     if tier1:
         return tier1[:limit]
 
     # Tier 2: Sector Match + 10%-1000% Market Cap
-    # Find the sector from target or first valid candidate as fallback
     target_sector = sector # Inherited from function arg
-    tier2 = [p for p in raw_peers if p.get('sector') == target_sector and 
-             p.get('market_cap', 0) > 0 and (0.1 * target_market_cap <= p.get('market_cap', 0) <= 10.0 * target_market_cap)]
+    tier2 = []
+    for p in raw_peers:
+        if p.get('sector') == target_sector:
+            if target_mcap == 0:
+                tier2.append(p)
+            else:
+                mcap = p.get('market_cap', 0)
+                if mcap > 0 and (0.1 * target_mcap <= mcap <= 10.0 * target_mcap):
+                    tier2.append(p)
     
     if tier2:
         return tier2[:limit]
