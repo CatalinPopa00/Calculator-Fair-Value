@@ -61,6 +61,7 @@ class ValuationResponse(BaseModel):
     health_breakdown: list | None = None
     buy_score: int | str | None = None
     buy_breakdown: list | None = None
+    historical_data: dict | None = None
     algorithmic_insights: dict | None = None
 
 @app.get("/api/search/{query}")

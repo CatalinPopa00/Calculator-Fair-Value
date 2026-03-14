@@ -6,6 +6,7 @@ import concurrent.futures
 import time
 import random
 import requests
+import pandas as pd
 
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
@@ -524,126 +525,75 @@ def get_company_data(ticker_symbol: str):
         print(f"Error fetching Yahoo Data for {ticker_symbol}: {e}")
         return None
 
-def get_competitors_data(target_ticker: str, sector: str, industry: str, market_cap: float = 0, limit: int = 4) -> list:
+def get_competitors_data(target_ticker: str, sector: str, target_industry: str, target_market_cap: float = 0, limit: int = 3) -> list:
     """
-    Find relevant industry peers using multiple search strategies:
-      1. Yahoo screener (sector + region + market cap) with industry post-filter
-      2. recommendationsbysymbol with industry validation
-      3. Yahoo search fallback (industry keyword search)
-    Returns a list of dictionaries (from get_lightweight_company_data).
+    Find relevant industry peers strictly matching the target company's industry
+     and having a market cap between 20% and 500% of the target's.
     """
     target_ticker = target_ticker.upper()
     peer_data = []
 
-    # Strategy 1: Authenticated screener → get same-sector US stocks → filter by industry
-    if sector and industry:
-        try:
-            # Use yfinance's authenticated session for the screener
-            stock = yf.Ticker(target_ticker)
-            
-            payload = {
-                "offset": 0, "size": 50, "sortField": "intradaymarketcap", "sortType": "DESC",
-                "quoteType": "EQUITY",
-                "query": {"operator": "AND", "operands": [
-                    {"operator": "eq", "operands": ["sector", sector]},
-                    {"operator": "eq", "operands": ["region", "us"]},
-                ]},
-                "userId": "", "userIdType": "guid"
-            }
-            resp = stock._data.post(
-                'https://query2.finance.yahoo.com/v1/finance/screener',
-                body=payload, timeout=10
-            )
-            if resp.status_code == 200:
-                sdata = resp.json()
-                candidates = []
-                for q in sdata.get('finance', {}).get('result', [{}])[0].get('quotes', []):
-                    sym = (q.get('symbol') or '').upper()
-                    if sym and sym != target_ticker:
-                        candidates.append(sym)
+    if not target_industry or not target_market_cap:
+        return []
 
-                # Fetch lightweight data in parallel and filter by industry
-                if candidates:
-                    with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(candidates), 10)) as exc:
-                        futures = {exc.submit(get_lightweight_company_data, t): t for t in candidates}
-                        for future in concurrent.futures.as_completed(futures, timeout=25):
-                            try:
-                                data = future.result(timeout=10)
-                                if data and data.get('industry') == industry:
-                                    peer_data.append(data)
-                                if len(peer_data) >= limit:
-                                    break
-                            except Exception:
-                                pass
-        except Exception as e:
-            print(f"Screener strategy failed: {e}")
+    # Strategy 1: Screener (Get candidates in the same sector)
+    candidates = []
+    try:
+        stock = yf.Ticker(target_ticker)
+        payload = {
+            "offset": 0, "size": 100, "sortField": "intradaymarketcap", "sortType": "DESC",
+            "quoteType": "EQUITY",
+            "query": {"operator": "AND", "operands": [
+                {"operator": "eq", "operands": ["sector", sector]},
+                {"operator": "eq", "operands": ["region", "us"]},
+            ]},
+            "userId": "", "userIdType": "guid"
+        }
+        resp = stock._data.post('https://query2.finance.yahoo.com/v1/finance/screener', body=payload, timeout=10)
+        if resp.status_code == 200:
+            for q in resp.json().get('finance', {}).get('result', [{}])[0].get('quotes', []):
+                sym = (q.get('symbol') or '').upper()
+                if sym and sym != target_ticker:
+                    candidates.append(sym)
+    except Exception as e:
+        print(f"Screener failed: {e}")
 
-    # Strategy 2: recommendationsbysymbol + industry validation
-    if len(peer_data) < limit:
-        existing_tickers = {p['ticker'] for p in peer_data}
-        try:
-            url = f"https://query2.finance.yahoo.com/v6/finance/recommendationsbysymbol/{target_ticker}"
-            headers = {'User-Agent': get_random_agent()}
-            r = requests.get(url, headers=headers, timeout=10)
-            if r.status_code == 200:
-                rdata = r.json()
-                recs = rdata.get('finance', {}).get('result', [{}])[0].get('recommendedSymbols', [])
-                rec_syms = [rec['symbol'].upper() for rec in recs
-                           if rec.get('symbol') and rec['symbol'].upper() != target_ticker
-                           and rec['symbol'].upper() not in existing_tickers]
-                
-                if rec_syms:
-                    with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(rec_syms), 5)) as exc:
-                        futures = {exc.submit(get_lightweight_company_data, t): t for t in rec_syms}
-                        for future in concurrent.futures.as_completed(futures, timeout=15):
-                            try:
-                                data = future.result(timeout=10)
-                                if data:
-                                    # Prefer same-industry, but accept same-sector as last resort
-                                    if data.get('industry') == industry:
-                                        peer_data.insert(0, data)  # prioritize same-industry
-                                    elif not industry or len(peer_data) < limit:
-                                        peer_data.append(data)
-                                if len(peer_data) >= limit:
-                                    break
-                            except Exception:
-                                pass
-        except Exception as e:
-            print(f"Recommendations strategy failed: {e}")
+    # Strategy 2: Recommendations
+    try:
+        url = f"https://query2.finance.yahoo.com/v6/finance/recommendationsbysymbol/{target_ticker}"
+        r = requests.get(url, headers={'User-Agent': get_random_agent()}, timeout=10)
+        if r.status_code == 200:
+            recs = r.json().get('finance', {}).get('result', [{}])[0].get('recommendedSymbols', [])
+            for rec in recs:
+                sym = rec['symbol'].upper()
+                if sym != target_ticker and sym not in candidates:
+                    candidates.append(sym)
+    except Exception:
+        pass
 
-    # Strategy 3: Search Fallback (Industry keyword search)
-    if len(peer_data) < limit:
-        existing_tickers = {p['ticker'] for p in peer_data}
-        try:
-            query = industry or sector or target_ticker
-            url = f"https://query2.finance.yahoo.com/v1/finance/search?q={urllib.parse.quote(query)}"
-            headers = {'User-Agent': get_random_agent()}
-            r = requests.get(url, headers=headers, timeout=5)
-            if r.status_code == 200:
-                search_syms = []
-                for q in r.json().get('quotes', []):
-                    sym = (q.get('symbol') or '').upper()
-                    if (sym and sym != target_ticker and q.get('quoteType') == 'EQUITY'
-                            and sym not in existing_tickers and '.' not in sym):
-                        search_syms.append(sym)
-                    if len(search_syms) >= limit * 2:
+    # Process candidates with strict filtering
+    if candidates:
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as exc:
+            futures = {exc.submit(get_lightweight_company_data, t): t for t in candidates[:50]}
+            for future in concurrent.futures.as_completed(futures, timeout=30):
+                try:
+                    data = future.result(timeout=10)
+                    if not data: continue
+                    
+                    # Strict Industry Match (Exact match)
+                    if data.get('industry') != target_industry:
+                        continue
+                        
+                    # Market Cap Check (20% - 500%)
+                    mcap = data.get('market_cap', 0)
+                    if mcap > 0 and (0.2 * target_market_cap <= mcap <= 5.0 * target_market_cap):
+                        peer_data.append(data)
+                    
+                    if len(peer_data) >= limit:
                         break
-                
-                if search_syms:
-                    with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(search_syms), 5)) as exc:
-                        futures = {exc.submit(get_lightweight_company_data, t): t for t in search_syms}
-                        for future in concurrent.futures.as_completed(futures, timeout=15):
-                            try:
-                                data = future.result(timeout=10)
-                                if data and data['ticker'] not in existing_tickers:
-                                    peer_data.append(data)
-                                    existing_tickers.add(data['ticker'])
-                                if len(peer_data) >= limit:
-                                    break
-                            except Exception:
-                                pass
-        except Exception as e:
-            print(f"Search fallback failed: {e}")
+                except Exception:
+                    pass
 
     return peer_data[:limit]
 
@@ -663,6 +613,7 @@ def get_lightweight_company_data(ticker_symbol: str):
             "price": info.get('currentPrice') or info.get('regularMarketPrice'),
             "pe_ratio": pe,
             "peg_ratio": peg,
+            "market_cap": info.get('marketCap') or info.get('regularMarketCap'),
             "industry": info.get('industry')
         }
     except Exception:
