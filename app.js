@@ -393,7 +393,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (dcfGrowthLabel) {
                 dcfGrowthLabel.textContent = `Growth Rate (%)`;
             }
-
+}
             // PEG Logic
             let pegVal = null;
             let pegMos = null;
@@ -414,9 +414,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const currentPe = currentFormulaData.peg.current_pe || (parseFloat(data.company_profile.trailing_pe) || 0);
                 const industryPeg = currentFormulaData.peg.industry_peg;
 
-                if (usedGrowth > 0 && currentPe > 0 && industryPeg > 0) {
+                // Corectie: Utilizam industryPeg corect si verificam sa nu fie null
+                if (usedGrowth > 0 && currentPe > 0 && industryPeg != null && industryPeg > 0) {
                     currentPegToDisplay = currentPe / (usedGrowth * 100);
-                    pegVal = data.current_price * (industry_peg / currentPegToDisplay);
+                    pegVal = data.current_price * (industryPeg / currentPegToDisplay);
                     pegMos = ((pegVal - data.current_price) / pegVal) * 100;
                 } else if (pegSrc === 'analyst') {
                     pegVal = currentFormulaData.peg.fair_value;
@@ -424,42 +425,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     currentPegToDisplay = currentFormulaData.peg.current_peg;
                 }
             }
-            
-            const pegValueElem = document.getElementById('peg-value');
-            if (pegValueElem) {
-                pegValueElem.textContent = pegVal != null ? formatCurrency(pegVal) : 'N/A';
-                pegValueElem.style.color = pegVal != null ? 'var(--accent)' : 'var(--text-muted)';
-            }
-            
-            const pegStatusElem = document.getElementById('peg-status');
-            const pegCompareElem = document.getElementById('peg-compare');
-            
-            if (pegStatusElem && pegCompareElem) {
-                const industryPeg = currentFormulaData.peg ? currentFormulaData.peg.industry_peg : null;
 
-                if (pegVal != null && industryPeg != null && currentPegToDisplay != null) {
-                    const sectorPegDisplay = industryPeg.toFixed(2);
-                    pegCompareElem.textContent = `PEG = ${currentPegToDisplay.toFixed(2)} vs PEG Sector = ${sectorPegDisplay}`;
-                    
-                    if (pegMos != null) {
-                        const mosText = `${pegMos > 0 ? '+' : ''}${pegMos.toFixed(2)}% Margin of Safety`;
-                        pegCompareElem.innerHTML += `<br><span style="color: ${pegMos > 0 ? 'var(--accent)' : 'var(--danger)'}; font-weight: 600;">${mosText}</span>`;
-                    }
-
-                    if (data.current_price < pegVal) {
-                        pegStatusElem.textContent = `Undervalued`;
-                        pegStatusElem.style.color = 'var(--accent)';
-                    } else {
-                        pegStatusElem.textContent = `Overvalued`;
-                        pegStatusElem.style.color = 'var(--danger)';
-                    }
-                } else {
-                    pegStatusElem.textContent = "N/A";
-                    pegStatusElem.style.color = "var(--text-muted)";
-                    pegCompareElem.textContent = industryPeg == null ? "Sector data unavailable" : "PEG calculation data missing";
-                }
-            }
-
+            
+            
+                   
+                
             // Forward Multiple Logic
             let lynchVal = null;
             let currentFwdPe = "--";
