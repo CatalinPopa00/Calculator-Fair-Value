@@ -607,9 +607,6 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
         
         FINNHUB_KEY = os.environ.get('FINNHUB_API_KEY')
         
-        # Diagnostic: Check if key is loaded
-        print(f"FINNHUB KEY loaded: {bool(FINNHUB_KEY)}")
-        
         peers = []
 
         if FINNHUB_KEY:
@@ -644,7 +641,6 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
                         rec_peers = [p for p in rec_peers if '.' not in p]
                         if rec_peers:
                             peers = rec_peers
-                            print(f"Dynamic fallback found {len(peers)} peers.")
             except Exception as e_rec:
                 print(f"Yahoo Recommendation fallback error: {e_rec}")
 
@@ -671,22 +667,47 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
         if not peers:
             return []
 
-        # 2. Extract top 3 peers (excluding self)
-        candidates = [p.upper() for p in peers if p.upper() != target_ticker][:limit]
-        
-        if not candidates:
-            return []
-
-        # 3. Fetch financial data using yfinance with individual error protection
+        # 2. Extract and Validate Peers by Sector
         final_peers = []
+        target_sector = sector
+        target_industry = target_industry
+        
+        # Deduplicate and exclude self
+        candidates = []
+        seen = {target_ticker.upper()}
+        for p in peers:
+            p_upper = p.upper()
+            if p_upper not in seen:
+                candidates.append(p_upper)
+                seen.add(p_upper)
+
+        print(f"Validating {len(candidates)} candidates for sector: {target_sector}")
+
         for ticker in candidates:
+            if len(final_peers) >= limit:
+                break
+                
             try:
-                # Wrap peer fetch in protection
                 data = get_lightweight_company_data(ticker)
-                if data and data.get('price') and data.get('ticker'):
+                if not data or not data.get('ticker'):
+                    continue
+                
+                peer_sector = data.get('sector')
+                peer_industry = data.get('industry')
+                
+                # Strict Validation
+                is_match = False
+                if target_sector and peer_sector == target_sector:
+                    is_match = True
+                elif not target_sector and target_industry and peer_industry == target_industry:
+                    # Fallback to industry if sector is missing
+                    is_match = True
+                
+                if is_match:
                     final_peers.append(data)
+                
             except Exception as e:
-                print(f"Eroare YF peer {ticker}: {e}")
+                print(f"Error validating peer {ticker}: {e}")
                 continue
 
         return final_peers

@@ -14,22 +14,23 @@ def test_ticker(ticker):
         return
     
     print(f"Name: {data['name']}")
+    print(f"Sector: {data.get('sector')}")
+    print(f"Industry: {data.get('industry')}")
     
     sector = data.get("sector")
     industry = data.get("industry")
     market_cap = data.get("market_cap") or 0.0
     
-    # This should trigger Yahoo recommendations fallback if Finnhub is empty/dots-only
     peers = get_competitors_data(ticker, sector, industry, market_cap)
     
-    print(f"Peers found: {[p['ticker'] for p in peers]}")
+    print(f"Peers matching sector/industry: {[p['ticker'] for p in peers]}")
     
     for p in peers:
         print(f"Peer {p['ticker']}:")
-        print(f"  Market Cap: {p.get('market_cap')}")
-        print(f"  PE: {p.get('pe_ratio')}")
-        print(f"  EPS: {p.get('eps')}")
-        print(f"  Margin: {p.get('margin')}")
+        print(f"  Sector: {p.get('sector')}")
+        print(f"  Industry: {p.get('industry')}")
+        if sector and p.get('sector') != sector:
+            print(f"  WARNING: Sector mismatch! {p.get('sector')} != {sector}")
         if '.' in p['ticker']:
             print(f"  WARNING: Ticker {p['ticker']} contains a dot!")
 
