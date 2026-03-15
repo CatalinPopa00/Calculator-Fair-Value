@@ -33,9 +33,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentBuyBreakdown = null;
     let chartRevFcf = null;
     let chartEpsShares = null;
-    let globalData = null; // FIX: Variabila globala pentru a repara accesul la date in Modale
+    let globalData = null; 
 
-    // Watchlist State (Load initially from localStorage for responsiveness, then sync)
+    // Custom Weights Logic
+    let customWeights = JSON.parse(localStorage.getItem('fairValueWeights')) || { dcf: 25, peg: 25, relative: 25, lynch: 25 };
+
+    // Watchlist State 
     let watchlist = JSON.parse(localStorage.getItem('fairValueWatchlist')) || [];
 
     // Data elements
@@ -51,11 +54,104 @@ document.addEventListener('DOMContentLoaded', () => {
         pegValue: document.getElementById('peg-value')
     };
 
+    // INJECT CUSTOM WEIGHTS UI WITH SMART AI BTN
+    const injectWeightsUI = () => {
+        if(document.getElementById('weights-modal')) return;
+        const modalHtml = `
+            <div id="weights-modal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; justify-content:center; align-items:center; backdrop-filter: blur(4px);">
+                <div class="glass-card" style="width:90%; max-width:350px; padding:20px; position:relative; display:flex; flex-direction:column; gap:15px; border: 1px solid rgba(255,255,255,0.1);">
+                    <h3 style="margin:0; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:10px; font-size:1.2rem; color:white;">Model Weights (%)</h3>
+                    
+                    <button id="smart-weights-btn" style="background: rgba(56, 189, 248, 0.1); color: #38bdf8; border: 1px solid #38bdf8; padding: 8px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.2s;">🪄 Auto-Set by Sector</button>
+                    
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px;">
+                        <label style="font-weight:600; color:var(--text-main);">DCF Model</label>
+                        <input type="number" id="weight-dcf" min="0" max="100" style="width:70px; padding:6px; text-align:right; background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.2); color:white; border-radius:4px; outline:none;">
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <label style="font-weight:600; color:var(--text-main);">Relative Valuation</label>
+                        <input type="number" id="weight-relative" min="0" max="100" style="width:70px; padding:6px; text-align:right; background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.2); color:white; border-radius:4px; outline:none;">
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <label style="font-weight:600; color:var(--text-main);">Forward Multiple</label>
+                        <input type="number" id="weight-lynch" min="0" max="100" style="width:70px; padding:6px; text-align:right; background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.2); color:white; border-radius:4px; outline:none;">
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <label style="font-weight:600; color:var(--text-main);">PEG Valuation</label>
+                        <input type="number" id="weight-peg" min="0" max="100" style="width:70px; padding:6px; text-align:right; background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.2); color:white; border-radius:4px; outline:none;">
+                    </div>
+                    
+                    <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:15px;">
+                        <button id="close-weights-btn" style="padding:8px 16px; border-radius:6px; background:transparent; border:1px solid rgba(255,255,255,0.2); color:white; cursor:pointer;">Cancel</button>
+                        <button id="save-weights-btn" style="padding:8px 16px; border-radius:6px; background:var(--accent); color:#000; border:none; font-weight:bold; cursor:pointer;">Apply Weights</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        const fvContainer = elements.fairValue.closest('.glass-card') || elements.fairValue.parentElement;
+        if(fvContainer) {
+            fvContainer.style.position = 'relative';
+            const btnHtml = `<button id="open-weights-btn" title="Adjust Valuation Weights" style="position:absolute; top:15px; right:15px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:4px; font-size:1.1rem; padding:4px 8px; cursor:pointer; transition:0.2s;">⚖️</button>`;
+            fvContainer.insertAdjacentHTML('beforeend', btnHtml);
+        }
+
+        document.getElementById('open-weights-btn').addEventListener('click', () => {
+            document.getElementById('weight-dcf').value = customWeights.dcf;
+            document.getElementById('weight-peg').value = customWeights.peg;
+            document.getElementById('weight-relative').value = customWeights.relative;
+            document.getElementById('weight-lynch').value = customWeights.lynch;
+            document.getElementById('weights-modal').style.display = 'flex';
+        });
+
+        document.getElementById('close-weights-btn').addEventListener('click', () => {
+            document.getElementById('weights-modal').style.display = 'none';
+        });
+        
+        // SMART SECTOR AI BUTTON LOGIC
+        document.getElementById('smart-weights-btn').addEventListener('click', () => {
+            if(!globalData || !globalData.company_profile) return;
+            const sector = globalData.company_profile.sector || '';
+            let w = { dcf: 25, peg: 25, relative: 25, lynch: 25 }; 
+            
+            if(sector.includes('Financial') || sector.includes('Real Estate')) {
+                w = { dcf: 0, peg: 10, relative: 60, lynch: 30 };
+            } else if(sector.includes('Technology') || sector.includes('Communication')) {
+                // Modificat conform logicii financiare superioare
+                w = { dcf: 25, peg: 25, relative: 10, lynch: 40 };
+            } else if(sector.includes('Healthcare') || sector.includes('Defensive') || sector.includes('Utilities')) {
+                w = { dcf: 50, peg: 10, relative: 20, lynch: 20 };
+            } else if(sector.includes('Industrials') || sector.includes('Energy') || sector.includes('Basic Materials') || sector.includes('Cyclical')) {
+                w = { dcf: 30, peg: 10, relative: 40, lynch: 20 };
+            }
+            
+            document.getElementById('weight-dcf').value = w.dcf;
+            document.getElementById('weight-peg').value = w.peg;
+            document.getElementById('weight-relative').value = w.relative;
+            document.getElementById('weight-lynch').value = w.lynch;
+        });
+
+        document.getElementById('save-weights-btn').addEventListener('click', () => {
+            customWeights.dcf = parseFloat(document.getElementById('weight-dcf').value) || 0;
+            customWeights.peg = parseFloat(document.getElementById('weight-peg').value) || 0;
+            customWeights.relative = parseFloat(document.getElementById('weight-relative').value) || 0;
+            customWeights.lynch = parseFloat(document.getElementById('weight-lynch').value) || 0;
+            
+            localStorage.setItem('fairValueWeights', JSON.stringify(customWeights));
+            document.getElementById('weights-modal').style.display = 'none';
+            
+            if(typeof window.triggerRecalculate === 'function') {
+                window.triggerRecalculate();
+            }
+        });
+    };
+    injectWeightsUI();
+
     const analyzeTicker = async (queryParam) => {
         const query = (queryParam && typeof queryParam === 'string') ? queryParam : tickerInput.value.trim();
         if (!query) return;
 
-        // Reset all specific UI custom filter dropdowns and hide custom inputs
         ['fcf-source', 'lynch-eps-source', 'peg-eps-source'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.value = 'analyst';
@@ -73,7 +169,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (el) el.value = '';
         });
 
-        // Reset all method selectors to defaults when a new ticker is analyzed
         const selectorDefaults = {
             'fcf-source': 'analyst',
             'dcf-buyback-source': 'none',
@@ -87,7 +182,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (el) el.value = val;
         });
 
-        // UI Reset
         autocompleteList.style.display = 'none';
         watchlistView.style.display = 'none';
         dashboard.style.display = 'none';
@@ -111,7 +205,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const formatPercent = (val) => val != null ? `${val.toFixed(2)}%` : '0%';
 
     const displayData = (data) => {
-        globalData = data; // FIX: Salvam datele global
+        globalData = data; 
         currentFormulaData = data.formula_data;
         currentTicker = data.ticker;
 
@@ -120,23 +214,6 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.currentPrice.textContent = formatCurrency(data.current_price);
 
         updateWatchlistButtonState();
-
-        // Display Estimated Fair Value - Text stays neutral
-        elements.fairValue.textContent = formatCurrency(data.fair_value);
-
-        // Display Margin of Safety - Button turns Red or Green
-        if (data.margin_of_safety != null) {
-            elements.marginSafety.textContent = `${formatPercent(data.margin_of_safety)} Margin of Safety`;
-            if (data.margin_of_safety > 0) {
-                elements.marginSafety.style.color = 'var(--accent)';
-                elements.marginSafety.style.background = 'rgba(16, 185, 129, 0.2)';
-            } else {
-                elements.marginSafety.style.color = 'var(--danger)';
-                elements.marginSafety.style.background = 'rgba(239, 68, 68, 0.2)';
-            }
-        } else {
-            elements.marginSafety.textContent = 'N/A';
-        }
 
         const setValuationStatus = (value, price, statusElemId, valueElemId) => {
             const statusElem = document.getElementById(statusElemId);
@@ -158,19 +235,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const diffPct = (value - price) / price;
             if (diffPct >= 0.05) {
                 statusElem.textContent = "Undervalued";
-                statusElem.style.color = "var(--accent)"; // Green
+                statusElem.style.color = "var(--accent)";
             } else if (diffPct <= -0.05) {
                 statusElem.textContent = "Overvalued";
-                statusElem.style.color = "var(--danger)"; // Red
+                statusElem.style.color = "var(--danger)";
             } else {
                 statusElem.textContent = "Fair Valued";
-                statusElem.style.color = "#fbbf24"; // Amber/Yellow
+                statusElem.style.color = "#fbbf24";
             }
         };
-
-        setValuationStatus(data.dcf_value, data.current_price, 'dcf-status', 'dcf-value');
         
-        // Populate DCF Card MOS and Price
         const dcfCardMosRow = document.getElementById('dcf-card-mos-row');
         const dcfCardPrice = document.getElementById('dcf-card-price');
         const dcfCardMos = document.getElementById('dcf-card-mos');
@@ -190,15 +264,11 @@ document.addEventListener('DOMContentLoaded', () => {
             dcfCardMosRow.style.display = 'none';
         }
 
-        setValuationStatus(data.relative_value, data.current_price, 'relative-status', 'relative-value');
-
-        // Update Dashboard Scores UI
         const updateScoreUI = (scoreVal, circleId, fillId) => {
             const circle = document.getElementById(circleId);
             const fill = document.getElementById(fillId);
             if (!circle || !fill) return;
 
-            // Reset classes
             circle.className = 'score-circle';
             fill.className = 'score-bar-fill';
             circle.style.color = '';
@@ -212,14 +282,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Animate number
             circle.textContent = scoreVal;
-            // Animate bar width
             setTimeout(() => {
                 fill.style.width = `${scoreVal}%`;
             }, 50);
 
-            // Apply color coding
             if (scoreVal >= 76) {
                 circle.classList.add('score-green');
                 fill.classList.add('bg-score-green');
@@ -302,11 +369,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
 
-        // Forward Multiple Updates (formerly Peter Lynch)
-        const lynchStatus = document.getElementById('lynch-status');
-        const lynchFairValue = document.getElementById('lynch-fair-value');
-
-        // Helper to calculate DCF locally (with optional share buyback rate)
         const calcLocalDcf = (fcf, growth, wacc, perp, shares, cash, debt, buybackRate = 0) => {
             if (!fcf || !shares || shares <= 0) return null;
             let pv = 0;
@@ -320,17 +382,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const ev = pv + pvTv;
             const eqVal = ev + (cash || 0) - (debt || 0);
             if (eqVal <= 0) return null;
-            // Apply buyback: shares reduce by buybackRate%/yr compounded over 5 years
             const effectiveShares = shares * Math.pow(1 - (buybackRate || 0), 5);
             return eqVal / (effectiveShares > 0 ? effectiveShares : shares);
         };
 
-        // Logic for Dynamic Recalculation
         const updateFairValue = () => {
             if (!currentFormulaData) return;
             const prof = data.company_profile;
 
-            // DCF Logic
             let dcfVal = null;
             if (currentFormulaData.dcf) {
                 const fcfSourceEl = document.getElementById('fcf-source');
@@ -338,7 +397,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const dcfInputs = document.getElementById('dcf-custom-inputs');
                 if (dcfInputs) dcfInputs.style.display = fcfSource === 'custom' ? 'flex' : 'none';
 
-                // Buyback
                 const buybackEl = document.getElementById('dcf-buyback-source');
                 const buybackSrc = buybackEl ? buybackEl.value : 'none';
                 const buybackCustomInputs = document.getElementById('dcf-buyback-custom-inputs');
@@ -364,7 +422,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (buybackRate === 0 && (!waccInput || !waccInput.value || parseFloat(waccInput.value)/100 === backendWacc)) {
                         dcfVal = currentFormulaData.dcf.intrinsic_value;
                     } else {
-                        // Re-calculate with buyback rate applied on top of analyst FCF value
                         const g = currentFormulaData.dcf.eps_growth_estimated || 0.10;
                         const w = waccInput && waccInput.value ? parseFloat(waccInput.value)/100 : (currentFormulaData.dcf.discount_rate || 0.09);
                         const p = currentFormulaData.dcf.perpetual_growth || 0.02;
@@ -382,21 +439,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             setValuationStatus(dcfVal, data.current_price, 'dcf-status', 'dcf-value');
 
-            // Update Labels with Periods
-            const pegGrowthLabel = document.querySelector('label[for="peg-custom-growth"]');
-            if (pegGrowthLabel && currentFormulaData.peg.eps_growth_period) {
-                pegGrowthLabel.textContent = `Growth Rate (${currentFormulaData.peg.eps_growth_period}) (%)`;
-            }
-            const lynchGrowthLabel = document.querySelector('label[for="lynch-custom-growth"]');
-            if (lynchGrowthLabel) {
-                lynchGrowthLabel.textContent = `3Y Est. Growth Rate`;
-            }
-            const dcfGrowthLabel = document.querySelector('label[for="dcf-custom-growth"]');
-            if (dcfGrowthLabel) {
-                dcfGrowthLabel.textContent = `Growth Rate (%)`;
-            }
-
-            // PEG Logic
             let pegVal = null;
             let pegMos = null;
             let usedGrowth = 0;
@@ -462,9 +504,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // Forward Multiple Logic
             let lynchVal = null;
-            let currentFwdPe = "--";
             if (currentFormulaData.peter_lynch) {
                 const pl = currentFormulaData.peter_lynch;
                 const epsSourceEl = document.getElementById('lynch-eps-source');
@@ -488,7 +528,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const multCustomInputs = document.getElementById('lynch-custom-multiple-inputs');
                 if (multCustomInputs) multCustomInputs.style.display = multVal === 'custom' ? 'flex' : 'none';
 
-                let selectedMult = 20; // default
+                let selectedMult = 20; 
                 if (multVal === 'PE 15') selectedMult = 15;
                 if (multVal === 'PE 20') selectedMult = 20;
                 if (multVal === 'PE 25') selectedMult = 25;
@@ -500,15 +540,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (targetEps != null && targetEps > 0) {
                     lynchVal = targetEps * selectedMult;
                 }
-
-                // Update the FWD PE display based on chosen EPS
-                if (data.current_price && targetEps > 0) {
-                }
             }
 
             setValuationStatus(lynchVal, data.current_price, 'lynch-status', 'lynch-fair-value');
 
-            // Relative Valuation
             let relVal = null;
             const rel = currentFormulaData.relative;
             if (rel) {
@@ -519,15 +554,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const variantEl = document.getElementById('relative-variant');
                 const variant = variantEl ? variantEl.value : 'peers';
 
-                if (variant === 'peers') {
-                    relVal = fvMedian;
-                } else if (variant === 'average') {
-                    relVal = fvMean;
-                } else if (variant === 'sp500') {
-                    relVal = fvSP500;
-                }
+                if (variant === 'peers') relVal = fvMedian;
+                else if (variant === 'average') relVal = fvMean;
+                else if (variant === 'sp500') relVal = fvSP500;
 
-                // Update info text
                 const mc = document.getElementById('relative-market-compare');
                 if (mc) {
                     const mpe = rel.market_pe_trailing != null ? rel.market_pe_trailing.toFixed(1) + 'x' : '--';
@@ -541,15 +571,25 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             setValuationStatus(relVal, data.current_price, 'relative-status', 'relative-value');
 
-            // 2. Recalculate Final Fair Value and MOS
-            const vals = [];
-            if (lynchVal != null && lynchVal > 0 && document.getElementById('toggle-peter_lynch').checked) vals.push(lynchVal);
-            if (pegVal != null && pegVal > 0 && document.getElementById('toggle-peg').checked) vals.push(pegVal);
-            if (relVal != null && relVal > 0 && document.getElementById('toggle-relative').checked) vals.push(relVal);
-            if (dcfVal != null && dcfVal > 0 && document.getElementById('toggle-dcf').checked) vals.push(dcfVal);
+            // --- RECALCULATE FINAL FAIR VALUE WITH CUSTOM WEIGHTS ---
+            let totalWeight = 0;
+            let finalFv = 0;
 
-            if (vals.length > 0) {
-                const finalFv = vals.reduce((a, b) => a + b, 0) / vals.length;
+            const addVal = (val, isChecked, weightKey) => {
+                if (val != null && val > 0 && isChecked) {
+                    const w = customWeights[weightKey];
+                    totalWeight += w;
+                    finalFv += (val * w);
+                }
+            };
+
+            addVal(lynchVal, document.getElementById('toggle-peter_lynch').checked, 'lynch');
+            addVal(pegVal, document.getElementById('toggle-peg').checked, 'peg');
+            addVal(relVal, document.getElementById('toggle-relative').checked, 'relative');
+            addVal(dcfVal, document.getElementById('toggle-dcf').checked, 'dcf');
+
+            if (totalWeight > 0) {
+                finalFv = finalFv / totalWeight; // Normalize automatically
                 elements.fairValue.textContent = formatCurrency(finalFv);
 
                 const mos = ((finalFv - data.current_price) / finalFv) * 100;
@@ -571,11 +611,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
 
-        // Custom Estimations Bindings
+        window.triggerRecalculate = updateFairValue;
+
         const inputSelectors = [
             'fcf-source', 'dcf-custom-growth', 'dcf-custom-wacc', 'dcf-custom-perp',
-            'dcf-buyback-source', 'dcf-custom-buyback',
-            'relative-variant',
+            'dcf-buyback-source', 'dcf-custom-buyback', 'relative-variant',
             'lynch-multiple', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth',
             'peg-eps-source', 'peg-custom-growth'
         ];
@@ -583,27 +623,20 @@ document.addEventListener('DOMContentLoaded', () => {
         inputSelectors.forEach(id => {
             const el = document.getElementById(id);
             if (el) {
-                if (el.tagName === 'SELECT') {
-                    el.onchange = updateFairValue;
-                } else {
-                    el.oninput = updateFairValue;
-                }
+                if (el.tagName === 'SELECT') el.onchange = updateFairValue;
+                else el.oninput = updateFairValue;
             }
         });
 
-        // Trigger the recalculation to populate the initial state
         updateFairValue();
 
-        // Listen for toggle changes
         document.querySelectorAll('.valuation-toggle').forEach(toggle => {
             toggle.onchange = updateFairValue;
         });
 
-        // Render Company Profile
         const pBody = document.getElementById('profile-body');
         if (pBody && data.company_profile) {
             const prof = data.company_profile;
-
             const formatBigNumber = (num, pfx = '') => {
                 if (num == null) return 'N/A';
                 if (num >= 1e12) return pfx + (num / 1e12).toFixed(2) + 'T';
@@ -625,7 +658,6 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         }
 
-        // Render Historical Trends
         const trendsBody = document.getElementById('trends-body');
         if (trendsBody) {
             if (data.historical_trends && data.historical_trends.length > 0) {
@@ -636,12 +668,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const revStr = row.revenue != null ? (row.revenue / 1e9).toFixed(2) : '-';
                     const marginStr = row.net_margin != null ? (row.net_margin * 100).toFixed(1) + '%' : '-';
                     const fcfStr = row.fcf != null ? (row.fcf / 1e9).toFixed(2) : '-';
-                    html += `<tr>
-                        <td>${row.year}</td>
-                        <td>${revStr}</td>
-                        <td>${marginStr}</td>
-                        <td>${fcfStr}</td>
-                    </tr>`;
+                    html += `<tr><td>${row.year}</td><td>${revStr}</td><td>${marginStr}</td><td>${fcfStr}</td></tr>`;
                 });
                 trendsBody.innerHTML = html;
             } else {
@@ -653,14 +680,10 @@ document.addEventListener('DOMContentLoaded', () => {
         watchlistView.style.display = 'none';
         dashboard.style.display = 'block';
 
-        // Fetch and show Analyst Estimates inline
         renderAnalystEstimatesInline(data.ticker);
-
-        // Render Historical Stability Charts
         renderHistoricalCharts(data);
     };
 
-    // --- Watchlist Logic ---
     let currentSort = { column: 'mos', order: 'desc' };
     let cachedWatchlistData = null;
 
@@ -675,7 +698,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const updateWatchlistButtonState = () => {
         if (!currentTicker) return;
-
         if (watchlist.includes(currentTicker)) {
             addToWatchlistBtn.classList.add('added');
             addToWatchlistBtn.innerHTML = '★';
@@ -687,27 +709,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const toggleWatchlist = () => {
         if (!currentTicker) return;
-
-        if (watchlist.includes(currentTicker)) {
-            watchlist = watchlist.filter(t => t !== currentTicker);
-        } else {
-            watchlist.push(currentTicker);
-        }
-
+        if (watchlist.includes(currentTicker)) watchlist = watchlist.filter(t => t !== currentTicker);
+        else watchlist.push(currentTicker);
         saveWatchlist();
         updateWatchlistButtonState();
     };
 
-    // --- Drag & Drop State ---
     let dragSrcIndex = null;
     let manualOrder = false;
 
-    // --- Analyst Estimates Logic ---
     const analystCard = document.getElementById('analyst-estimates-card');
 
     const renderAnalystEstimatesInline = async (ticker) => {
         if (!ticker || !analystCard) return;
-
         analystCard.style.display = 'block';
         document.getElementById('pt-avg').textContent = '...';
         document.getElementById('rec-status').textContent = '...';
@@ -718,10 +732,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch(`/api/analyst/${ticker}`);
             if (!res.ok) throw new Error('API Error');
             const data = await res.json();
-
             if (data.error) throw new Error(data.error);
 
-            // Price Targets
             const pt = data.price_target || {};
             document.getElementById('pt-avg').textContent = pt.avg ? `$${pt.avg.toFixed(2)}` : '--';
             document.getElementById('pt-upside').textContent = pt.upside_pct ? `${pt.upside_pct > 0 ? '+' : ''}${pt.upside_pct.toFixed(1)}%` : '--';
@@ -729,10 +741,8 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('pt-low').textContent = pt.low ? `$${pt.low.toFixed(2)}` : '--';
             document.getElementById('pt-high').textContent = pt.high ? `$${pt.high.toFixed(2)}` : '--';
 
-            // Recommendation
             const rec = data.recommendation || {};
             const statusElem = document.getElementById('rec-status');
-            
             const counts = rec.counts || {};
             const maxVal = Math.max(...Object.values(counts), 1);
             const barsContainer = document.getElementById('rec-bars');
@@ -765,55 +775,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const fvScale = (v) => v != null ? `$${v.toFixed(2)}` : '--';
             const fvPct = (v) => v != null ? `${(v * 100).toFixed(1)}%` : '--';
-            const fvM = (v) => {
-                if (v == null) return '--';
-                return (v / 1e9).toFixed(2);
-            };
+            const fvM = (v) => v == null ? '--' : (v / 1e9).toFixed(2);
 
-            // EPS Table
             const epsBody = document.querySelector('#eps-est-table tbody');
             (data.eps_estimates || []).slice(0, 8).forEach(row => {
                 let colorKey = 'var(--text-main)';
                 let finalVal = fvPct(row.growth);
-
                 if (row.status === 'reported') {
                     colorKey = (row.surprise_pct > 0) ? 'var(--accent)' : (row.surprise_pct < 0 ? 'var(--danger)' : 'var(--text-main)');
                     finalVal = (row.surprise_pct != null) ? fvPct(row.surprise_pct) : '--';
                 }
-
-                epsBody.innerHTML += `<tr>
-                    <td style="padding: 0.4rem 0;">${row.period}</td>
-                    <td style="text-align: right; font-weight: 600;">${fvScale(row.avg)}</td>
-                    <td style="text-align: right; color: ${colorKey};">${finalVal}</td>
-                </tr>`;
+                epsBody.innerHTML += `<tr><td style="padding: 0.4rem 0;">${row.period}</td><td style="text-align: right; font-weight: 600;">${fvScale(row.avg)}</td><td style="text-align: right; color: ${colorKey};">${finalVal}</td></tr>`;
             });
 
-            // Revenue Table
             const revBody = document.querySelector('#rev-est-table tbody');
             (data.rev_estimates || []).slice(0, 8).forEach(row => {
                 let colorKey = 'var(--text-main)';
                 let finalVal = fvPct(row.growth);
-
                 if (row.status === 'reported') {
                     finalVal = (row.surprise_pct != null) ? fvPct(row.surprise_pct) : '--';
                     if (row.surprise_pct > 0) colorKey = 'var(--accent)';
                     else if (row.surprise_pct < 0) colorKey = 'var(--danger)';
                 }
-
-                revBody.innerHTML += `<tr>
-                    <td style="padding: 0.4rem 0;">${row.period}</td>
-                    <td style="text-align: right; font-weight: 600;">${fvM(row.avg)}</td>
-                    <td style="text-align: right; color: ${colorKey};">${finalVal}</td>
-                </tr>`;
+                revBody.innerHTML += `<tr><td style="padding: 0.4rem 0;">${row.period}</td><td style="text-align: right; font-weight: 600;">${fvM(row.avg)}</td><td style="text-align: right; color: ${colorKey};">${finalVal}</td></tr>`;
             });
-
         } catch (err) {
             console.error("Analyst inline error:", err);
             analystCard.style.display = 'none';
         }
     };
 
-    // Mobile Tab Switching Logic
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             const targetTab = btn.getAttribute('data-tab');
@@ -878,9 +869,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (data.margin_of_safety != null) {
                 mosText = formatPercent(data.margin_of_safety);
                 mosColor = data.margin_of_safety > 0 ? 'var(--accent)' : 'var(--danger)';
-                if (data.margin_of_safety > 0 && !mosText.startsWith('+')) {
-                    mosText = '+' + mosText;
-                }
+                if (data.margin_of_safety > 0 && !mosText.startsWith('+')) mosText = '+' + mosText;
             }
 
             const dcfVal = data.dcf_value != null ? formatCurrency(data.dcf_value) : 'N/A';
@@ -888,17 +877,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const pegVal = data.peg_value != null ? formatCurrency(data.peg_value) : 'N/A';
 
             let fwdMultVal = 'N/A';
-            if (data.lynch_fair_value != null) {
-                fwdMultVal = formatCurrency(data.lynch_fair_value);
-            } else if (data.peter_lynch && data.peter_lynch.fair_value_pe_20) {
-                fwdMultVal = formatCurrency(data.peter_lynch.fair_value_pe_20);
-            }
+            if (data.lynch_fair_value != null) fwdMultVal = formatCurrency(data.lynch_fair_value);
+            else if (data.peter_lynch && data.peter_lynch.fair_value_pe_20) fwdMultVal = formatCurrency(data.peter_lynch.fair_value_pe_20);
 
-            const hs = data.health_score;
-            const bs = data.buy_score;
-            const hsN = (hs !== 'N/A' && hs != null) ? hs : null;
-            const bsN = (bs !== 'N/A' && bs != null) ? bs : null;
-
+            const hsN = (data.health_score !== 'N/A' && data.health_score != null) ? data.health_score : null;
+            const bsN = (data.buy_score !== 'N/A' && data.buy_score != null) ? data.buy_score : null;
             const hsColorClass = hsN >= 76 ? 'bg-score-green' : (hsN >= 41 ? 'bg-score-yellow' : 'bg-score-red');
             const bsColorClass = bsN >= 76 ? 'bg-score-green' : (bsN >= 41 ? 'bg-score-yellow' : 'bg-score-red');
             const hsTextClass = hsN >= 76 ? 'score-green' : (hsN >= 41 ? 'score-yellow' : 'score-red');
@@ -918,66 +901,27 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     <div class="watchlist-metrics">
                         <div class="watchlist-mobile-col-header">
-                            <span>PRICE</span>
-                            <span>FAIR VALUE</span>
-                            <span>MOS</span>
+                            <span>PRICE</span><span>FAIR VALUE</span><span>MOS</span>
                         </div>
-                        <div class="watchlist-metric col-price">
-                            <span class="value">${data.current_price != null ? formatCurrency(data.current_price) : 'N/A'}</span>
-                        </div>
-                        <div class="watchlist-metric col-fv">
-                            <span class="value">${data.fair_value != null ? formatCurrency(data.fair_value) : 'N/A'}</span>
-                        </div>
-                        <div class="watchlist-metric col-mos">
-                            <span class="value" style="color: ${mosColor}; font-weight: 700;">${mosText}</span>
-                        </div>
+                        <div class="watchlist-metric col-price"><span class="value">${data.current_price != null ? formatCurrency(data.current_price) : 'N/A'}</span></div>
+                        <div class="watchlist-metric col-fv"><span class="value">${data.fair_value != null ? formatCurrency(data.fair_value) : 'N/A'}</span></div>
+                        <div class="watchlist-metric col-mos"><span class="value" style="color: ${mosColor}; font-weight: 700;">${mosText}</span></div>
                     </div>
-                    
                     <div class="watchlist-scores-container">
-                        <div class="watchlist-score-item">
-                            <span class="score-label">Health:</span>
-                            <div class="mini-score-bar">
-                                <div class="mini-score-fill ${hsN != null ? hsColorClass : ''}" style="width: ${hsFlex};"></div>
-                            </div>
-                            <span class="score-val ${hsN != null ? hsTextClass : ''}">${hsN != null ? hsN : 'N/A'}/100</span>
-                        </div>
-                        <div class="watchlist-score-item">
-                            <span class="score-label">Buy Score:</span>
-                            <div class="mini-score-bar">
-                                <div class="mini-score-fill ${bsN != null ? bsColorClass : ''}" style="width: ${bsFlex};"></div>
-                            </div>
-                            <span class="score-val ${bsN != null ? bsTextClass : ''}">${bsN != null ? bsN : 'N/A'}/100</span>
-                        </div>
+                        <div class="watchlist-score-item"><span class="score-label">Health:</span><div class="mini-score-bar"><div class="mini-score-fill ${hsN != null ? hsColorClass : ''}" style="width: ${hsFlex};"></div></div><span class="score-val ${hsN != null ? hsTextClass : ''}">${hsN != null ? hsN : 'N/A'}/100</span></div>
+                        <div class="watchlist-score-item"><span class="score-label">Buy Score:</span><div class="mini-score-bar"><div class="mini-score-fill ${bsN != null ? bsColorClass : ''}" style="width: ${bsFlex};"></div></div><span class="score-val ${bsN != null ? bsTextClass : ''}">${bsN != null ? bsN : 'N/A'}/100</span></div>
                     </div>
-
-                    <div class="watchlist-actions">
-                        <button class="remove-watchlist-btn" data-ticker="${data.ticker}" title="Remove from Watchlist">✖</button>
-                    </div>
+                    <div class="watchlist-actions"><button class="remove-watchlist-btn" data-ticker="${data.ticker}" title="Remove from Watchlist">✖</button></div>
                 </div>
-                
                 <div class="watchlist-expanded" onclick="event.stopPropagation();">
-                    <div class="breakdown-title">Valuation Breakdown (Equal-Weighted)</div>
+                    <div class="breakdown-title">Valuation Breakdown</div>
                     <div class="breakdown-grid">
-                        <div class="breakdown-item">
-                            <span class="breakdown-label">DCF Model:</span>
-                            <span class="breakdown-value">${dcfVal}</span>
-                        </div>
-                        <div class="breakdown-item">
-                            <span class="breakdown-label">Forward Multiple:</span>
-                            <span class="breakdown-value">${fwdMultVal}</span>
-                        </div>
-                        <div class="breakdown-item">
-                            <span class="breakdown-label">Relative Valuation:</span>
-                            <span class="breakdown-value">${relVal}</span>
-                        </div>
-                        <div class="breakdown-item">
-                            <span class="breakdown-label">PEG Target (1.0):</span>
-                            <span class="breakdown-value">${pegVal}</span>
-                        </div>
+                        <div class="breakdown-item"><span class="breakdown-label">DCF Model:</span><span class="breakdown-value">${dcfVal}</span></div>
+                        <div class="breakdown-item"><span class="breakdown-label">Forward Multiple:</span><span class="breakdown-value">${fwdMultVal}</span></div>
+                        <div class="breakdown-item"><span class="breakdown-label">Relative Valuation:</span><span class="breakdown-value">${relVal}</span></div>
+                        <div class="breakdown-item"><span class="breakdown-label">PEG Target (1.0):</span><span class="breakdown-value">${pegVal}</span></div>
                     </div>
-                    <div class="view-analysis-row">
-                        <button class="view-analysis-btn" data-ticker="${data.ticker}">[ View Full Analysis → ]</button>
-                    </div>
+                    <div class="view-analysis-row"><button class="view-analysis-btn" data-ticker="${data.ticker}">[ View Full Analysis → ]</button></div>
                 </div>
             `;
 
@@ -987,56 +931,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.dataTransfer.setData('text/plain', String(index));
                 setTimeout(() => card.classList.add('dragging'), 0);
             });
-
             card.addEventListener('dragend', () => {
                 card.classList.remove('dragging');
-                document.querySelectorAll('.watchlist-card').forEach(c => {
-                    c.classList.remove('drag-over-top', 'drag-over-bottom');
-                });
+                document.querySelectorAll('.watchlist-card').forEach(c => c.classList.remove('drag-over-top', 'drag-over-bottom'));
             });
-
             card.addEventListener('dragover', (e) => {
                 e.preventDefault();
                 e.dataTransfer.dropEffect = 'move';
                 if (dragSrcIndex === null || dragSrcIndex === index) return;
-                document.querySelectorAll('.watchlist-card').forEach(c => {
-                    c.classList.remove('drag-over-top', 'drag-over-bottom');
-                });
+                document.querySelectorAll('.watchlist-card').forEach(c => c.classList.remove('drag-over-top', 'drag-over-bottom'));
                 const rect = card.getBoundingClientRect();
-                if (e.clientY < rect.top + rect.height / 2) {
-                    card.classList.add('drag-over-top');
-                } else {
-                    card.classList.add('drag-over-bottom');
-                }
+                if (e.clientY < rect.top + rect.height / 2) card.classList.add('drag-over-top');
+                else card.classList.add('drag-over-bottom');
             });
-
             card.addEventListener('dragleave', (e) => {
-                if (!card.contains(e.relatedTarget)) {
-                    card.classList.remove('drag-over-top', 'drag-over-bottom');
-                }
+                if (!card.contains(e.relatedTarget)) card.classList.remove('drag-over-top', 'drag-over-bottom');
             });
-
             card.addEventListener('drop', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 card.classList.remove('drag-over-top', 'drag-over-bottom');
-
                 const from = dragSrcIndex;
                 if (from === null || from === index) { dragSrcIndex = null; return; }
-
                 const rect = card.getBoundingClientRect();
                 let to = (e.clientY >= rect.top + rect.height / 2) ? index + 1 : index;
-
                 const reordered = [...sortedResults];
                 const [moved] = reordered.splice(from, 1);
-                const insertAt = from < to ? to - 1 : to;
-                reordered.splice(insertAt, 0, moved);
-
+                reordered.splice(from < to ? to - 1 : to, 0, moved);
                 cachedWatchlistData = reordered;
                 watchlist = cachedWatchlistData.map(d => d.ticker);
                 manualOrder = true;
                 dragSrcIndex = null;
-
                 saveWatchlist();
                 renderWatchlistUI();
             });
@@ -1049,15 +974,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.stopPropagation();
                 const tickerToRemove = e.target.getAttribute('data-ticker');
                 watchlist = watchlist.filter(t => t !== tickerToRemove);
-
-                if (cachedWatchlistData) {
-                    cachedWatchlistData = cachedWatchlistData.filter(d => d.ticker !== tickerToRemove);
-                }
-
+                if (cachedWatchlistData) cachedWatchlistData = cachedWatchlistData.filter(d => d.ticker !== tickerToRemove);
                 saveWatchlist();
-                if (currentTicker === tickerToRemove) {
-                    updateWatchlistButtonState();
-                }
+                if (currentTicker === tickerToRemove) updateWatchlistButtonState();
                 renderWatchlistUI();
             });
         });
@@ -1065,9 +984,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.view-analysis-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                const targetTicker = e.target.getAttribute('data-ticker');
-                tickerInput.value = targetTicker;
-
+                tickerInput.value = e.target.getAttribute('data-ticker');
                 watchlistView.style.display = 'none';
                 analyzeTicker();
             });
@@ -1081,7 +998,6 @@ document.addEventListener('DOMContentLoaded', () => {
         watchlistGrid.innerHTML = '';
 
         const watchlistHeader = document.getElementById('watchlist-header');
-
         if (watchlist.length === 0) {
             loadingState.style.display = 'none';
             watchlistView.style.display = 'block';
@@ -1094,15 +1010,10 @@ document.addEventListener('DOMContentLoaded', () => {
         emptyWatchlistMsg.style.display = 'none';
 
         try {
-            const promises = watchlist.map(ticker =>
-                fetch(`/api/valuation/${encodeURIComponent(ticker)}`).then(res => res.json())
-            );
-
+            const promises = watchlist.map(ticker => fetch(`/api/valuation/${encodeURIComponent(ticker)}`).then(res => res.json()));
             let results = await Promise.all(promises);
             cachedWatchlistData = results.filter(data => !data.detail);
-
             renderWatchlistUI();
-
         } catch (error) {
             console.error('Error fetching watchlist data:', error);
             watchlistGrid.innerHTML = '<p style="color: var(--danger); grid-column: 1/-1;">Error loading watchlist data. Please try again.</p>';
@@ -1115,29 +1026,20 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.sort-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             const sortKey = btn.getAttribute('data-sort');
-
-            if (currentSort.column === sortKey) {
-                currentSort.order = currentSort.order === 'desc' ? 'asc' : 'desc';
-            } else {
+            if (currentSort.column === sortKey) currentSort.order = currentSort.order === 'desc' ? 'asc' : 'desc';
+            else {
                 currentSort.column = sortKey;
                 currentSort.order = sortKey === 'ticker' ? 'asc' : 'desc';
             }
-
             document.querySelectorAll('.sort-btn').forEach(b => {
                 b.classList.remove('active-sort', 'desc', 'asc');
-                const tKey = b.getAttribute('data-sort');
-                if (tKey === 'mos') b.style.color = 'var(--text-muted)';
+                if (b.getAttribute('data-sort') === 'mos') b.style.color = 'var(--text-muted)';
                 b.querySelector('.sort-icon').textContent = '↕';
             });
-
             btn.classList.add('active-sort');
             btn.classList.add(currentSort.order);
             btn.querySelector('.sort-icon').textContent = currentSort.order === 'desc' ? '▼' : '▲';
-
-            if (sortKey === 'mos') {
-                btn.style.color = 'var(--accent)';
-            }
-
+            if (sortKey === 'mos') btn.style.color = 'var(--accent)';
             if (cachedWatchlistData) {
                 manualOrder = false;
                 renderWatchlistUI();
@@ -1146,23 +1048,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     let searchTimeout = null;
-
     tickerInput.addEventListener('input', (e) => {
         const query = e.target.value.trim();
         clearTimeout(searchTimeout);
-
         if (query.length < 1) {
             autocompleteList.style.display = 'none';
             return;
         }
-
         searchTimeout = setTimeout(async () => {
             try {
                 const res = await fetch(`/api/search/${encodeURIComponent(query)}`);
                 const data = await res.json();
-
                 autocompleteList.innerHTML = '';
-
                 if (data.length > 0) {
                     data.forEach(item => {
                         const div = document.createElement('div');
@@ -1176,9 +1073,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         autocompleteList.appendChild(div);
                     });
                     autocompleteList.style.display = 'block';
-                } else {
-                    autocompleteList.style.display = 'none';
-                }
+                } else autocompleteList.style.display = 'none';
             } catch (err) {
                 console.error("Autocomplete error:", err);
             }
@@ -1186,9 +1081,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.addEventListener('click', (e) => {
-        if (!e.target.closest('.autocomplete-wrapper')) {
-            autocompleteList.style.display = 'none';
-        }
+        if (!e.target.closest('.autocomplete-wrapper')) autocompleteList.style.display = 'none';
     });
 
     const scoreModal = document.getElementById('score-modal');
@@ -1200,13 +1093,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const renderScoreModal = (title, totalScore, breakdownData) => {
         scoreModalTitle.textContent = title;
         scoreModalPts.textContent = totalScore;
-
         let html = '';
         if (breakdownData && breakdownData.length > 0) {
             breakdownData.forEach(item => {
                 let colorClass = 'score-yellow';
                 let badgeClass = 'bg-score-yellow';
-
                 if (item.points === item.max_points) {
                     colorClass = 'score-green';
                     badgeClass = 'bg-score-green';
@@ -1214,22 +1105,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     colorClass = 'score-red';
                     badgeClass = 'bg-score-red';
                 }
-
                 html += `
                     <div class="score-breakdown-row">
                         <div class="score-row-name">${item.name}</div>
                         <div class="score-row-val">${item.value !== null ? item.value : 'N/A'}</div>
                         <div class="score-row-pts ${colorClass}">
-                            <span class="score-badge ${badgeClass}"></span>
-                            ${item.points}/${item.max_points} pts
+                            <span class="score-badge ${badgeClass}"></span>${item.points}/${item.max_points} pts
                         </div>
-                    </div>
-                `;
+                    </div>`;
             });
-        } else {
-            html = '<p>No breakdown data available.</p>';
-        }
-
+        } else html = '<p>No breakdown data available.</p>';
         scoreModalBodyContent.innerHTML = html;
         scoreModal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
@@ -1241,18 +1126,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (healthScoreRow) {
         healthScoreRow.style.cursor = 'pointer';
         healthScoreRow.addEventListener('click', () => {
-            if (currentHealthBreakdown) {
-                renderScoreModal('Company Health Breakdown', document.getElementById('health-score-circle').textContent, currentHealthBreakdown);
-            }
+            if (currentHealthBreakdown) renderScoreModal('Company Health Breakdown', document.getElementById('health-score-circle').textContent, currentHealthBreakdown);
         });
     }
 
     if (buyScoreRow) {
         buyScoreRow.style.cursor = 'pointer';
         buyScoreRow.addEventListener('click', () => {
-            if (currentBuyBreakdown) {
-                renderScoreModal('Good to Buy Score Breakdown', document.getElementById('buy-score-circle').textContent, currentBuyBreakdown);
-            }
+            if (currentBuyBreakdown) renderScoreModal('Good to Buy Score Breakdown', document.getElementById('buy-score-circle').textContent, currentBuyBreakdown);
         });
     }
 
@@ -1272,9 +1153,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentTicker && currentFormulaData) {
             watchlistView.style.display = 'none';
             dashboard.style.display = 'block';
-        } else {
-            window.location.reload();
-        }
+        } else window.location.reload();
     });
 
     searchBtn.addEventListener('click', () => analyzeTicker());
@@ -1292,35 +1171,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     addToWatchlistBtn.addEventListener('click', toggleWatchlist);
 
-    // Modal Logic
     viewDataBtns.forEach(btn => {
         btn.addEventListener('click', (e) => {
             if (!currentFormulaData) return;
-
             const method = e.target.getAttribute('data-method');
             const modalTitle = document.getElementById('modal-title');
 
             if (method === 'peter_lynch') modalTitle.textContent = "Forward Multiple Valuation";
-            else if (method === 'peg') modalTitle.textContent = "PEG Target (1.0)";
+            else if (method === 'peg') modalTitle.textContent = "PEG Target (Sector)";
             else if (method === 'relative') modalTitle.textContent = "Relative Valuation";
             else if (method === 'dcf') modalTitle.textContent = "Discounted Cash Flow";
-            else modalTitle.textContent = "Formula Data Used";
 
             let html = '';
-
             const fv = (val, isPct = false) => {
                 if (val == null) return "N/A";
                 if (isPct) return `${(val * 100).toFixed(2)}%`;
                 return typeof val === 'number' ? val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : val;
             };
-
             const fM = (val) => {
                 if (val == null) return "N/A";
-                if (Math.abs(val) >= 1e9) {
-                    return `$${(val / 1e9).toFixed(2)}B`;
-                } else if (Math.abs(val) >= 1e6) {
-                    return `$${(val / 1e6).toFixed(2)}M`;
-                }
+                if (Math.abs(val) >= 1e9) return `$${(val / 1e9).toFixed(2)}B`;
+                if (Math.abs(val) >= 1e6) return `$${(val / 1e6).toFixed(2)}M`;
                 return `$${typeof val === 'number' ? val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : val}`;
             };
 
@@ -1335,104 +1206,64 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <li><strong>Est. 3-Year CAGR:</strong> <span>${fv(pl.eps_growth_estimated, true)}</span></li>
                                 <li><strong>3-Year FWD EPS:</strong> <span>$${fv(pl.fwd_eps)}</span></li>
                                 <li><strong>3Y FWD PE:</strong> <span>${fv(pl.fwd_pe)}x</span></li>
-                                <li style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);">
-                                    <strong>Fair Value (if PE=20):</strong> <span>$${fv(pl.fair_value_pe_20)}</span>
-                                </li>
-                                <li>
-                                    <strong>Fair Value (PE=Sector Median):</strong> <span>$${fv(pl.fair_value_sector_pe)}</span>
-                                </li>
-                                <li>
-                                    <strong>Fair Value (Historic PE ${fv(pl.historic_pe)}x):</strong> <span style="color:var(--accent); font-weight:bold;">$${fv(pl.fair_value)}</span>
-                                </li>
+                                <li style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);"><strong>Fair Value (if PE=20):</strong> <span>$${fv(pl.fair_value_pe_20)}</span></li>
+                                <li><strong>Fair Value (PE=Sector Median):</strong> <span>$${fv(pl.fair_value_sector_pe)}</span></li>
+                                <li><strong>Fair Value (Historic PE ${fv(pl.historic_pe)}x):</strong> <span style="color:var(--accent); font-weight:bold;">$${fv(pl.fair_value)}</span></li>
                             </ul>
-                        </div>
-                    `;
+                        </div>`;
                 }
             } else if (method === 'peg') {
                 const peg = currentFormulaData.peg;
                 if (peg) {
                     const pegSrcEl = document.getElementById('peg-eps-source');
                     const pegSrc = pegSrcEl ? pegSrcEl.value : 'analyst';
-                    
                     let displayFv = peg.fair_value;
                     let displayMos = peg.margin_of_safety;
                     let displayPeg = peg.current_peg;
                     
                     if (pegSrc === 'custom') {
                         const customGrowth = (parseFloat(document.getElementById('peg-custom-growth').value) || 20) / 100;
-                        const currentPe = peg.current_pe || (parseFloat(globalData.company_profile.trailing_pe) || 0); // FIX Aplicat
+                        const currentPe = peg.current_pe || (parseFloat(globalData.company_profile.trailing_pe) || 0);
                         if (customGrowth > 0 && currentPe > 0 && peg.industry_peg > 0) {
                             displayPeg = currentPe / (customGrowth * 100);
-                            displayFv = globalData.current_price * (peg.industry_peg / displayPeg); // FIX Aplicat
-                            displayMos = ((displayFv - globalData.current_price) / displayFv) * 100; // FIX Aplicat
+                            displayFv = globalData.current_price * (peg.industry_peg / displayPeg);
+                            displayMos = ((displayFv - globalData.current_price) / displayFv) * 100;
                         }
                     }
 
                     const targetText = peg.industry_peg != null ? fv(peg.industry_peg) : 'N/A';
-                    const targetLabel = peg.industry_peg != null ? 'Target PEG (Sector):' : 'Target PEG:';
                     
-                    if (modalTitle) modalTitle.textContent = peg.industry_peg != null ? 'PEG Target (Sector)' : 'PEG Valuation Data';
-
                     html += `
                         <div class="formula-section">
                             <ul>
                                 <li><strong>Current PEG:</strong> <span>${displayPeg != null ? fv(displayPeg) : 'N/A'}</span></li>
-                                <li><strong>${targetLabel}</strong> <span>${targetText}</span></li>
-                                <li style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);">
-                                    <strong>Fair Value:</strong> <span style="color:var(--accent); font-weight:bold;">$${displayFv != null ? fv(displayFv) : 'N/A'}</span>
-                                </li>
-                                <li style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);">
-                                    <strong>Margin of Safety:</strong> 
-                                    <span style="color:${displayMos > 0 ? 'var(--accent)' : 'var(--danger)'}; font-weight:bold;">
-                                        ${displayMos != null ? displayMos.toFixed(2) + '%' : 'N/A'}
-                                    </span>
-                                </li>
+                                <li><strong>Target PEG (Sector):</strong> <span>${targetText}</span></li>
+                                <li style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);"><strong>Fair Value:</strong> <span style="color:var(--accent); font-weight:bold;">$${displayFv != null ? fv(displayFv) : 'N/A'}</span></li>
+                                <li style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);"><strong>Margin of Safety:</strong> <span style="color:${displayMos > 0 ? 'var(--accent)' : 'var(--danger)'}; font-weight:bold;">${displayMos != null ? displayMos.toFixed(2) + '%' : 'N/A'}</span></li>
                             </ul>
                             ${peg.industry_peg == null ? '<p style="color: var(--danger); font-size: 0.9rem; margin-top: 1rem;">Sector data unavailable</p>' : ''}
-                        </div>
-                    `;
+                        </div>`;
                 }
             } else if (method === 'relative') {
                 const rel = currentFormulaData.relative;
                 if (rel) {
                     const fvPeers = (rel.median_peer_pe && rel.company_eps) ? (rel.median_peer_pe * rel.company_eps).toFixed(2) : null;
                     const fvSP500 = (rel.market_pe_trailing && rel.company_eps) ? (rel.market_pe_trailing * rel.company_eps).toFixed(2) : null;
-                    const peersHtml = rel.peers_used && rel.peers_used.length
-                        ? rel.peers_used.map(p => `<span style="display:inline-block;background:rgba(255,255,255,0.07);border-radius:4px;padding:1px 6px;margin:2px 2px;font-size:0.82em;">${p}</span>`).join('')
-                        : '<span style="color:var(--text-muted)">None found</span>';
-
-                    const row = (label, value, highlight = false) => `
-                        <tr style="border-bottom:1px solid rgba(255,255,255,0.07);">
-                            <td style="padding:10px 0;color:var(--text-muted);vertical-align:top;padding-right:16px;">${label}</td>
-                            <td style="padding:10px 0 10px 12px;text-align:right;font-weight:${highlight ? 700 : 500};color:${highlight ? 'var(--accent)' : 'white'};word-break:break-word;">${value}</td>
-                        </tr>`;
-
+                    const peersHtml = rel.peers_used && rel.peers_used.length ? rel.peers_used.map(p => `<span style="display:inline-block;background:rgba(255,255,255,0.07);border-radius:4px;padding:1px 6px;margin:2px 2px;font-size:0.82em;">${p}</span>`).join('') : '<span style="color:var(--text-muted)">None found</span>';
+                    const row = (label, value, highlight = false) => `<tr style="border-bottom:1px solid rgba(255,255,255,0.07);"><td style="padding:10px 0;color:var(--text-muted);vertical-align:top;padding-right:16px;">${label}</td><td style="padding:10px 0 10px 12px;text-align:right;font-weight:${highlight ? 700 : 500};color:${highlight ? 'var(--accent)' : 'white'};word-break:break-word;">${value}</td></tr>`;
+                    
                     html += `
                         <div class="formula-section">
                             <table style="width:100%;border-collapse:collapse;">
                                 ${row('Company Trailing EPS:', `$${fv(rel.company_eps)}`)}
                                 ${row('Company Trailing P/E:', rel.company_trailing_pe != null ? `${fv(rel.company_trailing_pe)}x` : 'N/A')}
-                                <tr style="border-bottom:1px solid rgba(255,255,255,0.07);">
-                                    <td style="padding:10px 0;color:var(--text-muted);vertical-align:top;padding-right:16px;">Peers Used (Industry):</td>
-                                    <td style="padding:10px 0 10px 12px;text-align:right;">${peersHtml}</td>
-                                </tr>
+                                <tr style="border-bottom:1px solid rgba(255,255,255,0.07);"><td style="padding:10px 0;color:var(--text-muted);vertical-align:top;padding-right:16px;">Peers Used (Industry):</td><td style="padding:10px 0 10px 12px;text-align:right;">${peersHtml}</td></tr>
                                 ${row('Peer Group Median Trailing P/E:', rel.median_peer_pe != null ? `${fv(rel.median_peer_pe)}x` : 'N/A')}
-                                <tr style="border-top:2px solid rgba(255,255,255,0.12);">
-                                    <td style="padding:12px 0 6px 0;color:var(--text-muted);vertical-align:middle;padding-right:16px;">Fair Value vs. Peers:</td>
-                                    <td style="padding:12px 0 6px 12px;text-align:right;font-weight:700;font-size:1.1em;color:${fvPeers ? 'var(--accent)' : 'var(--text-muted)'};">${fvPeers ? '$' + fvPeers : 'N/A'}</td>
-                                </tr>
-                                <tr>
-                                    <td style="padding:6px 0 12px 0;color:var(--text-muted);vertical-align:middle;padding-right:16px;">Fair Value vs. S&amp;P 500:</td>
-                                    <td style="padding:6px 0 12px 12px;text-align:right;font-weight:700;font-size:1.1em;color:${fvSP500 ? 'var(--accent)' : 'var(--text-muted)'};">${fvSP500 ? '$' + fvSP500 : 'N/A'}</td>
-                                </tr>
-                                <tr>
-                                    <td colspan="2" style="padding:4px 0;font-size:0.78em;color:var(--text-muted);">
-                                        S&amp;P 500 Trailing P/E used: ${rel.market_pe_trailing != null ? rel.market_pe_trailing + 'x' : 'N/A'} &nbsp;|&nbsp; Forward P/E: ${rel.market_pe_forward != null ? rel.market_pe_forward + 'x' : 'N/A'}
-                                    </td>
-                                </tr>
+                                <tr style="border-top:2px solid rgba(255,255,255,0.12);"><td style="padding:12px 0 6px 0;color:var(--text-muted);vertical-align:middle;padding-right:16px;">Fair Value vs. Peers:</td><td style="padding:12px 0 6px 12px;text-align:right;font-weight:700;font-size:1.1em;color:${fvPeers ? 'var(--accent)' : 'var(--text-muted)'};">${fvPeers ? '$' + fvPeers : 'N/A'}</td></tr>
+                                <tr><td style="padding:6px 0 12px 0;color:var(--text-muted);vertical-align:middle;padding-right:16px;">Fair Value vs. S&amp;P 500:</td><td style="padding:6px 0 12px 12px;text-align:right;font-weight:700;font-size:1.1em;color:${fvSP500 ? 'var(--accent)' : 'var(--text-muted)'};">${fvSP500 ? '$' + fvSP500 : 'N/A'}</td></tr>
+                                <tr><td colspan="2" style="padding:4px 0;font-size:0.78em;color:var(--text-muted);">S&amp;P 500 Trailing P/E used: ${rel.market_pe_trailing != null ? rel.market_pe_trailing + 'x' : 'N/A'} &nbsp;|&nbsp; Forward P/E: ${rel.market_pe_forward != null ? rel.market_pe_forward + 'x' : 'N/A'}</td></tr>
                             </table>
-                        </div>
-                    `;
+                        </div>`;
                 }
             } else if (method === 'dcf') {
                 const dcf = currentFormulaData.dcf;
@@ -1441,23 +1272,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (dcf.fcf_years && dcf.pv_fcf_years) {
                         dcf.fcf_years.forEach((cf, i) => {
                             let growthStr = '--';
-                            if (i === 0) {
-                                const baseFcf = dcf.fcf;
-                                if (baseFcf && baseFcf > 0) {
-                                    growthStr = `${((cf - baseFcf) / baseFcf * 100).toFixed(1)}%`;
-                                }
-                            } else {
-                                const prevFcf = dcf.fcf_years[i-1];
-                                if (prevFcf && prevFcf > 0) {
-                                    growthStr = `${((cf - prevFcf) / prevFcf * 100).toFixed(1)}%`;
-                                }
-                            }
-                            tableRows += `<tr>
-                                <td style="padding: 4px 0;">Year ${i + 1}</td>
-                                <td style="text-align: right;">${fM(cf)}</td>
-                                <td style="text-align: right; color: var(--text-muted); font-size: 0.85em;">${growthStr}</td>
-                                <td style="text-align: right;">${fM(dcf.pv_fcf_years[i])}</td>
-                            </tr>`;
+                            if (i === 0 && dcf.fcf && dcf.fcf > 0) growthStr = `${((cf - dcf.fcf) / dcf.fcf * 100).toFixed(1)}%`;
+                            else if (i > 0 && dcf.fcf_years[i-1] > 0) growthStr = `${((cf - dcf.fcf_years[i-1]) / dcf.fcf_years[i-1] * 100).toFixed(1)}%`;
+                            tableRows += `<tr><td style="padding: 4px 0;">Year ${i + 1}</td><td style="text-align: right;">${fM(cf)}</td><td style="text-align: right; color: var(--text-muted); font-size: 0.85em;">${growthStr}</td><td style="text-align: right;">${fM(dcf.pv_fcf_years[i])}</td></tr>`;
                         });
                     }
                     html += `
@@ -1467,76 +1284,21 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <li><strong>Perpetual Growth Rate:</strong> <span>${fv(dcf.perpetual_growth, true)}</span></li>
                                 <li><strong>Shares Outstanding:</strong> <span>${fM(dcf.shares_outstanding).replace('$', '')}</span></li>
                             </ul>
-                            <div class="table-responsive">
-                                <table style="width:100%; min-width: 400px; text-align:left; margin-top: 1rem; margin-bottom: 1rem; border-collapse: collapse; font-size: 0.9rem;">
-                                    <thead>
-                                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
-                                            <th style="padding-bottom: 5px;">Year</th>
-                                            <th style="padding-bottom: 5px; text-align: right;">Projected FCF</th>
-                                            <th style="padding-bottom: 5px; text-align: right;">Growth (YoY)</th>
-                                            <th style="padding-bottom: 5px; text-align: right;">Present Value</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        ${tableRows}
-                                    </tbody>
-                                </table>
-                            </div>
+                            <div class="table-responsive"><table style="width:100%; min-width: 400px; text-align:left; margin-top: 1rem; margin-bottom: 1rem; border-collapse: collapse; font-size: 0.9rem;"><thead><tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><th style="padding-bottom: 5px;">Year</th><th style="padding-bottom: 5px; text-align: right;">Projected FCF</th><th style="padding-bottom: 5px; text-align: right;">Growth (YoY)</th><th style="padding-bottom: 5px; text-align: right;">Present Value</th></tr></thead><tbody>${tableRows}</tbody></table></div>
                             <ul>
                                 <li><strong>Total PV of FCFs:</strong> <span>${fM(dcf.sum_pv_cf)}</span></li>
                                 <li><strong>Terminal Value:</strong> <span>${fM(dcf.terminal_value)}</span></li>
                                 <li><strong>PV of Terminal Value:</strong> <span>${fM(dcf.pv_terminal_value)}</span></li>
-                                <li style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);">
-                                    <strong>Enterprise Value:</strong> <span style="font-weight:bold;">${fM(dcf.enterprise_value)}</span>
-                                </li>
+                                <li style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);"><strong>Enterprise Value:</strong> <span style="font-weight:bold;">${fM(dcf.enterprise_value)}</span></li>
                                 <li style="color: var(--accent);"><strong>+ Cash & Equivalents:</strong> <span>${fM(dcf.total_cash)}</span></li>
                                 <li style="color: var(--danger);"><strong>- Total Debt:</strong> <span>${fM(dcf.total_debt)}</span></li>
-                                <li style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);">
-                                    <strong>Equity Value:</strong> <span style="font-weight:bold;">${fM(dcf.equity_value)}</span>
-                                </li>
-                                <li style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);">
-                                    <strong>Intrinsic Value per Share:</strong> 
-                                    <span style="color:var(--accent); font-weight:bold;">$${fv(dcf.intrinsic_value)}</span>
-                                </li>
-                                <li style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);">
-                                    <strong>Market Implied FCF Growth (Reverse DCF):</strong> 
-                                    <span style="color:var(--accent); font-weight:bold;">${dcf.reverse_dcf_growth != null ? (dcf.reverse_dcf_growth * 100).toFixed(2) + '%' : 'N/A'}</span>
-                                </li>
+                                <li style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);"><strong>Equity Value:</strong> <span style="font-weight:bold;">${fM(dcf.equity_value)}</span></li>
+                                <li style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);"><strong>Intrinsic Value per Share:</strong> <span style="color:var(--accent); font-weight:bold;">$${fv(dcf.intrinsic_value)}</span></li>
+                                <li style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);"><strong>Market Implied FCF Growth (Reverse DCF):</strong> <span style="color:var(--accent); font-weight:bold;">${dcf.reverse_dcf_growth != null ? (dcf.reverse_dcf_growth * 100).toFixed(2) + '%' : 'N/A'}</span></li>
                             </ul>
-                            
-                            ${dcf.sensitivity_matrix && dcf.sensitivity_matrix.length > 0 ? `
-                                <h4 style="margin-top: 1.5rem; margin-bottom: 0.5rem; color: var(--text-main);">DCF Sensitivity Matrix</h4>
-                                <div class="table-responsive">
-                                    <table class="sensitivity-matrix" style="min-width: 450px;">
-                                        <thead>
-                                            <tr>
-                                                <th style="font-size: 0.8em; color: var(--text-muted); text-align: left;">WACC \\ g</th>
-                                                ${dcf.sensitivity_matrix[0].values.map(v => `<th>${(v.perpetual_growth * 100).toFixed(1)}%</th>`).join('')}
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            ${dcf.sensitivity_matrix.map(row => `
-                                                <tr>
-                                                    <th>${(row.discount_rate * 100).toFixed(1)}%</th>
-                                                    ${row.values.map(v => {
-                        let fvVal = v.fair_value;
-                        return `<td>${fvVal != null ? '$' + fvVal.toFixed(2) : 'N/A'}</td>`;
-                    }).join('')}
-                                                </tr>
-                                            `).join('')}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            ` : ''}
-                        </div>
-                        </div>
-                    `;
+                        </div>`;
                 } else {
-                    html += `
-                        <div class="formula-section">
-                            <p>Discounted Cash Flow (DCF) model is not applicable for this company. This usually occurs when the company has negative or missing Free Cash Flow.</p>
-                        </div>
-                    `;
+                    html += `<div class="formula-section"><p>Discounted Cash Flow (DCF) model is not applicable for this company. This usually occurs when the company has negative or missing Free Cash Flow.</p></div>`;
                 }
             }
 
@@ -1574,29 +1336,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    fetch('/api/watchlist')
-        .then(res => res.json())
-        .then(data => {
-            if (Array.isArray(data) && data.length > 0) {
-                watchlist = data;
-                localStorage.setItem('fairValueWatchlist', JSON.stringify(watchlist));
-                renderWatchlist();
-            } else if (watchlist.length > 0) {
-                renderWatchlist();
-            } else {
-                watchlistView.style.display = 'block';
-                emptyWatchlistMsg.style.display = 'block';
-            }
-        })
-        .catch(err => {
-            console.error('Failed to load watchlist from server:', err);
-            if (watchlist.length > 0) {
-                renderWatchlist();
-            } else {
-                watchlistView.style.display = 'block';
-                emptyWatchlistMsg.style.display = 'block';
-            }
-        });
+    fetch('/api/watchlist').then(res => res.json()).then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+            watchlist = data;
+            localStorage.setItem('fairValueWatchlist', JSON.stringify(watchlist));
+            renderWatchlist();
+        } else if (watchlist.length > 0) renderWatchlist();
+        else {
+            watchlistView.style.display = 'block';
+            emptyWatchlistMsg.style.display = 'block';
+        }
+    }).catch(err => {
+        console.error('Failed to load watchlist from server:', err);
+        if (watchlist.length > 0) renderWatchlist();
+        else {
+            watchlistView.style.display = 'block';
+            emptyWatchlistMsg.style.display = 'block';
+        }
+    });
 
     const renderHistoricalCharts = (data) => {
         const container = document.getElementById('historical-charts-container');
@@ -1607,7 +1364,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (container) container.style.display = 'block';
         const h = data.historical_data;
-
         const toM = (val) => (val / 1000000);
 
         if (chartRevFcf) chartRevFcf.destroy();
@@ -1617,39 +1373,17 @@ document.addEventListener('DOMContentLoaded', () => {
             data: {
                 labels: h.years,
                 datasets: [
-                    {
-                        label: 'Revenue (M)',
-                        data: h.revenue.map(toM),
-                        backgroundColor: 'rgba(56, 189, 248, 0.6)',
-                        borderColor: 'rgba(56, 189, 248, 1)',
-                        borderWidth: 1
-                    },
-                    {
-                        label: 'Free Cash Flow (M)',
-                        data: h.fcf.map(toM),
-                        backgroundColor: 'rgba(34, 197, 94, 0.6)',
-                        borderColor: 'rgba(34, 197, 94, 1)',
-                        borderWidth: 1
-                    }
+                    { label: 'Revenue (M)', data: h.revenue.map(toM), backgroundColor: 'rgba(56, 189, 248, 0.6)', borderColor: 'rgba(56, 189, 248, 1)', borderWidth: 1 },
+                    { label: 'Free Cash Flow (M)', data: h.fcf.map(toM), backgroundColor: 'rgba(34, 197, 94, 0.6)', borderColor: 'rgba(34, 197, 94, 1)', borderWidth: 1 }
                 ]
             },
             options: {
-                responsive: true,
-                maintainAspectRatio: false,
+                responsive: true, maintainAspectRatio: false,
                 scales: {
-                    y: {
-                        beginAtZero: true,
-                        grid: { color: 'rgba(255,255,255,0.1)' },
-                        ticks: { color: 'rgba(255,255,255,0.6)' }
-                    },
-                    x: {
-                        grid: { display: false },
-                        ticks: { color: 'rgba(255,255,255,0.6)' }
-                    }
+                    y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: 'rgba(255,255,255,0.6)' } },
+                    x: { grid: { display: false }, ticks: { color: 'rgba(255,255,255,0.6)' } }
                 },
-                plugins: {
-                    legend: { labels: { color: 'rgba(255,255,255,0.8)' } }
-                }
+                plugins: { legend: { labels: { color: 'rgba(255,255,255,0.8)' } } }
             }
         });
 
@@ -1660,54 +1394,18 @@ document.addEventListener('DOMContentLoaded', () => {
             data: {
                 labels: h.years,
                 datasets: [
-                    {
-                        label: 'EPS',
-                        data: h.eps,
-                        borderColor: 'rgba(234, 179, 8, 1)',
-                        backgroundColor: 'rgba(234, 179, 8, 0.2)',
-                        yAxisID: 'y',
-                        tension: 0.3,
-                        fill: true
-                    },
-                    {
-                        label: 'Shares (M)',
-                        data: h.shares.map(toM),
-                        borderColor: 'rgba(168, 85, 247, 1)',
-                        backgroundColor: 'rgba(168, 85, 247, 0.2)',
-                        yAxisID: 'y1',
-                        borderDash: [5, 5],
-                        type: 'bar'
-                    }
+                    { label: 'EPS', data: h.eps, borderColor: 'rgba(234, 179, 8, 1)', backgroundColor: 'rgba(234, 179, 8, 0.2)', yAxisID: 'y', tension: 0.3, fill: true },
+                    { label: 'Shares (M)', data: h.shares.map(toM), borderColor: 'rgba(168, 85, 247, 1)', backgroundColor: 'rgba(168, 85, 247, 0.2)', yAxisID: 'y1', borderDash: [5, 5], type: 'bar' }
                 ]
             },
             options: {
-                responsive: true,
-                maintainAspectRatio: false,
+                responsive: true, maintainAspectRatio: false,
                 scales: {
-                    y: {
-                        type: 'linear',
-                        display: true,
-                        position: 'left',
-                        title: { display: true, text: 'EPS ($)', color: 'rgba(234, 179, 8, 1)' },
-                        grid: { color: 'rgba(255,255,255,0.1)' },
-                        ticks: { color: 'rgba(255,255,255,0.6)' }
-                    },
-                    y1: {
-                        type: 'linear',
-                        display: true,
-                        position: 'right',
-                        title: { display: true, text: 'Shares (Millions)', color: 'rgba(168, 85, 247, 1)' },
-                        grid: { drawOnChartArea: false },
-                        ticks: { color: 'rgba(255,255,255,0.6)' }
-                    },
-                    x: {
-                        grid: { display: false },
-                        ticks: { color: 'rgba(255,255,255,0.6)' }
-                    }
+                    y: { type: 'linear', display: true, position: 'left', title: { display: true, text: 'EPS ($)', color: 'rgba(234, 179, 8, 1)' }, grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: 'rgba(255,255,255,0.6)' } },
+                    y1: { type: 'linear', display: true, position: 'right', title: { display: true, text: 'Shares (Millions)', color: 'rgba(168, 85, 247, 1)' }, grid: { drawOnChartArea: false }, ticks: { color: 'rgba(255,255,255,0.6)' } },
+                    x: { grid: { display: false }, ticks: { color: 'rgba(255,255,255,0.6)' } }
                 },
-                plugins: {
-                    legend: { labels: { color: 'rgba(255,255,255,0.8)' } }
-                }
+                plugins: { legend: { labels: { color: 'rgba(255,255,255,0.8)' } } }
             }
         });
     };
