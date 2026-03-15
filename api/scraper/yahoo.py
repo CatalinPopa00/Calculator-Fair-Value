@@ -600,21 +600,10 @@ def get_company_data(ticker_symbol: str):
 
 def get_competitors_data(target_ticker: str, sector: str, target_industry: str, target_market_cap: float = 0, limit: int = 3) -> list:
     """
-    Find relevant industry peers using Finnhub API.
-    Simplified version with diagnostic logging.
+    Find relevant industry peers using Finnhub API or dynamic Yahoo fallback.
     """
     try:
         target_ticker = target_ticker.upper()
-        
-        # 0. ADR Fallback Logic
-        adr_fallback = {
-            'NVO': ['LLY', 'JNJ', 'MRK'],
-            'TSM': ['ASML', 'INTC', 'AMD'],
-            'BABA': ['PDD', 'JD', 'AMZN'],
-            'ASML': ['LRCX', 'AMAT', 'KLAC'],
-            'SAP': ['ORCL', 'MSFT', 'CRM'],
-            'RYAAY': ['LUV', 'DAL', 'UAL']
-        }
         
         FINNHUB_KEY = os.environ.get('FINNHUB_API_KEY')
         
@@ -633,55 +622,53 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
             except Exception as e:
                 print(f"Finnhub API call error: {e}")
 
-        # 1.5 ADR Fallback Check (Higher priority than scraper)
-        if not peers and target_ticker in adr_fallback:
-            peers = adr_fallback[target_ticker]
-            print(f"Using ADR fallback for {target_ticker}: {peers}")
-
-        # 2. Universal Scraper Fallback (if Finnhub fails or returns nothing)
-        if not peers or not isinstance(peers, list):
-            print(f"No Finnhub peers for {target_ticker}, attempting scraping fallback...")
+        # 1.5 Filter and Check for Dynamic Fallback
+        if peers:
+            # Filter out tickers with dots (international/local exchange symbols)
+            peers = [p for p in peers if '.' not in p]
+            
+        if not peers or len(peers) < 2:
+            print(f"Few or no US peers for {target_ticker}, attempting Yahoo Recommendation fallback...")
             try:
-                # Scrape Yahoo Finance quotes to find related symbols
+                # Yahoo Recommendations API
+                url = f"https://query2.finance.yahoo.com/v6/finance/recommendationsbysymbol/{target_ticker}"
+                headers = {'User-Agent': get_random_agent()}
+                resp = requests.get(url, headers=headers, timeout=10)
+                if resp.status_code == 200:
+                    rec_json = resp.json()
+                    results = rec_json.get('finance', {}).get('result', [])
+                    if results:
+                        rec_symbols = results[0].get('recommendedSymbols', [])
+                        rec_peers = [r.get('symbol') for r in rec_symbols if r.get('symbol')]
+                        # Filter out tickers with dots (international/local exchange symbols)
+                        rec_peers = [p for p in rec_peers if '.' not in p]
+                        if rec_peers:
+                            peers = rec_peers
+                            print(f"Dynamic fallback found {len(peers)} peers.")
+            except Exception as e_rec:
+                print(f"Yahoo Recommendation fallback error: {e_rec}")
+
+        # 2. Universal Scraper Fallback (if still nothing)
+        if not peers:
+            print(f"No peers for {target_ticker}, attempting scraping fallback...")
+            try:
                 headers = {'User-Agent': random.choice(USER_AGENTS)}
-                # Specifically targeting the 'Profile' or 'Quote' page
                 url = f"https://finance.yahoo.com/quote/{target_ticker}/"
                 resp = requests.get(url, headers=headers, timeout=10)
                 if resp.status_code == 200:
                     import re
-                    # Look for quote links in the html
                     matches = re.findall(r'/quote/([A-Z^.-]+)/', resp.text)
                     ignore = {'GSPC', 'DJI', 'IXIC', 'RUT', 'TNX', 'VIX', target_ticker}
-                    # Filter and deduplicate
                     found = []
                     for m in matches:
-                        if m not in ignore and 1 < len(m) <= 5 and m.isalpha():
+                        if m not in ignore and 1 < len(m) <= 5 and m.isalpha() and '.' not in m:
                             if m not in found:
                                 found.append(m)
-                    
                     peers = found[:10]
-                    print(f"Scraper found {len(peers)} potential peers for {target_ticker}")
             except Exception as e_scrape:
                 print(f"Scraping fallback error: {e_scrape}")
 
-        # 3. Last Resort: Hardcoded for Big 7 (Safety net)
         if not peers:
-            fallbacks = {
-                "AAPL": ["MSFT", "GOOGL", "AMZN", "META", "NVDA"],
-                "MSFT": ["AAPL", "GOOGL", "AMZN", "META", "NVDA"],
-                "GOOGL": ["AAPL", "MSFT", "AMZN", "META", "NVDA"],
-                "GOOG": ["AAPL", "MSFT", "AMZN", "META", "NVDA"],
-                "AMZN": ["AAPL", "MSFT", "GOOGL", "META", "TSLA"],
-                "TSLA": ["AMZN", "F", "GM", "BYDDF", "AAPL"],
-                "META": ["GOOGL", "AAPL", "AMZN", "SNAP", "TTD"],
-                "NVDA": ["AMD", "INTC", "TSM", "AVGO", "QCOM"],
-                "ADBE": ["MSFT", "ORCL", "CRM", "INTU", "SAP"],
-                "NVO": ["LLY", "AZN", "SNY", "NVS", "PFE"],
-                "LLY": ["NVO", "PFE", "MRK", "ABBV", "JNJ"]
-            }
-            peers = fallbacks.get(target_ticker, [])
-
-        if not peers or not isinstance(peers, list):
             return []
 
         # 2. Extract top 3 peers (excluding self)

@@ -152,13 +152,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const injectComparisonUI = () => {
         if(document.getElementById('comparison-modal')) return;
         const modalHtml = `
-            <div id="comparison-modal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; justify-content:center; align-items:center; backdrop-filter: blur(4px);">
-                <div class="glass-card" style="width:95%; max-width:800px; padding:20px; position:relative; display:flex; flex-direction:column; gap:15px; border: 1px solid rgba(255,255,255,0.1); overflow-x: auto;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:10px;">
-                        <h3 style="margin:0; font-size:1.2rem; color:white;">Competitor Comparison</h3>
-                        <span id="close-comparison-btn" style="cursor:pointer; font-size:1.5rem; color:var(--text-muted);">&times;</span>
+            <div id="comparison-modal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; justify-content:center; align-items:center; backdrop-filter: blur(8px);">
+                <div class="glass-card" style="width:95%; max-width:900px; padding:25px; position:relative; display:flex; flex-direction:column; gap:20px; border: 1px solid rgba(255,255,255,0.1); overflow-x: auto; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:15px;">
+                        <h3 style="margin:0; font-size:1.4rem; color:white; display:flex; align-items:center; gap:10px;">
+                            <span style="font-size:1.5rem;">📊</span> Side-by-Side Comparison
+                        </h3>
+                        <span id="close-comparison-btn" style="cursor:pointer; font-size:2rem; color:var(--text-muted); line-height:1;">&times;</span>
                     </div>
-                    <div id="comparison-table-container" style="overflow-x: auto;"></div>
+                    <div id="comparison-table-container" style="overflow-x: auto; border-radius: 12px; background: rgba(0,0,0,0.2);"></div>
                 </div>
             </div>
         `;
@@ -728,11 +730,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 <tr style="border-top: 1px solid rgba(255,255,255,0.08);"><td style="padding: 12px 0; color: var(--text-muted); vertical-align: top;">Shares Out.</td><td style="text-align: right; font-weight: bold; color: white;">${formatBigNumber(prof.shares_outstanding, '')}</td></tr>
                 <tr style="border-top: 1px solid rgba(255,255,255,0.08);"><td style="padding: 12px 0; color: var(--text-muted); vertical-align: top;">Buyback rate</td><td style="text-align: right; font-weight: bold; color: white;">${prof.buyback_rate != null ? (prof.buyback_rate > 0 ? '+' : '') + prof.buyback_rate.toFixed(2) + '%' : 'N/A'}</td></tr>
                 <tr style="border-top: 1px solid rgba(255,255,255,0.08);"><td style="padding: 12px 0; color: var(--text-muted); vertical-align: top;">Dividend Yield</td><td style="text-align: right; font-weight: bold; color: white;">${prof.dividend_yield ? prof.dividend_yield.toFixed(2) + '%' : 'N/A'}</td></tr>
-                <tr style="border-top: 1px solid rgba(255,255,255,0.08);"><td style="padding: 12px 0; color: var(--text-muted); vertical-align: top; white-space: nowrap;">Competitors ${prof.competitor_metrics && prof.competitor_metrics.length > 0 ? `<button id="open-compare-btn" style="margin-left: 8px; background: rgba(56, 189, 248, 0.1); color: #38bdf8; border: 1px solid #38bdf8; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; cursor: pointer; transition: 0.2s;">Compare</button>` : ''}</td><td style="text-align: right; font-weight: bold; color: white; word-wrap: break-word;">${prof.competitors && prof.competitors.length ? prof.competitors.join(', ') : 'None'}</td></tr>
+                <tr style="border-top: 1px solid rgba(255,255,255,0.08);"><td style="padding: 12px 0; color: var(--text-muted); vertical-align: top; white-space: nowrap;">Competitors ${prof.competitor_metrics && prof.competitor_metrics.length > 0 ? `<button id="compare-peers-btn" style="margin-left: 8px; background: rgba(56, 189, 248, 0.1); color: #38bdf8; border: 1px solid #38bdf8; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; cursor: pointer; transition: 0.2s; font-weight: bold;">📊 Compare Peers</button>` : ''}</td><td style="text-align: right; font-weight: bold; color: white; word-wrap: break-word;">${prof.competitors && prof.competitors.length ? prof.competitors.join(', ') : 'None'}</td></tr>
             `;
 
-            if(document.getElementById('open-compare-btn')) {
-                document.getElementById('open-compare-btn').onclick = () => renderComparisonModal(prof);
+            if(document.getElementById('compare-peers-btn')) {
+                document.getElementById('compare-peers-btn').onclick = () => renderComparisonModal(prof);
             }
         }
 
