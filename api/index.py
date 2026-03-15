@@ -132,8 +132,10 @@ def get_valuation(ticker: str, wacc: float = None):
         lynch_status = lynch_result.get("status")
         
         # PEG Valuation (Sector-based)
-        current_pe = current_price / data.get("trailing_eps") if data.get("trailing_eps") and data.get("trailing_eps") > 0 else 0
-        company_peg = current_pe / (data.get("eps_growth") * 100) if data.get("eps_growth") and data.get("eps_growth") > 0 else 0
+        eps_base = data.get("trailing_eps") or data.get("forward_eps") or 0
+        current_pe = current_price / eps_base if eps_base > 0 else 0
+        eps_growth_rate = data.get("eps_growth") or 0.05
+        company_peg = current_pe / (eps_growth_rate * 100) if eps_growth_rate > 0 else 0
         
         # Calculate Industry PEG from peers
         valid_pegs = []
@@ -254,7 +256,9 @@ def get_valuation(ticker: str, wacc: float = None):
                 "status": lynch_status
             },
             "peg": {
-                "current_peg": sanitize(company_peg),
+                "current_pe": sanitize(current_pe),
+                "eps_growth_estimated": sanitize(eps_growth_rate),
+                "current_peg": sanitize(company_peg) if company_peg > 0 else None,
                 "industry_peg": sanitize(industry_peg),
                 "fair_value": sanitize(peg_value),
                 "margin_of_safety": sanitize(((peg_value - current_price) / peg_value * 100)) if peg_value and peg_value > 0 else None

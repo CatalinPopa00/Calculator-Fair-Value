@@ -397,43 +397,49 @@ document.addEventListener('DOMContentLoaded', () => {
             // PEG Logic
             let pegVal = null;
             let pegMos = null;
+            let usedGrowth = 0;
+            let currentPegToDisplay = null;
+
             if (currentFormulaData.peg) {
                 const pegSrcEl = document.getElementById('peg-eps-source');
                 const pegSrc = pegSrcEl ? pegSrcEl.value : 'analyst';
                 const pegInputs = document.getElementById('peg-custom-inputs');
                 if (pegInputs) pegInputs.style.display = pegSrc === 'custom' ? 'flex' : 'none';
 
-                let usedGrowth = currentFormulaData.peg.eps_growth_estimated || 0;
+                usedGrowth = currentFormulaData.peg.eps_growth_estimated || 0;
                 if (pegSrc === 'custom') {
                     usedGrowth = (parseFloat(document.getElementById('peg-custom-growth').value) || 20) / 100;
                 }
 
-                const currentPe = currentFormulaData.peg.current_pe || (data.current_price / (data.company_profile.trailing_eps || 1));
+                const currentPe = currentFormulaData.peg.current_pe || (parseFloat(data.company_profile.trailing_pe) || 0);
                 const industryPeg = currentFormulaData.peg.industry_peg;
 
                 if (usedGrowth > 0 && currentPe > 0 && industryPeg > 0) {
-                    const dynamicCompanyPeg = currentPe / (usedGrowth * 100);
-                    pegVal = data.current_price * (industry_peg / dynamicCompanyPeg);
+                    currentPegToDisplay = currentPe / (usedGrowth * 100);
+                    pegVal = data.current_price * (industry_peg / currentPegToDisplay);
                     pegMos = ((pegVal - data.current_price) / pegVal) * 100;
-                } else {
+                } else if (pegSrc === 'analyst') {
                     pegVal = currentFormulaData.peg.fair_value;
                     pegMos = currentFormulaData.peg.margin_of_safety;
+                    currentPegToDisplay = currentFormulaData.peg.current_peg;
                 }
             }
             
             const pegValueElem = document.getElementById('peg-value');
-            if (pegValueElem) pegValueElem.textContent = pegVal != null ? formatCurrency(pegVal) : 'N/A';
+            if (pegValueElem) {
+                pegValueElem.textContent = pegVal != null ? formatCurrency(pegVal) : 'N/A';
+                pegValueElem.style.color = pegVal != null ? 'var(--accent)' : 'var(--text-muted)';
+            }
             
             const pegStatusElem = document.getElementById('peg-status');
             const pegCompareElem = document.getElementById('peg-compare');
             
             if (pegStatusElem && pegCompareElem) {
-                const currentPeg = currentFormulaData.peg ? currentFormulaData.peg.current_peg : null;
                 const industryPeg = currentFormulaData.peg ? currentFormulaData.peg.industry_peg : null;
 
-                if (currentPeg != null && industryPeg != null) {
+                if (pegVal != null && industryPeg != null && currentPegToDisplay != null) {
                     const sectorPegDisplay = industryPeg.toFixed(2);
-                    pegCompareElem.textContent = `PEG = ${currentPeg.toFixed(2)} vs PEG Sector = ${sectorPegDisplay}`;
+                    pegCompareElem.textContent = `PEG = ${currentPegToDisplay.toFixed(2)} vs PEG Sector = ${sectorPegDisplay}`;
                     
                     if (pegMos != null) {
                         const mosText = `${pegMos > 0 ? '+' : ''}${pegMos.toFixed(2)}% Margin of Safety`;
@@ -450,7 +456,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     pegStatusElem.textContent = "N/A";
                     pegStatusElem.style.color = "var(--text-muted)";
-                    pegCompareElem.textContent = industryPeg == null ? "Sector data unavailable" : "PEG = N/A vs PEG Sector = N/A";
+                    pegCompareElem.textContent = industryPeg == null ? "Sector data unavailable" : "PEG calculation data missing";
                 }
             }
 
@@ -1386,6 +1392,24 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (method === 'peg') {
                 const peg = currentFormulaData.peg;
                 if (peg) {
+                    // Try to get dynamic values if user has custom inputs on the card
+                    const pegSrcEl = document.getElementById('peg-eps-source');
+                    const pegSrc = pegSrcEl ? pegSrcEl.value : 'analyst';
+                    
+                    let displayFv = peg.fair_value;
+                    let displayMos = peg.margin_of_safety;
+                    let displayPeg = peg.current_peg;
+                    
+                    if (pegSrc === 'custom') {
+                        const customGrowth = (parseFloat(document.getElementById('peg-custom-growth').value) || 20) / 100;
+                        const currentPe = peg.current_pe || (parseFloat(data.company_profile.trailing_pe) || 0);
+                        if (customGrowth > 0 && currentPe > 0 && peg.industry_peg > 0) {
+                            displayPeg = currentPe / (customGrowth * 100);
+                            displayFv = data.current_price * (peg.industry_peg / displayPeg);
+                            displayMos = ((displayFv - data.current_price) / displayFv) * 100;
+                        }
+                    }
+
                     const targetText = peg.industry_peg != null ? fv(peg.industry_peg) : 'N/A';
                     const targetLabel = peg.industry_peg != null ? 'Target PEG (Sector):' : 'Target PEG:';
                     
@@ -1394,15 +1418,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     html += `
                         <div class="formula-section">
                             <ul>
-                                <li><strong>Current PEG:</strong> <span>${peg.current_peg != null ? fv(peg.current_peg) : 'N/A'}</span></li>
+                                <li><strong>Current PEG:</strong> <span>${displayPeg != null ? fv(displayPeg) : 'N/A'}</span></li>
                                 <li><strong>${targetLabel}</strong> <span>${targetText}</span></li>
                                 <li style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);">
-                                    <strong>Fair Value:</strong> <span style="color:var(--accent); font-weight:bold;">$${peg.fair_value != null ? fv(peg.fair_value) : 'N/A'}</span>
+                                    <strong>Fair Value:</strong> <span style="color:var(--accent); font-weight:bold;">$${displayFv != null ? fv(displayFv) : 'N/A'}</span>
                                 </li>
                                 <li style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);">
                                     <strong>Margin of Safety:</strong> 
-                                    <span style="color:${peg.margin_of_safety > 0 ? 'var(--accent)' : 'var(--danger)'}; font-weight:bold;">
-                                        ${peg.margin_of_safety != null ? peg.margin_of_safety.toFixed(2) + '%' : 'N/A'}
+                                    <span style="color:${displayMos > 0 ? 'var(--accent)' : 'var(--danger)'}; font-weight:bold;">
+                                        ${displayMos != null ? displayMos.toFixed(2) + '%' : 'N/A'}
                                     </span>
                                 </li>
                             </ul>
