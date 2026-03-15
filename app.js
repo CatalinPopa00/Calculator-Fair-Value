@@ -393,8 +393,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (dcfGrowthLabel) {
                 dcfGrowthLabel.textContent = `Growth Rate (%)`;
             }
-}
-            // PEG Logic
+
+
+
+
+         // PEG Logic
             let pegVal = null;
             let pegMos = null;
             let usedGrowth = 0;
