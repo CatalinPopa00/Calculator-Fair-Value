@@ -31,15 +31,20 @@ def calculate_peter_lynch(current_price: float, trailing_eps: float, eps_growth:
         "status": status
     }
 
-def calculate_peg_fair_value(eps: float, growth_rate: float):
+def calculate_peg_fair_value(current_price: float, company_peg: float, industry_peg: float):
     """
-    If Target PEG is 1.0, then Target P/E = Growth Rate.
-    Fair Value = EPS * Target P/E = EPS * (Growth Rate * 100).
+    User's requested formula:
+    peg_fair_value = current_price * (industry_peg / company_peg)
+    
+    This applies only if company_peg > 0 and industry_peg > 0.
     """
-    if eps is None or eps <= 0 or growth_rate is None or growth_rate <= 0:
+    if not all([current_price, company_peg, industry_peg]):
         return None
         
-    return eps * (growth_rate * 100)
+    if company_peg <= 0 or industry_peg <= 0:
+        return None
+        
+    return current_price * (industry_peg / company_peg)
 
 def calculate_dcf(fcf: float, growth_rate: float, discount_rate: float, perpetual_growth: float, shares_outstanding: int, total_cash: float = 0, total_debt: float = 0, years: int = 5, buyback_rate: float = 0.0):
     """

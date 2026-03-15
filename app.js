@@ -396,27 +396,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // PEG Logic
             let pegVal = null;
+            let pegMos = null;
             if (currentFormulaData.peg) {
                 const pegSrcEl = document.getElementById('peg-eps-source');
                 const pegSrc = pegSrcEl ? pegSrcEl.value : 'analyst';
                 const pegInputs = document.getElementById('peg-custom-inputs');
                 if (pegInputs) pegInputs.style.display = pegSrc === 'custom' ? 'flex' : 'none';
 
-                const pePl = currentFormulaData.peter_lynch; // fallback base data
-                const baseEps = pePl ? pePl.trailing_eps : 0;
+                let usedGrowth = currentFormulaData.peg.eps_growth_estimated || 0;
+                if (pegSrc === 'custom') {
+                    usedGrowth = (parseFloat(document.getElementById('peg-custom-growth').value) || 20) / 100;
+                }
 
-                if (pegSrc === 'analyst') {
-                    const analystGrowth = currentFormulaData.peg.eps_growth_estimated ? (currentFormulaData.peg.eps_growth_estimated * 100) : 0;
-                    if (baseEps > 0) {
-                        pegVal = baseEps * analystGrowth;
-                    }
-                } else if (pegSrc === 'custom') {
-                    const pg = parseFloat(document.getElementById('peg-custom-growth').value) || 20;
-                    if (baseEps > 0) {
-                        pegVal = baseEps * pg;
-                    }
+                const currentPe = currentFormulaData.peg.current_pe || (data.current_price / (data.company_profile.trailing_eps || 1));
+                const industryPeg = currentFormulaData.peg.industry_peg;
+
+                if (usedGrowth > 0 && currentPe > 0 && industryPeg > 0) {
+                    const dynamicCompanyPeg = currentPe / (usedGrowth * 100);
+                    pegVal = data.current_price * (industry_peg / dynamicCompanyPeg);
+                    pegMos = ((pegVal - data.current_price) / pegVal) * 100;
+                } else {
+                    pegVal = currentFormulaData.peg.fair_value;
+                    pegMos = currentFormulaData.peg.margin_of_safety;
                 }
             }
+            
             const pegValueElem = document.getElementById('peg-value');
             if (pegValueElem) pegValueElem.textContent = pegVal != null ? formatCurrency(pegVal) : 'N/A';
             
@@ -424,49 +428,29 @@ document.addEventListener('DOMContentLoaded', () => {
             const pegCompareElem = document.getElementById('peg-compare');
             
             if (pegStatusElem && pegCompareElem) {
-                const currentPeg = currentFormulaData.peg ? currentFormulaData.peg.current_peg : (prof.peg_ratio || null);
-                if (currentPeg != null) {
-                    const sector = prof.sector;
-                    let greenMax = 1.0;
-                    let orangeMax = 1.5;
-                    
-                    if (sector === 'Technology' || sector === 'Communication Services') {
-                        greenMax = 1.5;
-                        orangeMax = 2.0;
-                    } else if (sector === 'Financial Services' || sector === 'Energy' || sector === 'Utilities') {
-                        greenMax = 0.9;
-                        orangeMax = 1.2;
-                    } else if (sector === 'Consumer Defensive' || sector === 'Healthcare') {
-                        greenMax = 1.2;
-                        orangeMax = 1.5;
-                    }
-                    
-                    let sectorPegDisplay = "--";
-                    // Try to get sector median PEG if available in relative data or profile
-                    if (currentFormulaData.relative && currentFormulaData.relative.median_peer_peg) {
-                        sectorPegDisplay = currentFormulaData.relative.median_peer_peg.toFixed(2);
-                    } else if (prof.sector_peg) {
-                        sectorPegDisplay = prof.sector_peg.toFixed(2);
-                    } else {
-                        sectorPegDisplay = "N/A"; 
-                    }
+                const currentPeg = currentFormulaData.peg ? currentFormulaData.peg.current_peg : null;
+                const industryPeg = currentFormulaData.peg ? currentFormulaData.peg.industry_peg : null;
 
+                if (currentPeg != null && industryPeg != null) {
+                    const sectorPegDisplay = industryPeg.toFixed(2);
                     pegCompareElem.textContent = `PEG = ${currentPeg.toFixed(2)} vs PEG Sector = ${sectorPegDisplay}`;
+                    
+                    if (pegMos != null) {
+                        const mosText = `${pegMos > 0 ? '+' : ''}${pegMos.toFixed(2)}% Margin of Safety`;
+                        pegCompareElem.innerHTML += `<br><span style="color: ${pegMos > 0 ? 'var(--accent)' : 'var(--danger)'}; font-weight: 600;">${mosText}</span>`;
+                    }
 
-                    if (currentPeg <= greenMax) {
+                    if (data.current_price < pegVal) {
                         pegStatusElem.textContent = `Undervalued`;
                         pegStatusElem.style.color = 'var(--accent)';
-                    } else if (currentPeg <= orangeMax) {
-                        pegStatusElem.textContent = `Fair Value`;
-                        pegStatusElem.style.color = '#fbbf24'; // Orange
                     } else {
                         pegStatusElem.textContent = `Overvalued`;
-                        pegStatusElem.style.color = 'var(--danger)'; // Red
+                        pegStatusElem.style.color = 'var(--danger)';
                     }
                 } else {
                     pegStatusElem.textContent = "N/A";
                     pegStatusElem.style.color = "var(--text-muted)";
-                    pegCompareElem.textContent = "PEG = N/A vs PEG Sector = N/A";
+                    pegCompareElem.textContent = industryPeg == null ? "Sector data unavailable" : "PEG = N/A vs PEG Sector = N/A";
                 }
             }
 
@@ -1402,17 +1386,27 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (method === 'peg') {
                 const peg = currentFormulaData.peg;
                 if (peg) {
+                    const targetText = peg.industry_peg != null ? fv(peg.industry_peg) : 'N/A';
+                    const targetLabel = peg.industry_peg != null ? 'Target PEG (Sector):' : 'Target PEG:';
+                    
+                    if (modalTitle) modalTitle.textContent = peg.industry_peg != null ? 'PEG Target (Sector)' : 'PEG Valuation Data';
+
                     html += `
                         <div class="formula-section">
                             <ul>
-                                <li><strong>Current EPS:</strong> <span>$${fv(peg.company_eps)}</span></li>
-                                <li><strong>Estimated Growth Rate:</strong> <span>${fv(peg.eps_growth_estimated, true)}</span></li>
-                                <li><strong>Current PEG:</strong> <span>${fv(peg.current_peg)}</span></li>
-                                <li><strong>Target PEG:</strong> <span>1.00</span></li>
+                                <li><strong>Current PEG:</strong> <span>${peg.current_peg != null ? fv(peg.current_peg) : 'N/A'}</span></li>
+                                <li><strong>${targetLabel}</strong> <span>${targetText}</span></li>
                                 <li style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);">
-                                    <strong>Fair Value:</strong> <span style="color:var(--accent); font-weight:bold;">$${fv(peg.fair_value)}</span>
+                                    <strong>Fair Value:</strong> <span style="color:var(--accent); font-weight:bold;">$${peg.fair_value != null ? fv(peg.fair_value) : 'N/A'}</span>
+                                </li>
+                                <li style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);">
+                                    <strong>Margin of Safety:</strong> 
+                                    <span style="color:${peg.margin_of_safety > 0 ? 'var(--accent)' : 'var(--danger)'}; font-weight:bold;">
+                                        ${peg.margin_of_safety != null ? peg.margin_of_safety.toFixed(2) + '%' : 'N/A'}
+                                    </span>
                                 </li>
                             </ul>
+                            ${peg.industry_peg == null ? '<p style="color: var(--danger); font-size: 0.9rem; margin-top: 1rem;">Sector data unavailable</p>' : ''}
                         </div>
                     `;
                 }

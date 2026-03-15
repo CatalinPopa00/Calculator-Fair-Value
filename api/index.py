@@ -131,8 +131,20 @@ def get_valuation(ticker: str, wacc: float = None):
         lynch_fair_value = lynch_result.get("fair_value")
         lynch_status = lynch_result.get("status")
         
-        # PEG Rule of Three
-        peg_value = calculate_peg_fair_value(data.get("trailing_eps"), data.get("eps_growth"))
+        # PEG Valuation (Sector-based)
+        current_pe = current_price / data.get("trailing_eps") if data.get("trailing_eps") and data.get("trailing_eps") > 0 else 0
+        company_peg = current_pe / (data.get("eps_growth") * 100) if data.get("eps_growth") and data.get("eps_growth") > 0 else 0
+        
+        # Calculate Industry PEG from peers
+        valid_pegs = []
+        if peers_data:
+            for p in peers_data:
+                v = p.get('peg_ratio')
+                if v is not None and isinstance(v, (int, float)) and math.isfinite(v) and v > 0:
+                    valid_pegs.append(float(v))
+        
+        industry_peg = statistics.median(valid_pegs) if valid_pegs else None
+        peg_value = calculate_peg_fair_value(current_price, company_peg, industry_peg)
         
         # Relative Valuation (P/E Based currently)
         relative_value = calculate_relative_valuation(ticker, data, peers_data)
@@ -242,12 +254,10 @@ def get_valuation(ticker: str, wacc: float = None):
                 "status": lynch_status
             },
             "peg": {
-                "company_eps": sanitize(data.get("trailing_eps")),
-                "current_pe": sanitize(current_pe),
-                "eps_growth_estimated": sanitize(data.get("eps_growth")),
-                "eps_growth_period": data.get("eps_growth_period", "Next Year"),
-                "current_peg": sanitize(current_pe / (data.get("eps_growth") * 100)) if current_pe and data.get("eps_growth") and data.get("eps_growth") > 0 else None,
-                "fair_value": sanitize(peg_value)
+                "current_peg": sanitize(company_peg),
+                "industry_peg": sanitize(industry_peg),
+                "fair_value": sanitize(peg_value),
+                "margin_of_safety": sanitize(((peg_value - current_price) / peg_value * 100)) if peg_value and peg_value > 0 else None
             },
             "dcf": {
                 "fcf": sanitize(fcf),
