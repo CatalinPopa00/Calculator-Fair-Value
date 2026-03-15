@@ -175,11 +175,13 @@ def get_company_data(ticker_symbol: str):
         
         # Parallelize data fetching using ThreadPoolExecutor
         # fetching info, cashflow, financials, and balance_sheet simultaneously
-        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=7) as executor:
             future_info = executor.submit(lambda: stock.info)
             future_cf = executor.submit(lambda: stock.cashflow)
             future_fin = executor.submit(lambda: stock.financials)
             future_bs = executor.submit(lambda: stock.balance_sheet)
+            future_qcf = executor.submit(lambda: stock.quarterly_cashflow)
+            future_qfin = executor.submit(lambda: stock.quarterly_income_stmt)
             
             # Wait for main info first as it is critical
             try:
@@ -274,6 +276,14 @@ def get_company_data(ticker_symbol: str):
             bs = future_bs.result(timeout=10)
         except Exception:
             bs = None
+        try:
+            q_financials = future_qfin.result(timeout=10)
+        except Exception:
+            q_financials = None
+        try:
+            q_cashflow = future_qcf.result(timeout=10)
+        except Exception:
+            q_cashflow = None
         peg_ratio = None
         if pe_ratio and eps_growth and eps_growth > 0:
             peg_ratio = pe_ratio / (eps_growth * 100)
@@ -449,16 +459,19 @@ def get_company_data(ticker_symbol: str):
                     fcf_v = float(cashflow.loc['Free Cash Flow', year]) if 'Free Cash Flow' in cashflow.index and not pd.isna(cashflow.loc['Free Cash Flow', year]) else None
                     margin = (ni / rev) if (ni and rev and rev > 0) else None
                     year_str = year.year if hasattr(year, 'year') else str(year)[:4]
-                    historical_trends.append({
-                        "year": year_str,
-                        "revenue": rev,
-                        "net_margin": margin,
-                        "fcf": fcf_v
-                    })
+                    
+                    # Cleanup: Only add if at least one metric is present
+                    if rev or margin or fcf_v:
+                        historical_trends.append({
+                            "year": year_str,
+                            "revenue": rev,
+                            "net_margin": margin,
+                            "fcf": fcf_v
+                        })
         except Exception as e:
             print(f"Historical trends format issue: {e}")
 
-        # 4-Year Historical Data for Charts (Requested by User)
+        # Quarterly Historical Data for Charts
         historical_data = {
             "years": [],
             "revenue": [],
@@ -467,29 +480,51 @@ def get_company_data(ticker_symbol: str):
             "shares": []
         }
         try:
-            if financials is not None and not financials.empty and cashflow is not None and not cashflow.empty:
-                common_cols = sorted(list(set(financials.columns).intersection(cashflow.columns)))
-                target_years = common_cols[-4:]
-                for year_ts in target_years:
-                    year_label = year_ts.year if hasattr(year_ts, 'year') else str(year_ts)[:4]
-                    rev_val = financials.loc['Total Revenue', year_ts] if 'Total Revenue' in financials.index else None
-                    eps_val = financials.loc['Diluted EPS', year_ts] if 'Diluted EPS' in financials.index else (financials.loc['Basic EPS', year_ts] if 'Basic EPS' in financials.index else None)
-                    fcf_val = cashflow.loc['Free Cash Flow', year_ts] if 'Free Cash Flow' in cashflow.index else (cashflow.loc['Operating Cash Flow', year_ts] if 'Operating Cash Flow' in cashflow.index else None)
+            if q_financials is not None and not q_financials.empty and q_cashflow is not None and not q_cashflow.empty:
+                # Find common columns (dates) and sort them ASCENDING for proper time flow on chart
+                common_cols = sorted(list(set(q_financials.columns).intersection(q_cashflow.columns)))
+                
+                # We want up to 12 quarters, but let's take the most recent ones
+                target_quarters = common_cols[-12:]
+                
+                for q_ts in target_quarters:
+                    rev_val = q_financials.loc['Total Revenue', q_ts] if 'Total Revenue' in q_financials.index else None
+                    # EPS logic: Diluted EPS is preferred, fallback to Basic EPS
+                    eps_val = q_financials.loc['Diluted EPS', q_ts] if 'Diluted EPS' in q_financials.index else (q_financials.loc['Basic EPS', q_ts] if 'Basic EPS' in q_financials.index else None)
+                    # FCF logic: Free Cash Flow is preferred, fallback to Operating Cash Flow
+                    fcf_val = q_cashflow.loc['Free Cash Flow', q_ts] if 'Free Cash Flow' in q_cashflow.index else (q_cashflow.loc['Operating Cash Flow', q_ts] if 'Operating Cash Flow' in q_cashflow.index else None)
+                    
+                    # Shares Outstanding - Check multiple keys in both financials and cashflow
                     share_val = None
                     for sk in ['Basic Average Shares', 'Diluted Average Shares', 'Ordinary Shares Number']:
-                        if sk in financials.index:
-                            share_val = financials.loc[sk, year_ts]
-                            break
-                        elif sk in cashflow.index:
-                            share_val = cashflow.loc[sk, year_ts]
-                            break
-                    historical_data["years"].append(str(year_label))
-                    historical_data["revenue"].append(float(rev_val) if rev_val is not None and not pd.isna(rev_val) else 0)
-                    historical_data["eps"].append(float(eps_val) if eps_val is not None and not pd.isna(eps_val) else 0)
-                    historical_data["fcf"].append(float(fcf_val) if fcf_val is not None and not pd.isna(fcf_val) else 0)
+                        if sk in q_financials.index:
+                            share_val = q_financials.loc[sk, q_ts]
+                            if not pd.isna(share_val): break
+                        if sk in q_cashflow.index:
+                            share_val = q_cashflow.loc[sk, q_ts]
+                            if not pd.isna(share_val): break
+                    
+                    # STRICT FILTERING: Skip if Revenue OR EPS OR FCF is NaN/missing.
+                    # We need a full set of data for a meaningful chart point.
+                    if pd.isna(rev_val) or pd.isna(eps_val) or pd.isna(fcf_val):
+                        continue
+
+                    # Format label as Q1 2024
+                    try:
+                        month = q_ts.month
+                        year = q_ts.year
+                        quarter = (month - 1) // 3 + 1
+                        q_label = f"Q{quarter} {year}"
+                    except:
+                        q_label = str(q_ts)[:7] # Fallback YYYY-MM
+                        
+                    historical_data["years"].append(q_label)
+                    historical_data["revenue"].append(float(rev_val))
+                    historical_data["eps"].append(float(eps_val))
+                    historical_data["fcf"].append(float(fcf_val))
                     historical_data["shares"].append(float(share_val) if share_val is not None and not pd.isna(share_val) else 0)
         except Exception as e:
-            print(f"Error extracting historical_data for charts: {e}")
+            print(f"Error extracting quarterly historical_data: {e}")
 
         return {
             "ticker": ticker_symbol.upper(),

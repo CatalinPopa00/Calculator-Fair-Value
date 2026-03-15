@@ -642,6 +642,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (data.historical_trends && data.historical_trends.length > 0) {
                 let html = '';
                 data.historical_trends.forEach(row => {
+                    // Skip rows that are essentially empty (years with no metrics)
+                    if (row.revenue == null && row.net_margin == null && row.fcf == null) return;
+                    
                     const revStr = row.revenue != null ? (row.revenue / 1e9).toFixed(2) : '-';
                     const marginStr = row.net_margin != null ? (row.net_margin * 100).toFixed(1) + '%' : '-';
                     const fcfStr = row.fcf != null ? (row.fcf / 1e9).toFixed(2) : '-';
