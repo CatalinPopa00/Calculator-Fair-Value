@@ -41,6 +41,35 @@ document.addEventListener('DOMContentLoaded', () => {
     // Watchlist State 
     let watchlist = JSON.parse(localStorage.getItem('fairValueWatchlist')) || [];
 
+    const setSmartWeights = (sector) => {
+        let w = { dcf: 25, peg: 25, relative: 25, lynch: 25 }; 
+        const s = sector || '';
+        
+        if(s.includes('Financial') || s.includes('Real Estate')) {
+            w = { dcf: 0, peg: 10, relative: 60, lynch: 30 };
+        } else if(s.includes('Technology') || s.includes('Communication')) {
+            w = { dcf: 25, peg: 25, relative: 10, lynch: 40 };
+        } else if(s.includes('Healthcare') || s.includes('Defensive') || s.includes('Utilities')) {
+            w = { dcf: 50, peg: 10, relative: 20, lynch: 20 };
+        } else if(s.includes('Industrials') || s.includes('Energy') || s.includes('Basic Materials') || s.includes('Cyclical')) {
+            w = { dcf: 30, peg: 10, relative: 40, lynch: 20 };
+        }
+        
+        customWeights = w;
+        
+        // Sync UI
+        const dcfInput = document.getElementById('weight-dcf');
+        if(dcfInput) dcfInput.value = w.dcf;
+        const pegInput = document.getElementById('weight-peg');
+        if(pegInput) pegInput.value = w.peg;
+        const relInput = document.getElementById('weight-relative');
+        if(relInput) relInput.value = w.relative;
+        const lynInput = document.getElementById('weight-lynch');
+        if(lynInput) lynInput.value = w.lynch;
+        
+        return w;
+    };
+
     // Data elements
     const elements = {
         name: document.getElementById('company-name'),
@@ -108,28 +137,13 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('close-weights-btn').addEventListener('click', () => {
             document.getElementById('weights-modal').style.display = 'none';
         });
-        
         // SMART SECTOR AI BUTTON LOGIC
         document.getElementById('smart-weights-btn').addEventListener('click', () => {
             if(!globalData || !globalData.company_profile) return;
-            const sector = globalData.company_profile.sector || '';
-            let w = { dcf: 25, peg: 25, relative: 25, lynch: 25 }; 
-            
-            if(sector.includes('Financial') || sector.includes('Real Estate')) {
-                w = { dcf: 0, peg: 10, relative: 60, lynch: 30 };
-            } else if(sector.includes('Technology') || sector.includes('Communication')) {
-                // Modificat conform logicii financiare superioare
-                w = { dcf: 25, peg: 25, relative: 10, lynch: 40 };
-            } else if(sector.includes('Healthcare') || sector.includes('Defensive') || sector.includes('Utilities')) {
-                w = { dcf: 50, peg: 10, relative: 20, lynch: 20 };
-            } else if(sector.includes('Industrials') || sector.includes('Energy') || sector.includes('Basic Materials') || sector.includes('Cyclical')) {
-                w = { dcf: 30, peg: 10, relative: 40, lynch: 20 };
+            setSmartWeights(globalData.company_profile.sector);
+            if(typeof window.triggerRecalculate === 'function') {
+                window.triggerRecalculate();
             }
-            
-            document.getElementById('weight-dcf').value = w.dcf;
-            document.getElementById('weight-peg').value = w.peg;
-            document.getElementById('weight-relative').value = w.relative;
-            document.getElementById('weight-lynch').value = w.lynch;
         });
 
         document.getElementById('save-weights-btn').addEventListener('click', () => {
@@ -291,6 +305,11 @@ document.addEventListener('DOMContentLoaded', () => {
         globalData = data; 
         currentFormulaData = data.formula_data;
         currentTicker = data.ticker;
+
+        // Auto-Set Weights by Sector by Default
+        if (data.company_profile && data.company_profile.sector && typeof setSmartWeights === 'function') {
+            setSmartWeights(data.company_profile.sector);
+        }
 
         elements.name.textContent = data.name;
         elements.ticker.textContent = data.ticker;
