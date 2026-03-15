@@ -47,6 +47,29 @@ def get_risk_free_rate() -> float:
         
     return 0.042 # Fallback 4.2%
 
+def get_fx_rate(info: dict) -> float:
+    """Detects currency mismatch and fetches dynamic FX rate from Yahoo."""
+    financial_currency = info.get('financialCurrency', 'USD')
+    price_currency = info.get('currency', 'USD')
+    
+    if not financial_currency or not price_currency or financial_currency == price_currency:
+        return 1.0
+        
+    try:
+        # Construct symbol (e.g., DKKUSD=X)
+        fx_symbol = f"{financial_currency}{price_currency}=X"
+        fx_ticker = yf.Ticker(fx_symbol)
+        # Fetch 1d history to get the most recent Close
+        fx_hist = fx_ticker.history(period="1d")
+        if not fx_hist.empty:
+            rate = float(fx_hist['Close'].iloc[-1])
+            # print(f"DEBUG: FX Rate for {fx_symbol} detected: {rate}")
+            return rate
+    except Exception as e:
+        print(f"Error fetching FX Rate for {info.get('symbol', 'Unknown')}: {e}")
+        
+    return 1.0
+
 def get_nasdaq_earnings_growth(ticker: str, trailing_eps: float) -> float:
     """Fetches the 1-year forward earnings growth estimate from Nasdaq."""
     if not trailing_eps or trailing_eps <= 0:
@@ -234,6 +257,9 @@ def get_company_data(ticker_symbol: str):
                     except Exception:
                         info = {}
 
+        # 0. FX Normalization (Dynamic conversion for ADRs)
+        fx_rate = get_fx_rate(info)
+
         # Basic Price and Identifying Info
         current_price = info.get('currentPrice') or info.get('regularMarketPrice')
         name = info.get('shortName', ticker_symbol)
@@ -242,15 +268,16 @@ def get_company_data(ticker_symbol: str):
         
         # Start background fetches while processing info
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as nasdaq_executor:
+            # Note: Nasdaq growth is already a rate (unaffected)
             future_growth = nasdaq_executor.submit(get_nasdaq_earnings_growth, ticker_symbol, info.get('trailingEps'))
             future_est = nasdaq_executor.submit(lambda: stock.earnings_estimate)
 
-            # Valuation Multiples & EPS
-            trailing_eps = info.get('trailingEps') or info.get('epsTrailingTwelveMonths')
-            forward_eps = info.get('forwardEps')
-            pe_ratio = info.get('trailingPE')
-            forward_pe = info.get('forwardPE')
-            ps_ratio = info.get('priceToSalesTrailing12Months')
+            # Valuation Multiples & EPS (Normalize EPS)
+            trailing_eps = (info.get('trailingEps') or info.get('epsTrailingTwelveMonths', 0)) * fx_rate
+            forward_eps = (info.get('forwardEps') or 0) * fx_rate
+            pe_ratio = info.get('trailingPE') # Ratio: no conversion
+            forward_pe = info.get('forwardPE') # Ratio: no conversion
+            ps_ratio = info.get('priceToSalesTrailing12Months') # Ratio: no conversion
             
             eps_growth = None
             eps_growth_period = None
@@ -294,22 +321,27 @@ def get_company_data(ticker_symbol: str):
         # Financials for DCF & Margins (Wait for results)
         try:
             financials = future_fin.result(timeout=10)
+            if financials is not None and fx_rate != 1.0: financials = financials * fx_rate
         except Exception:
             financials = None
         try:
             cashflow = future_cf.result(timeout=10)
+            if cashflow is not None and fx_rate != 1.0: cashflow = cashflow * fx_rate
         except Exception:
             cashflow = None
         try:
             bs = future_bs.result(timeout=10)
+            if bs is not None and fx_rate != 1.0: bs = bs * fx_rate
         except Exception:
             bs = None
         try:
             q_financials = future_qfin.result(timeout=10)
+            if q_financials is not None and fx_rate != 1.0: q_financials = q_financials * fx_rate
         except Exception:
             q_financials = None
         try:
             q_cashflow = future_qcf.result(timeout=10)
+            if q_cashflow is not None and fx_rate != 1.0: q_cashflow = q_cashflow * fx_rate
         except Exception:
             q_cashflow = None
         peg_ratio = None
@@ -319,17 +351,40 @@ def get_company_data(ticker_symbol: str):
         if not peg_ratio:
             peg_ratio = info.get('pegRatio') or info.get('trailingPegRatio')
             
-        # Financials for DCF & Margins
-        fcf = info.get('freeCashflow')
+        # Financials for DCF & Margins (Prefer normalized DataFrames over info.get for ADR reliability)
+        fcf = None
+        try:
+            if cashflow is not None and not cashflow.empty:
+                if 'Free Cash Flow' in cashflow.index:
+                    fcf = float(cashflow.loc['Free Cash Flow'].iloc[0])
+                elif 'Operating Cash Flow' in cashflow.index:
+                    fcf = float(cashflow.loc['Operating Cash Flow'].iloc[0])
+        except: pass
+        
         if fcf is None:
-            fcf = info.get('operatingCashflow')
-        shares_outstanding = info.get('sharesOutstanding')
-        total_cash = info.get('totalCash')
-        total_debt = info.get('totalDebt')
-        gross_margins = info.get('grossMargins')
-        profit_margins = info.get('profitMargins')
-        revenue = info.get('totalRevenue')
-        market_cap = info.get('marketCap')
+            fcf = info.get('freeCashflow')
+            if fcf is None: fcf = info.get('operatingCashflow')
+            if fcf is not None: fcf *= fx_rate
+            
+        shares_outstanding = info.get('sharesOutstanding') # No convert
+        
+        total_cash = (info.get('totalCash') or 0) * fx_rate
+        total_debt = (info.get('totalDebt') or 0) * fx_rate
+        
+        gross_margins = info.get('grossMargins') # Ratio
+        profit_margins = info.get('profitMargins') # Ratio
+        
+        revenue = None
+        try:
+            if financials is not None and not financials.empty:
+                if 'Total Revenue' in financials.index:
+                    revenue = float(financials.loc['Total Revenue'].iloc[0])
+        except: pass
+        
+        if revenue is None:
+            revenue = (info.get('totalRevenue') or 0) * fx_rate
+            
+        market_cap = info.get('marketCap') # Price * Shares: usually USD for US-listed ADR
 
         # Scoring Metrics
         debt_to_equity = info.get('debtToEquity')
@@ -553,13 +608,15 @@ def get_company_data(ticker_symbol: str):
                     if ee is not None and not ee.empty:
                         # Find the row for this FY
                         if fy_code in ee.index:
-                            eps_est = ee.loc[fy_code, 'avg']
+                            val = ee.loc[fy_code, 'avg']
+                            eps_est = val * fx_rate if val is not None else None
                     
                     # Fetch Rev Est
                     rev_est = None
                     if re is not None and not re.empty:
                         if fy_code in re.index:
-                            rev_est = re.loc[fy_code, 'avg']
+                            val = re.loc[fy_code, 'avg']
+                            rev_est = val * fx_rate if val is not None else None
                     
                     # Project FCF (Simple proxy: apply same growth as revenue to latest FCF)
                     proj_fcf = 0
@@ -842,6 +899,7 @@ def get_analyst_data(ticker_symbol: str) -> dict:
         from datetime import datetime
         stock = yf.Ticker(ticker_symbol)
         info  = stock.info
+        fx_rate = get_fx_rate(info)
         labels = get_period_labels(info)
 
         # ── Price Target ─────────────────────────────────────────────────────────
@@ -898,7 +956,7 @@ def get_analyst_data(ticker_symbol: str) -> dict:
                     val = float(eps_act) if eps_act is not None and not (isinstance(eps_act, float) and pd.isna(eps_act)) else None
                     if val is not None:
                         reported_eps.append({
-                            "period": date_str, "avg": val, "status": "reported",
+                            "period": date_str, "avg": val * fx_rate, "status": "reported",
                             "surprise_pct": float(surprise_pct) if surprise_pct is not None and not pd.isna(surprise_pct) else None
                         })
             
@@ -917,7 +975,7 @@ def get_analyst_data(ticker_symbol: str) -> dict:
                         date_str = f"Q{q_num} {col_date.year}"
                     
                     reported_rev.append({
-                        "period": date_str, "avg": float(rev_act), "status": "reported", "surprise_pct": None
+                        "period": date_str, "avg": float(rev_act) * fx_rate, "status": "reported", "surprise_pct": None
                     })
         except Exception as e:
             print(f"[Analyst] Reported history error: {e}")
@@ -931,9 +989,10 @@ def get_analyst_data(ticker_symbol: str) -> dict:
                     p_key = str(period_idx)
                     avg = row.get('avg') if hasattr(row, 'get') else row.get('Avg')
                     growth = row.get('growth') if hasattr(row, 'get') else row.get('Growth')
+                    val_unscaled = float(avg) if avg is not None and not (isinstance(avg, float) and pd.isna(avg)) else None
                     eps_estimates.append({
                         "period": labels.get(p_key, p_key), "period_code": p_key,
-                        "avg": float(avg) if avg is not None and not (isinstance(avg, float) and pd.isna(avg)) else None,
+                        "avg": val_unscaled * fx_rate if val_unscaled is not None else None,
                         "growth": float(growth) if growth is not None and not (isinstance(growth, float) and pd.isna(growth)) else None,
                         "status": "estimate"
                     })
@@ -949,9 +1008,10 @@ def get_analyst_data(ticker_symbol: str) -> dict:
                     p_key = str(period_idx)
                     avg = row.get('avg') if hasattr(row, 'get') else None
                     growth = row.get('growth') if hasattr(row, 'get') else None
+                    val_unscaled = float(avg) if avg is not None and not (isinstance(avg, float) and pd.isna(avg)) else None
                     rev_estimates.append({
                         "period": labels.get(p_key, p_key), "period_code": p_key,
-                        "avg": float(avg) if avg is not None and not (isinstance(avg, float) and pd.isna(avg)) else None,
+                        "avg": val_unscaled * fx_rate if val_unscaled is not None else None,
                         "growth": float(growth) if growth is not None and not (isinstance(growth, float) and pd.isna(growth)) else None,
                         "status": "estimate"
                     })

@@ -1018,7 +1018,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="breakdown-item"><span class="breakdown-label">DCF Model:</span><span class="breakdown-value">${dcfVal}</span></div>
                         <div class="breakdown-item"><span class="breakdown-label">Forward Multiple:</span><span class="breakdown-value">${fwdMultVal}</span></div>
                         <div class="breakdown-item"><span class="breakdown-label">Relative Valuation:</span><span class="breakdown-value">${relVal}</span></div>
-                        <div class="breakdown-item"><span class="breakdown-label">PEG Target (1.0):</span><span class="breakdown-value">${pegVal}</span></div>
+                        <div class="breakdown-item"><span class="breakdown-label">PEG Sector:</span><span class="breakdown-value">${pegVal}</span></div>
                     </div>
                     <div class="view-analysis-row"><button class="view-analysis-btn" data-ticker="${data.ticker}">[ View Full Analysis → ]</button></div>
                 </div>
@@ -1277,7 +1277,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const modalTitle = document.getElementById('modal-title');
 
             if (method === 'peter_lynch') modalTitle.textContent = "Forward Multiple Valuation";
-            else if (method === 'peg') modalTitle.textContent = "PEG Target (Sector)";
+            else if (method === 'peg') modalTitle.textContent = "PEG Sector";
             else if (method === 'relative') modalTitle.textContent = "Relative Valuation";
             else if (method === 'dcf') modalTitle.textContent = "Discounted Cash Flow";
 
@@ -1336,7 +1336,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="formula-section">
                             <ul>
                                 <li><strong>Current PEG:</strong> <span>${displayPeg != null ? fv(displayPeg) : 'N/A'}</span></li>
-                                <li><strong>Target PEG (Sector):</strong> <span>${targetText}</span></li>
+                                <li><strong>PEG Sector:</strong> <span>${targetText}</span></li>
                                 <li style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);"><strong>Fair Value:</strong> <span style="color:var(--accent); font-weight:bold;">$${displayFv != null ? fv(displayFv) : 'N/A'}</span></li>
                                 <li style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);"><strong>Margin of Safety:</strong> <span style="color:${displayMos > 0 ? 'var(--accent)' : 'var(--danger)'}; font-weight:bold;">${displayMos != null ? displayMos.toFixed(2) + '%' : 'N/A'}</span></li>
                             </ul>
