@@ -147,6 +147,87 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
     injectWeightsUI();
+    
+    // INJECT COMPARISON UI
+    const injectComparisonUI = () => {
+        if(document.getElementById('comparison-modal')) return;
+        const modalHtml = `
+            <div id="comparison-modal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; justify-content:center; align-items:center; backdrop-filter: blur(4px);">
+                <div class="glass-card" style="width:95%; max-width:800px; padding:20px; position:relative; display:flex; flex-direction:column; gap:15px; border: 1px solid rgba(255,255,255,0.1); overflow-x: auto;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:10px;">
+                        <h3 style="margin:0; font-size:1.2rem; color:white;">Competitor Comparison</h3>
+                        <span id="close-comparison-btn" style="cursor:pointer; font-size:1.5rem; color:var(--text-muted);">&times;</span>
+                    </div>
+                    <div id="comparison-table-container" style="overflow-x: auto;"></div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        document.getElementById('close-comparison-btn').onclick = () => {
+            document.getElementById('comparison-modal').style.display = 'none';
+            document.body.style.overflow = '';
+        };
+    };
+    injectComparisonUI();
+
+    const formatBigNumber = (num, pfx = '') => {
+        if (num == null || isNaN(num)) return 'N/A';
+        const absNum = Math.abs(num);
+        if (absNum >= 1e12) return pfx + (num / 1e12).toFixed(2) + 'T';
+        if (absNum >= 1e9) return pfx + (num / 1e9).toFixed(2) + 'B';
+        if (absNum >= 1e6) return pfx + (num / 1e6).toFixed(2) + 'M';
+        return pfx + num.toLocaleString();
+    };
+
+    const renderComparisonModal = (prof) => {
+        const container = document.getElementById('comparison-table-container');
+        const mainComp = {
+            ticker: prof.ticker || currentTicker,
+            name: prof.name || 'Current',
+            market_cap: prof.market_cap,
+            pe_ratio: prof.trailing_pe,
+            eps: prof.trailing_eps,
+            margin: prof.operating_margin
+        };
+        
+        const competitors = prof.competitor_metrics || [];
+        const all = [mainComp, ...competitors];
+        
+        const fmtPE = (v) => v != null ? v.toFixed(2) + 'x' : 'N/A';
+        const fmtEPS = (v) => v != null ? '$' + v.toFixed(2) : 'N/A';
+        const fmtMargin = (v) => v != null ? (v * 100).toFixed(2) + '%' : 'N/A';
+
+        let html = `<table style="width:100%; border-collapse:collapse; margin-top:10px; min-width: 600px;">
+            <thead style="border-bottom: 2px solid rgba(255,255,255,0.1);">
+                <tr>
+                    <th style="padding:12px; text-align:left; color:var(--text-muted); font-size:0.85rem;">METRIC</th>
+                    ${all.map((c, i) => `<th style="padding:12px; text-align:right; color:${i === 0 ? 'var(--accent)' : 'white'};">${c.ticker}</th>`).join('')}
+                </tr>
+            </thead>
+            <tbody>
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <td style="padding:12px; color:var(--text-muted);">Market Cap</td>
+                    ${all.map(c => `<td style="padding:12px; text-align:right; font-weight:bold;">${formatBigNumber(c.market_cap || c.marketCap, '$')}</td>`).join('')}
+                </tr>
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <td style="padding:12px; color:var(--text-muted);">P/E (Trailing)</td>
+                    ${all.map(c => `<td style="padding:12px; text-align:right; font-weight:bold;">${fmtPE(c.pe_ratio || c.pe_ratio)}</td>`).join('')}
+                </tr>
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <td style="padding:12px; color:var(--text-muted);">EPS (Trailing)</td>
+                    ${all.map(c => `<td style="padding:12px; text-align:right; font-weight:bold;">${fmtEPS(c.eps || c.trailing_eps)}</td>`).join('')}
+                </tr>
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <td style="padding:12px; color:var(--text-muted);">Operating Margin</td>
+                    ${all.map(c => `<td style="padding:12px; text-align:right; font-weight:bold;">${fmtMargin(c.margin || c.margin)}</td>`).join('')}
+                </tr>
+            </tbody>
+        </table>`;
+        
+        container.innerHTML = html;
+        document.getElementById('comparison-modal').style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    };
 
     const analyzeTicker = async (queryParam) => {
         const query = (queryParam && typeof queryParam === 'string') ? queryParam : tickerInput.value.trim();
@@ -637,13 +718,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const pBody = document.getElementById('profile-body');
         if (pBody && data.company_profile) {
             const prof = data.company_profile;
-            const formatBigNumber = (num, pfx = '') => {
-                if (num == null) return 'N/A';
-                if (num >= 1e12) return pfx + (num / 1e12).toFixed(2) + 'T';
-                if (num >= 1e9) return pfx + (num / 1e9).toFixed(2) + 'B';
-                if (num >= 1e6) return pfx + (num / 1e6).toFixed(2) + 'M';
-                return pfx + num.toLocaleString();
-            };
 
             pBody.innerHTML = `
                 <tr><td style="padding: 12px 0; color: var(--text-muted); vertical-align: top;">Industry</td><td style="text-align: right; font-weight: bold; color: white; max-width: 220px; word-wrap: break-word;">${prof.industry}<br><span style="font-size: 0.85em; font-weight: normal; color: var(--text-muted);">${prof.sector}</span></td></tr>
@@ -654,8 +728,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 <tr style="border-top: 1px solid rgba(255,255,255,0.08);"><td style="padding: 12px 0; color: var(--text-muted); vertical-align: top;">Shares Out.</td><td style="text-align: right; font-weight: bold; color: white;">${formatBigNumber(prof.shares_outstanding, '')}</td></tr>
                 <tr style="border-top: 1px solid rgba(255,255,255,0.08);"><td style="padding: 12px 0; color: var(--text-muted); vertical-align: top;">Buyback rate</td><td style="text-align: right; font-weight: bold; color: white;">${prof.buyback_rate != null ? (prof.buyback_rate > 0 ? '+' : '') + prof.buyback_rate.toFixed(2) + '%' : 'N/A'}</td></tr>
                 <tr style="border-top: 1px solid rgba(255,255,255,0.08);"><td style="padding: 12px 0; color: var(--text-muted); vertical-align: top;">Dividend Yield</td><td style="text-align: right; font-weight: bold; color: white;">${prof.dividend_yield ? prof.dividend_yield.toFixed(2) + '%' : 'N/A'}</td></tr>
-                <tr style="border-top: 1px solid rgba(255,255,255,0.08);"><td style="padding: 12px 0; color: var(--text-muted); vertical-align: top; white-space: nowrap;">Competitors</td><td style="text-align: right; font-weight: bold; color: white; word-wrap: break-word;">${prof.competitors && prof.competitors.length ? prof.competitors.join(', ') : 'None'}</td></tr>
+                <tr style="border-top: 1px solid rgba(255,255,255,0.08);"><td style="padding: 12px 0; color: var(--text-muted); vertical-align: top; white-space: nowrap;">Competitors ${prof.competitor_metrics && prof.competitor_metrics.length > 0 ? `<button id="open-compare-btn" style="margin-left: 8px; background: rgba(56, 189, 248, 0.1); color: #38bdf8; border: 1px solid #38bdf8; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; cursor: pointer; transition: 0.2s;">Compare</button>` : ''}</td><td style="text-align: right; font-weight: bold; color: white; word-wrap: break-word;">${prof.competitors && prof.competitors.length ? prof.competitors.join(', ') : 'None'}</td></tr>
             `;
+
+            if(document.getElementById('open-compare-btn')) {
+                document.getElementById('open-compare-btn').onclick = () => renderComparisonModal(prof);
+            }
         }
 
         const trendsBody = document.getElementById('trends-body');

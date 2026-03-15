@@ -589,6 +589,7 @@ def get_company_data(ticker_symbol: str):
             "historical_data": historical_data,
             "forward_eps": forward_eps,
             "ebit_margin": ebit_margin,
+            "operating_margins": info.get('operatingMargins'),
             "fwd_ps": fwd_ps,
             "next_3y_rev_est": next_3y_rev_est,
             "beta": info.get('beta')
@@ -604,6 +605,17 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
     """
     try:
         target_ticker = target_ticker.upper()
+        
+        # 0. ADR Fallback Logic
+        adr_fallback = {
+            'NVO': ['LLY', 'JNJ', 'MRK'],
+            'TSM': ['ASML', 'INTC', 'AMD'],
+            'BABA': ['PDD', 'JD', 'AMZN'],
+            'ASML': ['LRCX', 'AMAT', 'KLAC'],
+            'SAP': ['ORCL', 'MSFT', 'CRM'],
+            'RYAAY': ['LUV', 'DAL', 'UAL']
+        }
+        
         FINNHUB_KEY = os.environ.get('FINNHUB_API_KEY')
         
         # Diagnostic: Check if key is loaded
@@ -620,6 +632,11 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
                     peers = resp.json()
             except Exception as e:
                 print(f"Finnhub API call error: {e}")
+
+        # 1.5 ADR Fallback Check (Higher priority than scraper)
+        if not peers and target_ticker in adr_fallback:
+            peers = adr_fallback[target_ticker]
+            print(f"Using ADR fallback for {target_ticker}: {peers}")
 
         # 2. Universal Scraper Fallback (if Finnhub fails or returns nothing)
         if not peers or not isinstance(peers, list):
@@ -707,6 +724,8 @@ def get_lightweight_company_data(ticker_symbol: str):
             "price": info.get('currentPrice') or info.get('regularMarketPrice'),
             "pe_ratio": pe,
             "peg_ratio": peg,
+            "eps": info.get('trailingEps'),
+            "margin": info.get('operatingMargins'),
             "market_cap": info.get('marketCap') or info.get('regularMarketCap'),
             "industry": info.get('industry'),
             "sector": info.get('sector')
