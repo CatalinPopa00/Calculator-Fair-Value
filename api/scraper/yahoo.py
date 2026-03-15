@@ -484,8 +484,8 @@ def get_company_data(ticker_symbol: str):
                 # Find common columns (dates) and sort them ASCENDING for proper time flow on chart
                 common_cols = sorted(list(set(q_financials.columns).intersection(q_cashflow.columns)))
                 
-                # We want up to 12 quarters, but let's take the most recent ones
-                target_quarters = common_cols[-12:]
+                # Increase to 20 quarters if available (approx 5 years of quarterly data)
+                target_quarters = common_cols[-20:]
                 
                 for q_ts in target_quarters:
                     rev_val = q_financials.loc['Total Revenue', q_ts] if 'Total Revenue' in q_financials.index else None
@@ -580,23 +580,38 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
         
         # Diagnostic: Check if key is loaded
         print(f"FINNHUB KEY loaded: {bool(FINNHUB_KEY)}")
-        
         if not FINNHUB_KEY:
-            return []
+            # SAFETY FALLBACK for common tickers if API key is missing
+            fallbacks = {
+                "AAPL": ["MSFT", "GOOGL", "AMZN", "META", "NVDA"],
+                "MSFT": ["AAPL", "GOOGL", "AMZN", "META", "NVDA"],
+                "GOOGL": ["AAPL", "MSFT", "AMZN", "META", "NVDA"],
+                "AMZN": ["AAPL", "MSFT", "GOOGL", "META", "TSLA"],
+                "TSLA": ["AMZN", "F", "GM", "BYDDF", "AAPL"],
+                "META": ["GOOGL", "AAPL", "AMZN", "SNAP", "TTD"],
+                "NVDA": ["AMD", "INTC", "TSM", "AVGO", "QCOM"],
+                "ADBE": ["MSFT", "ORCL", "CRM", "INTU", "SAP"]
+            }
+            if target_ticker in fallbacks:
+                print(f"Using baked-in fallback peers for {target_ticker}")
+                peers = fallbacks[target_ticker]
+            else:
+                return []
+        else:
+            # 1. Fetch peers from Finnhub
+            peers = []
+            try:
+                url = f"https://finnhub.io/api/v1/stock/peers?symbol={target_ticker}&token={FINNHUB_KEY}"
+                resp = requests.get(url, timeout=10)
+                # Diagnostic: Raw response
+                print(f"Finnhub raw response: {resp.text}")
+                
+                if resp.status_code == 200:
+                    peers = resp.json()
+            except Exception as e:
+                print(f"Finnhub API call error: {e}")
+                return []
 
-        # 1. Fetch peers from Finnhub
-        peers = []
-        try:
-            url = f"https://finnhub.io/api/v1/stock/peers?symbol={target_ticker}&token={FINNHUB_KEY}"
-            resp = requests.get(url, timeout=10)
-            # Diagnostic: Raw response
-            print(f"Finnhub raw response: {resp.text}")
-            
-            if resp.status_code == 200:
-                peers = resp.json()
-        except Exception as e:
-            print(f"Finnhub API call error: {e}")
-            return []
 
         if not peers or not isinstance(peers, list):
             return []
