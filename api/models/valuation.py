@@ -134,8 +134,12 @@ def calculate_reverse_dcf(current_price: float, current_fcf: float, discount_rat
         return None
         
     market_cap = current_price * shares_outstanding
+    # Bridge to EV safely
+    safe_cash = total_cash if total_cash is not None else 0
+    safe_debt = total_debt if total_debt is not None else 0
+    
     # Target EV = Market Cap - Cash + Total Debt (per user's equation)
-    target_ev = market_cap - total_cash + total_debt
+    target_ev = market_cap - safe_cash + safe_debt
     
     if target_ev <= 0:
         return None
