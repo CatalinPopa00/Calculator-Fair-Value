@@ -608,8 +608,47 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
         
         # Diagnostic: Check if key is loaded
         print(f"FINNHUB KEY loaded: {bool(FINNHUB_KEY)}")
-        if not FINNHUB_KEY:
-            # SAFETY FALLBACK for common tickers if API key is missing
+        
+        peers = []
+
+        if FINNHUB_KEY:
+            # 1. Try Finnhub
+            try:
+                url = f"https://finnhub.io/api/v1/stock/peers?symbol={target_ticker}&token={FINNHUB_KEY}"
+                resp = requests.get(url, timeout=10)
+                if resp.status_code == 200:
+                    peers = resp.json()
+            except Exception as e:
+                print(f"Finnhub API call error: {e}")
+
+        # 2. Universal Scraper Fallback (if Finnhub fails or returns nothing)
+        if not peers or not isinstance(peers, list):
+            print(f"No Finnhub peers for {target_ticker}, attempting scraping fallback...")
+            try:
+                # Scrape Yahoo Finance quotes to find related symbols
+                headers = {'User-Agent': random.choice(USER_AGENTS)}
+                # Specifically targeting the 'Profile' or 'Quote' page
+                url = f"https://finance.yahoo.com/quote/{target_ticker}/"
+                resp = requests.get(url, headers=headers, timeout=10)
+                if resp.status_code == 200:
+                    import re
+                    # Look for quote links in the html
+                    matches = re.findall(r'/quote/([A-Z^.-]+)/', resp.text)
+                    ignore = {'GSPC', 'DJI', 'IXIC', 'RUT', 'TNX', 'VIX', target_ticker}
+                    # Filter and deduplicate
+                    found = []
+                    for m in matches:
+                        if m not in ignore and 1 < len(m) <= 5 and m.isalpha():
+                            if m not in found:
+                                found.append(m)
+                    
+                    peers = found[:10]
+                    print(f"Scraper found {len(peers)} potential peers for {target_ticker}")
+            except Exception as e_scrape:
+                print(f"Scraping fallback error: {e_scrape}")
+
+        # 3. Last Resort: Hardcoded for Big 7 (Safety net)
+        if not peers:
             fallbacks = {
                 "AAPL": ["MSFT", "GOOGL", "AMZN", "META", "NVDA"],
                 "MSFT": ["AAPL", "GOOGL", "AMZN", "META", "NVDA"],
@@ -619,28 +658,11 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
                 "TSLA": ["AMZN", "F", "GM", "BYDDF", "AAPL"],
                 "META": ["GOOGL", "AAPL", "AMZN", "SNAP", "TTD"],
                 "NVDA": ["AMD", "INTC", "TSM", "AVGO", "QCOM"],
-                "ADBE": ["MSFT", "ORCL", "CRM", "INTU", "SAP"]
+                "ADBE": ["MSFT", "ORCL", "CRM", "INTU", "SAP"],
+                "NVO": ["LLY", "AZN", "SNY", "NVS", "PFE"],
+                "LLY": ["NVO", "PFE", "MRK", "ABBV", "JNJ"]
             }
-            if target_ticker in fallbacks:
-                print(f"Using baked-in fallback peers for {target_ticker}")
-                peers = fallbacks[target_ticker]
-            else:
-                return []
-        else:
-            # 1. Fetch peers from Finnhub
-            peers = []
-            try:
-                url = f"https://finnhub.io/api/v1/stock/peers?symbol={target_ticker}&token={FINNHUB_KEY}"
-                resp = requests.get(url, timeout=10)
-                # Diagnostic: Raw response
-                print(f"Finnhub raw response: {resp.text}")
-                
-                if resp.status_code == 200:
-                    peers = resp.json()
-            except Exception as e:
-                print(f"Finnhub API call error: {e}")
-                return []
-
+            peers = fallbacks.get(target_ticker, [])
 
         if not peers or not isinstance(peers, list):
             return []
