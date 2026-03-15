@@ -662,6 +662,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         loadingState.style.display = 'none';
+        watchlistView.style.display = 'none'; // Ensure watchlist is hidden when showing dashboard
         dashboard.style.display = 'block';
 
         // Fetch and show Analyst Estimates inline
