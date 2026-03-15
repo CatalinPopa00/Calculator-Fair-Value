@@ -138,33 +138,61 @@ def resolve_company_name(query: str) -> str:
     return query
 
 def search_companies(query: str) -> list:
-    """Uses Yahoo Finance search to get an autocomplete list of companies."""
-    for attempt in range(3):
-        try:
-            url = f'https://query2.finance.yahoo.com/v1/finance/search?q={urllib.parse.quote(query)}'
-            req = urllib.request.Request(url, headers={'User-Agent': get_random_agent()})
-            with urllib.request.urlopen(req) as response:
-                data = json.loads(response.read())
-                quotes = data.get('quotes', [])
-                results = []
-                for q in quotes:
-                    if q.get('quoteType') in ['EQUITY', 'ETF'] and q.get('symbol'):
-                        exch = q.get('exchDisp') or q.get('exchange', '')
-                        name = q.get('shortname') or q.get('longname', q.get('symbol'))
-                        if exch:
-                            name = f"{name} ({exch})"
-                        results.append({
-                            "ticker": q.get('symbol'),
-                            "name": name
-                        })
-                    if len(results) >= 10:
-                        break
-                return results
-        except Exception as e:
-            if "429" in str(e) or attempt == 2:
-                print(f"Error fetching search results for {query}: {e}")
-            time.sleep(1 + attempt)
-    return []
+    """Uses Yahoo Finance search to get an autocomplete list of companies (Optimized)."""
+    try:
+        import requests
+        url = f'https://query2.finance.yahoo.com/v1/finance/search?q={urllib.parse.quote(query)}&quotesCount=10'
+        headers = {'User-Agent': get_random_agent()}
+        
+        resp = requests.get(url, headers=headers, timeout=5)
+        if resp.status_code != 200:
+            return []
+            
+        data = resp.json()
+        quotes = data.get('quotes', [])
+        
+        results = []
+        exact_match = None
+        
+        for q in quotes:
+            symbol = q.get('symbol')
+            qtype = q.get('quoteType')
+            if not symbol:
+                continue
+            
+            # Filtering: Keep only EQUITY, ETF, or ADR
+            if qtype not in ['EQUITY', 'ETF', 'ADR']:
+                continue
+                
+            # Curry Market: Exclude tickers with '.' (international/local exchanges)
+            if '.' in symbol:
+                continue
+                
+            item = {
+                "ticker": symbol,
+                "name": q.get('shortname') or q.get('longname', symbol),
+                "exchange": q.get('exchDisp') or q.get('exchange', '')
+            }
+            
+            # Check for exact match (case-insensitive)
+            if symbol.lower() == query.lower() and not exact_match:
+                exact_match = item
+            else:
+                results.append(item)
+                
+        # Final Ranking: Put exact match at index 0
+        final_list = []
+        if exact_match:
+            final_list.append(exact_match)
+            
+        final_list.extend(results)
+        
+        # Limit to 6 suggestions
+        return final_list[:6]
+        
+    except Exception as e:
+        print(f"Error fetching search results for {query}: {e}")
+        return []
 
 def get_company_data(ticker_symbol: str):
     """

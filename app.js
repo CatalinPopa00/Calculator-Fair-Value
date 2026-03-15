@@ -1163,7 +1163,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     data.forEach(item => {
                         const div = document.createElement('div');
                         div.className = 'autocomplete-item';
-                        div.innerHTML = `<strong>${item.ticker}</strong> <span>${item.name}</span>`;
+                        div.innerHTML = `<strong>${item.ticker}</strong> <span>${item.name} <small style="color:var(--text-muted)">(${item.exchange})</small></span>`;
                         div.onclick = () => {
                             tickerInput.value = item.ticker;
                             autocompleteList.style.display = 'none';
