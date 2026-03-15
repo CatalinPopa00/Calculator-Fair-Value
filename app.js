@@ -33,6 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentBuyBreakdown = null;
     let chartRevFcf = null;
     let chartEpsShares = null;
+    let globalData = null; // FIX: Variabila globala pentru a repara accesul la date in Modale
 
     // Watchlist State (Load initially from localStorage for responsiveness, then sync)
     let watchlist = JSON.parse(localStorage.getItem('fairValueWatchlist')) || [];
@@ -110,6 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const formatPercent = (val) => val != null ? `${val.toFixed(2)}%` : '0%';
 
     const displayData = (data) => {
+        globalData = data; // FIX: Salvam datele global
         currentFormulaData = data.formula_data;
         currentTicker = data.ticker;
 
@@ -581,8 +583,6 @@ document.addEventListener('DOMContentLoaded', () => {
         inputSelectors.forEach(id => {
             const el = document.getElementById(id);
             if (el) {
-                // use 'input' for text fields to update instantly as typing, 
-                // and 'change' for selects
                 if (el.tagName === 'SELECT') {
                     el.onchange = updateFairValue;
                 } else {
@@ -596,7 +596,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Listen for toggle changes
         document.querySelectorAll('.valuation-toggle').forEach(toggle => {
-            // Use onchange to automatically replace any old function closures
             toggle.onchange = updateFairValue;
         });
 
@@ -632,7 +631,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (data.historical_trends && data.historical_trends.length > 0) {
                 let html = '';
                 data.historical_trends.forEach(row => {
-                    // Skip rows that are essentially empty (years with no metrics)
                     if (row.revenue == null && row.net_margin == null && row.fcf == null) return;
                     
                     const revStr = row.revenue != null ? (row.revenue / 1e9).toFixed(2) : '-';
@@ -652,7 +650,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         loadingState.style.display = 'none';
-        watchlistView.style.display = 'none'; // Ensure watchlist is hidden when showing dashboard
+        watchlistView.style.display = 'none';
         dashboard.style.display = 'block';
 
         // Fetch and show Analyst Estimates inline
@@ -702,7 +700,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Drag & Drop State ---
     let dragSrcIndex = null;
-    let manualOrder = false; // set true after a drag so sort is skipped
+    let manualOrder = false;
 
     // --- Analyst Estimates Logic ---
     const analystCard = document.getElementById('analyst-estimates-card');
@@ -711,7 +709,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!ticker || !analystCard) return;
 
         analystCard.style.display = 'block';
-        // Clear previous data
         document.getElementById('pt-avg').textContent = '...';
         document.getElementById('rec-status').textContent = '...';
         document.querySelector('#eps-est-table tbody').innerHTML = '';
@@ -736,7 +733,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const rec = data.recommendation || {};
             const statusElem = document.getElementById('rec-status');
             
-            // Rec Bars & Determine Max Category
             const counts = rec.counts || {};
             const maxVal = Math.max(...Object.values(counts), 1);
             const barsContainer = document.getElementById('rec-bars');
@@ -764,26 +760,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             });
             
-            // Set logic: display the true category with the most votes, unless none exist
             statusElem.textContent = topCount > 0 ? topCategory : ((rec.key || 'N/A').replace('_', ' ').toUpperCase());
             document.getElementById('rec-mean').textContent = `Score: ${rec.mean ? rec.mean.toFixed(2) : '--'} (1-5)`;
 
-            // Tables Shared Helpers
             const fvScale = (v) => v != null ? `$${v.toFixed(2)}` : '--';
             const fvPct = (v) => v != null ? `${(v * 100).toFixed(1)}%` : '--';
             const fvM = (v) => {
                 if (v == null) return '--';
-                return (v / 1e9).toFixed(2); // In Billions
+                return (v / 1e9).toFixed(2);
             };
 
             // EPS Table
             const epsBody = document.querySelector('#eps-est-table tbody');
             (data.eps_estimates || []).slice(0, 8).forEach(row => {
                 let colorKey = 'var(--text-main)';
-                let finalVal = fvPct(row.growth); // Use growth default
+                let finalVal = fvPct(row.growth);
 
                 if (row.status === 'reported') {
-                    // It's a reported quarter, use surprise if possible
                     colorKey = (row.surprise_pct > 0) ? 'var(--accent)' : (row.surprise_pct < 0 ? 'var(--danger)' : 'var(--text-main)');
                     finalVal = (row.surprise_pct != null) ? fvPct(row.surprise_pct) : '--';
                 }
@@ -802,7 +795,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 let finalVal = fvPct(row.growth);
 
                 if (row.status === 'reported') {
-                    // Usually no clean surprise % for revenue available, so neutral unless set
                     finalVal = (row.surprise_pct != null) ? fvPct(row.surprise_pct) : '--';
                     if (row.surprise_pct > 0) colorKey = 'var(--accent)';
                     else if (row.surprise_pct < 0) colorKey = 'var(--danger)';
@@ -825,19 +817,13 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             const targetTab = btn.getAttribute('data-tab');
-            // Update Buttons
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            // Update Contents
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
             document.getElementById(`tab-${targetTab}`).classList.add('active');
         });
     });
 
-    const renderAnalystEstimates = async () => {
-        // Obsolete separate view logic - just trigger inline instead or stay here
-        if (currentTicker) renderAnalystEstimatesInline(currentTicker);
-    };
     const renderWatchlistUI = () => {
         watchlistGrid.innerHTML = '';
         const watchlistHeader = document.getElementById('watchlist-header');
@@ -850,7 +836,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         emptyWatchlistMsg.style.display = 'none';
 
-        // Only sort if user hasn't manually reordered
         let sortedResults = [...cachedWatchlistData];
         if (!manualOrder) {
             sortedResults.sort((a, b) => {
@@ -888,7 +873,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 card.classList.toggle('expanded');
             };
 
-            // Format Margin of Safety Color
             let mosColor = 'var(--text-main)';
             let mosText = 'N/A';
             if (data.margin_of_safety != null) {
@@ -910,7 +894,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 fwdMultVal = formatCurrency(data.peter_lynch.fair_value_pe_20);
             }
 
-            // Scoring logic
             const hs = data.health_score;
             const bs = data.buy_score;
             const hsN = (hs !== 'N/A' && hs != null) ? hs : null;
@@ -998,12 +981,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `;
 
-            // --- Drag & Drop Events ---
             card.addEventListener('dragstart', (e) => {
                 dragSrcIndex = index;
                 e.dataTransfer.effectAllowed = 'move';
                 e.dataTransfer.setData('text/plain', String(index));
-                // Delay adding class so screenshot isn't blank
                 setTimeout(() => card.classList.add('dragging'), 0);
             });
 
@@ -1018,7 +999,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.preventDefault();
                 e.dataTransfer.dropEffect = 'move';
                 if (dragSrcIndex === null || dragSrcIndex === index) return;
-                // Clear all first
                 document.querySelectorAll('.watchlist-card').forEach(c => {
                     c.classList.remove('drag-over-top', 'drag-over-bottom');
                 });
@@ -1031,7 +1011,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             card.addEventListener('dragleave', (e) => {
-                // Only remove if we really left this card (not just entering a child)
                 if (!card.contains(e.relatedTarget)) {
                     card.classList.remove('drag-over-top', 'drag-over-bottom');
                 }
@@ -1048,13 +1027,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 const rect = card.getBoundingClientRect();
                 let to = (e.clientY >= rect.top + rect.height / 2) ? index + 1 : index;
 
-                // Operate on the currently displayed sorted array
                 const reordered = [...sortedResults];
                 const [moved] = reordered.splice(from, 1);
                 const insertAt = from < to ? to - 1 : to;
                 reordered.splice(insertAt, 0, moved);
 
-                // Write back to the shared cache and watchlist
                 cachedWatchlistData = reordered;
                 watchlist = cachedWatchlistData.map(d => d.ticker);
                 manualOrder = true;
@@ -1067,10 +1044,9 @@ document.addEventListener('DOMContentLoaded', () => {
             watchlistGrid.appendChild(card);
         });
 
-        // Add remove event listeners
         document.querySelectorAll('.remove-watchlist-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                e.stopPropagation(); // prevent triggering the card click (expand/collapse)
+                e.stopPropagation();
                 const tickerToRemove = e.target.getAttribute('data-ticker');
                 watchlist = watchlist.filter(t => t !== tickerToRemove);
 
@@ -1082,27 +1058,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (currentTicker === tickerToRemove) {
                     updateWatchlistButtonState();
                 }
-                renderWatchlistUI(); // Re-render from cache instantly
+                renderWatchlistUI();
             });
         });
 
-        // Add view full analysis event listeners
         document.querySelectorAll('.view-analysis-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const targetTicker = e.target.getAttribute('data-ticker');
                 tickerInput.value = targetTicker;
 
-                // Switch to dashboard view
                 watchlistView.style.display = 'none';
-
                 analyzeTicker();
             });
         });
     };
 
     const renderWatchlist = async () => {
-        // UI Transition
         dashboard.style.display = 'none';
         loadingState.style.display = 'flex';
         watchlistView.style.display = 'none';
@@ -1121,14 +1093,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         emptyWatchlistMsg.style.display = 'none';
 
-        // Fetch data for all watchlist items
         try {
             const promises = watchlist.map(ticker =>
                 fetch(`/api/valuation/${encodeURIComponent(ticker)}`).then(res => res.json())
             );
 
             let results = await Promise.all(promises);
-            cachedWatchlistData = results.filter(data => !data.detail); // Skip raw errors
+            cachedWatchlistData = results.filter(data => !data.detail);
 
             renderWatchlistUI();
 
@@ -1140,25 +1111,22 @@ document.addEventListener('DOMContentLoaded', () => {
         loadingState.style.display = 'none';
         watchlistView.style.display = 'block';
     };
-    // --- Watchlist Sort Logic ---
+
     document.querySelectorAll('.sort-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             const sortKey = btn.getAttribute('data-sort');
 
             if (currentSort.column === sortKey) {
-                // Toggle order
                 currentSort.order = currentSort.order === 'desc' ? 'asc' : 'desc';
             } else {
-                // New column, default to desc for MOS/Price, asc for Ticker
                 currentSort.column = sortKey;
                 currentSort.order = sortKey === 'ticker' ? 'asc' : 'desc';
             }
 
-            // Update UI 
             document.querySelectorAll('.sort-btn').forEach(b => {
                 b.classList.remove('active-sort', 'desc', 'asc');
                 const tKey = b.getAttribute('data-sort');
-                if (tKey === 'mos') b.style.color = 'var(--text-muted)'; // reset color
+                if (tKey === 'mos') b.style.color = 'var(--text-muted)';
                 b.querySelector('.sort-icon').textContent = '↕';
             });
 
@@ -1166,19 +1134,17 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.classList.add(currentSort.order);
             btn.querySelector('.sort-icon').textContent = currentSort.order === 'desc' ? '▼' : '▲';
 
-            // Reapply special color for active MOS sort
             if (sortKey === 'mos') {
                 btn.style.color = 'var(--accent)';
             }
 
             if (cachedWatchlistData) {
-                manualOrder = false; // re-enable sort when user explicitly clicks a sort button
+                manualOrder = false;
                 renderWatchlistUI();
             }
         });
     });
 
-    // --- Search Autocomplete Logic ---
     let searchTimeout = null;
 
     tickerInput.addEventListener('input', (e) => {
@@ -1216,17 +1182,15 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (err) {
                 console.error("Autocomplete error:", err);
             }
-        }, 300); // 300ms debounce
+        }, 300);
     });
 
-    // Close autocomplete on click outside
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.autocomplete-wrapper')) {
             autocompleteList.style.display = 'none';
         }
     });
 
-    // --- Score Breakdown Modals ---
     const scoreModal = document.getElementById('score-modal');
     const closeScoreModal = document.getElementById('close-score-modal');
     const scoreModalTitle = document.getElementById('score-modal-title');
@@ -1240,15 +1204,13 @@ document.addEventListener('DOMContentLoaded', () => {
         let html = '';
         if (breakdownData && breakdownData.length > 0) {
             breakdownData.forEach(item => {
-                // Determine color based on points vs max points
-                let colorClass = 'score-yellow'; // default yellow
+                let colorClass = 'score-yellow';
                 let badgeClass = 'bg-score-yellow';
 
                 if (item.points === item.max_points) {
                     colorClass = 'score-green';
                     badgeClass = 'bg-score-green';
                 } else if (item.points === 0 || item.points <= (item.max_points / 3)) {
-                    // Logic handles 'null' NA items which usually have 0 points, or mathematically lowest tier
                     colorClass = 'score-red';
                     badgeClass = 'bg-score-red';
                 }
@@ -1273,7 +1235,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.style.overflow = 'hidden';
     };
 
-    // Attach click events to the score rows
     const healthScoreRow = document.querySelector('.score-row:has(#health-score-circle)');
     const buyScoreRow = document.querySelector('.score-row:has(#buy-score-circle)');
 
@@ -1307,10 +1268,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- Event Listeners ---
     logoBtn.addEventListener('click', () => {
         if (currentTicker && currentFormulaData) {
-            // If we have a ticker loaded, just switch back to dashboard view
             watchlistView.style.display = 'none';
             dashboard.style.display = 'block';
         } else {
@@ -1392,7 +1351,6 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (method === 'peg') {
                 const peg = currentFormulaData.peg;
                 if (peg) {
-                    // Try to get dynamic values if user has custom inputs on the card
                     const pegSrcEl = document.getElementById('peg-eps-source');
                     const pegSrc = pegSrcEl ? pegSrcEl.value : 'analyst';
                     
@@ -1402,11 +1360,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     if (pegSrc === 'custom') {
                         const customGrowth = (parseFloat(document.getElementById('peg-custom-growth').value) || 20) / 100;
-                        const currentPe = peg.current_pe || (parseFloat(data.company_profile.trailing_pe) || 0);
+                        const currentPe = peg.current_pe || (parseFloat(globalData.company_profile.trailing_pe) || 0); // FIX Aplicat
                         if (customGrowth > 0 && currentPe > 0 && peg.industry_peg > 0) {
                             displayPeg = currentPe / (customGrowth * 100);
-                            displayFv = data.current_price * (peg.industry_peg / displayPeg);
-                            displayMos = ((displayFv - data.current_price) / displayFv) * 100;
+                            displayFv = globalData.current_price * (peg.industry_peg / displayPeg); // FIX Aplicat
+                            displayMos = ((displayFv - globalData.current_price) / displayFv) * 100; // FIX Aplicat
                         }
                     }
 
@@ -1484,7 +1442,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         dcf.fcf_years.forEach((cf, i) => {
                             let growthStr = '--';
                             if (i === 0) {
-                                // Growth from base FCF
                                 const baseFcf = dcf.fcf;
                                 if (baseFcf && baseFcf > 0) {
                                     growthStr = `${((cf - baseFcf) / baseFcf * 100).toFixed(1)}%`;
@@ -1601,8 +1558,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Initialize View
-    // Custom Estimations Logic (in-card)
     const specs = [
         { sel: 'dcf-custom-select', grp: 'dcf-custom-input-group', inp: 'dcf-custom-fcf-growth' },
         { sel: 'lynch-custom-select', grp: 'lynch-custom-input-group', inp: 'lynch-custom-eps-growth' },
@@ -1612,26 +1567,13 @@ document.addEventListener('DOMContentLoaded', () => {
     specs.forEach(s => {
         const selEl = document.getElementById(s.sel);
         const grpEl = document.getElementById(s.grp);
-        const inpEl = document.getElementById(s.inp);
-        if (selEl && grpEl && inpEl) {
+        if (selEl && grpEl) {
             selEl.addEventListener('change', (e) => {
                 grpEl.style.display = e.target.value === 'custom' ? 'flex' : 'none';
-                // Trigger global generic listener that updates fair value if a ticker is loaded
-                if (currentFormulaData) {
-                    const btn = document.createElement('button');
-                    btn.className = 'custom-trigger-temp';
-                    btn.style.display = 'none';
-                    document.body.appendChild(btn);
-                    btn.onclick = () => { if (typeof updateFairValue !== 'undefined') { /* This works inside renderDashboard */ } };
-                    // Because Javascript scope: updateFairValue is inside renderDashboard.
-                    // Oh wait! updateFairValue is defined inside renderDashboard, so it's not accessible here!
-                    // Let's rely on the user changing the input to trigger it, OR we simply dispatch an event 
-                    // that renderDashboard listens to? 
-                    // The easiest fix is to attach these listeners INSIDE renderDashboard or just dispatch an event.
-                }
             });
         }
     });
+
     fetch('/api/watchlist')
         .then(res => res.json())
         .then(data => {
@@ -1640,7 +1582,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 localStorage.setItem('fairValueWatchlist', JSON.stringify(watchlist));
                 renderWatchlist();
             } else if (watchlist.length > 0) {
-                renderWatchlist(); // Fallback to localStorage if API is empty but local is not (e.g., first sync)
+                renderWatchlist();
             } else {
                 watchlistView.style.display = 'block';
                 emptyWatchlistMsg.style.display = 'block';
@@ -1655,6 +1597,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 emptyWatchlistMsg.style.display = 'block';
             }
         });
+
     const renderHistoricalCharts = (data) => {
         const container = document.getElementById('historical-charts-container');
         if (!data.historical_data || !data.historical_data.years || data.historical_data.years.length === 0) {
@@ -1665,10 +1608,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (container) container.style.display = 'block';
         const h = data.historical_data;
 
-        // Helper to format large numbers to Millions
         const toM = (val) => (val / 1000000);
 
-        // Chart 1: Revenue & FCF (Bar Chart)
         if (chartRevFcf) chartRevFcf.destroy();
         const ctx1 = document.getElementById('chart-rev-fcf').getContext('2d');
         chartRevFcf = new Chart(ctx1, {
@@ -1712,7 +1653,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Chart 2: EPS & Shares Outstanding (Dual Y Axis)
         if (chartEpsShares) chartEpsShares.destroy();
         const ctx2 = document.getElementById('chart-eps-shares').getContext('2d');
         chartEpsShares = new Chart(ctx2, {
