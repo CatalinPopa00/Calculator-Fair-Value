@@ -450,13 +450,23 @@ document.addEventListener('DOMContentLoaded', () => {
         updateScoreUI(data.buy_score, 'buy-score-circle', 'buy-score-fill');
 
         // Bind click handlers on score rows (must be done here, after data is loaded)
-        const healthRow = document.getElementById('health-score-row');
+        const healthRow = document.getElementById('health-score-row') || document.getElementById('health-score-circle')?.closest('.score-row');
+        console.log('[Score Handlers] healthRow:', healthRow, 'breakdown:', currentHealthBreakdown?.length);
         if (healthRow) {
-            healthRow.onclick = () => renderScoreBreakdown('Company Health Breakdown', data.health_score, currentHealthBreakdown);
+            healthRow.style.cursor = 'pointer';
+            healthRow.onclick = function() {
+                console.log('[Score Click] Health clicked!');
+                renderScoreBreakdown('Company Health Breakdown', data.health_score, currentHealthBreakdown);
+            };
         }
-        const buyRow = document.getElementById('buy-score-row');
+        const buyRow = document.getElementById('buy-score-row') || document.getElementById('buy-score-circle')?.closest('.score-row');
+        console.log('[Score Handlers] buyRow:', buyRow, 'breakdown:', currentBuyBreakdown?.length);
         if (buyRow) {
-            buyRow.onclick = () => renderScoreBreakdown('Good to Buy Score Breakdown', data.buy_score, currentBuyBreakdown);
+            buyRow.style.cursor = 'pointer';
+            buyRow.onclick = function() {
+                console.log('[Score Click] Buy clicked!');
+                renderScoreBreakdown('Good to Buy Score Breakdown', data.buy_score, currentBuyBreakdown);
+            };
         }
 
         // UPDATED: Sync both MOS and PEG to the Score Breakdown dynamically
