@@ -449,6 +449,18 @@ document.addEventListener('DOMContentLoaded', () => {
         updateScoreUI(data.health_score, 'health-score-circle', 'health-score-fill');
         updateScoreUI(data.buy_score, 'buy-score-circle', 'buy-score-fill');
 
+        // Bind click handlers on score rows (must be done here, after data is loaded)
+        const healthRow = document.getElementById('health-score-circle')?.closest('.score-row');
+        if (healthRow) {
+            healthRow.style.cursor = 'pointer';
+            healthRow.onclick = () => renderScoreBreakdown('Company Health Breakdown', data.health_score, currentHealthBreakdown);
+        }
+        const buyRow = document.getElementById('buy-score-circle')?.closest('.score-row');
+        if (buyRow) {
+            buyRow.style.cursor = 'pointer';
+            buyRow.onclick = () => renderScoreBreakdown('Good to Buy Score Breakdown', data.buy_score, currentBuyBreakdown);
+        }
+
         // UPDATED: Sync both MOS and PEG to the Score Breakdown dynamically
         const updateInsightsAndScores = (newMos, newPeg) => {
             if (!currentBuyBreakdown) return;
@@ -1420,64 +1432,63 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // ── Score Bar Click Handlers ──────────────────────────────
-    const renderScoreBreakdown = (title, breakdown) => {
+    const renderScoreBreakdown = (title, totalScore, breakdown) => {
         const modal = document.getElementById('score-modal');
         const body = document.getElementById('score-modal-body');
         const titleEl = document.getElementById('score-modal-title');
         if (!modal || !body) return;
 
-        titleEl.textContent = title;
-
         if (!breakdown || breakdown.length === 0) {
+            titleEl.textContent = title;
             body.innerHTML = '<p style="color:var(--text-muted);">No breakdown available.</p>';
             modal.style.display = 'flex';
             return;
         }
 
-        let totalPts = 0, totalMax = 0;
-        let html = '';
+        let totalMax = 0;
+        breakdown.forEach(item => totalMax += item.max_points || 0);
+        const scoreVal = totalScore != null ? totalScore : '?';
+
+        // Build header
+        let html = `
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h3 style="margin:0; font-size:1.1rem; color:white; font-weight:700;">${title}</h3>
+                <div style="text-align:right;">
+                    <div style="font-size:0.8rem; color:var(--text-muted);">Total:</div>
+                    <div style="font-size:1.2rem; font-weight:800; color:white;">${scoreVal}/${totalMax}</div>
+                </div>
+            </div>
+        `;
+
+        // Build rows matching user's reference design
         breakdown.forEach(item => {
-            totalPts += item.points || 0;
-            totalMax += item.max_points || 0;
-            const pct = item.max_points > 0 ? ((item.points / item.max_points) * 100) : 0;
-            const barColor = pct >= 75 ? 'var(--accent)' : (pct >= 40 ? '#fbbf24' : 'var(--danger)');
+            const pts = item.points || 0;
+            const maxPts = item.max_points || 0;
+            const pct = maxPts > 0 ? (pts / maxPts) : 0;
+
+            // Dot color: green if >= 75%, yellow if >= 40%, red otherwise
+            let dotColor = 'var(--danger)';
+            let ptsColor = 'var(--danger)';
+            if (pct >= 0.75) { dotColor = 'var(--accent)'; ptsColor = 'var(--accent)'; }
+            else if (pct >= 0.4) { dotColor = '#fbbf24'; ptsColor = '#fbbf24'; }
+
             html += `
-                <div style="margin-bottom: 12px; padding: 10px; background: rgba(255,255,255,0.03); border-radius: 8px;">
-                    <div style="display:flex; justify-content:space-between; margin-bottom: 6px;">
-                        <span style="font-weight:600; font-size: 0.9rem;">${item.name}</span>
-                        <span style="color:var(--text-muted); font-size: 0.85rem;">${item.value || 'N/A'}</span>
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 0; border-top:1px solid rgba(255,255,255,0.06);">
+                    <div style="flex:1; min-width:0;">
+                        <div style="font-weight:600; font-size:0.9rem; color:white;">${item.name}</div>
                     </div>
-                    <div style="display:flex; align-items:center; gap: 10px;">
-                        <div style="flex-grow:1; height:6px; background:rgba(255,255,255,0.05); border-radius:3px; overflow:hidden;">
-                            <div style="height:100%; width:${pct}%; background:${barColor}; border-radius:3px; transition: width 0.5s ease;"></div>
-                        </div>
-                        <span style="font-size:0.8rem; color:var(--text-muted); min-width:50px; text-align:right;">${item.points}/${item.max_points}</span>
+                    <div style="font-weight:700; font-size:0.95rem; color:white; min-width:60px; text-align:center;">${item.value || 'N/A'}</div>
+                    <div style="display:flex; align-items:center; gap:8px; min-width:90px; justify-content:flex-end;">
+                        <span style="width:10px; height:10px; border-radius:50%; background:${dotColor}; display:inline-block; flex-shrink:0;"></span>
+                        <span style="font-weight:700; font-size:0.9rem; color:${ptsColor};">${pts}/${maxPts} pts</span>
                     </div>
                 </div>
             `;
         });
 
-        html += `<div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); text-align: center; font-size: 1.1rem; font-weight: 700; color: white;">Total: ${totalPts} / ${totalMax}</div>`;
-
+        titleEl.textContent = '';
         body.innerHTML = html;
         modal.style.display = 'flex';
     };
-
-    // Health Score bar click — bind the entire .score-row parent for maximum click area
-    const healthScoreRow = document.getElementById('health-score-circle');
-    if (healthScoreRow) {
-        // Walk up to the .score-row div
-        const healthRow = healthScoreRow.closest('.score-row') || healthScoreRow.parentElement;
-        healthRow.style.cursor = 'pointer';
-        healthRow.addEventListener('click', () => renderScoreBreakdown('🏥 Company Health Score Breakdown', currentHealthBreakdown));
-    }
-
-    // Buy Score bar click
-    const buyScoreRow = document.getElementById('buy-score-circle');
-    if (buyScoreRow) {
-        const buyRow = buyScoreRow.closest('.score-row') || buyScoreRow.parentElement;
-        buyRow.style.cursor = 'pointer';
-        buyRow.addEventListener('click', () => renderScoreBreakdown('💰 Good to Buy Score Breakdown', currentBuyBreakdown));
-    }
 
 });
