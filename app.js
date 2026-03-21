@@ -1258,8 +1258,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 
                 <div class="watchlist-scores-container" style="width: 200px; padding: 0 1rem; margin-left: 2rem; display: flex; align-items: center; justify-content: space-around; gap: 10px;">
-                    <div class="mini-score-circle ${dynamicBuyScore >= 76 ? 'score-green' : (dynamicBuyScore >= 41 ? 'score-yellow' : 'score-red')}" title="Buy Score">${dynamicBuyScore || 'N/A'}</div>
-                    <div class="mini-score-circle ${(data.health_score || 0) >= 76 ? 'score-green' : ((data.health_score || 0) >= 41 ? 'score-yellow' : 'score-red')}" title="Health Score">${data.health_score || 'N/A'}</div>
+                    <div class="mini-score-circle ${dynamicBuyScore >= 76 ? 'mini-score-green' : (dynamicBuyScore >= 41 ? 'mini-score-yellow' : 'mini-score-red')}" title="Buy Score">${dynamicBuyScore || 'N/A'}</div>
+                    <div class="mini-score-circle ${(data.health_score || 0) >= 76 ? 'mini-score-green' : ((data.health_score || 0) >= 41 ? 'mini-score-yellow' : 'mini-score-red')}" title="Health Score">${data.health_score || 'N/A'}</div>
                 </div>
                 
                 <div class="watchlist-actions" style="margin-left: 2rem;">
@@ -1494,15 +1494,17 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (model === 'peter_lynch' && currentFormulaData.peter_lynch) {
                 const p = currentFormulaData.peter_lynch;
                 title.textContent = '📊 Forward Multiple — Data Transparency';
+                const periodLabel = p.eps_growth_period || 'Est.';
                 html = row('Trailing EPS', '$' + fmt(p.trailing_eps))
-                     + row('EPS Growth (Est.)', fmtPct(p.eps_growth_estimated))
+                     + row(`EPS Growth (${periodLabel})`, fmtPct(p.eps_growth_estimated))
                      + row('Historic P/E (5Y Avg)', p.historic_pe ? p.historic_pe.toFixed(2) + 'x' : 'N/A')
                      + row('Fair Value (PE 20)', '$' + fmt(p.fair_value_pe_20));
             } else if (model === 'peg' && currentFormulaData.peg) {
                 const g = currentFormulaData.peg;
                 title.textContent = '📊 PEG Valuation — Data Transparency';
+                const periodLabel = g.eps_growth_period || 'Est.';
                 html = row('Current P/E', g.current_pe ? g.current_pe.toFixed(2) + 'x' : 'N/A')
-                     + row('EPS Growth (Est.)', fmtPct(g.eps_growth_estimated))
+                     + row(`EPS Growth (${periodLabel})`, fmtPct(g.eps_growth_estimated))
                      + row('Current PEG', g.current_peg ? g.current_peg.toFixed(2) + 'x' : 'N/A')
                      + row('Industry PEG', g.industry_peg ? g.industry_peg.toFixed(2) + 'x' : 'N/A')
                      + row('Fair Value', '$' + fmt(g.fair_value))

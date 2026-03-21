@@ -530,9 +530,12 @@ def get_company_data(ticker_symbol: str):
                             for i in range(len(v)-1):
                                 new_val, old_val = v[i], v[i+1]
                                 if old_val != 0:
-                                    yoy_rates.append((new_val - old_val) / abs(old_val))
+                                    g = (new_val - old_val) / abs(old_val)
+                                    g = min(max(g, -1.0), 1.0) # Clamp YoY extremes
+                                    yoy_rates.append(g)
                             if yoy_rates:
-                                return sum(yoy_rates) / len(yoy_rates)
+                                avg_g = sum(yoy_rates) / len(yoy_rates)
+                                return min(max(avg_g, -0.20), 0.50) # Cap final average
                         return None
                         
                     historic_eps_growth_3y = calc_yoy_avg(eps_vals, 3) # Last 3 years

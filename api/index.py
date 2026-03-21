@@ -338,8 +338,8 @@ def get_valuation(ticker: str, wacc: float = None):
                 "current_price": sanitize(current_price),
                 "trailing_eps": sanitize(data.get("trailing_eps")),
                 "fwd_eps": sanitize(lynch_result.get("fwd_eps")),
-                "eps_growth_estimated": sanitize(data.get("eps_growth")),
-                "eps_growth_period": data.get("eps_growth_period", "Next Year"),
+                "eps_growth_estimated": sanitize(eps_growth_estimated),
+                "eps_growth_period": "3-Year Avg" if data.get("eps_growth_3y") else data.get("eps_growth_period", "Analyst Est."),
                 "historic_pe": sanitize(pe_historic),
                 "fwd_pe": sanitize(lynch_fwd_pe),
                 "fair_value": sanitize(lynch_fair_value),
@@ -351,6 +351,7 @@ def get_valuation(ticker: str, wacc: float = None):
             "peg": {
                 "current_pe": sanitize(current_pe),
                 "eps_growth_estimated": sanitize(eps_growth_rate_peg),
+                "eps_growth_period": "5-Year Avg" if data.get("eps_growth_5y") else "Analyst Est.",
                 "current_peg": sanitize(company_peg) if company_peg > 0 else None,
                 "industry_peg": sanitize(industry_peg),
                 "fair_value": sanitize(peg_value),
