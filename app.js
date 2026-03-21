@@ -909,6 +909,131 @@ document.addEventListener('DOMContentLoaded', () => {
     let dragSrcIndex = null;
     let manualOrder = false;
 
+    // ── Historical Charts (Chart.js) ──────────────────────────────────
+
+    const renderHistoricalCharts = (data) => {
+        const container = document.getElementById('historical-charts-container');
+        if (!container) return;
+
+        const hd = data.historical_data;
+        if (!hd || !hd.years || hd.years.length === 0) {
+            container.style.display = 'none';
+            return;
+        }
+
+        container.style.display = 'block';
+
+        const labels = hd.years;
+        const estIndex = labels.findIndex(l => String(l).includes('Est'));
+
+        // Helper: build background colors (solid for actual, translucent for estimates)
+        const bgColors = (baseColor, alphaActual, alphaEst) =>
+            labels.map((_, i) => i >= estIndex && estIndex !== -1
+                ? baseColor.replace('1)', `${alphaEst})`)
+                : baseColor.replace('1)', `${alphaActual})`));
+
+        const borderDash = labels.map((_, i) => i >= estIndex && estIndex !== -1 ? [6, 4] : []);
+
+        // ── Chart 1: Revenue & FCF (Bar chart, millions) ──
+        const ctxRevFcf = document.getElementById('chart-rev-fcf');
+        if (ctxRevFcf) {
+            if (chartRevFcf) chartRevFcf.destroy();
+            chartRevFcf = new Chart(ctxRevFcf, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            label: 'Revenue ($M)',
+                            data: hd.revenue.map(v => v ? +(v / 1e6).toFixed(1) : 0),
+                            backgroundColor: bgColors('rgba(56, 189, 248, 1)', 0.7, 0.3),
+                            borderColor: 'rgba(56, 189, 248, 1)',
+                            borderWidth: 1,
+                            borderRadius: 4,
+                            order: 2
+                        },
+                        {
+                            label: 'FCF ($M)',
+                            data: hd.fcf.map(v => v ? +(v / 1e6).toFixed(1) : 0),
+                            backgroundColor: bgColors('rgba(16, 185, 129, 1)', 0.7, 0.3),
+                            borderColor: 'rgba(16, 185, 129, 1)',
+                            borderWidth: 1,
+                            borderRadius: 4,
+                            order: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { labels: { color: '#94a3b8', font: { size: 11 } } },
+                        tooltip: { mode: 'index', intersect: false }
+                    },
+                    scales: {
+                        x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148,163,184,0.1)' } },
+                        y: { ticks: { color: '#94a3b8', callback: v => '$' + v.toLocaleString() + 'M' }, grid: { color: 'rgba(148,163,184,0.1)' } }
+                    }
+                }
+            });
+        }
+
+        // ── Chart 2: EPS & Shares Outstanding (Dual Axis) ──
+        const ctxEps = document.getElementById('chart-eps-shares');
+        if (ctxEps) {
+            if (chartEpsShares) chartEpsShares.destroy();
+
+            const epsData = hd.eps || [];
+            const sharesData = (hd.shares || []).map(v => v ? +(v / 1e6).toFixed(1) : 0);
+
+            chartEpsShares = new Chart(ctxEps, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            label: 'EPS ($)',
+                            data: epsData.map(v => v ? +v.toFixed(2) : 0),
+                            backgroundColor: bgColors('rgba(168, 85, 247, 1)', 0.7, 0.3),
+                            borderColor: 'rgba(168, 85, 247, 1)',
+                            borderWidth: 1,
+                            borderRadius: 4,
+                            yAxisID: 'y',
+                            order: 2
+                        },
+                        {
+                            label: 'Shares (M)',
+                            data: sharesData,
+                            type: 'line',
+                            borderColor: 'rgba(251, 191, 36, 0.8)',
+                            backgroundColor: 'rgba(251, 191, 36, 0.1)',
+                            pointBackgroundColor: 'rgba(251, 191, 36, 1)',
+                            pointRadius: 4,
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.3,
+                            yAxisID: 'y1',
+                            order: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { labels: { color: '#94a3b8', font: { size: 11 } } },
+                        tooltip: { mode: 'index', intersect: false }
+                    },
+                    scales: {
+                        x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148,163,184,0.1)' } },
+                        y:  { position: 'left',  ticks: { color: '#a855f7', callback: v => '$' + v }, grid: { color: 'rgba(148,163,184,0.1)' }, title: { display: true, text: 'EPS ($)', color: '#a855f7' } },
+                        y1: { position: 'right', ticks: { color: '#fbbf24', callback: v => v + 'M' }, grid: { drawOnChartArea: false }, title: { display: true, text: 'Shares (M)', color: '#fbbf24' } }
+                    }
+                }
+            });
+        }
+    };
+
     const analystCard = document.getElementById('analyst-estimates-card');
 
     const renderAnalystEstimatesInline = async (ticker) => {
@@ -1075,6 +1200,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (data.buy_breakdown && customMos != null) {
                 let mosItem = data.buy_breakdown.find(i => i.name.includes("Margin of Safety"));
                 if (mosItem) {
+                    let newPts = 0;
+                    if (customMos > 30.0) newPts = 30;
+                    else if (customMos >= 15.0) newPts = 20;
+                    else if (customMos >= 0.0) newPts = 10;
                     const oldPts = mosItem.points;
                     mosItem.points = newPts;
                     mosItem.value = `${customMos.toFixed(1)}%`;
