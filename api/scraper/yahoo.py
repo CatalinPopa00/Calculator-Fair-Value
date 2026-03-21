@@ -1417,14 +1417,17 @@ def get_analyst_data(ticker_symbol: str) -> dict:
         try:
             ge = stock.growth_estimates
             if ge is not None and not ge.empty:
-                # Transpose if needed, depending on yfinance version it might be different
-                # But usually it's a DataFrame with Index = ['Current Qtr.', ..., 'Next 5 Years']
-                # and Column = [Ticker, 'S&P 500']
-                if 'Next 5 Years' in ge.index:
-                    ticker_col = ge.columns[0] # Usually the ticker itself
-                    val = ge.loc['Next 5 Years', ticker_col]
-                    if val is not None and not pd.isna(val):
-                        eps_growth_5y_consensus = float(val)
+                # Some companies use 'LTG' (Long Term Growth) instead of 'Next 5 Years'
+                target_labels = ['Next 5 Years', 'LTG']
+                val = None
+                for lbl in target_labels:
+                    if lbl in ge.index:
+                        val = ge.loc[lbl, ge.columns[0]]
+                        if val is not None and not pd.isna(val):
+                            break
+                            
+                if val is not None and not pd.isna(val):
+                    eps_growth_5y_consensus = float(val)
         except:
             pass
 
