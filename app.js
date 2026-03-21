@@ -1312,8 +1312,13 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `;
         document.body.insertAdjacentHTML('beforeend', html);
-        document.getElementById('close-modal').addEventListener('click', () => {
-            document.getElementById('data-modal').style.display = 'none';
+        const dataModalEl = document.getElementById('data-modal');
+        document.getElementById('close-modal').addEventListener('click', (e) => {
+            e.stopPropagation();
+            dataModalEl.style.display = 'none';
+        });
+        dataModalEl.addEventListener('click', (e) => {
+            if (e.target === dataModalEl) dataModalEl.style.display = 'none';
         });
     };
     injectDataModal();
@@ -1333,8 +1338,13 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `;
         document.body.insertAdjacentHTML('beforeend', html);
-        document.getElementById('close-score-modal').addEventListener('click', () => {
-            document.getElementById('score-modal').style.display = 'none';
+        const scoreModalEl = document.getElementById('score-modal');
+        document.getElementById('close-score-modal').addEventListener('click', (e) => {
+            e.stopPropagation();
+            scoreModalEl.style.display = 'none';
+        });
+        scoreModalEl.addEventListener('click', (e) => {
+            if (e.target === scoreModalEl) scoreModalEl.style.display = 'none';
         });
     };
     injectScoreModal();
@@ -1342,7 +1352,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ── View Data Button Handlers ──────────────────────────────
     document.querySelectorAll('.modal-trigger').forEach(btn => {
         btn.addEventListener('click', () => {
-            const model = btn.getAttribute('data-model');
+            const model = btn.getAttribute('data-method');
             const modal = document.getElementById('data-modal');
             const body = document.getElementById('modal-body-content');
             const title = document.getElementById('modal-title');
@@ -1453,33 +1463,21 @@ document.addEventListener('DOMContentLoaded', () => {
         modal.style.display = 'flex';
     };
 
-    // Health Score bar click
-    const healthBar = document.getElementById('health-score-fill');
-    const healthCircle = document.getElementById('health-score-circle');
-    [healthBar, healthCircle].forEach(el => {
-        if (el) {
-            el.style.cursor = 'pointer';
-            el.addEventListener('click', () => renderScoreBreakdown('🏥 Company Health Score Breakdown', currentHealthBreakdown));
-        }
-    });
-    // Also make the parent bar clickable
-    if (healthBar && healthBar.parentElement) {
-        healthBar.parentElement.style.cursor = 'pointer';
-        healthBar.parentElement.addEventListener('click', () => renderScoreBreakdown('🏥 Company Health Score Breakdown', currentHealthBreakdown));
+    // Health Score bar click — bind the entire .score-row parent for maximum click area
+    const healthScoreRow = document.getElementById('health-score-circle');
+    if (healthScoreRow) {
+        // Walk up to the .score-row div
+        const healthRow = healthScoreRow.closest('.score-row') || healthScoreRow.parentElement;
+        healthRow.style.cursor = 'pointer';
+        healthRow.addEventListener('click', () => renderScoreBreakdown('🏥 Company Health Score Breakdown', currentHealthBreakdown));
     }
 
     // Buy Score bar click
-    const buyBar = document.getElementById('buy-score-fill');
-    const buyCircle = document.getElementById('buy-score-circle');
-    [buyBar, buyCircle].forEach(el => {
-        if (el) {
-            el.style.cursor = 'pointer';
-            el.addEventListener('click', () => renderScoreBreakdown('💰 Good to Buy Score Breakdown', currentBuyBreakdown));
-        }
-    });
-    if (buyBar && buyBar.parentElement) {
-        buyBar.parentElement.style.cursor = 'pointer';
-        buyBar.parentElement.addEventListener('click', () => renderScoreBreakdown('💰 Good to Buy Score Breakdown', currentBuyBreakdown));
+    const buyScoreRow = document.getElementById('buy-score-circle');
+    if (buyScoreRow) {
+        const buyRow = buyScoreRow.closest('.score-row') || buyScoreRow.parentElement;
+        buyRow.style.cursor = 'pointer';
+        buyRow.addEventListener('click', () => renderScoreBreakdown('💰 Good to Buy Score Breakdown', currentBuyBreakdown));
     }
 
 });
