@@ -510,8 +510,9 @@ def get_company_data(ticker_symbol: str):
         except Exception:
             pass
             
-        # Historic EPS growth
-        historic_eps_growth = None
+        # Historic EPS growth (3Y and 5Y)
+        historic_eps_growth_3y = None
+        historic_eps_growth_5y = None
         try:
             if financials is not None and not financials.empty:
                 indices = financials.index
@@ -520,17 +521,26 @@ def get_company_data(ticker_symbol: str):
                 elif 'Basic EPS' in indices: eps_row = financials.loc['Basic EPS']
                 
                 if eps_row is not None:
-                    eps_vals = eps_row.dropna().head(5).tolist()
-                    if len(eps_vals) >= 2:
-                        yoy_rates = []
-                        for i in range(len(eps_vals)-1):
-                            new_val, old_val = eps_vals[i], eps_vals[i+1]
-                            if old_val != 0:
-                                yoy_rates.append((new_val - old_val) / abs(old_val))
-                        if yoy_rates:
-                            historic_eps_growth = sum(yoy_rates) / len(yoy_rates)
+                    eps_vals = eps_row.dropna().tolist()
+                    
+                    def calc_yoy_avg(vals, num_years):
+                        v = vals[:num_years]
+                        if len(v) >= 2:
+                            yoy_rates = []
+                            for i in range(len(v)-1):
+                                new_val, old_val = v[i], v[i+1]
+                                if old_val != 0:
+                                    yoy_rates.append((new_val - old_val) / abs(old_val))
+                            if yoy_rates:
+                                return sum(yoy_rates) / len(yoy_rates)
+                        return None
+                        
+                    historic_eps_growth_3y = calc_yoy_avg(eps_vals, 3) # Last 3 years
+                    historic_eps_growth_5y = calc_yoy_avg(eps_vals, 5) # Last 5 years
+                    historic_eps_growth = historic_eps_growth_5y or historic_eps_growth_3y
         except Exception:
             pass
+
             
         # Interest coverage & EBIT Margin — reuse already-fetched financials
         interest_coverage = None
@@ -845,6 +855,8 @@ def get_company_data(ticker_symbol: str):
             "forward_pe": forward_pe,
             "ps_ratio": ps_ratio,
             "eps_growth": eps_growth,
+            "eps_growth_3y": historic_eps_growth_3y,
+            "eps_growth_5y": historic_eps_growth_5y,
             "fcf": fcf,
             "historic_fcf_growth": historic_fcf_growth,
             "historic_buyback_rate": historic_buyback_rate,

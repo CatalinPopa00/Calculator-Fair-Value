@@ -133,7 +133,9 @@ def get_valuation(ticker: str, wacc: float = None):
         # 3. Compute Valuations
         # Peter Lynch (Refined with 3Y Projection & Consensus Growth)
         # Use the already processed eps_growth from Yahoo (which includes consensus logic)
-        eps_growth_estimated = data.get("eps_growth") or 0.05
+        eps_growth_estimated = data.get("eps_growth_3y")
+        if eps_growth_estimated is None:
+            eps_growth_estimated = data.get("eps_growth") or 0.05
         
         # Calculate Industry Median PE for Peter Lynch fallback
         valid_pes = []
@@ -157,8 +159,10 @@ def get_valuation(ticker: str, wacc: float = None):
         # PEG Valuation (Sector-based)
         eps_base = data.get("trailing_eps") or data.get("forward_eps") or 0
         current_pe = current_price / eps_base if eps_base > 0 else 0
-        eps_growth_rate = data.get("eps_growth") or 0.05
-        company_peg = current_pe / (eps_growth_rate * 100) if eps_growth_rate > 0 else 0
+        eps_growth_rate_peg = data.get("eps_growth_5y")
+        if eps_growth_rate_peg is None:
+            eps_growth_rate_peg = data.get("eps_growth") or 0.05
+        company_peg = current_pe / (eps_growth_rate_peg * 100) if eps_growth_rate_peg > 0 else 0
         
         # Calculate Industry PEG from peers + Target Company
         valid_pegs = []
