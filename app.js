@@ -6,11 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const dashboard = document.getElementById('dashboard');
     const loadingState = document.getElementById('loading-state');
 
-    // Modal elements
-    const viewDataBtns = document.querySelectorAll('.modal-trigger');
-    const dataModal = document.getElementById('data-modal');
-    const closeModal = document.getElementById('close-modal');
-    const modalBodyContent = document.getElementById('modal-body-content');
+    // Modal elements (dynamically injected later via injectDataModal / injectScoreModal)
 
     // Global selected lynch method
     const lynchMethodSelect = document.getElementById('lynch-method-select');
@@ -1300,13 +1296,190 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     addToWatchlistBtn.addEventListener('click', toggleWatchlist);
-    
-    closeModal.addEventListener('click', () => {
-        dataModal.style.display = 'none';
+
+    // ── Inject Data Transparency Modal ──────────────────────────────
+    const injectDataModal = () => {
+        if (document.getElementById('data-modal')) return;
+        const html = `
+            <div id="data-modal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; justify-content:center; align-items:center; backdrop-filter: blur(6px);">
+                <div class="glass-card" style="width:90%; max-width:600px; padding:25px; position:relative; display:flex; flex-direction:column; gap:15px; border: 1px solid rgba(255,255,255,0.1); max-height: 80vh; overflow-y: auto;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:15px;">
+                        <h3 id="modal-title" style="margin:0; font-size:1.3rem; color:white;">Data Transparency</h3>
+                        <span id="close-modal" style="cursor:pointer; font-size:2rem; color:var(--text-muted); line-height:1;">&times;</span>
+                    </div>
+                    <div id="modal-body-content" style="color: var(--text-main); font-size: 0.95rem; line-height: 1.7;"></div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', html);
+        document.getElementById('close-modal').addEventListener('click', () => {
+            document.getElementById('data-modal').style.display = 'none';
+        });
+    };
+    injectDataModal();
+
+    // ── Inject Score Breakdown Modal ──────────────────────────────
+    const injectScoreModal = () => {
+        if (document.getElementById('score-modal')) return;
+        const html = `
+            <div id="score-modal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; justify-content:center; align-items:center; backdrop-filter: blur(6px);">
+                <div class="glass-card" style="width:90%; max-width:550px; padding:25px; position:relative; display:flex; flex-direction:column; gap:15px; border: 1px solid rgba(255,255,255,0.1); max-height: 80vh; overflow-y: auto;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:15px;">
+                        <h3 id="score-modal-title" style="margin:0; font-size:1.3rem; color:white;">Score Breakdown</h3>
+                        <span id="close-score-modal" style="cursor:pointer; font-size:2rem; color:var(--text-muted); line-height:1;">&times;</span>
+                    </div>
+                    <div id="score-modal-body" style="color: var(--text-main); font-size: 0.95rem; line-height: 1.7;"></div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', html);
+        document.getElementById('close-score-modal').addEventListener('click', () => {
+            document.getElementById('score-modal').style.display = 'none';
+        });
+    };
+    injectScoreModal();
+
+    // ── View Data Button Handlers ──────────────────────────────
+    document.querySelectorAll('.modal-trigger').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const model = btn.getAttribute('data-model');
+            const modal = document.getElementById('data-modal');
+            const body = document.getElementById('modal-body-content');
+            const title = document.getElementById('modal-title');
+            if (!modal || !body || !currentFormulaData) return;
+
+            let html = '';
+            const fmt = (v, decimals = 2) => v != null ? v.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) : 'N/A';
+            const fmtPct = (v) => v != null ? (v * 100).toFixed(2) + '%' : 'N/A';
+            const fmtBig = (v) => {
+                if (v == null) return 'N/A';
+                const a = Math.abs(v);
+                if (a >= 1e12) return '$' + (v / 1e12).toFixed(2) + 'T';
+                if (a >= 1e9) return '$' + (v / 1e9).toFixed(2) + 'B';
+                if (a >= 1e6) return '$' + (v / 1e6).toFixed(2) + 'M';
+                return '$' + v.toLocaleString();
+            };
+
+            const row = (label, value) => `<div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.05);"><span style="color:var(--text-muted);">${label}</span><span style="font-weight:600;">${value}</span></div>`;
+
+            if (model === 'dcf' && currentFormulaData.dcf) {
+                const d = currentFormulaData.dcf;
+                title.textContent = '📊 DCF Model — Data Transparency';
+                html = row('Free Cash Flow (TTM)', fmtBig(d.fcf))
+                     + row('EPS Growth (Est.)', fmtPct(d.eps_growth_estimated))
+                     + row('Discount Rate (WACC)', fmtPct(d.discount_rate))
+                     + row('Perpetual Growth', fmtPct(d.perpetual_growth))
+                     + row('Total Cash', fmtBig(d.total_cash))
+                     + row('Total Debt', fmtBig(d.total_debt))
+                     + row('Shares Outstanding', d.shares_outstanding ? d.shares_outstanding.toLocaleString() : 'N/A')
+                     + row('Historic Buyback Rate', fmtPct(d.historic_buyback_rate))
+                     + row('Intrinsic Value / Share', '$' + fmt(d.intrinsic_value))
+                     + row('Margin of Safety', fmtPct(d.margin_of_safety / 100));
+            } else if (model === 'relative' && currentFormulaData.relative) {
+                const r = currentFormulaData.relative;
+                title.textContent = '📊 Relative Valuation — Data Transparency';
+                html = row('Company EPS', '$' + fmt(r.company_eps))
+                     + row('Median Peer P/E', r.median_peer_pe ? r.median_peer_pe.toFixed(2) + 'x' : 'N/A')
+                     + row('Mean Peer P/E', r.mean_peer_pe ? r.mean_peer_pe.toFixed(2) + 'x' : 'N/A')
+                     + row('S&P 500 P/E', r.market_pe_trailing ? r.market_pe_trailing.toFixed(2) + 'x' : 'N/A')
+                     + row('Peers Used', (r.peers || []).join(', ') || 'N/A');
+            } else if (model === 'peter_lynch' && currentFormulaData.peter_lynch) {
+                const p = currentFormulaData.peter_lynch;
+                title.textContent = '📊 Forward Multiple — Data Transparency';
+                html = row('Trailing EPS', '$' + fmt(p.trailing_eps))
+                     + row('EPS Growth (Est.)', fmtPct(p.eps_growth_estimated))
+                     + row('Historic P/E (5Y Avg)', p.historic_pe ? p.historic_pe.toFixed(2) + 'x' : 'N/A')
+                     + row('Fair Value (PE 20)', '$' + fmt(p.fair_value_pe_20));
+            } else if (model === 'peg' && currentFormulaData.peg) {
+                const g = currentFormulaData.peg;
+                title.textContent = '📊 PEG Valuation — Data Transparency';
+                html = row('Current P/E', g.current_pe ? g.current_pe.toFixed(2) + 'x' : 'N/A')
+                     + row('EPS Growth (Est.)', fmtPct(g.eps_growth_estimated))
+                     + row('Current PEG', g.current_peg ? g.current_peg.toFixed(2) + 'x' : 'N/A')
+                     + row('Industry PEG', g.industry_peg ? g.industry_peg.toFixed(2) + 'x' : 'N/A')
+                     + row('Fair Value', '$' + fmt(g.fair_value))
+                     + row('Margin of Safety', fmtPct(g.margin_of_safety / 100));
+            } else {
+                title.textContent = 'Data Transparency';
+                html = '<p style="color:var(--text-muted);">No data available for this model.</p>';
+            }
+
+            body.innerHTML = html;
+            modal.style.display = 'flex';
+        });
     });
-    
-    document.getElementById('close-score-modal').addEventListener('click', () => {
-        document.getElementById('score-modal').style.display = 'none';
+
+    // ── Score Bar Click Handlers ──────────────────────────────
+    const renderScoreBreakdown = (title, breakdown) => {
+        const modal = document.getElementById('score-modal');
+        const body = document.getElementById('score-modal-body');
+        const titleEl = document.getElementById('score-modal-title');
+        if (!modal || !body) return;
+
+        titleEl.textContent = title;
+
+        if (!breakdown || breakdown.length === 0) {
+            body.innerHTML = '<p style="color:var(--text-muted);">No breakdown available.</p>';
+            modal.style.display = 'flex';
+            return;
+        }
+
+        let totalPts = 0, totalMax = 0;
+        let html = '';
+        breakdown.forEach(item => {
+            totalPts += item.points || 0;
+            totalMax += item.max_points || 0;
+            const pct = item.max_points > 0 ? ((item.points / item.max_points) * 100) : 0;
+            const barColor = pct >= 75 ? 'var(--accent)' : (pct >= 40 ? '#fbbf24' : 'var(--danger)');
+            html += `
+                <div style="margin-bottom: 12px; padding: 10px; background: rgba(255,255,255,0.03); border-radius: 8px;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom: 6px;">
+                        <span style="font-weight:600; font-size: 0.9rem;">${item.name}</span>
+                        <span style="color:var(--text-muted); font-size: 0.85rem;">${item.value || 'N/A'}</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap: 10px;">
+                        <div style="flex-grow:1; height:6px; background:rgba(255,255,255,0.05); border-radius:3px; overflow:hidden;">
+                            <div style="height:100%; width:${pct}%; background:${barColor}; border-radius:3px; transition: width 0.5s ease;"></div>
+                        </div>
+                        <span style="font-size:0.8rem; color:var(--text-muted); min-width:50px; text-align:right;">${item.points}/${item.max_points}</span>
+                    </div>
+                </div>
+            `;
+        });
+
+        html += `<div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); text-align: center; font-size: 1.1rem; font-weight: 700; color: white;">Total: ${totalPts} / ${totalMax}</div>`;
+
+        body.innerHTML = html;
+        modal.style.display = 'flex';
+    };
+
+    // Health Score bar click
+    const healthBar = document.getElementById('health-score-fill');
+    const healthCircle = document.getElementById('health-score-circle');
+    [healthBar, healthCircle].forEach(el => {
+        if (el) {
+            el.style.cursor = 'pointer';
+            el.addEventListener('click', () => renderScoreBreakdown('🏥 Company Health Score Breakdown', currentHealthBreakdown));
+        }
     });
+    // Also make the parent bar clickable
+    if (healthBar && healthBar.parentElement) {
+        healthBar.parentElement.style.cursor = 'pointer';
+        healthBar.parentElement.addEventListener('click', () => renderScoreBreakdown('🏥 Company Health Score Breakdown', currentHealthBreakdown));
+    }
+
+    // Buy Score bar click
+    const buyBar = document.getElementById('buy-score-fill');
+    const buyCircle = document.getElementById('buy-score-circle');
+    [buyBar, buyCircle].forEach(el => {
+        if (el) {
+            el.style.cursor = 'pointer';
+            el.addEventListener('click', () => renderScoreBreakdown('💰 Good to Buy Score Breakdown', currentBuyBreakdown));
+        }
+    });
+    if (buyBar && buyBar.parentElement) {
+        buyBar.parentElement.style.cursor = 'pointer';
+        buyBar.parentElement.addEventListener('click', () => renderScoreBreakdown('💰 Good to Buy Score Breakdown', currentBuyBreakdown));
+    }
 
 });
