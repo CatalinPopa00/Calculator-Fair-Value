@@ -164,10 +164,15 @@ def get_valuation(ticker: str, wacc: float = None):
         current_pe = current_price / eps_base if eps_base > 0 else 0
         # Use Yahoo 5Y Consensus as primary source for PEG
         eps_growth_rate_peg = data.get("eps_growth_5y_consensus")
+        
+        # Fallback to Nasdaq 3Y if 5Y is missing (User requested)
+        if eps_growth_rate_peg is None:
+            eps_growth_rate_peg = data.get("eps_growth_nasdaq_3y")
+            
         if eps_growth_rate_peg is None:
             eps_growth_rate_peg = data.get("eps_growth_5y") or data.get("eps_growth") or 0.05
             
-        peg_period_label = "Yahoo 5Y Cons." if data.get("eps_growth_5y_consensus") else ("5-Year Hist. Avg" if data.get("eps_growth_5y") else "Analyst Est.")
+        peg_period_label = "Yahoo 5Y Cons." if data.get("eps_growth_5y_consensus") else ("Nasdaq 3Y Forecast" if data.get("eps_growth_nasdaq_3y") else ("5-Year Hist. Avg" if data.get("eps_growth_5y") else "Analyst Est."))
         company_peg = current_pe / (eps_growth_rate_peg * 100) if eps_growth_rate_peg > 0 else 0
         
         # Calculate Industry PEG from peers + Target Company
