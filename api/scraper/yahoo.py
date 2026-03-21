@@ -72,21 +72,35 @@ def get_fx_rate(info: dict) -> float:
     return 1.0
 
 def get_nasdaq_earnings_growth(ticker: str, trailing_eps: float) -> float:
-    """Fetches the 1-year forward earnings growth estimate from Nasdaq."""
+    """
+    Fetches multi-year forward earnings growth estimates from Nasdaq.
+    Targets the 3-year horizon (e.g., 2027-2029) to calculate a CAGR.
+    """
     if not trailing_eps or trailing_eps <= 0:
         return None
     try:
         url = f'https://api.nasdaq.com/api/analyst/{ticker.upper()}/earnings-forecast'
         req = urllib.request.Request(url, headers={'User-Agent': get_random_agent()})
         with urllib.request.urlopen(req) as response:
-            data = json.loads(response.read())
+            raw_data = response.read()
+            data = json.loads(raw_data)
             
         rows = data.get('data', {}).get('yearlyForecast', {}).get('rows', [])
         if rows:
-            # First row is usually the next fiscal year
-            fwd_eps_nasdaq = float(rows[0].get('consensusEPSForecast', 0))
+            # We want to find a target year about 3 years out (index 2 or 3)
+            # or simply the furthest available year up to index 4.
+            target_idx = min(len(rows) - 1, 3) 
+            target_row = rows[target_idx]
+            
+            fwd_eps_nasdaq = float(target_row.get('consensusEPSForecast', 0))
             if fwd_eps_nasdaq > 0:
-                return (fwd_eps_nasdaq - trailing_eps) / trailing_eps
+                # Calculate CAGR: (Future / Current)^(1/n) - 1
+                # n = target_idx + 1 years (assuming rows[0] is Next FY)
+                # But let's be safer: if Row 0 is FY 2026 and we are in 2026, 
+                # Row 2 is 2 years from Row 0. Total years = target_idx + 1.
+                years = target_idx + 1
+                cagr = (fwd_eps_nasdaq / trailing_eps) ** (1 / years) - 1
+                return cagr
     except Exception as e:
         print(f"Error fetching Nasdaq growth for {ticker}: {e}")
     return None
@@ -332,10 +346,11 @@ def get_company_data(ticker_symbol: str):
         industry = info.get('industry')
         
         # Start background fetches while processing info
-        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as nasdaq_executor:
-            # Note: Nasdaq growth is already a rate (unaffected)
-            future_growth = nasdaq_executor.submit(get_nasdaq_earnings_growth, ticker_symbol, info.get('trailingEps'))
+        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as nasdaq_executor:
+            # Note: Nasdaq growth is now a 3Y CAGR
+            future_nasdaq_cagr = nasdaq_executor.submit(get_nasdaq_earnings_growth, ticker_symbol, info.get('trailingEps'))
             future_est = nasdaq_executor.submit(lambda: stock.earnings_estimate)
+            future_growth_est = nasdaq_executor.submit(lambda: stock.growth_estimates)
 
             # Valuation Multiples & EPS (Normalize EPS)
             trailing_eps = (info.get('trailingEps') or info.get('epsTrailingTwelveMonths', 0)) * fx_rate
@@ -370,10 +385,30 @@ def get_company_data(ticker_symbol: str):
             except Exception:
                 pass
             
+            # 1.5 Try YF growth_estimates (Analysis tab - Next 5 Years)
+            eps_growth_5y_consensus = None
+            try:
+                ge = future_growth_est.result(timeout=2)
+                if ge is not None and not ge.empty:
+                    if 'Next 5 Years' in ge.index:
+                        # Columns are [Ticker, 'S&P 500']
+                        val = ge.loc['Next 5 Years', ge.columns[0]]
+                        if val is not None and not pd.isna(val):
+                            eps_growth_5y_consensus = float(val)
+            except Exception:
+                pass
+
             # 2. Try Nasdaq growth (fallback)
+            nasdaq_growth_3y = None
+            try:
+                nasdaq_growth_3y = future_nasdaq_cagr.result(timeout=5)
+            except Exception:
+                pass
+
             if eps_growth is None:
-                eps_growth = future_growth.result(timeout=5)
-                if eps_growth: eps_growth_period = "Nasdaq Forecast"
+                eps_growth = eps_growth_5y_consensus or nasdaq_growth_3y
+                if eps_growth: 
+                    eps_growth_period = "Analyst 5Y Cons." if eps_growth_5y_consensus else "Nasdaq 3Y Forecast"
 
             # 3. Fallback to info.get('earningsGrowth')
             if eps_growth is None:
@@ -899,7 +934,9 @@ def get_company_data(ticker_symbol: str):
             "dividend_cagr_5y": dividend_cagr_5y,
             "red_flags": red_flags,
             "earnings_growth_est": info.get('earningsGrowth'),
-            "revenue_growth_est": info.get('revenueGrowth')
+            "revenue_growth_est": info.get('revenueGrowth'),
+            "eps_growth_5y_consensus": eps_growth_5y_consensus,
+            "eps_growth_nasdaq_3y": nasdaq_growth_3y
         }
     except Exception as e:
         print(f"Error fetching Yahoo Data for {ticker_symbol}: {e}")
@@ -1375,6 +1412,22 @@ def get_analyst_data(ticker_symbol: str) -> dict:
         # Smart selection: pick the healthiest forward year
         eps_forward_growth = info.get('earningsGrowth', 0.10)
         
+        # New: 5 year analyst consensus from "Analysis" tab (via yfinance.growth_estimates)
+        eps_growth_5y_consensus = None
+        try:
+            ge = stock.growth_estimates
+            if ge is not None and not ge.empty:
+                # Transpose if needed, depending on yfinance version it might be different
+                # But usually it's a DataFrame with Index = ['Current Qtr.', ..., 'Next 5 Years']
+                # and Column = [Ticker, 'S&P 500']
+                if 'Next 5 Years' in ge.index:
+                    ticker_col = ge.columns[0] # Usually the ticker itself
+                    val = ge.loc['Next 5 Years', ticker_col]
+                    if val is not None and not pd.isna(val):
+                        eps_growth_5y_consensus = float(val)
+        except:
+            pass
+
         g_0y = None
         g_1y = None
         if eps_estimates:
@@ -1407,7 +1460,8 @@ def get_analyst_data(ticker_symbol: str) -> dict:
                 "mean": rec_mean,
                 "counts": rec_counts
             },
-            "eps_5yr_growth": eps_forward_growth,
+            "eps_5yr_growth": eps_growth_5y_consensus if eps_growth_5y_consensus is not None else eps_forward_growth,
+            "eps_growth_5y_consensus": eps_growth_5y_consensus,
             "eps_estimates":  unified_eps,
             "rev_estimates":  unified_rev
         }

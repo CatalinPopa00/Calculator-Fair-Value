@@ -131,11 +131,14 @@ def get_valuation(ticker: str, wacc: float = None):
         market_data = get_market_averages()
         
         # 3. Compute Valuations
-        # Peter Lynch (Refined with 3Y Projection & Consensus Growth)
-        # Use the already processed eps_growth from Yahoo (which includes consensus logic)
-        eps_growth_estimated = data.get("eps_growth_3y")
+        # Peter Lynch (Refined with 3Y Projection - Nasdaq Default)
+        # Use Nasdaq 3Y CAGR as primary source for Multiple
+        eps_growth_estimated = data.get("eps_growth_nasdaq_3y")
         if eps_growth_estimated is None:
-            eps_growth_estimated = data.get("eps_growth") or 0.05
+            eps_growth_estimated = data.get("eps_growth_3y") or data.get("eps_growth") or 0.05
+        
+        lynch_period_label = "Nasdaq 3Y Forecast" if data.get("eps_growth_nasdaq_3y") else ("3-Year Hist. Avg" if data.get("eps_growth_3y") else "Analyst Est.")
+        
         
         # Calculate Industry Median PE for Peter Lynch fallback
         valid_pes = []
@@ -159,9 +162,12 @@ def get_valuation(ticker: str, wacc: float = None):
         # PEG Valuation (Sector-based)
         eps_base = data.get("trailing_eps") or data.get("forward_eps") or 0
         current_pe = current_price / eps_base if eps_base > 0 else 0
-        eps_growth_rate_peg = data.get("eps_growth_5y")
+        # Use Yahoo 5Y Consensus as primary source for PEG
+        eps_growth_rate_peg = data.get("eps_growth_5y_consensus")
         if eps_growth_rate_peg is None:
-            eps_growth_rate_peg = data.get("eps_growth") or 0.05
+            eps_growth_rate_peg = data.get("eps_growth_5y") or data.get("eps_growth") or 0.05
+            
+        peg_period_label = "Yahoo 5Y Cons." if data.get("eps_growth_5y_consensus") else ("5-Year Hist. Avg" if data.get("eps_growth_5y") else "Analyst Est.")
         company_peg = current_pe / (eps_growth_rate_peg * 100) if eps_growth_rate_peg > 0 else 0
         
         # Calculate Industry PEG from peers + Target Company
@@ -339,7 +345,7 @@ def get_valuation(ticker: str, wacc: float = None):
                 "trailing_eps": sanitize(data.get("trailing_eps")),
                 "fwd_eps": sanitize(lynch_result.get("fwd_eps")),
                 "eps_growth_estimated": sanitize(eps_growth_estimated),
-                "eps_growth_period": "3-Year Avg" if data.get("eps_growth_3y") else data.get("eps_growth_period", "Analyst Est."),
+                "eps_growth_period": lynch_period_label,
                 "historic_pe": sanitize(pe_historic),
                 "fwd_pe": sanitize(lynch_fwd_pe),
                 "fair_value": sanitize(lynch_fair_value),
@@ -351,7 +357,7 @@ def get_valuation(ticker: str, wacc: float = None):
             "peg": {
                 "current_pe": sanitize(current_pe),
                 "eps_growth_estimated": sanitize(eps_growth_rate_peg),
-                "eps_growth_period": "5-Year Avg" if data.get("eps_growth_5y") else "Analyst Est.",
+                "eps_growth_period": peg_period_label,
                 "current_peg": sanitize(company_peg) if company_peg > 0 else None,
                 "industry_peg": sanitize(industry_peg),
                 "fair_value": sanitize(peg_value),
