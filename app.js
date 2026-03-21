@@ -553,20 +553,20 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
 
-        const calcLocalDcf = (fcf, growth, wacc, perp, shares, cash, debt, buybackRate = 0) => {
+        const calcLocalDcf = (fcf, growth, wacc, perp, shares, cash, debt, buybackRate = 0, years = 5) => {
             if (!fcf || !shares || shares <= 0) return null;
             let pv = 0;
             let f = fcf;
-            for (let i = 1; i <= 5; i++) {
+            for (let i = 1; i <= years; i++) {
                 f *= (1 + growth);
                 pv += f / Math.pow(1 + wacc, i);
             }
             const tv = (f * (1 + perp)) / (wacc - perp);
-            const pvTv = tv / Math.pow(1 + wacc, 5);
+            const pvTv = tv / Math.pow(1 + wacc, years);
             const ev = pv + pvTv;
             const eqVal = ev + (cash || 0) - (debt || 0);
             if (eqVal <= 0) return null;
-            const effectiveShares = shares * Math.pow(1 - (buybackRate || 0), 5);
+            const effectiveShares = shares * Math.pow(1 - (buybackRate || 0), years);
             return eqVal / (effectiveShares > 0 ? effectiveShares : shares);
         };
 
@@ -578,6 +578,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (currentFormulaData.dcf) {
                 const fcfSourceEl = document.getElementById('fcf-source');
                 const fcfSource = fcfSourceEl ? fcfSourceEl.value : 'analyst';
+                const yearsSourceEl = document.getElementById('dcf-years-source');
+                const yearsVal = yearsSourceEl ? yearsSourceEl.value : '5yr';
+                const years = yearsVal === '10yr' ? 10 : 5;
+                const dcfData = currentFormulaData.dcf[yearsVal] || currentFormulaData.dcf["5yr"];
+                
                 const dcfInputs = document.getElementById('dcf-custom-inputs');
                 if (dcfInputs) dcfInputs.style.display = fcfSource === 'custom' ? 'flex' : 'none';
 
@@ -604,21 +609,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     
                     if (buybackRate === 0 && (!waccInput || !waccInput.value || parseFloat(waccInput.value)/100 === backendWacc)) {
-                        dcfVal = currentFormulaData.dcf.intrinsic_value;
+                        dcfVal = dcfData ? dcfData.intrinsic_value : currentFormulaData.dcf.intrinsic_value;
                     } else {
                         const g = currentFormulaData.dcf.eps_growth_estimated || 0.10;
                         const w = waccInput && waccInput.value ? parseFloat(waccInput.value)/100 : (currentFormulaData.dcf.discount_rate || 0.09);
                         const p = currentFormulaData.dcf.perpetual_growth || 0.02;
-                        dcfVal = calcLocalDcf(baseFcf, g, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate);
+                        dcfVal = calcLocalDcf(baseFcf, g, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years);
                     }
                 } else if (fcfSource === 'historical') {
                     const hg = prof.historic_fcf_growth != null ? prof.historic_fcf_growth : 0.05;
-                    dcfVal = calcLocalDcf(baseFcf, hg, 0.09, 0.02, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate);
+                    dcfVal = calcLocalDcf(baseFcf, hg, 0.09, 0.02, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years);
                 } else if (fcfSource === 'custom') {
                     const g = parseFloat(document.getElementById('dcf-custom-growth').value) / 100 || 0.15;
                     const w = parseFloat(document.getElementById('dcf-custom-wacc').value) / 100 || 0.09;
                     const p = parseFloat(document.getElementById('dcf-custom-perp').value) / 100 || 0.025;
-                    dcfVal = calcLocalDcf(baseFcf, g, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate);
+                    dcfVal = calcLocalDcf(baseFcf, g, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years);
                 }
             }
             setValuationStatus(dcfVal, data.current_price, 'dcf-status', 'dcf-value');
@@ -816,7 +821,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.triggerRecalculate = updateFairValue;
 
         const inputSelectors = [
-            'fcf-source', 'dcf-custom-growth', 'dcf-custom-wacc', 'dcf-custom-perp',
+            'fcf-source', 'dcf-years-source', 'dcf-custom-growth', 'dcf-custom-wacc', 'dcf-custom-perp',
             'dcf-buyback-source', 'dcf-custom-buyback', 'relative-variant',
             'lynch-multiple', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth',
             'peg-eps-source', 'peg-custom-growth'
@@ -1361,21 +1366,123 @@ document.addEventListener('DOMContentLoaded', () => {
                 return '$' + v.toLocaleString();
             };
 
+            const fmtBigNum = (v, prefix = '') => {
+                if (v == null) return 'N/A';
+                const a = Math.abs(v);
+                if (a >= 1e12) return prefix + (v / 1e12).toFixed(2) + 'T';
+                if (a >= 1e9) return prefix + (v / 1e9).toFixed(2) + 'B';
+                if (a >= 1e6) return prefix + (v / 1e6).toFixed(2) + 'M';
+                return prefix + v.toLocaleString();
+            };
+
             const row = (label, value) => `<div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.05);"><span style="color:var(--text-muted);">${label}</span><span style="font-weight:600;">${value}</span></div>`;
 
             if (model === 'dcf' && currentFormulaData.dcf) {
                 const d = currentFormulaData.dcf;
-                title.textContent = '📊 DCF Model — Data Transparency';
-                html = row('Free Cash Flow (TTM)', fmtBig(d.fcf))
-                     + row('EPS Growth (Est.)', fmtPct(d.eps_growth_estimated))
-                     + row('Discount Rate (WACC)', fmtPct(d.discount_rate))
-                     + row('Perpetual Growth', fmtPct(d.perpetual_growth))
-                     + row('Total Cash', fmtBig(d.total_cash))
-                     + row('Total Debt', fmtBig(d.total_debt))
-                     + row('Shares Outstanding', d.shares_outstanding ? d.shares_outstanding.toLocaleString() : 'N/A')
-                     + row('Historic Buyback Rate', fmtPct(d.historic_buyback_rate))
-                     + row('Intrinsic Value / Share', '$' + fmt(d.intrinsic_value))
-                     + row('Margin of Safety', fmtPct(d.margin_of_safety / 100));
+                title.textContent = 'Discounted Cash Flow';
+
+                const yearsSourceEl = document.getElementById('dcf-years-source');
+                let currentYears = yearsSourceEl ? yearsSourceEl.value : '5yr';
+                const renderDCFView = (yp) => {
+                    const dataObj = d[yp] || d["5yr"];
+                    if (!dataObj) return '<p style="color:var(--text-muted);">Data not available.</p>';
+                    
+                    const fcfYears = dataObj.fcf_years || [];
+                    const sensMatrix = dataObj.sensitivity_matrix || [];
+                    const revDcf = dataObj.reverse_dcf_growth;
+                    
+                    let tableHTML = `<table style="width:100%; border-collapse:collapse; margin-top:20px; font-size: 0.95rem;">
+                                        <tr style="border-bottom:1px solid rgba(255,255,255,0.2);"><th style="text-align:left; padding:8px 0; color:white;">Year</th><th style="text-align:right; padding:8px 0; color:white;">Projected FCF</th></tr>`;
+                    fcfYears.forEach((val, i) => {
+                        tableHTML += `<tr><td style="padding:6px 0; color:white;">Year ${i+1}</td><td style="text-align:right; color:white;">${fmtBig(val)}</td></tr>`;
+                    });
+                    tableHTML += `</table>`;
+
+                    let matrixHTML = '';
+                    if (sensMatrix.length > 0) {
+                        matrixHTML = `<div style="margin-top: 25px;">
+                            <h4 style="margin-bottom:15px; font-size:1rem; text-transform:uppercase; letter-spacing:1px; color:white; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:5px;">DCF Sensitivity Matrix</h4>
+                            <table style="width:100%; border-collapse:collapse; font-size: 0.9rem; text-align:center; background: rgba(0,0,0,0.2); border-radius:6px; overflow:hidden;">`;
+                        
+                        matrixHTML += `<tr><th style="padding:10px; border:1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color:white;">WACC \\ Growth</th>`;
+                        const firstRowVals = sensMatrix[0].values;
+                        firstRowVals.forEach(v => {
+                            matrixHTML += `<th style="padding:10px; border:1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color:white;">${fmtPct(v.perpetual_growth)}</th>`;
+                        });
+                        matrixHTML += `</tr>`;
+
+                        sensMatrix.forEach(row => {
+                            matrixHTML += `<tr><th style="padding:10px; border:1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color:white;">${fmtPct(row.discount_rate)}</th>`;
+                            row.values.forEach(v => {
+                                matrixHTML += `<td style="padding:10px; border:1px solid rgba(255,255,255,0.1); color:var(--text-main);">$${fmt(v.fair_value)}</td>`;
+                            });
+                            matrixHTML += `</tr>`;
+                        });
+                        matrixHTML += `</table></div>`;
+                    }
+
+                    return `
+                        <div style="display:flex; justify-content:center; gap:10px; margin-bottom: 20px;">
+                            <button class="dcf-toggle-btn ${yp==='5yr'?'active':''}" data-yp="5yr" style="padding:6px 20px; border-radius:20px; border:1px solid var(--accent); background:${yp==='5yr'?'var(--accent)':'transparent'}; color:${yp==='5yr'?'#fff':'var(--accent)'}; cursor:pointer; font-weight:600; font-size:0.9rem; transition: background 0.2s;">5 Years</button>
+                            <button class="dcf-toggle-btn ${yp==='10yr'?'active':''}" data-yp="10yr" style="padding:6px 20px; border-radius:20px; border:1px solid var(--accent); background:${yp==='10yr'?'var(--accent)':'transparent'}; color:${yp==='10yr'?'#fff':'var(--accent)'}; cursor:pointer; font-weight:600; font-size:0.9rem; transition: background 0.2s;">10 Years</button>
+                        </div>
+                        
+                        <div style="background:rgba(255,255,255,0.02); padding:20px; border-radius:8px; border:1px solid rgba(255,255,255,0.05); margin-bottom:20px;">
+                            <div style="display:flex; justify-content:space-between; padding:4px 0;"><span style="color:var(--text-muted);">Discount Rate (WACC):</span><span style="font-weight:500; color:white;">${fmtPct(d.discount_rate)}</span></div>
+                            <div style="display:flex; justify-content:space-between; padding:4px 0;"><span style="color:var(--text-muted);">Perpetual Growth Rate:</span><span style="font-weight:500; color:white;">${fmtPct(d.perpetual_growth)}</span></div>
+                            <div style="display:flex; justify-content:space-between; padding:4px 0;"><span style="color:var(--text-muted);">Shares Outstanding:</span><span style="font-weight:500; color:white;">${d.shares_outstanding ? fmtBigNum(d.shares_outstanding, '') : 'N/A'}</span></div>
+                        </div>
+
+                        ${tableHTML}
+
+                        <div style="margin-top:25px; border-top:1px solid rgba(255,255,255,0.1); padding-top:20px;">
+                            <div style="display:flex; justify-content:space-between; padding:5px 0;"><span style="color:var(--text-muted);">Total PV of FCFs:</span><span style="font-weight:500; color:white;">${fmtBig(dataObj.sum_pv_cf)}</span></div>
+                            <div style="display:flex; justify-content:space-between; padding:5px 0;"><span style="color:var(--text-muted);">Terminal Value:</span><span style="font-weight:500; color:white;">${fmtBig(dataObj.terminal_value)}</span></div>
+                            <div style="display:flex; justify-content:space-between; padding:5px 0;"><span style="color:var(--text-muted);">PV of Terminal Value:</span><span style="font-weight:500; color:white;">${fmtBig(dataObj.pv_terminal_value)}</span></div>
+                        </div>
+
+                        <div style="margin-top:25px; border-top:1px solid rgba(255,255,255,0.1); padding-top:20px;">
+                            <div style="display:flex; justify-content:space-between; padding:5px 0;"><span style="color:var(--text-muted);">Enterprise Value:</span><span style="font-weight:800; color:white; font-size:1.05rem;">${fmtBig(dataObj.enterprise_value)}</span></div>
+                            <div style="display:flex; justify-content:space-between; padding:5px 0;"><span style="color:var(--text-muted);">+ Cash & Equivalents:</span><span style="font-weight:600; color:var(--accent);">${fmtBig(dataObj.total_cash)}</span></div>
+                            <div style="display:flex; justify-content:space-between; padding:5px 0;"><span style="color:var(--text-muted);">- Total Debt:</span><span style="font-weight:600; color:var(--danger);">${fmtBig(dataObj.total_debt)}</span></div>
+                        </div>
+
+                        <div style="margin-top:20px; border-top:1px solid rgba(255,255,255,0.1); padding-top:20px;">
+                            <div style="display:flex; justify-content:space-between; padding:5px 0;"><span style="color:var(--text-muted);">Equity Value:</span><span style="font-weight:800; color:white; font-size:1.05rem;">${fmtBig(dataObj.equity_value)}</span></div>
+                            <div style="display:flex; justify-content:space-between; padding:10px 0; margin-top:5px;"><span style="color:var(--text-muted);">Intrinsic Value per Share:</span><span style="font-weight:800; color:var(--accent); font-size:1.15rem;">$${fmt(dataObj.intrinsic_value)}</span></div>
+                        </div>
+
+                        <div style="margin-top:25px; display:flex; flex-direction:column; gap:8px;">
+                            <span style="color:var(--text-muted); font-size:0.95rem;">Market Implied FCF Growth (Reverse DCF):</span>
+                            <span style="font-weight:800; color:var(--accent); font-size:1.2rem;">${fmtPct(revDcf)}</span>
+                        </div>
+
+                        ${matrixHTML}
+                    `;
+                };
+
+                html = renderDCFView(currentYears);
+                body.innerHTML = html;
+                modal.style.display = 'flex';
+                
+                const attachToggleEvents = () => {
+                    const btns = body.querySelectorAll('.dcf-toggle-btn');
+                    btns.forEach(b => {
+                        b.addEventListener('click', (e) => {
+                            currentYears = e.target.getAttribute('data-yp');
+                            const yearsSourceEl = document.getElementById('dcf-years-source');
+                            if (yearsSourceEl) {
+                                yearsSourceEl.value = currentYears;
+                                if (typeof triggerRecalculate === 'function') triggerRecalculate();
+                                else if (typeof window.triggerRecalculate === 'function') window.triggerRecalculate();
+                            }
+                            body.innerHTML = renderDCFView(currentYears);
+                            attachToggleEvents();
+                        });
+                    });
+                };
+                attachToggleEvents();
+                return;
             } else if (model === 'relative' && currentFormulaData.relative) {
                 const r = currentFormulaData.relative;
                 title.textContent = '📊 Relative Valuation — Data Transparency';

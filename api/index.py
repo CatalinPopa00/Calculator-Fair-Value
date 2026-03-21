@@ -184,10 +184,9 @@ def get_valuation(ticker: str, wacc: float = None):
         shares = data.get("shares_outstanding")
         eps_growth = data.get("eps_growth", 0.05) if data.get("eps_growth") is not None else 0.05
         
-        dcf_sensitivity = []
-        reverse_dcf_growth = None
         dcf_value = None
-        dcf_result = None
+        dcf_5yr = None
+        dcf_10yr = None
     
         # Dynamic WACC (CAPM)
         risk_free_rate = get_risk_free_rate()
@@ -201,16 +200,32 @@ def get_valuation(ticker: str, wacc: float = None):
         # Use custom WACC if provided by frontend, else dynamic_wacc
         discount_rate = (wacc / 100.0) if wacc is not None else dynamic_wacc
         perpetual_growth = 0.02 # 2% GDP growth standard
+        
         if fcf and shares and fcf > 0:
-            dcf_result = calculate_dcf(fcf, eps_growth, discount_rate, perpetual_growth, shares, data.get("total_cash"), data.get("total_debt"))
-            if dcf_result:
-                dcf_value = dcf_result.get("fair_value")
+            # 5 Year Calculation (Default for Dashboard)
+            res_5 = calculate_dcf(fcf, eps_growth, discount_rate, perpetual_growth, shares, data.get("total_cash"), data.get("total_debt"), years=5)
+            sens_5 = calculate_dcf_sensitivity(fcf, eps_growth, shares, data.get("total_cash"), data.get("total_debt"), 5, discount_rate, perpetual_growth)
+            rev_5 = calculate_reverse_dcf(current_price, fcf, discount_rate, perpetual_growth, shares, data.get("total_cash"), data.get("total_debt"), 5)
+            
+            if res_5:
+                dcf_value = res_5.get("fair_value")
+                dcf_5yr = {
+                    "result": res_5,
+                    "sensitivity": sens_5,
+                    "reverse_dcf": rev_5
+                }
                 
-            dcf_sensitivity = calculate_dcf_sensitivity(fcf, eps_growth, shares, data.get("total_cash"), data.get("total_debt"), 5, discount_rate, perpetual_growth)
-            reverse_dcf_growth = calculate_reverse_dcf(current_price, fcf, discount_rate, perpetual_growth, shares, data.get("total_cash"), data.get("total_debt"), 5)
-        
-
-        
+            # 10 Year Calculation 
+            res_10 = calculate_dcf(fcf, eps_growth, discount_rate, perpetual_growth, shares, data.get("total_cash"), data.get("total_debt"), years=10)
+            sens_10 = calculate_dcf_sensitivity(fcf, eps_growth, shares, data.get("total_cash"), data.get("total_debt"), 10, discount_rate, perpetual_growth)
+            rev_10 = calculate_reverse_dcf(current_price, fcf, discount_rate, perpetual_growth, shares, data.get("total_cash"), data.get("total_debt"), 10)
+            
+            if res_10:
+                dcf_10yr = {
+                    "result": res_10,
+                    "sensitivity": sens_10,
+                    "reverse_dcf": rev_10
+                }
         # historical trends
         historical_trends = data.get("historical_trends", [])
             
@@ -288,6 +303,32 @@ def get_valuation(ticker: str, wacc: float = None):
         if lynch_result.get("fwd_eps") and median_peer_pe:
             fair_value_sector_pe = lynch_result.get("fwd_eps") * median_peer_pe
 
+        def _format_dcf_payload(dcf_dict):
+            if not dcf_dict or not dcf_dict.get("result"):
+                return None
+            res = dcf_dict["result"]
+            sens = dcf_dict["sensitivity"]
+            rev = dcf_dict["reverse_dcf"]
+            return {
+                "fcf_years": [sanitize(x) for x in res.get("fcf_years", [])],
+                "pv_fcf_years": [sanitize(x) for x in res.get("pv_fcf_years", [])],
+                "terminal_value": sanitize(res.get("terminal_value")),
+                "pv_terminal_value": sanitize(res.get("pv_terminal_value")),
+                "sum_pv_cf": sanitize(res.get("sum_pv_cf")),
+                "enterprise_value": sanitize(res.get("enterprise_value")),
+                "total_cash": sanitize(res.get("total_cash")),
+                "total_debt": sanitize(res.get("total_debt")),
+                "equity_value": sanitize(res.get("equity_value")),
+                "intrinsic_value": sanitize(res.get("fair_value")),
+                "sensitivity_matrix": [
+                    {
+                        "discount_rate": sanitize(row["discount_rate"]),
+                        "values": [{"perpetual_growth": sanitize(v["perpetual_growth"]), "fair_value": sanitize(v["fair_value"])} for v in row["values"]]
+                    } for row in sens
+                ] if sens else [],
+                "reverse_dcf_growth": sanitize(rev) if rev is not None else None
+            }
+
         formula_data = {
             "peter_lynch": {
                 "current_price": sanitize(current_price),
@@ -319,26 +360,13 @@ def get_valuation(ticker: str, wacc: float = None):
                 "perpetual_growth": perpetual_growth,
                 "shares_outstanding": shares,
                 "historic_buyback_rate": sanitize(data.get("historic_buyback_rate")),
-                "fcf_years": [sanitize(x) for x in dcf_result.get("fcf_years", [])] if dcf_result else [],
-                "pv_fcf_years": [sanitize(x) for x in dcf_result.get("pv_fcf_years", [])] if dcf_result else [],
-                "terminal_value": sanitize(dcf_result.get("terminal_value")) if dcf_result else None,
-                "pv_terminal_value": sanitize(dcf_result.get("pv_terminal_value")) if dcf_result else None,
-            "sum_pv_cf": sanitize(dcf_result.get("sum_pv_cf")) if dcf_result else None,
-            "enterprise_value": sanitize(dcf_result.get("enterprise_value")) if dcf_result else None,
-            "total_cash": sanitize(dcf_result.get("total_cash")) if dcf_result else None,
-            "total_debt": sanitize(dcf_result.get("total_debt")) if dcf_result else None,
-            "equity_value": sanitize(dcf_result.get("equity_value")) if dcf_result else None,
-            "intrinsic_value": sanitize(dcf_value),
-            "current_price": sanitize(current_price),
-            "margin_of_safety": sanitize(((dcf_value - current_price) / dcf_value * 100)) if dcf_value and dcf_value > 0 else None,
-            "sensitivity_matrix": [
-                {
-                    "discount_rate": sanitize(row["discount_rate"]),
-                    "values": [{"perpetual_growth": sanitize(v["perpetual_growth"]), "fair_value": sanitize(v["fair_value"])} for v in row["values"]]
-                } for row in dcf_sensitivity
-            ] if dcf_sensitivity else [],
-            "reverse_dcf_growth": sanitize(reverse_dcf_growth) if reverse_dcf_growth is not None else None
-        },
+                "5yr": _format_dcf_payload(dcf_5yr) if dcf_5yr else None,
+                "10yr": _format_dcf_payload(dcf_10yr) if dcf_10yr else None,
+                "intrinsic_value": sanitize(dcf_value),
+                "margin_of_safety": sanitize(((dcf_value - current_price) / dcf_value * 100)) if dcf_value and dcf_value > 0 else None,
+                "current_price": sanitize(current_price)
+            }
+        ,
         "relative": {
             "company_eps": sanitize(data.get("trailing_eps")),
             "company_trailing_pe": sanitize(pe_historic),
