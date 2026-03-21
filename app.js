@@ -1317,57 +1317,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     addToWatchlistBtn.addEventListener('click', toggleWatchlist);
 
-    // ── Inject Data Transparency Modal ──────────────────────────────
-    const injectDataModal = () => {
-        if (document.getElementById('data-modal')) return;
-        const html = `
-            <div id="data-modal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; justify-content:center; align-items:center; backdrop-filter: blur(6px);">
-                <div class="glass-card" style="width:90%; max-width:600px; padding:25px; position:relative; display:flex; flex-direction:column; gap:15px; border: 1px solid rgba(255,255,255,0.1); max-height: 80vh; overflow-y: auto;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:15px;">
-                        <h3 id="modal-title" style="margin:0; font-size:1.3rem; color:white;">Data Transparency</h3>
-                        <span id="close-modal" style="cursor:pointer; font-size:2rem; color:var(--text-muted); line-height:1;">&times;</span>
-                    </div>
-                    <div id="modal-body-content" style="color: var(--text-main); font-size: 0.95rem; line-height: 1.7;"></div>
-                </div>
-            </div>
-        `;
-        document.body.insertAdjacentHTML('beforeend', html);
-        const dataModalEl = document.getElementById('data-modal');
-        document.getElementById('close-modal').addEventListener('click', (e) => {
+    // ── Bind Modal Close Handlers ──────────────────────────────
+    const dataModalEl = document.getElementById('data-modal');
+    if (dataModalEl) {
+        document.getElementById('close-modal')?.addEventListener('click', (e) => {
             e.stopPropagation();
             dataModalEl.style.display = 'none';
         });
         dataModalEl.addEventListener('click', (e) => {
             if (e.target === dataModalEl) dataModalEl.style.display = 'none';
         });
-    };
-    injectDataModal();
+    }
 
-    // ── Inject Score Breakdown Modal ──────────────────────────────
-    const injectScoreModal = () => {
-        if (document.getElementById('score-modal')) return;
-        const html = `
-            <div id="score-modal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; justify-content:center; align-items:center; backdrop-filter: blur(6px);">
-                <div class="glass-card" style="width:90%; max-width:550px; padding:25px; position:relative; display:flex; flex-direction:column; gap:15px; border: 1px solid rgba(255,255,255,0.1); max-height: 80vh; overflow-y: auto;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:15px;">
-                        <h3 id="score-modal-title" style="margin:0; font-size:1.3rem; color:white;">Score Breakdown</h3>
-                        <span id="close-score-modal" style="cursor:pointer; font-size:2rem; color:var(--text-muted); line-height:1;">&times;</span>
-                    </div>
-                    <div id="score-modal-body" style="color: var(--text-main); font-size: 0.95rem; line-height: 1.7;"></div>
-                </div>
-            </div>
-        `;
-        document.body.insertAdjacentHTML('beforeend', html);
-        const scoreModalEl = document.getElementById('score-modal');
-        document.getElementById('close-score-modal').addEventListener('click', (e) => {
+    const scoreModalEl = document.getElementById('score-modal');
+    if (scoreModalEl) {
+        document.getElementById('close-score-modal')?.addEventListener('click', (e) => {
             e.stopPropagation();
             scoreModalEl.style.display = 'none';
         });
         scoreModalEl.addEventListener('click', (e) => {
             if (e.target === scoreModalEl) scoreModalEl.style.display = 'none';
         });
-    };
-    injectScoreModal();
+    }
 
     // ── View Data Button Handlers ──────────────────────────────
     document.querySelectorAll('.modal-trigger').forEach(btn => {
@@ -1442,7 +1413,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ── Score Bar Click Handlers ──────────────────────────────
     function renderScoreBreakdown(title, totalScore, breakdown) {
         const modal = document.getElementById('score-modal');
-        const body = document.getElementById('score-modal-body');
+        const body = document.getElementById('score-modal-body-content');
         const titleEl = document.getElementById('score-modal-title');
         if (!modal || !body) return;
 
