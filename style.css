@@ -1299,6 +1299,47 @@ body {
     word-break: break-word;
 }
 
+/* Watchlist Specific Base Styles */
+.watchlist-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.2rem 1.5rem;
+    margin-bottom: 1rem;
+    flex-wrap: nowrap;
+    position: relative;
+    overflow: hidden;
+}
+
+.mini-score-circle {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: white;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.score-green {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.score-yellow {
+    background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.score-red {
+    background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
 /* Trends Table */
 .trends-section {
     margin-top: 2rem;
