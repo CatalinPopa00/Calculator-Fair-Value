@@ -450,14 +450,12 @@ document.addEventListener('DOMContentLoaded', () => {
         updateScoreUI(data.buy_score, 'buy-score-circle', 'buy-score-fill');
 
         // Bind click handlers on score rows (must be done here, after data is loaded)
-        const healthRow = document.getElementById('health-score-circle')?.closest('.score-row');
+        const healthRow = document.getElementById('health-score-row');
         if (healthRow) {
-            healthRow.style.cursor = 'pointer';
             healthRow.onclick = () => renderScoreBreakdown('Company Health Breakdown', data.health_score, currentHealthBreakdown);
         }
-        const buyRow = document.getElementById('buy-score-circle')?.closest('.score-row');
+        const buyRow = document.getElementById('buy-score-row');
         if (buyRow) {
-            buyRow.style.cursor = 'pointer';
             buyRow.onclick = () => renderScoreBreakdown('Good to Buy Score Breakdown', data.buy_score, currentBuyBreakdown);
         }
 
