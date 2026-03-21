@@ -350,7 +350,7 @@ def get_valuation(ticker: str, wacc: float = None):
             },
             "peg": {
                 "current_pe": sanitize(current_pe),
-                "eps_growth_estimated": sanitize(eps_growth_rate),
+                "eps_growth_estimated": sanitize(eps_growth_rate_peg),
                 "current_peg": sanitize(company_peg) if company_peg > 0 else None,
                 "industry_peg": sanitize(industry_peg),
                 "fair_value": sanitize(peg_value),
