@@ -1432,7 +1432,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // ── Score Bar Click Handlers ──────────────────────────────
-    const renderScoreBreakdown = (title, totalScore, breakdown) => {
+    function renderScoreBreakdown(title, totalScore, breakdown) {
         const modal = document.getElementById('score-modal');
         const body = document.getElementById('score-modal-body');
         const titleEl = document.getElementById('score-modal-title');
