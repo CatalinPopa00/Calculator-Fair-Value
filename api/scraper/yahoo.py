@@ -1090,14 +1090,25 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
                 resp = requests.get(url, headers=headers, timeout=10)
                 if resp.status_code == 200:
                     import re
-                    matches = re.findall(r'/quote/([A-Z^.-]+)/', resp.text)
                     ignore = {'GSPC', 'DJI', 'IXIC', 'RUT', 'TNX', 'VIX', target_ticker}
                     found = []
-                    for m in matches:
-                        if m not in ignore and 1 < len(m) <= 5 and m.isalpha() and '.' not in m:
-                            if m not in found:
+                    # Look for tickers in common Yahoo Finance patterns
+                    patterns = [
+                        r'/quote/([A-Z]{1,5})/',                       # Standard tickers
+                        r'symbol":"([A-Z]{1,5})"',                    # JSON-embedded symbols
+                        r'data-symbol="([A-Z]{1,5})"',                 # Data attributes
+                        r'symbol">([A-Z]{1,5})</span>'                 # Span content
+                    ]
+                    found_set = set()
+                    for pattern in patterns:
+                        matches = re.findall(pattern, resp.text)
+                        for m in matches:
+                            if m not in ignore and m.isalpha() and m not in found_set:
+                                found_set.add(m)
                                 found.append(m)
-                    peers = found[:10]
+                                if len(found) >= 15: break
+                        if len(found) >= 15: break
+                    peers = found[:15]
             except Exception as e_scrape:
                 print(f"Scraping fallback error: {e_scrape}")
 
@@ -1159,7 +1170,7 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
                 print(f"Error validating peer {ticker}: {e}")
                 continue
 
-        # Pass 2: Broader Sector Match (if limit not reached)
+        # Pass 2: Broader Sector Match + Soft Industry Check
         if len(final_peers) < limit:
             for ticker in candidates:
                 if len(final_peers) >= limit:
@@ -1193,6 +1204,22 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
                         final_peers.append(data)
                 except Exception as e:
                     print(f"Error validating peer fallback {ticker}: {e}")
+                    continue
+
+        # Pass 3: Ultimate Fallback - Any Candidate from the same Sector (last resort)
+        if len(final_peers) < limit:
+            for ticker in candidates:
+                if len(final_peers) >= limit:
+                    break
+                if any(p.get('ticker') == ticker for p in final_peers):
+                    continue
+                try:
+                    data = get_lightweight_company_data(ticker)
+                    if not data or not data.get('ticker'):
+                        continue
+                    if target_sector and data.get('sector') == target_sector:
+                        final_peers.append(data)
+                except:
                     continue
 
         return final_peers
