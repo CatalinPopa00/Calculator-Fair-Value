@@ -1047,31 +1047,56 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
 
         print(f"Validating {len(candidates)} candidates for sector: {target_sector}")
 
+        # Pass 1: Strict Industry Match
         for ticker in candidates:
             if len(final_peers) >= limit:
                 break
-                
             try:
                 data = get_lightweight_company_data(ticker)
                 if not data or not data.get('ticker'):
                     continue
-                
-                peer_sector = data.get('sector')
                 peer_industry = data.get('industry')
-                
-                # Validation: prefer industry match, then sector match
-                is_match = False
-                if target_industry and peer_industry and peer_industry == target_industry:
-                    is_match = True
-                elif target_sector and peer_sector == target_sector:
-                    is_match = True
-                
-                if is_match:
+                if target_industry and peer_industry == target_industry:
                     final_peers.append(data)
-                
             except Exception as e:
                 print(f"Error validating peer {ticker}: {e}")
                 continue
+
+        # Pass 2: Broader Sector Match (if limit not reached)
+        if len(final_peers) < limit:
+            for ticker in candidates:
+                if len(final_peers) >= limit:
+                    break
+                # Skip if already added
+                if any(p.get('ticker') == ticker for p in final_peers):
+                    continue
+                try:
+                    data = get_lightweight_company_data(ticker)
+                    if not data or not data.get('ticker'):
+                        continue
+                        
+                    peer_sector = data.get('sector')
+                    peer_industry = data.get('industry')
+                    
+                    if target_sector and peer_sector == target_sector:
+                        # Soft Industry Match to prevent ridiculous cross-sector pairings
+                        if target_industry and peer_industry:
+                            t_ind = target_industry.lower()
+                            p_ind = peer_industry.lower()
+                            
+                            # Software shouldn't match Chips/Hardware
+                            if 'software' in t_ind and 'software' not in p_ind:
+                                continue
+                            if 'semiconductor' in t_ind and 'semiconductor' not in p_ind:
+                                continue
+                            # Autos shouldn't match E-Commerce/Retail (fixes TSLA matching AMZN)
+                            if 'auto' in t_ind and 'auto' not in p_ind:
+                                continue
+                                
+                        final_peers.append(data)
+                except Exception as e:
+                    print(f"Error validating peer fallback {ticker}: {e}")
+                    continue
 
         return final_peers
         

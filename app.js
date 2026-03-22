@@ -36,6 +36,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Watchlist State 
     let watchlist = JSON.parse(localStorage.getItem('fairValueWatchlist')) || [];
+    
+    // Sync watchlist from server on init
+    fetch('/api/watchlist').then(r => r.json()).then(data => {
+        if (data && data.tickers) {
+            watchlist = data.tickers;
+            localStorage.setItem('fairValueWatchlist', JSON.stringify(watchlist));
+        }
+    }).catch(err => console.error('Watchlist initial sync error:', err));
 
     // Overrides State (loaded from server on init)
     let cachedOverrides = {};
@@ -952,9 +960,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const saveOverridesToServer = (ticker) => {
         if (!ticker || !watchlist.includes(ticker)) return;
-        // Read current FV/MOS from DOM
-        const fvText = elements.fairValue ? elements.fairValue.textContent.replace(/[^0-9.-]/g, '') : '';
-        const mosText = elements.marginSafety ? elements.marginSafety.textContent : '';
+        // Read current FV/MOS from DOM globally
+        const fvEl = document.getElementById('fair-value');
+        const mosEl = document.getElementById('margin-safety');
+        const fvText = fvEl ? fvEl.textContent.replace(/[^0-9.-]/g, '') : '';
+        const mosText = mosEl ? mosEl.textContent : '';
         const fv = parseFloat(fvText) || null;
         const mosMatch = mosText.match(/([\-0-9.]+)%/);
         const mos = mosMatch ? parseFloat(mosMatch[1]) : null;
