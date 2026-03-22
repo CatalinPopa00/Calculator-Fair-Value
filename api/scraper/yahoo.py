@@ -1118,7 +1118,13 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
                 print(f"Scraping fallback error: {e_scrape}")
 
         if not peers:
-            return []
+            # Emergency Sector Fallback for common sectors
+            if sector == "Technology":
+                peers = ["IBM", "IT", "CTSH", "INFY", "ACN", "MSFT", "AAPL", "GOOGL"]
+            elif sector == "Financial Services":
+                peers = ["SCHW", "MS", "GS", "JPM", "BAC", "IBKR", "WFC"]
+            else:
+                return []
 
         # 2. Extract and Validate Peers by Sector
         final_peers = []
