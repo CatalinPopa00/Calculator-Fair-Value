@@ -1298,15 +1298,28 @@ body {
     text-align: right;
     word-break: break-word;
 }
+/* Watchlist Grid System - Ensures perfect alignment between header and rows */
+:root {
+    --wl-col-drag: 40px;
+    --wl-col-ticker: 240px;
+    --wl-col-price: 100px;
+    --wl-col-sep: 60px;
+    --wl-col-fv: 160px;
+    --wl-col-mos: 100px;
+    --wl-col-scores: 260px;
+    --wl-col-actions: 40px;
+}
 
-/* Watchlist Specific Base Styles */
-.watchlist-item {
-    display: flex;
+.watchlist-grid-layout {
+    display: grid !important;
+    grid-template-columns: var(--wl-col-drag) var(--wl-col-ticker) var(--wl-col-price) var(--wl-col-sep) var(--wl-col-fv) var(--wl-col-sep) var(--wl-col-mos) var(--wl-col-scores) var(--wl-col-actions);
     align-items: center;
-    justify-content: space-between;
+    width: 100%;
+}
+
+.watchlist-item {
     padding: 1.2rem 1.5rem;
     margin-bottom: 1rem;
-    flex-wrap: nowrap;
     position: relative;
     overflow: hidden;
 }

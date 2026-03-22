@@ -565,12 +565,12 @@
         <main class="watchlist-view" id="watchlist-view" style="display: none;">
             <h2>My Watchlist</h2>
 
-            <div class="watchlist-header-row" id="watchlist-header" 
-                style="display: grid; grid-template-columns: 40px 240px 100px 60px 160px 60px 100px 260px 40px; align-items: center; padding: 0.5rem 1.5rem; text-transform: uppercase; font-size: 0.75rem; color: var(--text-muted); font-weight: 700; display: none;">
+            <div class="watchlist-header-row watchlist-grid-layout" id="watchlist-header" 
+                style="padding: 0.5rem 1.5rem; text-transform: uppercase; font-size: 0.75rem; color: var(--text-muted); font-weight: 700;">
                 
-                <div style="width: 40px;"></div> <!-- Drag handle spacer -->
+                <div></div> <!-- Drag handle cell -->
 
-                <div class="watchlist-header-left" style="display: flex; align-items: center;">
+                <div class="watchlist-header-left">
                     <button class="sort-btn" data-sort="ticker" style="background: none; border: none; color: inherit; font: inherit; cursor: pointer; display: flex; align-items: center; gap: 5px;">TICKER <span class="sort-icon">↕</span></button>
                 </div>
 
@@ -578,12 +578,14 @@
                     <button class="sort-btn" data-sort="price" style="background: none; border: none; color: inherit; font: inherit; cursor: pointer; display: flex; align-items: center; gap: 5px;">PRICE <span class="sort-icon">↕</span></button>
                 </div>
 
+                <!-- Separator 1 -->
                 <div style="display: flex; justify-content: center;"><div style="width: 1px; height: 15px; background: rgba(255,255,255,0.1);"></div></div>
 
                 <div style="display: flex; justify-content: center;">
                     <span class="header-label">FAIR VALUE</span>
                 </div>
 
+                <!-- Separator 2 -->
                 <div style="display: flex; justify-content: center;"><div style="width: 1px; height: 15px; background: rgba(255,255,255,0.1);"></div></div>
 
                 <div style="display: flex; justify-content: center;">
@@ -594,7 +596,7 @@
                     <span class="header-label">SCORES</span>
                 </div>
 
-                <div style="width: 40px;"></div> <!-- Actions spacer -->
+                <div></div> <!-- Actions cell -->
             </div>
 
             <div id="watchlist-grid" class="watchlist-container">
@@ -638,7 +640,7 @@
 
     </div>
 
-    <script src="app.js?v=14"></script>
+    <script src="app.js?v=15"></script>
 </body>
 
 </html>

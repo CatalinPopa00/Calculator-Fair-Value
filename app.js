@@ -1421,13 +1421,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const mosColor = displayMos > 0 ? 'var(--accent)' : (displayMos < 0 ? 'var(--danger)' : 'var(--text-muted)');
             
             const card = document.createElement('div');
-            card.className = 'watchlist-item glass-card';
-            // Use Grid for layout to ensure perfect alignment with header
-            card.style.display = 'grid';
-            card.style.gridTemplateColumns = '40px 240px 100px 60px 160px 60px 100px 260px 40px';
-            card.style.alignItems = 'center';
-            card.style.padding = '1.2rem 1.5rem';
-            card.style.marginBottom = '1rem';
+            // Use standardized Grid layout class for pixel-perfect alignment
+            card.className = 'watchlist-item glass-card watchlist-grid-layout';
             
             card.innerHTML = `
                 <div class="drag-handle" style="cursor: grab; color: var(--text-muted); font-size: 1.2rem; display: flex; align-items: center; justify-content: center;">☰</div>
@@ -1442,10 +1437,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 <div class="col-price" style="text-align: center; font-weight: 600; color: var(--text-main);">${formatCurrency(data.current_price)}</div>
                 
+                <!-- Separator 1 -->
                 <div style="display: flex; justify-content: center;"><div style="width: 1px; height: 24px; background: rgba(255,255,255,0.05);"></div></div>
                 
                 <div class="col-fv" style="text-align: center; font-weight: 600; color: var(--text-main);">${fvStr}</div>
                 
+                <!-- Separator 2 -->
                 <div style="display: flex; justify-content: center;"><div style="width: 1px; height: 24px; background: rgba(255,255,255,0.05);"></div></div>
                 
                 <div class="col-mos" style="text-align: center; font-weight: 700; color: ${mosColor};">${mosStr}</div>
