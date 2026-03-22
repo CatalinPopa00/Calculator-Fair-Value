@@ -268,6 +268,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const query = (queryParam && typeof queryParam === 'string') ? queryParam : tickerInput.value.trim();
         if (!query) return;
 
+        // Fetch fresh overrides from server (ensures real-time cross-device sync)
+        fetch('/api/overrides')
+            .then(r => r.json())
+            .then(data => { cachedOverrides = data || {}; })
+            .catch(() => {});
+
         ['fcf-source', 'lynch-eps-source', 'peg-eps-source'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.value = 'analyst';
@@ -1053,8 +1059,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const toggleWatchlist = () => {
         if (!currentTicker) return;
-        if (watchlist.includes(currentTicker)) watchlist = watchlist.filter(t => t !== currentTicker);
-        else watchlist.push(currentTicker);
+        if (watchlist.includes(currentTicker)) {
+            watchlist = watchlist.filter(t => t !== currentTicker);
+            deleteOverrideFromServer(currentTicker);
+        } else {
+            watchlist.push(currentTicker);
+            saveOverridesToServer(currentTicker);
+        }
         saveWatchlist();
         updateWatchlistButtonState();
     };
