@@ -1052,13 +1052,20 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
                 
                 peer_sector = data.get('sector')
                 peer_industry = data.get('industry')
+                peer_mcap = data.get('market_cap') or 0
                 
-                # Strict Validation
+                # Market Cap proximity check: peer must be within 10x of target
+                # This prevents tiny companies from appearing alongside mega-caps
+                if target_market_cap > 0 and peer_mcap > 0:
+                    ratio = max(target_market_cap, peer_mcap) / max(min(target_market_cap, peer_mcap), 1)
+                    if ratio > 10:
+                        continue
+                
+                # Validation: prefer industry match, then sector match
                 is_match = False
-                if target_sector and peer_sector == target_sector:
+                if target_industry and peer_industry and peer_industry == target_industry:
                     is_match = True
-                elif not target_sector and target_industry and peer_industry == target_industry:
-                    # Fallback to industry if sector is missing
+                elif target_sector and peer_sector == target_sector:
                     is_match = True
                 
                 if is_match:

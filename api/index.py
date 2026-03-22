@@ -294,7 +294,7 @@ def get_valuation(ticker: str, wacc: float = None):
             valid_pes = []
             for p in peers_data:
                 val = p.get('pe_ratio')
-                if val is not None and isinstance(val, (int, float)) and math.isfinite(val):
+                if val is not None and isinstance(val, (int, float)) and math.isfinite(val) and val > 0:
                     valid_pes.append(float(val))
             
             if valid_pes:
@@ -386,7 +386,7 @@ def get_valuation(ticker: str, wacc: float = None):
         "relative": {
             "company_eps": sanitize(data.get("trailing_eps")),
             "company_trailing_pe": sanitize(pe_historic),
-            "peers_used": [p.get("ticker", p) if isinstance(p, dict) else p for p in peers_data] if peers_data else [],
+            "peers": [p.get("ticker", p) if isinstance(p, dict) else p for p in peers_data] if peers_data else [],
             "median_peer_pe": sanitize(median_peer_pe),
             "median_peer_peg": sanitize(median_peer_peg),
             "mean_peer_pe": sanitize(mean_peer_pe),
