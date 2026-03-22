@@ -1440,11 +1440,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 <div class="watchlist-scores-container" style="width: 220px; padding: 0 1rem; margin-left: 2rem; display: flex; flex-direction: column; gap: 8px; justify-content: center; align-items: flex-start;">
                     <div style="display: flex; align-items: center; gap: 10px; width: 100%; justify-content: flex-end;">
-                        <span style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Good to Buy</span>
+                        <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">good to buy</span>
                         <div class="mini-score-circle ${dynamicBuyScore >= 76 ? 'mini-score-green' : (dynamicBuyScore >= 41 ? 'mini-score-yellow' : 'mini-score-red')}" title="Buy Score">${dynamicBuyScore || 'N/A'}</div>
                     </div>
                     <div style="display: flex; align-items: center; gap: 10px; width: 100%; justify-content: flex-end;">
-                        <span style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Health Score</span>
+                        <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Company Healthscore</span>
                         <div class="mini-score-circle ${(data.health_score || 0) >= 76 ? 'mini-score-green' : ((data.health_score || 0) >= 41 ? 'mini-score-yellow' : 'mini-score-red')}" title="Health Score">${data.health_score || 'N/A'}</div>
                     </div>
                 </div>
