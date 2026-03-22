@@ -40,8 +40,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // Sync watchlist from server on init
     fetch('/api/watchlist?t=' + new Date().getTime(), { cache: 'no-store' }).then(r => r.json()).then(data => {
         if (Array.isArray(data)) {
+            // Check if arrays changed loosely
+            const wasEmptyOrDifferent = JSON.stringify(watchlist) !== JSON.stringify(data);
             watchlist = data;
             localStorage.setItem('fairValueWatchlist', JSON.stringify(watchlist));
+            
+            // Re-render UI if we are on the watchlist dashboard!
+            if (wasEmptyOrDifferent && document.getElementById('watchlist-grid')) {
+                renderWatchlistUI();
+            }
         }
     }).catch(err => console.error('Watchlist initial sync error:', err));
 
