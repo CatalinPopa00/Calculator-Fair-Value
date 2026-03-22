@@ -1438,13 +1438,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="col-mos" style="width: 160px; text-align: right; font-weight: 700; color: ${mosColor};">${mosStr}</div>
                 </div>
                 
-                <div class="watchlist-scores-container" style="width: 220px; padding: 0 1rem; margin-left: 2rem; display: flex; flex-direction: column; gap: 8px; justify-content: center; align-items: flex-start;">
-                    <div style="display: flex; align-items: center; gap: 10px; width: 100%; justify-content: flex-end;">
-                        <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">good to buy</span>
+                <div class="watchlist-scores-container" style="width: 240px; padding-left: 1.5rem; margin-left: 1rem; display: flex; flex-direction: column; gap: 6px; justify-content: center; border-left: 1px solid rgba(255,255,255,0.05);">
+                    <div style="display: flex; align-items: center; gap: 12px; width: 100%; justify-content: flex-end;">
+                        <span style="font-size: 0.65rem; color: var(--text-muted); font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; white-space: nowrap;">good to buy</span>
                         <div class="mini-score-circle ${dynamicBuyScore >= 76 ? 'mini-score-green' : (dynamicBuyScore >= 41 ? 'mini-score-yellow' : 'mini-score-red')}" title="Buy Score">${dynamicBuyScore || 'N/A'}</div>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 10px; width: 100%; justify-content: flex-end;">
-                        <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Company Healthscore</span>
+                    <div style="display: flex; align-items: center; gap: 12px; width: 100%; justify-content: flex-end;">
+                        <span style="font-size: 0.65rem; color: var(--text-muted); font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; white-space: nowrap;">Company Healthscore</span>
                         <div class="mini-score-circle ${(data.health_score || 0) >= 76 ? 'mini-score-green' : ((data.health_score || 0) >= 41 ? 'mini-score-yellow' : 'mini-score-red')}" title="Health Score">${data.health_score || 'N/A'}</div>
                     </div>
                 </div>
