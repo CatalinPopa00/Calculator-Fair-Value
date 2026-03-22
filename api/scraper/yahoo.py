@@ -1025,19 +1025,25 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
             target_name_base = target_ticker.lower()
         
         seen_tickers = {target_ticker.upper()}
-        seen_names = {target_name_base[:10]} # Simplistic overlap check
+        seen_roots = {target_ticker.upper()[:3]}  # Root-based dedup (e.g., GOO for GOOG/GOOGL)
         
         for p in peers:
             p_upper = p.upper()
             if p_upper in seen_tickers:
                 continue
             
-            # Basic ticker root check (GOOG vs GOOGL)
+            # Basic ticker root check (GOOG vs GOOGL, BRK.A vs BRK.B)
             if p_upper.startswith(target_ticker.upper()) or target_ticker.upper().startswith(p_upper):
+                continue
+            
+            # Cross-peer root dedup: if a shorter ticker with the same root already exists, skip
+            p_root = p_upper[:3]
+            if len(p_upper) > 3 and p_root in seen_roots:
                 continue
                 
             candidates.append(p_upper)
             seen_tickers.add(p_upper)
+            seen_roots.add(p_root)
 
         print(f"Validating {len(candidates)} candidates for sector: {target_sector}")
 
@@ -1052,14 +1058,6 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
                 
                 peer_sector = data.get('sector')
                 peer_industry = data.get('industry')
-                peer_mcap = data.get('market_cap') or 0
-                
-                # Market Cap proximity check: peer must be within 10x of target
-                # This prevents tiny companies from appearing alongside mega-caps
-                if target_market_cap > 0 and peer_mcap > 0:
-                    ratio = max(target_market_cap, peer_mcap) / max(min(target_market_cap, peer_mcap), 1)
-                    if ratio > 10:
-                        continue
                 
                 # Validation: prefer industry match, then sector match
                 is_match = False
