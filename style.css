@@ -182,18 +182,17 @@ body {
 
 .autocomplete-dropdown {
     position: absolute;
-    top: 100%;
+    top: calc(100% + 8px);
     left: 0;
     right: 0;
-    margin-top: 0.5rem;
-    background: rgba(30, 41, 59, 0.95);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid var(--card-border);
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 12px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
-    z-index: 1000;
-    max-height: 400px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    z-index: 10000;
+    max-height: 280px;
     overflow-y: auto;
     display: none;
     animation: fadeInScale 0.2s ease-out;
@@ -205,50 +204,61 @@ body {
 }
 
 .autocomplete-item {
-    padding: 1rem 1.2rem;
+    display: grid;
+    grid-template-columns: 80px 1fr 100px;
+    padding: 12px 16px;
     cursor: pointer;
+    transition: all 0.2s;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-    transition: background 0.2s;
+    align-items: center;
 }
 
 .autocomplete-item:last-child {
     border-bottom: none;
 }
 
-.autocomplete-item:hover {
+.autocomplete-item:hover, .autocomplete-item.selected {
     background: rgba(59, 130, 246, 0.15);
+    border-left: 3px solid var(--primary);
+    padding-left: 13px;
 }
 
-.autocomplete-item .item-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+.ticker-match {
+    color: var(--primary);
+    font-weight: 800;
+    font-size: 1rem;
 }
 
-.autocomplete-item strong {
+.name-match {
     color: var(--text-main);
-    font-size: 1.1rem;
-    letter-spacing: 0.5px;
-}
-
-.autocomplete-item .item-name {
-    color: var(--text-muted);
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    padding-right: 10px;
 }
 
-.autocomplete-item .item-exchange {
-    background: rgba(255, 255, 255, 0.1);
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 0.7rem;
+.exch-match {
     color: var(--text-muted);
+    font-size: 0.75rem;
+    text-align: right;
     text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Custom scrollbar for dropdown */
+.autocomplete-dropdown::-webkit-scrollbar {
+    width: 6px;
+}
+.autocomplete-dropdown::-webkit-scrollbar-track {
+    background: transparent;
+}
+.autocomplete-dropdown::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+}
+.autocomplete-dropdown::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
 }
 
 #search-btn {
@@ -1755,80 +1765,4 @@ body {
     font-size: 0.75rem;
     text-align: right;
     color: var(--text-main);
-}
-
-/* ── Autocomplete Search Suggestions ──────────────── */
-.autocomplete-dropdown {
-    position: absolute;
-    top: calc(100% + 8px);
-    left: 0;
-    width: 100%;
-    background: rgba(15, 23, 42, 0.95);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 12px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-    z-index: 10000;
-    max-height: 280px;
-    overflow-y: auto;
-    display: none;
-}
-
-.autocomplete-item {
-    display: grid;
-    grid-template-columns: 80px 1fr 100px;
-    padding: 12px 16px;
-    cursor: pointer;
-    transition: all 0.2s;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    align-items: center;
-}
-
-.autocomplete-item:last-child {
-    border-bottom: none;
-}
-
-.autocomplete-item:hover, .autocomplete-item.selected {
-    background: rgba(59, 130, 246, 0.15);
-    border-left: 3px solid var(--primary);
-    padding-left: 13px;
-}
-
-.ticker-match {
-    color: var(--primary);
-    font-weight: 800;
-    font-size: 1rem;
-}
-
-.name-match {
-    color: var(--text-main);
-    font-size: 0.9rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    padding-right: 10px;
-}
-
-.exch-match {
-    color: var(--text-muted);
-    font-size: 0.75rem;
-    text-align: right;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-/* Custom scrollbar for dropdown */
-.autocomplete-dropdown::-webkit-scrollbar {
-    width: 6px;
-}
-.autocomplete-dropdown::-webkit-scrollbar-track {
-    background: transparent;
-}
-.autocomplete-dropdown::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 10px;
-}
-.autocomplete-dropdown::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.2);
 }
