@@ -1452,6 +1452,95 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
+    // ── Autocomplete Logic ──────────────────────────────
+    let autocompleteTimeout = null;
+    let selectedIndex = -1;
+
+    const renderAutocomplete = (suggestions) => {
+        autocompleteList.innerHTML = '';
+        if (!suggestions || suggestions.length === 0) {
+            autocompleteList.style.display = 'none';
+            return;
+        }
+
+        suggestions.forEach((item, index) => {
+            const div = document.createElement('div');
+            div.className = 'autocomplete-item';
+            div.innerHTML = `
+                <span class="ticker-match">${item.ticker}</span>
+                <span class="name-match">${item.name}</span>
+                <span class="exch-match">${item.exchange}</span>
+            `;
+            div.addEventListener('click', () => {
+                tickerInput.value = item.ticker;
+                analyzeTicker(item.ticker);
+                autocompleteList.style.display = 'none';
+            });
+            autocompleteList.appendChild(div);
+        });
+        autocompleteList.style.display = 'block';
+        selectedIndex = -1;
+    };
+
+    const handleAutocomplete = async () => {
+        const query = tickerInput.value.trim();
+        if (query.length < 1) {
+            autocompleteList.style.display = 'none';
+            return;
+        }
+
+        try {
+            const res = await fetch(`/api/search/${encodeURIComponent(query)}`);
+            if (res.ok) {
+                const suggestions = await res.json();
+                renderAutocomplete(suggestions);
+            }
+        } catch (err) {
+            console.error('Autocomplete error:', err);
+        }
+    };
+
+    tickerInput.addEventListener('input', () => {
+        clearTimeout(autocompleteTimeout);
+        autocompleteTimeout = setTimeout(handleAutocomplete, 300);
+    });
+
+    tickerInput.addEventListener('keydown', (e) => {
+        const items = autocompleteList.querySelectorAll('.autocomplete-item');
+        if (autocompleteList.style.display === 'block' && items.length > 0) {
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                selectedIndex = (selectedIndex + 1) % items.length;
+                updateSelection(items);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                selectedIndex = (selectedIndex - 1 + items.length) % items.length;
+                updateSelection(items);
+            } else if (e.key === 'Enter' && selectedIndex >= 0) {
+                e.preventDefault();
+                const ticker = items[selectedIndex].querySelector('.ticker-match').textContent;
+                tickerInput.value = ticker;
+                analyzeTicker(ticker);
+                autocompleteList.style.display = 'none';
+            } else if (e.key === 'Escape') {
+                autocompleteList.style.display = 'none';
+            }
+        }
+    });
+
+    const updateSelection = (items) => {
+        items.forEach((item, idx) => {
+            if (idx === selectedIndex) item.classList.add('selected');
+            else item.classList.remove('selected');
+        });
+    };
+
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.autocomplete-wrapper')) {
+            autocompleteList.style.display = 'none';
+        }
+    });
+
     // Event Listeners
     searchBtn.addEventListener('click', analyzeTicker);
     tickerInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') analyzeTicker(); });
