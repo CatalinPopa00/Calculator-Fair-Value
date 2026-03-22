@@ -1097,13 +1097,16 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
                         r'/quote/([A-Z]{1,5})/',                       # Standard tickers
                         r'symbol":"([A-Z]{1,5})"',                    # JSON-embedded symbols
                         r'data-symbol="([A-Z]{1,5})"',                 # Data attributes
-                        r'symbol">([A-Z]{1,5})</span>'                 # Span content
+                        r'symbol">([A-Z]{1,5})</span>',                # Span content
+                        r'data-symbol=\"([A-Z0-9\.-]+)\"',             # Pattern 3: data-symbol attributes (more robust)
+                        r'/quote/([A-Z0-9\.-]+)\?'                     # Pattern 4: Link patterns like /quote/AAPL?
                     ]
                     found_set = set()
                     for pattern in patterns:
                         matches = re.findall(pattern, resp.text)
                         for m in matches:
-                            if m not in ignore and m.isalpha() and m not in found_set:
+                            # Allow alphanumeric, dots, and hyphens for more robust ticker matching
+                            if m not in ignore and re.match(r'^[A-Z0-9\.-]+$', m) and m not in found_set:
                                 found_set.add(m)
                                 found.append(m)
                                 if len(found) >= 15: break

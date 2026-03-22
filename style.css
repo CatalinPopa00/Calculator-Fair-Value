@@ -756,60 +756,113 @@ body {
 
 @media (max-width: 768px) {
     .app-container {
-        padding: 1rem 0.5rem;
+        padding: 1rem 0.75rem;
         overflow-x: hidden;
     }
 
-    .hero-section {
+    .hero-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .row-2-grid {
         grid-template-columns: 1fr;
     }
 
     .search-container {
-        flex-wrap: nowrap;
-        order: 3;
+        order: 2;
         width: 100%;
+        margin-top: 0.5rem;
     }
 
-    /* Header Adjustments */
+    #ticker-input {
+        padding: 0.7rem 1rem;
+        font-size: 0.95rem;
+    }
+
+    #search-btn {
+        padding: 0.7rem 1.2rem;
+        font-size: 0.95rem;
+    }
+
+    /* Header Adjustments - Better Stacking */
+    .header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+        margin-bottom: 2rem;
+        text-align: center;
+    }
+
+    .logo {
+        order: 1;
+        margin-bottom: 0.25rem;
+    }
+
     .logo h1 {
-        font-size: 1rem;
+        font-size: 1.4rem;
+        white-space: normal;
     }
 
     #nav-watchlist-btn {
-        padding: 0.4rem 0.5rem;
-        font-size: 0.75rem;
-        white-space: nowrap;
-    }
-
-    .header {
-        gap: 0.5rem;
-        margin-bottom: 1.5rem;
+        order: 3;
+        width: 100%;
+        padding: 0.6rem;
+        font-size: 0.9rem;
     }
 
     /* Stacking Profile Table on Mobile */
     .profile-table-wrapper tr {
         display: flex;
         flex-direction: column;
-        padding: 8px 0;
+        padding: 10px 0;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
     }
 
     .profile-table-wrapper td {
-        padding: 2px 0;
+        padding: 3px 0;
         width: 100% !important;
         text-align: left !important;
     }
 
-    .profile-value {
-        font-size: 1rem;
+    .profile-label {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
 
-    .price-display .value, 
+    .profile-value {
+        font-size: 1.1rem;
+        text-align: left !important;
+    }
+
+    .price-display .value {
+        font-size: 2.5rem;
+    }
+    
     .fair-value-box .value {
-        font-size: 2.2rem;
+        font-size: 2.8rem;
     }
 
     .accent-card .value {
-        font-size: 3rem;
+        font-size: 3.5rem;
+    }
+
+    /* Methods Grid Stack */
+    .methods-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* Score breakdown rows */
+    .score-breakdown-row {
+        grid-template-columns: 1fr auto;
+        gap: 0.5rem;
+    }
+    .score-row-val {
+        grid-column: 1 / span 2;
+        text-align: left;
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        margin-top: -0.5rem;
     }
 }
 
