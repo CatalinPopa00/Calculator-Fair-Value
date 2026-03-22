@@ -1702,7 +1702,7 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         });
 
-        titleEl.textContent = '';
+        if (titleEl) titleEl.textContent = '';
         body.innerHTML = html;
         modal.style.display = 'flex';
     };
