@@ -338,8 +338,8 @@ document.addEventListener('DOMContentLoaded', () => {
         currentFormulaData = data.formula_data;
         currentTicker = data.ticker;
 
-        // Auto-Set Weights by Sector by Default
-        if (data.company_profile && data.company_profile.sector && typeof setSmartWeights === 'function') {
+        // Auto-Set Weights by Sector ONLY if no custom weights are already stored
+        if (data.company_profile && data.company_profile.sector && !localStorage.getItem('fairValueWeights')) {
             setSmartWeights(data.company_profile.sector);
         }
 
@@ -887,8 +887,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <tr><td class="profile-label">Industry</td><td class="profile-value">${prof.industry}<br><span style="font-size: 0.85em; font-weight: normal; color: var(--text-muted);">${prof.sector}</span></td></tr>
                 <tr><td class="profile-label">Market Cap</td><td class="profile-value">${formatBigNumber(prof.market_cap, '$')}</td></tr>
                 <tr><td class="profile-label">Operating Margin</td><td class="profile-value">${formatSafePct(prof.operating_margin)}</td></tr>
-                <tr><td class="profile-label">Net Margin</td><td class="profile-value">${formatSafePct(prof.net_margin)}</td></tr>
                 <tr><td class="profile-label">P/E (Trailing)</td><td class="profile-value">${prof.trailing_pe ? prof.trailing_pe.toFixed(2) + 'x' : 'N/A'}</td></tr>
+                <tr><td class="profile-label">P/E (5Y Avg)</td><td class="profile-value">${prof.historic_pe ? prof.historic_pe.toFixed(2) + 'x' : 'N/A'}</td></tr>
                 <tr><td class="profile-label">EPS (Trailing)</td><td class="profile-value">${prof.trailing_eps ? '$' + prof.trailing_eps.toFixed(2) : 'N/A'}</td></tr>
                 <tr><td class="profile-label">Debt-to-Equity</td><td class="profile-value">${prof.debt_to_equity != null ? prof.debt_to_equity.toFixed(2) + 'x' : 'N/A'}</td></tr>
                 <tr><td class="profile-label">Insider Ownership</td><td class="profile-value">${formatSafePct(prof.insider_ownership)}</td></tr>
@@ -1422,8 +1422,8 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const card = document.createElement('div');
             card.className = 'watchlist-item glass-card';
-            // Nuclear option: Explicit inline styles for pixel-perfect Grid alignment
-            card.style.cssText = 'display: grid !important; grid-template-columns: 40px 240px 100px 60px 160px 60px 100px 260px 40px !important; align-items: center !important; padding: 18px 24px !important; margin-bottom: 1rem !important; width: 100% !important; box-sizing: border-box !important; position: relative !important; overflow: hidden !important;';
+            // Use classes for layout instead of inline !important grid
+            card.style.cssText = 'margin-bottom: 1rem; width: 100%; box-sizing: border-box; position: relative; overflow: hidden;';
             
             // Remove ALL whitespace between items in card.innerHTML to prevent grid shifting
             card.innerHTML = `<div class="drag-handle" style="cursor: grab; color: var(--text-muted); font-size: 1.2rem; display: flex; align-items: center; justify-content: center;">☰</div><div class="watchlist-item-left" style="width: 240px; display: flex; align-items: center; gap: 1rem; overflow: hidden;"><button class="expand-btn" style="background: none; border: none; color: var(--text-main); font-size: 1.2rem; cursor: pointer; padding: 0;">▶</button><div style="overflow: hidden;"><h3 class="watchlist-ticker" style="margin: 0; font-size: 1.1rem; color: var(--text-main); cursor: pointer;">${data.ticker}</h3><p style="margin: 0; font-size: 0.85rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${data.name}</p></div></div><div class="col-price" style="width: 100px; text-align: center; font-weight: 600; color: var(--text-main);">${formatCurrency(data.current_price)}</div><div style="width: 60px; display: flex; justify-content: center;"><div style="width: 1px; height: 24px; background: rgba(255,255,255,0.05);"></div></div><div class="col-fv" style="width: 160px; text-align: center; font-weight: 600; color: var(--text-main);">${fvStr}</div><div style="width: 60px; display: flex; justify-content: center;"><div style="width: 1px; height: 24px; background: rgba(255,255,255,0.05);"></div></div><div class="col-mos" style="width: 100px; text-align: center; font-weight: 700; color: ${mosColor};">${mosStr}</div><div class="watchlist-scores-container" style="width: 260px; display: flex; flex-direction: column; gap: 6px; justify-content: center; padding-left: 1.5rem; border-left: 1px solid rgba(255,255,255,0.05); box-sizing: border-box;"><div style="display: flex; align-items: center; gap: 10px; width: 100%; justify-content: flex-start;"><div class="mini-score-circle ${(data.health_score || 0) >= 76 ? 'mini-score-green' : ((data.health_score || 0) >= 41 ? 'mini-score-yellow' : 'mini-score-red')}" title="Health Score">${data.health_score || 'N/A'}</div><span style="font-size: 0.65rem; color: var(--text-muted); font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; white-space: nowrap;">Company Healthscore</span></div><div style="display: flex; align-items: center; gap: 10px; width: 100%; justify-content: flex-start;"><div class="mini-score-circle ${dynamicBuyScore >= 76 ? 'mini-score-green' : (dynamicBuyScore >= 41 ? 'mini-score-yellow' : 'mini-score-red')}" title="Buy Score">${dynamicBuyScore || 'N/A'}</div><span style="font-size: 0.65rem; color: var(--text-muted); font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; white-space: nowrap;">good to buy</span></div></div><div class="watchlist-actions" style="width: 40px; display: flex; align-items: center; justify-content: center;"><button class="remove-watchlist-btn" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem; padding: 0;" data-ticker="${data.ticker}" title="Remove">&times;</button></div>`;
