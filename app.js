@@ -37,6 +37,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // Watchlist State 
     let watchlist = JSON.parse(localStorage.getItem('fairValueWatchlist')) || [];
 
+    // Overrides State (loaded from server on init)
+    let cachedOverrides = {};
+    let overrideSaveTimer = null;
+
+    // Load overrides from server on startup
+    fetch('/api/overrides').then(r => r.json()).then(data => {
+        cachedOverrides = data || {};
+    }).catch(() => { cachedOverrides = {}; });
+
     const setSmartWeights = (sector) => {
         let w = { dcf: 25, peg: 25, relative: 25, lynch: 25 }; 
         const s = sector || '';
@@ -826,19 +835,25 @@ document.addEventListener('DOMContentLoaded', () => {
             'lynch-multiple', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth',
             'peg-eps-source', 'peg-custom-growth'
         ];
+          const updateAndSave = () => {
+            updateFairValue();
+            saveOverridesDebounced(currentTicker);
+        };
 
         inputSelectors.forEach(id => {
             const el = document.getElementById(id);
             if (el) {
-                if (el.tagName === 'SELECT') el.onchange = updateFairValue;
-                else el.oninput = updateFairValue;
+                if (el.tagName === 'SELECT') el.onchange = updateAndSave;
+                else el.oninput = updateAndSave;
             }
         });
 
+        // Restore overrides BEFORE first updateFairValue
+        const hadOverrides = applyOverrides(currentTicker);
         updateFairValue();
 
         document.querySelectorAll('.valuation-toggle').forEach(toggle => {
-            toggle.onchange = updateFairValue;
+            toggle.onchange = updateAndSave;
         });
 
         const pBody = document.getElementById('profile-body');
@@ -906,6 +921,113 @@ document.addEventListener('DOMContentLoaded', () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ tickers: watchlist })
         }).catch(err => console.error('Watchlist sync error:', err));
+    };
+
+    // --- Overrides Sync ---
+    const overrideInputIds = [
+        'fcf-source', 'dcf-years-source', 'dcf-custom-growth', 'dcf-custom-wacc', 'dcf-custom-perp',
+        'dcf-buyback-source', 'dcf-custom-buyback', 'relative-variant',
+        'lynch-multiple', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth',
+        'peg-eps-source', 'peg-custom-growth'
+    ];
+    const overrideToggleIds = ['toggle-dcf', 'toggle-relative', 'toggle-peter_lynch', 'toggle-peg'];
+
+    const collectOverrideInputs = () => {
+        const inputs = {};
+        overrideInputIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) inputs[id] = el.value;
+        });
+        return inputs;
+    };
+
+    const collectOverrideToggles = () => {
+        const toggles = {};
+        overrideToggleIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) toggles[id] = el.checked;
+        });
+        return toggles;
+    };
+
+    const saveOverridesToServer = (ticker) => {
+        if (!ticker || !watchlist.includes(ticker)) return;
+        // Read current FV/MOS from DOM
+        const fvText = elements.fairValue ? elements.fairValue.textContent.replace(/[^0-9.-]/g, '') : '';
+        const mosText = elements.marginSafety ? elements.marginSafety.textContent : '';
+        const fv = parseFloat(fvText) || null;
+        const mosMatch = mosText.match(/([\-0-9.]+)%/);
+        const mos = mosMatch ? parseFloat(mosMatch[1]) : null;
+
+        const payload = {
+            ticker: ticker,
+            inputs: collectOverrideInputs(),
+            toggles: collectOverrideToggles(),
+            computed: { fair_value: fv, margin_of_safety: mos }
+        };
+
+        cachedOverrides[ticker] = payload;
+
+        fetch('/api/overrides', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        }).catch(err => console.error('Override sync error:', err));
+    };
+
+    const saveOverridesDebounced = (ticker) => {
+        if (overrideSaveTimer) clearTimeout(overrideSaveTimer);
+        overrideSaveTimer = setTimeout(() => saveOverridesToServer(ticker), 500);
+    };
+
+    const applyOverrides = (ticker) => {
+        const ov = cachedOverrides[ticker];
+        if (!ov) return false;
+        const inputs = ov.inputs || {};
+        const toggles = ov.toggles || {};
+
+        // Apply inputs
+        Object.entries(inputs).forEach(([id, val]) => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.value = val;
+                // Show/hide custom input containers based on select values
+                if (id === 'fcf-source') {
+                    const ci = document.getElementById('dcf-custom-inputs');
+                    if (ci) ci.style.display = val === 'custom' ? 'flex' : 'none';
+                }
+                if (id === 'dcf-buyback-source') {
+                    const ci = document.getElementById('dcf-buyback-custom-inputs');
+                    if (ci) ci.style.display = val === 'custom' ? 'flex' : 'none';
+                }
+                if (id === 'lynch-multiple') {
+                    const ci = document.getElementById('lynch-custom-multiple-inputs');
+                    if (ci) ci.style.display = val === 'custom' ? 'flex' : 'none';
+                }
+                if (id === 'lynch-eps-source') {
+                    const ci = document.getElementById('lynch-custom-inputs');
+                    if (ci) ci.style.display = val === 'custom' ? 'flex' : 'none';
+                }
+                if (id === 'peg-eps-source') {
+                    const ci = document.getElementById('peg-custom-inputs');
+                    if (ci) ci.style.display = val === 'custom' ? 'flex' : 'none';
+                }
+            }
+        });
+
+        // Apply toggles
+        Object.entries(toggles).forEach(([id, checked]) => {
+            const el = document.getElementById(id);
+            if (el) el.checked = checked;
+        });
+
+        return true;
+    };
+
+    const deleteOverrideFromServer = (ticker) => {
+        delete cachedOverrides[ticker];
+        fetch(`/api/overrides/${ticker}`, { method: 'DELETE' })
+            .catch(err => console.error('Override delete error:', err));
     };
 
     const updateWatchlistButtonState = () => {
@@ -1235,9 +1357,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             // Build the card HTML
-            const fvStr = data.fair_value != null ? formatCurrency(data.fair_value) : 'N/A';
-            const mosStr = data.margin_of_safety != null ? formatPercent(data.margin_of_safety) : 'N/A';
-            const mosColor = data.margin_of_safety > 0 ? 'var(--accent)' : (data.margin_of_safety < 0 ? 'var(--danger)' : 'var(--text-muted)');
+            // Check for user overrides (server-synced)
+            const ov = cachedOverrides[data.ticker];
+            const hasOverride = ov && ov.computed && ov.computed.fair_value != null;
+            const displayFv = hasOverride ? ov.computed.fair_value : data.fair_value;
+            const displayMos = hasOverride ? ov.computed.margin_of_safety : data.margin_of_safety;
+            const fvStr = displayFv != null ? formatCurrency(displayFv) + (hasOverride ? ' ✏️' : '') : 'N/A';
+            const mosStr = displayMos != null ? formatPercent(displayMos) : 'N/A';
+            const mosColor = displayMos > 0 ? 'var(--accent)' : (displayMos < 0 ? 'var(--danger)' : 'var(--text-muted)');
             
             const card = document.createElement('div');
             card.className = 'watchlist-item glass-card';
@@ -1276,6 +1403,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.stopPropagation();
                 watchlist = watchlist.filter(t => t !== data.ticker);
                 cachedWatchlistData = cachedWatchlistData.filter(d => d.ticker !== data.ticker);
+                deleteOverrideFromServer(data.ticker);
                 saveWatchlist();
                 renderWatchlistUI();
                 if (currentTicker === data.ticker) updateWatchlistButtonState();

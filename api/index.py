@@ -39,9 +39,16 @@ app.add_middleware(
 )
 
 WATCHLIST_FILE = "watchlist.json"
+OVERRIDES_FILE = "overrides.json"
 
 class WatchlistRequest(BaseModel):
     tickers: list[str]
+
+class OverrideRequest(BaseModel):
+    ticker: str
+    inputs: dict = {}
+    toggles: dict = {}
+    computed: dict = {}
 
 class ValuationResponse(BaseModel):
     ticker: str
@@ -107,6 +114,51 @@ def save_watchlist(req: WatchlistRequest):
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# --- Overrides API (cross-device sync) ---
+def _load_overrides() -> dict:
+    if os.path.exists(OVERRIDES_FILE):
+        try:
+            with open(OVERRIDES_FILE, "r") as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
+
+def _save_overrides(data: dict):
+    with open(OVERRIDES_FILE, "w") as f:
+        json.dump(data, f)
+
+@app.get("/api/overrides")
+def get_overrides():
+    return _load_overrides()
+
+@app.post("/api/overrides")
+def save_override(req: OverrideRequest):
+    try:
+        all_overrides = _load_overrides()
+        all_overrides[req.ticker.upper()] = {
+            "inputs": req.inputs,
+            "toggles": req.toggles,
+            "computed": req.computed
+        }
+        _save_overrides(all_overrides)
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/overrides/{ticker}")
+def delete_override(ticker: str):
+    try:
+        all_overrides = _load_overrides()
+        ticker_upper = ticker.upper()
+        if ticker_upper in all_overrides:
+            del all_overrides[ticker_upper]
+            _save_overrides(all_overrides)
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/api/valuation/{ticker}", response_model=ValuationResponse)
 def get_valuation(ticker: str, wacc: float = None):
