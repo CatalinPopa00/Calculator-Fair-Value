@@ -1438,9 +1438,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="col-mos" style="width: 160px; text-align: right; font-weight: 700; color: ${mosColor};">${mosStr}</div>
                 </div>
                 
-                <div class="watchlist-scores-container" style="width: 200px; padding: 0 1rem; margin-left: 2rem; display: flex; align-items: center; justify-content: space-around; gap: 10px;">
-                    <div class="mini-score-circle ${dynamicBuyScore >= 76 ? 'mini-score-green' : (dynamicBuyScore >= 41 ? 'mini-score-yellow' : 'mini-score-red')}" title="Buy Score">${dynamicBuyScore || 'N/A'}</div>
-                    <div class="mini-score-circle ${(data.health_score || 0) >= 76 ? 'mini-score-green' : ((data.health_score || 0) >= 41 ? 'mini-score-yellow' : 'mini-score-red')}" title="Health Score">${data.health_score || 'N/A'}</div>
+                <div class="watchlist-scores-container" style="width: 220px; padding: 0 1rem; margin-left: 2rem; display: flex; flex-direction: column; gap: 8px; justify-content: center; align-items: flex-start;">
+                    <div style="display: flex; align-items: center; gap: 10px; width: 100%; justify-content: flex-end;">
+                        <span style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Good to Buy</span>
+                        <div class="mini-score-circle ${dynamicBuyScore >= 76 ? 'mini-score-green' : (dynamicBuyScore >= 41 ? 'mini-score-yellow' : 'mini-score-red')}" title="Buy Score">${dynamicBuyScore || 'N/A'}</div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px; width: 100%; justify-content: flex-end;">
+                        <span style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Health Score</span>
+                        <div class="mini-score-circle ${(data.health_score || 0) >= 76 ? 'mini-score-green' : ((data.health_score || 0) >= 41 ? 'mini-score-yellow' : 'mini-score-red')}" title="Health Score">${data.health_score || 'N/A'}</div>
+                    </div>
                 </div>
                 
                 <div class="watchlist-actions" style="margin-left: 2rem;">
@@ -1449,6 +1455,11 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             
             card.querySelector('.watchlist-ticker').addEventListener('click', () => {
+                tickerInput.value = data.ticker;
+                analyzeTicker(data.ticker);
+            });
+
+            card.querySelector('.expand-btn').addEventListener('click', () => {
                 tickerInput.value = data.ticker;
                 analyzeTicker(data.ticker);
             });
