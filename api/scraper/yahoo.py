@@ -401,6 +401,8 @@ def get_company_data(ticker_symbol: str):
             trailing_eps = (info.get('trailingEps') or info.get('epsTrailingTwelveMonths', 0)) * fx_rate
             forward_eps = (info.get('forwardEps') or 0) * fx_rate
             pe_ratio = info.get('trailingPE') # Ratio: no conversion
+            if not pe_ratio and current_price and trailing_eps and trailing_eps > 0:
+                pe_ratio = current_price / trailing_eps
             forward_pe = info.get('forwardPE') # Ratio: no conversion
             ps_ratio = info.get('priceToSalesTrailing12Months') # Ratio: no conversion
             
@@ -1166,8 +1168,19 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
                 if target_industry and peer_industry:
                     t_ind_norm = target_industry.lower().strip()
                     p_ind_norm = peer_industry.lower().strip()
-                    # Use partial match or exact match to be robust (e.g. Travel vs Travel Services)
-                    if t_ind_norm in p_ind_norm or p_ind_norm in t_ind_norm:
+                    
+                    # Robust matching: check for significant keyword overlap
+                    # We ignore common filler words like 'and', 'services', 'products'
+                    ignore_words = {'and', 'services', 'products', 'equipment', 'manufacturing', 'technology', 'information'}
+                    t_keywords = {w for w in t_ind_norm.replace(' - ', ' ').replace(',', ' ').split() if w not in ignore_words}
+                    p_keywords = {w for w in p_ind_norm.replace(' - ', ' ').replace(',', ' ').split() if w not in ignore_words}
+                    
+                    # Direct partial match (e.g. 'Software - Application' vs 'Software')
+                    direct_match = t_ind_norm in p_ind_norm or p_ind_norm in t_ind_norm
+                    # Keyword intersection (at least one significant word matches)
+                    keyword_match = bool(t_keywords & p_keywords)
+                    
+                    if direct_match or keyword_match:
                         final_peers.append(data)
             except Exception as e:
                 print(f"Error validating peer {ticker}: {e}")

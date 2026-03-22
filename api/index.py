@@ -327,10 +327,19 @@ def get_valuation(ticker: str, wacc: float = None):
         perpetual_growth = 0.02 # 2% GDP growth standard
         
         if fcf and shares and fcf > 0:
+            # Special Handling for Financial Services (Banks, Brokers, Insurance)
+            # Standard DCF EV = PV(FCF) + Cash - Debt is highly misleading because Cash often includes customer money.
+            # For these, we use PV(FCF) as a proxy for Equity Value directly.
+            dcf_cash = data.get("total_cash")
+            dcf_debt = data.get("total_debt")
+            if data.get("sector") == "Financial Services":
+                dcf_cash = 0
+                dcf_debt = 0
+                
             # 5 Year Calculation (Default for Dashboard)
-            res_5 = calculate_dcf(fcf, eps_growth, discount_rate, perpetual_growth, shares, data.get("total_cash"), data.get("total_debt"), years=5)
-            sens_5 = calculate_dcf_sensitivity(fcf, eps_growth, shares, data.get("total_cash"), data.get("total_debt"), 5, discount_rate, perpetual_growth)
-            rev_5 = calculate_reverse_dcf(current_price, fcf, discount_rate, perpetual_growth, shares, data.get("total_cash"), data.get("total_debt"), 5)
+            res_5 = calculate_dcf(fcf, eps_growth, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, years=5)
+            sens_5 = calculate_dcf_sensitivity(fcf, eps_growth, shares, dcf_cash, dcf_debt, 5, discount_rate, perpetual_growth)
+            rev_5 = calculate_reverse_dcf(current_price, fcf, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, 5)
             
             if res_5:
                 dcf_value = res_5.get("fair_value")
@@ -341,9 +350,9 @@ def get_valuation(ticker: str, wacc: float = None):
                 }
                 
             # 10 Year Calculation 
-            res_10 = calculate_dcf(fcf, eps_growth, discount_rate, perpetual_growth, shares, data.get("total_cash"), data.get("total_debt"), years=10)
-            sens_10 = calculate_dcf_sensitivity(fcf, eps_growth, shares, data.get("total_cash"), data.get("total_debt"), 10, discount_rate, perpetual_growth)
-            rev_10 = calculate_reverse_dcf(current_price, fcf, discount_rate, perpetual_growth, shares, data.get("total_cash"), data.get("total_debt"), 10)
+            res_10 = calculate_dcf(fcf, eps_growth, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, years=10)
+            sens_10 = calculate_dcf_sensitivity(fcf, eps_growth, shares, dcf_cash, dcf_debt, 10, discount_rate, perpetual_growth)
+            rev_10 = calculate_reverse_dcf(current_price, fcf, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, 10)
             
             if res_10:
                 dcf_10yr = {
@@ -364,7 +373,7 @@ def get_valuation(ticker: str, wacc: float = None):
             base_weights = {"lynch": 0.30, "relative": 0.40, "peg": 0.10, "dcf": 0.20}
         else:
             base_weights = {"lynch": 0.25, "relative": 0.25, "peg": 0.25, "dcf": 0.25}
-
+ 
         # Map methods to weight keys
         lynch_pe20_val = lynch_result.get("fair_value_pe_20")
         method_map = {
@@ -373,7 +382,7 @@ def get_valuation(ticker: str, wacc: float = None):
             "relative": relative_value,
             "dcf": dcf_value
         }
-
+ 
         # Calculate weighted average based on AVAILABLE methods
         total_weight = 0
         weighted_sum = 0
@@ -382,7 +391,7 @@ def get_valuation(ticker: str, wacc: float = None):
                 w = base_weights.get(key, 0)
                 weighted_sum += val * w
                 total_weight += w
-
+ 
         if total_weight > 0:
             fair_value = weighted_sum / total_weight
             margin_of_safety = ((fair_value - current_price) / fair_value) * 100
@@ -419,15 +428,15 @@ def get_valuation(ticker: str, wacc: float = None):
             
             if valid_pegs:
                 median_peer_peg = statistics.median(valid_pegs)
-
+ 
         # Calculate Current PE for PEG transparency
         current_pe = current_price / data.get("trailing_eps") if data.get("trailing_eps") and data.get("trailing_eps") > 0 else None
-
+ 
         # 5. Build Formula Data for Transparency
         fair_value_sector_pe = None
         if lynch_result.get("fwd_eps") and median_peer_pe:
             fair_value_sector_pe = lynch_result.get("fwd_eps") * median_peer_pe
-
+ 
         def _format_dcf_payload(dcf_dict):
             if not dcf_dict or not dcf_dict.get("result"):
                 return None
@@ -467,7 +476,8 @@ def get_valuation(ticker: str, wacc: float = None):
                 "fair_value_pe_20": sanitize(lynch_pe20_val),
                 "fair_value_sector_pe": sanitize(fair_value_sector_pe),
                 "sector_pe": sanitize(median_peer_pe),
-                "status": lynch_status
+                "status": lynch_status,
+                "margin_of_safety": sanitize(((lynch_fair_value - current_price) / lynch_fair_value * 100)) if lynch_fair_value and lynch_fair_value > 0 else None
             },
             "peg": {
                 "current_pe": sanitize(current_pe),
@@ -491,21 +501,22 @@ def get_valuation(ticker: str, wacc: float = None):
                 "intrinsic_value": sanitize(dcf_value),
                 "margin_of_safety": sanitize(((dcf_value - current_price) / dcf_value * 100)) if dcf_value and dcf_value > 0 else None,
                 "current_price": sanitize(current_price)
+            },
+            "relative": {
+                "fair_value": sanitize(relative_value),
+                "margin_of_safety": sanitize(((relative_value - current_price) / relative_value * 100)) if relative_value and relative_value > 0 else None,
+                "company_eps": sanitize(data.get("trailing_eps")),
+                "company_trailing_pe": sanitize(pe_historic),
+                "peers": [p.get("ticker", p) if isinstance(p, dict) else p for p in peers_data] if peers_data else [],
+                "median_peer_pe": sanitize(median_peer_pe),
+                "median_peer_peg": sanitize(median_peer_peg),
+                "mean_peer_pe": sanitize(mean_peer_pe),
+                "market_pe_trailing": sanitize(market_data.get("trailing_pe")),
+                "market_pe_forward": sanitize(market_data.get("forward_pe"))
             }
-        ,
-        "relative": {
-            "company_eps": sanitize(data.get("trailing_eps")),
-            "company_trailing_pe": sanitize(pe_historic),
-            "peers": [p.get("ticker", p) if isinstance(p, dict) else p for p in peers_data] if peers_data else [],
-            "median_peer_pe": sanitize(median_peer_pe),
-            "median_peer_peg": sanitize(median_peer_peg),
-            "mean_peer_pe": sanitize(mean_peer_pe),
-            "market_pe_trailing": sanitize(market_data.get("trailing_pe")),
-            "market_pe_forward": sanitize(market_data.get("forward_pe"))
-        }
     }
 
-    # 6. Compute Comprehensive Scoring
+        # 6. Compute Comprehensive Scoring
         h_result = calculate_health_score(data)
         b_result = calculate_buy_score({"margin_of_safety": margin_of_safety}, data)
         
@@ -537,58 +548,59 @@ def get_valuation(ticker: str, wacc: float = None):
                 risk_factors = all_sorted[:2]
 
         response_data = {
-            "ticker": data["ticker"],
-            "name": data["name"],
-            "current_price": sanitize(current_price),
-            "fair_value": sanitize(fair_value),
-            "margin_of_safety": sanitize(margin_of_safety),
-            "baseline_weights": base_weights,
-            "dcf_value": sanitize(dcf_value),
-            "relative_value": sanitize(relative_value),
-            "lynch_fwd_pe": sanitize(lynch_fwd_pe),
-            "lynch_fair_value": sanitize(lynch_pe20_val),
-            "lynch_status": lynch_status,
-            "peter_lynch": formula_data["peter_lynch"],
-            "peg_value": sanitize(peg_value),
-            "company_profile": {
-                "industry": data.get("industry") or "N/A",
-                "sector": data.get("sector") or "N/A",
-                "market_cap": data.get("shares_outstanding", 0) * current_price if data.get("shares_outstanding") else None,
-                "current_pe": sanitize(data.get("forward_pe")),
-                "trailing_pe": sanitize(data.get("pe_ratio") or (current_price / data.get("trailing_eps") if data.get("trailing_eps") and data.get("trailing_eps") > 0 else None)),
-                "historic_pe": sanitize(data.get("pe_historic")),
-                "current_eps": sanitize(data.get("forward_eps")),
-                "trailing_eps": sanitize(data.get("trailing_eps")),
-                "historic_eps_growth": sanitize(data.get("historic_eps_growth")),
-                "historic_fcf_growth": sanitize(data.get("historic_fcf_growth")),
-                "debt_to_equity": sanitize(data.get("debt_to_equity")),
-                "shares_outstanding": sanitize(data.get("shares_outstanding")),
-                "buyback_rate": sanitize(data.get("historic_buyback_rate") * 100 if data.get("historic_buyback_rate") else None),
-                "dividend_yield": sanitize(data.get("dividend_yield") * 100 if data.get("dividend_yield") and data.get("dividend_yield") < 0.30 else data.get("dividend_yield")),
-                "operating_margin": sanitize(data.get("operating_margin")),
-                "net_margin": sanitize(data.get("net_margin")),
-                "payout_ratio": sanitize(data.get("payout_ratio")),
-                "insider_ownership": sanitize(data.get("insider_ownership")),
-                "next_earnings_date": data.get("next_earnings_date"),
-                "business_summary": data.get("business_summary"),
-                "dividend_streak": data.get("dividend_streak"),
-                "dividend_cagr_5y": data.get("dividend_cagr_5y"),
-                "red_flags": data.get("red_flags"),
-                "competitors": [p.get("ticker", p) if isinstance(p, dict) else p for p in peers_data] if peers_data else [],
-                "competitor_metrics": peers_data if peers_data else []
-            },
-            "historical_trends": historical_trends,
-            "historical_data": data.get("historical_data"),
-            "formula_data": formula_data,
-            "health_score": health_score,
-            "health_breakdown": health_breakdown,
-            "buy_score": buy_score,
-            "buy_breakdown": buy_breakdown,
-            "algorithmic_insights": {
-                "top_strengths": top_strengths,
-                "risk_factors": risk_factors
+                "ticker": data["ticker"],
+                "name": data["name"],
+                "current_price": sanitize(current_price),
+                "fair_value": sanitize(fair_value),
+                "margin_of_safety": sanitize(margin_of_safety),
+                "baseline_weights": base_weights,
+                "dcf_value": sanitize(dcf_value),
+                "relative_value": sanitize(relative_value),
+                "lynch_fwd_pe": sanitize(lynch_fwd_pe),
+                "lynch_fair_value": sanitize(lynch_pe20_val),
+                "lynch_status": lynch_status,
+                "peter_lynch": formula_data["peter_lynch"],
+                "peg_value": sanitize(peg_value),
+                "company_profile": {
+                    "industry": data.get("industry") or "N/A",
+                    "sector": data.get("sector") or "N/A",
+                    "market_cap": data.get("shares_outstanding", 0) * current_price if data.get("shares_outstanding") else None,
+                    "current_pe": sanitize(data.get("forward_pe")),
+                    "trailing_pe": sanitize(data.get("pe_ratio") or (current_price / data.get("trailing_eps") if data.get("trailing_eps") and data.get("trailing_eps") > 0 else None)),
+                    "historic_pe": sanitize(data.get("pe_historic")),
+                    "current_eps": sanitize(data.get("forward_eps")),
+                    "trailing_eps": sanitize(data.get("trailing_eps")),
+                    "historic_eps_growth": sanitize(data.get("historic_eps_growth")),
+                    "historic_fcf_growth": sanitize(data.get("historic_fcf_growth")),
+                    "status_flags": data.get("status_flags"),
+                    "debt_to_equity": sanitize(data.get("debt_to_equity")),
+                    "shares_outstanding": sanitize(data.get("shares_outstanding")),
+                    "buyback_rate": sanitize(data.get("historic_buyback_rate") * 100 if data.get("historic_buyback_rate") else None),
+                    "dividend_yield": sanitize(data.get("dividend_yield") * 100 if data.get("dividend_yield") and data.get("dividend_yield") < 0.30 else data.get("dividend_yield")),
+                    "operating_margin": sanitize(data.get("operating_margin")),
+                    "net_margin": sanitize(data.get("net_margin")),
+                    "payout_ratio": sanitize(data.get("payout_ratio")),
+                    "insider_ownership": sanitize(data.get("insider_ownership")),
+                    "next_earnings_date": data.get("next_earnings_date"),
+                    "business_summary": data.get("business_summary"),
+                    "dividend_streak": data.get("dividend_streak"),
+                    "dividend_cagr_5y": data.get("dividend_cagr_5y"),
+                    "red_flags": data.get("red_flags"),
+                    "competitors": [p.get("ticker", p) if isinstance(p, dict) else p for p in peers_data] if peers_data else [],
+                    "competitor_metrics": peers_data if peers_data else []
+                },
+                "historical_trends": historical_trends,
+                "historical_data": data.get("historical_data"),
+                "formula_data": formula_data,
+                "health_score": health_score,
+                "health_breakdown": health_breakdown,
+                "buy_score": buy_score,
+                "buy_breakdown": buy_breakdown,
+                "algorithmic_insights": {
+                    "top_strengths": top_strengths,
+                    "risk_factors": risk_factors
+                }
             }
-        }
     except Exception as e:
         import traceback
         print(f"VALUATION CRASH for {ticker}: {str(e)}")

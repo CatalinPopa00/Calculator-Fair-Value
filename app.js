@@ -654,9 +654,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     const w = parseFloat(document.getElementById('dcf-custom-wacc').value) / 100 || 0.09;
                     const p = parseFloat(document.getElementById('dcf-custom-perp').value) / 100 || 0.025;
                     dcfVal = calcLocalDcf(baseFcf, g, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years);
-                }
+            }
             }
             setValuationStatus(dcfVal, data.current_price, 'dcf-status', 'dcf-value');
+            
+            if (dcfVal != null && dcfCardMos) {
+                const currentDcfMos = ((dcfVal - data.current_price) / dcfVal) * 100;
+                dcfCardMos.textContent = `MOS: ${formatPercent(currentDcfMos)}`;
+                dcfCardMos.style.color = currentDcfMos > 0 ? 'var(--accent)' : 'var(--danger)';
+            }
 
             let pegVal = null;
             let pegMos = null;
@@ -707,6 +713,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (pegMos != null) {
                         const mosText = `${pegMos > 0 ? '+' : ''}${pegMos.toFixed(2)}% Margin of Safety`;
                         pegCompareElem.innerHTML += `<br><span style="color: ${pegMos > 0 ? 'var(--accent)' : 'var(--danger)'}; font-weight: 600;">${mosText}</span>`;
+                        
+                        // Also sync to the new card-mos element for consistency with other cards
+                        const pegCardMos = document.getElementById('peg-card-mos');
+                        if (pegCardMos) {
+                            pegCardMos.textContent = `MOS: ${formatPercent(pegMos)}`;
+                            pegCardMos.style.color = pegMos > 0 ? 'var(--accent)' : 'var(--danger)';
+                            pegCardMos.style.display = 'block';
+                        }
                     }
 
                     if (data.current_price < pegVal) {
@@ -768,6 +782,16 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             setValuationStatus(lynchVal, data.current_price, 'lynch-status', 'lynch-fair-value');
+            
+            const lynchCardMos = document.getElementById('lynch-card-mos');
+            if (lynchCardMos && lynchVal != null) {
+                const lynchMos = ((lynchVal - data.current_price) / lynchVal) * 100;
+                lynchCardMos.textContent = `MOS: ${formatPercent(lynchMos)}`;
+                lynchCardMos.style.color = lynchMos > 0 ? 'var(--accent)' : 'var(--danger)';
+                lynchCardMos.style.display = 'block';
+            } else if (lynchCardMos) {
+                lynchCardMos.style.display = 'none';
+            }
 
             let relVal = null;
             const rel = currentFormulaData.relative;
@@ -795,6 +819,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             setValuationStatus(relVal, data.current_price, 'relative-status', 'relative-value');
+            
+            const relCardMos = document.getElementById('relative-card-mos');
+            if (relCardMos && relVal != null) {
+                const relMos = ((relVal - data.current_price) / relVal) * 100;
+                relCardMos.textContent = `MOS: ${formatPercent(relMos)}`;
+                relCardMos.style.color = relMos > 0 ? 'var(--accent)' : 'var(--danger)';
+                relCardMos.style.display = 'block';
+            } else if (relCardMos) {
+                relCardMos.style.display = 'none';
+            }
             
             // --- CALCULATE FINAL FAIR VALUE ---
             const hasUserWeights = localStorage.getItem('fairValueWeights') !== null;
@@ -1379,11 +1413,25 @@ document.addEventListener('DOMContentLoaded', () => {
             let customFinalFv = 0;
             let totalW = 0;
             const cw = customWeights; 
+            const savedOv = cachedOverrides[data.ticker] || {};
+            const toggles = savedOv.toggles || { 'toggle-peter_lynch': true, 'toggle-peg': true, 'toggle-relative': true, 'toggle-dcf': true };
 
-            if (data.formula_data?.dcf?.intrinsic_value) { customFinalFv += data.formula_data.dcf.intrinsic_value * cw.dcf; totalW += cw.dcf; }
-            if (data.formula_data?.peter_lynch?.fair_value_pe_20) { customFinalFv += data.formula_data.peter_lynch.fair_value_pe_20 * cw.lynch; totalW += cw.lynch; }
-            if (data.relative_value) { customFinalFv += data.relative_value * cw.relative; totalW += cw.relative; }
-            if (data.formula_data?.peg?.fair_value) { customFinalFv += data.formula_data.peg.fair_value * cw.peg; totalW += cw.peg; }
+            if (data.formula_data?.dcf?.intrinsic_value && toggles['toggle-dcf']) { 
+                customFinalFv += data.formula_data.dcf.intrinsic_value * cw.dcf; 
+                totalW += cw.dcf; 
+            }
+            if (data.formula_data?.peter_lynch?.fair_value_pe_20 && toggles['toggle-peter_lynch']) { 
+                customFinalFv += data.formula_data.peter_lynch.fair_value_pe_20 * cw.lynch; 
+                totalW += cw.lynch; 
+            }
+            if (data.relative_value && toggles['toggle-relative']) { 
+                customFinalFv += data.relative_value * cw.relative; 
+                totalW += cw.relative; 
+            }
+            if (data.formula_data?.peg?.fair_value && toggles['toggle-peg']) { 
+                customFinalFv += data.formula_data.peg.fair_value * cw.peg; 
+                totalW += cw.peg; 
+            }
 
             let customMos = null;
             if (totalW > 0 && data.current_price) {
@@ -1412,10 +1460,10 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Build the card HTML
             // Check for user overrides (server-synced)
-            const ov = cachedOverrides[data.ticker];
-            const hasOverride = ov && ov.computed && ov.computed.fair_value != null;
-            const displayFv = hasOverride ? ov.computed.fair_value : data.fair_value;
-            const displayMos = hasOverride ? ov.computed.margin_of_safety : data.margin_of_safety;
+            const globalOv = cachedOverrides[data.ticker];
+            const hasOverride = globalOv && globalOv.computed && globalOv.computed.fair_value != null;
+            const displayFv = hasOverride ? globalOv.computed.fair_value : data.fair_value;
+            const displayMos = hasOverride ? globalOv.computed.margin_of_safety : data.margin_of_safety;
             const fvStr = displayFv != null ? formatCurrency(displayFv) + (hasOverride ? ' ✏️' : '') : 'N/A';
             const mosStr = displayMos != null ? formatPercent(displayMos) : 'N/A';
             const mosColor = displayMos > 0 ? 'var(--accent)' : (displayMos < 0 ? 'var(--danger)' : 'var(--text-muted)');
