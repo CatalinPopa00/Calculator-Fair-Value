@@ -86,23 +86,67 @@ def get_nasdaq_earnings_growth(ticker: str, trailing_eps: float) -> float:
             data = json.loads(raw_data)
             
         rows = data.get('data', {}).get('yearlyForecast', {}).get('rows', [])
-        if rows:
-            # We want to find a target year about 3 years out (index 2 or 3)
-            # or simply the furthest available year up to index 4.
-            target_idx = min(len(rows) - 1, 3) 
-            target_row = rows[target_idx]
+        if rows and len(rows) > 1:
+            # Consistent with Non-GAAP Estimates: 
+            # Calculate CAGR between the Forecast Years themselves if available.
+            # This avoids the GAAP (Trailing) vs Non-GAAP (Forecast) mismatch.
+            base_row = rows[0]
+            base_eps = float(base_row.get('consensusEPSForecast', 0))
             
-            fwd_eps_nasdaq = float(target_row.get('consensusEPSForecast', 0))
-            if fwd_eps_nasdaq > 0:
-                # Calculate CAGR: (Future / Current)^(1/n) - 1
-                # n = target_idx + 1 years (assuming rows[0] is Next FY)
-                # But let's be safer: if Row 0 is FY 2026 and we are in 2026, 
-                # Row 2 is 2 years from Row 0. Total years = target_idx + 1.
-                years = target_idx + 1
-                cagr = (fwd_eps_nasdaq / trailing_eps) ** (1 / years) - 1
-                return cagr
+            if base_eps > 0:
+                # Target the furthest available year up to index 3 (usually 4th year from now)
+                target_idx = min(len(rows) - 1, 3)
+                target_row = rows[target_idx]
+                target_eps = float(target_row.get('consensusEPSForecast', 0))
+                
+                if target_eps > 0:
+                    # Years = gap between target index and base index 0
+                    years = target_idx
+                    if years > 0:
+                        cagr = (target_eps / base_eps) ** (1 / years) - 1
+                        return cagr
+
+            # Fallback to CAGR from Trailing EPS to the first Forecast Year if only 1 row or base failed
+            target_eps = float(rows[0].get('consensusEPSForecast', 0))
+            if target_eps > 0:
+                # Row 0 is roughly 1 year out from Trailing
+                return (target_eps / trailing_eps) - 1
+
     except Exception as e:
         print(f"Error fetching Nasdaq growth for {ticker}: {e}")
+    return None
+
+def get_nasdaq_actual_eps(ticker: str) -> float:
+    """
+    Fetches the actual Adjusted (Non-GAAP) EPS for the last 4 quarters from Nasdaq.
+    Sums them to provide a more accurate 'Trailing EPS' for companies with large GAAP vs Non-GAAP gaps.
+    """
+    try:
+        url = f'https://api.nasdaq.com/api/company/{ticker.upper()}/earnings-surprise'
+        req = urllib.request.Request(url, headers={'User-Agent': get_random_agent()})
+        with urllib.request.urlopen(req) as response:
+            raw_data = response.read()
+            data = json.loads(raw_data)
+            
+        rows = data.get('data', {}).get('earningsSurpriseTable', {}).get('rows', [])
+        if rows:
+            total_eps = 0.0
+            # Sum the last 4 reported quarters
+            count = 0
+            for row in rows[:4]:
+                # 'eps' is the actual reported EPS in the surprise table
+                val_str = row.get('eps') or row.get('actualEPS')
+                if val_str:
+                    try:
+                        total_eps += float(val_str)
+                        count += 1
+                    except ValueError:
+                        continue
+            
+            if count >= 3: # Require at least 3 quarters for a valid sum
+                return total_eps
+    except Exception as e:
+        print(f"Error fetching Nasdaq Actual EPS for {ticker}: {e}")
     return None
 
 def calculate_historic_pe(stock, financials):
@@ -345,9 +389,11 @@ def get_company_data(ticker_symbol: str):
         industry = info.get('industry')
         
         # Start background fetches while processing info
-        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as nasdaq_executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as nasdaq_executor:
             # Note: Nasdaq growth is now a 3Y CAGR
             future_nasdaq_cagr = nasdaq_executor.submit(get_nasdaq_earnings_growth, ticker_symbol, info.get('trailingEps'))
+            # Fetch actual Non-GAAP EPS as fallback for GAAP trailingEps
+            future_nasdaq_actual = nasdaq_executor.submit(get_nasdaq_actual_eps, ticker_symbol)
             future_est = nasdaq_executor.submit(lambda: stock.earnings_estimate)
             future_growth_est = nasdaq_executor.submit(lambda: stock.growth_estimates)
 
@@ -399,10 +445,20 @@ def get_company_data(ticker_symbol: str):
 
             # 2. Try Nasdaq growth (fallback)
             nasdaq_growth_3y = None
+            nasdaq_actual_eps = None
             try:
                 nasdaq_growth_3y = future_nasdaq_cagr.result(timeout=5)
+                nasdaq_actual_eps = future_nasdaq_actual.result(timeout=5)
             except Exception:
                 pass
+
+            # Update trailing_eps if Nasdaq Actual (Non-GAAP) is found and significantly different
+            if nasdaq_actual_eps is not None:
+                current_trailing = info.get('trailingEps')
+                # If GAAP (YF) is > 20% different from Non-GAAP (Nasdaq), prefer Non-GAAP
+                if not current_trailing or abs(nasdaq_actual_eps - current_trailing) / max(current_trailing, 1) > 0.20:
+                    info['trailingEps'] = nasdaq_actual_eps
+                    trailing_eps = nasdaq_actual_eps
 
             if eps_growth is None:
                 eps_growth = eps_growth_5y_consensus or nasdaq_growth_3y
