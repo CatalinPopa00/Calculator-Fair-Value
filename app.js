@@ -1665,14 +1665,15 @@ document.addEventListener('DOMContentLoaded', () => {
         breakdown.forEach(item => totalMax += item.max_points || 0);
         const scoreVal = totalScore != null ? totalScore : '?';
 
-        // Build header
+        // Build header - Centered score, title on left
         let html = `
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <div style="display:grid; grid-template-columns: 1fr auto 1fr; align-items:center; margin-bottom:20px; padding-right:45px;">
                 <h3 style="margin:0; font-size:1.1rem; color:white; font-weight:700;">${title}</h3>
-                <div style="text-align:right;">
+                <div style="text-align:center;">
                     <div style="font-size:0.8rem; color:var(--text-muted);">Total:</div>
-                    <div style="font-size:1.2rem; font-weight:800; color:white;">${scoreVal}/${totalMax}</div>
+                    <div style="font-size:1.4rem; font-weight:800; color:white;">${scoreVal}/${totalMax}</div>
                 </div>
+                <div></div>
             </div>
         `;
 
