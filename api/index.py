@@ -104,9 +104,13 @@ def kv_get(key: str):
     if not KV_REST_API_URL or not KV_REST_API_TOKEN:
         return None
     try:
-        url = f"{KV_REST_API_URL}/get/{key}"
-        headers = {"Authorization": f"Bearer {KV_REST_API_TOKEN}"}
-        resp = requests.get(url, headers=headers, timeout=5)
+        url = KV_REST_API_URL.rstrip('/')
+        headers = {
+            "Authorization": f"Bearer {KV_REST_API_TOKEN}",
+            "Content-Type": "application/json"
+        }
+        payload = ["GET", key]
+        resp = requests.post(url, headers=headers, json=payload, timeout=5)
         if resp.status_code == 200:
             data = resp.json().get("result")
             if data:
@@ -122,9 +126,13 @@ def kv_set(key: str, value) -> bool:
     if not KV_REST_API_URL or not KV_REST_API_TOKEN:
         return False
     try:
-        url = f"{KV_REST_API_URL}/set/{key}"
-        headers = {"Authorization": f"Bearer {KV_REST_API_TOKEN}"}
-        resp = requests.post(url, headers=headers, data=json.dumps(value), timeout=5)
+        url = KV_REST_API_URL.rstrip('/')
+        headers = {
+            "Authorization": f"Bearer {KV_REST_API_TOKEN}",
+            "Content-Type": "application/json"
+        }
+        payload = ["SET", key, json.dumps(value)]
+        resp = requests.post(url, headers=headers, json=payload, timeout=5)
         return resp.status_code == 200
     except Exception as e:
         print(f"KV SET Error: {e}")
