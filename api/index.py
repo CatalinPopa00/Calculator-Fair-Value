@@ -11,6 +11,7 @@ import urllib.parse
 import json
 
 import os
+import requests
 from .scraper.yahoo import get_company_data, get_competitors_data, get_market_averages, search_companies, get_analyst_data, get_risk_free_rate
 from .models.valuation import (
     calculate_peter_lynch, 
@@ -96,8 +97,45 @@ def get_analyst(ticker: str):
     valuation_cache[cache_key] = result
     return result
 
+KV_REST_API_URL = os.environ.get("KV_REST_API_URL")
+KV_REST_API_TOKEN = os.environ.get("KV_REST_API_TOKEN")
+
+def kv_get(key: str):
+    if not KV_REST_API_URL or not KV_REST_API_TOKEN:
+        return None
+    try:
+        url = f"{KV_REST_API_URL}/get/{key}"
+        headers = {"Authorization": f"Bearer {KV_REST_API_TOKEN}"}
+        resp = requests.get(url, headers=headers, timeout=5)
+        if resp.status_code == 200:
+            data = resp.json().get("result")
+            if data:
+                try:
+                    return json.loads(data)
+                except:
+                    return data
+    except Exception as e:
+        print(f"KV GET Error: {e}")
+    return None
+
+def kv_set(key: str, value) -> bool:
+    if not KV_REST_API_URL or not KV_REST_API_TOKEN:
+        return False
+    try:
+        url = f"{KV_REST_API_URL}/set/{key}"
+        headers = {"Authorization": f"Bearer {KV_REST_API_TOKEN}"}
+        resp = requests.post(url, headers=headers, data=json.dumps(value), timeout=5)
+        return resp.status_code == 200
+    except Exception as e:
+        print(f"KV SET Error: {e}")
+    return False
+
 @app.get("/api/watchlist")
 def get_watchlist():
+    data = kv_get("watchlist")
+    if data is not None:
+        return data
+
     if os.path.exists(WATCHLIST_FILE):
         try:
             with open(WATCHLIST_FILE, "r") as f:
@@ -109,14 +147,22 @@ def get_watchlist():
 @app.post("/api/watchlist")
 def save_watchlist(req: WatchlistRequest):
     try:
-        with open(WATCHLIST_FILE, "w") as f:
-            json.dump(req.tickers, f)
+        kv_set("watchlist", req.tickers)
+        try:
+            with open(WATCHLIST_FILE, "w") as f:
+                json.dump(req.tickers, f)
+        except:
+            pass
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 # --- Overrides API (cross-device sync) ---
 def _load_overrides() -> dict:
+    data = kv_get("overrides")
+    if data is not None:
+        return data
+
     if os.path.exists(OVERRIDES_FILE):
         try:
             with open(OVERRIDES_FILE, "r") as f:
@@ -126,8 +172,12 @@ def _load_overrides() -> dict:
     return {}
 
 def _save_overrides(data: dict):
-    with open(OVERRIDES_FILE, "w") as f:
-        json.dump(data, f)
+    kv_set("overrides", data)
+    try:
+        with open(OVERRIDES_FILE, "w") as f:
+            json.dump(data, f)
+    except:
+        pass
 
 @app.get("/api/overrides")
 def get_overrides():
