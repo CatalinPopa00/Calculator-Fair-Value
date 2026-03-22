@@ -1559,16 +1559,27 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!cachedWatchlistData || cachedWatchlistData.length !== watchlist.length) {
             loadingState.style.display = 'flex';
             watchlistView.style.display = 'none';
-            cachedWatchlistData = [];
             
-            for (const t of watchlist) {
-                try {
-                    const res = await fetch(`/api/valuation/${t}`);
-                    if (res.ok) cachedWatchlistData.push(await res.json());
-                } catch (e) {
-                    console.error("Failed to load watchlist item", t);
+            try {
+                // Use the new batch-valuation endpoint for maximum performance
+                const res = await fetch('/api/batch-valuation', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tickers: watchlist })
+                });
+                
+                if (res.ok) {
+                    cachedWatchlistData = await res.json();
+                } else {
+                    console.error("Batch valuation failed");
+                    // Fallback to empty or previous data
+                    cachedWatchlistData = cachedWatchlistData || [];
                 }
+            } catch (e) {
+                console.error("Failed to load watchlist data", e);
+                cachedWatchlistData = cachedWatchlistData || [];
             }
+
             loadingState.style.display = 'none';
             watchlistView.style.display = 'block';
         }

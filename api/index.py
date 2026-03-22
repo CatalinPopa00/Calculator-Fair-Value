@@ -598,5 +598,24 @@ def get_valuation(ticker: str, wacc: float = None):
     valuation_cache[cache_key] = response_data
     return response_data
 
+from concurrent.futures import ThreadPoolExecutor
+
+@app.post("/api/batch-valuation")
+def get_batch_valuation(req: WatchlistRequest):
+    tickers = req.tickers
+    results = []
+    
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        # We reuse the existing get_valuation logic but in parallel
+        futures = {executor.submit(get_valuation, t.upper()): t for t in tickers}
+        for future in futures:
+            try:
+                results.append(future.result())
+            except Exception as e:
+                ticker = futures[future]
+                print(f"Batch Error for {ticker}: {e}")
+                
+    return results
+
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8000)
