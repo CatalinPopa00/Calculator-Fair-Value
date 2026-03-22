@@ -1422,25 +1422,35 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const card = document.createElement('div');
             card.className = 'watchlist-item glass-card';
+            // Use Grid for layout to ensure perfect alignment with header
+            card.style.display = 'grid';
+            card.style.gridTemplateColumns = '40px 240px 100px 60px 160px 60px 100px 260px 40px';
+            card.style.alignItems = 'center';
+            card.style.padding = '1.2rem 1.5rem';
+            card.style.marginBottom = '1rem';
+            
             card.innerHTML = `
-                <div class="drag-handle" style="cursor: grab; color: var(--text-muted); font-size: 1.2rem; width: 40px; text-align: center; flex-shrink: 0;">☰</div>
-                <div class="watchlist-item-left" style="width: 240px; display: flex; align-items: center; gap: 1rem; flex-shrink: 0;">
+                <div class="drag-handle" style="cursor: grab; color: var(--text-muted); font-size: 1.2rem; display: flex; align-items: center; justify-content: center;">☰</div>
+                
+                <div class="watchlist-item-left" style="display: flex; align-items: center; gap: 1rem; overflow: hidden;">
                     <button class="expand-btn" style="background: none; border: none; color: var(--text-main); font-size: 1.2rem; cursor: pointer; padding: 0;">▶</button>
-                    <div>
+                    <div style="overflow: hidden;">
                         <h3 class="watchlist-ticker" style="margin: 0; font-size: 1.1rem; color: var(--text-main); cursor: pointer;">${data.ticker}</h3>
-                        <p style="margin: 0; font-size: 0.85rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px;">${data.name}</p>
+                        <p style="margin: 0; font-size: 0.85rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${data.name}</p>
                     </div>
                 </div>
                 
-                <div class="watchlist-item-right" style="display: flex; align-items: center; justify-content: flex-end; flex-grow: 1;">
-                    <div class="col-price" style="width: 100px; text-align: center; font-weight: 600;">${formatCurrency(data.current_price)}</div>
-                    <div style="width: 1px; height: 24px; background: rgba(255,255,255,0.05); margin: 0 2rem;"></div>
-                    <div class="col-fv" style="width: 160px; text-align: center; font-weight: 600;">${fvStr}</div>
-                    <div style="width: 1px; height: 24px; background: rgba(255,255,255,0.05); margin: 0 2rem;"></div>
-                    <div class="col-mos" style="width: 100px; text-align: center; font-weight: 700; color: ${mosColor};">${mosStr}</div>
-                </div>
+                <div class="col-price" style="text-align: center; font-weight: 600; color: var(--text-main);">${formatCurrency(data.current_price)}</div>
                 
-                <div class="watchlist-scores-container" style="width: 240px; padding-left: 1.5rem; margin-left: 1rem; display: flex; flex-direction: column; gap: 6px; justify-content: center; border-left: 1px solid rgba(255,255,255,0.05);">
+                <div style="display: flex; justify-content: center;"><div style="width: 1px; height: 24px; background: rgba(255,255,255,0.05);"></div></div>
+                
+                <div class="col-fv" style="text-align: center; font-weight: 600; color: var(--text-main);">${fvStr}</div>
+                
+                <div style="display: flex; justify-content: center;"><div style="width: 1px; height: 24px; background: rgba(255,255,255,0.05);"></div></div>
+                
+                <div class="col-mos" style="text-align: center; font-weight: 700; color: ${mosColor};">${mosStr}</div>
+                
+                <div class="watchlist-scores-container" style="display: flex; flex-direction: column; gap: 6px; justify-content: center; padding-left: 1.5rem; border-left: 1px solid rgba(255,255,255,0.05);">
                     <div style="display: flex; align-items: center; gap: 10px; width: 100%; justify-content: flex-start;">
                         <div class="mini-score-circle ${(data.health_score || 0) >= 76 ? 'mini-score-green' : ((data.health_score || 0) >= 41 ? 'mini-score-yellow' : 'mini-score-red')}" title="Health Score">${data.health_score || 'N/A'}</div>
                         <span style="font-size: 0.65rem; color: var(--text-muted); font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; white-space: nowrap;">Company Healthscore</span>
@@ -1451,8 +1461,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>
                 
-                <div class="watchlist-actions" style="margin-left: 2rem;">
-                    <button class="remove-watchlist-btn" data-ticker="${data.ticker}" title="Remove">×</button>
+                <div class="watchlist-actions" style="display: flex; align-items: center; justify-content: center;">
+                    <button class="remove-watchlist-btn" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem; padding: 0;" data-ticker="${data.ticker}" title="Remove">&times;</button>
                 </div>
             `;
             
