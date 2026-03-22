@@ -1432,9 +1432,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>
                 
-                <div class="watchlist-item-right" style="display: flex; align-items: center; justify-content: flex-end; gap: 3rem; flex-grow: 1;">
+                <div class="watchlist-item-right" style="display: flex; align-items: center; justify-content: flex-end; flex-grow: 1;">
                     <div class="col-price" style="width: 100px; text-align: center; font-weight: 600;">${formatCurrency(data.current_price)}</div>
+                    <div style="width: 1px; height: 24px; background: rgba(255,255,255,0.05); margin: 0 1.5rem;"></div>
                     <div class="col-fv" style="width: 160px; text-align: center; font-weight: 600;">${fvStr}</div>
+                    <div style="width: 1px; height: 24px; background: rgba(255,255,255,0.05); margin: 0 1.5rem;"></div>
                     <div class="col-mos" style="width: 160px; text-align: center; font-weight: 700; color: ${mosColor};">${mosStr}</div>
                 </div>
                 
