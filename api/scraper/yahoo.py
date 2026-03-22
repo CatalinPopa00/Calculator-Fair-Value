@@ -158,8 +158,7 @@ def get_period_labels(ticker_info: dict) -> dict:
     Returns a mapping from '0q', '+1q', '0y', '+1y' to human-readable 
     labels like 'Q1 2026', 'FY 2026' based on fiscal year end.
     """
-    from datetime import datetime
-    now = datetime.now()
+    now = datetime.datetime.now()
     curr_year = now.year
     curr_month = now.month
     
@@ -495,10 +494,10 @@ def get_company_data(ticker_symbol: str):
         # Scoring Metrics
         debt_to_equity = info.get('debtToEquity')
         
-        # Fallback for Financials/Banks
+        # Fallback for Financials/Banks or companies with missing info but available totalDebt/bookValue
         if debt_to_equity is None and info.get('totalDebt') and info.get('bookValue') and shares_outstanding:
             equity = info.get('bookValue') * shares_outstanding
-            if equity > 0:
+            if equity != 0:
                 debt_to_equity = (info.get('totalDebt') / equity) * 100.0
 
         if debt_to_equity is not None:
@@ -674,14 +673,19 @@ def get_company_data(ticker_symbol: str):
                 
                 # Calculate streak
                 current_streak = 0
-                for i in range(len(div_years) - 1):
-                    curr_yr = div_years[i]
-                    prev_yr = div_years[i+1]
-                    # if dividend is mostly >= prev year, streak continues
-                    if div_annual[curr_yr] >= div_annual[prev_yr] * 0.98: 
-                        current_streak += 1
-                    else:
-                        break
+                latest_div_year = div_years[0]
+                this_year = datetime.datetime.now().year
+                
+                # If we have no dividends in the current or previous year, the streak is dead
+                if latest_div_year >= this_year - 1:
+                    for i in range(len(div_years) - 1):
+                        curr_yr = div_years[i]
+                        prev_yr = div_years[i+1]
+                        # if dividend is mostly >= prev year, streak continues
+                        if div_annual[curr_yr] >= div_annual[prev_yr] * 0.98: 
+                            current_streak += 1
+                        else:
+                            break
                 dividend_streak = current_streak
                 
                 # 5Y CAGR: (DivCurr / Div_5Y_Ago) ^ (1/5) - 1
@@ -790,8 +794,7 @@ def get_company_data(ticker_symbol: str):
                 re = stock.revenue_estimate
                 
                 # Identify current year and next year targets
-                from datetime import datetime
-                this_fy = datetime.now().year
+                this_fy = datetime.datetime.now().year
                 next_fy = this_fy + 1
                 
                 for fy in [this_fy, next_fy]:
@@ -860,10 +863,6 @@ def get_company_data(ticker_symbol: str):
                 month = dt.month
                 year = dt.year
                 # Logic to deduce Reported Quarter based on month
-                # Jan-Mar -> Q4 (Previous Year)
-                # Apr-Jun -> Q1 (Current Year)
-                # Jul-Sep -> Q2 (Current Year)
-                # Oct-Dec -> Q3 (Current Year)
                 if 1 <= month <= 3:
                     q_label = "Q4"
                     q_year = year - 1
@@ -879,6 +878,35 @@ def get_company_data(ticker_symbol: str):
                 next_earnings_date = f"{q_label} {q_year} ({dt.strftime('%d.%m.%Y')})"
             except Exception:
                 next_earnings_date = None
+        
+        # Fallback for Missing Next Earnings Date (using stock.earnings_dates)
+        if not next_earnings_date:
+            try:
+                ed = stock.earnings_dates
+                if ed is not None and not ed.empty:
+                    # Filter for future dates only
+                    now = datetime.datetime.now(datetime.timezone.utc)
+                    future_dates = ed[ed.index > now]
+                    if not future_dates.empty:
+                        # Take the soonest one (index is usually descending, so take last or sort)
+                        soonest = future_dates.sort_index().index[0]
+                        month = soonest.month
+                        year = soonest.year
+                        if 1 <= month <= 3:
+                            q_label = "Q4"
+                            q_year = year - 1
+                        elif 4 <= month <= 6:
+                            q_label = "Q1"
+                            q_year = year
+                        elif 7 <= month <= 9:
+                            q_label = "Q2"
+                            q_year = year
+                        else:
+                            q_label = "Q3"
+                            q_year = year
+                        next_earnings_date = f"{q_label} {q_year} ({soonest.strftime('%d.%m.%Y')})"
+            except Exception as e_ed:
+                print(f"Earnings fallback error: {e_ed}")
 
         return {
             "pe_historic": pe_historic,
