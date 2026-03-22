@@ -1421,47 +1421,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const mosColor = displayMos > 0 ? 'var(--accent)' : (displayMos < 0 ? 'var(--danger)' : 'var(--text-muted)');
             
             const card = document.createElement('div');
-            // Use standardized Grid layout class for pixel-perfect alignment
-            card.className = 'watchlist-item glass-card watchlist-grid-layout';
+            card.className = 'watchlist-item glass-card';
+            // Nuclear option: Explicit inline styles for pixel-perfect Grid alignment
+            card.style.cssText = 'display: grid !important; grid-template-columns: 40px 240px 100px 60px 160px 60px 100px 260px 40px !important; align-items: center !important; padding: 18px 24px !important; margin-bottom: 1rem !important; width: 100% !important; box-sizing: border-box !important; position: relative !important; overflow: hidden !important;';
             
-            card.innerHTML = `
-                <div class="drag-handle" style="cursor: grab; color: var(--text-muted); font-size: 1.2rem; display: flex; align-items: center; justify-content: center;">☰</div>
-                
-                <div class="watchlist-item-left" style="display: flex; align-items: center; gap: 1rem; overflow: hidden;">
-                    <button class="expand-btn" style="background: none; border: none; color: var(--text-main); font-size: 1.2rem; cursor: pointer; padding: 0;">▶</button>
-                    <div style="overflow: hidden;">
-                        <h3 class="watchlist-ticker" style="margin: 0; font-size: 1.1rem; color: var(--text-main); cursor: pointer;">${data.ticker}</h3>
-                        <p style="margin: 0; font-size: 0.85rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${data.name}</p>
-                    </div>
-                </div>
-                
-                <div class="col-price" style="text-align: center; font-weight: 600; color: var(--text-main);">${formatCurrency(data.current_price)}</div>
-                
-                <!-- Separator 1 -->
-                <div style="display: flex; justify-content: center;"><div style="width: 1px; height: 24px; background: rgba(255,255,255,0.05);"></div></div>
-                
-                <div class="col-fv" style="text-align: center; font-weight: 600; color: var(--text-main);">${fvStr}</div>
-                
-                <!-- Separator 2 -->
-                <div style="display: flex; justify-content: center;"><div style="width: 1px; height: 24px; background: rgba(255,255,255,0.05);"></div></div>
-                
-                <div class="col-mos" style="text-align: center; font-weight: 700; color: ${mosColor};">${mosStr}</div>
-                
-                <div class="watchlist-scores-container" style="display: flex; flex-direction: column; gap: 6px; justify-content: center; padding-left: 1.5rem; border-left: 1px solid rgba(255,255,255,0.05);">
-                    <div style="display: flex; align-items: center; gap: 10px; width: 100%; justify-content: flex-start;">
-                        <div class="mini-score-circle ${(data.health_score || 0) >= 76 ? 'mini-score-green' : ((data.health_score || 0) >= 41 ? 'mini-score-yellow' : 'mini-score-red')}" title="Health Score">${data.health_score || 'N/A'}</div>
-                        <span style="font-size: 0.65rem; color: var(--text-muted); font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; white-space: nowrap;">Company Healthscore</span>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 10px; width: 100%; justify-content: flex-start;">
-                        <div class="mini-score-circle ${dynamicBuyScore >= 76 ? 'mini-score-green' : (dynamicBuyScore >= 41 ? 'mini-score-yellow' : 'mini-score-red')}" title="Buy Score">${dynamicBuyScore || 'N/A'}</div>
-                        <span style="font-size: 0.65rem; color: var(--text-muted); font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; white-space: nowrap;">good to buy</span>
-                    </div>
-                </div>
-                
-                <div class="watchlist-actions" style="display: flex; align-items: center; justify-content: center;">
-                    <button class="remove-watchlist-btn" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem; padding: 0;" data-ticker="${data.ticker}" title="Remove">&times;</button>
-                </div>
-            `;
+            // Remove ALL whitespace between items in card.innerHTML to prevent grid shifting
+            card.innerHTML = `<div class="drag-handle" style="cursor: grab; color: var(--text-muted); font-size: 1.2rem; display: flex; align-items: center; justify-content: center;">☰</div><div class="watchlist-item-left" style="width: 240px; display: flex; align-items: center; gap: 1rem; overflow: hidden;"><button class="expand-btn" style="background: none; border: none; color: var(--text-main); font-size: 1.2rem; cursor: pointer; padding: 0;">▶</button><div style="overflow: hidden;"><h3 class="watchlist-ticker" style="margin: 0; font-size: 1.1rem; color: var(--text-main); cursor: pointer;">${data.ticker}</h3><p style="margin: 0; font-size: 0.85rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${data.name}</p></div></div><div class="col-price" style="width: 100px; text-align: center; font-weight: 600; color: var(--text-main);">${formatCurrency(data.current_price)}</div><div style="width: 60px; display: flex; justify-content: center;"><div style="width: 1px; height: 24px; background: rgba(255,255,255,0.05);"></div></div><div class="col-fv" style="width: 160px; text-align: center; font-weight: 600; color: var(--text-main);">${fvStr}</div><div style="width: 60px; display: flex; justify-content: center;"><div style="width: 1px; height: 24px; background: rgba(255,255,255,0.05);"></div></div><div class="col-mos" style="width: 100px; text-align: center; font-weight: 700; color: ${mosColor};">${mosStr}</div><div class="watchlist-scores-container" style="width: 260px; display: flex; flex-direction: column; gap: 6px; justify-content: center; padding-left: 1.5rem; border-left: 1px solid rgba(255,255,255,0.05); box-sizing: border-box;"><div style="display: flex; align-items: center; gap: 10px; width: 100%; justify-content: flex-start;"><div class="mini-score-circle ${(data.health_score || 0) >= 76 ? 'mini-score-green' : ((data.health_score || 0) >= 41 ? 'mini-score-yellow' : 'mini-score-red')}" title="Health Score">${data.health_score || 'N/A'}</div><span style="font-size: 0.65rem; color: var(--text-muted); font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; white-space: nowrap;">Company Healthscore</span></div><div style="display: flex; align-items: center; gap: 10px; width: 100%; justify-content: flex-start;"><div class="mini-score-circle ${dynamicBuyScore >= 76 ? 'mini-score-green' : (dynamicBuyScore >= 41 ? 'mini-score-yellow' : 'mini-score-red')}" title="Buy Score">${dynamicBuyScore || 'N/A'}</div><span style="font-size: 0.65rem; color: var(--text-muted); font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; white-space: nowrap;">good to buy</span></div></div><div class="watchlist-actions" style="width: 40px; display: flex; align-items: center; justify-content: center;"><button class="remove-watchlist-btn" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem; padding: 0;" data-ticker="${data.ticker}" title="Remove">&times;</button></div>`;
             
             card.querySelector('.watchlist-ticker').addEventListener('click', () => {
                 tickerInput.value = data.ticker;
