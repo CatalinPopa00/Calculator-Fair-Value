@@ -97,8 +97,8 @@ def get_analyst(ticker: str):
     valuation_cache[cache_key] = result
     return result
 
-KV_REST_API_URL = os.environ.get("KV_REST_API_URL")
-KV_REST_API_TOKEN = os.environ.get("KV_REST_API_TOKEN")
+KV_REST_API_URL = os.environ.get("KV_REST_API_URL") or os.environ.get("UPSTASH_REDIS_REST_URL")
+KV_REST_API_TOKEN = os.environ.get("KV_REST_API_TOKEN") or os.environ.get("UPSTASH_REDIS_REST_TOKEN")
 
 def kv_get(key: str):
     if not KV_REST_API_URL or not KV_REST_API_TOKEN:
