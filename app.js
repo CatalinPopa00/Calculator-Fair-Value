@@ -1423,8 +1423,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const card = document.createElement('div');
             card.className = 'watchlist-item glass-card';
             card.innerHTML = `
-                <div class="drag-handle" style="cursor: grab; color: var(--text-muted); font-size: 1.2rem; padding-right: 0.5rem;">☰</div>
-                <div class="watchlist-item-left" style="width: 250px; display: flex; align-items: center; gap: 1rem;">
+                <div class="drag-handle" style="cursor: grab; color: var(--text-muted); font-size: 1.2rem; width: 40px; text-align: center; flex-shrink: 0;">☰</div>
+                <div class="watchlist-item-left" style="width: 240px; display: flex; align-items: center; gap: 1rem; flex-shrink: 0;">
                     <button class="expand-btn" style="background: none; border: none; color: var(--text-main); font-size: 1.2rem; cursor: pointer; padding: 0;">▶</button>
                     <div>
                         <h3 class="watchlist-ticker" style="margin: 0; font-size: 1.1rem; color: var(--text-main); cursor: pointer;">${data.ticker}</h3>
@@ -1434,10 +1434,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 <div class="watchlist-item-right" style="display: flex; align-items: center; justify-content: flex-end; flex-grow: 1;">
                     <div class="col-price" style="width: 100px; text-align: center; font-weight: 600;">${formatCurrency(data.current_price)}</div>
-                    <div style="width: 1px; height: 24px; background: rgba(255,255,255,0.05); margin: 0 1.5rem;"></div>
+                    <div style="width: 1px; height: 24px; background: rgba(255,255,255,0.05); margin: 0 2rem;"></div>
                     <div class="col-fv" style="width: 160px; text-align: center; font-weight: 600;">${fvStr}</div>
-                    <div style="width: 1px; height: 24px; background: rgba(255,255,255,0.05); margin: 0 1.5rem;"></div>
-                    <div class="col-mos" style="width: 160px; text-align: center; font-weight: 700; color: ${mosColor};">${mosStr}</div>
+                    <div style="width: 1px; height: 24px; background: rgba(255,255,255,0.05); margin: 0 2rem;"></div>
+                    <div class="col-mos" style="width: 100px; text-align: center; font-weight: 700; color: ${mosColor};">${mosStr}</div>
                 </div>
                 
                 <div class="watchlist-scores-container" style="width: 240px; padding-left: 1.5rem; margin-left: 1rem; display: flex; flex-direction: column; gap: 6px; justify-content: center; border-left: 1px solid rgba(255,255,255,0.05);">
