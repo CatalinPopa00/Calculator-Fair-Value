@@ -39,8 +39,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Sync watchlist from server on init
     fetch('/api/watchlist').then(r => r.json()).then(data => {
-        if (data && data.tickers) {
-            watchlist = data.tickers;
+        if (Array.isArray(data)) {
+            watchlist = data;
             localStorage.setItem('fairValueWatchlist', JSON.stringify(watchlist));
         }
     }).catch(err => console.error('Watchlist initial sync error:', err));
