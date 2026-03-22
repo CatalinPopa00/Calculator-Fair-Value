@@ -771,6 +771,15 @@ def get_company_data(ticker_symbol: str):
                     eps_val = financials.loc['Diluted EPS', yr] if 'Diluted EPS' in financials.index else (financials.loc['Basic EPS', yr] if 'Basic EPS' in financials.index else None)
                     fcf_val = cashflow.loc['Free Cash Flow', yr] if 'Free Cash Flow' in cashflow.index else None
                     
+                    # Convert to float safely
+                    r = float(rev_val) if not pd.isna(rev_val) else 0
+                    e = float(eps_val) if not pd.isna(eps_val) else 0
+                    f = float(fcf_val) if not pd.isna(fcf_val) else 0
+                    
+                    # Skip year if all key metrics are zero (e.g. 2021 bug reported by user)
+                    if r == 0 and e == 0 and f == 0:
+                        continue
+
                     share_val = None
                     for sk in ['Basic Average Shares', 'Diluted Average Shares', 'Ordinary Shares Number']:
                         if sk in financials.index:
@@ -780,9 +789,9 @@ def get_company_data(ticker_symbol: str):
                     yr_label = str(yr.year) if hasattr(yr, 'year') else str(yr)[:4]
                     
                     historical_data["years"].append(yr_label)
-                    historical_data["revenue"].append(float(rev_val) if not pd.isna(rev_val) else 0)
-                    historical_data["eps"].append(float(eps_val) if not pd.isna(eps_val) else 0)
-                    historical_data["fcf"].append(float(fcf_val) if not pd.isna(fcf_val) else 0)
+                    historical_data["revenue"].append(r)
+                    historical_data["eps"].append(e)
+                    historical_data["fcf"].append(f)
                     historical_data["shares"].append(float(share_val) if share_val and not pd.isna(share_val) else 0)
 
             # 2b. Add Projections (Next 2 FYs)
@@ -1084,8 +1093,12 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
                 if not data or not data.get('ticker'):
                     continue
                 peer_industry = data.get('industry')
-                if target_industry and peer_industry == target_industry:
-                    final_peers.append(data)
+                if target_industry and peer_industry:
+                    t_ind_norm = target_industry.lower().strip()
+                    p_ind_norm = peer_industry.lower().strip()
+                    # Use partial match or exact match to be robust (e.g. Travel vs Travel Services)
+                    if t_ind_norm in p_ind_norm or p_ind_norm in t_ind_norm:
+                        final_peers.append(data)
             except Exception as e:
                 print(f"Error validating peer {ticker}: {e}")
                 continue
