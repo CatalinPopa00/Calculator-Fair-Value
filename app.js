@@ -38,7 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let watchlist = JSON.parse(localStorage.getItem('fairValueWatchlist')) || [];
     
     // Sync watchlist from server on init
-    fetch('/api/watchlist').then(r => r.json()).then(data => {
+    fetch('/api/watchlist?t=' + new Date().getTime(), { cache: 'no-store' }).then(r => r.json()).then(data => {
         if (Array.isArray(data)) {
             watchlist = data;
             localStorage.setItem('fairValueWatchlist', JSON.stringify(watchlist));
@@ -50,7 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let overrideSaveTimer = null;
 
     // Load overrides from server on startup
-    fetch('/api/overrides').then(r => r.json()).then(data => {
+    fetch('/api/overrides?t=' + new Date().getTime(), { cache: 'no-store' }).then(r => r.json()).then(data => {
         cachedOverrides = data || {};
     }).catch(() => { cachedOverrides = {}; });
 
@@ -265,14 +265,14 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const analyzeTicker = async (queryParam) => {
+        // Force flush any pending saves before clearing the DOM
+        if (overrideSaveTimer && pendingOverrideTicker) {
+            clearTimeout(overrideSaveTimer);
+            saveOverridesToServer(pendingOverrideTicker, pendingOverridePayload);
+        }
+
         const query = (queryParam && typeof queryParam === 'string') ? queryParam : tickerInput.value.trim();
         if (!query) return;
-
-        // Fetch fresh overrides from server (ensures real-time cross-device sync)
-        fetch('/api/overrides')
-            .then(r => r.json())
-            .then(data => { cachedOverrides = data || {}; })
-            .catch(() => {});
 
         ['fcf-source', 'lynch-eps-source', 'peg-eps-source'].forEach(id => {
             const el = document.getElementById(id);
@@ -964,9 +964,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return toggles;
     };
 
-    const saveOverridesToServer = (ticker) => {
-        if (!ticker || !watchlist.includes(ticker)) return;
-        // Read current FV/MOS from DOM globally
+    const getComputedValues = () => {
         const fvEl = document.getElementById('fair-value');
         const mosEl = document.getElementById('margin-safety');
         const fvText = fvEl ? fvEl.textContent.replace(/[^0-9.-]/g, '') : '';
@@ -974,12 +972,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const fv = parseFloat(fvText) || null;
         const mosMatch = mosText.match(/([\-0-9.]+)%/);
         const mos = mosMatch ? parseFloat(mosMatch[1]) : null;
+        return { fair_value: fv, margin_of_safety: mos };
+    };
 
-        const payload = {
+    let pendingOverridePayload = null;
+    let pendingOverrideTicker = null;
+
+    const saveOverridesToServer = (ticker, payloadObj = null) => {
+        if (!ticker || !watchlist.includes(ticker)) return;
+        
+        const payload = payloadObj || {
             ticker: ticker,
             inputs: collectOverrideInputs(),
             toggles: collectOverrideToggles(),
-            computed: { fair_value: fv, margin_of_safety: mos }
+            computed: getComputedValues()
         };
 
         cachedOverrides[ticker] = payload;
@@ -989,11 +995,31 @@ document.addEventListener('DOMContentLoaded', () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         }).catch(err => console.error('Override sync error:', err));
+        
+        pendingOverridePayload = null;
+        pendingOverrideTicker = null;
     };
 
     const saveOverridesDebounced = (ticker) => {
+        if (!ticker || !watchlist.includes(ticker)) return;
+        
+        // Take synchronous snapshot BEFORE potential fast-navigation clears DOM
+        pendingOverridePayload = {
+            ticker: ticker,
+            inputs: collectOverrideInputs(),
+            toggles: collectOverrideToggles(),
+            computed: getComputedValues()
+        };
+        pendingOverrideTicker = ticker;
+        
+        cachedOverrides[ticker] = pendingOverridePayload; // Optimistic local UI update
+
         if (overrideSaveTimer) clearTimeout(overrideSaveTimer);
-        overrideSaveTimer = setTimeout(() => saveOverridesToServer(ticker), 500);
+        overrideSaveTimer = setTimeout(() => {
+            if (pendingOverrideTicker === ticker && pendingOverridePayload) {
+                saveOverridesToServer(ticker, pendingOverridePayload);
+            }
+        }, 500);
     };
 
     const applyOverrides = (ticker) => {
