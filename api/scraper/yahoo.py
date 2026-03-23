@@ -1279,25 +1279,28 @@ def get_lightweight_company_data(ticker_symbol: str):
                     "peg_ratio": q.get('pegRatio'),
                     "eps": q.get('trailingEps'),
                     "market_cap": q.get('marketCap'),
-                    "industry": None, # Quote API doesn't have these, but we use them for metrics
+                    "operating_margin": q.get('operatingMargins'),
+                    "industry": None, 
                     "sector": None
                 }
 
         # Sub-fallback: QuoteSummary for industry/sector if very lucky
-        url = f"https://query2.finance.yahoo.com/v11/finance/quoteSummary/{ticker_symbol}?modules=assetProfile,defaultKeyStatistics"
+        url = f"https://query2.finance.yahoo.com/v11/finance/quoteSummary/{ticker_symbol}?modules=assetProfile,defaultKeyStatistics,financialData"
         resp = requests.get(url, headers=headers, timeout=5)
         if resp.status_code == 200:
             data = resp.json().get('quoteSummary', {}).get('result', [{}])[0]
             profile = data.get('assetProfile', {})
             stats = data.get('defaultKeyStatistics', {})
+            f_data = data.get('financialData', {})
             return {
                 "ticker": ticker_symbol,
                 "name": ticker_symbol,
-                "price": None,
+                "price": f_data.get('currentPrice', {}).get('raw'),
                 "pe_ratio": stats.get('trailingPE', {}).get('raw') or stats.get('forwardPE', {}).get('raw'),
                 "peg_ratio": stats.get('pegRatio', {}).get('raw'),
                 "eps": stats.get('trailingEps', {}).get('raw'),
-                "market_cap": None,
+                "market_cap": stats.get('marketCap', {}).get('raw'),
+                "operating_margin": f_data.get('operatingMargins', {}).get('raw'),
                 "industry": profile.get('industry'),
                 "sector": profile.get('sector')
             }
