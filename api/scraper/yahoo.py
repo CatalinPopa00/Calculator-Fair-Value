@@ -1302,11 +1302,11 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
         return []
 
 def get_lightweight_company_data(ticker_symbol: str):
-    """Fetches a minimal set of data for competitor comparison using multiple redundant Yahoo endpoints."""
+    """Fetches a minimal set of data for competitor comparison using multiple redundant Yahoo endpoints, including the robust v8 chart endpoint."""
     ticker_symbol = ticker_symbol.upper()
     
-    # 0. Check KV Cache (Forced Bust v6)
-    cache_key = f"peer_v6_{ticker_symbol}"
+    # 0. Check KV Cache (Forced Bust v7)
+    cache_key = f"peer_v7_{ticker_symbol}"
     cached = kv_get(cache_key)
     if cached:
         return cached
@@ -1318,73 +1318,66 @@ def get_lightweight_company_data(ticker_symbol: str):
     
     data = None
     
-    # TRY 1: Yahoo Finance v7 (query2)
+    # TRY 1: Yahoo Finance v8 Chart (Ultra Robust for price)
     try:
-        url = f"https://query2.finance.yahoo.com/v7/finance/quote?symbols={ticker_symbol}"
+        url = f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker_symbol}?interval=1d&range=1d"
         resp = requests.get(url, headers=headers, timeout=5)
         if resp.status_code == 200:
-            res = resp.json().get('quoteResponse', {}).get('result', [])
+            res = resp.json().get('chart', {}).get('result', [])
             if res:
-                q = res[0]
-                data = {
-                    "ticker": ticker_symbol,
-                    "name": q.get('shortName') or q.get('longName') or ticker_symbol,
-                    "price": q.get('regularMarketPrice') or q.get('currentPrice'),
-                    "pe_ratio": q.get('trailingPE') or q.get('forwardPE'),
-                    "peg_ratio": q.get('pegRatio'),
-                    "eps": q.get('trailingEps') or q.get('forwardEps'),
-                    "market_cap": q.get('marketCap'),
-                    "operating_margin": q.get('operatingMargins'),
-                    "industry": q.get('industry'), 
-                    "sector": q.get('sector')
-                }
-    except: pass
-    
-    # TRY 2: Alternative Yahoo Host (query1)
-    if not data or not data.get('price'):
-        try:
-            url = f"https://query1.finance.yahoo.com/v7/finance/quote?symbols={ticker_symbol}"
-            resp = requests.get(url, headers=headers, timeout=5)
-            if resp.status_code == 200:
-                res = resp.json().get('quoteResponse', {}).get('result', [])
-                if res:
-                    q = res[0]
-                    data = {
-                        "ticker": ticker_symbol,
-                        "name": q.get('shortName') or ticker_symbol,
-                        "price": q.get('regularMarketPrice') or q.get('currentPrice'),
-                        "pe_ratio": q.get('trailingPE'),
-                        "eps": q.get('trailingEps'),
-                        "market_cap": q.get('marketCap')
-                    }
-        except: pass
-
-    # TRY 3: Yahoo Finance v11 (QuoteSummary)
-    if not data or not data.get('price'):
-        try:
-            url = f"https://query2.finance.yahoo.com/v11/finance/quoteSummary/{ticker_symbol}?modules=assetProfile,defaultKeyStatistics,financialData,summaryDetail"
-            resp = requests.get(url, headers=headers, timeout=7)
-            if resp.status_code == 200:
-                dj = resp.json().get('quoteSummary', {}).get('result', [{}])[0]
-                p = dj.get('assetProfile', {})
-                st = dj.get('defaultKeyStatistics', {})
-                fd = dj.get('financialData', {})
-                sd = dj.get('summaryDetail', {})
+                meta = res[0].get('meta', {})
                 data = {
                     "ticker": ticker_symbol,
                     "name": ticker_symbol,
-                    "price": fd.get('currentPrice', {}).get('raw') or sd.get('previousClose', {}).get('raw'),
-                    "pe_ratio": st.get('trailingPE', {}).get('raw') or sd.get('trailingPE', {}).get('raw'),
-                    "peg_ratio": st.get('pegRatio', {}).get('raw'),
-                    "eps": st.get('trailingEps', {}).get('raw'),
-                    "market_cap": st.get('marketCap', {}).get('raw') or sd.get('marketCap', {}).get('raw'),
-                    "operating_margin": fd.get('operatingMargins', {}).get('raw'),
-                    "industry": p.get('industry'),
-                    "sector": p.get('sector')
+                    "price": meta.get('regularMarketPrice') or meta.get('chartPreviousClose'),
+                    "market_cap": None, # Will try to fill later
+                    "pe_ratio": None,
+                    "eps": None
                 }
+    except: pass
+
+    # TRY 2: Yahoo Finance v7 (query1 or query2)
+    if not data or not data.get('price'):
+        for host in ["query1", "query2"]:
+            try:
+                url = f"https://{host}.finance.yahoo.com/v7/finance/quote?symbols={ticker_symbol}"
+                resp = requests.get(url, headers=headers, timeout=5)
+                if resp.status_code == 200:
+                    res = resp.json().get('quoteResponse', {}).get('result', [])
+                    if res:
+                        q = res[0]
+                        data = {
+                            "ticker": ticker_symbol,
+                            "name": q.get('shortName') or ticker_symbol,
+                            "price": q.get('regularMarketPrice') or q.get('currentPrice'),
+                            "pe_ratio": q.get('trailingPE') or q.get('forwardPE'),
+                            "eps": q.get('trailingEps'),
+                            "market_cap": q.get('marketCap')
+                        }
+                        break
+            except: continue
+
+    # TRY 3: Yahoo Finance v11 (Full Details)
+    if data and (not data.get('pe_ratio') or not data.get('market_cap')):
+        try:
+            url = f"https://query2.finance.yahoo.com/v11/finance/quoteSummary/{ticker_symbol}?modules=defaultKeyStatistics,financialData,summaryDetail"
+            resp = requests.get(url, headers=headers, timeout=5)
+            if resp.status_code == 200:
+                dj = resp.json().get('quoteSummary', {}).get('result', [{}])[0]
+                st = dj.get('defaultKeyStatistics', {})
+                fd = dj.get('financialData', {})
+                sd = dj.get('summaryDetail', {})
+                
+                # Merge into existing data
+                if not data: data = {"ticker": ticker_symbol, "name": ticker_symbol}
+                if not data.get('price'): data['price'] = fd.get('currentPrice', {}).get('raw') or sd.get('previousClose', {}).get('raw')
+                data['pe_ratio'] = data.get('pe_ratio') or st.get('trailingPE', {}).get('raw') or sd.get('trailingPE', {}).get('raw')
+                data['market_cap'] = data.get('market_cap') or st.get('marketCap', {}).get('raw') or sd.get('marketCap', {}).get('raw')
+                data['eps'] = data.get('eps') or st.get('trailingEps', {}).get('raw')
+                data['operating_margin'] = fd.get('operatingMargins', {}).get('raw')
         except: pass
 
-    if data:
+    if data and data.get('price'):
         kv_set(cache_key, data, ex=86400)
         return data
 
