@@ -547,7 +547,7 @@ def get_valuation(ticker: str, wacc: float = None):
                     "debt_to_equity": sanitize(data.get("debt_to_equity")),
                     "shares_outstanding": sanitize(data.get("shares_outstanding")),
                     "buyback_rate": sanitize(data.get("historic_buyback_rate") * 100 if data.get("historic_buyback_rate") else None),
-                    "dividend_yield": sanitize(data.get("dividend_yield") * 100 if data.get("dividend_yield") and data.get("dividend_yield") < 0.30 else data.get("dividend_yield")),
+                    "dividend_yield": sanitize(data.get("dividend_yield")),
                     "operating_margin": sanitize(data.get("operating_margin")),
                     "net_margin": sanitize(data.get("net_margin")),
                     "payout_ratio": sanitize(data.get("payout_ratio")),

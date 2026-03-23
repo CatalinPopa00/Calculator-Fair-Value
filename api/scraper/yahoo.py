@@ -1302,28 +1302,30 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
         return []
 
 def get_lightweight_company_data(ticker_symbol: str):
-    """Fetches a minimal set of data for competitor comparison using a robust direct API call with KV caching."""
+    """Fetches a minimal set of data for competitor comparison using multiple redundant Yahoo endpoints."""
     ticker_symbol = ticker_symbol.upper()
     
-    # 0. Check KV Cache (Forced Bust v5)
-    cache_key = f"peer_v5_{ticker_symbol}"
+    # 0. Check KV Cache (Forced Bust v6)
+    cache_key = f"peer_v6_{ticker_symbol}"
     cached = kv_get(cache_key)
     if cached:
         return cached
 
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*'
+    }
+    
+    data = None
+    
+    # TRY 1: Yahoo Finance v7 (query2)
     try:
-        # Direct Yahoo API call with rotating User-Agent (more reliable than yfinance .info on Vercel)
         url = f"https://query2.finance.yahoo.com/v7/finance/quote?symbols={ticker_symbol}"
-        headers = {'User-Agent': get_random_agent()}
         resp = requests.get(url, headers=headers, timeout=5)
-        
-        data = None
         if resp.status_code == 200:
-            result = resp.json().get('quoteResponse', {}).get('result', [])
-            print(f"DEBUG: Yahoo V7 for {ticker_symbol} result len: {len(result)}")
-            if result:
-                q = result[0]
-                # Try to get more robust keys from V7 quote API
+            res = resp.json().get('quoteResponse', {}).get('result', [])
+            if res:
+                q = res[0]
                 data = {
                     "ticker": ticker_symbol,
                     "name": q.get('shortName') or q.get('longName') or ticker_symbol,
@@ -1336,81 +1338,56 @@ def get_lightweight_company_data(ticker_symbol: str):
                     "industry": q.get('industry'), 
                     "sector": q.get('sector')
                 }
-        
-        if not data or not data.get('price'):
-            # Sub-fallback: QuoteSummary if v7 failed or was missing keys
-            url = f"https://query2.finance.yahoo.com/v11/finance/quoteSummary/{ticker_symbol}?modules=assetProfile,defaultKeyStatistics,financialData,summaryDetail"
+    except: pass
+    
+    # TRY 2: Alternative Yahoo Host (query1)
+    if not data or not data.get('price'):
+        try:
+            url = f"https://query1.finance.yahoo.com/v7/finance/quote?symbols={ticker_symbol}"
             resp = requests.get(url, headers=headers, timeout=5)
             if resp.status_code == 200:
-                data_json = resp.json().get('quoteSummary', {}).get('result', [{}])[0]
-                profile = data_json.get('assetProfile', {})
-                stats = data_json.get('defaultKeyStatistics', {})
-                f_data = data_json.get('financialData', {})
-                s_detail = data_json.get('summaryDetail', {})
-                
+                res = resp.json().get('quoteResponse', {}).get('result', [])
+                if res:
+                    q = res[0]
+                    data = {
+                        "ticker": ticker_symbol,
+                        "name": q.get('shortName') or ticker_symbol,
+                        "price": q.get('regularMarketPrice') or q.get('currentPrice'),
+                        "pe_ratio": q.get('trailingPE'),
+                        "eps": q.get('trailingEps'),
+                        "market_cap": q.get('marketCap')
+                    }
+        except: pass
+
+    # TRY 3: Yahoo Finance v11 (QuoteSummary)
+    if not data or not data.get('price'):
+        try:
+            url = f"https://query2.finance.yahoo.com/v11/finance/quoteSummary/{ticker_symbol}?modules=assetProfile,defaultKeyStatistics,financialData,summaryDetail"
+            resp = requests.get(url, headers=headers, timeout=7)
+            if resp.status_code == 200:
+                dj = resp.json().get('quoteSummary', {}).get('result', [{}])[0]
+                p = dj.get('assetProfile', {})
+                st = dj.get('defaultKeyStatistics', {})
+                fd = dj.get('financialData', {})
+                sd = dj.get('summaryDetail', {})
                 data = {
                     "ticker": ticker_symbol,
                     "name": ticker_symbol,
-                    "price": f_data.get('currentPrice', {}).get('raw') or s_detail.get('previousClose', {}).get('raw'),
-                    "pe_ratio": stats.get('trailingPE', {}).get('raw') or stats.get('forwardPE', {}).get('raw') or s_detail.get('trailingPE', {}).get('raw'),
-                    "peg_ratio": stats.get('pegRatio', {}).get('raw'),
-                    "eps": stats.get('trailingEps', {}).get('raw') or f_data.get('revenuePerShare', {}).get('raw'), # EPS fallback is tricky
-                    "market_cap": stats.get('marketCap', {}).get('raw') or s_detail.get('marketCap', {}).get('raw'),
-                    "operating_margin": f_data.get('operatingMargins', {}).get('raw'),
-                    "industry": profile.get('industry'),
-                    "sector": profile.get('sector')
+                    "price": fd.get('currentPrice', {}).get('raw') or sd.get('previousClose', {}).get('raw'),
+                    "pe_ratio": st.get('trailingPE', {}).get('raw') or sd.get('trailingPE', {}).get('raw'),
+                    "peg_ratio": st.get('pegRatio', {}).get('raw'),
+                    "eps": st.get('trailingEps', {}).get('raw'),
+                    "market_cap": st.get('marketCap', {}).get('raw') or sd.get('marketCap', {}).get('raw'),
+                    "operating_margin": fd.get('operatingMargins', {}).get('raw'),
+                    "industry": p.get('industry'),
+                    "sector": p.get('sector')
                 }
+        except: pass
 
-        if not data or not data.get('price'):
-            # FINAL FALLBACK: Finnhub (very robust for US stocks)
-            fh_key = os.environ.get('FINNHUB_API_KEY')
-            if fh_key:
-                try:
-                    session = requests.Session()
-                    # Metrics: https://finnhub.io/api/v1/stock/metric?symbol=AAPL&metric=all&token=
-                    m_url = f"https://finnhub.io/api/v1/stock/metric?symbol={ticker_symbol}&metric=all&token={fh_key}"
-                    m_resp = session.get(m_url, timeout=5)
-                    # Quote: https://finnhub.io/api/v1/quote?symbol=AAPL&token=
-                    q_url = f"https://finnhub.io/api/v1/quote?symbol={ticker_symbol}&token={fh_key}"
-                    q_resp = session.get(q_url, timeout=5)
-                    
-                    if m_resp.status_code == 200 and q_resp.status_code == 200:
-                        m_data = m_resp.json().get('metric', {})
-                        q_data = q_resp.json()
-                        print(f"DEBUG: Finnhub for {ticker_symbol} metrics keys: {list(m_data.keys())[:5]}")
-                        
-                        price = q_data.get('c')
-                        pe = m_data.get('peExclExtraTTM') or m_data.get('peBasicExclExtraTTM') or m_data.get('peAnnual')
-                        eps = m_data.get('epsExclExtraItemsTTM') or m_data.get('epsBasicExclExtraItemsTTM') or m_data.get('epsAnnual')
-                        mcap = m_data.get('marketCapitalization', 0) * 1000000 if m_data.get('marketCapitalization') else None
-                        
-                        # Extra robust mcap from quote if metric failed
-                        if not mcap:
-                            # Actually Finnhub metric is usually best for Mcap
-                            pass
+    if data:
+        kv_set(cache_key, data, ex=86400)
+        return data
 
-                        if price or pe or eps or mcap:
-                            data = {
-                                "ticker": ticker_symbol,
-                                "name": ticker_symbol,
-                                "price": price,
-                                "pe_ratio": pe,
-                                "peg_ratio": m_data.get('peBasicExclExtraTTM') / m_data.get('epsGrowthTTM') if (m_data.get('epsGrowthTTM') and m_data.get('epsGrowthTTM') > 0) else None,
-                                "eps": eps,
-                                "market_cap": mcap,
-                                "operating_margin": m_data.get('operatingMarginTTM', 0) / 100.0 if m_data.get('operatingMarginTTM') else None,
-                                "industry": None,
-                                "sector": None
-                            }
-                except Exception as e: 
-                    print(f"Finnhub fallback failed for {ticker_symbol}: {e}")
-
-        if data:
-            kv_set(cache_key, data, ex=86400) # Buffer it for 24 hours
-            return data
-
-    except Exception:
-        pass
     return None
 
 
