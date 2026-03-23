@@ -30,7 +30,7 @@ app = FastAPI(title="Fair Value Calculator API")
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v15" # Incrementing version forces invalidation of old logic results
+CACHE_VERSION = "v16" # Incrementing version forces invalidation of old logic results
 
 app.add_middleware(
     CORSMiddleware,
@@ -560,7 +560,15 @@ def get_valuation(ticker: str, wacc: float = None):
                     "sector_median_pe": sanitize(median_peer_pe),
                     "sector_median_peg": sanitize(median_peer_peg),
                     "competitors": [p.get("ticker", p) if isinstance(p, dict) else p for p in peers_data] if peers_data else [],
-                    "competitor_metrics": peers_data if peers_data else []
+                    "competitor_metrics": [{
+                        "ticker": p.get("ticker"),
+                        "name": p.get("name"),
+                        "price": sanitize(p.get("price")),
+                        "pe_ratio": sanitize(p.get("pe_ratio")),
+                        "market_cap": sanitize(p.get("market_cap")),
+                        "eps": sanitize(p.get("eps")),
+                        "operating_margin": sanitize(p.get("operating_margin"))
+                    } for p in peers_data] if peers_data else []
                 },
                 "historical_trends": historical_trends,
                 "historical_data": data.get("historical_data"),
