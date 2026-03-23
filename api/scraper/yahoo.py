@@ -1123,6 +1123,10 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
                 peers = ["IBM", "IT", "CTSH", "INFY", "ACN", "MSFT", "AAPL", "GOOGL"]
             elif sector == "Financial Services":
                 peers = ["SCHW", "MS", "GS", "JPM", "BAC", "IBKR", "WFC"]
+            elif sector == "Consumer Cyclical":
+                peers = ["MC.PA", "RMS.PA", "CDI.PA", "NKE", "AMZN", "TSLA"] # LVMH, Hermes, Dior fallbacks
+            elif sector == "Healthcare":
+                peers = ["PFE", "JNJ", "UNH", "ABBV", "LLY", "MRK"]
             else:
                 return []
 
@@ -1244,6 +1248,10 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
                 except:
                     continue
 
+        # Pass 4: Ultimate Last Resort - Just return the candidates as minimal entries if everything else failed
+        if not final_peers and candidates:
+            return [{"ticker": t, "name": t, "price": None, "pe_ratio": None} for t in candidates[:limit]]
+
         return final_peers
         
     except Exception as e:
@@ -1251,29 +1259,51 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
         return []
 
 def get_lightweight_company_data(ticker_symbol: str):
-    """Fetches a minimal set of data for competitor comparison."""
+    """Fetches a minimal set of data for competitor comparison using a robust direct API call."""
     try:
-        stock = yf.Ticker(ticker_symbol)
-        info = stock.info
-        pe = info.get('trailingPE') or info.get('forwardPE')
-        peg = info.get('pegRatio') or info.get('trailingPegRatio')
-        if not peg and pe and info.get('earningsGrowth'):
-            peg = pe / (info.get('earningsGrowth') * 100)
-            
-        return {
-            "ticker": ticker_symbol.upper(),
-            "name": info.get('shortName') or info.get('longName') or ticker_symbol,
-            "price": info.get('currentPrice') or info.get('regularMarketPrice'),
-            "pe_ratio": pe,
-            "peg_ratio": peg,
-            "eps": info.get('trailingEps'),
-            "margin": info.get('operatingMargins'),
-            "market_cap": info.get('marketCap') or info.get('regularMarketCap'),
-            "industry": info.get('industry'),
-            "sector": info.get('sector')
-        }
+        ticker_symbol = ticker_symbol.upper()
+        # Direct Yahoo API call with rotating User-Agent (more reliable than yfinance .info on Vercel)
+        url = f"https://query2.finance.yahoo.com/v7/finance/quote?symbols={ticker_symbol}"
+        headers = {'User-Agent': get_random_agent()}
+        resp = requests.get(url, headers=headers, timeout=5)
+        
+        if resp.status_code == 200:
+            result = resp.json().get('quoteResponse', {}).get('result', [])
+            if result:
+                q = result[0]
+                return {
+                    "ticker": ticker_symbol,
+                    "name": q.get('shortName') or q.get('longName') or ticker_symbol,
+                    "price": q.get('regularMarketPrice'),
+                    "pe_ratio": q.get('trailingPE') or q.get('forwardPE'),
+                    "peg_ratio": q.get('pegRatio'),
+                    "eps": q.get('trailingEps'),
+                    "market_cap": q.get('marketCap'),
+                    "industry": None, # Quote API doesn't have these, but we use them for metrics
+                    "sector": None
+                }
+
+        # Sub-fallback: QuoteSummary for industry/sector if very lucky
+        url = f"https://query2.finance.yahoo.com/v11/finance/quoteSummary/{ticker_symbol}?modules=assetProfile,defaultKeyStatistics"
+        resp = requests.get(url, headers=headers, timeout=5)
+        if resp.status_code == 200:
+            data = resp.json().get('quoteSummary', {}).get('result', [{}])[0]
+            profile = data.get('assetProfile', {})
+            stats = data.get('defaultKeyStatistics', {})
+            return {
+                "ticker": ticker_symbol,
+                "name": ticker_symbol,
+                "price": None,
+                "pe_ratio": stats.get('trailingPE', {}).get('raw') or stats.get('forwardPE', {}).get('raw'),
+                "peg_ratio": stats.get('pegRatio', {}).get('raw'),
+                "eps": stats.get('trailingEps', {}).get('raw'),
+                "market_cap": None,
+                "industry": profile.get('industry'),
+                "sector": profile.get('sector')
+            }
     except Exception:
-        return None
+        pass
+    return None
 
 
 def get_market_averages():
