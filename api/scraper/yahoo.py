@@ -1332,6 +1332,35 @@ def get_lightweight_company_data(ticker_symbol: str):
                 "industry": profile.get('industry'),
                 "sector": profile.get('sector')
             }
+
+        # FINAL FALLBACK: Finnhub (very robust for US stocks)
+        fh_key = os.environ.get('FINNHUB_API_KEY')
+        if fh_key:
+            try:
+                # 1. Get Metrics (PE, EPS, MCAP)
+                m_url = f"https://finnhub.io/api/v1/stock/metric?symbol={ticker_symbol}&metric=all&token={fh_key}"
+                m_resp = requests.get(m_url, timeout=5)
+                # 2. Get Quote (Price)
+                q_url = f"https://finnhub.io/api/v1/quote?symbol={ticker_symbol}&token={fh_key}"
+                q_resp = requests.get(q_url, timeout=5)
+                
+                if m_resp.status_code == 200 and q_resp.status_code == 200:
+                    m_data = m_resp.json().get('metric', {})
+                    q_data = q_resp.json()
+                    return {
+                        "ticker": ticker_symbol,
+                        "name": ticker_symbol,
+                        "price": q_data.get('c'), # Current price
+                        "pe_ratio": m_data.get('peExclExtraTTM') or m_data.get('peBasicExclExtraTTM'),
+                        "peg_ratio": None, # Finnhub metric call doesn't have a simple PEG
+                        "eps": m_data.get('epsExclExtraItemsTTM'),
+                        "market_cap": m_data.get('marketCapitalization', 0) * 1000000 if m_data.get('marketCapitalization') else None,
+                        "operating_margin": m_data.get('operatingMarginTTM', 0) / 100.0 if m_data.get('operatingMarginTTM') else None,
+                        "industry": None,
+                        "sector": None
+                    }
+            except Exception:
+                pass
     except Exception:
         pass
     return None
