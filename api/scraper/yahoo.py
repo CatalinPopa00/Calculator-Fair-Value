@@ -1304,8 +1304,8 @@ def get_lightweight_company_data(ticker_symbol: str):
     """Fetches a minimal set of data for competitor comparison using a robust direct API call with KV caching."""
     ticker_symbol = ticker_symbol.upper()
     
-    # 0. Check KV Cache (24 hour TTL)
-    cache_key = f"peer_v2_{ticker_symbol}"
+    # 0. Check KV Cache (Forced Bust v4)
+    cache_key = f"peer_v4_{ticker_symbol}"
     cached = kv_get(cache_key)
     if cached:
         return cached
@@ -1319,6 +1319,7 @@ def get_lightweight_company_data(ticker_symbol: str):
         data = None
         if resp.status_code == 200:
             result = resp.json().get('quoteResponse', {}).get('result', [])
+            print(f"DEBUG: Yahoo V7 for {ticker_symbol} result len: {len(result)}")
             if result:
                 q = result[0]
                 # Try to get more robust keys from V7 quote API
@@ -1375,6 +1376,7 @@ def get_lightweight_company_data(ticker_symbol: str):
                     if m_resp.status_code == 200 and q_resp.status_code == 200:
                         m_data = m_resp.json().get('metric', {})
                         q_data = q_resp.json()
+                        print(f"DEBUG: Finnhub for {ticker_symbol} metrics keys: {list(m_data.keys())[:5]}")
                         
                         price = q_data.get('c')
                         pe = m_data.get('peExclExtraTTM') or m_data.get('peBasicExclExtraTTM') or m_data.get('peAnnual')
