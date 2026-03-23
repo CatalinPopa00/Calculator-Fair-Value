@@ -854,6 +854,22 @@ def get_company_data(ticker_symbol: str):
                     if final_shares == 0 and historical_data["shares"]:
                         final_shares = historical_data["shares"][-1]
 
+                    # Detect GAPs between years (Meta 2025 case)
+                    if historical_data["years"]:
+                        try:
+                            last_yr = int(historical_data["years"][-1])
+                            curr_yr = int(yr_label)
+                            if curr_yr > last_yr + 1:
+                                # Gap detected (e.g. 2024 to 2026). Fill 2025 using latest available.
+                                for gap_yr in range(last_yr + 1, curr_yr):
+                                    historical_data["years"].append(str(gap_yr))
+                                    historical_data["revenue"].append(historical_data["revenue"][-1])
+                                    # For EPS, if it's missing from grid, trailingEps is a good proxy for "Last Closed Year"
+                                    historical_data["eps"].append(float(info.get('trailingEps', e)) if gap_yr == (datetime.datetime.now().year - 1) else e)
+                                    historical_data["fcf"].append(historical_data["fcf"][-1])
+                                    historical_data["shares"].append(historical_data["shares"][-1])
+                        except: pass
+
                     historical_data["years"].append(yr_label)
                     historical_data["revenue"].append(r)
                     historical_data["eps"].append(e)
@@ -1280,34 +1296,39 @@ def get_lightweight_company_data(ticker_symbol: str):
             if result:
                 q = result[0]
                 return {
+                # Try to get more robust keys from V7 quote API
+                return {
                     "ticker": ticker_symbol,
                     "name": q.get('shortName') or q.get('longName') or ticker_symbol,
-                    "price": q.get('regularMarketPrice'),
+                    "price": q.get('regularMarketPrice') or q.get('currentPrice'),
                     "pe_ratio": q.get('trailingPE') or q.get('forwardPE'),
                     "peg_ratio": q.get('pegRatio'),
-                    "eps": q.get('trailingEps'),
+                    "eps": q.get('trailingEps') or q.get('forwardEps'),
                     "market_cap": q.get('marketCap'),
                     "operating_margin": q.get('operatingMargins'),
-                    "industry": None, 
-                    "sector": None
+                    "industry": q.get('industry'), 
+                    "sector": q.get('sector')
                 }
 
-        # Sub-fallback: QuoteSummary for industry/sector if very lucky
-        url = f"https://query2.finance.yahoo.com/v11/finance/quoteSummary/{ticker_symbol}?modules=assetProfile,defaultKeyStatistics,financialData"
+        # Sub-fallback: QuoteSummary if v7 failed or was missing keys
+        url = f"https://query2.finance.yahoo.com/v11/finance/quoteSummary/{ticker_symbol}?modules=assetProfile,defaultKeyStatistics,financialData,summaryDetail"
         resp = requests.get(url, headers=headers, timeout=5)
         if resp.status_code == 200:
-            data = resp.json().get('quoteSummary', {}).get('result', [{}])[0]
-            profile = data.get('assetProfile', {})
-            stats = data.get('defaultKeyStatistics', {})
-            f_data = data.get('financialData', {})
+            data_json = resp.json().get('quoteSummary', {}).get('result', [{}])[0]
+            profile = data_json.get('assetProfile', {})
+            stats = data_json.get('defaultKeyStatistics', {})
+            f_data = data_json.get('financialData', {})
+            s_detail = data_json.get('summaryDetail', {})
+            
+            # Use raw extraction for consistent numbers
             return {
                 "ticker": ticker_symbol,
                 "name": ticker_symbol,
-                "price": f_data.get('currentPrice', {}).get('raw'),
-                "pe_ratio": stats.get('trailingPE', {}).get('raw') or stats.get('forwardPE', {}).get('raw'),
+                "price": f_data.get('currentPrice', {}).get('raw') or s_detail.get('previousClose', {}).get('raw'),
+                "pe_ratio": stats.get('trailingPE', {}).get('raw') or stats.get('forwardPE', {}).get('raw') or s_detail.get('trailingPE', {}).get('raw'),
                 "peg_ratio": stats.get('pegRatio', {}).get('raw'),
-                "eps": stats.get('trailingEps', {}).get('raw'),
-                "market_cap": stats.get('marketCap', {}).get('raw'),
+                "eps": stats.get('trailingEps', {}).get('raw') or f_data.get('revenuePerShare', {}).get('raw'), # EPS fallback is tricky
+                "market_cap": stats.get('marketCap', {}).get('raw') or s_detail.get('marketCap', {}).get('raw'),
                 "operating_margin": f_data.get('operatingMargins', {}).get('raw'),
                 "industry": profile.get('industry'),
                 "sector": profile.get('sector')

@@ -518,7 +518,7 @@ def get_valuation(ticker: str, wacc: float = None):
 
         # 6. Compute Comprehensive Scoring
         h_result = calculate_health_score(data)
-        b_result = calculate_buy_score({"margin_of_safety": margin_of_safety}, data)
+        b_result = calculate_buy_score({"margin_of_safety": margin_of_safety, "sector_median_peg": median_peer_peg}, data)
         
         health_score = h_result.get("total") if isinstance(h_result, dict) else h_result
         health_breakdown = h_result.get("breakdown") if isinstance(h_result, dict) else []

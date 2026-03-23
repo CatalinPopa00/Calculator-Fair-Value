@@ -371,17 +371,23 @@ def calculate_buy_score(valuation_data: dict, metrics: dict):
         
         # 2. PEG Ratio (Max 20)
         peg = metrics.get('peg_ratio')
+        sector_median_peg = valuation_data.get('sector_median_peg')
         pts = 0; peg_s = "N/A"
         if peg is not None and peg > 0:
             peg_s = f"{peg:.2f}x"
-            # More generous PEG for Financials/Stable sectors
-            if sector == "Financial Services":
-                if peg < 1.2: pts = 20
-                elif peg <= 1.8: pts = 10
-            else:
-                if peg < 1.0: pts = 20
-                elif peg <= 1.5: pts = 10
-                elif peg <= 2.0: pts = 5
+            # Logic: If PEG < 1.0, max points. If PEG < sector_median_peg, at least some points.
+            if peg < 1.0:
+                pts = 20
+            elif sector_median_peg and peg < sector_median_peg:
+                pts = 15 # "Better than Sector" bonus
+                peg_s += f" (< Sector {sector_median_peg:.1f}x)"
+            elif peg <= 1.5:
+                pts = 10
+            elif peg <= 2.0:
+                pts = 5
+            # If PEG is very high but STILL better than sector (e.g. 5 vs 6), give 5 pts
+            if pts == 0 and sector_median_peg and peg < sector_median_peg:
+                pts = 5
         score += pts
         add_brk("PEG Ratio (Growth Value)", peg_s, pts, 20)
 
