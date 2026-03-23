@@ -13,6 +13,7 @@ import json
 import os
 import requests
 from .scraper.yahoo import get_company_data, get_competitors_data, get_market_averages, search_companies, get_analyst_data, get_risk_free_rate
+from .utils.kv import kv_get, kv_set
 from .models.valuation import (
     calculate_peter_lynch, 
     calculate_peg_fair_value, 
@@ -97,46 +98,7 @@ def get_analyst(ticker: str):
     valuation_cache[cache_key] = result
     return result
 
-KV_REST_API_URL = os.environ.get("KV_REST_API_URL") or os.environ.get("UPSTASH_REDIS_REST_URL")
-KV_REST_API_TOKEN = os.environ.get("KV_REST_API_TOKEN") or os.environ.get("UPSTASH_REDIS_REST_TOKEN")
-
-def kv_get(key: str):
-    if not KV_REST_API_URL or not KV_REST_API_TOKEN:
-        return None
-    try:
-        url = KV_REST_API_URL.rstrip('/')
-        headers = {
-            "Authorization": f"Bearer {KV_REST_API_TOKEN}",
-            "Content-Type": "application/json"
-        }
-        payload = ["GET", key]
-        resp = requests.post(url, headers=headers, json=payload, timeout=5)
-        if resp.status_code == 200:
-            data = resp.json().get("result")
-            if data:
-                try:
-                    return json.loads(data)
-                except:
-                    return data
-    except Exception as e:
-        print(f"KV GET Error: {e}")
-    return None
-
-def kv_set(key: str, value) -> bool:
-    if not KV_REST_API_URL or not KV_REST_API_TOKEN:
-        return False
-    try:
-        url = KV_REST_API_URL.rstrip('/')
-        headers = {
-            "Authorization": f"Bearer {KV_REST_API_TOKEN}",
-            "Content-Type": "application/json"
-        }
-        payload = ["SET", key, json.dumps(value)]
-        resp = requests.post(url, headers=headers, json=payload, timeout=5)
-        return resp.status_code == 200
-    except Exception as e:
-        print(f"KV SET Error: {e}")
-    return False
+# KV functions moved to .utils.kv
 
 @app.get("/api/watchlist")
 def get_watchlist():
@@ -222,7 +184,16 @@ def delete_override(ticker: str):
 def get_valuation(ticker: str, wacc: float = None):
     try:
         ticker_upper = ticker.upper()
-        cache_key = f"val_{ticker_upper}_{wacc}_{CACHE_VERSION}"
+        # Ensure wacc is normalized for the key
+        norm_wacc = round(float(wacc), 2) if wacc is not None else "def"
+        cache_key = f"v_res_{ticker_upper}_{norm_wacc}_{CACHE_VERSION}"
+        
+        # 1. KV Cache Check (Rapid Loading)
+        cached_res = kv_get(cache_key)
+        if cached_res:
+            return cached_res
+
+        # 2. Local Memory Cache
         if cache_key in valuation_cache:
             return valuation_cache[cache_key]
 
@@ -610,6 +581,7 @@ def get_valuation(ticker: str, wacc: float = None):
         raise HTTPException(status_code=500, detail=f"Backend Error for {ticker}: {str(e)}")
 
     valuation_cache[cache_key] = response_data
+    kv_set(cache_key, response_data, ex=3600) # Persist for 1 hour
     return response_data
 
 from concurrent.futures import ThreadPoolExecutor

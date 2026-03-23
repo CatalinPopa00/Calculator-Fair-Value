@@ -9,6 +9,7 @@ import time
 import random
 import requests
 import pandas as pd
+from .utils.kv import kv_get, kv_set
 
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
@@ -860,14 +861,15 @@ def get_company_data(ticker_symbol: str):
                             last_yr = int(historical_data["years"][-1])
                             curr_yr = int(yr_label)
                             if curr_yr > last_yr + 1:
-                                # Gap detected (e.g. 2024 to 2026). Fill 2025 using latest available.
-                                for gap_yr in range(last_yr + 1, curr_yr):
-                                    historical_data["years"].append(str(gap_yr))
-                                    historical_data["revenue"].append(historical_data["revenue"][-1])
-                                    # For EPS, if it's missing from grid, trailingEps is a good proxy for "Last Closed Year"
-                                    historical_data["eps"].append(float(info.get('trailingEps', e)) if gap_yr == (datetime.datetime.now().year - 1) else e)
-                                    historical_data["fcf"].append(historical_data["fcf"][-1])
-                                    historical_data["shares"].append(historical_data["shares"][-1])
+                                    # Gap detected (e.g. 2024 to 2026). Fill 2025 using latest available.
+                                    for gap_yr in range(last_yr + 1, curr_yr):
+                                        historical_data["years"].append(str(gap_yr))
+                                        historical_data["revenue"].append(historical_data["revenue"][-1] if historical_data["revenue"] else 0)
+                                        # For EPS, use trailingEps as proxy or last known eps
+                                        proxy_eps = info.get('trailingEps')
+                                        historical_data["eps"].append(float(proxy_eps) if proxy_eps else (historical_data["eps"][-1] if historical_data["eps"] else 0))
+                                        historical_data["fcf"].append(historical_data["fcf"][-1] if historical_data["fcf"] else 0)
+                                        historical_data["shares"].append(historical_data["shares"][-1] if historical_data["shares"] else (info.get('sharesOutstanding') or 0))
                         except: pass
 
                     historical_data["years"].append(yr_label)
@@ -891,15 +893,17 @@ def get_company_data(ticker_symbol: str):
                 # BRIDGE THE GAP: If history ends in 2024 and we are now in 2026, fill 2025
                 if historical_data["years"]:
                     try:
-                        last_hist_yr = int(historical_data["years"][-1].split('(Est)')[0].strip())
+                        last_hist_label = historical_data["years"][-1]
+                        last_hist_yr = int(last_hist_label.split('(Est)')[0].strip())
                         if this_fy > last_hist_yr + 1:
                             for gap_yr in range(last_hist_yr + 1, this_fy):
                                 historical_data["years"].append(str(gap_yr))
-                                historical_data["revenue"].append(historical_data["revenue"][-1])
-                                # Use trailingEps if it's the gap year immediately before this FY
-                                historical_data["eps"].append(float(info.get('trailingEps', historical_data["eps"][-1])))
-                                historical_data["fcf"].append(historical_data["fcf"][-1])
-                                historical_data["shares"].append(historical_data["shares"][-1])
+                                historical_data["revenue"].append(historical_data["revenue"][-1] if historical_data["revenue"] else 0)
+                                # Use trailingEps or the last EPS we have
+                                proxy_eps = info.get('trailingEps')
+                                historical_data["eps"].append(float(proxy_eps) if proxy_eps else (historical_data["eps"][-1] if historical_data["eps"] else 0))
+                                historical_data["fcf"].append(historical_data["fcf"][-1] if historical_data["fcf"] else 0)
+                                historical_data["shares"].append(historical_data["shares"][-1] if historical_data["shares"] else (info.get('sharesOutstanding') or 0))
                     except: pass
 
                 for fy in [this_fy, next_fy]:
@@ -1297,20 +1301,28 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
         return []
 
 def get_lightweight_company_data(ticker_symbol: str):
-    """Fetches a minimal set of data for competitor comparison using a robust direct API call."""
+    """Fetches a minimal set of data for competitor comparison using a robust direct API call with KV caching."""
+    ticker_symbol = ticker_symbol.upper()
+    
+    # 0. Check KV Cache (24 hour TTL)
+    cache_key = f"peer_v2_{ticker_symbol}"
+    cached = kv_get(cache_key)
+    if cached:
+        return cached
+
     try:
-        ticker_symbol = ticker_symbol.upper()
         # Direct Yahoo API call with rotating User-Agent (more reliable than yfinance .info on Vercel)
         url = f"https://query2.finance.yahoo.com/v7/finance/quote?symbols={ticker_symbol}"
         headers = {'User-Agent': get_random_agent()}
         resp = requests.get(url, headers=headers, timeout=5)
         
+        data = None
         if resp.status_code == 200:
             result = resp.json().get('quoteResponse', {}).get('result', [])
             if result:
                 q = result[0]
                 # Try to get more robust keys from V7 quote API
-                return {
+                data = {
                     "ticker": ticker_symbol,
                     "name": q.get('shortName') or q.get('longName') or ticker_symbol,
                     "price": q.get('regularMarketPrice') or q.get('currentPrice'),
@@ -1322,68 +1334,70 @@ def get_lightweight_company_data(ticker_symbol: str):
                     "industry": q.get('industry'), 
                     "sector": q.get('sector')
                 }
-
-        # Sub-fallback: QuoteSummary if v7 failed or was missing keys
-        url = f"https://query2.finance.yahoo.com/v11/finance/quoteSummary/{ticker_symbol}?modules=assetProfile,defaultKeyStatistics,financialData,summaryDetail"
-        resp = requests.get(url, headers=headers, timeout=5)
-        if resp.status_code == 200:
-            data_json = resp.json().get('quoteSummary', {}).get('result', [{}])[0]
-            profile = data_json.get('assetProfile', {})
-            stats = data_json.get('defaultKeyStatistics', {})
-            f_data = data_json.get('financialData', {})
-            s_detail = data_json.get('summaryDetail', {})
-            
-            # Use raw extraction for consistent numbers
-            return {
-                "ticker": ticker_symbol,
-                "name": ticker_symbol,
-                "price": f_data.get('currentPrice', {}).get('raw') or s_detail.get('previousClose', {}).get('raw'),
-                "pe_ratio": stats.get('trailingPE', {}).get('raw') or stats.get('forwardPE', {}).get('raw') or s_detail.get('trailingPE', {}).get('raw'),
-                "peg_ratio": stats.get('pegRatio', {}).get('raw'),
-                "eps": stats.get('trailingEps', {}).get('raw') or f_data.get('revenuePerShare', {}).get('raw'), # EPS fallback is tricky
-                "market_cap": stats.get('marketCap', {}).get('raw') or s_detail.get('marketCap', {}).get('raw'),
-                "operating_margin": f_data.get('operatingMargins', {}).get('raw'),
-                "industry": profile.get('industry'),
-                "sector": profile.get('sector')
-            }
-
-        # FINAL FALLBACK: Finnhub (very robust for US stocks)
-        fh_key = os.environ.get('FINNHUB_API_KEY')
-        if fh_key:
-            try:
-                # Use a session for speed
-                session = requests.Session()
-                # 1. Get Metrics (PE, EPS, MCAP)
-                m_url = f"https://finnhub.io/api/v1/stock/metric?symbol={ticker_symbol}&metric=all&token={fh_key}"
-                m_resp = session.get(m_url, timeout=5)
-                # 2. Get Quote (Price)
-                q_url = f"https://finnhub.io/api/v1/quote?symbol={ticker_symbol}&token={fh_key}"
-                q_resp = session.get(q_url, timeout=5)
+        
+        if not data:
+            # Sub-fallback: QuoteSummary if v7 failed or was missing keys
+            url = f"https://query2.finance.yahoo.com/v11/finance/quoteSummary/{ticker_symbol}?modules=assetProfile,defaultKeyStatistics,financialData,summaryDetail"
+            resp = requests.get(url, headers=headers, timeout=5)
+            if resp.status_code == 200:
+                data_json = resp.json().get('quoteSummary', {}).get('result', [{}])[0]
+                profile = data_json.get('assetProfile', {})
+                stats = data_json.get('defaultKeyStatistics', {})
+                f_data = data_json.get('financialData', {})
+                s_detail = data_json.get('summaryDetail', {})
                 
-                if m_resp.status_code == 200 and q_resp.status_code == 200:
-                    m_data = m_resp.json().get('metric', {})
-                    q_data = q_resp.json()
+                data = {
+                    "ticker": ticker_symbol,
+                    "name": ticker_symbol,
+                    "price": f_data.get('currentPrice', {}).get('raw') or s_detail.get('previousClose', {}).get('raw'),
+                    "pe_ratio": stats.get('trailingPE', {}).get('raw') or stats.get('forwardPE', {}).get('raw') or s_detail.get('trailingPE', {}).get('raw'),
+                    "peg_ratio": stats.get('pegRatio', {}).get('raw'),
+                    "eps": stats.get('trailingEps', {}).get('raw') or f_data.get('revenuePerShare', {}).get('raw'), # EPS fallback is tricky
+                    "market_cap": stats.get('marketCap', {}).get('raw') or s_detail.get('marketCap', {}).get('raw'),
+                    "operating_margin": f_data.get('operatingMargins', {}).get('raw'),
+                    "industry": profile.get('industry'),
+                    "sector": profile.get('sector')
+                }
+
+        if not data:
+            # FINAL FALLBACK: Finnhub (very robust for US stocks)
+            fh_key = os.environ.get('FINNHUB_API_KEY')
+            if fh_key:
+                try:
+                    session = requests.Session()
+                    m_url = f"https://finnhub.io/api/v1/stock/metric?symbol={ticker_symbol}&metric=all&token={fh_key}"
+                    m_resp = session.get(m_url, timeout=5)
+                    q_url = f"https://finnhub.io/api/v1/quote?symbol={ticker_symbol}&token={fh_key}"
+                    q_resp = session.get(q_url, timeout=5)
                     
-                    price = q_data.get('c')
-                    pe = m_data.get('peExclExtraTTM') or m_data.get('peBasicExclExtraTTM')
-                    eps = m_data.get('epsExclExtraItemsTTM')
-                    mcap = m_data.get('marketCapitalization', 0) * 1000000 if m_data.get('marketCapitalization') else None
-                    
-                    if price or pe or eps or mcap:
-                        return {
-                            "ticker": ticker_symbol,
-                            "name": ticker_symbol,
-                            "price": price,
-                            "pe_ratio": pe,
-                            "peg_ratio": m_data.get('peBasicExclExtraTTM') / m_data.get('epsGrowthTTM') if (m_data.get('epsGrowthTTM') and m_data.get('epsGrowthTTM') > 0) else None,
-                            "eps": eps,
-                            "market_cap": mcap,
-                            "operating_margin": m_data.get('operatingMarginTTM', 0) / 100.0 if m_data.get('operatingMarginTTM') else None,
-                            "industry": None,
-                            "sector": None
-                        }
-            except Exception:
-                pass
+                    if m_resp.status_code == 200 and q_resp.status_code == 200:
+                        m_data = m_resp.json().get('metric', {})
+                        q_data = q_resp.json()
+                        
+                        price = q_data.get('c')
+                        pe = m_data.get('peExclExtraTTM') or m_data.get('peBasicExclExtraTTM')
+                        eps = m_data.get('epsExclExtraItemsTTM')
+                        mcap = m_data.get('marketCapitalization', 0) * 1000000 if m_data.get('marketCapitalization') else None
+                        
+                        if price or pe or eps or mcap:
+                            data = {
+                                "ticker": ticker_symbol,
+                                "name": ticker_symbol,
+                                "price": price,
+                                "pe_ratio": pe,
+                                "peg_ratio": m_data.get('peBasicExclExtraTTM') / m_data.get('epsGrowthTTM') if (m_data.get('epsGrowthTTM') and m_data.get('epsGrowthTTM') > 0) else None,
+                                "eps": eps,
+                                "market_cap": mcap,
+                                "operating_margin": m_data.get('operatingMarginTTM', 0) / 100.0 if m_data.get('operatingMarginTTM') else None,
+                                "industry": None,
+                                "sector": None
+                            }
+                except Exception: pass
+
+        if data:
+            kv_set(cache_key, data, ex=86400) # Buffer it for 24 hours
+            return data
+
     except Exception:
         pass
     return None
