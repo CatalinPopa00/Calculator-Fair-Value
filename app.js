@@ -1409,7 +1409,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        if (watchlistHeader) watchlistHeader.style.display = 'flex';
 
         sortedResults.forEach((data, index) => {
             // Recalculare MOS custom pentru Watchlist

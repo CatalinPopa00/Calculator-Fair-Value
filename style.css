@@ -1737,30 +1737,12 @@ body {
         display: flex !important;
         gap: 0.5rem;
         margin-bottom: 1rem;
-    }
-
-    .tab-btn {
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid var(--card-border);
-        color: var(--text-muted);
-        padding: 0.4rem 0.8rem;
-        border-radius: 6px;
-        cursor: pointer;
-        font-family: inherit;
-        font-size: 0.8rem;
-        white-space: nowrap;
-        transition: all 0.2s;
-    }
-
-    .tab-btn.active {
-        background: var(--primary);
-        color: white;
-        border-color: var(--primary);
+        border-bottom: 1px solid var(--card-border);
+        padding-bottom: 8px;
     }
 
     .analyst-grid-layout {
         display: block !important;
-        /* Single column for mobile */
     }
 
     .tab-content {
@@ -1777,7 +1759,21 @@ body {
     }
 }
 
-/* Analyst General Styles (placed after mobile/desktop standard media queries if needed) */
+/* Analyst Desktop Styles */
+@media (min-width: 769px) {
+    .analyst-tabs-nav {
+        display: none !important;
+    }
+    .analyst-grid-layout {
+        display: grid !important;
+        grid-template-columns: repeat(4, 1fr) !important;
+        gap: 1.5rem !important;
+    }
+    .tab-content {
+        display: block !important;
+    }
+}
+
 .analyst-estimates-section {
     width: 100%;
 }

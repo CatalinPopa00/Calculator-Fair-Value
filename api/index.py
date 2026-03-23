@@ -586,6 +586,8 @@ def get_valuation(ticker: str, wacc: float = None):
                     "dividend_streak": data.get("dividend_streak"),
                     "dividend_cagr_5y": data.get("dividend_cagr_5y"),
                     "red_flags": data.get("red_flags"),
+                    "sector_median_pe": sanitize(median_peer_pe),
+                    "sector_median_peg": sanitize(median_peer_peg),
                     "competitors": [p.get("ticker", p) if isinstance(p, dict) else p for p in peers_data] if peers_data else [],
                     "competitor_metrics": peers_data if peers_data else []
                 },

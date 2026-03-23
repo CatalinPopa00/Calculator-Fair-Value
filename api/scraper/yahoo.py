@@ -844,13 +844,21 @@ def get_company_data(ticker_symbol: str):
                             share_val = financials.loc[sk, yr]
                             if not pd.isna(share_val): break
                     
+                    # Skip year 2021 if it's there (User requested)
                     yr_label = str(yr.year) if hasattr(yr, 'year') else str(yr)[:4]
-                    
+                    if yr_label == "2021":
+                        continue
+
+                    # If shares are zero or missing, carry forward from previous year if available
+                    final_shares = float(share_val) if share_val and not pd.isna(share_val) else 0
+                    if final_shares == 0 and historical_data["shares"]:
+                        final_shares = historical_data["shares"][-1]
+
                     historical_data["years"].append(yr_label)
                     historical_data["revenue"].append(r)
                     historical_data["eps"].append(e)
                     historical_data["fcf"].append(f)
-                    historical_data["shares"].append(float(share_val) if share_val and not pd.isna(share_val) else 0)
+                    historical_data["shares"].append(final_shares)
 
             # 2b. Add Projections (Next 2 FYs)
             try:
