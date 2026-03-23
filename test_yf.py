@@ -1,11 +1,17 @@
 import yfinance as yf
-stock = yf.Ticker("AAPL")
-info = stock.info
+import json
 
-print("earningsGrowth", info.get("earningsGrowth"))
-print("revenueGrowth", info.get("revenueGrowth"))
-print("pegRatio", info.get("pegRatio"))
-print("trailingPE", info.get("trailingPE"))
-print("forwardPE", info.get("forwardPE"))
+def test_yf_batch():
+    tickers = ["LLY", "JNJ", "PFE"]
+    print(f"Testing yfinance batch for: {tickers}")
+    try:
+        # Use yf.Tickers for batch download
+        data = yf.Tickers(" ".join(tickers))
+        for t in tickers:
+            info = data.tickers[t].info
+            print(f"Ticker: {t}, Price: {info.get('regularMarketPrice') or info.get('currentPrice')}, PE: {info.get('trailingPE')}")
+    except Exception as e:
+        print(f"yfinance Error: {e}")
 
-# Looking for next year growth
+if __name__ == "__main__":
+    test_yf_batch()

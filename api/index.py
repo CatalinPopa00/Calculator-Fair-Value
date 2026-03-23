@@ -30,7 +30,7 @@ app = FastAPI(title="Fair Value Calculator API")
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v10" # Incrementing version forces invalidation of old logic results
+CACHE_VERSION = "v11" # Incrementing version forces invalidation of old logic results
 
 app.add_middleware(
     CORSMiddleware,

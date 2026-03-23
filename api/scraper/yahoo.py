@@ -1166,7 +1166,7 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
             elif sector == "Healthcare":
                 peers = ["PFE", "JNJ", "UNH", "ABBV", "LLY", "MRK"]
             else:
-                ret        # 3. BATCH EXTRACTION (Nuclear Grade Efficiency)
+                ret        # 3. BATCH EXTRACTION (Primary: yfinance Tickers)
         candidates = []
         seen = {target_ticker.upper()}
         for p in peers:
@@ -1175,42 +1175,57 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
                 candidates.append(p_up)
                 seen.add(p_up)
         
-        candidates = candidates[:8] # Limit to top 8 candidates for batch processing
+        candidates = candidates[:8] # Limit to top 8 candidates 
         
         final_peers = []
+        # --- Attempt yfinance Batch (Most reliable for cookies/crumbs) ---
         try:
-            # Try Batch Quote first
-            batch_url = f"https://query2.finance.yahoo.com/v7/finance/quote?symbols={','.join(candidates)}"
-            headers = {'User-Agent': get_random_agent()}
-            resp = requests.get(batch_url, headers=headers, timeout=10)
-            if resp.status_code == 200:
-                results = resp.json().get('quoteResponse', {}).get('result', [])
-                for q in results:
-                    p_ticker = q.get('symbol')
-                    final_peers.append({
-                        "ticker": p_ticker,
-                        "name": q.get('shortName') or q.get('longName') or p_ticker,
-                        "price": q.get('regularMarketPrice') or q.get('currentPrice'),
-                        "pe_ratio": q.get('trailingPE') or q.get('forwardPE'),
-                        "peg_ratio": q.get('pegRatio'),
-                        "eps": q.get('trailingEps') or q.get('forwardEps'),
-                        "market_cap": q.get('marketCap'),
-                        "operating_margin": q.get('operatingMargins'),
-                        "industry": q.get('industry') or target_industry,
-                        "sector": q.get('sector') or sector
-                    })
-        except Exception as e_batch:
-            print(f"Batch peer extraction error: {e_batch}")
-
-        # Individual Fallback if batch was empty or insufficient
-        if len(final_peers) < limit:
+            print(f"Attempting yfinance batch for {candidates}...")
+            batch_data = yf.Tickers(" ".join(candidates))
             for ticker in candidates:
-                if len(final_peers) >= limit: break
+                try:
+                    info = batch_data.tickers[ticker].info
+                    if info and (info.get('regularMarketPrice') or info.get('currentPrice')):
+                        final_peers.append({
+                            "ticker": ticker,
+                            "name": info.get('shortName') or info.get('longName') or ticker,
+                            "price": info.get('regularMarketPrice') or info.get('currentPrice'),
+                            "pe_ratio": info.get('trailingPE') or info.get('forwardPE'),
+                            "peg_ratio": info.get('pegRatio'),
+                            "eps": info.get('trailingEps') or info.get('forwardEps'),
+                            "market_cap": info.get('marketCap'),
+                            "operating_margin": info.get('operatingMargins'),
+                            "industry": info.get('industry') or target_industry,
+                            "sector": info.get('sector') or sector
+                        })
+                except: continue
+        except Exception as e_yf:
+            print(f"yfinance batch error: {e_yf}")
+
+        # --- FINAL TRIPLE-LOCK FALLBACK: Finnhub (if Yahoo is still being stubborn) ---
+        fh_key = os.environ.get('FINNHUB_API_KEY')
+        if len(final_peers) < 2 and fh_key:
+            print("Yahoo Batch Failed or empty. Falling back to Finnhub Triple-Lock...")
+            for ticker in candidates:
                 if any(p['ticker'] == ticker for p in final_peers): continue
                 try:
-                    data = get_lightweight_company_data(ticker)
-                    if data and data.get('price'):
-                        final_peers.append(data)
+                    m_url = f"https://finnhub.io/api/v1/stock/metric?symbol={ticker}&metric=all&token={fh_key}"
+                    q_url = f"https://finnhub.io/api/v1/quote?symbol={ticker}&token={fh_key}"
+                    m_resp = requests.get(m_url, timeout=5); q_resp = requests.get(q_url, timeout=5)
+                    if m_resp.status_code == 200 and q_resp.status_code == 200:
+                        m = m_resp.json().get('metric', {}); q = q_resp.json()
+                        if q.get('c'):
+                            final_peers.append({
+                                "ticker": ticker,
+                                "name": ticker,
+                                "price": q.get('c'),
+                                "pe_ratio": m.get('peExclExtraTTM'),
+                                "market_cap": (m.get('marketCapitalization', 0) * 1000000) if m.get('marketCapitalization') else None,
+                                "eps": m.get('epsExclExtraItemsTTM'),
+                                "operating_margin": (m.get('operatingMarginTTM', 0)/100.0 if m.get('operatingMarginTTM') else None),
+                                "industry": target_industry,
+                                "sector": sector
+                            })
                 except: continue
 
         # Filter and Deduplicate
