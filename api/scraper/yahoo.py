@@ -1185,7 +1185,8 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
                             "price": inf.get('regularMarketPrice') or inf.get('currentPrice'),
                             "pe_ratio": inf.get('trailingPE') or inf.get('forwardPE'),
                             "market_cap": inf.get('marketCap'),
-                            "operating_margin": inf.get('operatingMargins'),
+                            "eps": inf.get('trailingEps') or inf.get('forwardEps'),
+                            "operating_margin": inf.get('operatingMargins') or inf.get('ebitdaMargins'),
                             "industry": inf.get('industry') or target_industry,
                             "sector": inf.get('sector') or sector
                         })
