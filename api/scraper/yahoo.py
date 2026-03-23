@@ -1285,7 +1285,8 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
                     data = get_lightweight_company_data(ticker)
                     if not data or not data.get('ticker'):
                         continue
-                    if target_sector and data.get('sector') == target_sector:
+                    # Ultimate fallback: if sector is missing but it was a candidate, allow it
+                    if not target_sector or data.get('sector') == target_sector or data.get('sector') is None:
                         final_peers.append(data)
                 except:
                     continue
