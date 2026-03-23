@@ -1758,26 +1758,27 @@ body {
         padding: 0 !important;
     }
 }
+}
 
 /* Analyst Estimates UI Refinement */
 .analyst-desktop-header {
     display: none;
-    justify-content: center;
+    justify-content: space-around;
     align-items: center;
     border-bottom: 1px solid rgba(255,255,255,0.1);
     margin-bottom: 1.5rem;
-    padding-bottom: 10px;
-    gap: 2rem;
+    padding-bottom: 15px;
+    gap: 1rem;
 }
 
 .desktop-tab-label {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--text-main);
-    background: rgba(255, 255, 255, 0.05);
-    padding: 4px 12px;
-    border-radius: 4px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    flex: 1;
+    text-align: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 /* Mobile Tabs Aesthetic */

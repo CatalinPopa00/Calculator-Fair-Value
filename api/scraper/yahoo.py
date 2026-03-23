@@ -888,6 +888,20 @@ def get_company_data(ticker_symbol: str):
                 this_fy = datetime.datetime.now().year
                 next_fy = this_fy + 1
                 
+                # BRIDGE THE GAP: If history ends in 2024 and we are now in 2026, fill 2025
+                if historical_data["years"]:
+                    try:
+                        last_hist_yr = int(historical_data["years"][-1].split('(Est)')[0].strip())
+                        if this_fy > last_hist_yr + 1:
+                            for gap_yr in range(last_hist_yr + 1, this_fy):
+                                historical_data["years"].append(str(gap_yr))
+                                historical_data["revenue"].append(historical_data["revenue"][-1])
+                                # Use trailingEps if it's the gap year immediately before this FY
+                                historical_data["eps"].append(float(info.get('trailingEps', historical_data["eps"][-1])))
+                                historical_data["fcf"].append(historical_data["fcf"][-1])
+                                historical_data["shares"].append(historical_data["shares"][-1])
+                    except: pass
+
                 for fy in [this_fy, next_fy]:
                     fy_code = f"0y" if fy == this_fy else "+1y"
                     label = f"{fy} (Est)"
@@ -1337,28 +1351,37 @@ def get_lightweight_company_data(ticker_symbol: str):
         fh_key = os.environ.get('FINNHUB_API_KEY')
         if fh_key:
             try:
+                # Use a session for speed
+                session = requests.Session()
                 # 1. Get Metrics (PE, EPS, MCAP)
                 m_url = f"https://finnhub.io/api/v1/stock/metric?symbol={ticker_symbol}&metric=all&token={fh_key}"
-                m_resp = requests.get(m_url, timeout=5)
+                m_resp = session.get(m_url, timeout=5)
                 # 2. Get Quote (Price)
                 q_url = f"https://finnhub.io/api/v1/quote?symbol={ticker_symbol}&token={fh_key}"
-                q_resp = requests.get(q_url, timeout=5)
+                q_resp = session.get(q_url, timeout=5)
                 
                 if m_resp.status_code == 200 and q_resp.status_code == 200:
                     m_data = m_resp.json().get('metric', {})
                     q_data = q_resp.json()
-                    return {
-                        "ticker": ticker_symbol,
-                        "name": ticker_symbol,
-                        "price": q_data.get('c'), # Current price
-                        "pe_ratio": m_data.get('peExclExtraTTM') or m_data.get('peBasicExclExtraTTM'),
-                        "peg_ratio": None, # Finnhub metric call doesn't have a simple PEG
-                        "eps": m_data.get('epsExclExtraItemsTTM'),
-                        "market_cap": m_data.get('marketCapitalization', 0) * 1000000 if m_data.get('marketCapitalization') else None,
-                        "operating_margin": m_data.get('operatingMarginTTM', 0) / 100.0 if m_data.get('operatingMarginTTM') else None,
-                        "industry": None,
-                        "sector": None
-                    }
+                    
+                    price = q_data.get('c')
+                    pe = m_data.get('peExclExtraTTM') or m_data.get('peBasicExclExtraTTM')
+                    eps = m_data.get('epsExclExtraItemsTTM')
+                    mcap = m_data.get('marketCapitalization', 0) * 1000000 if m_data.get('marketCapitalization') else None
+                    
+                    if price or pe or eps or mcap:
+                        return {
+                            "ticker": ticker_symbol,
+                            "name": ticker_symbol,
+                            "price": price,
+                            "pe_ratio": pe,
+                            "peg_ratio": m_data.get('peBasicExclExtraTTM') / m_data.get('epsGrowthTTM') if (m_data.get('epsGrowthTTM') and m_data.get('epsGrowthTTM') > 0) else None,
+                            "eps": eps,
+                            "market_cap": mcap,
+                            "operating_margin": m_data.get('operatingMarginTTM', 0) / 100.0 if m_data.get('operatingMarginTTM') else None,
+                            "industry": None,
+                            "sector": None
+                        }
             except Exception:
                 pass
     except Exception:
