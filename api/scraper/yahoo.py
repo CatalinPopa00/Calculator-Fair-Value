@@ -9,7 +9,7 @@ import time
 import random
 import requests
 import pandas as pd
-from ..utils.kv import kv_get, kv_set
+from api.utils.kv import kv_get, kv_set
 
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
@@ -860,7 +860,7 @@ def get_company_data(ticker_symbol: str):
                         try:
                             last_yr = int(historical_data["years"][-1])
                             curr_yr = int(yr_label)
-                            if curr_yr > last_yr + 1:
+                            if curr_yr > last_yr:
                                     # Gap detected (e.g. 2024 to 2026). Fill 2025 using latest available.
                                     for gap_yr in range(last_yr + 1, curr_yr):
                                         historical_data["years"].append(str(gap_yr))
@@ -895,7 +895,7 @@ def get_company_data(ticker_symbol: str):
                     try:
                         last_hist_label = historical_data["years"][-1]
                         last_hist_yr = int(last_hist_label.split('(Est)')[0].strip())
-                        if this_fy > last_hist_yr + 1:
+                        if this_fy > last_hist_yr:
                             for gap_yr in range(last_hist_yr + 1, this_fy):
                                 historical_data["years"].append(str(gap_yr))
                                 historical_data["revenue"].append(historical_data["revenue"][-1] if historical_data["revenue"] else 0)

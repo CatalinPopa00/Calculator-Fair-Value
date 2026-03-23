@@ -13,7 +13,7 @@ import json
 import os
 import requests
 from .scraper.yahoo import get_company_data, get_competitors_data, get_market_averages, search_companies, get_analyst_data, get_risk_free_rate
-from .utils.kv import kv_get, kv_set
+from api.utils.kv import kv_get, kv_set
 from .models.valuation import (
     calculate_peter_lynch, 
     calculate_peg_fair_value, 
@@ -591,7 +591,7 @@ def get_batch_valuation(req: WatchlistRequest):
     tickers = req.tickers
     results = []
     
-    with ThreadPoolExecutor(max_workers=5) as executor:
+    with ThreadPoolExecutor(max_workers=15) as executor:
         # We reuse the existing get_valuation logic but in parallel
         futures = {executor.submit(get_valuation, t.upper()): t for t in tickers}
         for future in futures:
