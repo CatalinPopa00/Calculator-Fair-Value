@@ -1365,8 +1365,10 @@ def get_lightweight_company_data(ticker_symbol: str):
             if fh_key:
                 try:
                     session = requests.Session()
+                    # Metrics: https://finnhub.io/api/v1/stock/metric?symbol=AAPL&metric=all&token=
                     m_url = f"https://finnhub.io/api/v1/stock/metric?symbol={ticker_symbol}&metric=all&token={fh_key}"
                     m_resp = session.get(m_url, timeout=5)
+                    # Quote: https://finnhub.io/api/v1/quote?symbol=AAPL&token=
                     q_url = f"https://finnhub.io/api/v1/quote?symbol={ticker_symbol}&token={fh_key}"
                     q_resp = session.get(q_url, timeout=5)
                     
@@ -1375,10 +1377,15 @@ def get_lightweight_company_data(ticker_symbol: str):
                         q_data = q_resp.json()
                         
                         price = q_data.get('c')
-                        pe = m_data.get('peExclExtraTTM') or m_data.get('peBasicExclExtraTTM')
-                        eps = m_data.get('epsExclExtraItemsTTM')
+                        pe = m_data.get('peExclExtraTTM') or m_data.get('peBasicExclExtraTTM') or m_data.get('peAnnual')
+                        eps = m_data.get('epsExclExtraItemsTTM') or m_data.get('epsBasicExclExtraItemsTTM') or m_data.get('epsAnnual')
                         mcap = m_data.get('marketCapitalization', 0) * 1000000 if m_data.get('marketCapitalization') else None
                         
+                        # Extra robust mcap from quote if metric failed
+                        if not mcap:
+                            # Actually Finnhub metric is usually best for Mcap
+                            pass
+
                         if price or pe or eps or mcap:
                             data = {
                                 "ticker": ticker_symbol,
@@ -1392,7 +1399,8 @@ def get_lightweight_company_data(ticker_symbol: str):
                                 "industry": None,
                                 "sector": None
                             }
-                except Exception: pass
+                except Exception as e: 
+                    print(f"Finnhub fallback failed for {ticker_symbol}: {e}")
 
         if data:
             kv_set(cache_key, data, ex=86400) # Buffer it for 24 hours
