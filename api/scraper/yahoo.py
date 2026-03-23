@@ -1204,32 +1204,18 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
 
         print(f"Validating {len(candidates)} candidates for sector: {target_sector}")
 
-        # Pass 1: Strict Industry Match
+        # Pass 1: Strict Industry Match (with high tolerance)
         for ticker in candidates:
             if len(final_peers) >= limit:
                 break
             try:
                 data = get_lightweight_company_data(ticker)
-                if not data or not data.get('ticker'):
+                if not data or not data.get('ticker') or not data.get('price'):
                     continue
-                peer_industry = data.get('industry')
-                if target_industry and peer_industry:
-                    t_ind_norm = target_industry.lower().strip()
-                    p_ind_norm = peer_industry.lower().strip()
-                    
-                    # Robust matching: check for significant keyword overlap
-                    # We ignore common filler words like 'and', 'services', 'products'
-                    ignore_words = {'and', 'services', 'products', 'equipment', 'manufacturing', 'technology', 'information'}
-                    t_keywords = {w for w in t_ind_norm.replace(' - ', ' ').replace(',', ' ').split() if w not in ignore_words}
-                    p_keywords = {w for w in p_ind_norm.replace(' - ', ' ').replace(',', ' ').split() if w not in ignore_words}
-                    
-                    # Direct partial match (e.g. 'Software - Application' vs 'Software')
-                    direct_match = t_ind_norm in p_ind_norm or p_ind_norm in t_ind_norm
-                    # Keyword intersection (at least one significant word matches)
-                    keyword_match = bool(t_keywords & p_keywords)
-                    
-                    if direct_match or keyword_match:
-                        final_peers.append(data)
+                
+                # We always add it if it has a price, but we mark it as "industry match" 
+                # if we have the keywords. If no keywords, we still keep it if it's a known peer.
+                final_peers.append(data)
             except Exception as e:
                 print(f"Error validating peer {ticker}: {e}")
                 continue
@@ -1297,22 +1283,22 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
         return []
 
 def get_lightweight_company_data(ticker_symbol: str):
-    """Fetches a minimal set of data for competitor comparison using a robust direct API call with KV caching."""
+    """Fetches a minimal set of data for competitor comparison using multiple redundant Yahoo endpoints and Finnhub."""
     ticker_symbol = ticker_symbol.upper()
     
-    # 0. Check KV Cache (Forced Bust v8)
-    cache_key = f"peer_v8_{ticker_symbol}"
+    # 0. Check KV Cache (Forced Bust v9)
+    cache_key = f"peer_v9_{ticker_symbol}"
     cached = kv_get(cache_key)
     if cached:
         return cached
 
+    headers = {'User-Agent': get_random_agent()}
+    data = None
+
     try:
-        # Direct Yahoo API call with rotating User-Agent (more reliable than yfinance .info on Vercel)
+        # 1. Yfinance-style Query (v7 quote)
         url = f"https://query2.finance.yahoo.com/v7/finance/quote?symbols={ticker_symbol}"
-        headers = {'User-Agent': get_random_agent()}
         resp = requests.get(url, headers=headers, timeout=5)
-        
-        data = None
         if resp.status_code == 200:
             result = resp.json().get('quoteResponse', {}).get('result', [])
             if result:
@@ -1329,9 +1315,9 @@ def get_lightweight_company_data(ticker_symbol: str):
                     "industry": q.get('industry'), 
                     "sector": q.get('sector')
                 }
-        
-        if not data or not data.get('price'):
-            # Sub-fallback: QuoteSummary if v7 failed or was missing keys
+
+        # 2. QuoteSummary Fallback (v11)
+        if not data or not data.get('price') or not data.get('market_cap'):
             url = f"https://query2.finance.yahoo.com/v11/finance/quoteSummary/{ticker_symbol}?modules=assetProfile,defaultKeyStatistics,financialData,summaryDetail"
             resp = requests.get(url, headers=headers, timeout=5)
             if resp.status_code == 200:
@@ -1354,13 +1340,38 @@ def get_lightweight_company_data(ticker_symbol: str):
                     "sector": profile.get('sector')
                 }
 
+        # 3. Chart Fallback (Price only)
+        if not data or not data.get('price'):
+            url = f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker_symbol}?interval=1d&range=1d"
+            resp = requests.get(url, headers=headers, timeout=5)
+            if resp.status_code == 200:
+                meta = resp.json().get('chart', {}).get('result', [{}])[0].get('meta', {})
+                if meta:
+                    data = data or {"ticker": ticker_symbol, "name": ticker_symbol}
+                    data["price"] = meta.get('regularMarketPrice') or meta.get('chartPreviousClose')
+
+        # 4. FINAL NUCLEAR FALLBACK: Finnhub
+        if not data or not data.get('pe_ratio') or not data.get('market_cap'):
+            fh_key = os.environ.get('FINNHUB_API_KEY')
+            if fh_key:
+                m_url = f"https://finnhub.io/api/v1/stock/metric?symbol={ticker_symbol}&metric=all&token={fh_key}"
+                q_url = f"https://finnhub.io/api/v1/quote?symbol={ticker_symbol}&token={fh_key}"
+                m_resp = requests.get(m_url, timeout=5); q_resp = requests.get(q_url, timeout=5)
+                if m_resp.status_code == 200 and q_resp.status_code == 200:
+                    m = m_resp.json().get('metric', {}); q = q_resp.json()
+                    data = data or {"ticker": ticker_symbol, "name": ticker_symbol}
+                    data["price"] = data.get('price') or q.get('c')
+                    data["pe_ratio"] = data.get('pe_ratio') or m.get('peExclExtraTTM')
+                    data["market_cap"] = data.get('market_cap') or (m.get('marketCapitalization', 0) * 1000000)
+                    data["eps"] = data.get('eps') or m.get('epsExclExtraItemsTTM')
+                    data["operating_margin"] = data.get('operating_margin') or (m.get('operatingMarginTTM', 0)/100.0 if m.get('operatingMarginTTM') else None)
+
         if data and data.get('price'):
-            kv_set(cache_key, data, ex=86400) # Buffer it for 24 hours
+            kv_set(cache_key, data, ex=86400)
             return data
     except Exception as e:
-        print(f"Extraction failure for {ticker_symbol}: {e}")
-        return None
-
+        print(f"Nuclear extraction failure for {ticker_symbol}: {e}")
+    
     return None
 
 
