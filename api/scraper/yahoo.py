@@ -1166,117 +1166,62 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
             elif sector == "Healthcare":
                 peers = ["PFE", "JNJ", "UNH", "ABBV", "LLY", "MRK"]
             else:
-                return []
-
-        # 2. Extract and Validate Peers by Sector
-        final_peers = []
-        target_sector = sector
-        target_industry = target_industry
-        
-        # Deduplicate and exclude self/similar companies (GOOG vs GOOGL)
+                ret        # 3. BATCH EXTRACTION (Nuclear Grade Efficiency)
         candidates = []
-        try:
-            target_info = yf.Ticker(target_ticker).info
-            target_name_base = (target_info.get('shortName') or target_info.get('longName') or target_ticker).lower()
-        except:
-            target_name_base = target_ticker.lower()
-        
-        seen_tickers = {target_ticker.upper()}
-        seen_roots = {target_ticker.upper()[:3]}  # Root-based dedup (e.g., GOO for GOOG/GOOGL)
-        
+        seen = {target_ticker.upper()}
         for p in peers:
-            p_upper = p.upper()
-            if p_upper in seen_tickers:
-                continue
-            
-            # Basic ticker root check (GOOG vs GOOGL, BRK.A vs BRK.B)
-            if p_upper.startswith(target_ticker.upper()) or target_ticker.upper().startswith(p_upper):
-                continue
-            
-            # Cross-peer root dedup: if a shorter ticker with the same root already exists, skip
-            p_root = p_upper[:3]
-            if len(p_upper) > 3 and p_root in seen_roots:
-                continue
-                
-            candidates.append(p_upper)
-            seen_tickers.add(p_upper)
-            seen_roots.add(p_root)
+            p_up = p.upper()
+            if p_up not in seen and '.' not in p_up:
+                candidates.append(p_up)
+                seen.add(p_up)
+        
+        candidates = candidates[:8] # Limit to top 8 candidates for batch processing
+        
+        final_peers = []
+        try:
+            # Try Batch Quote first
+            batch_url = f"https://query2.finance.yahoo.com/v7/finance/quote?symbols={','.join(candidates)}"
+            headers = {'User-Agent': get_random_agent()}
+            resp = requests.get(batch_url, headers=headers, timeout=10)
+            if resp.status_code == 200:
+                results = resp.json().get('quoteResponse', {}).get('result', [])
+                for q in results:
+                    p_ticker = q.get('symbol')
+                    final_peers.append({
+                        "ticker": p_ticker,
+                        "name": q.get('shortName') or q.get('longName') or p_ticker,
+                        "price": q.get('regularMarketPrice') or q.get('currentPrice'),
+                        "pe_ratio": q.get('trailingPE') or q.get('forwardPE'),
+                        "peg_ratio": q.get('pegRatio'),
+                        "eps": q.get('trailingEps') or q.get('forwardEps'),
+                        "market_cap": q.get('marketCap'),
+                        "operating_margin": q.get('operatingMargins'),
+                        "industry": q.get('industry') or target_industry,
+                        "sector": q.get('sector') or sector
+                    })
+        except Exception as e_batch:
+            print(f"Batch peer extraction error: {e_batch}")
 
-        print(f"Validating {len(candidates)} candidates for sector: {target_sector}")
-
-        # Pass 1: Strict Industry Match (with high tolerance)
-        for ticker in candidates:
-            if len(final_peers) >= limit:
-                break
-            try:
-                data = get_lightweight_company_data(ticker)
-                if not data or not data.get('ticker') or not data.get('price'):
-                    continue
-                
-                # We always add it if it has a price, but we mark it as "industry match" 
-                # if we have the keywords. If no keywords, we still keep it if it's a known peer.
-                final_peers.append(data)
-            except Exception as e:
-                print(f"Error validating peer {ticker}: {e}")
-                continue
-
-        # Pass 2: Broader Sector Match + Soft Industry Check
+        # Individual Fallback if batch was empty or insufficient
         if len(final_peers) < limit:
             for ticker in candidates:
-                if len(final_peers) >= limit:
-                    break
-                # Skip if already added
-                if any(p.get('ticker') == ticker for p in final_peers):
-                    continue
+                if len(final_peers) >= limit: break
+                if any(p['ticker'] == ticker for p in final_peers): continue
                 try:
                     data = get_lightweight_company_data(ticker)
-                    if not data or not data.get('ticker'):
-                        continue
-                        
-                    peer_sector = data.get('sector')
-                    peer_industry = data.get('industry')
-                    
-                    if target_sector and peer_sector == target_sector:
-                        # Soft Industry Match to prevent ridiculous cross-sector pairings
-                        if target_industry and peer_industry:
-                            t_ind = target_industry.lower()
-                            p_ind = peer_industry.lower()
-                            
-                            # Software shouldn't match Chips/Hardware
-                            if 'software' in t_ind and 'software' not in p_ind:
-                                continue
-                            if 'semiconductor' in t_ind and 'semiconductor' not in p_ind:
-                                continue
-                            # Autos shouldn't match E-Commerce/Retail (fixes TSLA matching AMZN)
-                            if 'auto' in t_ind and 'auto' not in p_ind:
-                                continue
-                                
+                    if data and data.get('price'):
                         final_peers.append(data)
-                except Exception as e:
-                    print(f"Error validating peer fallback {ticker}: {e}")
-                    continue
+                except: continue
 
-        # Pass 3: Ultimate Fallback - Any Candidate from the same Sector (last resort)
-        if len(final_peers) < limit:
-            for ticker in candidates:
-                if len(final_peers) >= limit:
-                    break
-                if any(p.get('ticker') == ticker for p in final_peers):
-                    continue
-                try:
-                    data = get_lightweight_company_data(ticker)
-                    if not data or not data.get('ticker'):
-                        continue
-                    if target_sector and data.get('sector') == target_sector:
-                        final_peers.append(data)
-                except:
-                    continue
-
-        # Pass 4: Ultimate Last Resort - Just return the candidates as minimal entries if everything else failed
-        if not final_peers and candidates:
-            return [{"ticker": t, "name": t, "price": None, "pe_ratio": None} for t in candidates[:limit]]
-
-        return final_peers
+        # Filter and Deduplicate
+        unique_peers = []
+        seen_t = {target_ticker.upper()}
+        for p in final_peers:
+            if p['ticker'] not in seen_t and p.get('price'):
+                unique_peers.append(p)
+                seen_t.add(p['ticker'])
+        
+        return unique_peers[:limit]
         
     except Exception as e:
         print(f"Global competitors failure for {target_ticker}: {e}")
@@ -1286,8 +1231,8 @@ def get_lightweight_company_data(ticker_symbol: str):
     """Fetches a minimal set of data for competitor comparison using multiple redundant Yahoo endpoints and Finnhub."""
     ticker_symbol = ticker_symbol.upper()
     
-    # 0. Check KV Cache (Forced Bust v9)
-    cache_key = f"peer_v9_{ticker_symbol}"
+    # 0. Check KV Cache (Forced Bust v10)
+    cache_key = f"peer_v10_{ticker_symbol}"
     cached = kv_get(cache_key)
     if cached:
         return cached
