@@ -1369,7 +1369,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     const renderWatchlistUI = () => {
-        watchlistGrid.innerHTML = '';
+        try {
+            if (!watchlistGrid) {
+                console.error("watchlistGrid element not found!");
+                return;
+            }
+            watchlistGrid.innerHTML = '';
 
         if (!cachedWatchlistData || cachedWatchlistData.length === 0) {
             emptyWatchlistMsg.style.display = 'block';
@@ -1436,7 +1441,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 customFinalFv = customFinalFv / totalW;
                 customMos = ((customFinalFv - data.current_price) / customFinalFv) * 100;
                 data.fair_value = customFinalFv;
-            data.margin_of_safety = customMos;
+                data.margin_of_safety = customMos;
             }
 
             let dynamicBuyScore = data.buy_score;
@@ -1450,7 +1455,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const oldPts = mosItem.points;
                     mosItem.points = newPts;
                     mosItem.value = `${customMos.toFixed(1)}%`;
-                    if (typeof dynamicBuyScore === 'number') {
+                    if (typeof dynamicBuyScore === 'number' && typeof oldPts === 'number') {
                         dynamicBuyScore = dynamicBuyScore - oldPts + newPts;
                     }
                 }
@@ -1520,6 +1525,10 @@ document.addEventListener('DOMContentLoaded', () => {
             
             watchlistGrid.appendChild(card);
         });
+        } catch (err) {
+            console.error("CRITICAL ERROR in renderWatchlistUI:", err);
+            if (watchlistGrid) watchlistGrid.innerHTML = `<div style="color:red; padding:20px;">Error rendering watchlist: ${err.message}. Check console.</div>`;
+        }
     };
 
     // ── Autocomplete Logic ──────────────────────────────
