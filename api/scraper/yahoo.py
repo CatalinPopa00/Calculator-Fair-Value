@@ -1166,7 +1166,7 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
             elif sector == "Healthcare":
                 peers = ["PFE", "JNJ", "UNH", "ABBV", "LLY", "MRK"]
             else:
-                ret        # 3. BATCH EXTRACTION (Primary: yfinance Tickers)
+                return []
         candidates = []
         seen = {target_ticker.upper()}
         for p in peers:
