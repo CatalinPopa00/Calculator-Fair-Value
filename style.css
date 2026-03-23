@@ -1759,7 +1759,63 @@ body {
     }
 }
 
+/* Analyst Estimates UI Refinement */
+.analyst-desktop-header {
+    display: none;
+    justify-content: center;
+    align-items: center;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    margin-bottom: 1.5rem;
+    padding-bottom: 10px;
+    gap: 2rem;
+}
+
+.desktop-tab-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-main);
+    background: rgba(255, 255, 255, 0.05);
+    padding: 4px 12px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Mobile Tabs Aesthetic */
+.analyst-tabs-nav {
+    display: flex;
+    overflow-x: auto;
+    gap: 10px;
+    padding: 5px;
+    scrollbar-width: none;
+}
+
+.analyst-tabs-nav::-webkit-scrollbar {
+    display: none;
+}
+
+.tab-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-muted);
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    white-space: nowrap;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.tab-btn.active {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+    box-shadow: 0 0 15px rgba(0, 212, 255, 0.3);
+}
+
 @media (min-width: 769px) {
+    .analyst-desktop-header {
+        display: flex !important;
+    }
     .analyst-tabs-nav {
         display: none !important;
     }
@@ -1770,8 +1826,12 @@ body {
     }
     .tab-content {
         display: block !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        position: relative !important;
     }
-    .tab-btn {
+    /* Hide the redundant column-specific h4 on desktop since we have the unified header row */
+    .analyst-col h4 {
         display: none !important;
     }
 }
