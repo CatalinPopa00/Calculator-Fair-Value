@@ -1305,8 +1305,8 @@ def get_lightweight_company_data(ticker_symbol: str):
     """Fetches a minimal set of data for competitor comparison using a robust direct API call with KV caching."""
     ticker_symbol = ticker_symbol.upper()
     
-    # 0. Check KV Cache (Forced Bust v4)
-    cache_key = f"peer_v4_{ticker_symbol}"
+    # 0. Check KV Cache (Forced Bust v5)
+    cache_key = f"peer_v5_{ticker_symbol}"
     cached = kv_get(cache_key)
     if cached:
         return cached
@@ -1337,7 +1337,7 @@ def get_lightweight_company_data(ticker_symbol: str):
                     "sector": q.get('sector')
                 }
         
-        if not data:
+        if not data or not data.get('price'):
             # Sub-fallback: QuoteSummary if v7 failed or was missing keys
             url = f"https://query2.finance.yahoo.com/v11/finance/quoteSummary/{ticker_symbol}?modules=assetProfile,defaultKeyStatistics,financialData,summaryDetail"
             resp = requests.get(url, headers=headers, timeout=5)
@@ -1361,7 +1361,7 @@ def get_lightweight_company_data(ticker_symbol: str):
                     "sector": profile.get('sector')
                 }
 
-        if not data:
+        if not data or not data.get('price'):
             # FINAL FALLBACK: Finnhub (very robust for US stocks)
             fh_key = os.environ.get('FINNHUB_API_KEY')
             if fh_key:

@@ -450,8 +450,9 @@ def calculate_buy_score(valuation_data: dict, metrics: dict):
             if fcf and mcap and mcap > 0:
                 y = (fcf / mcap) * 100
                 fcf_y_s = f"{y:.1f}%"
-                if y > 7.0: pts = 15
+                if y > 6.0: pts = 15
                 elif y > 4.0: pts = 10
+                elif y >= 2.5: pts = 5
             score += pts
             add_brk("FCF Yield (Cash Return)", fcf_y_s, pts, 15)
 
