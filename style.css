@@ -1545,150 +1545,163 @@ body {
     transform: translateX(14px);
 }
 
-/* Watchlist Layout */
-.watchlist-header-row,
-.watchlist-item {
-    display: grid;
-    grid-template-columns: 40px 240px 100px 60px 160px 60px 100px 260px 40px;
+/* --- NEW WATCHLIST DESIGN --- */
+.watchlist-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.watchlist-card-new {
+    background: rgba(30, 41, 59, 0.5);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    padding: 1.5rem;
+    position: relative;
+    display: flex;
+    flex-direction: column;
     align-items: center;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.watchlist-card-new:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.wl-close-btn {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.2rem;
+    cursor: pointer;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+
+.wl-close-btn:hover {
+    opacity: 1;
+    color: var(--danger);
+}
+
+.wl-header {
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.wl-ticker {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: var(--white);
+    margin: 0;
+    cursor: pointer;
+}
+
+.wl-name {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin: 0.2rem 0 0 0;
+}
+
+.wl-metrics-bar {
+    display: flex;
+    background: rgba(15, 23, 42, 0.4);
+    border-radius: 12px;
     width: 100%;
-    box-sizing: border-box;
+    padding: 1rem 0;
+    margin-bottom: 1.2rem;
+    border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.watchlist-item {
-    padding: 18px 24px;
-    margin-bottom: 1rem;
+.wl-metric-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
 }
 
-/* Watchlist Mobile Layout */
-@media (max-width: 1100px) {
-    .watchlist-header-row,
-    .watchlist-item {
-        grid-template-columns: 40px 1fr 100px 100px 40px;
-    }
-    
-    /* Hide separators and some columns if needed, but let's try to keep essential ones */
-    .watchlist-header-row div:nth-child(4), 
-    .watchlist-header-row div:nth-child(6),
-    .watchlist-item div:nth-child(4),
-    .watchlist-item div:nth-child(6) {
-        display: none !important;
-    }
+.wl-metric-item:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    right: 0;
+    top: 20%;
+    height: 60%;
+    width: 1px;
+    background: rgba(255, 255, 255, 0.1);
 }
 
-@media (max-width: 768px) {
-    /* Hide column sort header on mobile */
-    .watchlist-header-row {
-        display: none !important;
-    }
+.wl-m-label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    margin-bottom: 0.4rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
 
-    .watchlist-view {
-        overflow-x: hidden;
-        width: 100%;
-        max-width: 100vw;
-        padding: 0 10px;
-    }
+.wl-m-value {
+    font-size: 1.2rem;
+    font-weight: 800;
+}
 
-    .watchlist-item {
-        display: flex !important;
-        flex-direction: column;
-        align-items: stretch !important;
-        padding: 1.2rem !important;
-        gap: 1rem;
-        position: relative;
-    }
+.wl-scores-row {
+    display: flex;
+    gap: 1rem;
+    width: 100%;
+}
 
-    /* Top line: drag handle hidden + ticker info + delete button */
-    .drag-handle {
-        display: none !important;
-    }
+.wl-score-pill {
+    flex: 1;
+    background: rgba(16, 185, 129, 0.05);
+    border: 1px solid rgba(16, 185, 129, 0.15);
+    border-radius: 8px;
+    padding: 0.6rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
 
-    .watchlist-item-left {
-        width: 100% !important;
-        padding-right: 30px; /* room for X */
-    }
+.wl-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
 
-    .watchlist-ticker {
-        font-size: 1.2rem !important;
-    }
+.dot-green { background: #10b981; box-shadow: 0 0 8px #10b981; }
+.dot-yellow { background: #fbbf24; box-shadow: 0 0 8px #fbbf24; }
+.dot-red { background: #ef4444; box-shadow: 0 0 8px #ef4444; }
 
-    /* Metrics section: Stack them nicely */
-    .col-price, .col-fv, .col-mos {
-        width: 100% !important;
-        text-align: left !important;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 0.5rem 0;
-        border-bottom: 1px solid rgba(255,255,255,0.05);
-    }
+/* Sub-header underline like in screenshot */
+#watchlist-view h2 {
+    text-align: center;
+    position: relative;
+    padding-bottom: 1rem;
+    margin-bottom: 2rem;
+}
 
-    .col-price::before { content: "Current Price"; color: var(--text-muted); font-size: 0.8rem; font-weight: normal; }
-    .col-fv::before { content: "Fair Value"; color: var(--text-muted); font-size: 0.8rem; font-weight: normal; }
-    .col-mos::before { content: "Margin of Safety"; color: var(--text-muted); font-size: 0.8rem; font-weight: normal; }
-
-    /* Separators hidden */
-    .watchlist-item div:nth-child(4), 
-    .watchlist-item div:nth-child(6) {
-        display: none !important;
-    }
-
-    .watchlist-scores-container {
-        width: 100% !important;
-        padding-left: 0 !important;
-        border-left: none !important;
-        margin-top: 0.5rem;
-    }
-
-    .watchlist-actions {
-        position: absolute;
-        top: 1.2rem;
-        right: 1.2rem;
-        width: auto !important;
-    }
-    /* Fixed premature closure here */
-
-    .watchlist-metric .value {
-        font-size: 0.9rem;
-        font-weight: 700;
-    }
-
-    .col-price,
-    .col-fv,
-    .col-mos {
-        width: auto;
-        border: none;
-        padding-left: 0;
-        justify-content: flex-start;
-    }
-
-
-    /* Scores row: side by side */
-    .watchlist-scores-container {
-        width: 100%;
-        margin-left: 0;
-        padding: 0.6rem 0 0 0;
-        border-left: none;
-        border-top: 1px solid rgba(255, 255, 255, 0.08);
-        flex-direction: column;
-        gap: 0.4rem;
-    }
-
-    .watchlist-score-item {
-        font-size: 0.8rem;
-        gap: 0.4rem;
-    }
-
-    .score-label {
-        width: 75px;
-        font-size: 0.78rem;
-    }
-
-    .score-val {
-        font-size: 0.78rem;
-        width: 45px;
-        text-align: right;
-    }
+#watchlist-view h2::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 3px;
+    background: var(--primary);
+    border-radius: 2px;
+}
 
     /* Expanded breakdown: single column */
     .breakdown-grid {

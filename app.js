@@ -1370,11 +1370,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const renderWatchlistUI = () => {
         watchlistGrid.innerHTML = '';
-        const watchlistHeader = document.getElementById('watchlist-header');
 
         if (!cachedWatchlistData || cachedWatchlistData.length === 0) {
             emptyWatchlistMsg.style.display = 'block';
-            if (watchlistHeader) watchlistHeader.style.display = 'none';
             return;
         }
 
@@ -1438,7 +1436,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 customFinalFv = customFinalFv / totalW;
                 customMos = ((customFinalFv - data.current_price) / customFinalFv) * 100;
                 data.fair_value = customFinalFv;
-                data.margin_of_safety = customMos;
+            data.margin_of_safety = customMos;
             }
 
             let dynamicBuyScore = data.buy_score;
@@ -1459,34 +1457,58 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             // Build the card HTML
-            // Check for user overrides (server-synced)
             const globalOv = cachedOverrides[data.ticker];
             const hasOverride = globalOv && globalOv.computed && globalOv.computed.fair_value != null;
             const displayFv = hasOverride ? globalOv.computed.fair_value : data.fair_value;
             const displayMos = hasOverride ? globalOv.computed.margin_of_safety : data.margin_of_safety;
-            const fvStr = displayFv != null ? formatCurrency(displayFv) + (hasOverride ? ' ✏️' : '') : 'N/A';
+            const fvStr = displayFv != null ? formatCurrency(displayFv) : 'N/A';
             const mosStr = displayMos != null ? formatPercent(displayMos) : 'N/A';
             const mosColor = displayMos > 0 ? 'var(--accent)' : (displayMos < 0 ? 'var(--danger)' : 'var(--text-muted)');
-            
+            const dotClass = dynamicBuyScore >= 76 ? 'dot-green' : (dynamicBuyScore >= 41 ? 'dot-yellow' : 'dot-red');
+            const hDotClass = (data.health_score || 0) >= 76 ? 'dot-green' : ((data.health_score || 0) >= 41 ? 'dot-yellow' : 'dot-red');
+
             const card = document.createElement('div');
-            card.className = 'watchlist-item glass-card';
-            // Use classes for layout instead of inline !important grid
-            card.style.cssText = 'margin-bottom: 1rem; width: 100%; box-sizing: border-box; position: relative; overflow: hidden;';
+            card.className = 'watchlist-card-new';
+            card.innerHTML = `
+                <button class="wl-close-btn" data-ticker="${data.ticker}">&times;</button>
+                <div class="wl-header">
+                    <h3 class="wl-ticker">${data.ticker}</h3>
+                    <p class="wl-name">${data.name}</p>
+                </div>
+                <div class="wl-metrics-bar">
+                    <div class="wl-metric-item">
+                        <span class="wl-m-label">Price</span>
+                        <span class="wl-m-value">${formatCurrency(data.current_price)}</span>
+                    </div>
+                    <div class="wl-metric-item">
+                        <span class="wl-m-label">Fair Val ${hasOverride ? '✏️' : ''}</span>
+                        <span class="wl-m-value">${fvStr}</span>
+                    </div>
+                    <div class="wl-metric-item">
+                        <span class="wl-m-label">Margin</span>
+                        <span class="wl-m-value" style="color: ${mosColor}">${mosStr}</span>
+                    </div>
+                </div>
+                <div class="wl-scores-row">
+                    <div class="wl-score-pill">
+                        <div class="wl-dot ${hDotClass}"></div>
+                        <span>Health: ${data.health_score || 'N/A'}</span>
+                    </div>
+                    <div class="wl-score-pill">
+                        <div class="wl-dot ${dotClass}"></div>
+                        <span>Buy: ${dynamicBuyScore || 'N/A'}</span>
+                    </div>
+                </div>
+            `;
             
-            // Remove ALL whitespace between items in card.innerHTML to prevent grid shifting
-            card.innerHTML = `<div class="drag-handle" style="cursor: grab; color: var(--text-muted); font-size: 1.2rem; display: flex; align-items: center; justify-content: center;">☰</div><div class="watchlist-item-left" style="width: 240px; display: flex; align-items: center; gap: 1rem; overflow: hidden;"><button class="expand-btn" style="background: none; border: none; color: var(--text-main); font-size: 1.2rem; cursor: pointer; padding: 0;">▶</button><div style="overflow: hidden;"><h3 class="watchlist-ticker" style="margin: 0; font-size: 1.1rem; color: var(--text-main); cursor: pointer;">${data.ticker}</h3><p style="margin: 0; font-size: 0.85rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${data.name}</p></div></div><div class="col-price" style="width: 100px; text-align: center; font-weight: 600; color: var(--text-main);">${formatCurrency(data.current_price)}</div><div style="width: 60px; display: flex; justify-content: center;"><div style="width: 1px; height: 24px; background: rgba(255,255,255,0.05);"></div></div><div class="col-fv" style="width: 160px; text-align: center; font-weight: 600; color: var(--text-main);">${fvStr}</div><div style="width: 60px; display: flex; justify-content: center;"><div style="width: 1px; height: 24px; background: rgba(255,255,255,0.05);"></div></div><div class="col-mos" style="width: 100px; text-align: center; font-weight: 700; color: ${mosColor};">${mosStr}</div><div class="watchlist-scores-container" style="width: 260px; display: flex; flex-direction: column; gap: 6px; justify-content: center; padding-left: 1.5rem; border-left: 1px solid rgba(255,255,255,0.05); box-sizing: border-box;"><div style="display: flex; align-items: center; gap: 10px; width: 100%; justify-content: flex-start;"><div class="mini-score-circle ${(data.health_score || 0) >= 76 ? 'mini-score-green' : ((data.health_score || 0) >= 41 ? 'mini-score-yellow' : 'mini-score-red')}" title="Health Score">${data.health_score || 'N/A'}</div><span style="font-size: 0.65rem; color: var(--text-muted); font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; white-space: nowrap;">Company Healthscore</span></div><div style="display: flex; align-items: center; gap: 10px; width: 100%; justify-content: flex-start;"><div class="mini-score-circle ${dynamicBuyScore >= 76 ? 'mini-score-green' : (dynamicBuyScore >= 41 ? 'mini-score-yellow' : 'mini-score-red')}" title="Buy Score">${dynamicBuyScore || 'N/A'}</div><span style="font-size: 0.65rem; color: var(--text-muted); font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; white-space: nowrap;">good to buy</span></div></div><div class="watchlist-actions" style="width: 40px; display: flex; align-items: center; justify-content: center;"><button class="remove-watchlist-btn" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem; padding: 0;" data-ticker="${data.ticker}" title="Remove">&times;</button></div>`;
-            
-            card.querySelector('.watchlist-ticker').addEventListener('click', () => {
+            // Make entire card clickable except for the close button
+            card.addEventListener('click', (e) => {
+                if (e.target.classList.contains('wl-close-btn')) return;
                 tickerInput.value = data.ticker;
                 analyzeTicker(data.ticker);
             });
 
-            card.querySelector('.expand-btn').addEventListener('click', () => {
-                tickerInput.value = data.ticker;
-                analyzeTicker(data.ticker);
-            });
-            
-            card.querySelector('.remove-watchlist-btn').addEventListener('click', (e) => {
+            card.querySelector('.wl-close-btn').addEventListener('click', (e) => {
                 e.stopPropagation();
                 watchlist = watchlist.filter(t => t !== data.ticker);
                 cachedWatchlistData = cachedWatchlistData.filter(d => d.ticker !== data.ticker);
@@ -1636,6 +1658,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     addToWatchlistBtn.addEventListener('click', toggleWatchlist);
+
+    // Watchlist Sort Dropdown
+    const wlSortSelect = document.getElementById('wl-sort-select');
+    if (wlSortSelect) {
+        wlSortSelect.addEventListener('change', (e) => {
+            const val = e.target.value; // e.g. "mos-desc"
+            const [col, ord] = val.split('-');
+            currentSort = { column: col, order: ord };
+            manualOrder = false;
+            renderWatchlistUI();
+        });
+    }
 
     // ── Bind Modal Close Handlers ──────────────────────────────
     const dataModalEl = document.getElementById('data-modal');
