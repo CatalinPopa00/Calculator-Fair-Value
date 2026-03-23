@@ -1295,7 +1295,6 @@ def get_lightweight_company_data(ticker_symbol: str):
             result = resp.json().get('quoteResponse', {}).get('result', [])
             if result:
                 q = result[0]
-                return {
                 # Try to get more robust keys from V7 quote API
                 return {
                     "ticker": ticker_symbol,
