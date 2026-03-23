@@ -9,7 +9,7 @@ import time
 import random
 import requests
 import pandas as pd
-from .utils.kv import kv_get, kv_set
+from ..utils.kv import kv_get, kv_set
 
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
