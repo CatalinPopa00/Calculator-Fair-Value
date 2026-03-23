@@ -30,7 +30,7 @@ app = FastAPI(title="Fair Value Calculator API")
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v6" # Incrementing version forces invalidation of old logic results
+CACHE_VERSION = "v7" # Incrementing version forces invalidation of old logic results
 
 app.add_middleware(
     CORSMiddleware,
@@ -547,7 +547,7 @@ def get_valuation(ticker: str, wacc: float = None):
                     "debt_to_equity": sanitize(data.get("debt_to_equity")),
                     "shares_outstanding": sanitize(data.get("shares_outstanding")),
                     "buyback_rate": sanitize(data.get("historic_buyback_rate") * 100 if data.get("historic_buyback_rate") else None),
-                    "dividend_yield": sanitize(data.get("dividend_yield")),
+                    "dividend_yield": data.get("dividend_yield"),
                     "operating_margin": sanitize(data.get("operating_margin")),
                     "net_margin": sanitize(data.get("net_margin")),
                     "payout_ratio": sanitize(data.get("payout_ratio")),

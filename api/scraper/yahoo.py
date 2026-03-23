@@ -9,7 +9,6 @@ import time
 import random
 import requests
 import pandas as pd
-from api.utils.kv import kv_get, kv_set
 
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
@@ -860,16 +859,15 @@ def get_company_data(ticker_symbol: str):
                         try:
                             last_yr = int(historical_data["years"][-1])
                             curr_yr = int(yr_label)
-                            if curr_yr > last_yr:
-                                    # Gap detected (e.g. 2024 to 2026). Fill 2025 using latest available.
-                                    for gap_yr in range(last_yr + 1, curr_yr):
-                                        historical_data["years"].append(str(gap_yr))
-                                        historical_data["revenue"].append(historical_data["revenue"][-1] if historical_data["revenue"] else 0)
-                                        # For EPS, use trailingEps as proxy or last known eps
-                                        proxy_eps = info.get('trailingEps')
-                                        historical_data["eps"].append(float(proxy_eps) if proxy_eps else (historical_data["eps"][-1] if historical_data["eps"] else 0))
-                                        historical_data["fcf"].append(historical_data["fcf"][-1] if historical_data["fcf"] else 0)
-                                        historical_data["shares"].append(historical_data["shares"][-1] if historical_data["shares"] else (info.get('sharesOutstanding') or 0))
+                            if curr_yr > last_yr + 1:
+                                # Gap detected (e.g. 2024 to 2026). Fill 2025 using latest available.
+                                for gap_yr in range(last_yr + 1, curr_yr):
+                                    historical_data["years"].append(str(gap_yr))
+                                    historical_data["revenue"].append(historical_data["revenue"][-1])
+                                    # For EPS, if it's missing from grid, trailingEps is a good proxy for "Last Closed Year"
+                                    historical_data["eps"].append(float(info.get('trailingEps', e)) if gap_yr == (datetime.datetime.now().year - 1) else e)
+                                    historical_data["fcf"].append(historical_data["fcf"][-1])
+                                    historical_data["shares"].append(historical_data["shares"][-1])
                         except: pass
 
                     historical_data["years"].append(yr_label)
@@ -893,17 +891,15 @@ def get_company_data(ticker_symbol: str):
                 # BRIDGE THE GAP: If history ends in 2024 and we are now in 2026, fill 2025
                 if historical_data["years"]:
                     try:
-                        last_hist_label = historical_data["years"][-1]
-                        last_hist_yr = int(last_hist_label.split('(Est)')[0].strip())
-                        if this_fy > last_hist_yr:
+                        last_hist_yr = int(historical_data["years"][-1].split('(Est)')[0].strip())
+                        if this_fy > last_hist_yr + 1:
                             for gap_yr in range(last_hist_yr + 1, this_fy):
                                 historical_data["years"].append(str(gap_yr))
-                                historical_data["revenue"].append(historical_data["revenue"][-1] if historical_data["revenue"] else 0)
-                                # Use trailingEps or the last EPS we have
-                                proxy_eps = info.get('trailingEps')
-                                historical_data["eps"].append(float(proxy_eps) if proxy_eps else (historical_data["eps"][-1] if historical_data["eps"] else 0))
-                                historical_data["fcf"].append(historical_data["fcf"][-1] if historical_data["fcf"] else 0)
-                                historical_data["shares"].append(historical_data["shares"][-1] if historical_data["shares"] else (info.get('sharesOutstanding') or 0))
+                                historical_data["revenue"].append(historical_data["revenue"][-1])
+                                # Use trailingEps if it's the gap year immediately before this FY
+                                historical_data["eps"].append(float(info.get('trailingEps', historical_data["eps"][-1])))
+                                historical_data["fcf"].append(historical_data["fcf"][-1])
+                                historical_data["shares"].append(historical_data["shares"][-1])
                     except: pass
 
                 for fy in [this_fy, next_fy]:
@@ -1285,8 +1281,7 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
                     data = get_lightweight_company_data(ticker)
                     if not data or not data.get('ticker'):
                         continue
-                    # Ultimate fallback: if sector is missing but it was a candidate, allow it
-                    if not target_sector or data.get('sector') == target_sector or data.get('sector') is None:
+                    if target_sector and data.get('sector') == target_sector:
                         final_peers.append(data)
                 except:
                     continue
@@ -1302,84 +1297,69 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
         return []
 
 def get_lightweight_company_data(ticker_symbol: str):
-    """Fetches a minimal set of data for competitor comparison using multiple redundant Yahoo endpoints, including the robust v8 chart endpoint."""
+    """Fetches a minimal set of data for competitor comparison using a robust direct API call with KV caching."""
     ticker_symbol = ticker_symbol.upper()
     
-    # 0. Check KV Cache (Forced Bust v7)
-    cache_key = f"peer_v7_{ticker_symbol}"
+    # 0. Check KV Cache (Forced Bust v8)
+    cache_key = f"peer_v8_{ticker_symbol}"
     cached = kv_get(cache_key)
     if cached:
         return cached
 
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-        'Accept': 'application/json, text/plain, */*'
-    }
-    
-    data = None
-    
-    # TRY 1: Yahoo Finance v8 Chart (Ultra Robust for price)
     try:
-        url = f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker_symbol}?interval=1d&range=1d"
+        # Direct Yahoo API call with rotating User-Agent (more reliable than yfinance .info on Vercel)
+        url = f"https://query2.finance.yahoo.com/v7/finance/quote?symbols={ticker_symbol}"
+        headers = {'User-Agent': get_random_agent()}
         resp = requests.get(url, headers=headers, timeout=5)
+        
+        data = None
         if resp.status_code == 200:
-            res = resp.json().get('chart', {}).get('result', [])
-            if res:
-                meta = res[0].get('meta', {})
+            result = resp.json().get('quoteResponse', {}).get('result', [])
+            if result:
+                q = result[0]
+                data = {
+                    "ticker": ticker_symbol,
+                    "name": q.get('shortName') or q.get('longName') or ticker_symbol,
+                    "price": q.get('regularMarketPrice') or q.get('currentPrice'),
+                    "pe_ratio": q.get('trailingPE') or q.get('forwardPE'),
+                    "peg_ratio": q.get('pegRatio'),
+                    "eps": q.get('trailingEps') or q.get('forwardEps'),
+                    "market_cap": q.get('marketCap'),
+                    "operating_margin": q.get('operatingMargins'),
+                    "industry": q.get('industry'), 
+                    "sector": q.get('sector')
+                }
+        
+        if not data or not data.get('price'):
+            # Sub-fallback: QuoteSummary if v7 failed or was missing keys
+            url = f"https://query2.finance.yahoo.com/v11/finance/quoteSummary/{ticker_symbol}?modules=assetProfile,defaultKeyStatistics,financialData,summaryDetail"
+            resp = requests.get(url, headers=headers, timeout=5)
+            if resp.status_code == 200:
+                data_json = resp.json().get('quoteSummary', {}).get('result', [{}])[0]
+                profile = data_json.get('assetProfile', {})
+                stats = data_json.get('defaultKeyStatistics', {})
+                f_data = data_json.get('financialData', {})
+                s_detail = data_json.get('summaryDetail', {})
+                
                 data = {
                     "ticker": ticker_symbol,
                     "name": ticker_symbol,
-                    "price": meta.get('regularMarketPrice') or meta.get('chartPreviousClose'),
-                    "market_cap": None, # Will try to fill later
-                    "pe_ratio": None,
-                    "eps": None
+                    "price": f_data.get('currentPrice', {}).get('raw') or s_detail.get('previousClose', {}).get('raw'),
+                    "pe_ratio": stats.get('trailingPE', {}).get('raw') or stats.get('forwardPE', {}).get('raw') or s_detail.get('trailingPE', {}).get('raw'),
+                    "peg_ratio": stats.get('pegRatio', {}).get('raw'),
+                    "eps": stats.get('trailingEps', {}).get('raw'),
+                    "market_cap": stats.get('marketCap', {}).get('raw') or s_detail.get('marketCap', {}).get('raw'),
+                    "operating_margin": f_data.get('operatingMargins', {}).get('raw'),
+                    "industry": profile.get('industry'),
+                    "sector": profile.get('sector')
                 }
-    except: pass
 
-    # TRY 2: Yahoo Finance v7 (query1 or query2)
-    if not data or not data.get('price'):
-        for host in ["query1", "query2"]:
-            try:
-                url = f"https://{host}.finance.yahoo.com/v7/finance/quote?symbols={ticker_symbol}"
-                resp = requests.get(url, headers=headers, timeout=5)
-                if resp.status_code == 200:
-                    res = resp.json().get('quoteResponse', {}).get('result', [])
-                    if res:
-                        q = res[0]
-                        data = {
-                            "ticker": ticker_symbol,
-                            "name": q.get('shortName') or ticker_symbol,
-                            "price": q.get('regularMarketPrice') or q.get('currentPrice'),
-                            "pe_ratio": q.get('trailingPE') or q.get('forwardPE'),
-                            "eps": q.get('trailingEps'),
-                            "market_cap": q.get('marketCap')
-                        }
-                        break
-            except: continue
-
-    # TRY 3: Yahoo Finance v11 (Full Details)
-    if data and (not data.get('pe_ratio') or not data.get('market_cap')):
-        try:
-            url = f"https://query2.finance.yahoo.com/v11/finance/quoteSummary/{ticker_symbol}?modules=defaultKeyStatistics,financialData,summaryDetail"
-            resp = requests.get(url, headers=headers, timeout=5)
-            if resp.status_code == 200:
-                dj = resp.json().get('quoteSummary', {}).get('result', [{}])[0]
-                st = dj.get('defaultKeyStatistics', {})
-                fd = dj.get('financialData', {})
-                sd = dj.get('summaryDetail', {})
-                
-                # Merge into existing data
-                if not data: data = {"ticker": ticker_symbol, "name": ticker_symbol}
-                if not data.get('price'): data['price'] = fd.get('currentPrice', {}).get('raw') or sd.get('previousClose', {}).get('raw')
-                data['pe_ratio'] = data.get('pe_ratio') or st.get('trailingPE', {}).get('raw') or sd.get('trailingPE', {}).get('raw')
-                data['market_cap'] = data.get('market_cap') or st.get('marketCap', {}).get('raw') or sd.get('marketCap', {}).get('raw')
-                data['eps'] = data.get('eps') or st.get('trailingEps', {}).get('raw')
-                data['operating_margin'] = fd.get('operatingMargins', {}).get('raw')
-        except: pass
-
-    if data and data.get('price'):
-        kv_set(cache_key, data, ex=86400)
-        return data
+        if data and data.get('price'):
+            kv_set(cache_key, data, ex=86400) # Buffer it for 24 hours
+            return data
+    except Exception as e:
+        print(f"Extraction failure for {ticker_symbol}: {e}")
+        return None
 
     return None
 
