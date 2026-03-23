@@ -1167,76 +1167,74 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
                 peers = ["PFE", "JNJ", "UNH", "ABBV", "LLY", "MRK"]
             else:
                 return []
-        candidates = []
-        seen = {target_ticker.upper()}
-        for p in peers:
-            p_up = p.upper()
-            if p_up not in seen and '.' not in p_up:
-                candidates.append(p_up)
-                seen.add(p_up)
-        
-        candidates = candidates[:8] # Limit to top 8 candidates 
-        
+        # 3. BATCH EXTRACTION (Primary: yfinance)
+        candidates = [p.upper() for p in peers if p.upper() != target_ticker.upper() and '.' not in p][:8]
         final_peers = []
-        # --- Attempt yfinance Batch (Most reliable for cookies/crumbs) ---
+
+        # --- Attempt yfinance with manual session (to handle crumbs better) ---
         try:
-            print(f"Attempting yfinance batch for {candidates}...")
-            batch_data = yf.Tickers(" ".join(candidates))
-            for ticker in candidates:
+            print(f"DEBUG: Attempting yfinance batch for {candidates}")
+            batch = yf.Tickers(" ".join(candidates))
+            for t in candidates:
                 try:
-                    info = batch_data.tickers[ticker].info
-                    if info and (info.get('regularMarketPrice') or info.get('currentPrice')):
+                    inf = batch.tickers[t].info
+                    if inf and (inf.get('regularMarketPrice') or inf.get('currentPrice')):
                         final_peers.append({
-                            "ticker": ticker,
-                            "name": info.get('shortName') or info.get('longName') or ticker,
-                            "price": info.get('regularMarketPrice') or info.get('currentPrice'),
-                            "pe_ratio": info.get('trailingPE') or info.get('forwardPE'),
-                            "peg_ratio": info.get('pegRatio'),
-                            "eps": info.get('trailingEps') or info.get('forwardEps'),
-                            "market_cap": info.get('marketCap'),
-                            "operating_margin": info.get('operatingMargins'),
-                            "industry": info.get('industry') or target_industry,
-                            "sector": info.get('sector') or sector
+                            "ticker": t,
+                            "name": inf.get('shortName') or inf.get('longName') or t,
+                            "price": inf.get('regularMarketPrice') or inf.get('currentPrice'),
+                            "pe_ratio": inf.get('trailingPE') or inf.get('forwardPE'),
+                            "market_cap": inf.get('marketCap'),
+                            "operating_margin": inf.get('operatingMargins'),
+                            "industry": inf.get('industry') or target_industry,
+                            "sector": inf.get('sector') or sector
                         })
                 except: continue
-        except Exception as e_yf:
-            print(f"yfinance batch error: {e_yf}")
+        except Exception as e:
+            print(f"DEBUG: yfinance batch failed: {e}")
 
-        # --- FINAL TRIPLE-LOCK FALLBACK: Finnhub (if Yahoo is still being stubborn) ---
+        # --- Fallback 1: Finnhub (Detailed Metrics) ---
         fh_key = os.environ.get('FINNHUB_API_KEY')
         if len(final_peers) < 2 and fh_key:
-            print("Yahoo Batch Failed or empty. Falling back to Finnhub Triple-Lock...")
-            for ticker in candidates:
-                if any(p['ticker'] == ticker for p in final_peers): continue
+            print("DEBUG: Yahoo failed, trying Finnhub...")
+            for t in candidates:
+                if any(p['ticker'] == t for p in final_peers): continue
                 try:
-                    m_url = f"https://finnhub.io/api/v1/stock/metric?symbol={ticker}&metric=all&token={fh_key}"
-                    q_url = f"https://finnhub.io/api/v1/quote?symbol={ticker}&token={fh_key}"
-                    m_resp = requests.get(m_url, timeout=5); q_resp = requests.get(q_url, timeout=5)
-                    if m_resp.status_code == 200 and q_resp.status_code == 200:
-                        m = m_resp.json().get('metric', {}); q = q_resp.json()
-                        if q.get('c'):
-                            final_peers.append({
-                                "ticker": ticker,
-                                "name": ticker,
-                                "price": q.get('c'),
-                                "pe_ratio": m.get('peExclExtraTTM'),
-                                "market_cap": (m.get('marketCapitalization', 0) * 1000000) if m.get('marketCapitalization') else None,
-                                "eps": m.get('epsExclExtraItemsTTM'),
-                                "operating_margin": (m.get('operatingMarginTTM', 0)/100.0 if m.get('operatingMarginTTM') else None),
-                                "industry": target_industry,
-                                "sector": sector
-                            })
+                    q = requests.get(f"https://finnhub.io/api/v1/quote?symbol={t}&token={fh_key}", timeout=5).json()
+                    m = requests.get(f"https://finnhub.io/api/v1/stock/metric?symbol={t}&metric=all&token={fh_key}", timeout=5).json().get('metric', {})
+                    if q.get('c'):
+                        final_peers.append({
+                            "ticker": t, "name": t, "price": q['c'], "pe_ratio": m.get('peExclExtraTTM'),
+                            "market_cap": (m.get('marketCapitalization',0)*1e6) if m.get('marketCapitalization') else None,
+                            "industry": target_industry, "sector": sector
+                        })
                 except: continue
 
-        # Filter and Deduplicate
-        unique_peers = []
+        # --- Fallback 2: Direct Chart API (Prices ONLY - Last Resort for visuals) ---
+        if len(final_peers) < limit:
+            print("DEBUG: Trying Direct Chart fallback for prices...")
+            for t in candidates:
+                if any(p['ticker'] == t for p in final_peers): continue
+                try:
+                    c_url = f"https://query1.finance.yahoo.com/v8/finance/chart/{t}?interval=1d&range=1d"
+                    c_resp = requests.get(c_url, headers={'User-Agent': get_random_agent()}, timeout=5).json()
+                    meta = c_resp.get('chart', {}).get('result', [{}])[0].get('meta', {})
+                    if meta.get('regularMarketPrice'):
+                        final_peers.append({
+                            "ticker": t, "name": t, "price": meta['regularMarketPrice'],
+                            "pe_ratio": None, "industry": target_industry, "sector": sector
+                        })
+                except: continue
+
+        # Final Deduplication
+        unique = []
         seen_t = {target_ticker.upper()}
         for p in final_peers:
-            if p['ticker'] not in seen_t and p.get('price'):
-                unique_peers.append(p)
+            if p['ticker'] not in seen_t:
+                unique.append(p)
                 seen_t.add(p['ticker'])
         
-        return unique_peers[:limit]
+        return unique[:limit]
         
     except Exception as e:
         print(f"Global competitors failure for {target_ticker}: {e}")
