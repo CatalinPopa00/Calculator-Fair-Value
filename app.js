@@ -71,7 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('Watchlist sync error (aborting merge to protect local data):', err);
             // v37: On error, we keep 'watchlist' as loaded from localStorage (Line 38) 
             // and do NOT sync back to the server.
-        });.catch(err => console.error('Watchlist sync error:', err));
+        });
 
     // Overrides State (loaded from server on init)
     let cachedOverrides = {};
