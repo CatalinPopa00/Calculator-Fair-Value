@@ -678,6 +678,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (fcfSource === 'historical') {
                     const hg = prof.historic_fcf_growth != null ? prof.historic_fcf_growth : 0.05;
                     dcfVal = calcLocalDcf(baseFcf, hg, 0.09, 0.02, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years);
+                } else if (fcfSource === 'eps_growth') {
+                    const g = currentFormulaData.dcf.eps_growth_estimated || 0.10;
+                    dcfVal = calcLocalDcf(baseFcf, g, 0.09, 0.02, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years);
                 } else if (fcfSource === 'custom') {
                     const gRaw = document.getElementById('dcf-custom-growth').value;
                     const wRaw = document.getElementById('dcf-custom-wacc').value;
