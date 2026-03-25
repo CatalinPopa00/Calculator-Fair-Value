@@ -659,6 +659,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const baseFcf = currentFormulaData.dcf.fcf;
                 const shares = prof.shares_outstanding;
+                
+                // Dynamic WACC and Perpetual Growth from backend
+                const w = currentFormulaData.dcf.discount_rate || 0.09;
+                const p = currentFormulaData.dcf.perpetual_growth || 0.02;
 
                 if (fcfSource === 'analyst') {
                     const waccInput = document.getElementById('dcf-custom-wacc');
@@ -671,16 +675,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         dcfVal = dcfData ? dcfData.intrinsic_value : currentFormulaData.dcf.intrinsic_value;
                     } else {
                         const g = currentFormulaData.dcf.eps_growth_estimated || 0.10;
-                        const w = waccInput && waccInput.value ? parseFloat(waccInput.value)/100 : (currentFormulaData.dcf.discount_rate || 0.09);
-                        const p = currentFormulaData.dcf.perpetual_growth || 0.02;
-                        dcfVal = calcLocalDcf(baseFcf, g, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years);
+                        const wAnalyst = waccInput && waccInput.value ? parseFloat(waccInput.value)/100 : w; // Use the 'w' defined above as fallback
+                        dcfVal = calcLocalDcf(baseFcf, g, wAnalyst, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years);
                     }
                 } else if (fcfSource === 'historical') {
                     const hg = prof.historic_fcf_growth != null ? prof.historic_fcf_growth : 0.05;
-                    dcfVal = calcLocalDcf(baseFcf, hg, 0.09, 0.02, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years);
+                    dcfVal = calcLocalDcf(baseFcf, hg, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years);
                 } else if (fcfSource === 'eps_growth') {
                     const g = currentFormulaData.dcf.eps_growth_estimated || 0.10;
-                    dcfVal = calcLocalDcf(baseFcf, g, 0.09, 0.02, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years);
+                    dcfVal = calcLocalDcf(baseFcf, g, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years);
                 } else if (fcfSource === 'custom') {
                     const gRaw = document.getElementById('dcf-custom-growth').value;
                     const wRaw = document.getElementById('dcf-custom-wacc').value;
