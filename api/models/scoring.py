@@ -49,7 +49,23 @@ def calculate_health_score(metrics: dict, sector_avg: dict):
             score += pts
             if is_s: top_strengths.append(name)
             if is_r: risk_factors.append(name)
-            breakdown.append({"name": name, "vc": vc, "vs": vs, "pts": pts, "max": weight})
+            
+            # Format value string: "Vc (vs Vs)"
+            val_str = "N/A"
+            if vc is not None and vs is not None:
+                if key in ["roic", "ebit_margin", "historic_fcf_growth"]:
+                    val_str = f"{vc:.1f}% (vs {vs:.1f}% med.)"
+                else:
+                    val_str = f"{vc:.2f}x (vs {vs:.2f}x med.)"
+            elif vc is not None:
+                val_str = f"{vc:.2f}"
+            
+            breakdown.append({
+                "name": name, 
+                "value": val_str,
+                "pts": pts, 
+                "max": weight
+            })
 
         # Red Flag: Health
         de = metrics.get('debt_to_equity', 0) or 0
@@ -97,7 +113,12 @@ def calculate_buy_score(metrics: dict, valuation_data: dict, sector_avg: dict):
         score += pts_mos
         if is_s_mos: top_strengths.append("Margin of Safety")
         if is_r_mos: risk_factors.append("Margin of Safety")
-        breakdown.append({"name": "Margin of Safety", "vc": mos, "vs": "N/A (Absolute)", "pts": pts_mos, "max": 30})
+        breakdown.append({
+            "name": "Margin of Safety", 
+            "value": f"{mos:.1f}%" if mos is not None else "N/A", 
+            "pts": pts_mos, 
+            "max": 30
+        })
 
         # Select P/E or P/S (Lower is Better)
         # Use whichever provides a better relative score, or just picking one based on sector
@@ -130,7 +151,22 @@ def calculate_buy_score(metrics: dict, valuation_data: dict, sector_avg: dict):
             score += pts
             if is_s: top_strengths.append(name)
             if is_r: risk_factors.append(name)
-            breakdown.append({"name": name, "vc": vc, "vs": vs, "pts": pts, "max": weight})
+            
+            val_str = "N/A"
+            if vc is not None:
+                if key == "next_3y_rev_est":
+                    val_str = f"{vc*100:.1f}%" if vs is None else f"{vc*100:.1f}% (vs {vs*100:.1f}% med.)"
+                elif key == "fcf_yield":
+                    val_str = f"{vc:.1f}%" if vs is None else f"{vc:.1f}% (vs {vs:.1f}% med.)"
+                else:
+                    val_str = f"{vc:.2f}x" if vs is None else f"{vc:.2f}x (vs {vs:.2f}x med.)"
+
+            breakdown.append({
+                "name": name, 
+                "value": val_str,
+                "pts": pts, 
+                "max": weight
+            })
 
         # Red Flag: Buy
         if mos is not None and mos < -20.0:

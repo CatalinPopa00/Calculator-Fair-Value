@@ -1893,7 +1893,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         let totalMax = 0;
-        breakdown.forEach(item => totalMax += item.max_points || 0);
+        breakdown.forEach(item => totalMax += item.max || 0);
         const scoreVal = totalScore != null ? totalScore : '?';
 
         // 3-Column Header: Title (left), Score (middle), X (right) - FORCED ONE LINE
@@ -1916,8 +1916,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Rows
         breakdown.forEach(item => {
-            const pts = item.points || 0;
-            const maxPts = item.max_points || 0;
+            const pts = item.pts || 0;
+            const maxPts = item.max || 0;
             const pct = maxPts > 0 ? (pts / maxPts) : 0;
 
             let dotColor = 'var(--danger)';
