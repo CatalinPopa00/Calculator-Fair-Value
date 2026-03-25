@@ -1462,7 +1462,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             watchlistGrid.innerHTML = '';
 
-        if (!cachedWatchlistData || cachedWatchlistData.length === 0) {
+        if (!watchlist || watchlist.length === 0) {
             emptyWatchlistMsg.style.display = 'block';
             return;
         }
