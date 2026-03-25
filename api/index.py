@@ -30,7 +30,7 @@ app = FastAPI(title="Fair Value Calculator API")
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v34" # Ticker-specific weights + stable v16 logic
+CACHE_VERSION = "v35" # Stabilized Watchlist Sync + Master-Override Recovery
 
 app.add_middleware(
     CORSMiddleware,
@@ -103,17 +103,20 @@ def get_analyst(ticker: str):
 
 @app.get("/api/watchlist")
 def get_watchlist():
-    data = kv_get("watchlist")
-    if data is not None:
-        return data
-
-    if os.path.exists(WATCHLIST_FILE):
+    data = kv_get("watchlist") or []
+    # Robust Recovery: Merge any tickers found in overrides (cross-device source of truth)
+    all_overrides = _load_overrides()
+    if all_overrides:
+        override_tickers = [t.upper() for t in all_overrides.keys()]
+        data = list(set(data + override_tickers))
+    
+    if not data and os.path.exists(WATCHLIST_FILE):
         try:
             with open(WATCHLIST_FILE, "r") as f:
-                return json.load(f)
-        except Exception:
-            return []
-    return []
+                data = json.load(f)
+        except:
+            pass
+    return data
 
 @app.post("/api/watchlist")
 def save_watchlist(req: WatchlistRequest):
