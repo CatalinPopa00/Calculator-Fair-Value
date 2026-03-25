@@ -1,30 +1,50 @@
+def normalize_pct(val):
+    """
+    STRICT DATA CLEANING (v29):
+    If a percentage indicator (ROIC, EBIT, Yield, Growth, MOS) comes as a decimal (e.g. 0.3 or 0.04),
+    multiply by 100 before comparison.
+    """
+    if val is None: return None
+    # Rule of thumb: if value is between -1 and 1 (and not 0), it's likely a decimal representing a percentage.
+    # We apply this specifically to indicators the expert listed.
+    try:
+        f_val = float(val)
+        if 0 < abs(f_val) < 1.0:
+            return f_val * 100.0
+        return f_val
+    except:
+        return val
+
 def apply_relative_score(vc, vs, weight, type="higher_is_better"):
     """
-    STRICT EXPERT RULEBOOK (RELATIV):
-    - Punctaj Maxim (100%): Dacă Vc > Vs * 1.10 (higher) sau Vc < Vs * 0.90 (lower).
-    - Punctaj Mediu (50%): Dacă Vc este între Vs * 0.90 și Vs * 1.10 inclusiv.
-    - Punctaj Zero (0%): Dacă Vc < Vs * 0.90 (higher) sau Vc > Vs * 1.10 (lower).
+    STRICT EXPERT RULEBOOK (v29):
+    - Award 50% (Neutral) if Vs is missing to avoid penalizing.
+    - Higher is better: Max > Vs*1.10, Mid 0.9-1.1, Zero < Vs*0.90.
+    - Lower is better: Max < Vs*0.90, Mid 0.9-1.1, Zero > Vs*1.10.
     """
-    if vc is None or vs is None or vs == 0:
-        return weight * 0.5, False, False # Neutral if data missing
+    if vs is None or vs == 0:
+        return weight * 0.5, False, False # Punctaj Mediu (v29 rule)
+
+    if vc is None:
+        return weight * 0.5, False, False # Neutral if Vc missing too
 
     if type == "higher_is_better":
         if vc > vs * 1.10:
             return weight, True, False
         if vc < vs * 0.90:
             return 0, False, True
-        return weight * 0.5, False, False # In between
+        return weight * 0.5, False, False # Neutral/Mid
     
     else: # lower_is_better
         if vc < vs * 0.90:
             return weight, True, False
         if vc > vs * 1.10:
             return 0, False, True
-        return weight * 0.5, False, False # In between
+        return weight * 0.5, False, False # Neutral/Mid
 
 def calculate_health_score(metrics: dict, sector_avg: dict):
     """
-    Calculates Company Health Score (0-100) using strict expert rules.
+    Calculates Company Health Score (0-100) using strict expert rules (v29).
     """
     try:
         score = 0
@@ -42,8 +62,16 @@ def calculate_health_score(metrics: dict, sector_avg: dict):
         ]
 
         for name, key, weight, type_rule in indicators:
-            vc = metrics.get(key)
-            vs = sector_avg.get(key)
+            vc_raw = metrics.get(key)
+            vs_raw = sector_avg.get(key)
+            
+            # Data Cleaning (v29) - Only for percentages
+            if name in ["ROIC", "EBIT Margin", "FCF Trend"]:
+                vc = normalize_pct(vc_raw)
+                vs = normalize_pct(vs_raw)
+            else:
+                vc, vs = vc_raw, vs_raw
+            
             pts, is_s, is_r = apply_relative_score(vc, vs, weight, type_rule)
             
             score += pts
@@ -53,43 +81,34 @@ def calculate_health_score(metrics: dict, sector_avg: dict):
             # Format value string
             val_str = "N/A"
             if vc is not None:
-                suffix = "%" if key in ["roic", "ebit_margin", "historic_fcf_growth"] else "x"
+                suffix = "%" if name in ["ROIC", "EBIT Margin", "FCF Trend"] else "x"
                 val_str = f"{vc:.1f}{suffix}" if vs is None else f"{vc:.1f}{suffix} (vs {vs:.1f}{suffix} med.)"
             
             breakdown.append({
-                "name": name, 
-                "value": val_str,
-                "pts": pts, 
-                "max": weight
+                "name": name, "value": val_str, "pts": pts, "max": weight
             })
 
-        # --- RED FLAGS HEALTH ---
+        # --- RED FLAGS HEALTH (Absolute) ---
         de = metrics.get('debt_to_equity')
         ic = metrics.get('interest_coverage')
-        has_flag = False
-        if de is not None and de > 3.0:
-            has_flag = True
-            risk_factors.append("RED FLAG: Debt-to-Equity > 3.0")
-        if ic is not None and ic < 1.5:
-            has_flag = True
-            risk_factors.append("RED FLAG: Interest Coverage < 1.5")
-        
-        if has_flag:
+        if (de is not None and de > 3.0) or (ic is not None and ic < 1.5):
             score = min(score, 40)
+            if de is not None and de > 3.0: risk_factors.append("RED FLAG: Debt-to-Equity > 3.0")
+            if ic is not None and ic < 1.5: risk_factors.append("RED FLAG: Interest Coverage < 1.5")
 
         return {
-            "total": round(score, 1),
-            "top_strengths": top_strengths,
+            "health_score_total": round(score, 1),
+            "top_strengths": list(set(top_strengths)),
             "risk_factors": list(set(risk_factors)),
             "breakdown": breakdown
         }
     except Exception as e:
         print(f"Health Score Error: {e}")
-        return {"total": 0, "top_strengths": [], "risk_factors": [str(e)], "breakdown": []}
+        return {"health_score_total": 0, "top_strengths": [], "risk_factors": [str(e)], "breakdown": []}
 
 def calculate_buy_score(metrics: dict, valuation_data: dict, sector_avg: dict):
     """
-    Calculates Good to Buy Score (0-100) using strict expert rules.
+    Calculates Good to Buy Score (0-100) using strict expert rules (v29).
     """
     try:
         score = 0
@@ -98,7 +117,7 @@ def calculate_buy_score(metrics: dict, valuation_data: dict, sector_avg: dict):
         breakdown = []
 
         # 1. Margin of Safety (REGULA ABSOLUTA)
-        mos = valuation_data.get('margin_of_safety')
+        mos = normalize_pct(valuation_data.get('margin_of_safety'))
         pts_mos = 0
         if mos is not None:
             if mos >= 20.0:
@@ -112,21 +131,18 @@ def calculate_buy_score(metrics: dict, valuation_data: dict, sector_avg: dict):
         
         score += pts_mos
         breakdown.append({
-            "name": "Margin of Safety", 
-            "value": f"{mos:.1f}%" if mos is not None else "N/A", 
-            "pts": pts_mos, 
-            "max": 30
+            "name": "Margin of Safety", "value": f"{mos:.1f}%" if mos is not None else "N/A", "pts": pts_mos, "max": 30
         })
 
-        # Select P/E or P/S (Lower is Better)
+        # Selection logic (P/E or P/S)
         pe_vc = metrics.get('forward_pe')
         pe_vs = sector_avg.get('forward_pe')
         ps_vc = metrics.get('fwd_ps')
         ps_vs = sector_avg.get('fwd_ps')
         
         val_name = "Fwd P/E" if pe_vc and pe_vs else "Fwd P/S"
-        val_vc = pe_vc if pe_vc and pe_vs else ps_vc
-        val_vs = pe_vs if pe_vc and pe_vs else ps_vs
+        v_vc_raw = pe_vc if pe_vc and pe_vs else ps_vc
+        v_vs_raw = pe_vs if pe_vc and pe_vs else ps_vs
         
         indicators = [
             ("PEG Ratio", "peg_ratio", 20, "lower_is_better"),
@@ -137,10 +153,17 @@ def calculate_buy_score(metrics: dict, valuation_data: dict, sector_avg: dict):
 
         for name, key, weight, type_rule in indicators:
             if name == val_name:
-                vc, vs = val_vc, val_vs
+                vc_raw, vs_raw = v_vc_raw, v_vs_raw
             else:
-                vc = metrics.get(key)
-                vs = sector_avg.get(key)
+                vc_raw = metrics.get(key)
+                vs_raw = sector_avg.get(key)
+            
+            # Data Cleaning (v29) - Only for percentages
+            if name in ["FCF Yield", "Next 3Y Rev Growth Est"]:
+                vc = normalize_pct(vc_raw)
+                vs = normalize_pct(vs_raw)
+            else:
+                vc, vs = vc_raw, vs_raw
             
             pts, is_s, is_r = apply_relative_score(vc, vs, weight, type_rule)
             score += pts
@@ -153,23 +176,20 @@ def calculate_buy_score(metrics: dict, valuation_data: dict, sector_avg: dict):
                 val_str = f"{vc:.1f}{suffix}" if vs is None else f"{vc:.1f}{suffix} (vs {vs:.1f}{suffix} med.)"
 
             breakdown.append({
-                "name": name, 
-                "value": val_str,
-                "pts": pts, 
-                "max": weight
+                "name": name, "value": val_str, "pts": pts, "max": weight
             })
 
-        # --- RED FLAGS BUY ---
+        # --- RED FLAGS BUY (Absolute) ---
         if mos is not None and mos < -20.0:
             score = min(score, 40)
             risk_factors.append("RED FLAG: Margin of Safety < -20% (Severely Overvalued)")
 
         return {
-            "total": round(score, 1),
-            "top_strengths": top_strengths,
+            "good_to_buy_total": round(score, 1),
+            "top_strengths": list(set(top_strengths)),
             "risk_factors": list(set(risk_factors)),
             "breakdown": breakdown
         }
     except Exception as e:
         print(f"Buy Score Error: {e}")
-        return {"total": 0, "top_strengths": [], "risk_factors": [str(e)], "breakdown": []}
+        return {"good_to_buy_total": 0, "top_strengths": [], "risk_factors": [str(e)], "breakdown": []}
