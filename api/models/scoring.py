@@ -1,26 +1,21 @@
-def apply_relative_score(vc, vs, weight, type="higher_is_better"):
+def apply_threshold_score(val, thresholds, weight, type="higher_is_better"):
     """
-    Applies the mathematical rules for relative scoring.
+    Applies absolute thresholds for scoring.
+    thresholds: (ideal, Good) tuple
     Returns: points, is_strength, is_risk
     """
-    if vc is None or vs is None or vs == 0:
-        return weight * 0.5, False, False # Neutral if data missing
+    if val is None:
+        return weight * 0.5, False, False # Neutral if missing
 
+    ideal, good = thresholds
     if type == "higher_is_better":
-        if vc > vs * 1.10:
-            return weight, True, False
-        if vc < vs * 0.90:
-            return 0, False, True
-        return weight * 0.5, False, False
-    
-    elif type == "lower_is_better":
-        if vc < vs * 0.90:
-            return weight, True, False
-        if vc > vs * 1.10:
-            return 0, False, True
-        return weight * 0.5, False, False
-
-    return weight * 0.5, False, False
+        if val >= ideal: return weight, True, False
+        if val >= good: return weight * 0.5, False, False
+        return 0, False, True
+    else: # lower_is_better
+        if val <= ideal: return weight, True, False
+        if val <= good: return weight * 0.5, False, False
+        return 0, False, True
 
 def calculate_health_score(metrics: dict, sector_avg: dict):
     """
@@ -33,32 +28,29 @@ def calculate_health_score(metrics: dict, sector_avg: dict):
         breakdown = []
 
         indicators = [
-            ("Debt-to-Equity", "debt_to_equity", 20, "lower_is_better"),
-            ("ROIC", "roic", 20, "higher_is_better"),
-            ("Interest Coverage", "interest_coverage", 15, "higher_is_better"),
-            ("Current Ratio", "current_ratio", 15, "higher_is_better"),
-            ("EBIT Margin", "ebit_margin", 15, "higher_is_better"),
-            ("FCF Trend", "historic_fcf_growth", 15, "higher_is_better")
+            ("Debt-to-Equity", "debt_to_equity", 20, "lower_is_better", (0.5, 1.0)),
+            ("ROIC", "roic", 20, "higher_is_better", (15.0, 8.0)),
+            ("Interest Coverage", "interest_coverage", 15, "higher_is_better", (6.0, 3.0)),
+            ("Current Ratio", "current_ratio", 15, "higher_is_better", (1.5, 1.0)),
+            ("EBIT Margin", "ebit_margin", 15, "higher_is_better", (20.0, 10.0)),
+            ("FCF Trend", "historic_fcf_growth", 15, "higher_is_better", (15.0, 5.0))
         ]
 
-        for name, key, weight, type_rule in indicators:
+        for name, key, weight, type_rule, thresholds in indicators:
             vc = metrics.get(key)
-            vs = sector_avg.get(key)
-            pts, is_s, is_r = apply_relative_score(vc, vs, weight, type_rule)
+            pts, is_s, is_r = apply_threshold_score(vc, thresholds, weight, type_rule)
             
             score += pts
             if is_s: top_strengths.append(name)
             if is_r: risk_factors.append(name)
             
-            # Format value string: "Vc (vs Vs)"
+            # Format value string
             val_str = "N/A"
-            if vc is not None and vs is not None:
+            if vc is not None:
                 if key in ["roic", "ebit_margin", "historic_fcf_growth"]:
-                    val_str = f"{vc:.1f}% (vs {vs:.1f}% med.)"
+                    val_str = f"{vc:.1f}%"
                 else:
-                    val_str = f"{vc:.2f}x (vs {vs:.2f}x med.)"
-            elif vc is not None:
-                val_str = f"{vc:.2f}"
+                    val_str = f"{vc:.2f}x"
             
             breakdown.append({
                 "name": name, 
@@ -134,20 +126,19 @@ def calculate_buy_score(metrics: dict, valuation_data: dict, sector_avg: dict):
         val_vs = pe_vs if pe_vc and pe_vs else ps_vs
         
         indicators = [
-            ("PEG Ratio", "peg_ratio", 20, "lower_is_better"),
-            ("FCF Yield", "fcf_yield", 15, "higher_is_better"),
-            (val_name, None, 15, "lower_is_better"), # val_vc/val_vs used directly
-            ("Next 3Y Rev Growth Est", "next_3y_rev_est", 20, "higher_is_better")
+            ("PEG Ratio", "peg_ratio", 20, "lower_is_better", (1.0, 1.5)),
+            ("FCF Yield", "fcf_yield", 15, "higher_is_better", (7.0, 4.0)),
+            (val_name, None, 15, "lower_is_better", (15.0, 25.0) if val_name == "Fwd P/E" else (2.0, 4.0)), 
+            ("Next 3Y Rev Growth Est", "next_3y_rev_est", 20, "higher_is_better", (0.15, 0.08))
         ]
 
-        for name, key, weight, type_rule in indicators:
+        for name, key, weight, type_rule, thresholds in indicators:
             if name == val_name:
-                vc, vs = val_vc, val_vs
+                vc = val_vc
             else:
                 vc = metrics.get(key)
-                vs = sector_avg.get(key)
             
-            pts, is_s, is_r = apply_relative_score(vc, vs, weight, type_rule)
+            pts, is_s, is_r = apply_threshold_score(vc, thresholds, weight, type_rule)
             score += pts
             if is_s: top_strengths.append(name)
             if is_r: risk_factors.append(name)
@@ -155,11 +146,11 @@ def calculate_buy_score(metrics: dict, valuation_data: dict, sector_avg: dict):
             val_str = "N/A"
             if vc is not None:
                 if key == "next_3y_rev_est":
-                    val_str = f"{vc*100:.1f}%" if vs is None else f"{vc*100:.1f}% (vs {vs*100:.1f}% med.)"
-                elif key == "fcf_yield":
-                    val_str = f"{vc:.1f}%" if vs is None else f"{vc:.1f}% (vs {vs:.1f}% med.)"
+                    val_str = f"{vc*100:.1f}%"
+                elif key == "fcf_yield" or name == "FCF Yield":
+                    val_str = f"{vc:.1f}%"
                 else:
-                    val_str = f"{vc:.2f}x" if vs is None else f"{vc:.2f}x (vs {vs:.2f}x med.)"
+                    val_str = f"{vc:.2f}x"
 
             breakdown.append({
                 "name": name, 
