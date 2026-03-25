@@ -339,7 +339,7 @@ def search_companies(query: str) -> list:
         print(f"Search failed on all hosts. Last error: {last_error}")
     return []
 
-def get_company_data(ticker_symbol: str):
+def get_company_data(ticker_symbol: str, fast_mode: bool = False):
     """
     Fetches comprehensive data from Yahoo Finance as the primary/fallback data source.
     """
@@ -347,15 +347,16 @@ def get_company_data(ticker_symbol: str):
         stock = yf.Ticker(ticker_symbol)
         
         # Parallelize data fetching using ThreadPoolExecutor
-        # fetching info, cashflow, financials, and balance_sheet simultaneously
+        # fetching info only in fast_mode (v52)
         with concurrent.futures.ThreadPoolExecutor(max_workers=7) as executor:
             future_info = executor.submit(lambda: stock.info)
-            future_cf = executor.submit(lambda: stock.cashflow)
-            future_fin = executor.submit(lambda: stock.financials)
-            future_bs = executor.submit(lambda: stock.balance_sheet)
-            future_qcf = executor.submit(lambda: stock.quarterly_cashflow)
-            future_qfin = executor.submit(lambda: stock.quarterly_income_stmt)
-            future_divs = executor.submit(lambda: stock.dividends)
+            if not fast_mode:
+                future_cf = executor.submit(lambda: stock.cashflow)
+                future_fin = executor.submit(lambda: stock.financials)
+                future_bs = executor.submit(lambda: stock.balance_sheet)
+                future_qcf = executor.submit(lambda: stock.quarterly_cashflow)
+                future_qfin = executor.submit(lambda: stock.quarterly_income_stmt)
+                future_divs = executor.submit(lambda: stock.dividends)
             
             # Wait for main info first as it is critical
             try:
@@ -372,9 +373,10 @@ def get_company_data(ticker_symbol: str):
                 # Re-run parallel fetch for the resolved ticker
                 with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
                     future_info = executor.submit(lambda: stock.info)
-                    future_cf = executor.submit(lambda: stock.cashflow)
-                    future_fin = executor.submit(lambda: stock.financials)
-                    future_bs = executor.submit(lambda: stock.balance_sheet)
+                    if not fast_mode:
+                        future_cf = executor.submit(lambda: stock.cashflow)
+                        future_fin = executor.submit(lambda: stock.financials)
+                        future_bs = executor.submit(lambda: stock.balance_sheet)
                     try:
                         info = future_info.result(timeout=10)
                     except Exception:
@@ -390,13 +392,14 @@ def get_company_data(ticker_symbol: str):
         industry = info.get('industry')
         
         # Start background fetches while processing info
-        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as nasdaq_executor:
-            # Note: Nasdaq growth is now a 3Y CAGR
-            future_nasdaq_cagr = nasdaq_executor.submit(get_nasdaq_earnings_growth, ticker_symbol, info.get('trailingEps'))
-            # Fetch actual Non-GAAP EPS as fallback for GAAP trailingEps
-            future_nasdaq_actual = nasdaq_executor.submit(get_nasdaq_actual_eps, ticker_symbol)
-            future_est = nasdaq_executor.submit(lambda: stock.earnings_estimate)
-            future_growth_est = nasdaq_executor.submit(lambda: stock.growth_estimates)
+        if not fast_mode:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=4) as nasdaq_executor:
+                # Note: Nasdaq growth is now a 3Y CAGR
+                future_nasdaq_cagr = nasdaq_executor.submit(get_nasdaq_earnings_growth, ticker_symbol, info.get('trailingEps'))
+                # Fetch actual Non-GAAP EPS as fallback for GAAP trailingEps
+                future_nasdaq_actual = nasdaq_executor.submit(get_nasdaq_actual_eps, ticker_symbol)
+                future_est = nasdaq_executor.submit(lambda: stock.earnings_estimate)
+                future_growth_est = nasdaq_executor.submit(lambda: stock.growth_estimates)
 
             # Valuation Multiples & EPS (Normalize EPS)
             # trailing_eps is the GAAP TTM from Yahoo
@@ -415,49 +418,52 @@ def get_company_data(ticker_symbol: str):
             eps_growth_period = None
 
             # 1. Try YF earnings_estimate - HIGHEST PRIORITY for consensus-based valuation
-            try:
-                ef = future_est.result(timeout=2)
-                if ef is not None and not ef.empty:
-                    # Smart selection: pick healthiest forward year (+5y -> +1y -> 0y)
-                    g_5y = ef.loc['+5y'].get('growth') if '+5y' in ef.index else None
-                    g_1y = ef.loc['+1y'].get('growth') if '+1y' in ef.index else None
-                    g_0y = ef.loc['0y'].get('growth') if '0y' in ef.index else None
-                    
-                    labels = get_period_labels(info)
-                    
-                    if g_5y is not None:
-                        eps_growth = float(g_5y)
-                        eps_growth_period = labels.get('+5y', 'Next 5 Years (Est)')
-                    elif g_1y is not None:
-                        eps_growth = float(g_1y)
-                        eps_growth_period = labels.get('+1y', 'Next Year (Est)')
-                    elif g_0y is not None and g_0y > 0.02:
-                        eps_growth = float(g_0y)
-                        eps_growth_period = labels.get('0y', 'Current Year (Est)')
-            except Exception:
-                pass
+            if not fast_mode:
+                try:
+                    ef = future_est.result(timeout=2)
+                    if ef is not None and not ef.empty:
+                        # Smart selection: pick healthiest forward year (+5y -> +1y -> 0y)
+                        g_5y = ef.loc['+5y'].get('growth') if '+5y' in ef.index else None
+                        g_1y = ef.loc['+1y'].get('growth') if '+1y' in ef.index else None
+                        g_0y = ef.loc['0y'].get('growth') if '0y' in ef.index else None
+                        
+                        labels = get_period_labels(info)
+                        
+                        if g_5y is not None:
+                            eps_growth = float(g_5y)
+                            eps_growth_period = labels.get('+5y', 'Next 5 Years (Est)')
+                        elif g_1y is not None:
+                            eps_growth = float(g_1y)
+                            eps_growth_period = labels.get('+1y', 'Next Year (Est)')
+                        elif g_0y is not None and g_0y > 0.02:
+                            eps_growth = float(g_0y)
+                            eps_growth_period = labels.get('0y', 'Current Year (Est)')
+                except Exception:
+                    pass
             
             # 1.5 Try YF growth_estimates (Analysis tab - Next 5 Years)
             eps_growth_5y_consensus = None
-            try:
-                ge = future_growth_est.result(timeout=2)
-                if ge is not None and not ge.empty:
-                    if 'Next 5 Years' in ge.index:
-                        # Columns are [Ticker, 'S&P 500']
-                        val = ge.loc['Next 5 Years', ge.columns[0]]
-                        if val is not None and not pd.isna(val):
-                            eps_growth_5y_consensus = float(val)
-            except Exception:
-                pass
+            if not fast_mode:
+                try:
+                    ge = future_growth_est.result(timeout=2)
+                    if ge is not None and not ge.empty:
+                        if 'Next 5 Years' in ge.index:
+                            # Columns are [Ticker, 'S&P 500']
+                            val = ge.loc['Next 5 Years', ge.columns[0]]
+                            if val is not None and not pd.isna(val):
+                                eps_growth_5y_consensus = float(val)
+                except Exception:
+                    pass
 
             # 2. Try Nasdaq growth (fallback)
             nasdaq_growth_3y = None
             nasdaq_actual_eps = None
-            try:
-                nasdaq_growth_3y = future_nasdaq_cagr.result(timeout=5)
-                nasdaq_actual_eps = future_nasdaq_actual.result(timeout=5)
-            except Exception:
-                pass
+            if not fast_mode:
+                try:
+                    nasdaq_growth_3y = future_nasdaq_cagr.result(timeout=5)
+                    nasdaq_actual_eps = future_nasdaq_actual.result(timeout=5)
+                except Exception:
+                    pass
 
             # Detect Nasdaq Actual (Non-GAAP)
             if nasdaq_actual_eps is not None:
@@ -482,36 +488,43 @@ def get_company_data(ticker_symbol: str):
                     eps_growth = info.get('revenueGrowth', 0.05)
             
         # Financials for DCF & Margins (Wait for results)
-        try:
-            financials = future_fin.result(timeout=10)
-            if financials is not None and fx_rate != 1.0: financials = financials * fx_rate
-        except Exception:
-            financials = None
-        try:
-            cashflow = future_cf.result(timeout=10)
-            if cashflow is not None and fx_rate != 1.0: cashflow = cashflow * fx_rate
-        except Exception:
-            cashflow = None
-        try:
-            bs = future_bs.result(timeout=10)
-            if bs is not None and fx_rate != 1.0: bs = bs * fx_rate
-        except Exception:
-            bs = None
-        try:
-            q_financials = future_qfin.result(timeout=10)
-            if q_financials is not None and fx_rate != 1.0: q_financials = q_financials * fx_rate
-        except Exception:
-            q_financials = None
-        try:
-            q_cashflow = future_qcf.result(timeout=10)
-            if q_cashflow is not None and fx_rate != 1.0: q_cashflow = q_cashflow * fx_rate
-        except Exception:
-            q_cashflow = None
-        
-        try:
-            dividends_raw = future_divs.result(timeout=10)
-        except Exception:
-            dividends_raw = pd.Series()
+        financials = None
+        cashflow = None
+        bs = None
+        q_financials = None
+        q_cashflow = None
+        dividends_raw = pd.Series()
+
+        if not fast_mode:
+            try:
+                financials = future_fin.result(timeout=10)
+                if financials is not None and fx_rate != 1.0: financials = financials * fx_rate
+            except Exception:
+                pass
+            try:
+                cashflow = future_cf.result(timeout=10)
+                if cashflow is not None and fx_rate != 1.0: cashflow = cashflow * fx_rate
+            except Exception:
+                pass
+            try:
+                bs = future_bs.result(timeout=10)
+                if bs is not None and fx_rate != 1.0: bs = bs * fx_rate
+            except Exception:
+                pass
+            try:
+                q_financials = future_qfin.result(timeout=10)
+                if q_financials is not None and fx_rate != 1.0: q_financials = q_financials * fx_rate
+            except Exception:
+                pass
+            try:
+                q_cashflow = future_qcf.result(timeout=10)
+                if q_cashflow is not None and fx_rate != 1.0: q_cashflow = q_cashflow * fx_rate
+            except Exception:
+                pass
+            try:
+                dividends_raw = future_divs.result(timeout=10)
+            except Exception:
+                pass
         peg_ratio = None
         if pe_ratio and eps_growth and eps_growth > 0:
             peg_ratio = pe_ratio / (eps_growth * 100)

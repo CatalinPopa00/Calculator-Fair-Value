@@ -30,7 +30,7 @@ app = FastAPI(title="Fair Value Calculator API")
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v51" # Watchlist Fast Peer Mode (v51)
+CACHE_VERSION = "v52" # Watchlist Extreme Speed (v52)
 
 app.add_middleware(
     CORSMiddleware,
@@ -206,8 +206,8 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
         if cache_key in valuation_cache:
             return valuation_cache[cache_key]
 
-        # 1. Scrape Yahoo Data
-        data = get_company_data(ticker)
+        # 1. Scrape Yahoo Data (v52: Pass fast_mode to skip heavy DataFrames)
+        data = get_company_data(ticker, fast_mode=fast_mode)
         if not data or not data.get("current_price"):
             raise HTTPException(status_code=404, detail=f"Data not found for {ticker}")
             
@@ -617,11 +617,13 @@ def get_batch_valuation(req: WatchlistRequest):
     
     with ThreadPoolExecutor(max_workers=15) as executor:
         # We reuse the existing get_valuation logic but in parallel
-        # Use fast_mode=True for watchlist to skip expensive peer growth calls (v51)
+        # Use fast_mode=True for watchlist to skip expensive calls (v52)
         futures = {executor.submit(get_valuation, t.upper(), fast_mode=True): t for t in tickers}
         for future in futures:
             try:
-                results.append(future.result())
+                res = future.result()
+                if res and not res.get("error"):
+                    results.append(res)
             except Exception as e:
                 ticker = futures[future]
                 print(f"Batch Error for {ticker}: {e}")

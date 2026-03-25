@@ -1470,14 +1470,18 @@ document.addEventListener('DOMContentLoaded', () => {
         emptyWatchlistMsg.style.display = 'none';
 
         if (!Array.isArray(cachedWatchlistData)) {
-            console.error("cachedWatchlistData is not an array:", cachedWatchlistData);
-            emptyWatchlistMsg.style.display = 'block';
-            return;
+            cachedWatchlistData = [];
         }
 
-        let sortedResults = [...cachedWatchlistData];
+        // v52: Map watchlist tickers to data, adding placeholders if missing to prevent "disappearing" tickers
+        let augmentedData = watchlist.map(t => {
+            const found = cachedWatchlistData.find(d => d.ticker && d.ticker.toUpperCase() === t.toUpperCase());
+            if (found) return { ...found };
+            return { ticker: t, name: 'Data Unavailable', current_price: null, fair_value: null, margin_of_safety: null, health_score: null, buy_score: null };
+        });
+
         if (!manualOrder) {
-            sortedResults.sort((a, b) => {
+            augmentedData.sort((a, b) => {
                 if (!a || !b) return 0;
                 const aValid = a.current_price != null && a.fair_value != null;
                 const bValid = b.current_price != null && b.fair_value != null;
@@ -1503,7 +1507,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
 
-        sortedResults.forEach((data, index) => {
+        augmentedData.forEach((data, index) => {
             if (!data || !data.ticker) return;
             try {
                 // ... card rendering logic ...
