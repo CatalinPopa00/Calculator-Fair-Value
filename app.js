@@ -1929,13 +1929,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
             html += `
                 <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 0; border-top:1px solid rgba(255,255,255,0.06);">
-                    <div style="flex:1; min-width:0;">
+                    <div style="flex:1; min-width:0; text-align: left;">
                         <div style="font-weight:600; font-size:0.9rem; color:white;">${item.name}</div>
                     </div>
-                    <div style="font-weight:700; font-size:0.95rem; color:white; min-width:60px; text-align:center;">${item.value || 'N/A'}</div>
-                    <div style="display:flex; align-items:center; gap:8px; min-width:90px; justify-content:flex-end;">
+                    
+                    <div style="display:flex; align-items:center; gap:8px; min-width:110px; justify-content:center; flex: 1;">
                         <span style="width:10px; height:10px; border-radius:50%; background:${dotColor}; display:inline-block; flex-shrink:0;"></span>
                         <span style="font-weight:700; font-size:0.9rem; color:${ptsColor};">${pts}/${maxPts} pts</span>
+                    </div>
+
+                    <div style="font-weight:700; font-size:0.85rem; color:rgba(255,255,255,0.9); min-width:120px; text-align:right; flex: 1.5; font-family: 'Inter', sans-serif;">
+                        ${item.value || 'N/A'}
                     </div>
                 </div>
             `;

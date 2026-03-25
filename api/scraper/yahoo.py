@@ -1189,7 +1189,7 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
                             "market_cap": inf.get('marketCap'),
                             "eps": inf.get('trailingEps') or inf.get('forwardEps'),
                             "operating_margin": inf.get('operatingMargins') or inf.get('ebitdaMargins'),
-                            "debt_to_equity": inf.get('debtToEquity'),
+                            "debt_to_equity": (inf.get('debtToEquity') / 100.0) if inf.get('debtToEquity') and inf.get('debtToEquity') > 5.0 else inf.get('debtToEquity'),
                             "roic": inf.get('returnOnCapitalEmployed') or inf.get('returnOnAssets'),
                             "current_ratio": inf.get('currentRatio'),
                             "ebit_margin": inf.get('ebitdaMargins') or inf.get('operatingMargins'),
@@ -1213,8 +1213,13 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
                     m = requests.get(f"https://finnhub.io/api/v1/stock/metric?symbol={t}&metric=all&token={fh_key}", timeout=5).json().get('metric', {})
                     if q.get('c'):
                         final_peers.append({
-                            "ticker": t, "name": t, "price": q['c'], "pe_ratio": m.get('peExclExtraTTM'),
+                            "ticker": t, "name": t, "price": q['c'], 
+                            "pe_ratio": m.get('peExclExtraTTM'),
                             "market_cap": (m.get('marketCapitalization',0)*1e6) if m.get('marketCapitalization') else None,
+                            "debt_to_equity": (m.get('debtToEquityTTM',0)/100.0) if m.get('debtToEquityTTM') and m.get('debtToEquityTTM') > 5.0 else m.get('debtToEquityTTM'),
+                            "roic": m.get('returnOnCapitalEmployedTTM') or m.get('returnOnAssetsTTM'),
+                            "current_ratio": m.get('currentRatioTTM'),
+                            "operating_margin": (m.get('operatingMarginTTM',0)/100.0) if m.get('operatingMarginTTM') else None,
                             "industry": target_industry, "sector": sector
                         })
                 except: continue
