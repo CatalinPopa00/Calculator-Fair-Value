@@ -653,7 +653,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (buybackSrc === 'historical') {
                     buybackRate = currentFormulaData.dcf.historic_buyback_rate || 0;
                 } else if (buybackSrc === 'custom') {
-                    buybackRate = parseFloat(document.getElementById('dcf-custom-buyback').value) / 100 || 0;
+                    const rawVal = document.getElementById('dcf-custom-buyback').value;
+                    buybackRate = (rawVal === '' || isNaN(parseFloat(rawVal))) ? 0 : parseFloat(rawVal) / 100;
                 }
 
                 const baseFcf = currentFormulaData.dcf.fcf;
@@ -678,11 +679,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     const hg = prof.historic_fcf_growth != null ? prof.historic_fcf_growth : 0.05;
                     dcfVal = calcLocalDcf(baseFcf, hg, 0.09, 0.02, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years);
                 } else if (fcfSource === 'custom') {
-                    const g = parseFloat(document.getElementById('dcf-custom-growth').value) / 100 || 0.15;
-                    const w = parseFloat(document.getElementById('dcf-custom-wacc').value) / 100 || 0.09;
-                    const p = parseFloat(document.getElementById('dcf-custom-perp').value) / 100 || 0.025;
+                    const gRaw = document.getElementById('dcf-custom-growth').value;
+                    const wRaw = document.getElementById('dcf-custom-wacc').value;
+                    const pRaw = document.getElementById('dcf-custom-perp').value;
+                    
+                    const g = (gRaw === '' || isNaN(parseFloat(gRaw))) ? 0.15 : parseFloat(gRaw) / 100;
+                    const w = (wRaw === '' || isNaN(parseFloat(wRaw))) ? 0.09 : parseFloat(wRaw) / 100;
+                    const p = (pRaw === '' || isNaN(parseFloat(pRaw))) ? 0.025 : parseFloat(pRaw) / 100;
+                    
                     dcfVal = calcLocalDcf(baseFcf, g, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years);
-            }
+                }
             }
             setValuationStatus(dcfVal, data.current_price, 'dcf-status', 'dcf-value');
             
@@ -705,7 +711,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 usedGrowth = currentFormulaData.peg.eps_growth_estimated || 0;
                 if (pegSrc === 'custom') {
-                    usedGrowth = (parseFloat(document.getElementById('peg-custom-growth').value) || 20) / 100;
+                    const rawG = document.getElementById('peg-custom-growth').value;
+                    usedGrowth = (rawG === '' || isNaN(parseFloat(rawG))) ? 0.20 : parseFloat(rawG) / 100;
                 }
 
                 const currentPe = currentFormulaData.peg.current_pe || (parseFloat(data.company_profile.trailing_pe) || 0);
@@ -780,7 +787,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     usedGrowth = prof.historic_eps_growth != null ? prof.historic_eps_growth : 0.05;
                     targetEps = (pl.trailing_eps || 0) * Math.pow(1 + usedGrowth, 3);
                 } else if (epsSource === 'custom') {
-                    usedGrowth = parseFloat(document.getElementById('lynch-custom-growth').value) / 100 || 0.20;
+                    const rawG = document.getElementById('lynch-custom-growth').value;
+                    usedGrowth = (rawG === '' || isNaN(parseFloat(rawG))) ? 0.20 : parseFloat(rawG) / 100;
                     targetEps = (pl.trailing_eps || 0) * Math.pow(1 + usedGrowth, 3);
                 }
 
