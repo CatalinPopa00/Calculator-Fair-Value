@@ -1194,6 +1194,8 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
                             "market_cap": inf.get('marketCap'),
                             "eps": inf.get('trailingEps') or inf.get('forwardEps'),
                             "operating_margin": inf.get('operatingMargins') or inf.get('ebitdaMargins'),
+                            "revenue_growth": inf.get('revenueGrowth'),
+                            "earnings_growth": inf.get('earningsGrowth') or inf.get('earningsQuarterlyGrowth'),
                             "industry": inf.get('industry') or target_industry,
                             "sector": inf.get('sector') or sector
                         })
@@ -1214,6 +1216,9 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
                         final_peers.append({
                             "ticker": t, "name": t, "price": q['c'], "pe_ratio": m.get('peExclExtraTTM'),
                             "market_cap": (m.get('marketCapitalization',0)*1e6) if m.get('marketCapitalization') else None,
+                            "operating_margin": (m.get('operatingMarginTTM', 0)/100.0) if m.get('operatingMarginTTM') else None,
+                            "revenue_growth": (m.get('revenueGrowthTTM', 0)/100.0) if m.get('revenueGrowthTTM') else None,
+                            "earnings_growth": (m.get('epsGrowthTTM', 0)/100.0) if m.get('epsGrowthTTM') else None,
                             "industry": target_industry, "sector": sector
                         })
                 except: continue
