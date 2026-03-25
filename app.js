@@ -957,9 +957,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 <tr><td class="profile-label">Industry</td><td class="profile-value">${prof.industry}<br><span style="font-size: 0.85em; font-weight: normal; color: var(--text-muted);">${prof.sector}</span></td></tr>
                 <tr><td class="profile-label">Market Cap</td><td class="profile-value">${formatBigNumber(prof.market_cap, '$')}</td></tr>
                 <tr><td class="profile-label">Operating Margin</td><td class="profile-value">${formatSafePct(prof.operating_margin)}</td></tr>
-                <tr><td class="profile-label">P/E (Trailing)</td><td class="profile-value">${(data.current_price && prof.trailing_eps) ? (data.current_price / prof.trailing_eps).toFixed(2) + 'x' : (prof.trailing_pe ? prof.trailing_pe.toFixed(2) + 'x' : 'N/A')}</td></tr>
+                <tr><td class="profile-label">P/E (Trailing TTM)</td><td class="profile-value">${(data.current_price && prof.trailing_eps) ? (data.current_price / prof.trailing_eps).toFixed(2) + 'x' : 'N/A'}</td></tr>
                 <tr><td class="profile-label">P/E (5Y Avg)</td><td class="profile-value">${prof.historic_pe ? prof.historic_pe.toFixed(2) + 'x' : 'N/A'}</td></tr>
-                <tr><td class="profile-label">EPS (Trailing)</td><td class="profile-value">${prof.trailing_eps ? '$' + prof.trailing_eps.toFixed(2) : 'N/A'}</td></tr>
+                <tr><td class="profile-label">EPS (Trailing TTM)</td><td class="profile-value">${prof.trailing_eps ? '$' + prof.trailing_eps.toFixed(2) : 'N/A'}</td></tr>
+                ${(prof.adjusted_eps && Math.abs(prof.adjusted_eps - prof.trailing_eps) > 0.1) ? 
+                    `<tr><td class="profile-label" style="color:var(--accent);">EPS (Adjusted TTM)</td><td class="profile-value" style="color:var(--accent); font-weight:bold;">$${prof.adjusted_eps.toFixed(2)}</td></tr>` : ''}
                 <tr><td class="profile-label">Debt-to-Equity</td><td class="profile-value">${prof.debt_to_equity != null ? prof.debt_to_equity.toFixed(2) + 'x' : 'N/A'}</td></tr>
                 <tr><td class="profile-label">Insider Ownership</td><td class="profile-value">${formatSafePct(prof.insider_ownership)}</td></tr>
                 <tr><td class="profile-label">Shares Out.</td><td class="profile-value">${formatBigNumber(prof.shares_outstanding, '')}</td></tr>

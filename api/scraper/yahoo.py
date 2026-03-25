@@ -398,7 +398,9 @@ def get_company_data(ticker_symbol: str):
             future_growth_est = nasdaq_executor.submit(lambda: stock.growth_estimates)
 
             # Valuation Multiples & EPS (Normalize EPS)
+            # trailing_eps is the GAAP TTM from Yahoo
             trailing_eps = (info.get('trailingEps') or info.get('epsTrailingTwelveMonths', 0)) * fx_rate
+            adjusted_eps = None
             forward_eps = (info.get('forwardEps') or 0) * fx_rate
             pe_ratio = info.get('trailingPE') # Ratio: no conversion
             if not pe_ratio and current_price and trailing_eps and trailing_eps > 0:
@@ -454,13 +456,13 @@ def get_company_data(ticker_symbol: str):
             except Exception:
                 pass
 
-            # Update trailing_eps if Nasdaq Actual (Non-GAAP) is found and significantly different
+            # Detect Nasdaq Actual (Non-GAAP)
             if nasdaq_actual_eps is not None:
-                current_trailing = info.get('trailingEps')
-                # If GAAP (YF) is > 20% different from Non-GAAP (Nasdaq), prefer Non-GAAP
-                if not current_trailing or abs(nasdaq_actual_eps - current_trailing) / max(current_trailing, 1) > 0.20:
-                    info['trailingEps'] = nasdaq_actual_eps
-                    trailing_eps = nasdaq_actual_eps
+                # Store separately instead of overwriting the main trailing_eps
+                # This allow the UI to show the GAAP value the user expects from Yahoo summary
+                adjusted_eps = nasdaq_actual_eps
+            else:
+                adjusted_eps = trailing_eps
 
             if eps_growth is None:
                 eps_growth = eps_growth_5y_consensus or nasdaq_growth_3y
@@ -1021,6 +1023,7 @@ def get_company_data(ticker_symbol: str):
             "sector": sector,
             "industry": industry,
             "trailing_eps": trailing_eps,
+            "adjusted_eps": adjusted_eps,
             "peg_ratio": peg_ratio,
             "pe_ratio": pe_ratio,
             "forward_pe": forward_pe,

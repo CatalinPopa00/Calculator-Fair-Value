@@ -244,13 +244,14 @@ def get_valuation(ticker: str, wacc: float = None):
         sector_median_pe = statistics.median(valid_pes) if valid_pes else 20.0
 
         pe_historic = data.get("pe_historic") or data.get("pe_ratio")
-        lynch_result = calculate_peter_lynch(current_price, data.get("trailing_eps"), eps_growth_estimated, pe_historic, sector_median_pe)
+        eps_for_valuation = data.get("adjusted_eps") or data.get("trailing_eps")
+        lynch_result = calculate_peter_lynch(current_price, eps_for_valuation, eps_growth_estimated, pe_historic, sector_median_pe)
         lynch_fwd_pe = lynch_result.get("fwd_pe")
         lynch_fair_value = lynch_result.get("fair_value")
         lynch_status = lynch_result.get("status")
         
         # PEG Valuation (Sector-based)
-        eps_base = data.get("trailing_eps") or data.get("forward_eps") or 0
+        eps_base = eps_for_valuation or 0
         current_pe = current_price / eps_base if eps_base > 0 else 0
         # Use Yahoo 5Y Consensus as primary source for PEG
         eps_growth_rate_peg = data.get("eps_growth_5y_consensus")
@@ -550,6 +551,7 @@ def get_valuation(ticker: str, wacc: float = None):
                     "historic_pe": sanitize(data.get("pe_historic")),
                     "current_eps": sanitize(data.get("forward_eps")),
                     "trailing_eps": sanitize(data.get("trailing_eps")),
+                    "adjusted_eps": sanitize(data.get("adjusted_eps")),
                     "historic_eps_growth": sanitize(data.get("historic_eps_growth")),
                     "historic_fcf_growth": sanitize(data.get("historic_fcf_growth")),
                     "status_flags": data.get("status_flags"),
