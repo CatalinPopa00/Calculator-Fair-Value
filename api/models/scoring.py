@@ -1,25 +1,30 @@
-def apply_threshold_score(val, thresholds, weight, type="higher_is_better"):
+def apply_relative_score(vc, vs, weight, type="higher_is_better"):
     """
-    Applies absolute thresholds for scoring.
-    thresholds: (ideal, Good) tuple
-    Returns: points, is_strength, is_risk
+    STRICT EXPERT RULEBOOK (RELATIV):
+    - Punctaj Maxim (100%): Dacă Vc > Vs * 1.10 (higher) sau Vc < Vs * 0.90 (lower).
+    - Punctaj Mediu (50%): Dacă Vc este între Vs * 0.90 și Vs * 1.10 inclusiv.
+    - Punctaj Zero (0%): Dacă Vc < Vs * 0.90 (higher) sau Vc > Vs * 1.10 (lower).
     """
-    if val is None:
-        return weight * 0.5, False, False # Neutral if missing
+    if vc is None or vs is None or vs == 0:
+        return weight * 0.5, False, False # Neutral if data missing
 
-    ideal, good = thresholds
     if type == "higher_is_better":
-        if val >= ideal: return weight, True, False
-        if val >= good: return weight * 0.5, False, False
-        return 0, False, True
+        if vc > vs * 1.10:
+            return weight, True, False
+        if vc < vs * 0.90:
+            return 0, False, True
+        return weight * 0.5, False, False # In between
+    
     else: # lower_is_better
-        if val <= ideal: return weight, True, False
-        if val <= good: return weight * 0.5, False, False
-        return 0, False, True
+        if vc < vs * 0.90:
+            return weight, True, False
+        if vc > vs * 1.10:
+            return 0, False, True
+        return weight * 0.5, False, False # In between
 
 def calculate_health_score(metrics: dict, sector_avg: dict):
     """
-    Calculates Company Health Score (0-100) using strict quantitative rules.
+    Calculates Company Health Score (0-100) using strict expert rules.
     """
     try:
         score = 0
@@ -28,17 +33,18 @@ def calculate_health_score(metrics: dict, sector_avg: dict):
         breakdown = []
 
         indicators = [
-            ("Debt-to-Equity", "debt_to_equity", 20, "lower_is_better", (0.5, 1.0)),
-            ("ROIC", "roic", 20, "higher_is_better", (15.0, 8.0)),
-            ("Interest Coverage", "interest_coverage", 15, "higher_is_better", (6.0, 3.0)),
-            ("Current Ratio", "current_ratio", 15, "higher_is_better", (1.5, 1.0)),
-            ("EBIT Margin", "ebit_margin", 15, "higher_is_better", (20.0, 10.0)),
-            ("FCF Trend", "historic_fcf_growth", 15, "higher_is_better", (15.0, 5.0))
+            ("Debt-to-Equity", "debt_to_equity", 20, "lower_is_better"),
+            ("ROIC", "roic", 20, "higher_is_better"),
+            ("Interest Coverage", "interest_coverage", 15, "higher_is_better"),
+            ("Current Ratio", "current_ratio", 15, "higher_is_better"),
+            ("EBIT Margin", "ebit_margin", 15, "higher_is_better"),
+            ("FCF Trend", "historic_fcf_growth", 15, "higher_is_better")
         ]
 
-        for name, key, weight, type_rule, thresholds in indicators:
+        for name, key, weight, type_rule in indicators:
             vc = metrics.get(key)
-            pts, is_s, is_r = apply_threshold_score(vc, thresholds, weight, type_rule)
+            vs = sector_avg.get(key)
+            pts, is_s, is_r = apply_relative_score(vc, vs, weight, type_rule)
             
             score += pts
             if is_s: top_strengths.append(name)
@@ -47,10 +53,8 @@ def calculate_health_score(metrics: dict, sector_avg: dict):
             # Format value string
             val_str = "N/A"
             if vc is not None:
-                if key in ["roic", "ebit_margin", "historic_fcf_growth"]:
-                    val_str = f"{vc:.1f}%"
-                else:
-                    val_str = f"{vc:.2f}x"
+                suffix = "%" if key in ["roic", "ebit_margin", "historic_fcf_growth"] else "x"
+                val_str = f"{vc:.1f}{suffix}" if vs is None else f"{vc:.1f}{suffix} (vs {vs:.1f}{suffix} med.)"
             
             breakdown.append({
                 "name": name, 
@@ -59,29 +63,33 @@ def calculate_health_score(metrics: dict, sector_avg: dict):
                 "max": weight
             })
 
-        # Red Flag: Health
-        de = metrics.get('debt_to_equity', 0) or 0
-        ic = metrics.get('interest_coverage', 100) or 100
-        if de > 3.0 or ic < 1.5:
-            if score > 40: score = 40
-            reason = []
-            if de > 3.0: reason.append(f"D/E Critical ({de:.2f})")
-            if ic < 1.5: reason.append(f"IC Critical ({ic:.1f})")
-            risk_factors.append(f"RED FLAG Health: {', '.join(reason)}")
+        # --- RED FLAGS HEALTH ---
+        de = metrics.get('debt_to_equity')
+        ic = metrics.get('interest_coverage')
+        has_flag = False
+        if de is not None and de > 3.0:
+            has_flag = True
+            risk_factors.append("RED FLAG: Debt-to-Equity > 3.0")
+        if ic is not None and ic < 1.5:
+            has_flag = True
+            risk_factors.append("RED FLAG: Interest Coverage < 1.5")
+        
+        if has_flag:
+            score = min(score, 40)
 
         return {
             "total": round(score, 1),
             "top_strengths": top_strengths,
-            "risk_factors": risk_factors,
+            "risk_factors": list(set(risk_factors)),
             "breakdown": breakdown
         }
     except Exception as e:
         print(f"Health Score Error: {e}")
-        return {"total": 0, "top_strengths": [], "risk_factors": [f"Error: {str(e)}"], "breakdown": []}
+        return {"total": 0, "top_strengths": [], "risk_factors": [str(e)], "breakdown": []}
 
 def calculate_buy_score(metrics: dict, valuation_data: dict, sector_avg: dict):
     """
-    Calculates Good to Buy Score (0-100) using strict quantitative rules.
+    Calculates Good to Buy Score (0-100) using strict expert rules.
     """
     try:
         score = 0
@@ -89,22 +97,20 @@ def calculate_buy_score(metrics: dict, valuation_data: dict, sector_avg: dict):
         risk_factors = []
         breakdown = []
 
-        # 1. Margin of Safety (Absolute Rule)
+        # 1. Margin of Safety (REGULA ABSOLUTA)
         mos = valuation_data.get('margin_of_safety')
-        weight_mos = 30
         pts_mos = 0
-        is_s_mos, is_r_mos = False, False
         if mos is not None:
             if mos >= 20.0:
-                pts_mos = 30; is_s_mos = True
-            elif mos >= 0.0:
+                pts_mos = 30
+                top_strengths.append("Margin of Safety")
+            elif 0 <= mos < 20.0:
                 pts_mos = 15
             else:
-                pts_mos = 0; is_r_mos = True
+                pts_mos = 0
+                risk_factors.append("Margin of Safety")
         
         score += pts_mos
-        if is_s_mos: top_strengths.append("Margin of Safety")
-        if is_r_mos: risk_factors.append("Margin of Safety")
         breakdown.append({
             "name": "Margin of Safety", 
             "value": f"{mos:.1f}%" if mos is not None else "N/A", 
@@ -113,9 +119,6 @@ def calculate_buy_score(metrics: dict, valuation_data: dict, sector_avg: dict):
         })
 
         # Select P/E or P/S (Lower is Better)
-        # Use whichever provides a better relative score, or just picking one based on sector
-        # For simplicity and to follow the 15pt weight, we check relative for both if available
-        # But the prompt says "sau", so we pick one. Standard: P/E, fallback P/S.
         pe_vc = metrics.get('forward_pe')
         pe_vs = sector_avg.get('forward_pe')
         ps_vc = metrics.get('fwd_ps')
@@ -126,31 +129,28 @@ def calculate_buy_score(metrics: dict, valuation_data: dict, sector_avg: dict):
         val_vs = pe_vs if pe_vc and pe_vs else ps_vs
         
         indicators = [
-            ("PEG Ratio", "peg_ratio", 20, "lower_is_better", (1.0, 1.5)),
-            ("FCF Yield", "fcf_yield", 15, "higher_is_better", (7.0, 4.0)),
-            (val_name, None, 15, "lower_is_better", (15.0, 25.0) if val_name == "Fwd P/E" else (2.0, 4.0)), 
-            ("Next 3Y Rev Growth Est", "next_3y_rev_est", 20, "higher_is_better", (0.15, 0.08))
+            ("PEG Ratio", "peg_ratio", 20, "lower_is_better"),
+            ("FCF Yield", "fcf_yield", 15, "higher_is_better"),
+            (val_name, None, 15, "lower_is_better"), 
+            ("Next 3Y Rev Growth Est", "next_3y_rev_est", 20, "higher_is_better")
         ]
 
-        for name, key, weight, type_rule, thresholds in indicators:
+        for name, key, weight, type_rule in indicators:
             if name == val_name:
-                vc = val_vc
+                vc, vs = val_vc, val_vs
             else:
                 vc = metrics.get(key)
+                vs = sector_avg.get(key)
             
-            pts, is_s, is_r = apply_threshold_score(vc, thresholds, weight, type_rule)
+            pts, is_s, is_r = apply_relative_score(vc, vs, weight, type_rule)
             score += pts
             if is_s: top_strengths.append(name)
             if is_r: risk_factors.append(name)
             
             val_str = "N/A"
             if vc is not None:
-                if key == "next_3y_rev_est":
-                    val_str = f"{vc*100:.1f}%"
-                elif key == "fcf_yield" or name == "FCF Yield":
-                    val_str = f"{vc:.1f}%"
-                else:
-                    val_str = f"{vc:.2f}x"
+                suffix = "%" if "Growth" in name or "Yield" in name else "x"
+                val_str = f"{vc:.1f}{suffix}" if vs is None else f"{vc:.1f}{suffix} (vs {vs:.1f}{suffix} med.)"
 
             breakdown.append({
                 "name": name, 
@@ -159,17 +159,17 @@ def calculate_buy_score(metrics: dict, valuation_data: dict, sector_avg: dict):
                 "max": weight
             })
 
-        # Red Flag: Buy
+        # --- RED FLAGS BUY ---
         if mos is not None and mos < -20.0:
-            if score > 40: score = 40
-            risk_factors.append(f"RED FLAG Valuation: MoS is {mos:.1f}% (Overvalued)")
+            score = min(score, 40)
+            risk_factors.append("RED FLAG: Margin of Safety < -20% (Severely Overvalued)")
 
         return {
             "total": round(score, 1),
             "top_strengths": top_strengths,
-            "risk_factors": risk_factors,
+            "risk_factors": list(set(risk_factors)),
             "breakdown": breakdown
         }
     except Exception as e:
         print(f"Buy Score Error: {e}")
-        return {"total": 0, "top_strengths": [], "risk_factors": [f"Error: {str(e)}"], "breakdown": []}
+        return {"total": 0, "top_strengths": [], "risk_factors": [str(e)], "breakdown": []}
