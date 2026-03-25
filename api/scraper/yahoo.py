@@ -1284,9 +1284,9 @@ def get_lightweight_company_data(ticker_symbol: str):
                     "sector": q.get('sector')
                 }
 
-        # 2. QuoteSummary Fallback (v11)
+        # 2. QuoteSummary Fallback (v10 is more stable than v11)
         if not data or not data.get('price') or not data.get('market_cap'):
-            url = f"https://query2.finance.yahoo.com/v11/finance/quoteSummary/{ticker_symbol}?modules=assetProfile,defaultKeyStatistics,financialData,summaryDetail"
+            url = f"https://query2.finance.yahoo.com/v10/finance/quoteSummary/{ticker_symbol}?modules=assetProfile,defaultKeyStatistics,financialData,summaryDetail"
             resp = requests.get(url, headers=headers, timeout=5)
             if resp.status_code == 200:
                 data_json = resp.json().get('quoteSummary', {}).get('result', [{}])[0]
@@ -1335,6 +1335,8 @@ def get_lightweight_company_data(ticker_symbol: str):
                     data["market_cap"] = data.get('market_cap') or (m.get('marketCapitalization', 0) * 1000000)
                     data["eps"] = data.get('eps') or m.get('epsExclExtraItemsTTM')
                     data["operating_margin"] = data.get('operating_margin') or (m.get('operatingMarginTTM', 0)/100.0 if m.get('operatingMarginTTM') else None)
+                    data["revenue_growth"] = data.get('revenue_growth') or (m.get('revenueGrowthTTM', 0)/100.0 if m.get('revenueGrowthTTM') else None)
+                    data["earnings_growth"] = data.get('earnings_growth') or (m.get('epsGrowthTTM', 0)/100.0 if m.get('epsGrowthTTM') else None)
 
         if data and data.get('price'):
             kv_set(cache_key, data, ex=86400)
