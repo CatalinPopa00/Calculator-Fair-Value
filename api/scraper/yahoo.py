@@ -1083,7 +1083,7 @@ def get_company_data(ticker_symbol: str):
         print(f"Error fetching Yahoo Data for {ticker_symbol}: {e}")
         return None
 
-def get_competitors_data(target_ticker: str, sector: str, target_industry: str, target_market_cap: float = 0, limit: int = 3) -> list:
+def get_competitors_data(target_ticker: str, sector: str, target_industry: str, target_market_cap: float = 0, limit: int = 3, include_growth: bool = True) -> list:
     """
     Find relevant industry peers using Finnhub API or dynamic Yahoo fallback.
     """
@@ -1203,11 +1203,14 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
                             "market_cap": inf.get('marketCap'),
                             "eps": inf.get('trailingEps') or inf.get('forwardEps'),
                             "operating_margin": inf.get('operatingMargins') or inf.get('ebitdaMargins'),
-                            "revenue_growth": inf.get('revenueGrowth'),
-                            "earnings_growth": inf.get('earningsGrowth') or inf.get('earningsQuarterlyGrowth'),
                             "industry": inf.get('industry') or target_industry,
                             "sector": inf.get('sector') or sector
                         }
+                        # ONLY fetch growth if requested (expensive!)
+                        if include_growth:
+                            p_data["revenue_growth"] = inf.get('revenueGrowth')
+                            p_data["earnings_growth"] = inf.get('earningsGrowth') or inf.get('earningsQuarterlyGrowth')
+
                         _peer_info_cache[t] = (p_data, now)
                         final_peers.append(p_data)
                 except: continue

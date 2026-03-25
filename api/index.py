@@ -30,7 +30,7 @@ app = FastAPI(title="Fair Value Calculator API")
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v50" # Watchlist Visibility & Speed Fix (v50)
+CACHE_VERSION = "v51" # Watchlist Fast Peer Mode (v51)
 
 app.add_middleware(
     CORSMiddleware,
@@ -190,7 +190,7 @@ def delete_override(ticker: str):
 
 
 @app.get("/api/valuation/{ticker}", response_model=ValuationResponse)
-def get_valuation(ticker: str, wacc: float = None):
+def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
     try:
         ticker_upper = ticker.upper()
         # Ensure wacc is normalized for the key
@@ -217,7 +217,8 @@ def get_valuation(ticker: str, wacc: float = None):
         sector = data.get("sector")
         industry = data.get("industry")
         target_market_cap = data.get("market_cap") or 0.0
-        peers_data = get_competitors_data(ticker, sector, industry, float(target_market_cap))
+        # Fast mode skips expensive peer growth fetching (v51)
+        peers_data = get_competitors_data(ticker, sector, industry, float(target_market_cap), include_growth=not fast_mode)
         market_data = get_market_averages()
         
         # 3. Compute Valuations
@@ -616,7 +617,8 @@ def get_batch_valuation(req: WatchlistRequest):
     
     with ThreadPoolExecutor(max_workers=15) as executor:
         # We reuse the existing get_valuation logic but in parallel
-        futures = {executor.submit(get_valuation, t.upper()): t for t in tickers}
+        # Use fast_mode=True for watchlist to skip expensive peer growth calls (v51)
+        futures = {executor.submit(get_valuation, t.upper(), fast_mode=True): t for t in tickers}
         for future in futures:
             try:
                 results.append(future.result())
