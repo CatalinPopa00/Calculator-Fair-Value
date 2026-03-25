@@ -30,7 +30,7 @@ app = FastAPI(title="Fair Value Calculator API")
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v30" # Incrementing version forces invalidation of old logic results
+CACHE_VERSION = "v31" # Full revert to stable v16-style logic
 
 app.add_middleware(
     CORSMiddleware,
@@ -54,28 +54,23 @@ class OverrideRequest(BaseModel):
 
 class ValuationResponse(BaseModel):
     ticker: str
-    name: str | None = None
-    current_price: float | None = None
-    fair_value: float | None = None
-    margin_of_safety: float | None = None
-    dcf_value: float | None = None
-    relative_value: float | None = None
-    lynch_fwd_pe: float | None = None
-    lynch_fair_value: float | None = None
-    lynch_status: str | None = None
-    peg_value: float | None = None
+    name: str
+    current_price: float
+    fair_value: float | None
+    margin_of_safety: float | None
+    dcf_value: float | None
+    relative_value: float | None
+    lynch_fwd_pe: float | None
+    lynch_fair_value: float | None
+    lynch_status: str | None
+    peg_value: float | None
     company_profile: dict | None = None
     historical_trends: list | None = None
-    formula_data: dict | None = None
-    health_score: float | str | None = None
+    formula_data: dict
+    health_score: int | str | None = None
     health_breakdown: list | None = None
-    buy_score: float | str | None = None
+    buy_score: int | str | None = None
     buy_breakdown: list | None = None
-    health_score_total: float | None = None
-    good_to_buy_total: float | None = None
-    top_strengths: list[str] | None = None
-    risk_factors: list[str] | None = None
-    breakdown: list[dict] | None = None
     historical_data: dict | None = None
     algorithmic_insights: dict | None = None
 
@@ -213,11 +208,7 @@ def get_valuation(ticker: str, wacc: float = None):
         sector = data.get("sector")
         industry = data.get("industry")
         target_market_cap = data.get("market_cap") or 0.0
-        try:
-            mcap_float = float(target_market_cap)
-        except (TypeError, ValueError):
-            mcap_float = 0.0
-        peers_data = get_competitors_data(ticker, sector, industry, mcap_float)
+        peers_data = get_competitors_data(ticker, sector, industry, float(target_market_cap))
         market_data = get_market_averages()
         
         # 3. Compute Valuations
@@ -374,10 +365,7 @@ def get_valuation(ticker: str, wacc: float = None):
  
         if total_weight > 0:
             fair_value = weighted_sum / total_weight
-            if fair_value and fair_value > 0:
-                margin_of_safety = ((fair_value - current_price) / fair_value) * 100
-            else:
-                margin_of_safety = 0
+            margin_of_safety = ((fair_value - current_price) / fair_value) * 100
         else:
             fair_value = None
             margin_of_safety = None
@@ -499,92 +487,36 @@ def get_valuation(ticker: str, wacc: float = None):
             }
     }
 
-        # 6. Compute Comprehensive Scoring (V2)
-        # Calculate Sector Averages (Vs)
-        def get_median(key):
-            vals = []
-            if peers_data:
-                for p in peers_data:
-                    v = p.get(key)
-                    if v is not None and isinstance(v, (int, float)) and math.isfinite(v):
-                        vals.append(float(v))
-            # Include target company in the pool for a more robust "Sector Average"
-            comp_v = data.get(key)
-            if key == "revenue_growth" and comp_v is None: comp_v = data.get("eps_growth")
-            if comp_v is not None and isinstance(comp_v, (int, float)) and math.isfinite(comp_v):
-                vals.append(float(comp_v))
-            return statistics.median(vals) if vals else 0
-
-        sector_averages = {
-            "debt_to_equity": get_median("debt_to_equity"),
-            "roic": get_median("roic"),
-            "interest_coverage": get_median("interest_coverage"),
-            "current_ratio": get_median("current_ratio"),
-            "ebit_margin": get_median("ebit_margin"),
-            "historic_fcf_growth": get_median("revenue_growth"), # Using Revenue Growth as proxy for Sector FCF Trend
-            "peg_ratio": get_median("peg_ratio"),
-            "fwd_ps": get_median("ps_ratio"),
-            "forward_pe": get_median("pe_ratio"),
-            "next_3y_rev_est": get_median("revenue_growth")
-        }
-
-        # Calculate Company-Specific Metrics for Scoring
-        scoring_metrics = data.copy()
-        # Ensure percentages are handled correctly
-        fcf_val = data.get("fcf")
-        mcap_val = data.get("market_cap")
-        if fcf_val and mcap_val and mcap_val > 0:
-            scoring_metrics["fcf_yield"] = (fcf_val / mcap_val) * 100
-        else:
-            scoring_metrics["fcf_yield"] = 0
-            
-        # Peer-based average for FCF Yield
-        yields = []
-        for p in peers_data:
-            # If peer has no FCF, we can't calculate yield easily. 
-            # We'll use a neutral 4% for sector FCF yield if missing
-            yields.append(4.0) 
-        sector_averages["fcf_yield"] = statistics.median(yields) if yields else 4.0
-
-        h_result = calculate_health_score(scoring_metrics, sector_averages)
-        b_result = calculate_buy_score(scoring_metrics, {"margin_of_safety": margin_of_safety}, sector_averages)
+        # 6. Compute Comprehensive Scoring
+        h_result = calculate_health_score(data)
+        b_result = calculate_buy_score({"margin_of_safety": margin_of_safety, "sector_median_peg": median_peer_peg}, data)
         
-        # Use keys from expert rulebook v29
-        health_score = h_result.get("health_score_total")
-        buy_score = b_result.get("good_to_buy_total")
+        health_score = h_result.get("total") if isinstance(h_result, dict) else h_result
+        health_breakdown = h_result.get("breakdown") if isinstance(h_result, dict) else []
         
-        # New response fields
-        health_score_total = health_score
-        good_to_buy_total = buy_score
-        top_strengths = h_result.get("top_strengths", []) + b_result.get("top_strengths", [])
-        risk_factors = h_result.get("risk_factors", []) + b_result.get("risk_factors", [])
-        
-        # Combined Breakdown for UI Transparency
-        h_break = h_result.get("breakdown")
-        b_break = b_result.get("breakdown")
-        if not isinstance(h_break, list): h_break = []
-        if not isinstance(b_break, list): b_break = []
-        combined_breakdown = h_break + b_break
+        buy_score = b_result.get("total") if isinstance(b_result, dict) else b_result
+        buy_breakdown = b_result.get("breakdown") if isinstance(b_result, dict) else []
 
         # 7. Algorithmic Insights Generation
-        all_breakdowns = combined_breakdown
-        top_strengths_insight = []
-        risk_factors_insight = []
+        all_breakdowns = health_breakdown + buy_breakdown
+        top_strengths = []
+        risk_factors = []
         
         if all_breakdowns:
             # Strengths: items with max points
-            max_point_items = [b for b in all_breakdowns if b.get("pts") == b.get("max") and b.get("max", 0) > 0]
-            top_strengths_insight = [b.get("name") for b in max_point_items[:3]]
+            max_point_items = [b for b in all_breakdowns if b.get("points") == b.get("max_points") and b.get("max_points", 0) > 0]
+            # Sort by highest max_points just to show the most impactful ones first
+            max_point_items.sort(key=lambda x: x.get("max_points", 0), reverse=True)
+            top_strengths = max_point_items[:3]
             
             # Risks: items with 0 points
-            zero_point_items = [b for b in all_breakdowns if b.get("pts") == 0]
-            risk_factors_insight = [b.get("name") for b in zero_point_items[:3]]
-            
-            # Fallback if no 0s/maxes
-            if not top_strengths_insight:
-                top_strengths_insight = top_strengths[:2]
-            if not risk_factors_insight:
-                risk_factors_insight = risk_factors[:2]
+            zero_point_items = [b for b in all_breakdowns if b.get("points") == 0]
+            if zero_point_items:
+                risk_factors = zero_point_items[:3]
+            else:
+                # Fallback: lowest partial points if no 0s
+                all_sorted = sorted(all_breakdowns, key=lambda x: x.get("points", 100))
+                risk_factors = all_sorted[:2]
 
         response_data = {
                 "ticker": data["ticker"],
@@ -636,23 +568,18 @@ def get_valuation(ticker: str, wacc: float = None):
                         "market_cap": sanitize(p.get("market_cap")),
                         "eps": sanitize(p.get("eps")),
                         "operating_margin": sanitize(p.get("operating_margin"))
-                    } for p in peers_data if isinstance(p, dict)] if peers_data else []
+                    } for p in peers_data] if peers_data else []
                 },
                 "historical_trends": historical_trends,
                 "historical_data": data.get("historical_data"),
                 "formula_data": formula_data,
                 "health_score": health_score,
-                "health_breakdown": h_result.get("breakdown"),
+                "health_breakdown": health_breakdown,
                 "buy_score": buy_score,
-                "buy_breakdown": b_result.get("breakdown"),
-                "health_score_total": health_score_total,
-                "good_to_buy_total": good_to_buy_total,
-                "top_strengths": top_strengths,
-                "risk_factors": risk_factors,
-                "breakdown": combined_breakdown,
+                "buy_breakdown": buy_breakdown,
                 "algorithmic_insights": {
-                    "top_strengths": top_strengths_insight,
-                    "risk_factors": risk_factors_insight
+                    "top_strengths": top_strengths,
+                    "risk_factors": risk_factors
                 }
             }
     except Exception as e:
