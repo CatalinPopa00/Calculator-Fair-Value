@@ -1551,9 +1551,29 @@ document.addEventListener('DOMContentLoaded', () => {
             const hasOverride = globalOv && globalOv.computed && globalOv.computed.fair_value != null;
             
             const displayFv = hasOverride ? globalOv.computed.fair_value : data.fair_value;
-            const displayMos = hasOverride ? globalOv.computed.margin_of_safety : data.margin_of_safety;
+            // ALWAYS recalculate MOS live based on current price
+            const displayMos = (displayFv != null && data.current_price) ? ((displayFv - data.current_price) / displayFv) * 100 : null;
+            
             const displayHealth = (globalOv && globalOv.computed && globalOv.computed.health_score != null) ? globalOv.computed.health_score : data.health_score;
-            const displayBuy = (globalOv && globalOv.computed && globalOv.computed.buy_score != null) ? globalOv.computed.buy_score : dynamicBuyScore;
+            
+            let displayBuy = (globalOv && globalOv.computed && globalOv.computed.buy_score != null) ? globalOv.computed.buy_score : dynamicBuyScore;
+            
+            // If we have a fair value override but NOT a buy score override, 
+            // recalculate the buy score to reflect the override's MOS
+            if (hasOverride && (!globalOv.computed || globalOv.computed.buy_score == null) && data.buy_breakdown && displayMos != null) {
+                let mosItem = data.buy_breakdown.find(i => i.name.includes("Margin of Safety"));
+                if (mosItem) {
+                    let newPts = 0;
+                    if (displayMos > 30.0) newPts = 30;
+                    else if (displayMos >= 15.0) newPts = 20;
+                    else if (displayMos >= 0.0) newPts = 10;
+                    
+                    const oldPts = mosItem.points;
+                    if (typeof data.buy_score === 'number') {
+                        displayBuy = data.buy_score - oldPts + newPts;
+                    }
+                }
+            }
             
             const fvStr = displayFv != null ? formatCurrency(displayFv) : 'N/A';
             const mosStr = displayMos != null ? formatPercent(displayMos) : 'N/A';
