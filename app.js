@@ -39,14 +39,16 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Sync watchlist from server on init
     fetch('/api/watchlist?t=' + new Date().getTime(), { cache: 'no-store' }).then(r => r.json()).then(data => {
-        if (Array.isArray(data)) {
-            // Check if arrays changed loosely
-            const wasEmptyOrDifferent = JSON.stringify(watchlist) !== JSON.stringify(data);
-            watchlist = data;
+        if (data && Array.isArray(data)) {
+            // MERGE strategy: stop destructive overwrites
+            const localList = JSON.parse(localStorage.getItem('fairValueWatchlist')) || [];
+            const merged = [...new Set([...localList, ...data])];
+            
+            watchlist = merged;
             localStorage.setItem('fairValueWatchlist', JSON.stringify(watchlist));
             
             // Re-render UI if we are on the watchlist dashboard!
-            if (wasEmptyOrDifferent && document.getElementById('watchlist-grid')) {
+            if (document.getElementById('watchlist-grid')) {
                 renderWatchlistUI();
             }
         }
