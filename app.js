@@ -1042,14 +1042,26 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const getComputedValues = () => {
-        const fvEl = document.getElementById('fair-value');
-        const mosEl = document.getElementById('margin-safety');
-        const fvText = fvEl ? fvEl.textContent.replace(/[^0-9.-]/g, '') : '';
-        const mosText = mosEl ? mosEl.textContent : '';
-        const fv = parseFloat(fvText) || null;
+        const fvText = elements.fairValue.textContent;
+        if (fvText === 'N/A') return {};
+        const fvMatch = fvText.match(/[\-0-9.,]+/);
+        const fv = fvMatch ? parseFloat(fvMatch[0].replace(/,/g, '')) : null;
+
+        const mosText = elements.marginSafety.textContent;
         const mosMatch = mosText.match(/([\-0-9.]+)%/);
         const mos = mosMatch ? parseFloat(mosMatch[1]) : null;
-        return { fair_value: fv, margin_of_safety: mos };
+        
+        const hScoreEl = document.getElementById('health-score-circle');
+        const bScoreEl = document.getElementById('buy-score-circle');
+        const hScore = hScoreEl ? parseInt(hScoreEl.textContent) : null;
+        const bScore = bScoreEl ? parseInt(bScoreEl.textContent) : null;
+        
+        return { 
+            fair_value: fv, 
+            margin_of_safety: mos,
+            health_score: hScore,
+            buy_score: bScore
+        };
     };
 
     let pendingOverridePayload = null;
@@ -1506,13 +1518,18 @@ document.addEventListener('DOMContentLoaded', () => {
             // Build the card HTML
             const globalOv = cachedOverrides[data.ticker];
             const hasOverride = globalOv && globalOv.computed && globalOv.computed.fair_value != null;
+            
             const displayFv = hasOverride ? globalOv.computed.fair_value : data.fair_value;
             const displayMos = hasOverride ? globalOv.computed.margin_of_safety : data.margin_of_safety;
+            const displayHealth = (globalOv && globalOv.computed && globalOv.computed.health_score != null) ? globalOv.computed.health_score : data.health_score;
+            const displayBuy = (globalOv && globalOv.computed && globalOv.computed.buy_score != null) ? globalOv.computed.buy_score : dynamicBuyScore;
+            
             const fvStr = displayFv != null ? formatCurrency(displayFv) : 'N/A';
             const mosStr = displayMos != null ? formatPercent(displayMos) : 'N/A';
             const mosColor = displayMos > 0 ? 'var(--accent)' : (displayMos < 0 ? 'var(--danger)' : 'var(--text-muted)');
-            const dotClass = dynamicBuyScore >= 76 ? 'dot-green' : (dynamicBuyScore >= 41 ? 'dot-yellow' : 'dot-red');
-            const hDotClass = (data.health_score || 0) >= 76 ? 'dot-green' : ((data.health_score || 0) >= 41 ? 'dot-yellow' : 'dot-red');
+            
+            const dotClass = (displayBuy || 0) >= 76 ? 'dot-green' : ((displayBuy || 0) >= 41 ? 'dot-yellow' : 'dot-red');
+            const hDotClass = (displayHealth || 0) >= 76 ? 'dot-green' : ((displayHealth || 0) >= 41 ? 'dot-yellow' : 'dot-red');
 
             const card = document.createElement('div');
             card.className = 'watchlist-card-new';
@@ -1539,11 +1556,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="wl-scores-row">
                     <div class="wl-score-pill">
                         <div class="wl-dot ${hDotClass}"></div>
-                        <span>Health: ${data.health_score || 'N/A'}</span>
+                        <span>Health: ${displayHealth || 'N/A'}</span>
                     </div>
                     <div class="wl-score-pill">
                         <div class="wl-dot ${dotClass}"></div>
-                        <span>Buy: ${dynamicBuyScore || 'N/A'}</span>
+                        <span>Buy: ${displayBuy || 'N/A'}</span>
                     </div>
                 </div>
             `;
