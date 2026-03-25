@@ -1469,9 +1469,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         emptyWatchlistMsg.style.display = 'none';
 
+        if (!Array.isArray(cachedWatchlistData)) {
+            console.error("cachedWatchlistData is not an array:", cachedWatchlistData);
+            emptyWatchlistMsg.style.display = 'block';
+            return;
+        }
+
         let sortedResults = [...cachedWatchlistData];
         if (!manualOrder) {
             sortedResults.sort((a, b) => {
+                if (!a || !b) return 0;
                 const aValid = a.current_price != null && a.fair_value != null;
                 const bValid = b.current_price != null && b.fair_value != null;
                 if (!aValid && bValid) return 1;
@@ -1486,7 +1493,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     aVal = a.current_price != null ? a.current_price : 0;
                     bVal = b.current_price != null ? b.current_price : 0;
                 } else if (currentSort.column === 'ticker') {
-                    aVal = a.ticker; bVal = b.ticker;
+                    aVal = a.ticker || ''; bVal = b.ticker || '';
                     if (aVal < bVal) return currentSort.order === 'asc' ? -1 : 1;
                     if (aVal > bVal) return currentSort.order === 'asc' ? 1 : -1;
                     return 0;
@@ -1497,6 +1504,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
         sortedResults.forEach((data, index) => {
+            if (!data || !data.ticker) return;
+            try {
+                // ... card rendering logic ...
             // Recalculare MOS custom pentru Watchlist
             let customFinalFv = 0;
             let totalW = 0;
@@ -1634,6 +1644,9 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             
             watchlistGrid.appendChild(card);
+            } catch (cardErr) {
+                console.error(`Error rendering card for ${data.ticker}:`, cardErr);
+            }
         });
         } catch (err) {
             console.error("CRITICAL ERROR in renderWatchlistUI:", err);

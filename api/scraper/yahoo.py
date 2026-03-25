@@ -23,6 +23,7 @@ def get_random_agent():
 # Global cache for market averages (SPY) with 1-hour TTL
 _market_cache = {"data": None, "timestamp": 0}
 _risk_free_cache = {"rate": None, "timestamp": 0}
+_peer_info_cache = {} # Global memory cache for peer info (1-hour TTL)
 
 def get_risk_free_rate() -> float:
     """
@@ -1184,9 +1185,17 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
             batch = yf.Tickers(" ".join(candidates))
             for t in candidates:
                 try:
+                    # Check memory cache first
+                    now = time.time()
+                    if t in _peer_info_cache:
+                        cached_inf, ts = _peer_info_cache[t]
+                        if now - ts < 3600: # 1 hour cache
+                            final_peers.append(cached_inf)
+                            continue
+
                     inf = batch.tickers[t].info
                     if inf and (inf.get('regularMarketPrice') or inf.get('currentPrice')):
-                        final_peers.append({
+                        p_data = {
                             "ticker": t,
                             "name": inf.get('shortName') or inf.get('longName') or t,
                             "price": inf.get('regularMarketPrice') or inf.get('currentPrice'),
@@ -1198,7 +1207,9 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
                             "earnings_growth": inf.get('earningsGrowth') or inf.get('earningsQuarterlyGrowth'),
                             "industry": inf.get('industry') or target_industry,
                             "sector": inf.get('sector') or sector
-                        })
+                        }
+                        _peer_info_cache[t] = (p_data, now)
+                        final_peers.append(p_data)
                 except: continue
         except Exception as e:
             print(f"DEBUG: yfinance batch failed: {e}")
