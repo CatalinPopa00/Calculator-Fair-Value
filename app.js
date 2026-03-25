@@ -516,10 +516,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 if (typeof data.buy_score === 'number') {
-                    data.buy_score = data.buy_score - mosItem.points + pts;
+                    data.buy_score = data.buy_score - (mosItem.pts || 0) + pts;
                 }
 
-                mosItem.points = pts;
+                mosItem.pts = pts;
                 mosItem.value = mos_str;
             }
 
@@ -529,15 +529,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 let pts = 0;
                 let peg_str = `${newPeg.toFixed(2)}x`;
                 
-                let max_p = pegItem.max_points || 20; 
+                let max_p = pegItem.max || 20; 
                 if (newPeg <= 1.0 && newPeg > 0) pts = max_p;
                 else if (newPeg <= 1.5 && newPeg > 0) pts = Math.floor(max_p / 2);
                 
                 if (typeof data.buy_score === 'number') {
-                    data.buy_score = data.buy_score - pegItem.points + pts;
+                    data.buy_score = data.buy_score - (pegItem.pts || 0) + pts;
                 }
                 
-                pegItem.points = pts;
+                pegItem.pts = pts;
                 pegItem.value = peg_str;
             }
 
@@ -546,12 +546,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const allMetrics = [...(currentHealthBreakdown || []), ...(currentBuyBreakdown || [])];
-            const strengths = allMetrics.filter(m => m.points === m.max_points && m.max_points > 0);
-            strengths.sort((a, b) => b.max_points - a.max_points);
+            const strengths = allMetrics.filter(m => m.pts === m.max && m.max > 0);
+            strengths.sort((a, b) => b.max - a.max);
             const topStrengths = strengths.slice(0, 3);
 
-            const risks = allMetrics.filter(m => m.points === 0 || (m.max_points > 0 && m.points <= (m.max_points / 3)));
-            risks.sort((a, b) => (a.points / a.max_points) - (b.points / b.max_points));
+            const risks = allMetrics.filter(m => m.pts === 0 || (m.max > 0 && m.pts <= (m.max / 3)));
+            risks.sort((a, b) => (a.pts / a.max) - (b.pts / b.max));
             const topRisks = risks.slice(0, 3);
 
             const strengthsList = document.getElementById('top-strengths-list');

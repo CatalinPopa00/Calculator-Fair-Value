@@ -551,6 +551,8 @@ def get_company_data(ticker_symbol: str):
 
         # Scoring Metrics
         debt_to_equity = info.get('debtToEquity')
+        if debt_to_equity is not None and debt_to_equity > 5.0:
+            debt_to_equity = debt_to_equity / 100.0
         
         # Fallback for Financials/Banks or companies with missing info but available totalDebt/bookValue
         if debt_to_equity is None and info.get('totalDebt') and info.get('bookValue') and shares_outstanding:

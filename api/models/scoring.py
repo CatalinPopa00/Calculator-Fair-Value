@@ -78,7 +78,7 @@ def calculate_health_score(metrics: dict, sector_avg: dict):
             risk_factors.append(f"RED FLAG Health: {', '.join(reason)}")
 
         return {
-            "total": int(score),
+            "total": round(score, 1),
             "top_strengths": top_strengths,
             "risk_factors": risk_factors,
             "breakdown": breakdown
@@ -174,7 +174,7 @@ def calculate_buy_score(metrics: dict, valuation_data: dict, sector_avg: dict):
             risk_factors.append(f"RED FLAG Valuation: MoS is {mos:.1f}% (Overvalued)")
 
         return {
-            "total": int(score),
+            "total": round(score, 1),
             "top_strengths": top_strengths,
             "risk_factors": risk_factors,
             "breakdown": breakdown
