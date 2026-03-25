@@ -30,7 +30,7 @@ app = FastAPI(title="Fair Value Calculator API")
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v29" # Incrementing version forces invalidation of old logic results
+CACHE_VERSION = "v30" # Incrementing version forces invalidation of old logic results
 
 app.add_middleware(
     CORSMiddleware,
@@ -549,8 +549,9 @@ def get_valuation(ticker: str, wacc: float = None):
         h_result = calculate_health_score(scoring_metrics, sector_averages)
         b_result = calculate_buy_score(scoring_metrics, {"margin_of_safety": margin_of_safety}, sector_averages)
         
-        health_score = h_result.get("total")
-        buy_score = b_result.get("total")
+        # Use keys from expert rulebook v29
+        health_score = h_result.get("health_score_total")
+        buy_score = b_result.get("good_to_buy_total")
         
         # New response fields
         health_score_total = health_score
