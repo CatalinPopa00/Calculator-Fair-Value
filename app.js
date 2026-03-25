@@ -290,11 +290,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 </tr>
                 <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
                     <td style="padding:12px; color:var(--text-muted);">Revenue Growth (y/y)</td>
-                    ${all.map(c => `<td style="padding:12px; text-align:right; font-weight:bold; color:${(c.rev_growth || c.revenue_growth) > 0 ? 'var(--accent)' : 'inherit'};">${fmtPctRow(c.rev_growth || c.revenue_growth)}</td>`).join('')}
+                    ${all.map(c => {
+                        const val = (c.rev_growth != null ? c.rev_growth : c.revenue_growth);
+                        let color = 'inherit';
+                        if (val > 0) color = 'var(--accent)';
+                        else if (val < 0) color = 'var(--danger)';
+                        return `<td style="padding:12px; text-align:right; font-weight:bold; color:${color};">${fmtPctRow(val)}</td>`;
+                    }).join('')}
                 </tr>
                 <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
                     <td style="padding:12px; color:var(--text-muted);">EPS Growth (y/y)</td>
-                    ${all.map(c => `<td style="padding:12px; text-align:right; font-weight:bold; color:${(c.eps_growth || c.earnings_growth) > 0 ? 'var(--accent)' : 'inherit'};">${fmtPctRow(c.eps_growth || c.earnings_growth)}</td>`).join('')}
+                    ${all.map(c => {
+                        const val = (c.eps_growth != null ? c.eps_growth : c.earnings_growth);
+                        let color = 'inherit';
+                        if (val > 0) color = 'var(--accent)';
+                        else if (val < 0) color = 'var(--danger)';
+                        return `<td style="padding:12px; text-align:right; font-weight:bold; color:${color};">${fmtPctRow(val)}</td>`;
+                    }).join('')}
                 </tr>
             </tbody>
         </table>`;
