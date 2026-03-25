@@ -30,7 +30,7 @@ app = FastAPI(title="Fair Value Calculator API")
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v20" # Incrementing version forces invalidation of old logic results
+CACHE_VERSION = "v21" # Incrementing version forces invalidation of old logic results
 
 app.add_middleware(
     CORSMiddleware,
@@ -54,23 +54,23 @@ class OverrideRequest(BaseModel):
 
 class ValuationResponse(BaseModel):
     ticker: str
-    name: str
-    current_price: float
-    fair_value: float | None
-    margin_of_safety: float | None
-    dcf_value: float | None
-    relative_value: float | None
-    lynch_fwd_pe: float | None
-    lynch_fair_value: float | None
-    lynch_status: str | None
-    peg_value: float | None
+    name: str | None = None
+    current_price: float | None = None
+    fair_value: float | None = None
+    margin_of_safety: float | None = None
+    dcf_value: float | None = None
+    relative_value: float | None = None
+    lynch_fwd_pe: float | None = None
+    lynch_fair_value: float | None = None
+    lynch_status: str | None = None
+    peg_value: float | None = None
     company_profile: dict | None = None
     historical_trends: list | None = None
-    formula_data: dict
+    formula_data: dict | None = None
     health_score: int | str | None = None
-    health_breakdown: dict | None = None
+    health_breakdown: list | None = None
     buy_score: int | str | None = None
-    buy_breakdown: dict | None = None
+    buy_breakdown: list | None = None
     health_score_total: int | None = None
     good_to_buy_total: int | None = None
     top_strengths: list[str] | None = None
@@ -527,8 +527,10 @@ def get_valuation(ticker: str, wacc: float = None):
         # Calculate Company-Specific Metrics for Scoring
         scoring_metrics = data.copy()
         # Ensure percentages are handled correctly
-        if data.get("fcf") and data.get("market_cap") and data.get("market_cap") > 0:
-            scoring_metrics["fcf_yield"] = (data["fcf"] / data["market_cap"]) * 100
+        fcf_val = data.get("fcf")
+        mcap_val = data.get("market_cap")
+        if fcf_val and mcap_val and mcap_val > 0:
+            scoring_metrics["fcf_yield"] = (fcf_val / mcap_val) * 100
         else:
             scoring_metrics["fcf_yield"] = 0
             
@@ -629,7 +631,7 @@ def get_valuation(ticker: str, wacc: float = None):
                         "market_cap": sanitize(p.get("market_cap")),
                         "eps": sanitize(p.get("eps")),
                         "operating_margin": sanitize(p.get("operating_margin"))
-                    } for p in peers_data] if peers_data else []
+                    } for p in peers_data if isinstance(p, dict)] if peers_data else []
                 },
                 "historical_trends": historical_trends,
                 "historical_data": data.get("historical_data"),
