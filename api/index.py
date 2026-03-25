@@ -30,7 +30,7 @@ app = FastAPI(title="Fair Value Calculator API")
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v23" # Incrementing version forces invalidation of old logic results
+CACHE_VERSION = "v24" # Incrementing version forces invalidation of old logic results
 
 app.add_middleware(
     CORSMiddleware,
@@ -67,12 +67,12 @@ class ValuationResponse(BaseModel):
     company_profile: dict | None = None
     historical_trends: list | None = None
     formula_data: dict | None = None
-    health_score: int | str | None = None
+    health_score: float | str | None = None
     health_breakdown: list | None = None
-    buy_score: int | str | None = None
+    buy_score: float | str | None = None
     buy_breakdown: list | None = None
-    health_score_total: int | None = None
-    good_to_buy_total: int | None = None
+    health_score_total: float | None = None
+    good_to_buy_total: float | None = None
     top_strengths: list[str] | None = None
     risk_factors: list[str] | None = None
     breakdown: list[dict] | None = None
@@ -213,7 +213,11 @@ def get_valuation(ticker: str, wacc: float = None):
         sector = data.get("sector")
         industry = data.get("industry")
         target_market_cap = data.get("market_cap") or 0.0
-        peers_data = get_competitors_data(ticker, sector, industry, float(target_market_cap))
+        try:
+            mcap_float = float(target_market_cap)
+        except (TypeError, ValueError):
+            mcap_float = 0.0
+        peers_data = get_competitors_data(ticker, sector, industry, mcap_float)
         market_data = get_market_averages()
         
         # 3. Compute Valuations
