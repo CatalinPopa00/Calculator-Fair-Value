@@ -562,6 +562,8 @@ def get_valuation(ticker: str, wacc: float = None):
                     "operating_margin": sanitize(data.get("operating_margin")),
                     "net_margin": sanitize(data.get("net_margin")),
                     "payout_ratio": sanitize(data.get("payout_ratio")),
+                    "revenue_growth": sanitize(data.get("revenue_growth")),
+                    "earnings_growth": sanitize(data.get("earnings_growth")),
                     "insider_ownership": sanitize(data.get("insider_ownership")),
                     "next_earnings_date": data.get("next_earnings_date"),
                     "business_summary": data.get("business_summary"),
@@ -578,7 +580,9 @@ def get_valuation(ticker: str, wacc: float = None):
                         "pe_ratio": sanitize(p.get("pe_ratio")),
                         "market_cap": sanitize(p.get("market_cap")),
                         "eps": sanitize(p.get("eps")),
-                        "operating_margin": sanitize(p.get("operating_margin"))
+                        "operating_margin": sanitize(p.get("operating_margin")),
+                        "revenue_growth": sanitize(p.get("revenue_growth")),
+                        "earnings_growth": sanitize(p.get("earnings_growth"))
                     } for p in peers_data] if peers_data else []
                 },
                 "historical_trends": historical_trends,

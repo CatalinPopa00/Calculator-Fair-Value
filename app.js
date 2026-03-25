@@ -251,7 +251,9 @@ document.addEventListener('DOMContentLoaded', () => {
             market_cap: prof.market_cap,
             pe_ratio: prof.trailing_pe,
             eps: prof.trailing_eps,
-            margin: prof.operating_margin
+            margin: prof.operating_margin,
+            rev_growth: prof.revenue_growth,
+            eps_growth: prof.earnings_growth
         };
         
         const competitors = prof.competitor_metrics || [];
@@ -260,6 +262,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const fmtPE = (v) => v != null ? v.toFixed(2) + 'x' : 'N/A';
         const fmtEPS = (v) => v != null ? '$' + v.toFixed(2) : 'N/A';
         const fmtMargin = (v) => v != null ? (v * 100).toFixed(2) + '%' : 'N/A';
+        const fmtPctRow = (v) => v != null ? (v * 100).toFixed(2) + '%' : 'N/A';
 
         let html = `<table style="width:100%; border-collapse:collapse; margin-top:10px; min-width: 600px;">
             <thead style="border-bottom: 2px solid rgba(255,255,255,0.1);">
@@ -283,7 +286,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 </tr>
                 <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
                     <td style="padding:12px; color:var(--text-muted);">Operating Margin</td>
-                    ${all.map(c => `<td style="padding:12px; text-align:right; font-weight:bold;">${fmtMargin(c.margin || c.margin)}</td>`).join('')}
+                    ${all.map(c => `<td style="padding:12px; text-align:right; font-weight:bold;">${fmtMargin(c.margin || c.operating_margin)}</td>`).join('')}
+                </tr>
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <td style="padding:12px; color:var(--text-muted);">Revenue Growth (y/y)</td>
+                    ${all.map(c => `<td style="padding:12px; text-align:right; font-weight:bold; color:${(c.rev_growth || c.revenue_growth) > 0 ? 'var(--accent)' : 'inherit'};">${fmtPctRow(c.rev_growth || c.revenue_growth)}</td>`).join('')}
+                </tr>
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <td style="padding:12px; color:var(--text-muted);">EPS Growth (y/y)</td>
+                    ${all.map(c => `<td style="padding:12px; text-align:right; font-weight:bold; color:${(c.eps_growth || c.earnings_growth) > 0 ? 'var(--accent)' : 'inherit'};">${fmtPctRow(c.eps_growth || c.earnings_growth)}</td>`).join('')}
                 </tr>
             </tbody>
         </table>`;

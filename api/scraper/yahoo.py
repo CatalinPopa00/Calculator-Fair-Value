@@ -407,6 +407,8 @@ def get_company_data(ticker_symbol: str):
                 pe_ratio = current_price / trailing_eps
             forward_pe = info.get('forwardPE') # Ratio: no conversion
             ps_ratio = info.get('priceToSalesTrailing12Months') # Ratio: no conversion
+            revenue_growth_val = info.get('revenueGrowth')
+            earnings_growth_val = info.get('earningsGrowth')
             
             eps_growth = None
             eps_growth_period = None
@@ -1037,6 +1039,8 @@ def get_company_data(ticker_symbol: str):
             "shares_outstanding": shares_outstanding,
             "total_cash": total_cash,
             "total_debt": total_debt,
+            "revenue_growth": revenue_growth_val,
+            "earnings_growth": earnings_growth_val,
             "gross_margins": gross_margins,
             "profit_margins": profit_margins,
             "revenue": revenue,
@@ -1248,8 +1252,8 @@ def get_lightweight_company_data(ticker_symbol: str):
     """Fetches a minimal set of data for competitor comparison using multiple redundant Yahoo endpoints and Finnhub."""
     ticker_symbol = ticker_symbol.upper()
     
-    # 0. Check KV Cache (Forced Bust v10)
-    cache_key = f"peer_v10_{ticker_symbol}"
+    # 0. Check KV Cache (Forced Bust v12)
+    cache_key = f"peer_v12_{ticker_symbol}"
     cached = kv_get(cache_key)
     if cached:
         return cached
@@ -1273,7 +1277,9 @@ def get_lightweight_company_data(ticker_symbol: str):
                     "peg_ratio": q.get('pegRatio'),
                     "eps": q.get('trailingEps') or q.get('forwardEps'),
                     "market_cap": q.get('marketCap'),
-                    "operating_margin": q.get('operatingMargins'),
+                    "operating_margin": q.get('operatingMargins') or q.get('profitMargins'),
+                    "revenue_growth": q.get('revenueGrowth'),
+                    "earnings_growth": q.get('earningsGrowth'),
                     "industry": q.get('industry'), 
                     "sector": q.get('sector')
                 }
@@ -1297,7 +1303,9 @@ def get_lightweight_company_data(ticker_symbol: str):
                     "peg_ratio": stats.get('pegRatio', {}).get('raw'),
                     "eps": stats.get('trailingEps', {}).get('raw'),
                     "market_cap": stats.get('marketCap', {}).get('raw') or s_detail.get('marketCap', {}).get('raw'),
-                    "operating_margin": f_data.get('operatingMargins', {}).get('raw'),
+                    "operating_margin": f_data.get('operatingMargins', {}).get('raw') or f_data.get('profitMargins', {}).get('raw'),
+                    "revenue_growth": f_data.get('revenueGrowth', {}).get('raw'),
+                    "earnings_growth": stats.get('earningsGrowth', {}).get('raw'),
                     "industry": profile.get('industry'),
                     "sector": profile.get('sector')
                 }
