@@ -1249,79 +1249,47 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
         return []
 
 def get_lightweight_company_data(ticker_symbol: str):
-    """Fetches a minimal set of data for competitor comparison using multiple redundant Yahoo endpoints and Finnhub."""
+    """Fetches a minimal set of data for competitor comparison using yfinance and Finnhub fallbacks."""
     ticker_symbol = ticker_symbol.upper()
     
-    # 0. Check KV Cache (Forced Bust v12)
-    cache_key = f"peer_v12_{ticker_symbol}"
+    # Check KV Cache (Forced Bust v13 for Growth)
+    cache_key = f"peer_v13_{ticker_symbol}"
     cached = kv_get(cache_key)
     if cached:
         return cached
 
-    headers = {'User-Agent': get_random_agent()}
     data = None
-
     try:
-        # 1. Yfinance-style Query (v7 quote)
-        url = f"https://query2.finance.yahoo.com/v7/finance/quote?symbols={ticker_symbol}"
-        resp = requests.get(url, headers=headers, timeout=5)
-        if resp.status_code == 200:
-            result = resp.json().get('quoteResponse', {}).get('result', [])
-            if result:
-                q = result[0]
-                data = {
-                    "ticker": ticker_symbol,
-                    "name": q.get('shortName') or q.get('longName') or ticker_symbol,
-                    "price": q.get('regularMarketPrice') or q.get('currentPrice'),
-                    "pe_ratio": q.get('trailingPE') or q.get('forwardPE'),
-                    "peg_ratio": q.get('pegRatio'),
-                    "eps": q.get('trailingEps') or q.get('forwardEps'),
-                    "market_cap": q.get('marketCap'),
-                    "operating_margin": q.get('operatingMargins') or q.get('profitMargins'),
-                    "revenue_growth": q.get('revenueGrowth'),
-                    "earnings_growth": q.get('earningsGrowth'),
-                    "industry": q.get('industry'), 
-                    "sector": q.get('sector')
-                }
+        # Use yfinance as it handles Crumbs and Cookies automatically
+        stock = yf.Ticker(ticker_symbol)
+        info = stock.info
+        if info and info.get('currentPrice'):
+            fx_rate = get_fx_rate(info)
+            data = {
+                "ticker": ticker_symbol,
+                "name": info.get('shortName') or info.get('longName') or ticker_symbol,
+                "price": info.get('currentPrice') or info.get('regularMarketPrice'),
+                "pe_ratio": info.get('trailingPE') or info.get('forwardPE'),
+                "peg_ratio": info.get('pegRatio'),
+                "eps": info.get('trailingEps'),
+                "market_cap": info.get('marketCap'),
+                "operating_margin": info.get('operatingMargins') or info.get('profitMargins'),
+                "revenue_growth": info.get('revenueGrowth'),
+                "earnings_growth": info.get('earningsGrowth') or info.get('earningsQuarterlyGrowth'),
+                "industry": info.get('industry'),
+                "sector": info.get('sector')
+            }
+            # Scale currencies if not USD
+            if fx_rate != 1.0:
+                for k in ["price", "eps", "market_cap"]:
+                    if data.get(k): data[k] *= fx_rate
 
-        # 2. QuoteSummary Fallback (v10 is more stable than v11)
-        if not data or not data.get('price') or not data.get('market_cap'):
-            url = f"https://query2.finance.yahoo.com/v10/finance/quoteSummary/{ticker_symbol}?modules=assetProfile,defaultKeyStatistics,financialData,summaryDetail"
-            resp = requests.get(url, headers=headers, timeout=5)
-            if resp.status_code == 200:
-                data_json = resp.json().get('quoteSummary', {}).get('result', [{}])[0]
-                profile = data_json.get('assetProfile', {})
-                stats = data_json.get('defaultKeyStatistics', {})
-                f_data = data_json.get('financialData', {})
-                s_detail = data_json.get('summaryDetail', {})
-                
-                data = {
-                    "ticker": ticker_symbol,
-                    "name": ticker_symbol,
-                    "price": f_data.get('currentPrice', {}).get('raw') or s_detail.get('previousClose', {}).get('raw'),
-                    "pe_ratio": stats.get('trailingPE', {}).get('raw') or stats.get('forwardPE', {}).get('raw') or s_detail.get('trailingPE', {}).get('raw'),
-                    "peg_ratio": stats.get('pegRatio', {}).get('raw'),
-                    "eps": stats.get('trailingEps', {}).get('raw'),
-                    "market_cap": stats.get('marketCap', {}).get('raw') or s_detail.get('marketCap', {}).get('raw'),
-                    "operating_margin": f_data.get('operatingMargins', {}).get('raw') or f_data.get('profitMargins', {}).get('raw'),
-                    "revenue_growth": f_data.get('revenueGrowth', {}).get('raw'),
-                    "earnings_growth": stats.get('earningsGrowth', {}).get('raw'),
-                    "industry": profile.get('industry'),
-                    "sector": profile.get('sector')
-                }
+    except Exception as e:
+        print(f"yfinance peer fetch failed for {ticker_symbol}: {e}")
 
-        # 3. Chart Fallback (Price only)
-        if not data or not data.get('price'):
-            url = f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker_symbol}?interval=1d&range=1d"
-            resp = requests.get(url, headers=headers, timeout=5)
-            if resp.status_code == 200:
-                meta = resp.json().get('chart', {}).get('result', [{}])[0].get('meta', {})
-                if meta:
-                    data = data or {"ticker": ticker_symbol, "name": ticker_symbol}
-                    data["price"] = meta.get('regularMarketPrice') or meta.get('chartPreviousClose')
-
-        # 4. FINAL NUCLEAR FALLBACK: Finnhub
-        if not data or not data.get('pe_ratio') or not data.get('market_cap'):
+    # Final Nuclear Fallback: Finnhub
+    if not data or not data.get('pe_ratio') or not data.get('revenue_growth'):
+        try:
             fh_key = os.environ.get('FINNHUB_API_KEY')
             if fh_key:
                 m_url = f"https://finnhub.io/api/v1/stock/metric?symbol={ticker_symbol}&metric=all&token={fh_key}"
@@ -1337,12 +1305,12 @@ def get_lightweight_company_data(ticker_symbol: str):
                     data["operating_margin"] = data.get('operating_margin') or (m.get('operatingMarginTTM', 0)/100.0 if m.get('operatingMarginTTM') else None)
                     data["revenue_growth"] = data.get('revenue_growth') or (m.get('revenueGrowthTTM', 0)/100.0 if m.get('revenueGrowthTTM') else None)
                     data["earnings_growth"] = data.get('earnings_growth') or (m.get('epsGrowthTTM', 0)/100.0 if m.get('epsGrowthTTM') else None)
+        except:
+            pass
 
-        if data and data.get('price'):
-            kv_set(cache_key, data, ex=86400)
-            return data
-    except Exception as e:
-        print(f"Nuclear extraction failure for {ticker_symbol}: {e}")
+    if data and data.get('price'):
+        kv_set(cache_key, data, ex=86400)
+        return data
     
     return None
 
