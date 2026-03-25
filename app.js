@@ -37,9 +37,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Watchlist State 
     let watchlist = JSON.parse(localStorage.getItem('fairValueWatchlist')) || [];
     
-    // Non-destructive Watchlist Merge (v32)
+    // Non-destructive Watchlist Merge (v37: Fixed sync-back loop and added error protection)
     fetch('/api/watchlist?t=' + new Date().getTime(), { cache: 'no-store' })
-        .then(r => r.json())
+        .then(r => {
+            if (!r.ok) throw new Error('Watchlist sync unreachable');
+            return r.json();
+        })
         .then(serverData => {
             if (Array.isArray(serverData)) {
                 const localData = JSON.parse(localStorage.getItem('fairValueWatchlist')) || [];
@@ -50,20 +53,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 watchlist = combined;
                 localStorage.setItem('fairValueWatchlist', JSON.stringify(watchlist));
                 
-                // If we merged new data, sync it back to server so other devices get it too
+                // v37: If we merged new data, sync it back to server so other devices get it too
                 if (hasChanged) {
                     fetch('/api/watchlist', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ tickers: watchlist })
-                    });
+                    }).catch(e => console.error('Sync-back failed:', e));
                     
                     if (document.getElementById('watchlist-grid')) {
                         renderWatchlistUI();
                     }
                 }
             }
-        }).catch(err => console.error('Watchlist sync error:', err));
+        })
+        .catch(err => {
+            console.error('Watchlist sync error (aborting merge to protect local data):', err);
+            // v37: On error, we keep 'watchlist' as loaded from localStorage (Line 38) 
+            // and do NOT sync back to the server.
+        });.catch(err => console.error('Watchlist sync error:', err));
 
     // Overrides State (loaded from server on init)
     let cachedOverrides = {};

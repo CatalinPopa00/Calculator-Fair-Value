@@ -17,15 +17,18 @@ def kv_get(key: str):
         payload = ["GET", key]
         resp = requests.post(url, headers=headers, json=payload, timeout=5)
         if resp.status_code == 200:
-            data = resp.json().get("result")
-            if data:
-                try:
-                    return json.loads(data)
-                except:
-                    return data
+            result = resp.json().get("result")
+            if result is None:
+                return None # Truly missing key
+            try:
+                return json.loads(result)
+            except:
+                return result
+        else:
+            raise Exception(f"KV API Error: {resp.status_code} - {resp.text}")
     except Exception as e:
         print(f"KV GET Error: {e}")
-    return None
+        raise e # Propagate error so API can return 500
 
 def kv_set(key: str, value, ex=None) -> bool:
     if not KV_REST_API_URL or not KV_REST_API_TOKEN:

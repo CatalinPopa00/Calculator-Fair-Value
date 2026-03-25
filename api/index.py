@@ -30,7 +30,7 @@ app = FastAPI(title="Fair Value Calculator API")
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v36" # Nuclear Watchlist Recovery + Hardcoded Tickers
+CACHE_VERSION = "v37" # Real Watchlist Sync Fix: No Hardcode + 500 Error Protection
 
 app.add_middleware(
     CORSMiddleware,
@@ -103,27 +103,24 @@ def get_analyst(ticker: str):
 
 @app.get("/api/watchlist")
 def get_watchlist():
-    # Hardcoded Nuclear Recovery (v36)
-    hardcoded_tickers = ["LLY", "JNJ", "PFE", "UNH", "ABBV", "MRK", "TMO", "ABT", "AZN", "DHR", "ACN", "V", "AMAT"]
-    
-    data = kv_get("watchlist") or []
-    # Robust Recovery: Merge any tickers found in overrides
-    all_overrides = _load_overrides()
-    if all_overrides:
-        override_tickers = [t.upper() for t in all_overrides.keys()]
-        data = list(set(data + override_tickers))
-    
-    # If still empty, use hardcoded master list
-    if not data:
-        data = hardcoded_tickers
+    try:
+        data = kv_get("watchlist") or []
+        # Robust Recovery: Merge any tickers found in overrides
+        all_overrides = _load_overrides()
+        if all_overrides:
+            override_tickers = [t.upper() for t in all_overrides.keys()]
+            data = list(set(data + override_tickers))
         
-    if not data and os.path.exists(WATCHLIST_FILE):
-        try:
-            with open(WATCHLIST_FILE, "r") as f:
-                data = json.load(f)
-        except:
-            pass
-    return list(set([t.upper() for t in data]))
+        if not data and os.path.exists(WATCHLIST_FILE):
+            try:
+                with open(WATCHLIST_FILE, "r") as f:
+                    data = json.load(f)
+            except:
+                pass
+        return list(set([t.upper() for t in data]))
+    except Exception as e:
+        # v37 Fix: If database errors, do NOT return []. Return 500.
+        raise HTTPException(status_code=500, detail=f"Database unreachable: {str(e)}")
 
 @app.post("/api/watchlist")
 def save_watchlist(req: WatchlistRequest):
