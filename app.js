@@ -1129,6 +1129,11 @@ document.addEventListener('DOMContentLoaded', () => {
         return true;
     };
 
+    const saveOverride = (ticker) => {
+        if (!ticker) return;
+        saveOverridesToServer(ticker);
+    };
+
     const deleteOverrideFromServer = (ticker) => {
         delete cachedOverrides[ticker];
         fetch(`/api/overrides/${ticker}`, { method: 'DELETE' })
