@@ -69,7 +69,7 @@ def calculate_health_score(metrics: dict, sector_avg: dict):
         }
     except Exception as e:
         print(f"Health Score Error: {e}")
-        return {"total": 0, "top_strengths": [], "risk_factors": [f"Error: {str(e)}"], "breakdown": {}}
+        return {"total": 0, "top_strengths": [], "risk_factors": [f"Error: {str(e)}"], "breakdown": []}
 
 def calculate_buy_score(metrics: dict, valuation_data: dict, sector_avg: dict):
     """
@@ -145,4 +145,4 @@ def calculate_buy_score(metrics: dict, valuation_data: dict, sector_avg: dict):
         }
     except Exception as e:
         print(f"Buy Score Error: {e}")
-        return {"total": 0, "top_strengths": [], "risk_factors": [f"Error: {str(e)}"], "breakdown": {}}
+        return {"total": 0, "top_strengths": [], "risk_factors": [f"Error: {str(e)}"], "breakdown": []}

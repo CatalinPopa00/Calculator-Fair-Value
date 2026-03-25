@@ -30,7 +30,7 @@ app = FastAPI(title="Fair Value Calculator API")
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v19" # Incrementing version forces invalidation of old logic results
+CACHE_VERSION = "v20" # Incrementing version forces invalidation of old logic results
 
 app.add_middleware(
     CORSMiddleware,
@@ -370,7 +370,10 @@ def get_valuation(ticker: str, wacc: float = None):
  
         if total_weight > 0:
             fair_value = weighted_sum / total_weight
-            margin_of_safety = ((fair_value - current_price) / fair_value) * 100
+            if fair_value and fair_value > 0:
+                margin_of_safety = ((fair_value - current_price) / fair_value) * 100
+            else:
+                margin_of_safety = 0
         else:
             fair_value = None
             margin_of_safety = None
@@ -550,7 +553,11 @@ def get_valuation(ticker: str, wacc: float = None):
         risk_factors = h_result.get("risk_factors", []) + b_result.get("risk_factors", [])
         
         # Combined Breakdown for UI Transparency
-        combined_breakdown = h_result.get("breakdown", []) + b_result.get("breakdown", [])
+        h_break = h_result.get("breakdown")
+        b_break = b_result.get("breakdown")
+        if not isinstance(h_break, list): h_break = []
+        if not isinstance(b_break, list): b_break = []
+        combined_breakdown = h_break + b_break
 
         # 7. Algorithmic Insights Generation
         all_breakdowns = combined_breakdown
