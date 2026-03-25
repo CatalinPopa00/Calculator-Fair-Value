@@ -30,7 +30,7 @@ app = FastAPI(title="Fair Value Calculator API")
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v32" # Sync fix + stable v16 logic
+CACHE_VERSION = "v34" # Ticker-specific weights + stable v16 logic
 
 app.add_middleware(
     CORSMiddleware,
@@ -51,6 +51,7 @@ class OverrideRequest(BaseModel):
     inputs: dict = {}
     toggles: dict = {}
     computed: dict = {}
+    weights: dict = {}
 
 class ValuationResponse(BaseModel):
     ticker: str
@@ -160,7 +161,8 @@ def save_override(req: OverrideRequest):
         all_overrides[req.ticker.upper()] = {
             "inputs": req.inputs,
             "toggles": req.toggles,
-            "computed": req.computed
+            "computed": req.computed,
+            "weights": req.weights
         }
         _save_overrides(all_overrides)
         return {"status": "success"}

@@ -31,8 +31,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let chartEpsShares = null;
     let globalData = null; 
 
-    // Custom Weights Logic
-    let customWeights = JSON.parse(localStorage.getItem('fairValueWeights')) || { dcf: 25, peg: 25, relative: 25, lynch: 25 };
+    // Custom Weights Logic (v34: Now ticker-specific via overrides)
+    let customWeights = { dcf: 25, peg: 25, relative: 25, lynch: 25 }; 
 
     // Watchlist State 
     let watchlist = JSON.parse(localStorage.getItem('fairValueWatchlist')) || [];
@@ -180,6 +180,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('smart-weights-btn').addEventListener('click', () => {
             if(!globalData || !globalData.company_profile) return;
             setSmartWeights(globalData.company_profile.sector);
+            saveOverride(currentTicker); // Persist immediately when "Auto-Set" is clicked
             if(typeof window.triggerRecalculate === 'function') {
                 window.triggerRecalculate();
             }
@@ -191,7 +192,7 @@ document.addEventListener('DOMContentLoaded', () => {
             customWeights.relative = parseFloat(document.getElementById('weight-relative').value) || 0;
             customWeights.lynch = parseFloat(document.getElementById('weight-lynch').value) || 0;
             
-            localStorage.setItem('fairValueWeights', JSON.stringify(customWeights));
+            saveOverride(currentTicker); // Save to ticker-specific overrides
             document.getElementById('weights-modal').style.display = 'none';
             
             if(typeof window.triggerRecalculate === 'function') {
@@ -351,9 +352,15 @@ document.addEventListener('DOMContentLoaded', () => {
         currentFormulaData = data.formula_data;
         currentTicker = data.ticker;
 
-        // Auto-Set Weights by Sector ONLY if no custom weights are already stored
-        if (data.company_profile && data.company_profile.sector && !localStorage.getItem('fairValueWeights')) {
-            setSmartWeights(data.company_profile.sector);
+        // Ticker-Specific Weights Logic (v34)
+        const override = cachedOverrides[data.ticker] || {};
+        if (override.weights) {
+            // Restore saved weights for this specific company
+            customWeights = { ...override.weights };
+        } else if (data.company_profile && data.company_profile.sector) {
+            // No saved weights -> Auto-Set by Sector and SAVE immediately
+            customWeights = setSmartWeights(data.company_profile.sector);
+            saveOverride(data.ticker); 
         }
 
         elements.name.textContent = data.name;
@@ -1039,7 +1046,8 @@ document.addEventListener('DOMContentLoaded', () => {
             ticker: ticker,
             inputs: collectOverrideInputs(),
             toggles: collectOverrideToggles(),
-            computed: getComputedValues()
+            computed: getComputedValues(),
+            weights: customWeights
         };
 
         cachedOverrides[ticker] = payload;
@@ -1062,7 +1070,8 @@ document.addEventListener('DOMContentLoaded', () => {
             ticker: ticker,
             inputs: collectOverrideInputs(),
             toggles: collectOverrideToggles(),
-            computed: getComputedValues()
+            computed: getComputedValues(),
+            weights: { ...customWeights }
         };
         pendingOverrideTicker = ticker;
         
