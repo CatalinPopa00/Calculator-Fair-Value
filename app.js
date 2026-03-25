@@ -37,20 +37,33 @@ document.addEventListener('DOMContentLoaded', () => {
     // Watchlist State 
     let watchlist = JSON.parse(localStorage.getItem('fairValueWatchlist')) || [];
     
-    // Sync watchlist from server on init
-    fetch('/api/watchlist?t=' + new Date().getTime(), { cache: 'no-store' }).then(r => r.json()).then(data => {
-        if (Array.isArray(data)) {
-            // Check if arrays changed loosely
-            const wasEmptyOrDifferent = JSON.stringify(watchlist) !== JSON.stringify(data);
-            watchlist = data;
-            localStorage.setItem('fairValueWatchlist', JSON.stringify(watchlist));
-            
-            // Re-render UI if we are on the watchlist dashboard!
-            if (wasEmptyOrDifferent && document.getElementById('watchlist-grid')) {
-                renderWatchlistUI();
+    // Non-destructive Watchlist Merge (v32)
+    fetch('/api/watchlist?t=' + new Date().getTime(), { cache: 'no-store' })
+        .then(r => r.json())
+        .then(serverData => {
+            if (Array.isArray(serverData)) {
+                const localData = JSON.parse(localStorage.getItem('fairValueWatchlist')) || [];
+                // Combine both and remove duplicates
+                const combined = [...new Set([...localData, ...serverData])];
+                
+                const hasChanged = JSON.stringify(watchlist) !== JSON.stringify(combined);
+                watchlist = combined;
+                localStorage.setItem('fairValueWatchlist', JSON.stringify(watchlist));
+                
+                // If we merged new data, sync it back to server so other devices get it too
+                if (hasChanged) {
+                    fetch('/api/watchlist', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ tickers: watchlist })
+                    });
+                    
+                    if (document.getElementById('watchlist-grid')) {
+                        renderWatchlistUI();
+                    }
+                }
             }
-        }
-    }).catch(err => console.error('Watchlist initial sync error:', err));
+        }).catch(err => console.error('Watchlist sync error:', err));
 
     // Overrides State (loaded from server on init)
     let cachedOverrides = {};
