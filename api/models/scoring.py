@@ -1,482 +1,148 @@
-def calculate_health_score(metrics: dict):
+def apply_relative_score(vc, vs, weight, type="higher_is_better"):
     """
-    Calculates the Company Health Score (0-100) using Sector-Specific Architecture.
+    Applies the mathematical rules for relative scoring.
+    Returns: points, is_strength, is_risk
+    """
+    if vc is None or vs is None or vs == 0:
+        return weight * 0.5, False, False # Neutral if data missing
+
+    if type == "higher_is_better":
+        if vc > vs * 1.10:
+            return weight, True, False
+        if vc < vs * 0.90:
+            return 0, False, True
+        return weight * 0.5, False, False
+    
+    elif type == "lower_is_better":
+        if vc < vs * 0.90:
+            return weight, True, False
+        if vc > vs * 1.10:
+            return 0, False, True
+        return weight * 0.5, False, False
+
+    return weight * 0.5, False, False
+
+def calculate_health_score(metrics: dict, sector_avg: dict):
+    """
+    Calculates Company Health Score (0-100) using strict quantitative rules.
     """
     try:
         score = 0
+        top_strengths = []
+        risk_factors = []
         breakdown = []
-        sector = metrics.get('sector', '')
-        
-        def add_brk(name, val, pts, max_pts):
-            breakdown.append({
-                "name": name,
-                "value": val if val is not None else "N/A",
-                "points": int(pts),
-                "max_points": int(max_pts)
-            })
 
-        def get_fcf_trend(fcf_hist):
-            pts = 0
-            trend_str = "N/A"
-            if fcf_hist and len(fcf_hist) >= 2: 
-                recent_fcf = fcf_hist[0]
-                if recent_fcf < 0:
-                    pts = 0
-                    trend_str = "Negative"
-                elif len(fcf_hist) >= 3:
-                    y1, y2, y3 = fcf_hist[0], fcf_hist[1], fcf_hist[2]
-                    if y1 > 0 and y2 > 0 and y3 > 0:
-                        if y1 > y2 and y2 > y3:
-                            pts = 20; trend_str = "3 Yrs Growth"
-                        else:
-                            pts = 10; trend_str = "3 Yrs Fluctuating"
-                    else:
-                        pts = 5; trend_str = "2/3 Yrs Positive"
-                elif len(fcf_hist) == 2:
-                    y1, y2 = fcf_hist[0], fcf_hist[1]
-                    if y1 > 0 and y2 > 0:
-                        pts = 20 if y1 > y2 else 10
-                        trend_str = "2 Yrs Growth" if y1 > y2 else "2 Yrs Fluctuating"
-                    elif y1 > 0:
-                        pts = 5; trend_str = "1/2 Yrs Positive"
-            elif fcf_hist and len(fcf_hist) == 1:
-                pts = 5 if fcf_hist[0] > 0 else 0
-                trend_str = "1 Yr Positive" if fcf_hist[0] > 0 else "Negative"
-            return pts, trend_str
+        indicators = [
+            ("Debt-to-Equity", "debt_to_equity", 20, "lower_is_better"),
+            ("ROIC", "roic", 20, "higher_is_better"),
+            ("Interest Coverage", "interest_coverage", 15, "higher_is_better"),
+            ("Current Ratio", "current_ratio", 15, "higher_is_better"),
+            ("EBIT Margin", "ebit_margin", 15, "higher_is_better"),
+            ("FCF Trend", "historic_fcf_growth", 15, "higher_is_better")
+        ]
 
-        # 1. Financial Services (Bank/Fintech Model)
-        if sector == "Financial Services":
-            # P/B (Valuation replacement for D/E)
-            pb = metrics.get('price_to_book')
-            pts = 0; pb_s = "N/A"
-            if pb is not None:
-                pb_s = f"{pb:.2f}x"
-                if pb < 1.5: pts = 20
-                elif pb < 2.5: pts = 10
-            else: # Neutral if missing
-                pts = 20; pb_s = "Sector Neutral"
+        for name, key, weight, type_rule in indicators:
+            vc = metrics.get(key)
+            vs = sector_avg.get(key)
+            pts, is_s, is_r = apply_relative_score(vc, vs, weight, type_rule)
+            
             score += pts
-            add_brk("Price-to-Book (Valuation)", pb_s, pts, 20)
+            if is_s: top_strengths.append(name)
+            if is_r: risk_factors.append(name)
+            breakdown.append({"name": name, "vc": vc, "vs": vs, "pts": pts, "max": weight})
 
-            # FCF Trend (Neutralized - Max Points for Financials)
-            score += 20
-            add_brk("FCF Trend (Quality)", "Sector Neutral", 20, 20)
+        # Red Flag: Health
+        de = metrics.get('debt_to_equity', 0) or 0
+        ic = metrics.get('interest_coverage', 100) or 100
+        if de > 3.0 or ic < 1.5:
+            if score > 40: score = 40
+            reason = []
+            if de > 3.0: reason.append(f"D/E Critical ({de:.2f})")
+            if ic < 1.5: reason.append(f"IC Critical ({ic:.1f})")
+            risk_factors.append(f"RED FLAG Health: {', '.join(reason)}")
 
-            # ROE (Replacement for EBIT Margin)
-            roe = metrics.get('roe')
-            pts = 0; roe_s = "N/A"
-            if roe is not None:
-                roe_s = f"{roe * 100:.1f}%"
-                if roe > 0.08: pts = 15
-                elif roe > 0.04: pts = 10
-            else: # Neutral if missing
-                pts = 15; roe_s = "Sector Neutral"
-            score += pts
-            add_brk("ROE (Profitability)", roe_s, pts, 15)
-
-            # Current Ratio (Neutralized)
-            score += 15
-            add_brk("Current Ratio (Liquidity)", "Sector Exempt", 15, 15)
-
-            # ROA (Replacement for ROIC)
-            roa = metrics.get('roa')
-            pts = 0; roa_s = "N/A"
-            if roa is not None:
-                roa_s = f"{roa * 100:.1f}%"
-                if roa > 0.008: pts = 15
-                elif roa > 0.004: pts = 10
-            else: # Neutral if missing
-                pts = 15; roa_s = "Sector Neutral"
-            score += pts
-            add_brk("ROA (Efficiency)", roa_s, pts, 15)
-
-            # Interest Coverage (Sector Exempt)
-            score += 15
-            add_brk("Interest Coverage (Safety)", "Sector Exempt", 15, 15)
-
-        # 2. Real Estate (REIT Model)
-        elif sector == "Real Estate":
-            # D/E Relaxed
-            de = metrics.get('debt_to_equity')
-            pts = 0; de_s = "N/A"
-            if de is not None:
-                de_s = f"{de:.2f}x"
-                if de < 2.0: pts = 20
-                elif de < 3.0: pts = 10
-            score += pts
-            add_brk("Debt-to-Equity (Solvency)", de_s, pts, 20)
-
-            # Operating Cash Flow replacement for FCF Trend
-            ocf = metrics.get('operating_cashflow')
-            pts = 0; ocf_s = "N/A"
-            if ocf is not None:
-                ocf_s = "Positive" if ocf > 0 else "Negative"
-                pts = 20 if ocf > 0 else 0
-            score += pts
-            add_brk("Operating Cash Flow (Quality)", ocf_s, pts, 20)
-
-            # EBIT Margin > 40%
-            ebit_m = metrics.get('ebit_margin')
-            pts = 0; em_s = "N/A"
-            if ebit_m is not None:
-                em_s = f"{ebit_m * 100:.1f}%"
-                if ebit_m > 0.40: pts = 15
-                elif ebit_m > 0.25: pts = 10
-            score += pts
-            add_brk("EBIT Margin (Profitability)", em_s, pts, 15)
-
-            # Current Ratio
-            cr = metrics.get('current_ratio')
-            pts = 0; cr_s = "N/A"
-            if cr is not None:
-                cr_s = f"{cr:.2f}x"
-                if cr >= 1.0: pts = 15
-                elif cr >= 0.8: pts = 10
-            score += pts
-            add_brk("Current Ratio (Liquidity)", cr_s, pts, 15)
-
-            # ROIC
-            roic = metrics.get('roic')
-            pts = 0; ric_s = "N/A"
-            if roic is not None:
-                ric_s = f"{roic * 100:.1f}%"
-                if roic > 0.10: pts = 15
-                elif roic > 0.05: pts = 10
-            score += pts
-            add_brk("ROIC (Efficiency)", ric_s, pts, 15)
-
-            # Interest Coverage
-            ic = metrics.get('interest_coverage')
-            pts = 0; ic_s = "N/A"
-            if ic is not None:
-                ic_s = f"{ic:.1f}x"
-                if ic > 3.0: pts = 15
-                elif ic >= 2.0: pts = 10
-            elif metrics.get('total_debt', 0) == 0:
-                pts = 15; ic_s = "No Debt"
-            score += pts
-            add_brk("Interest Coverage (Safety)", ic_s, pts, 15)
-
-        # 3. Utilities & Energy
-        elif sector in ["Utilities", "Energy"]:
-            # D/E Relaxed < 1.5
-            de = metrics.get('debt_to_equity')
-            pts = 0; de_s = "N/A"
-            if de is not None:
-                de_s = f"{de:.2f}x"
-                if de < 1.5: pts = 20
-                elif de < 2.5: pts = 10
-            score += pts
-            add_brk("Debt-to-Equity (Solvency)", de_s, pts, 20)
-
-            # FCF Trend Neutral
-            score += 10
-            add_brk("FCF Trend (Quality)", "Sector Neutral (CapEx)", 10, 20)
-
-            # EBIT Margin
-            ebit_m = metrics.get('ebit_margin')
-            pts = 0; em_s = "N/A"
-            if ebit_m is not None:
-                em_s = f"{ebit_m * 100:.1f}%"
-                if ebit_m > 0.15: pts = 15
-                elif ebit_m > 0.08: pts = 10
-            score += pts
-            add_brk("EBIT Margin (Profitability)", em_s, pts, 15)
-
-            # Current Ratio Relaxed > 0.8
-            cr = metrics.get('current_ratio')
-            pts = 0; cr_s = "N/A"
-            if cr is not None:
-                cr_s = f"{cr:.2f}x"
-                if cr > 0.8: pts = 15
-                elif cr >= 0.6: pts = 10
-            score += pts
-            add_brk("Current Ratio (Liquidity)", cr_s, pts, 15)
-
-            # ROIC
-            roic = metrics.get('roic')
-            pts = 0; ric_s = "N/A"
-            if roic is not None:
-                ric_s = f"{roic * 100:.1f}%"
-                if roic > 0.10: pts = 15
-                elif roic > 0.05: pts = 10
-            score += pts
-            add_brk("ROIC (Efficiency)", ric_s, pts, 15)
-
-            # Interest Coverage
-            ic = metrics.get('interest_coverage')
-            pts = 0; ic_s = "N/A"
-            if ic is not None:
-                ic_s = f"{ic:.1f}x"
-                if ic > 3.0: pts = 15
-                elif ic >= 2.0: pts = 10
-            elif metrics.get('total_debt', 0) == 0:
-                pts = 15; ic_s = "No Debt"
-            score += pts
-            add_brk("Interest Coverage (Safety)", ic_s, pts, 15)
-
-        # 4. Consumer Defensive
-        elif sector == "Consumer Defensive":
-            # Standard D/E
-            de = metrics.get('debt_to_equity')
-            pts = 0; de_s = "N/A"
-            if de is not None:
-                de_s = f"{de:.2f}x"
-                if de < 0.5: pts = 20
-                elif de < 1.0: pts = 15
-            score += pts
-            add_brk("Debt-to-Equity (Solvency)", de_s, pts, 20)
-
-            # FCF Trend Standard
-            pts, t_s = get_fcf_trend(metrics.get('fcf_history'))
-            score += pts
-            add_brk("FCF Trend (Quality)", t_s, pts, 20)
-
-            # EBIT Margin > 6%
-            ebit_m = metrics.get('ebit_margin')
-            pts = 0; em_s = "N/A"
-            if ebit_m is not None:
-                em_s = f"{ebit_m * 100:.1f}%"
-                if ebit_m > 0.06: pts = 15
-                elif ebit_m > 0.03: pts = 10
-            score += pts
-            add_brk("EBIT Margin (Profitability)", em_s, pts, 15)
-
-            # Current Ratio Standard
-            cr = metrics.get('current_ratio')
-            pts = 0; cr_s = "N/A"
-            if cr is not None:
-                cr_s = f"{cr:.2f}x"
-                if cr > 1.5: pts = 15
-                elif cr > 1.0: pts = 10
-            score += pts
-            add_brk("Current Ratio (Liquidity)", cr_s, pts, 15)
-
-            # ROIC > 10%
-            roic = metrics.get('roic')
-            pts = 0; ric_s = "N/A"
-            if roic is not None:
-                ric_s = f"{roic * 100:.1f}%"
-                if roic > 0.10: pts = 15
-                elif roic > 0.06: pts = 10
-            score += pts
-            add_brk("ROIC (Efficiency)", ric_s, pts, 15)
-
-            # Interest Coverage Standard
-            ic = metrics.get('interest_coverage')
-            pts = 0; ic_s = "N/A"
-            if ic is not None:
-                ic_s = f"{ic:.1f}x"
-                if ic > 5.0: pts = 15
-                elif ic >= 3.0: pts = 10
-            elif metrics.get('total_debt', 0) == 0:
-                pts = 15; ic_s = "No Debt"
-            score += pts
-            add_brk("Interest Coverage (Safety)", ic_s, pts, 15)
-
-        # 5. Default (Technology, Healthcare, etc.) - Strict Pure Model
-        else:
-            # Debt-to-Equity (Strict)
-            de = metrics.get('debt_to_equity')
-            pts = 0; de_s = "N/A"
-            if de is not None:
-                de_s = f"{de:.2f}x"
-                if de < 0.5: pts = 20
-                elif de <= 1.0: pts = 15
-                elif de <= 2.0: pts = 5
-            score += pts
-            add_brk("Debt-to-Equity (Solvency)", de_s, pts, 20)
-
-            # FCF Trend (Strict)
-            pts, t_s = get_fcf_trend(metrics.get('fcf_history'))
-            score += pts
-            add_brk("FCF Trend (Quality)", t_s, pts, 20)
-
-            # EBIT Margin (Strict)
-            ebit_m = metrics.get('ebit_margin')
-            pts = 0; em_s = "N/A"
-            if ebit_m is not None:
-                em_s = f"{ebit_m * 100:.1f}%"
-                if ebit_m > 0.15: pts = 15
-                elif ebit_m >= 0.08: pts = 10
-            score += pts
-            add_brk("EBIT Margin (Profitability)", em_s, pts, 15)
-
-            # Current Ratio (Strict)
-            cr = metrics.get('current_ratio')
-            pts = 0; cr_s = "N/A"
-            if cr is not None:
-                cr_s = f"{cr:.2f}x"
-                if cr > 1.5: pts = 15
-                elif cr >= 1.0: pts = 10
-            score += pts
-            add_brk("Current Ratio (Liquidity)", cr_s, pts, 15)
-
-            # ROIC (Strict)
-            roic = metrics.get('roic')
-            pts = 0; ric_s = "N/A"
-            if roic is not None:
-                ric_s = f"{roic * 100:.1f}%"
-                if roic > 0.15: pts = 15
-                elif roic >= 0.10: pts = 10
-                elif roic >= 0.05: pts = 5
-            score += pts
-            add_brk("ROIC (Efficiency)", ric_s, pts, 15)
-
-            # Interest Coverage (Strict)
-            ic = metrics.get('interest_coverage')
-            pts = 0; ic_s = "N/A"
-            if ic is not None:
-                ic_s = f"{ic:.1f}x"
-                if ic > 5.0: pts = 15
-                elif ic >= 3.0: pts = 10
-            elif metrics.get('total_debt', 0) == 0:
-                pts = 15; ic_s = "No Debt"
-            score += pts
-            add_brk("Interest Coverage (Safety)", ic_s, pts, 15)
-
-        return {"total": int(score), "breakdown": breakdown}
+        return {
+            "total": int(score),
+            "top_strengths": top_strengths,
+            "risk_factors": risk_factors,
+            "breakdown": breakdown
+        }
     except Exception as e:
         print(f"Health Score Error: {e}")
-        return "N/A"
+        return {"total": 0, "top_strengths": [], "risk_factors": [f"Error: {str(e)}"], "breakdown": {}}
 
-
-def calculate_buy_score(valuation_data: dict, metrics: dict):
+def calculate_buy_score(metrics: dict, valuation_data: dict, sector_avg: dict):
     """
-    Calculates the Good to Buy Score (0-100) using Sector-Specific Architecture.
+    Calculates Good to Buy Score (0-100) using strict quantitative rules.
     """
     try:
         score = 0
+        top_strengths = []
+        risk_factors = []
         breakdown = []
-        sector = metrics.get('sector', '')
-        
-        def add_brk(name, val, pts, max_pts):
-            breakdown.append({
-                "name": name,
-                "value": val if val is not None else "N/A",
-                "points": int(pts),
-                "max_points": int(max_pts)
-            })
-            
-        # 1. Margin of Safety (Max 30) - UNCHANGED (Valuation Core)
+
+        # 1. Margin of Safety (Absolute Rule)
         mos = valuation_data.get('margin_of_safety')
-        pts = 0; mos_s = "N/A"
+        weight_mos = 30
+        pts_mos = 0
+        is_s_mos, is_r_mos = False, False
         if mos is not None:
-            mos_s = f"{mos:.1f}%"
-            if mos > 30.0: pts = 30
-            elif mos >= 15.0: pts = 20
-            elif mos >= 0.0: pts = 10
-        score += pts
-        add_brk("Margin of Safety (Value)", mos_s, pts, 30)
+            if mos >= 20.0:
+                pts_mos = 30; is_s_mos = True
+            elif mos >= 0.0:
+                pts_mos = 15
+            else:
+                pts_mos = 0; is_r_mos = True
         
-        # 2. PEG Ratio (Max 20)
-        peg = metrics.get('peg_ratio')
-        sector_median_peg = valuation_data.get('sector_median_peg')
-        pts = 0; peg_s = "N/A"
-        if peg is not None and peg > 0:
-            peg_s = f"{peg:.2f}x"
-            # Logic: If PEG < 1.0, max points. If PEG < sector_median_peg, at least some points.
-            if peg < 1.0:
-                pts = 20
-            elif sector_median_peg and peg < sector_median_peg:
-                pts = 15 # "Better than Sector" bonus
-                peg_s += f" (< Sector {sector_median_peg:.1f}x)"
-            elif peg <= 1.5:
-                pts = 10
-            elif peg <= 2.0:
-                pts = 5
-            # If PEG is very high but STILL better than sector (e.g. 5 vs 6), give 5 pts
-            if pts == 0 and sector_median_peg and peg < sector_median_peg:
-                pts = 5
-        score += pts
-        add_brk("PEG Ratio (Growth Value)", peg_s, pts, 20)
+        score += pts_mos
+        if is_s_mos: top_strengths.append("Margin of Safety")
+        if is_r_mos: risk_factors.append("Margin of Safety")
+        breakdown.append({"name": "Margin of Safety", "vc": mos, "vs": "N/A (Absolute)", "pts": pts_mos, "max": 30})
 
-        # 3. FWD P/S (Max 15)
-        fwd_ps = metrics.get('fwd_ps')
-        rev_est = metrics.get('next_3y_rev_est', 0) or 0
-        pts = 0; ps_s = "N/A"
+        # Select P/E or P/S (Lower is Better)
+        # Use whichever provides a better relative score, or just picking one based on sector
+        # For simplicity and to follow the 15pt weight, we check relative for both if available
+        # But the prompt says "sau", so we pick one. Standard: P/E, fallback P/S.
+        pe_vc = metrics.get('forward_pe')
+        pe_vs = sector_avg.get('forward_pe')
+        ps_vc = metrics.get('fwd_ps')
+        ps_vs = sector_avg.get('fwd_ps')
         
-        if sector == "Financial Services":
-            score += 15
-            add_brk("FWD P/S (Revenue Value)", "Sector Exempt", 15, 15)
-        elif fwd_ps is not None:
-            ps_s = f"{fwd_ps:.2f}x"
-            if fwd_ps < 2.0: pts = 15
-            elif fwd_ps <= 5.0: pts = 10
-            elif rev_est > 0.15: 
-                # "Growth Forgiveness": If revenue growth > 15%, give partial points for high P/S
-                pts = 7
-                ps_s += " (Growth Premium)"
-            score += pts
-            add_brk("FWD P/S (Revenue Value)", ps_s, pts, 15)
-        else:
-            add_brk("FWD P/S (Revenue Value)", ps_s, 0, 15)
-            
-        # 4. Cash Return (Yield) (Max 15)
-        # Replaces FCF Yield with Dividend Yield for certain sectors
-        div_yield = metrics.get('dividend_yield') # Typically in % (e.g. 4.5 for 4.5%)
-        # Normalization: ensure it's in %
-        dy_val = div_yield if (div_yield and div_yield > 0.20) else (div_yield * 100 if div_yield else 0)
+        val_name = "Fwd P/E" if pe_vc and pe_vs else "Fwd P/S"
+        val_vc = pe_vc if pe_vc and pe_vs else ps_vc
+        val_vs = pe_vs if pe_vc and pe_vs else ps_vs
         
-        if sector in ["Financial Services", "Real Estate"]:
-            pts = 0; dy_s = "N/A"
-            if div_yield and div_yield > 0:
-                dy_val = div_yield * 100
-                dy_s = f"{dy_val:.1f}%"
-                if dy_val > 4.0: pts = 15
-                elif dy_val > 2.5: pts = 10
-            elif sector == "Financial Services":
-                # Growth Fintechs often don't have dividends yet; don't penalize
-                pts = 15; dy_s = "Neutral (Growth)"
-                
-            score += pts
-            add_brk("Dividend Yield (Cash Return)", dy_s, pts, 15)
-            
-        elif sector in ["Utilities", "Energy"]:
-            # Neutralize FCF Yield penalty for CapEx heavy sectors (min 50% pts)
-            fcf = metrics.get('fcf'); mcap = metrics.get('market_cap')
-            pts = 7; fcf_y_s = "Sector Neutral"
-            if fcf and mcap and mcap > 0:
-                y = (fcf / mcap) * 100
-                fcf_y_s = f"{y:.1f}%"
-                if y > 5.0: pts = 15
-                elif y > 2.0: pts = 10
-            score += pts
-            add_brk("FCF Yield (Cash Return)", fcf_y_s, pts, 15)
-            
-        else: # Default FCF Yield
-            fcf = metrics.get('fcf'); mcap = metrics.get('market_cap')
-            pts = 0; fcf_y_s = "N/A"
-            if fcf and mcap and mcap > 0:
-                y = (fcf / mcap) * 100
-                fcf_y_s = f"{y:.1f}%"
-                if y > 6.0: pts = 15
-                elif y > 4.0: pts = 10
-                elif y >= 2.5: pts = 5
-            score += pts
-            add_brk("FCF Yield (Cash Return)", fcf_y_s, pts, 15)
+        indicators = [
+            ("PEG Ratio", "peg_ratio", 20, "lower_is_better"),
+            ("FCF Yield", "fcf_yield", 15, "higher_is_better"),
+            (val_name, None, 15, "lower_is_better"), # val_vc/val_vs used directly
+            ("Next 3Y Rev Growth Est", "next_3y_rev_est", 20, "higher_is_better")
+        ]
 
-        # 5. Next 3Y Rev Est (Max 10)
-        rev_est_m = metrics.get('next_3y_rev_est')
-        pts = 0; re_s = "N/A"
-        if rev_est_m is not None:
-            re_s = f"{rev_est_m * 100:.1f}%"
-            if rev_est_m > 0.10: pts = 10
-            elif rev_est_m >= 0.05: pts = 5
-        score += pts
-        add_brk("Next 3Y Rev Est (Growth)", re_s, pts, 10)
+        for name, key, weight, type_rule in indicators:
+            if name == val_name:
+                vc, vs = val_vc, val_vs
+            else:
+                vc = metrics.get(key)
+                vs = sector_avg.get(key)
             
-        # 6. 3-Year FWD EPS Growth (Max 10)
-        eps_g = metrics.get('eps_growth')
-        pts = 0; eg_s = "N/A"
-        if eps_g is not None:
-            eg_s = f"{eps_g * 100:.1f}%"
-            if eps_g > 0.15: pts = 10
-            elif eps_g >= 0.05: pts = 5
-        score += pts
-        add_brk("3-Yr FWD EPS Growth (Momentum)", eg_s, pts, 10)
-            
-        return {"total": int(score), "breakdown": breakdown}
+            pts, is_s, is_r = apply_relative_score(vc, vs, weight, type_rule)
+            score += pts
+            if is_s: top_strengths.append(name)
+            if is_r: risk_factors.append(name)
+            breakdown.append({"name": name, "vc": vc, "vs": vs, "pts": pts, "max": weight})
+
+        # Red Flag: Buy
+        if mos is not None and mos < -20.0:
+            if score > 40: score = 40
+            risk_factors.append(f"RED FLAG Valuation: MoS is {mos:.1f}% (Overvalued)")
+
+        return {
+            "total": int(score),
+            "top_strengths": top_strengths,
+            "risk_factors": risk_factors,
+            "breakdown": breakdown
+        }
     except Exception as e:
         print(f"Buy Score Error: {e}")
-        return "N/A"
+        return {"total": 0, "top_strengths": [], "risk_factors": [f"Error: {str(e)}"], "breakdown": {}}

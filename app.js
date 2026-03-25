@@ -1693,10 +1693,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const scoreModalEl = document.getElementById('score-modal');
     if (scoreModalEl) {
-        document.getElementById('close-score-modal')?.addEventListener('click', (e) => {
-            e.stopPropagation();
-            scoreModalEl.style.display = 'none';
-        });
         scoreModalEl.addEventListener('click', (e) => {
             if (e.target === scoreModalEl) scoreModalEl.style.display = 'none';
         });
@@ -1880,12 +1876,18 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderScoreBreakdown(title, totalScore, breakdown) {
         const modal = document.getElementById('score-modal');
         const body = document.getElementById('score-modal-body-content');
-        const titleEl = document.getElementById('score-modal-title');
         if (!modal || !body) return;
 
         if (!breakdown || breakdown.length === 0) {
-            titleEl.textContent = title;
-            body.innerHTML = '<p style="color:var(--text-muted);">No breakdown available.</p>';
+            body.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                    <h3 style="margin:0; font-size:1.1rem; color:white; font-weight:700;">${title}</h3>
+                    <span class="close-score-modal-btn" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 50%; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: white; font-size: 20px;">&times;</span>
+                </div>
+                <p style="color:var(--text-muted);">No breakdown available.</p>
+            `;
+            const closeBtn = body.querySelector('.close-score-modal-btn');
+            if(closeBtn) closeBtn.onclick = () => modal.style.display = 'none';
             modal.style.display = 'flex';
             return;
         }
@@ -1894,32 +1896,37 @@ document.addEventListener('DOMContentLoaded', () => {
         breakdown.forEach(item => totalMax += item.max_points || 0);
         const scoreVal = totalScore != null ? totalScore : '?';
 
-        // Build header - Centered score, title on left
+        // 3-Column Header: Title (left), Score (middle), X (right) - FORCED ONE LINE
         let html = `
-            <div style="display:grid; grid-template-columns: 1fr auto 1fr; align-items:center; margin-bottom:20px; padding-right:45px;">
-                <h3 style="margin:0; font-size:1.1rem; color:white; font-weight:700;">${title}</h3>
-                <div style="text-align:center;">
-                    <div style="font-size:0.8rem; color:var(--text-muted);">Total:</div>
-                    <div style="font-size:1.4rem; font-weight:800; color:white;">${scoreVal}/${totalMax}</div>
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:25px; gap: 10px; width: 100%;">
+                <div style="flex: 1.5; min-width: 0; display: flex; align-items: center;">
+                    <h3 style="margin:0; font-size:1.05rem; color:white; font-weight:700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;">${title}</h3>
                 </div>
-                <div></div>
+                
+                <div style="flex: 1; text-align:center; display: flex; flex-direction: column; align-items: center;">
+                    <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:0px; line-height: 1;">Total Score</div>
+                    <div style="font-size:1.4rem; font-weight:800; color:var(--accent); line-height: 1;">${scoreVal}<span style="color:var(--text-muted); font-size:0.85rem; font-weight:400;">/${totalMax}</span></div>
+                </div>
+
+                <div style="flex: 1; display:flex; justify-content:flex-end;">
+                    <span class="close-score-modal-btn" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 50%; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: white; font-size: 20px; transition: 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">&times;</span>
+                </div>
             </div>
         `;
 
-        // Build rows matching user's reference design
+        // Rows
         breakdown.forEach(item => {
             const pts = item.points || 0;
             const maxPts = item.max_points || 0;
             const pct = maxPts > 0 ? (pts / maxPts) : 0;
 
-            // Dot color: green if >= 75%, yellow if >= 40%, red otherwise
             let dotColor = 'var(--danger)';
             let ptsColor = 'var(--danger)';
             if (pct >= 0.75) { dotColor = 'var(--accent)'; ptsColor = 'var(--accent)'; }
             else if (pct >= 0.4) { dotColor = '#fbbf24'; ptsColor = '#fbbf24'; }
 
             html += `
-                <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 0; border-top:1px solid rgba(255,255,255,0.06);">
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 0; border-top:1px solid rgba(255,255,255,0.06);">
                     <div style="flex:1; min-width:0;">
                         <div style="font-weight:600; font-size:0.9rem; color:white;">${item.name}</div>
                     </div>
@@ -1932,8 +1939,17 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         });
 
-        if (titleEl) titleEl.textContent = '';
         body.innerHTML = html;
+        
+        // Bind the dynamic close button
+        const closeBtn = body.querySelector('.close-score-modal-btn');
+        if(closeBtn) {
+            closeBtn.onclick = () => modal.style.display = 'none';
+            // Hover effect for premium feel
+            closeBtn.onmouseenter = () => closeBtn.style.background = 'rgba(255,255,255,0.1)';
+            closeBtn.onmouseleave = () => closeBtn.style.background = 'rgba(255,255,255,0.05)';
+        }
+        
         modal.style.display = 'flex';
     };
 

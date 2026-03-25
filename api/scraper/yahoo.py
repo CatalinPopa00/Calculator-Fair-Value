@@ -1187,6 +1187,12 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
                             "market_cap": inf.get('marketCap'),
                             "eps": inf.get('trailingEps') or inf.get('forwardEps'),
                             "operating_margin": inf.get('operatingMargins') or inf.get('ebitdaMargins'),
+                            "debt_to_equity": inf.get('debtToEquity'),
+                            "roic": inf.get('returnOnCapitalEmployed') or inf.get('returnOnAssets'),
+                            "current_ratio": inf.get('currentRatio'),
+                            "ebit_margin": inf.get('ebitdaMargins') or inf.get('operatingMargins'),
+                            "peg_ratio": inf.get('pegRatio'),
+                            "revenue_growth": inf.get('revenueGrowth'),
                             "industry": inf.get('industry') or target_industry,
                             "sector": inf.get('sector') or sector
                         })
