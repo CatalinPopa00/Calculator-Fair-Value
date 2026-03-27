@@ -634,16 +634,28 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
 
-        const calcLocalDcf = (fcf, growth, wacc, perp, shares, cash, debt, buybackRate = 0, years = 5) => {
+        const calcLocalDcf = (fcf, growth, wacc, perp, shares, cash, debt, buybackRate = 0, years = 5, exitMult = 15.0) => {
             if (!fcf || !shares || shares <= 0) return null;
+            
+            // WACC Smart Cap
+            const finalWacc = Math.max(0.07, Math.min(wacc, 0.105));
+            
             let pv = 0;
             let f = fcf;
             for (let i = 1; i <= years; i++) {
                 f *= (1 + growth);
-                pv += f / Math.pow(1 + wacc, i);
+                pv += f / Math.pow(1 + finalWacc, i);
             }
-            const tv = (f * (1 + perp)) / (wacc - perp);
-            const pvTv = tv / Math.pow(1 + wacc, years);
+            
+            const method = document.getElementById('dcf-method-selector')?.value || 'perpetual';
+            let tv = 0;
+            if (method === 'perpetual') {
+                tv = (f * (1 + perp)) / (finalWacc - perp);
+            } else {
+                tv = f * exitMult;
+            }
+            
+            const pvTv = tv / Math.pow(1 + finalWacc, years);
             const ev = pv + pvTv;
             const eqVal = ev + (cash || 0) - (debt || 0);
             if (eqVal <= 0) return null;
@@ -652,8 +664,8 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         const updateFairValue = () => {
-            if (!currentFormulaData) return;
-            const prof = data.company_profile;
+            if (!currentFormulaData || !globalData) return;
+            const prof = globalData.company_profile;
 
             let dcfVal = null;
             if (currentFormulaData.dcf) {
@@ -689,40 +701,44 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (fcfSource === 'analyst') {
                     const waccInput = document.getElementById('dcf-custom-wacc');
-                    const backendWacc = currentFormulaData.dcf.discount_rate;
-                    if (waccInput && !waccInput.value && backendWacc) {
-                         waccInput.value = (backendWacc * 100).toFixed(2);
-                    }
+                    const backendWacc = currentFormulaData.dcf.discount_rate_applied / 100;
                     
-                    if (buybackRate === 0 && (!waccInput || !waccInput.value || parseFloat(waccInput.value)/100 === backendWacc)) {
-                        dcfVal = dcfData ? dcfData.intrinsic_value : currentFormulaData.dcf.intrinsic_value;
+                    if (buybackRate === 0 && (!waccInput || !waccInput.value) && fcfSource !== 'custom') {
+                        const method = document.getElementById('dcf-method-selector')?.value || 'perpetual';
+                        const branch = method === 'multiple' ? dcfData.dcf_exit_multiple : dcfData.dcf_perpetual;
+                        dcfVal = branch ? branch.fair_value_per_share : null;
                     } else {
                         const g = currentFormulaData.dcf.eps_growth_estimated || 0.10;
-                        const wAnalyst = waccInput && waccInput.value ? parseFloat(waccInput.value)/100 : w; // Use the 'w' defined above as fallback
-                        dcfVal = calcLocalDcf(baseFcf, g, wAnalyst, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years);
+                        const wAnalyst = (waccInput && waccInput.value) ? parseFloat(waccInput.value)/100 : w;
+                        const em = parseFloat(document.getElementById('input-exit-multiple')?.value) || 15.0;
+                        dcfVal = calcLocalDcf(baseFcf, g, wAnalyst, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
                     }
                 } else if (fcfSource === 'historical') {
                     const hg = prof.historic_fcf_growth != null ? prof.historic_fcf_growth : 0.05;
-                    dcfVal = calcLocalDcf(baseFcf, hg, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years);
+                    const em = parseFloat(document.getElementById('input-exit-multiple')?.value) || 15.0;
+                    dcfVal = calcLocalDcf(baseFcf, hg, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
                 } else if (fcfSource === 'eps_growth') {
                     const g = currentFormulaData.dcf.eps_growth_estimated || 0.10;
-                    dcfVal = calcLocalDcf(baseFcf, g, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years);
+                    const em = parseFloat(document.getElementById('input-exit-multiple')?.value) || 15.0;
+                    dcfVal = calcLocalDcf(baseFcf, g, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
                 } else if (fcfSource === 'custom') {
                     const gRaw = document.getElementById('dcf-custom-growth').value;
                     const wRaw = document.getElementById('dcf-custom-wacc').value;
                     const pRaw = document.getElementById('dcf-custom-perp').value;
+                    const emRaw = document.getElementById('input-exit-multiple').value;
                     
                     const g = (gRaw === '' || isNaN(parseFloat(gRaw))) ? 0.15 : parseFloat(gRaw) / 100;
-                    const w = (wRaw === '' || isNaN(parseFloat(wRaw))) ? 0.09 : parseFloat(wRaw) / 100;
-                    const p = (pRaw === '' || isNaN(parseFloat(pRaw))) ? 0.025 : parseFloat(pRaw) / 100;
+                    const wCustom = (wRaw === '' || isNaN(parseFloat(wRaw))) ? 0.09 : parseFloat(wRaw) / 100;
+                    const pCustom = (pRaw === '' || isNaN(parseFloat(pRaw))) ? 0.025 : parseFloat(pRaw) / 100;
+                    const em = (emRaw === '' || isNaN(parseFloat(emRaw))) ? 15.0 : parseFloat(emRaw);
                     
-                    dcfVal = calcLocalDcf(baseFcf, g, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years);
+                    dcfVal = calcLocalDcf(baseFcf, g, wCustom, pCustom, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
                 }
             }
-            setValuationStatus(dcfVal, data.current_price, 'dcf-status', 'dcf-value');
+            setValuationStatus(dcfVal, globalData.current_price, 'dcf-status', 'dcf-value');
             
             if (dcfVal != null && dcfCardMos) {
-                const currentDcfMos = ((dcfVal - data.current_price) / dcfVal) * 100;
+                const currentDcfMos = ((dcfVal - globalData.current_price) / globalData.current_price) * 100;
                 dcfCardMos.textContent = `MOS: ${formatPercent(currentDcfMos)}`;
                 dcfCardMos.style.color = currentDcfMos > 0 ? 'var(--accent)' : 'var(--danger)';
             }
@@ -846,11 +862,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            setValuationStatus(lynchVal, data.current_price, 'lynch-status', 'lynch-fair-value');
+            setValuationStatus(lynchVal, globalData.current_price, 'lynch-status', 'lynch-fair-value');
             
             const lynchCardMos = document.getElementById('lynch-card-mos');
             if (lynchCardMos && lynchVal != null) {
-                const lynchMos = ((lynchVal - data.current_price) / lynchVal) * 100;
+                const lynchMos = ((lynchVal - globalData.current_price) / globalData.current_price) * 100;
                 lynchCardMos.textContent = `MOS: ${formatPercent(lynchMos)}`;
                 lynchCardMos.style.color = lynchMos > 0 ? 'var(--accent)' : 'var(--danger)';
                 lynchCardMos.style.display = 'block';
@@ -883,11 +899,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     else if (variant === 'sp500') mc.textContent = `S&P 500 Trailing P/E: ${mpe}`;
                 }
             }
-            setValuationStatus(relVal, data.current_price, 'relative-status', 'relative-value');
+            setValuationStatus(relVal, globalData.current_price, 'relative-status', 'relative-value');
             
             const relCardMos = document.getElementById('relative-card-mos');
             if (relCardMos && relVal != null) {
-                const relMos = ((relVal - data.current_price) / relVal) * 100;
+                const relMos = ((relVal - globalData.current_price) / globalData.current_price) * 100;
                 relCardMos.textContent = `MOS: ${formatPercent(relMos)}`;
                 relCardMos.style.color = relMos > 0 ? 'var(--accent)' : 'var(--danger)';
                 relCardMos.style.display = 'block';
@@ -924,7 +940,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (totalWeight > 0) {
                     finalFv = weightedSum / totalWeight;
-                    finalMos = ((finalFv - data.current_price) / finalFv) * 100;
+                    finalMos = ((finalFv - globalData.current_price) / globalData.current_price) * 100;
                 }
             }
 
@@ -950,7 +966,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.triggerRecalculate = updateFairValue;
 
         const inputSelectors = [
-            'fcf-source', 'dcf-years-source', 'dcf-custom-growth', 'dcf-custom-wacc', 'dcf-custom-perp',
+            'fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple', 'dcf-custom-growth', 'dcf-custom-wacc', 'dcf-custom-perp',
             'dcf-buyback-source', 'dcf-custom-buyback', 'relative-variant',
             'lynch-multiple', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth',
             'peg-eps-source', 'peg-custom-growth'
@@ -1176,6 +1192,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     const ci = document.getElementById('peg-custom-inputs');
                     if (ci) ci.style.display = val === 'custom' ? 'flex' : 'none';
                 }
+                if (id === 'dcf-method-selector') {
+                    switchDCFMethod(val);
+                }
             }
         });
 
@@ -1222,6 +1241,28 @@ document.addEventListener('DOMContentLoaded', () => {
         saveWatchlist();
         updateWatchlistButtonState();
     };
+
+    const switchDCFMethod = (method) => {
+        const rowPerp = document.getElementById('row-input-perpetual');
+        const rowExit = document.getElementById('row-input-exit-multiple');
+        if (method === 'multiple') {
+            if (rowPerp) rowPerp.style.display = 'none';
+            if (rowExit) rowExit.style.display = 'flex';
+        } else {
+            if (rowPerp) rowPerp.style.display = 'flex';
+            if (rowExit) rowExit.style.display = 'none';
+        }
+        updateFairValue();
+    };
+    window.switchDCFMethod = switchDCFMethod;
+
+    const dcfMethodSelector = document.getElementById('dcf-method-selector');
+    if (dcfMethodSelector) {
+        dcfMethodSelector.addEventListener('change', (e) => switchDCFMethod(e.target.value));
+    }
+
+    // INITIALIZATION: Default to Perpetual
+    switchDCFMethod('perpetual');
 
     let dragSrcIndex = null;
     let manualOrder = false;
@@ -1518,9 +1559,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const savedOv = cachedOverrides[data.ticker] || {};
             const toggles = savedOv.toggles || { 'toggle-peter_lynch': true, 'toggle-peg': true, 'toggle-relative': true, 'toggle-dcf': true };
 
-            if (data.formula_data?.dcf?.intrinsic_value && toggles['toggle-dcf']) { 
-                customFinalFv += data.formula_data.dcf.intrinsic_value * cw.dcf; 
-                totalW += cw.dcf; 
+            if (data.formula_data?.dcf && toggles['toggle-dcf']) { 
+                const d = data.formula_data.dcf;
+                const method = savedOv.inputs?.['dcf-method-selector'] || 'perpetual';
+                const branch = method === 'multiple' ? d.dcf_exit_multiple : d.dcf_perpetual;
+                if (branch?.fair_value_per_share) {
+                    customFinalFv += branch.fair_value_per_share * cw.dcf; 
+                    totalW += cw.dcf; 
+                }
             }
             if (data.formula_data?.peter_lynch?.fair_value_pe_20 && toggles['toggle-peter_lynch']) { 
                 customFinalFv += data.formula_data.peter_lynch.fair_value_pe_20 * cw.lynch; 
@@ -1538,7 +1584,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let customMos = null;
             if (totalW > 0 && data.current_price) {
                 customFinalFv = customFinalFv / totalW;
-                customMos = ((customFinalFv - data.current_price) / customFinalFv) * 100;
+                customMos = ((customFinalFv - data.current_price) / data.current_price) * 100;
                 data.fair_value = customFinalFv;
                 data.margin_of_safety = customMos;
             }
@@ -1866,15 +1912,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 const d = currentFormulaData.dcf;
                 title.textContent = 'Discounted Cash Flow';
 
-                const yearsSourceEl = document.getElementById('dcf-years-source');
-                let currentYears = yearsSourceEl ? yearsSourceEl.value : '5yr';
+                const method = document.getElementById('dcf-method-selector')?.value || 'perpetual';
                 const renderDCFView = (yp) => {
-                    const dataObj = d[yp] || d["5yr"];
-                    if (!dataObj) return '<p style="color:var(--text-muted);">Data not available.</p>';
+                    const dataObj = method === 'multiple' ? d.dcf_exit_multiple : d.dcf_perpetual;
+                    if (!dataObj) return '<p style="color:var(--text-muted);">Data not available for this method.</p>';
                     
-                    const fcfYears = dataObj.fcf_years || [];
-                    const sensMatrix = dataObj.sensitivity_matrix || [];
-                    const revDcf = dataObj.reverse_dcf_growth;
+                    const fcfYears = dataObj.fcf_projections || [];
+                    const sensMatrix = method === 'perpetual' ? (dataObj.sensitivity_matrix || []) : [];
                     
                     let tableHTML = `<table style="width:100%; border-collapse:collapse; margin-top:20px; font-size: 0.95rem;">
                                         <tr style="border-bottom:1px solid rgba(255,255,255,0.2);"><th style="text-align:left; padding:8px 0; color:white;">Year</th><th style="text-align:right; padding:8px 0; color:white;">Projected FCF</th></tr>`;
@@ -1883,8 +1927,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                     tableHTML += `</table>`;
 
+                    const tvLabel = method === 'perpetual' ? `Terminal Value (${fmtPct(dataObj.perpetual_growth_rate)} Growth)` : `Terminal Value (${dataObj.exit_multiple}x Multiple)`;
+
                     let matrixHTML = '';
-                    if (sensMatrix.length > 0) {
+                    if (method === 'perpetual' && sensMatrix.length > 0) {
                         matrixHTML = `<div style="margin-top: 25px;">
                             <h4 style="margin-bottom:15px; font-size:1rem; text-transform:uppercase; letter-spacing:1px; color:white; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:5px;">DCF Sensitivity Matrix</h4>
                             <table style="width:100%; border-collapse:collapse; font-size: 0.9rem; text-align:center; background: rgba(0,0,0,0.2); border-radius:6px; overflow:hidden;">`;
@@ -1907,66 +1953,36 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
                     return `
-                        <div style="display:flex; justify-content:center; gap:10px; margin-bottom: 20px;">
-                            <button class="dcf-toggle-btn ${yp==='5yr'?'active':''}" data-yp="5yr" style="padding:6px 20px; border-radius:20px; border:1px solid var(--accent); background:${yp==='5yr'?'var(--accent)':'transparent'}; color:${yp==='5yr'?'#fff':'var(--accent)'}; cursor:pointer; font-weight:600; font-size:0.9rem; transition: background 0.2s;">5 Years</button>
-                            <button class="dcf-toggle-btn ${yp==='10yr'?'active':''}" data-yp="10yr" style="padding:6px 20px; border-radius:20px; border:1px solid var(--accent); background:${yp==='10yr'?'var(--accent)':'transparent'}; color:${yp==='10yr'?'#fff':'var(--accent)'}; cursor:pointer; font-weight:600; font-size:0.9rem; transition: background 0.2s;">10 Years</button>
-                        </div>
-                        
                         <div style="background:rgba(255,255,255,0.02); padding:20px; border-radius:8px; border:1px solid rgba(255,255,255,0.05); margin-bottom:20px;">
-                            <div style="display:flex; justify-content:space-between; padding:4px 0;"><span style="color:var(--text-muted);">Discount Rate (WACC):</span><span style="font-weight:500; color:white;">${fmtPct(d.discount_rate)}</span></div>
-                            <div style="display:flex; justify-content:space-between; padding:4px 0;"><span style="color:var(--text-muted);">Perpetual Growth Rate:</span><span style="font-weight:500; color:white;">${fmtPct(d.perpetual_growth)}</span></div>
+                            <div style="display:flex; justify-content:space-between; padding:4px 0;"><span style="color:var(--text-muted);">Discount Rate (Applied):</span><span style="font-weight:500; color:white;">${fmtPct(dataObj.discount_rate)}</span></div>
+                            ${method === 'perpetual' ? `<div style="display:flex; justify-content:space-between; padding:4px 0;"><span style="color:var(--text-muted);">Perpetual Growth:</span><span style="font-weight:500; color:white;">${fmtPct(dataObj.perpetual_growth_rate)}</span></div>` : `<div style="display:flex; justify-content:space-between; padding:4px 0;"><span style="color:var(--text-muted);">Exit Multiple:</span><span style="font-weight:500; color:white;">${dataObj.exit_multiple}x</span></div>`}
                             <div style="display:flex; justify-content:space-between; padding:4px 0;"><span style="color:var(--text-muted);">Shares Outstanding:</span><span style="font-weight:500; color:white;">${d.shares_outstanding ? fmtBigNum(d.shares_outstanding, '') : 'N/A'}</span></div>
                         </div>
 
                         ${tableHTML}
 
                         <div style="margin-top:25px; border-top:1px solid rgba(255,255,255,0.1); padding-top:20px;">
-                            <div style="display:flex; justify-content:space-between; padding:5px 0;"><span style="color:var(--text-muted);">Total PV of FCFs:</span><span style="font-weight:500; color:white;">${fmtBig(dataObj.sum_pv_cf)}</span></div>
-                            <div style="display:flex; justify-content:space-between; padding:5px 0;"><span style="color:var(--text-muted);">Terminal Value:</span><span style="font-weight:500; color:white;">${fmtBig(dataObj.terminal_value)}</span></div>
-                            <div style="display:flex; justify-content:space-between; padding:5px 0;"><span style="color:var(--text-muted);">PV of Terminal Value:</span><span style="font-weight:500; color:white;">${fmtBig(dataObj.pv_terminal_value)}</span></div>
+                            <div style="display:flex; justify-content:space-between; padding:5px 0;"><span style="color:var(--text-muted);">Total PV of FCFs:</span><span style="font-weight:500; color:white;">${fmtBig(dataObj.present_value_fcf_sum)}</span></div>
+                            <div style="display:flex; justify-content:space-between; padding:5px 0;"><span style="color:var(--text-muted);">${tvLabel}:</span><span style="font-weight:500; color:white;">${fmtBig(dataObj.terminal_value)}</span></div>
+                            <div style="display:flex; justify-content:space-between; padding:5px 0;"><span style="color:var(--text-muted);">PV of Terminal Value:</span><span style="font-weight:500; color:white;">${fmtBig(dataObj.present_value_terminal)}</span></div>
                         </div>
 
                         <div style="margin-top:25px; border-top:1px solid rgba(255,255,255,0.1); padding-top:20px;">
-                            <div style="display:flex; justify-content:space-between; padding:5px 0;"><span style="color:var(--text-muted);">Enterprise Value:</span><span style="font-weight:800; color:white; font-size:1.05rem;">${fmtBig(dataObj.enterprise_value)}</span></div>
-                            <div style="display:flex; justify-content:space-between; padding:5px 0;"><span style="color:var(--text-muted);">+ Cash & Equivalents:</span><span style="font-weight:600; color:var(--accent);">${fmtBig(dataObj.total_cash)}</span></div>
-                            <div style="display:flex; justify-content:space-between; padding:5px 0;"><span style="color:var(--text-muted);">- Total Debt:</span><span style="font-weight:600; color:var(--danger);">${fmtBig(dataObj.total_debt)}</span></div>
+                            <div style="display:flex; justify-content:space-between; padding:5px 0;"><span style="color:var(--text-muted);">+ Cash & Equivalents:</span><span style="font-weight:600; color:var(--accent);">${fmtBig(d.total_cash)}</span></div>
+                            <div style="display:flex; justify-content:space-between; padding:5px 0;"><span style="color:var(--text-muted);">- Total Debt:</span><span style="font-weight:600; color:var(--danger);">${fmtBig(d.total_debt)}</span></div>
                         </div>
 
                         <div style="margin-top:20px; border-top:1px solid rgba(255,255,255,0.1); padding-top:20px;">
-                            <div style="display:flex; justify-content:space-between; padding:5px 0;"><span style="color:var(--text-muted);">Equity Value:</span><span style="font-weight:800; color:white; font-size:1.05rem;">${fmtBig(dataObj.equity_value)}</span></div>
-                            <div style="display:flex; justify-content:space-between; padding:10px 0; margin-top:5px;"><span style="color:var(--text-muted);">Intrinsic Value per Share:</span><span style="font-weight:800; color:var(--accent); font-size:1.15rem;">$${fmt(dataObj.intrinsic_value)}</span></div>
-                        </div>
-
-                        <div style="margin-top:25px; display:flex; flex-direction:column; gap:8px;">
-                            <span style="color:var(--text-muted); font-size:0.95rem;">Market Implied FCF Growth (Reverse DCF):</span>
-                            <span style="font-weight:800; color:var(--accent); font-size:1.2rem;">${fmtPct(revDcf)}</span>
+                            <div style="display:flex; justify-content:space-between; padding:10px 0; margin-top:5px;"><span style="color:var(--text-muted);">Intrinsic Value per Share:</span><span style="font-weight:800; color:var(--accent); font-size:1.15rem;">$${fmt(dataObj.fair_value_per_share)}</span></div>
                         </div>
 
                         ${matrixHTML}
                     `;
                 };
 
-                html = renderDCFView(currentYears);
+                html = renderDCFView();
                 body.innerHTML = html;
                 modal.style.display = 'flex';
-                
-                const attachToggleEvents = () => {
-                    const btns = body.querySelectorAll('.dcf-toggle-btn');
-                    btns.forEach(b => {
-                        b.addEventListener('click', (e) => {
-                            currentYears = e.target.getAttribute('data-yp');
-                            const yearsSourceEl = document.getElementById('dcf-years-source');
-                            if (yearsSourceEl) {
-                                yearsSourceEl.value = currentYears;
-                                if (typeof triggerRecalculate === 'function') triggerRecalculate();
-                                else if (typeof window.triggerRecalculate === 'function') window.triggerRecalculate();
-                            }
-                            body.innerHTML = renderDCFView(currentYears);
-                            attachToggleEvents();
-                        });
-                    });
-                };
-                attachToggleEvents();
                 return;
             } else if (model === 'relative' && currentFormulaData.relative) {
                 const r = currentFormulaData.relative;

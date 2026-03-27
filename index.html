@@ -186,6 +186,13 @@
                             <div class="custom-fcf-container"
                                 style="display: flex; flex-direction: column; justify-content: center; gap: 0.5rem; margin-top: 1rem; margin-bottom: 0.5rem;">
                                 <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                                    <label for="dcf-method-selector" style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500; white-space: nowrap;">TV Method</label>
+                                    <select id="dcf-method-selector" style="background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--card-border); border-radius: 4px; padding: 0.3rem 0.5rem; font-family: 'Outfit', sans-serif; font-size: 0.85rem; outline: none; cursor: pointer;">
+                                        <option value="perpetual">Perpetual Growth</option>
+                                        <option value="multiple">Exit Multiple</option>
+                                    </select>
+                                </div>
+                                <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
                                     <label for="fcf-source"
                                         style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">FCF
                                         Based
@@ -219,11 +226,17 @@
                                         <input type="number" id="dcf-custom-wacc" placeholder="9"
                                             style="width: 60px; background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--card-border); border-radius: 4px; padding: 0.2rem; outline: none; text-align: right;">
                                     </div>
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div id="row-input-perpetual" style="display: flex; justify-content: space-between; align-items: center;">
                                         <label for="dcf-custom-perp"
                                             style="font-size: 0.8rem; color: var(--text-muted);">Perpetual Growth
                                             (%)</label>
                                         <input type="number" id="dcf-custom-perp" placeholder="2.5"
+                                            style="width: 60px; background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--card-border); border-radius: 4px; padding: 0.2rem; outline: none; text-align: right;">
+                                    </div>
+                                    <div id="row-input-exit-multiple" style="display: none; justify-content: space-between; align-items: center;">
+                                        <label for="input-exit-multiple"
+                                            style="font-size: 0.8rem; color: var(--text-muted);">Exit Multiple (x)</label>
+                                        <input type="number" id="input-exit-multiple" value="15"
                                             style="width: 60px; background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--card-border); border-radius: 4px; padding: 0.2rem; outline: none; text-align: right;">
                                     </div>
                                 </div>

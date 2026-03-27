@@ -52,70 +52,73 @@ def calculate_peg_fair_value(current_price: float, company_peg: float, industry_
         
     return current_price * (industry_peg / company_peg)
 
-def calculate_dcf(fcf: float, growth_rate: float, discount_rate: float, perpetual_growth: float, shares_outstanding: int, total_cash: float = 0, total_debt: float = 0, years: int = 5, buyback_rate: float = 0.0):
+def calculate_dcf(fcf: float, growth_rate: float, discount_rate: float, perpetual_growth: float, shares_outstanding: int, total_cash: float = 0, total_debt: float = 0, years: int = 5, buyback_rate: float = 0.0, exit_multiple: float = 15.0):
     """
-    Discounted Cash Flow (DCF). Returns granular dictionary.
-    buyback_rate: annual share reduction rate (e.g. 0.03 = 3%/yr buyback).
-      After `years` years, effective shares = shares * (1 - buyback_rate)^years.
-      This increases per-share intrinsic value proportionally.
+    Discounted Cash Flow (DCF) - Dual Method.
+    WACC Smart Cap: Forced between 7% and 10.5%.
     """
     if not all([fcf, shares_outstanding]):
         return None
 
+    # 1. WACC Smart Cap
+    wacc = max(0.07, min(discount_rate, 0.105))
+    
     buyback_rate = float(buyback_rate or 0.0)
-
+    current_fcf = fcf
     cash_flows = []
     pv_cash_flows_list = []
-    current_fcf = fcf
+
+    # 2. Projections
     for i in range(1, years + 1):
         current_fcf *= (1 + growth_rate)
         cash_flows.append(current_fcf)
-        pv = current_fcf / ((1 + discount_rate) ** i)
+        pv = current_fcf / ((1 + wacc) ** i)
         pv_cash_flows_list.append(pv)
 
-    # Discount Cash Flows Additive
     sum_pv_cf = sum(pv_cash_flows_list)
 
-    # Terminal Value
-    terminal_denom = (discount_rate - perpetual_growth)
-    if abs(terminal_denom) < 0.0001:
-        terminal_denom = 0.0001
-        
-    terminal_value = (cash_flows[-1] * (1 + perpetual_growth)) / terminal_denom
-    pv_terminal_value = terminal_value / ((1 + discount_rate) ** years)
+    # Scenariul A: Perpetual Growth
+    terminal_denom = (wacc - perpetual_growth)
+    if abs(terminal_denom) < 0.0001: terminal_denom = 0.0001
+    tv_perp = (cash_flows[-1] * (1 + perpetual_growth)) / terminal_denom
+    pv_tv_perp = tv_perp / ((1 + wacc) ** years)
 
-    total_enterprise_value = sum_pv_cf + pv_terminal_value
+    # Scenariul B: Exit Multiple
+    tv_exit = cash_flows[-1] * exit_multiple
+    pv_tv_exit = tv_exit / ((1 + wacc) ** years)
 
-    # Bridge to Equity Value
-    safe_cash = total_cash if total_cash is not None else 0
-    safe_debt = total_debt if total_debt is not None else 0
-    equity_value = total_enterprise_value + safe_cash - safe_debt
-
-    # Apply share buyback: shares shrink each year, boosting per-share value
+    # Effective Shares (Buyback)
     effective_shares = shares_outstanding * ((1 - buyback_rate) ** years)
-    if effective_shares <= 0:
-        effective_shares = shares_outstanding
+    if effective_shares <= 0: effective_shares = shares_outstanding
 
-    implied_value_per_share = equity_value / effective_shares
+    def finalize_valuation(pv_tv):
+        ev = sum_pv_cf + pv_tv
+        equity = ev + (total_cash or 0) - (total_debt or 0)
+        return {
+            "enterprise_value": ev,
+            "equity_value": equity,
+            "fair_value": equity / effective_shares,
+            "terminal_value": pv_tv * ((1 + wacc) ** years), # Original TV
+            "pv_terminal_value": pv_tv
+        }
+
+    perp_res = finalize_valuation(pv_tv_perp)
+    exit_res = finalize_valuation(pv_tv_exit)
 
     return {
-        "fair_value": implied_value_per_share,
+        "discount_rate_applied": wacc,
         "fcf_years": cash_flows,
         "pv_fcf_years": pv_cash_flows_list,
-        "terminal_value": terminal_value,
-        "pv_terminal_value": pv_terminal_value,
-        "sum_pv_cf": sum_pv_cf,
-        "enterprise_value": total_enterprise_value,
-        "total_cash": safe_cash,
-        "total_debt": safe_debt,
-        "equity_value": equity_value,
+        "total_pv_of_fcfs": sum_pv_cf,
+        "dcf_perpetual": perp_res,
+        "dcf_exit_multiple": exit_res,
         "effective_shares": effective_shares,
         "buyback_rate_applied": buyback_rate
     }
     
-def calculate_dcf_sensitivity(fcf: float, growth_rate: float, shares_outstanding: int, total_cash: float = 0, total_debt: float = 0, years: int = 5, base_discount: float = 0.09, base_perp: float = 0.02):
+def calculate_dcf_sensitivity(fcf: float, growth_rate: float, shares_outstanding: int, total_cash: float = 0, total_debt: float = 0, years: int = 5, base_discount: float = 0.09, base_perp: float = 0.02, exit_multiple: float = 15.0):
     """
-    Calculates a 3x3 matrix of DCF fair values for +/- 1% WACC and +/- 0.5% Perpetual Growth.
+    Calculates a 3x3 matrix for Perpetual Growth scenario.
     """
     if not all([fcf, shares_outstanding]):
         return None
@@ -124,59 +127,44 @@ def calculate_dcf_sensitivity(fcf: float, growth_rate: float, shares_outstanding
     perps = [base_perp - 0.005, base_perp, base_perp + 0.005]
     
     matrix = []
-    
     for d in discounts:
         row = {"discount_rate": d, "values": []}
         for p in perps:
-            res = calculate_dcf(fcf, growth_rate, d, p, shares_outstanding, total_cash, total_debt, years)
-            val = res.get("fair_value") if res else None
+            res = calculate_dcf(fcf, growth_rate, d, p, shares_outstanding, total_cash, total_debt, years, exit_multiple=exit_multiple)
+            val = res.get("dcf_perpetual", {}).get("fair_value") if res else None
             row["values"].append({"perpetual_growth": p, "fair_value": val})
         matrix.append(row)
-        
     return matrix
 
-def calculate_reverse_dcf(current_price: float, current_fcf: float, discount_rate: float, perpetual_growth: float, shares_outstanding: int, total_cash: float = 0, total_debt: float = 0, years: int = 5):
+def calculate_reverse_dcf(current_price: float, current_fcf: float, discount_rate: float, perpetual_growth: float, shares_outstanding: int, total_cash: float = 0, total_debt: float = 0, years: int = 5, exit_multiple: float = 15.0):
     """
-    Finds the implied growth rate that makes the Calculated EV equal to the Target EV.
-    Target EV = (Current Price * Shares Outstanding) - Cash + Debt
-    Uses binary search algorithm.
+    Finds implied growth for Perpetual Growth scenario.
     """
     if not all([current_price, current_fcf, shares_outstanding]):
         return None
         
     market_cap = current_price * shares_outstanding
-    # Bridge to EV safely
-    safe_cash = total_cash if total_cash is not None else 0
-    safe_debt = total_debt if total_debt is not None else 0
+    target_ev = market_cap - (total_cash or 0) + (total_debt or 0)
     
-    # Target EV = Market Cap - Cash + Total Debt (per user's equation)
-    target_ev = market_cap - safe_cash + safe_debt
-    
-    if target_ev <= 0:
-        return None
+    if target_ev <= 0: return None
         
-    low = -0.20 # -20% growth bounds
-    high = 0.50 # +50% growth bounds
-    
+    low, high = -0.20, 0.50
     implied_growth = None
     
-    for _ in range(50):
+    for _ in range(30):
         mid = (low + high) / 2
-        res = calculate_dcf(current_fcf, mid, discount_rate, perpetual_growth, shares_outstanding, total_cash, total_debt, years)
-        if not res or res.get("enterprise_value") is None:
-            return None
+        res = calculate_dcf(current_fcf, mid, discount_rate, perpetual_growth, shares_outstanding, total_cash, total_debt, years, exit_multiple=exit_multiple)
+        if not res: return None
             
-        calc_ev = res.get("enterprise_value")
-        
-        # Check margin of error < 0.1%
+        calc_ev = res.get("dcf_perpetual", {}).get("enterprise_value")
+        if not calc_ev: return None
+
         if abs(calc_ev - target_ev) / target_ev < 0.001:
             implied_growth = mid
             break
             
-        if calc_ev > target_ev:
-            high = mid
-        else:
-            low = mid
+        if calc_ev > target_ev: high = mid
+        else: low = mid
             
     return implied_growth if implied_growth is not None else (low + high) / 2
 import statistics
