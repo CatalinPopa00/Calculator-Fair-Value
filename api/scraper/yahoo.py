@@ -1021,7 +1021,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             "historic_eps_growth": historic_eps_growth,
             "historic_fcf_growth": historic_fcf_growth,
             "historic_buyback_rate": historic_buyback_rate,
-            "historic_pe": info.get('trailingPE'),
+            "pe_historic": info.get('trailingPE'),
             "historical_data": historical_data,
             "historical_trends": historical_trends,
             "business_summary": info.get('longBusinessSummary', 'N/A')[:200] + "...",

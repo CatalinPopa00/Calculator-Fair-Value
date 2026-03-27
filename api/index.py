@@ -30,7 +30,7 @@ app = FastAPI(title="Fair Value Calculator API")
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v24" # Scraper Stability + Watchlist Fix (v24)
+CACHE_VERSION = "v25" # DCF Breakdown + PE Sync Fix (v25)
 
 app.add_middleware(
     CORSMiddleware,
@@ -439,12 +439,17 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
                 }
 
             return {
-                "projected_fcfs": [sanitize(x) for x in res.get("fcf_years", [])],
+                "fcf_projections": [sanitize(x) for x in res.get("fcf_years", [])],
                 "pv_fcf_years": [sanitize(x) for x in res.get("pv_fcf_years", [])],
-                "total_pv_of_fcfs": sanitize(res.get("total_pv_of_fcfs")),
-                "discount_rate_applied": sanitize(res.get("discount_rate_applied") * 100),
+                "present_value_fcf_sum": sanitize(res.get("total_pv_of_fcfs")),
+                "discount_rate": sanitize(res.get("discount_rate_applied")),
+                "perpetual_growth_rate": perpetual_growth,
+                "exit_multiple": 15.0, # Default or from model
                 "dcf_perpetual": _fmt_branch(res.get("dcf_perpetual")),
                 "dcf_exit_multiple": _fmt_branch(res.get("dcf_exit_multiple")),
+                "terminal_value": sanitize(res.get("dcf_perpetual", {}).get("terminal_value")), # Shortcut for UI
+                "present_value_terminal": sanitize(res.get("dcf_perpetual", {}).get("pv_terminal_value")), # Shortcut for UI
+                "fair_value_per_share": sanitize(res.get("dcf_perpetual", {}).get("fair_value")), # Shortcut for UI
                 "sensitivity_matrix": [
                     {
                         "discount_rate": sanitize(row["discount_rate"]),
