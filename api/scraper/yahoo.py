@@ -17,6 +17,19 @@ USER_AGENTS = [
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
 ]
 
+def normalize_growth(val):
+    """Ensure growth rate is a decimal (e.g., 0.05 for 5%) even if source gives 5.0"""
+    if val is None: return None
+    try:
+        f_val = float(val)
+        # If absolute value > 1.0 (e.g. 7.56 or 756), it's likely a percentage
+        # Unless it's truly massive (756x growth), but for financial metrics > 2.0 (200%) usually needs correction
+        if abs(f_val) > 2.0:
+            return f_val / 100.0
+        return f_val
+    except:
+        return None
+
 def get_random_agent():
     return random.choice(USER_AGENTS)
 
@@ -1018,9 +1031,14 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             "dividend_cagr_5y": dividend_cagr_5y,
             "payout_ratio": payout_ratio,
             "insider_ownership": info.get('heldPercentInsiders'),
-            "historic_eps_growth": historic_eps_growth,
-            "historic_fcf_growth": historic_fcf_growth,
-            "historic_buyback_rate": historic_buyback_rate,
+            "eps_growth": normalize_growth(eps_growth),
+            "eps_growth_3y": normalize_growth(historic_eps_growth_3y),
+            "eps_growth_5y": normalize_growth(historic_eps_growth_5y),
+            "eps_growth_5y_consensus": normalize_growth(eps_growth_5y_consensus),
+            "eps_growth_nasdaq_3y": normalize_growth(nasdaq_growth_3y),
+            "historic_eps_growth": normalize_growth(historic_eps_growth),
+            "historic_fcf_growth": normalize_growth(historic_fcf_growth),
+            "historic_buyback_rate": normalize_growth(historic_buyback_rate),
             "pe_historic": info.get('trailingPE'),
             "historical_data": historical_data,
             "historical_trends": historical_trends,
