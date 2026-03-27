@@ -926,7 +926,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         except Exception as e_proj:
             print(f"Error adding projections: {e_proj}")
 
-        # Final return object (Diagnostic-Rich v17)
+        # Final return object (Diagnostic-Rich v22)
         return {
             "ticker": ticker_symbol.upper(),
             "name": name,
@@ -940,22 +940,44 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             "pe_ratio": pe_ratio,
             "forward_pe": forward_pe,
             "ps_ratio": ps_ratio,
+            "fwd_ps": fwd_ps,
             "eps_growth": eps_growth,
             "fcf": fcf,
+            "fcf_history": fcf_history,
+            "operating_cashflow": operating_cashflow,
             "market_cap": market_cap,
             "shares_outstanding": shares_outstanding,
             "total_cash": total_cash,
             "total_debt": total_debt,
             "debt_to_equity": debt_to_equity,
+            "current_ratio": current_ratio,
+            "roic": roic,
+            "roe": roe,
+            "roa": roa,
+            "interest_coverage": interest_coverage,
+            "price_to_book": price_to_book,
             "revenue": revenue,
-            "operating_margin": info.get('operatingMargins'),
+            "revenue_growth": revenue_growth_val,
+            "earnings_growth": earnings_growth_val,
+            "next_3y_rev_est": next_3y_rev_est,
+            "operating_margin": ebit_margin or info.get('operatingMargins'),
+            "ebit_margin": ebit_margin,
             "net_margin": info.get('profitMargins'),
             "dividend_yield": dividend_yield,
             "dividend_rate": dividend_rate,
+            "dividend_streak": dividend_streak,
+            "dividend_cagr_5y": dividend_cagr_5y,
+            "payout_ratio": payout_ratio,
+            "insider_ownership": info.get('heldPercentInsiders'),
+            "historic_eps_growth": historic_eps_growth,
+            "historic_fcf_growth": historic_fcf_growth,
+            "historic_buyback_rate": historic_buyback_rate,
+            "historic_pe": info.get('trailingPE'),
             "historical_data": historical_data,
             "historical_trends": historical_trends,
             "business_summary": info.get('longBusinessSummary', 'N/A')[:200] + "...",
-            "next_earnings_date": None
+            "next_earnings_date": None,
+            "red_flags": red_flags
         }
     except Exception as e:
         print(f"Global Error for {ticker_symbol}: {e}")
