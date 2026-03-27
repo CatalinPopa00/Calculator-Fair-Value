@@ -666,6 +666,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const updateFairValue = () => {
             if (!currentFormulaData || !globalData) return;
             const prof = globalData.company_profile;
+            const dcfCardMos = document.getElementById('dcf-card-mos');
 
             let dcfVal = null;
             if (currentFormulaData.dcf) {
