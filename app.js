@@ -636,11 +636,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 if (globalData.current_price < pegVal) {
-                    statusElem.textContent = `Undervalued`;
-                    statusElem.style.color = 'var(--accent)';
+                    pegStatusElem.textContent = `Undervalued`;
+                    pegStatusElem.style.color = 'var(--accent)';
                 } else {
-                    statusElem.textContent = `Overvalued`;
-                    statusElem.style.color = 'var(--danger)';
+                    pegStatusElem.textContent = `Overvalued`;
+                    pegStatusElem.style.color = 'var(--danger)';
                 }
             } else {
                 pegStatusElem.textContent = "N/A";
