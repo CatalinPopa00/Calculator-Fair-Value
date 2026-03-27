@@ -30,7 +30,7 @@ app = FastAPI(title="Fair Value Calculator API")
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v29" # DCF Mapping Fix + Peer Growth + CAGR Damping (v29)
+CACHE_VERSION = "v30" # DCF Nested Key Fix (v30)
 
 app.add_middleware(
     CORSMiddleware,
@@ -430,26 +430,33 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
             sens = dcf_dict["sensitivity"]
             rev = dcf_dict["reverse_dcf"]
             
-            def _fmt_branch(branch):
-                return {
-                    "terminal_value": sanitize(branch.get("terminal_value")),
-                    "pv_of_tv": sanitize(branch.get("pv_terminal_value")),
-                    "fair_value_per_share": sanitize(branch.get("fair_value")),
-                    "margin_of_safety_pct": sanitize(((branch.get("fair_value") - current_price) / current_price * 100)) if branch.get("fair_value") and current_price > 0 else 0
-                }
-
-            return {
+            # Shared fields across branches
+            shared = {
                 "fcf_projections": [sanitize(x) for x in res.get("fcf_years", [])],
                 "pv_fcf_years": [sanitize(x) for x in res.get("pv_fcf_years", [])],
                 "present_value_fcf_sum": sanitize(res.get("total_pv_of_fcfs")),
                 "discount_rate": sanitize(res.get("discount_rate_applied")),
                 "perpetual_growth_rate": perpetual_growth,
-                "exit_multiple": 15.0, # Default or from model
-                "dcf_perpetual": _fmt_branch(res.get("dcf_perpetual")),
-                "dcf_exit_multiple": _fmt_branch(res.get("dcf_exit_multiple")),
-                "terminal_value": sanitize(res.get("dcf_perpetual", {}).get("terminal_value")), # Shortcut for UI
-                "present_value_terminal": sanitize(res.get("dcf_perpetual", {}).get("pv_terminal_value")), # Shortcut for UI
-                "fair_value_per_share": sanitize(res.get("dcf_perpetual", {}).get("fair_value")), # Shortcut for UI
+                "exit_multiple": 15.0 # Default
+            }
+
+            def _fmt_branch(branch):
+                if not branch: return None
+                return {
+                    "terminal_value": sanitize(branch.get("terminal_value")),
+                    "present_value_terminal": sanitize(branch.get("pv_terminal_value")),
+                    "fair_value_per_share": sanitize(branch.get("fair_value")),
+                    "margin_of_safety_pct": sanitize(((branch.get("fair_value") - current_price) / current_price * 100)) if branch.get("fair_value") and current_price > 0 else 0,
+                    **shared
+                }
+
+            per_branch = _fmt_branch(res.get("dcf_perpetual"))
+            ext_branch = _fmt_branch(res.get("dcf_exit_multiple"))
+
+            return {
+                **shared,
+                "dcf_perpetual": per_branch,
+                "dcf_exit_multiple": ext_branch,
                 "sensitivity_matrix": [
                     {
                         "discount_rate": sanitize(row["discount_rate"]),

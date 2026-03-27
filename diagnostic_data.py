@@ -4,6 +4,7 @@ import json
 import urllib.request
 import os
 import pandas as pd
+from api.scraper.yahoo import get_company_data
 
 def get_random_agent():
     return "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
@@ -33,13 +34,14 @@ def test_yahoo(ticker):
         
         # Test financial data directly without futures for diagnosis
         fin = stock.financials
-        print(f"Financials empty? {fin.empty if fin is not None else 'None'}")
-        if fin is not None and not fin.empty:
-            print(f"Found 'EBIT'? {'EBIT' in fin.index}")
-            print(f"Found 'Total Revenue'? {'Total Revenue' in fin.index}")
-        
-        cf = stock.cashflow
-        print(f"Cashflow empty? {cf.empty if cf is not None else 'None'}")
+        data = get_company_data(ticker)
+        print(f"Yahoo Name: {data.get('name')}")
+        print(f"FCF: {data.get('fcf')}")
+        print(f"Financials empty? {data.get('financials_empty', 'Unknown')}")
+        print(f"Found 'EBIT'? {data.get('ebit_margin') is not None}")
+        print(f"Found 'Total Revenue'? {data.get('revenue') is not None}")
+        print(f"Cashflow empty? {data.get('cashflow_empty', 'Unknown')}")
+        cf = stock.cashflow # Re-initialize cf for the original check if needed, or remove
         if cf is not None and not cf.empty:
             print(f"Found 'Free Cash Flow'? {'Free Cash Flow' in cf.index}")
             
@@ -47,6 +49,6 @@ def test_yahoo(ticker):
         print(f"Yahoo Error: {e}")
 
 if __name__ == "__main__":
-    for t in ["IBKR", "AAPL"]:
+    for t in ["IBKR"]:
         test_nasdaq(t)
         test_yahoo(t)
