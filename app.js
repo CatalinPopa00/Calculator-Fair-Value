@@ -111,6 +111,119 @@ document.addEventListener('DOMContentLoaded', () => {
         return w;
     };
 
+    // UPDATED: Sync both MOS and PEG to the Score Breakdown dynamically (moved to top-level)
+    const updateInsightsAndScores = (newMos, newPeg) => {
+        if (!currentBuyBreakdown || !globalData) return;
+
+        // Update Margin of Safety
+        let mosItem = currentBuyBreakdown.find(i => i.name.includes("Margin of Safety"));
+        if (mosItem) {
+            let pts = 0;
+            let mos_str = "N/A";
+            if (newMos != null) {
+                mos_str = `${newMos.toFixed(1)}%`;
+                if (newMos > 30.0) pts = 30;
+                else if (newMos >= 15.0) pts = 20;
+                else if (newMos >= 0.0) pts = 10;
+            }
+
+            if (typeof globalData.buy_score === 'number') {
+                globalData.buy_score = globalData.buy_score - mosItem.points + pts;
+            }
+
+            mosItem.points = pts;
+            mosItem.value = mos_str;
+        }
+
+        // Update Custom PEG
+        let pegItem = currentBuyBreakdown.find(i => i.name.includes("PEG Ratio"));
+        if (pegItem && newPeg != null) {
+            let pts = 0;
+            let peg_str = `${newPeg.toFixed(2)}x`;
+            
+            let max_p = pegItem.max_points || 20; 
+            if (newPeg <= 1.0 && newPeg > 0) pts = max_p;
+            else if (newPeg <= 1.5 && newPeg > 0) pts = Math.floor(max_p / 2);
+            
+            if (typeof globalData.buy_score === 'number') {
+                globalData.buy_score = globalData.buy_score - pegItem.points + pts;
+            }
+            
+            pegItem.points = pts;
+            pegItem.value = peg_str;
+        }
+
+        if (typeof globalData.buy_score === 'number') {
+            updateScoreUI(globalData.buy_score, 'buy-score-circle', 'buy-score-fill');
+        }
+
+        const allMetrics = [...(currentHealthBreakdown || []), ...(currentBuyBreakdown || [])];
+        const strengths = allMetrics.filter(m => m.points === m.max_points && m.max_points > 0);
+        strengths.sort((a, b) => b.max_points - a.max_points);
+        const topStrengths = strengths.slice(0, 3);
+
+        const risks = allMetrics.filter(m => m.points === 0 || (m.max_points > 0 && m.points <= (m.max_points / 3)));
+        risks.sort((a, b) => (a.points / a.max_points) - (b.points / b.max_points));
+        const topRisks = risks.slice(0, 3);
+
+        const strengthsList = document.getElementById('top-strengths-list');
+        if (strengthsList) {
+            strengthsList.innerHTML = '';
+            if (topStrengths.length > 0) {
+                topStrengths.forEach(s => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `<strong>${s.name.split(' (')[0]}:</strong> ${s.value}`;
+                    strengthsList.appendChild(li);
+                });
+            } else {
+                strengthsList.innerHTML = '<li>No major strengths detected.</li>';
+            }
+        }
+
+        const risksList = document.getElementById('risk-factors-list');
+        if (risksList) {
+            risksList.innerHTML = '';
+            if (topRisks.length > 0) {
+                topRisks.forEach(r => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `<strong>${r.name.split(' (')[0]}:</strong> ${r.value}`;
+                    risksList.appendChild(li);
+                });
+            } else {
+                risksList.innerHTML = '<li>No critical risks detected.</li>';
+            }
+        }
+    };
+
+    const calcLocalDcf = (fcf, growth, wacc, perp, shares, cash, debt, buybackRate = 0, years = 5, exitMult = 15.0) => {
+        if (!fcf || !shares || shares <= 0) return null;
+        
+        // WACC Smart Cap
+        const finalWacc = Math.max(0.07, Math.min(wacc, 0.105));
+        
+        let pv = 0;
+        let f = fcf;
+        for (let i = 1; i <= years; i++) {
+            f *= (1 + growth);
+            pv += f / Math.pow(1 + finalWacc, i);
+        }
+        
+        const method = document.getElementById('dcf-method-selector')?.value || 'perpetual';
+        let tv = 0;
+        if (method === 'perpetual') {
+            tv = (f * (1 + perp)) / (finalWacc - perp);
+        } else {
+            tv = f * exitMult;
+        }
+        
+        const pvTv = tv / Math.pow(1 + finalWacc, years);
+        const ev = pv + pvTv;
+        const eqVal = ev + (cash || 0) - (debt || 0);
+        if (eqVal <= 0) return null;
+        const effectiveShares = shares * Math.pow(1 - (buybackRate || 0), years);
+        return eqVal / (effectiveShares > 0 ? effectiveShares : shares);
+    };
+
     // Data elements
     const elements = {
         name: document.getElementById('company-name'),
@@ -316,6 +429,397 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.style.overflow = 'hidden';
     };
 
+    const setValuationStatus = (value, price, statusElemId, valueElemId) => {
+        const statusElem = document.getElementById(statusElemId);
+        const valueElem = document.getElementById(valueElemId);
+
+        if (value == null || price == null) {
+            if (statusElem) {
+                statusElem.textContent = "N/A";
+                statusElem.style.color = "var(--text-muted)";
+            }
+            if (valueElem) valueElem.textContent = "N/A";
+            return;
+        }
+
+        if (!valueElem || !statusElem) return;
+
+        valueElem.textContent = formatCurrency(value);
+
+        const diffPct = (value - price) / price;
+        if (diffPct >= 0.05) {
+            statusElem.textContent = "Undervalued";
+            statusElem.style.color = "var(--accent)";
+        } else if (diffPct <= -0.05) {
+            statusElem.textContent = "Overvalued";
+            statusElem.style.color = "var(--danger)";
+        } else {
+            statusElem.textContent = "Fair Valued";
+            statusElem.style.color = "#fbbf24";
+        }
+    };
+
+    const updateScoreUI = (scoreVal, circleId, fillId) => {
+        const circle = document.getElementById(circleId);
+        const fill = document.getElementById(fillId);
+        if (!circle || !fill) return;
+
+        circle.className = 'score-circle';
+        fill.className = 'score-bar-fill';
+        circle.style.color = '';
+        fill.style.backgroundColor = '';
+        fill.style.width = '0%';
+
+        if (scoreVal === "N/A" || scoreVal == null) {
+            circle.textContent = "N/A";
+            circle.style.color = "var(--text-muted)";
+            fill.style.backgroundColor = "var(--text-muted)";
+            return;
+        }
+
+        circle.textContent = scoreVal;
+        setTimeout(() => {
+            fill.style.width = `${scoreVal}%`;
+        }, 50);
+
+        if (scoreVal >= 76) {
+            circle.classList.add('score-green');
+            fill.classList.add('bg-score-green');
+        } else if (scoreVal >= 41) {
+            circle.classList.add('score-yellow');
+            fill.classList.add('bg-score-yellow');
+        } else {
+            circle.classList.add('score-red');
+            fill.classList.add('bg-score-red');
+        }
+    };
+
+    const updateFairValue = () => {
+        if (!currentFormulaData || !globalData) return;
+        const prof = globalData.company_profile;
+        const dcfCardMos = document.getElementById('dcf-card-mos');
+
+        let dcfVal = null;
+        if (currentFormulaData.dcf) {
+            const fcfSourceEl = document.getElementById('fcf-source');
+            const fcfSource = fcfSourceEl ? fcfSourceEl.value : 'analyst';
+            const yearsSourceEl = document.getElementById('dcf-years-source');
+            const yearsVal = yearsSourceEl ? yearsSourceEl.value : '5yr';
+            const years = yearsVal === '10yr' ? 10 : 5;
+            const dcfData = currentFormulaData.dcf[yearsVal] || currentFormulaData.dcf["5yr"];
+            
+            const dcfInputs = document.getElementById('dcf-custom-inputs');
+            if (dcfInputs) dcfInputs.style.display = fcfSource === 'custom' ? 'flex' : 'none';
+
+            const buybackEl = document.getElementById('dcf-buyback-source');
+            const buybackSrc = buybackEl ? buybackEl.value : 'none';
+            const buybackCustomInputs = document.getElementById('dcf-buyback-custom-inputs');
+            if (buybackCustomInputs) buybackCustomInputs.style.display = buybackSrc === 'custom' ? 'flex' : 'none';
+
+            let buybackRate = 0;
+            if (buybackSrc === 'historical') {
+                buybackRate = currentFormulaData.dcf.historic_buyback_rate || 0;
+            } else if (buybackSrc === 'custom') {
+                const rawVal = document.getElementById('dcf-custom-buyback').value;
+                buybackRate = (rawVal === '' || isNaN(parseFloat(rawVal))) ? 0 : parseFloat(rawVal) / 100;
+            }
+
+            const baseFcf = currentFormulaData.dcf.fcf;
+            const shares = prof.shares_outstanding;
+            
+            // Dynamic WACC and Perpetual Growth from backend
+            const w = currentFormulaData.dcf.discount_rate || 0.09;
+            const p = currentFormulaData.dcf.perpetual_growth || 0.02;
+
+            if (fcfSource === 'analyst') {
+                const waccInput = document.getElementById('dcf-custom-wacc');
+                const backendWacc = currentFormulaData.dcf.discount_rate_applied / 100;
+                
+                if (buybackRate === 0 && (!waccInput || !waccInput.value) && fcfSource !== 'custom') {
+                    const method = document.getElementById('dcf-method-selector')?.value || 'perpetual';
+                    const branch = method === 'multiple' ? dcfData.dcf_exit_multiple : dcfData.dcf_perpetual;
+                    dcfVal = branch ? branch.fair_value_per_share : null;
+                } else {
+                    const g = currentFormulaData.dcf.eps_growth_estimated || 0.10;
+                    const wAnalyst = (waccInput && waccInput.value) ? parseFloat(waccInput.value)/100 : w;
+                    const em = parseFloat(document.getElementById('input-exit-multiple')?.value) || 15.0;
+                    dcfVal = calcLocalDcf(baseFcf, g, wAnalyst, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
+                }
+            } else if (fcfSource === 'historical') {
+                const hg = prof.historic_fcf_growth != null ? prof.historic_fcf_growth : 0.05;
+                const em = parseFloat(document.getElementById('input-exit-multiple')?.value) || 15.0;
+                dcfVal = calcLocalDcf(baseFcf, hg, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
+            } else if (fcfSource === 'eps_growth') {
+                const g = currentFormulaData.dcf.eps_growth_estimated || 0.10;
+                const em = parseFloat(document.getElementById('input-exit-multiple')?.value) || 15.0;
+                dcfVal = calcLocalDcf(baseFcf, g, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
+            } else if (fcfSource === 'custom') {
+                const gRaw = document.getElementById('dcf-custom-growth').value;
+                const wRaw = document.getElementById('dcf-custom-wacc').value;
+                const pRaw = document.getElementById('dcf-custom-perp').value;
+                const emRaw = document.getElementById('input-exit-multiple').value;
+                
+                const g = (gRaw === '' || isNaN(parseFloat(gRaw))) ? 0.15 : parseFloat(gRaw) / 100;
+                const wCustom = (wRaw === '' || isNaN(parseFloat(wRaw))) ? 0.09 : parseFloat(wRaw) / 100;
+                const pCustom = (pRaw === '' || isNaN(parseFloat(pRaw))) ? 0.025 : parseFloat(pRaw) / 100;
+                const em = (emRaw === '' || isNaN(parseFloat(emRaw))) ? 15.0 : parseFloat(emRaw);
+                
+                dcfVal = calcLocalDcf(baseFcf, g, wCustom, pCustom, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
+            }
+        }
+        setValuationStatus(dcfVal, globalData.current_price, 'dcf-status', 'dcf-value');
+        
+        if (dcfVal != null && dcfCardMos) {
+            const currentDcfMos = ((dcfVal - globalData.current_price) / globalData.current_price) * 100;
+            dcfCardMos.textContent = `MOS: ${formatPercent(currentDcfMos)}`;
+            dcfCardMos.style.color = currentDcfMos > 0 ? 'var(--accent)' : 'var(--danger)';
+        }
+
+        let pegVal = null;
+        let pegMos = null;
+        let usedGrowth = 0;
+        let currentPegToDisplay = null;
+
+        if (currentFormulaData.peg) {
+            const pegSrcEl = document.getElementById('peg-eps-source');
+            const pegSrc = pegSrcEl ? pegSrcEl.value : 'analyst';
+            const pegInputs = document.getElementById('peg-custom-inputs');
+            if (pegInputs) pegInputs.style.display = pegSrc === 'custom' ? 'flex' : 'none';
+
+            usedGrowth = currentFormulaData.peg.eps_growth_estimated || 0;
+            if (pegSrc === 'custom') {
+                const rawG = document.getElementById('peg-custom-growth').value;
+                usedGrowth = (rawG === '' || isNaN(parseFloat(rawG))) ? 0.20 : parseFloat(rawG) / 100;
+            }
+
+            const currentPe = currentFormulaData.peg.current_pe || (parseFloat(globalData.company_profile.trailing_pe) || 0);
+            const industryPeg = currentFormulaData.peg.industry_peg;
+
+            if (usedGrowth > 0 && currentPe > 0 && industryPeg != null && industryPeg > 0) {
+                currentPegToDisplay = currentPe / (usedGrowth * 100);
+                pegVal = globalData.current_price * (industryPeg / currentPegToDisplay);
+                pegMos = ((pegVal - globalData.current_price) / pegVal) * 100;
+            } else if (pegSrc === 'analyst') {
+                pegVal = currentFormulaData.peg.fair_value;
+                pegMos = currentFormulaData.peg.margin_of_safety;
+                currentPegToDisplay = currentFormulaData.peg.current_peg;
+            }
+        }
+        
+        const pegValueElem = document.getElementById('peg-value');
+        if (pegValueElem) {
+            pegValueElem.textContent = pegVal != null ? formatCurrency(pegVal) : 'N/A';
+            pegValueElem.style.color = pegVal != null ? 'var(--accent)' : 'var(--text-muted)';
+        }
+        
+        const pegStatusElem = document.getElementById('peg-status');
+        const pegCompareElem = document.getElementById('peg-compare');
+        
+        if (pegStatusElem && pegCompareElem) {
+            const industryPeg = currentFormulaData.peg ? currentFormulaData.peg.industry_peg : null;
+
+            if (pegVal != null && industryPeg != null && currentPegToDisplay != null) {
+                const sectorPegDisplay = industryPeg.toFixed(2);
+                pegCompareElem.textContent = `PEG = ${currentPegToDisplay.toFixed(2)} vs PEG Sector = ${sectorPegDisplay}`;
+                
+                if (pegMos != null) {
+                    const mosText = `${pegMos > 0 ? '+' : ''}${pegMos.toFixed(2)}% Margin of Safety`;
+                    pegCompareElem.innerHTML += `<br><span style="color: ${pegMos > 0 ? 'var(--accent)' : 'var(--danger)'}; font-weight: 600;">${mosText}</span>`;
+                    
+                    // Also sync to the new card-mos element for consistency with other cards
+                    const pegCardMos = document.getElementById('peg-card-mos');
+                    if (pegCardMos) {
+                        pegCardMos.textContent = `MOS: ${formatPercent(pegMos)}`;
+                        pegCardMos.style.color = pegMos > 0 ? 'var(--accent)' : 'var(--danger)';
+                        pegCardMos.style.display = 'block';
+                    }
+                }
+
+                if (globalData.current_price < pegVal) {
+                    statusElem.textContent = `Undervalued`;
+                    statusElem.style.color = 'var(--accent)';
+                } else {
+                    statusElem.textContent = `Overvalued`;
+                    statusElem.style.color = 'var(--danger)';
+                }
+            } else {
+                pegStatusElem.textContent = "N/A";
+                pegStatusElem.style.color = "var(--text-muted)";
+                pegCompareElem.textContent = industryPeg == null ? "Sector data unavailable" : "PEG calculation data missing";
+            }
+        }
+
+        let lynchVal = null;
+        if (currentFormulaData.peter_lynch) {
+            const pl = currentFormulaData.peter_lynch;
+            const epsSourceEl = document.getElementById('lynch-eps-source');
+            const epsSource = epsSourceEl ? epsSourceEl.value : 'analyst';
+            const lynchInputs = document.getElementById('lynch-custom-inputs');
+            if (lynchInputs) lynchInputs.style.display = epsSource === 'custom' ? 'flex' : 'none';
+
+            let usedGrowth = pl.eps_growth_estimated || 0.05;
+            let targetEps = (pl.trailing_eps || 0) * Math.pow(1 + usedGrowth, 3);
+
+            if (epsSource === 'historical') {
+                usedGrowth = prof.historic_eps_growth != null ? prof.historic_eps_growth : 0.05;
+                targetEps = (pl.trailing_eps || 0) * Math.pow(1 + usedGrowth, 3);
+            } else if (epsSource === 'custom') {
+                const rawG = document.getElementById('lynch-custom-growth').value;
+                usedGrowth = (rawG === '' || isNaN(parseFloat(rawG))) ? 0.20 : parseFloat(rawG) / 100;
+                targetEps = (pl.trailing_eps || 0) * Math.pow(1 + usedGrowth, 3);
+            }
+
+            const multEl = document.getElementById('lynch-multiple');
+            const multVal = multEl ? multEl.value : 'PE 20';
+            const multCustomInputs = document.getElementById('lynch-custom-multiple-inputs');
+            if (multCustomInputs) multCustomInputs.style.display = multVal === 'custom' ? 'flex' : 'none';
+
+            let selectedMult = 20; 
+            if (multVal === 'PE 15') selectedMult = 15;
+            if (multVal === 'PE 20') selectedMult = 20;
+            if (multVal === 'PE 25') selectedMult = 25;
+            if (multVal === 'historic') selectedMult = pl.historic_pe || 20;
+            if (multVal === 'custom') {
+                selectedMult = parseFloat(document.getElementById('lynch-custom-mult').value) || 18;
+            }
+
+            if (targetEps != null && targetEps > 0) {
+                lynchVal = targetEps * selectedMult;
+            }
+            
+            // Keep the global data updated with what we are currently viewing
+            // so Watchlist extraction pulls the currently viewed value instead of default
+            if(lynchVal != null) {
+                currentFormulaData.peter_lynch.fair_value_pe_20 = lynchVal; 
+            }
+        }
+
+        setValuationStatus(lynchVal, globalData.current_price, 'lynch-status', 'lynch-fair-value');
+        
+        const lynchCardMos = document.getElementById('lynch-card-mos');
+        if (lynchCardMos && lynchVal != null) {
+            const lynchMos = ((lynchVal - globalData.current_price) / globalData.current_price) * 100;
+            lynchCardMos.textContent = `MOS: ${formatPercent(lynchMos)}`;
+            lynchCardMos.style.color = lynchMos > 0 ? 'var(--accent)' : 'var(--danger)';
+            lynchCardMos.style.display = 'block';
+        } else if (lynchCardMos) {
+            lynchCardMos.style.display = 'none';
+        }
+
+        let relVal = null;
+        const rel = currentFormulaData.relative;
+        if (rel) {
+            const fvMedian = (rel.median_peer_pe != null && rel.company_eps != null) ? rel.median_peer_pe * rel.company_eps : null;
+            const fvMean = (rel.mean_peer_pe != null && rel.company_eps != null) ? rel.mean_peer_pe * rel.company_eps : null;
+            const fvSP500 = (rel.market_pe_trailing != null && rel.company_eps != null) ? rel.market_pe_trailing * rel.company_eps : null;
+
+            const variantEl = document.getElementById('relative-variant');
+            const variant = variantEl ? variantEl.value : 'peers';
+
+            if (variant === 'peers') relVal = fvMedian;
+            else if (variant === 'average') relVal = fvMean;
+            else if (variant === 'sp500') relVal = fvSP500;
+
+            const mc = document.getElementById('relative-market-compare');
+            if (mc) {
+                const mpe = rel.market_pe_trailing != null ? rel.market_pe_trailing.toFixed(1) + 'x' : '--';
+                const peerMedianPe = rel.median_peer_pe != null ? rel.median_peer_pe.toFixed(1) + 'x' : '--';
+                const peerMeanPe = rel.mean_peer_pe != null ? rel.mean_peer_pe.toFixed(1) + 'x' : '--';
+
+                if (variant === 'peers') mc.textContent = `Peer Median P/E: ${peerMedianPe}`;
+                else if (variant === 'average') mc.textContent = `Peer Mean P/E: ${peerMeanPe}`;
+                else if (variant === 'sp500') mc.textContent = `S&P 500 Trailing P/E: ${mpe}`;
+            }
+        }
+        setValuationStatus(relVal, globalData.current_price, 'relative-status', 'relative-value');
+        
+        const relCardMos = document.getElementById('relative-card-mos');
+        if (relCardMos && relVal != null) {
+            const relMos = ((relVal - globalData.current_price) / globalData.current_price) * 100;
+            relCardMos.textContent = `MOS: ${formatPercent(relMos)}`;
+            relCardMos.style.color = relMos > 0 ? 'var(--accent)' : 'var(--danger)';
+            relCardMos.style.display = 'block';
+        } else if (relCardMos) {
+            relCardMos.style.display = 'none';
+        }
+        
+        // --- CALCULATE FINAL FAIR VALUE ---
+        const hasUserWeights = localStorage.getItem('fairValueWeights') !== null;
+        const modelsToggled = !document.getElementById('toggle-peter_lynch').checked || 
+                             !document.getElementById('toggle-peg').checked || 
+                             !document.getElementById('toggle-relative').checked || 
+                             !document.getElementById('toggle-dcf').checked;
+
+        let finalFv = globalData.fair_value;
+        let finalMos = globalData.margin_of_safety;
+
+        if (hasUserWeights || modelsToggled) {
+            let totalWeight = 0;
+            let weightedSum = 0;
+
+            const addVal = (val, isChecked, weightKey) => {
+                if (val != null && val > 0 && isChecked) {
+                    const w = customWeights[weightKey] || 0;
+                    totalWeight += w;
+                    weightedSum += (val * w);
+                }
+            };
+
+            addVal(lynchVal, document.getElementById('toggle-peter_lynch').checked, 'lynch');
+            addVal(pegVal, document.getElementById('toggle-peg').checked, 'peg');
+            addVal(relVal, document.getElementById('toggle-relative').checked, 'relative');
+            addVal(dcfVal, document.getElementById('toggle-dcf').checked, 'dcf');
+
+            if (totalWeight > 0) {
+                finalFv = weightedSum / totalWeight;
+                finalMos = ((finalFv - globalData.current_price) / globalData.current_price) * 100;
+            }
+        }
+
+        if (finalFv != null) {
+            elements.fairValue.textContent = formatCurrency(finalFv);
+            elements.marginSafety.textContent = `${formatPercent(finalMos)} Margin of Safety`;
+            elements.marginSafety.style.color = finalMos > 0 ? 'var(--accent)' : 'var(--danger)';
+            if (finalMos > 0) {
+                elements.marginSafety.style.background = 'rgba(16, 185, 129, 0.2)';
+            } else {
+                elements.marginSafety.style.background = 'rgba(239, 68, 68, 0.2)';
+            }
+            updateInsightsAndScores(finalMos, currentPegToDisplay);
+        } else {
+            elements.fairValue.textContent = 'N/A';
+            elements.marginSafety.textContent = 'Valuation not possible';
+            elements.marginSafety.style.color = 'var(--text-muted)';
+            elements.marginSafety.style.background = 'none';
+            updateInsightsAndScores(null, currentPegToDisplay);
+        }
+    };
+
+    window.triggerRecalculate = updateFairValue;
+
+    const inputSelectors = [
+        'fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple', 'dcf-custom-growth', 'dcf-custom-wacc', 'dcf-custom-perp',
+        'dcf-buyback-source', 'dcf-custom-buyback', 'relative-variant',
+        'lynch-multiple', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth',
+        'peg-eps-source', 'peg-custom-growth'
+    ];
+    const updateAndSave = () => {
+        updateFairValue();
+        saveOverridesDebounced(currentTicker);
+    };
+
+    inputSelectors.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            if (el.tagName === 'SELECT') el.onchange = updateAndSave;
+            else el.oninput = updateAndSave;
+        }
+    });
+
+    document.querySelectorAll('.valuation-toggle').forEach(toggle => {
+        toggle.onchange = updateAndSave;
+    });
+
     const analyzeTicker = async (queryParam) => {
         // Force flush any pending saves before clearing the DOM
         if (overrideSaveTimer && pendingOverrideTicker) {
@@ -440,36 +944,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         updateWatchlistButtonState();
 
-        const setValuationStatus = (value, price, statusElemId, valueElemId) => {
-            const statusElem = document.getElementById(statusElemId);
-            const valueElem = document.getElementById(valueElemId);
-
-            if (value == null || price == null) {
-                if (statusElem) {
-                    statusElem.textContent = "N/A";
-                    statusElem.style.color = "var(--text-muted)";
-                }
-                if (valueElem) valueElem.textContent = "N/A";
-                return;
-            }
-
-            if (!valueElem || !statusElem) return;
-
-            valueElem.textContent = formatCurrency(value);
-
-            const diffPct = (value - price) / price;
-            if (diffPct >= 0.05) {
-                statusElem.textContent = "Undervalued";
-                statusElem.style.color = "var(--accent)";
-            } else if (diffPct <= -0.05) {
-                statusElem.textContent = "Overvalued";
-                statusElem.style.color = "var(--danger)";
-            } else {
-                statusElem.textContent = "Fair Valued";
-                statusElem.style.color = "#fbbf24";
-            }
-        };
-        
         const dcfCardMosRow = document.getElementById('dcf-card-mos-row');
         const dcfCardPrice = document.getElementById('dcf-card-price');
         const dcfCardMos = document.getElementById('dcf-card-mos');
@@ -488,41 +962,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (dcfCardMosRow) {
             dcfCardMosRow.style.display = 'none';
         }
-
-        const updateScoreUI = (scoreVal, circleId, fillId) => {
-            const circle = document.getElementById(circleId);
-            const fill = document.getElementById(fillId);
-            if (!circle || !fill) return;
-
-            circle.className = 'score-circle';
-            fill.className = 'score-bar-fill';
-            circle.style.color = '';
-            fill.style.backgroundColor = '';
-            fill.style.width = '0%';
-
-            if (scoreVal === "N/A" || scoreVal == null) {
-                circle.textContent = "N/A";
-                circle.style.color = "var(--text-muted)";
-                fill.style.backgroundColor = "var(--text-muted)";
-                return;
-            }
-
-            circle.textContent = scoreVal;
-            setTimeout(() => {
-                fill.style.width = `${scoreVal}%`;
-            }, 50);
-
-            if (scoreVal >= 76) {
-                circle.classList.add('score-green');
-                fill.classList.add('bg-score-green');
-            } else if (scoreVal >= 41) {
-                circle.classList.add('score-yellow');
-                fill.classList.add('bg-score-yellow');
-            } else {
-                circle.classList.add('score-red');
-                fill.classList.add('bg-score-red');
-            }
-        };
 
         currentHealthBreakdown = data.health_breakdown;
         currentBuyBreakdown = data.buy_breakdown;
@@ -551,439 +990,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // UPDATED: Sync both MOS and PEG to the Score Breakdown dynamically
-        const updateInsightsAndScores = (newMos, newPeg) => {
-            if (!currentBuyBreakdown) return;
-
-            // Update Margin of Safety
-            let mosItem = currentBuyBreakdown.find(i => i.name.includes("Margin of Safety"));
-            if (mosItem) {
-                let pts = 0;
-                let mos_str = "N/A";
-                if (newMos != null) {
-                    mos_str = `${newMos.toFixed(1)}%`;
-                    if (newMos > 30.0) pts = 30;
-                    else if (newMos >= 15.0) pts = 20;
-                    else if (newMos >= 0.0) pts = 10;
-                }
-
-                if (typeof data.buy_score === 'number') {
-                    data.buy_score = data.buy_score - mosItem.points + pts;
-                }
-
-                mosItem.points = pts;
-                mosItem.value = mos_str;
-            }
-
-            // Update Custom PEG
-            let pegItem = currentBuyBreakdown.find(i => i.name.includes("PEG Ratio"));
-            if (pegItem && newPeg != null) {
-                let pts = 0;
-                let peg_str = `${newPeg.toFixed(2)}x`;
-                
-                let max_p = pegItem.max_points || 20; 
-                if (newPeg <= 1.0 && newPeg > 0) pts = max_p;
-                else if (newPeg <= 1.5 && newPeg > 0) pts = Math.floor(max_p / 2);
-                
-                if (typeof data.buy_score === 'number') {
-                    data.buy_score = data.buy_score - pegItem.points + pts;
-                }
-                
-                pegItem.points = pts;
-                pegItem.value = peg_str;
-            }
-
-            if (typeof data.buy_score === 'number') {
-                updateScoreUI(data.buy_score, 'buy-score-circle', 'buy-score-fill');
-            }
-
-            const allMetrics = [...(currentHealthBreakdown || []), ...(currentBuyBreakdown || [])];
-            const strengths = allMetrics.filter(m => m.points === m.max_points && m.max_points > 0);
-            strengths.sort((a, b) => b.max_points - a.max_points);
-            const topStrengths = strengths.slice(0, 3);
-
-            const risks = allMetrics.filter(m => m.points === 0 || (m.max_points > 0 && m.points <= (m.max_points / 3)));
-            risks.sort((a, b) => (a.points / a.max_points) - (b.points / b.max_points));
-            const topRisks = risks.slice(0, 3);
-
-            const strengthsList = document.getElementById('top-strengths-list');
-            if (strengthsList) {
-                strengthsList.innerHTML = '';
-                if (topStrengths.length > 0) {
-                    topStrengths.forEach(s => {
-                        const li = document.createElement('li');
-                        li.innerHTML = `<strong>${s.name.split(' (')[0]}:</strong> ${s.value}`;
-                        strengthsList.appendChild(li);
-                    });
-                } else {
-                    strengthsList.innerHTML = '<li>No major strengths detected.</li>';
-                }
-            }
-
-            const risksList = document.getElementById('risk-factors-list');
-            if (risksList) {
-                risksList.innerHTML = '';
-                if (topRisks.length > 0) {
-                    topRisks.forEach(r => {
-                        const li = document.createElement('li');
-                        li.innerHTML = `<strong>${r.name.split(' (')[0]}:</strong> ${r.value}`;
-                        risksList.appendChild(li);
-                    });
-                } else {
-                    risksList.innerHTML = '<li>No critical risks detected.</li>';
-                }
-            }
-        };
-
-        const calcLocalDcf = (fcf, growth, wacc, perp, shares, cash, debt, buybackRate = 0, years = 5, exitMult = 15.0) => {
-            if (!fcf || !shares || shares <= 0) return null;
-            
-            // WACC Smart Cap
-            const finalWacc = Math.max(0.07, Math.min(wacc, 0.105));
-            
-            let pv = 0;
-            let f = fcf;
-            for (let i = 1; i <= years; i++) {
-                f *= (1 + growth);
-                pv += f / Math.pow(1 + finalWacc, i);
-            }
-            
-            const method = document.getElementById('dcf-method-selector')?.value || 'perpetual';
-            let tv = 0;
-            if (method === 'perpetual') {
-                tv = (f * (1 + perp)) / (finalWacc - perp);
-            } else {
-                tv = f * exitMult;
-            }
-            
-            const pvTv = tv / Math.pow(1 + finalWacc, years);
-            const ev = pv + pvTv;
-            const eqVal = ev + (cash || 0) - (debt || 0);
-            if (eqVal <= 0) return null;
-            const effectiveShares = shares * Math.pow(1 - (buybackRate || 0), years);
-            return eqVal / (effectiveShares > 0 ? effectiveShares : shares);
-        };
-
-        const updateFairValue = () => {
-            if (!currentFormulaData || !globalData) return;
-            const prof = globalData.company_profile;
-            const dcfCardMos = document.getElementById('dcf-card-mos');
-
-            let dcfVal = null;
-            if (currentFormulaData.dcf) {
-                const fcfSourceEl = document.getElementById('fcf-source');
-                const fcfSource = fcfSourceEl ? fcfSourceEl.value : 'analyst';
-                const yearsSourceEl = document.getElementById('dcf-years-source');
-                const yearsVal = yearsSourceEl ? yearsSourceEl.value : '5yr';
-                const years = yearsVal === '10yr' ? 10 : 5;
-                const dcfData = currentFormulaData.dcf[yearsVal] || currentFormulaData.dcf["5yr"];
-                
-                const dcfInputs = document.getElementById('dcf-custom-inputs');
-                if (dcfInputs) dcfInputs.style.display = fcfSource === 'custom' ? 'flex' : 'none';
-
-                const buybackEl = document.getElementById('dcf-buyback-source');
-                const buybackSrc = buybackEl ? buybackEl.value : 'none';
-                const buybackCustomInputs = document.getElementById('dcf-buyback-custom-inputs');
-                if (buybackCustomInputs) buybackCustomInputs.style.display = buybackSrc === 'custom' ? 'flex' : 'none';
-
-                let buybackRate = 0;
-                if (buybackSrc === 'historical') {
-                    buybackRate = currentFormulaData.dcf.historic_buyback_rate || 0;
-                } else if (buybackSrc === 'custom') {
-                    const rawVal = document.getElementById('dcf-custom-buyback').value;
-                    buybackRate = (rawVal === '' || isNaN(parseFloat(rawVal))) ? 0 : parseFloat(rawVal) / 100;
-                }
-
-                const baseFcf = currentFormulaData.dcf.fcf;
-                const shares = prof.shares_outstanding;
-                
-                // Dynamic WACC and Perpetual Growth from backend
-                const w = currentFormulaData.dcf.discount_rate || 0.09;
-                const p = currentFormulaData.dcf.perpetual_growth || 0.02;
-
-                if (fcfSource === 'analyst') {
-                    const waccInput = document.getElementById('dcf-custom-wacc');
-                    const backendWacc = currentFormulaData.dcf.discount_rate_applied / 100;
-                    
-                    if (buybackRate === 0 && (!waccInput || !waccInput.value) && fcfSource !== 'custom') {
-                        const method = document.getElementById('dcf-method-selector')?.value || 'perpetual';
-                        const branch = method === 'multiple' ? dcfData.dcf_exit_multiple : dcfData.dcf_perpetual;
-                        dcfVal = branch ? branch.fair_value_per_share : null;
-                    } else {
-                        const g = currentFormulaData.dcf.eps_growth_estimated || 0.10;
-                        const wAnalyst = (waccInput && waccInput.value) ? parseFloat(waccInput.value)/100 : w;
-                        const em = parseFloat(document.getElementById('input-exit-multiple')?.value) || 15.0;
-                        dcfVal = calcLocalDcf(baseFcf, g, wAnalyst, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
-                    }
-                } else if (fcfSource === 'historical') {
-                    const hg = prof.historic_fcf_growth != null ? prof.historic_fcf_growth : 0.05;
-                    const em = parseFloat(document.getElementById('input-exit-multiple')?.value) || 15.0;
-                    dcfVal = calcLocalDcf(baseFcf, hg, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
-                } else if (fcfSource === 'eps_growth') {
-                    const g = currentFormulaData.dcf.eps_growth_estimated || 0.10;
-                    const em = parseFloat(document.getElementById('input-exit-multiple')?.value) || 15.0;
-                    dcfVal = calcLocalDcf(baseFcf, g, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
-                } else if (fcfSource === 'custom') {
-                    const gRaw = document.getElementById('dcf-custom-growth').value;
-                    const wRaw = document.getElementById('dcf-custom-wacc').value;
-                    const pRaw = document.getElementById('dcf-custom-perp').value;
-                    const emRaw = document.getElementById('input-exit-multiple').value;
-                    
-                    const g = (gRaw === '' || isNaN(parseFloat(gRaw))) ? 0.15 : parseFloat(gRaw) / 100;
-                    const wCustom = (wRaw === '' || isNaN(parseFloat(wRaw))) ? 0.09 : parseFloat(wRaw) / 100;
-                    const pCustom = (pRaw === '' || isNaN(parseFloat(pRaw))) ? 0.025 : parseFloat(pRaw) / 100;
-                    const em = (emRaw === '' || isNaN(parseFloat(emRaw))) ? 15.0 : parseFloat(emRaw);
-                    
-                    dcfVal = calcLocalDcf(baseFcf, g, wCustom, pCustom, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
-                }
-            }
-            setValuationStatus(dcfVal, globalData.current_price, 'dcf-status', 'dcf-value');
-            
-            if (dcfVal != null && dcfCardMos) {
-                const currentDcfMos = ((dcfVal - globalData.current_price) / globalData.current_price) * 100;
-                dcfCardMos.textContent = `MOS: ${formatPercent(currentDcfMos)}`;
-                dcfCardMos.style.color = currentDcfMos > 0 ? 'var(--accent)' : 'var(--danger)';
-            }
-
-            let pegVal = null;
-            let pegMos = null;
-            let usedGrowth = 0;
-            let currentPegToDisplay = null;
-
-            if (currentFormulaData.peg) {
-                const pegSrcEl = document.getElementById('peg-eps-source');
-                const pegSrc = pegSrcEl ? pegSrcEl.value : 'analyst';
-                const pegInputs = document.getElementById('peg-custom-inputs');
-                if (pegInputs) pegInputs.style.display = pegSrc === 'custom' ? 'flex' : 'none';
-
-                usedGrowth = currentFormulaData.peg.eps_growth_estimated || 0;
-                if (pegSrc === 'custom') {
-                    const rawG = document.getElementById('peg-custom-growth').value;
-                    usedGrowth = (rawG === '' || isNaN(parseFloat(rawG))) ? 0.20 : parseFloat(rawG) / 100;
-                }
-
-                const currentPe = currentFormulaData.peg.current_pe || (parseFloat(data.company_profile.trailing_pe) || 0);
-                const industryPeg = currentFormulaData.peg.industry_peg;
-
-                if (usedGrowth > 0 && currentPe > 0 && industryPeg != null && industryPeg > 0) {
-                    currentPegToDisplay = currentPe / (usedGrowth * 100);
-                    pegVal = data.current_price * (industryPeg / currentPegToDisplay);
-                    pegMos = ((pegVal - data.current_price) / pegVal) * 100;
-                } else if (pegSrc === 'analyst') {
-                    pegVal = currentFormulaData.peg.fair_value;
-                    pegMos = currentFormulaData.peg.margin_of_safety;
-                    currentPegToDisplay = currentFormulaData.peg.current_peg;
-                }
-            }
-            
-            const pegValueElem = document.getElementById('peg-value');
-            if (pegValueElem) {
-                pegValueElem.textContent = pegVal != null ? formatCurrency(pegVal) : 'N/A';
-                pegValueElem.style.color = pegVal != null ? 'var(--accent)' : 'var(--text-muted)';
-            }
-            
-            const pegStatusElem = document.getElementById('peg-status');
-            const pegCompareElem = document.getElementById('peg-compare');
-            
-            if (pegStatusElem && pegCompareElem) {
-                const industryPeg = currentFormulaData.peg ? currentFormulaData.peg.industry_peg : null;
-
-                if (pegVal != null && industryPeg != null && currentPegToDisplay != null) {
-                    const sectorPegDisplay = industryPeg.toFixed(2);
-                    pegCompareElem.textContent = `PEG = ${currentPegToDisplay.toFixed(2)} vs PEG Sector = ${sectorPegDisplay}`;
-                    
-                    if (pegMos != null) {
-                        const mosText = `${pegMos > 0 ? '+' : ''}${pegMos.toFixed(2)}% Margin of Safety`;
-                        pegCompareElem.innerHTML += `<br><span style="color: ${pegMos > 0 ? 'var(--accent)' : 'var(--danger)'}; font-weight: 600;">${mosText}</span>`;
-                        
-                        // Also sync to the new card-mos element for consistency with other cards
-                        const pegCardMos = document.getElementById('peg-card-mos');
-                        if (pegCardMos) {
-                            pegCardMos.textContent = `MOS: ${formatPercent(pegMos)}`;
-                            pegCardMos.style.color = pegMos > 0 ? 'var(--accent)' : 'var(--danger)';
-                            pegCardMos.style.display = 'block';
-                        }
-                    }
-
-                    if (data.current_price < pegVal) {
-                        pegStatusElem.textContent = `Undervalued`;
-                        pegStatusElem.style.color = 'var(--accent)';
-                    } else {
-                        pegStatusElem.textContent = `Overvalued`;
-                        pegStatusElem.style.color = 'var(--danger)';
-                    }
-                } else {
-                    pegStatusElem.textContent = "N/A";
-                    pegStatusElem.style.color = "var(--text-muted)";
-                    pegCompareElem.textContent = industryPeg == null ? "Sector data unavailable" : "PEG calculation data missing";
-                }
-            }
-
-            let lynchVal = null;
-            if (currentFormulaData.peter_lynch) {
-                const pl = currentFormulaData.peter_lynch;
-                const epsSourceEl = document.getElementById('lynch-eps-source');
-                const epsSource = epsSourceEl ? epsSourceEl.value : 'analyst';
-                const lynchInputs = document.getElementById('lynch-custom-inputs');
-                if (lynchInputs) lynchInputs.style.display = epsSource === 'custom' ? 'flex' : 'none';
-
-                let usedGrowth = pl.eps_growth_estimated || 0.05;
-                let targetEps = (pl.trailing_eps || 0) * Math.pow(1 + usedGrowth, 3);
-
-                if (epsSource === 'historical') {
-                    usedGrowth = prof.historic_eps_growth != null ? prof.historic_eps_growth : 0.05;
-                    targetEps = (pl.trailing_eps || 0) * Math.pow(1 + usedGrowth, 3);
-                } else if (epsSource === 'custom') {
-                    const rawG = document.getElementById('lynch-custom-growth').value;
-                    usedGrowth = (rawG === '' || isNaN(parseFloat(rawG))) ? 0.20 : parseFloat(rawG) / 100;
-                    targetEps = (pl.trailing_eps || 0) * Math.pow(1 + usedGrowth, 3);
-                }
-
-                const multEl = document.getElementById('lynch-multiple');
-                const multVal = multEl ? multEl.value : 'PE 20';
-                const multCustomInputs = document.getElementById('lynch-custom-multiple-inputs');
-                if (multCustomInputs) multCustomInputs.style.display = multVal === 'custom' ? 'flex' : 'none';
-
-                let selectedMult = 20; 
-                if (multVal === 'PE 15') selectedMult = 15;
-                if (multVal === 'PE 20') selectedMult = 20;
-                if (multVal === 'PE 25') selectedMult = 25;
-                if (multVal === 'historic') selectedMult = pl.historic_pe || 20;
-                if (multVal === 'custom') {
-                    selectedMult = parseFloat(document.getElementById('lynch-custom-mult').value) || 18;
-                }
-
-                if (targetEps != null && targetEps > 0) {
-                    lynchVal = targetEps * selectedMult;
-                }
-                
-                // Keep the global data updated with what we are currently viewing
-                // so Watchlist extraction pulls the currently viewed value instead of default
-                if(lynchVal != null) {
-                    currentFormulaData.peter_lynch.fair_value_pe_20 = lynchVal; 
-                }
-            }
-
-            setValuationStatus(lynchVal, globalData.current_price, 'lynch-status', 'lynch-fair-value');
-            
-            const lynchCardMos = document.getElementById('lynch-card-mos');
-            if (lynchCardMos && lynchVal != null) {
-                const lynchMos = ((lynchVal - globalData.current_price) / globalData.current_price) * 100;
-                lynchCardMos.textContent = `MOS: ${formatPercent(lynchMos)}`;
-                lynchCardMos.style.color = lynchMos > 0 ? 'var(--accent)' : 'var(--danger)';
-                lynchCardMos.style.display = 'block';
-            } else if (lynchCardMos) {
-                lynchCardMos.style.display = 'none';
-            }
-
-            let relVal = null;
-            const rel = currentFormulaData.relative;
-            if (rel) {
-                const fvMedian = (rel.median_peer_pe != null && rel.company_eps != null) ? rel.median_peer_pe * rel.company_eps : null;
-                const fvMean = (rel.mean_peer_pe != null && rel.company_eps != null) ? rel.mean_peer_pe * rel.company_eps : null;
-                const fvSP500 = (rel.market_pe_trailing != null && rel.company_eps != null) ? rel.market_pe_trailing * rel.company_eps : null;
-
-                const variantEl = document.getElementById('relative-variant');
-                const variant = variantEl ? variantEl.value : 'peers';
-
-                if (variant === 'peers') relVal = fvMedian;
-                else if (variant === 'average') relVal = fvMean;
-                else if (variant === 'sp500') relVal = fvSP500;
-
-                const mc = document.getElementById('relative-market-compare');
-                if (mc) {
-                    const mpe = rel.market_pe_trailing != null ? rel.market_pe_trailing.toFixed(1) + 'x' : '--';
-                    const peerMedianPe = rel.median_peer_pe != null ? rel.median_peer_pe.toFixed(1) + 'x' : '--';
-                    const peerMeanPe = rel.mean_peer_pe != null ? rel.mean_peer_pe.toFixed(1) + 'x' : '--';
-
-                    if (variant === 'peers') mc.textContent = `Peer Median P/E: ${peerMedianPe}`;
-                    else if (variant === 'average') mc.textContent = `Peer Mean P/E: ${peerMeanPe}`;
-                    else if (variant === 'sp500') mc.textContent = `S&P 500 Trailing P/E: ${mpe}`;
-                }
-            }
-            setValuationStatus(relVal, globalData.current_price, 'relative-status', 'relative-value');
-            
-            const relCardMos = document.getElementById('relative-card-mos');
-            if (relCardMos && relVal != null) {
-                const relMos = ((relVal - globalData.current_price) / globalData.current_price) * 100;
-                relCardMos.textContent = `MOS: ${formatPercent(relMos)}`;
-                relCardMos.style.color = relMos > 0 ? 'var(--accent)' : 'var(--danger)';
-                relCardMos.style.display = 'block';
-            } else if (relCardMos) {
-                relCardMos.style.display = 'none';
-            }
-            
-            // --- CALCULATE FINAL FAIR VALUE ---
-            const hasUserWeights = localStorage.getItem('fairValueWeights') !== null;
-            const modelsToggled = !document.getElementById('toggle-peter_lynch').checked || 
-                                 !document.getElementById('toggle-peg').checked || 
-                                 !document.getElementById('toggle-relative').checked || 
-                                 !document.getElementById('toggle-dcf').checked;
-
-            let finalFv = data.fair_value;
-            let finalMos = data.margin_of_safety;
-
-            if (hasUserWeights || modelsToggled) {
-                let totalWeight = 0;
-                let weightedSum = 0;
-
-                const addVal = (val, isChecked, weightKey) => {
-                    if (val != null && val > 0 && isChecked) {
-                        const w = customWeights[weightKey] || 0;
-                        totalWeight += w;
-                        weightedSum += (val * w);
-                    }
-                };
-
-                addVal(lynchVal, document.getElementById('toggle-peter_lynch').checked, 'lynch');
-                addVal(pegVal, document.getElementById('toggle-peg').checked, 'peg');
-                addVal(relVal, document.getElementById('toggle-relative').checked, 'relative');
-                addVal(dcfVal, document.getElementById('toggle-dcf').checked, 'dcf');
-
-                if (totalWeight > 0) {
-                    finalFv = weightedSum / totalWeight;
-                    finalMos = ((finalFv - globalData.current_price) / globalData.current_price) * 100;
-                }
-            }
-
-            if (finalFv != null) {
-                elements.fairValue.textContent = formatCurrency(finalFv);
-                elements.marginSafety.textContent = `${formatPercent(finalMos)} Margin of Safety`;
-                elements.marginSafety.style.color = finalMos > 0 ? 'var(--accent)' : 'var(--danger)';
-                if (finalMos > 0) {
-                    elements.marginSafety.style.background = 'rgba(16, 185, 129, 0.2)';
-                } else {
-                    elements.marginSafety.style.background = 'rgba(239, 68, 68, 0.2)';
-                }
-                updateInsightsAndScores(finalMos, currentPegToDisplay);
-            } else {
-                elements.fairValue.textContent = 'N/A';
-                elements.marginSafety.textContent = 'Valuation not possible';
-                elements.marginSafety.style.color = 'var(--text-muted)';
-                elements.marginSafety.style.background = 'none';
-                updateInsightsAndScores(null, currentPegToDisplay);
-            }
-        };
-
-        window.triggerRecalculate = updateFairValue;
-
-        const inputSelectors = [
-            'fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple', 'dcf-custom-growth', 'dcf-custom-wacc', 'dcf-custom-perp',
-            'dcf-buyback-source', 'dcf-custom-buyback', 'relative-variant',
-            'lynch-multiple', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth',
-            'peg-eps-source', 'peg-custom-growth'
-        ];
-          const updateAndSave = () => {
-            updateFairValue();
-            saveOverridesDebounced(currentTicker);
-        };
-
-        inputSelectors.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) {
-                if (el.tagName === 'SELECT') el.onchange = updateAndSave;
-                else el.oninput = updateAndSave;
-            }
-        });
 
         // Restore overrides BEFORE first updateFairValue
         const hadOverrides = applyOverrides(currentTicker);
