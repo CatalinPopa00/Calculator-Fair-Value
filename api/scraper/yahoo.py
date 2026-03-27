@@ -30,6 +30,14 @@ def normalize_growth(val):
     except:
         return None
 
+def find_idx(df, target):
+    """Case-insensitive index lookup for pandas DataFrames."""
+    if df is None or df.empty: return None
+    target_lower = str(target).lower().strip()
+    for idx in df.index:
+        if str(idx).lower().strip() == target_lower: return idx
+    return None
+
 def get_random_agent():
     return random.choice(USER_AGENTS)
 
@@ -570,9 +578,10 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             adjusted_eps = trailing_eps
 
         if eps_growth is None:
-            eps_growth = eps_growth_5y_consensus or nasdaq_growth_3y
+            # USER PREFERENCE: Prioritize Nasdaq 3Y Forecast over 5Y Consensus
+            eps_growth = nasdaq_growth_3y or eps_growth_5y_consensus
             if eps_growth: 
-                eps_growth_period = "Analyst 5Y Cons." if eps_growth_5y_consensus else "Nasdaq 3Y Forecast"
+                eps_growth_period = "Nasdaq 3Y Forecast" if nasdaq_growth_3y else "Analyst 5Y Cons."
 
         # 3. Fallback to info.get('earningsGrowth')
         if eps_growth is None:
@@ -632,10 +641,13 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         fcf = None
         try:
             if cashflow is not None and not cashflow.empty:
-                if 'Free Cash Flow' in cashflow.index:
-                    fcf = float(cashflow.loc['Free Cash Flow'].iloc[0])
-                elif 'Operating Cash Flow' in cashflow.index:
-                    fcf = float(cashflow.loc['Operating Cash Flow'].iloc[0])
+                fcf_idx = find_idx(cashflow, 'Free Cash Flow')
+                if fcf_idx:
+                    fcf = float(cashflow.loc[fcf_idx].iloc[0])
+                else:
+                    ocf_idx = find_idx(cashflow, 'Operating Cash Flow')
+                    if ocf_idx:
+                        fcf = float(cashflow.loc[ocf_idx].iloc[0])
         except: pass
         
         if fcf is None:
@@ -654,8 +666,9 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         revenue = None
         try:
             if financials is not None and not financials.empty:
-                if 'Total Revenue' in financials.index:
-                    revenue = float(financials.loc['Total Revenue'].iloc[0])
+                rev_idx = find_idx(financials, 'Total Revenue')
+                if rev_idx:
+                    revenue = float(financials.loc[rev_idx].iloc[0])
         except: pass
         
         if revenue is None:
@@ -698,10 +711,13 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         try:
             if cashflow is not None and not cashflow.empty:
                 fcf_y = []
-                if 'Free Cash Flow' in cashflow.index:
-                    fcf_y = cashflow.loc['Free Cash Flow'].dropna().head(5).tolist()
-                elif 'Operating Cash Flow' in cashflow.index:
-                    fcf_y = cashflow.loc['Operating Cash Flow'].dropna().head(5).tolist()
+                fcf_idx = find_idx(cashflow, 'Free Cash Flow')
+                if fcf_idx:
+                    fcf_y = cashflow.loc[fcf_idx].dropna().head(5).tolist()
+                else:
+                    ocf_idx = find_idx(cashflow, 'Operating Cash Flow')
+                    if ocf_idx:
+                        fcf_y = cashflow.loc[ocf_idx].dropna().head(5).tolist()
                 
                 if fcf_y:
                     fcf_history = fcf_y[:3]
@@ -721,10 +737,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         historic_eps_growth_5y = None
         try:
             if financials is not None and not financials.empty:
-                indices = financials.index
-                eps_row = None
-                if 'Diluted EPS' in indices: eps_row = financials.loc['Diluted EPS']
-                elif 'Basic EPS' in indices: eps_row = financials.loc['Basic EPS']
+                eps_idx = find_idx(financials, 'Diluted EPS') or find_idx(financials, 'Basic EPS')
+                eps_row = financials.loc[eps_idx] if eps_idx else None
                 
                 if eps_row is not None:
                     eps_vals = eps_row.dropna().tolist()
@@ -756,14 +770,18 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         ebit_margin = None
         try:
             if financials is not None and not financials.empty:
-                ebit = financials.loc['EBIT'].dropna() if 'EBIT' in financials.index else None
-                if ebit is None and 'Net Income' in financials.index:
-                    ebit = financials.loc['Net Income'].dropna()
+                ebit_idx = find_idx(financials, 'EBIT')
+                ebit = financials.loc[ebit_idx].dropna() if ebit_idx else None
+                
+                if ebit is None:
+                    ni_idx = find_idx(financials, 'Net Income')
+                    ebit = financials.loc[ni_idx].dropna() if ni_idx else None
                     
                 if ebit is not None:
                     # Interest Coverage
-                    if 'Interest Expense' in financials.index:
-                        interest = financials.loc['Interest Expense'].dropna()
+                    int_idx = find_idx(financials, 'Interest Expense')
+                    if int_idx:
+                        interest = financials.loc[int_idx].dropna()
                         if interest is not None and not ebit.empty and not interest.empty:
                             ebit_val = ebit.iloc[0]
                             int_val = abs(interest.iloc[0])
@@ -771,8 +789,9 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                                 interest_coverage = ebit_val / int_val
                 
                 # EBIT Margin
-                if 'Total Revenue' in financials.index:
-                    rev = financials.loc['Total Revenue'].dropna()
+                rev_idx = find_idx(financials, 'Total Revenue')
+                if rev_idx:
+                    rev = financials.loc[rev_idx].dropna()
                     if not ebit.empty and not rev.empty:
                         e_val = ebit.iloc[0]
                         r_val = rev.iloc[0]
