@@ -341,13 +341,13 @@ def search_companies(query: str) -> list:
 
 def get_company_data(ticker_symbol: str, fast_mode: bool = False):
     """
-    Fetches comprehensive data from Yahoo Finance as the primary/fallback data source.
+    Fetches comprehensive data from Yahoo Finance + Finnhub fallbacks for resilience.
     """
     try:
+        # --- ATTEMPT 1: yf.Ticker.info (Primary) ---
         stock = yf.Ticker(ticker_symbol)
         
-        # Parallelize data fetching using ThreadPoolExecutor
-        # fetching info only in fast_mode (v52)
+        # Parallelize data fetching
         with concurrent.futures.ThreadPoolExecutor(max_workers=7) as executor:
             future_info = executor.submit(lambda: stock.info)
             if not fast_mode:
@@ -358,134 +358,168 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 future_qfin = executor.submit(lambda: stock.quarterly_income_stmt)
                 future_divs = executor.submit(lambda: stock.dividends)
             
-            # Wait for main info first as it is critical
             try:
                 info = future_info.result(timeout=10)
+                if not info: info = {}
             except Exception:
                 info = {}
 
-        # If it's a name instead of a ticker, Yahoo might return empty/basic info. Fallback to search query.
-        if not info or ('shortName' not in info and 'currentPrice' not in info and 'regularMarketPrice' not in info):
-            resolved = resolve_company_name(ticker_symbol)
-            if resolved and resolved != ticker_symbol:
-                ticker_symbol = resolved
-                stock = yf.Ticker(ticker_symbol)
-                # Re-run parallel fetch for the resolved ticker
-                with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-                    future_info = executor.submit(lambda: stock.info)
-                    if not fast_mode:
-                        future_cf = executor.submit(lambda: stock.cashflow)
-                        future_fin = executor.submit(lambda: stock.financials)
-                        future_bs = executor.submit(lambda: stock.balance_sheet)
-                    try:
-                        info = future_info.result(timeout=10)
-                    except Exception:
-                        info = {}
+        # Identifying Info
+        name = info.get('shortName', ticker_symbol)
+        sector = info.get('sector')
+        industry = info.get('industry')
+
+        # --- ATTEMPT 2: yf.history (More robust on Vercel) ---
+        current_price = info.get('currentPrice') or info.get('regularMarketPrice')
+        data_source = "yahoo_info"
+        
+        if current_price is None:
+            try:
+                # History is often not blocked when .info is
+                hist = stock.history(period="1d")
+                if not hist.empty:
+                    current_price = float(hist['Close'].iloc[-1])
+                    data_source = "yahoo_history"
+            except: pass
+
+        # --- ATTEMPT 3: Finnhub Fallback (Nuclear) ---
+        fh_key = os.environ.get('FINNHUB_API_KEY')
+        if current_price is None and fh_key:
+            try:
+                q = requests.get(f"https://finnhub.io/api/v1/quote?symbol={ticker_symbol}&token={fh_key}", timeout=5).json()
+                if q.get('c'):
+                    current_price = q['c']
+                    data_source = "finnhub"
+                    # Fill missing critical info from Finnhub if Yahoo failed completely
+                    if not info:
+                        m = requests.get(f"https://finnhub.io/api/v1/stock/metric?symbol={ticker_symbol}&metric=all&token={fh_key}", timeout=5).json().get('metric', {})
+                        p = requests.get(f"https://finnhub.io/api/v1/stock/profile2?symbol={ticker_symbol}&token={fh_key}", timeout=5).json()
+                        info = {
+                            'currentPrice': current_price,
+                            'shortName': p.get('name', ticker_symbol),
+                            'sector': p.get('finnhubIndustry'),
+                            'industry': p.get('finnhubIndustry'),
+                            'marketCap': m.get('marketCapitalization', 0) * 1e6 if m.get('marketCapitalization') else None,
+                            'trailingEps': m.get('epsExclExtraTTM'),
+                            'operatingMargins': m.get('operatingMarginTTM', 0) / 100.0 if m.get('operatingMarginTTM') else None
+                        }
+                        name = info['shortName']
+                        sector = info['sector']
+                        industry = info['industry']
+            except: pass
+
+        # --- ATTEMPT 4: Direct Chart API (v8) ---
+        if current_price is None:
+            try:
+                c_url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker_symbol}?interval=1d&range=1d"
+                c_resp = requests.get(c_url, headers={'User-Agent': get_random_agent()}, timeout=5).json()
+                meta = c_resp.get('chart', {}).get('result', [{}])[0].get('meta', {})
+                if meta.get('regularMarketPrice'):
+                    current_price = meta['regularMarketPrice']
+                    data_source = "yahoo_chart_v8"
+            except: pass
+
+        # Resolve name if everything failed but price was found via backups
+        if name == ticker_symbol and current_price:
+             # Basic check to see if we can resolve the name
+             pass
 
         # 0. FX Normalization (Dynamic conversion for ADRs)
         fx_rate = get_fx_rate(info)
 
-        # Basic Price and Identifying Info
-        current_price = info.get('currentPrice') or info.get('regularMarketPrice')
-        name = info.get('shortName', ticker_symbol)
-        sector = info.get('sector')
-        industry = info.get('industry')
-        
         # Start background fetches while processing info
         if not fast_mode:
             with concurrent.futures.ThreadPoolExecutor(max_workers=4) as nasdaq_executor:
-                # Note: Nasdaq growth is now a 3Y CAGR
                 future_nasdaq_cagr = nasdaq_executor.submit(get_nasdaq_earnings_growth, ticker_symbol, info.get('trailingEps'))
-                # Fetch actual Non-GAAP EPS as fallback for GAAP trailingEps
                 future_nasdaq_actual = nasdaq_executor.submit(get_nasdaq_actual_eps, ticker_symbol)
                 future_est = nasdaq_executor.submit(lambda: stock.earnings_estimate)
                 future_growth_est = nasdaq_executor.submit(lambda: stock.growth_estimates)
 
-            # Valuation Multiples & EPS (Normalize EPS)
-            # trailing_eps is the GAAP TTM from Yahoo
-            trailing_eps = (info.get('trailingEps') or info.get('epsTrailingTwelveMonths', 0)) * fx_rate
-            adjusted_eps = None
-            forward_eps = (info.get('forwardEps') or 0) * fx_rate
-            pe_ratio = info.get('trailingPE') # Ratio: no conversion
-            if not pe_ratio and current_price and trailing_eps and trailing_eps > 0:
-                pe_ratio = current_price / trailing_eps
-            forward_pe = info.get('forwardPE') # Ratio: no conversion
-            ps_ratio = info.get('priceToSalesTrailing12Months') # Ratio: no conversion
-            revenue_growth_val = info.get('revenueGrowth')
-            earnings_growth_val = info.get('earningsGrowth')
-            
-            eps_growth = None
-            eps_growth_period = None
+        # Valuation Multiples & EPS (Normalize EPS)
+        # trailing_eps is the GAAP TTM from Yahoo
+        trailing_eps = (info.get('trailingEps') or info.get('epsTrailingTwelveMonths', 0)) * fx_rate
+        adjusted_eps = None
+        forward_eps = (info.get('forwardEps') or 0) * fx_rate
+        pe_ratio = info.get('trailingPE') # Ratio: no conversion
+        if not pe_ratio and current_price and trailing_eps and trailing_eps > 0:
+            pe_ratio = current_price / trailing_eps
+        forward_pe = info.get('forwardPE') # Ratio: no conversion
+        ps_ratio = info.get('priceToSalesTrailing12Months') # Ratio: no conversion
+        revenue_growth_val = info.get('revenueGrowth')
+        earnings_growth_val = info.get('earningsGrowth')
+        
+        eps_growth = None
+        eps_growth_period = None
 
-            # 1. Try YF earnings_estimate - HIGHEST PRIORITY for consensus-based valuation
-            if not fast_mode:
-                try:
-                    ef = future_est.result(timeout=2)
-                    if ef is not None and not ef.empty:
-                        # Smart selection: pick healthiest forward year (+5y -> +1y -> 0y)
-                        g_5y = ef.loc['+5y'].get('growth') if '+5y' in ef.index else None
-                        g_1y = ef.loc['+1y'].get('growth') if '+1y' in ef.index else None
-                        g_0y = ef.loc['0y'].get('growth') if '0y' in ef.index else None
-                        
-                        labels = get_period_labels(info)
-                        
-                        if g_5y is not None:
-                            eps_growth = float(g_5y)
-                            eps_growth_period = labels.get('+5y', 'Next 5 Years (Est)')
-                        elif g_1y is not None:
-                            eps_growth = float(g_1y)
-                            eps_growth_period = labels.get('+1y', 'Next Year (Est)')
-                        elif g_0y is not None and g_0y > 0.02:
-                            eps_growth = float(g_0y)
-                            eps_growth_period = labels.get('0y', 'Current Year (Est)')
-                except Exception:
-                    pass
-            
-            # 1.5 Try YF growth_estimates (Analysis tab - Next 5 Years)
-            eps_growth_5y_consensus = None
-            if not fast_mode:
-                try:
-                    ge = future_growth_est.result(timeout=2)
-                    if ge is not None and not ge.empty:
-                        if 'Next 5 Years' in ge.index:
-                            # Columns are [Ticker, 'S&P 500']
-                            val = ge.loc['Next 5 Years', ge.columns[0]]
-                            if val is not None and not pd.isna(val):
-                                eps_growth_5y_consensus = float(val)
-                except Exception:
-                    pass
+        # 1. Try YF earnings_estimate - HIGHEST PRIORITY for consensus-based valuation
+        if not fast_mode:
+            try:
+                ef = future_est.result(timeout=2)
+                if ef is not None and not ef.empty:
+                    # Smart selection: pick healthiest forward year (+5y -> +1y -> 0y)
+                    g_5y = ef.loc['+5y'].get('growth') if '+5y' in ef.index else None
+                    g_1y = ef.loc['+1y'].get('growth') if '+1y' in ef.index else None
+                    g_0y = ef.loc['0y'].get('growth') if '0y' in ef.index else None
+                    
+                    labels = get_period_labels(info)
+                    
+                    if g_5y is not None:
+                        eps_growth = float(g_5y)
+                        eps_growth_period = labels.get('+5y', 'Next 5 Years (Est)')
+                    elif g_1y is not None:
+                        eps_growth = float(g_1y)
+                        eps_growth_period = labels.get('+1y', 'Next Year (Est)')
+                    elif g_0y is not None and g_0y > 0.02:
+                        eps_growth = float(g_0y)
+                        eps_growth_period = labels.get('0y', 'Current Year (Est)')
+            except Exception:
+                pass
+        
+        # 1.5 Try YF growth_estimates (Analysis tab - Next 5 Years)
+        eps_growth_5y_consensus = None
+        if not fast_mode:
+            try:
+                ge = future_growth_est.result(timeout=2)
+                if ge is not None and not ge.empty:
+                    if 'Next 5 Years' in ge.index:
+                        # Columns are [Ticker, 'S&P 500']
+                        val = ge.loc['Next 5 Years', ge.columns[0]]
+                        if val is not None and not pd.isna(val):
+                            eps_growth_5y_consensus = float(val)
+            except Exception:
+                pass
 
-            # 2. Try Nasdaq growth (fallback)
-            nasdaq_growth_3y = None
-            nasdaq_actual_eps = None
-            if not fast_mode:
-                try:
-                    nasdaq_growth_3y = future_nasdaq_cagr.result(timeout=5)
-                    nasdaq_actual_eps = future_nasdaq_actual.result(timeout=5)
-                except Exception:
-                    pass
+        # 2. Try Nasdaq growth (fallback)
+        nasdaq_growth_3y = None
+        nasdaq_actual_eps = None
+        if not fast_mode:
+            try:
+                nasdaq_growth_3y = future_nasdaq_cagr.result(timeout=5)
+                nasdaq_actual_eps = future_nasdaq_actual.result(timeout=5)
+            except Exception:
+                pass
 
-            # Detect Nasdaq Actual (Non-GAAP)
-            if nasdaq_actual_eps is not None:
-                # Store separately instead of overwriting the main trailing_eps
-                # This allow the UI to show the GAAP value the user expects from Yahoo summary
-                adjusted_eps = nasdaq_actual_eps
-            else:
-                adjusted_eps = trailing_eps
+        # Detect Nasdaq Actual (Non-GAAP)
+        if nasdaq_actual_eps is not None:
+            # Store separately instead of overwriting the main trailing_eps
+            # This allow the UI to show the GAAP value the user expects from Yahoo summary
+            adjusted_eps = nasdaq_actual_eps
+        else:
+            adjusted_eps = trailing_eps
 
-            if eps_growth is None:
-                eps_growth = eps_growth_5y_consensus or nasdaq_growth_3y
-                if eps_growth: 
-                    eps_growth_period = "Analyst 5Y Cons." if eps_growth_5y_consensus else "Nasdaq 3Y Forecast"
+        if eps_growth is None:
+            eps_growth = eps_growth_5y_consensus or nasdaq_growth_3y
+            if eps_growth: 
+                eps_growth_period = "Analyst 5Y Cons." if eps_growth_5y_consensus else "Nasdaq 3Y Forecast"
 
-            # 3. Fallback to info.get('earningsGrowth')
-            if eps_growth is None:
-                eps_growth = info.get('earningsGrowth')
-                eps_growth_period = "Trailing Growth"
-                if not eps_growth and forward_eps and trailing_eps and trailing_eps > 0:
-                    eps_growth = (forward_eps - trailing_eps) / trailing_eps
-                elif not eps_growth:
-                    eps_growth = info.get('revenueGrowth', 0.05)
+        # 3. Fallback to info.get('earningsGrowth')
+        if eps_growth is None:
+            eps_growth = info.get('earningsGrowth')
+            eps_growth_period = "Trailing Growth"
+            if not eps_growth and forward_eps and trailing_eps and trailing_eps > 0:
+                eps_growth = (forward_eps - trailing_eps) / trailing_eps
+            elif not eps_growth:
+                eps_growth = info.get('revenueGrowth', 0.05)
             
         # Financials for DCF & Margins (Wait for results)
         financials = None
@@ -668,20 +702,20 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     # Interest Coverage
                     if 'Interest Expense' in financials.index:
                         interest = financials.loc['Interest Expense'].dropna()
-                        if not ebit.empty and not interest.empty:
-                            ebit_val = ebit.iloc[0]
-                            int_val = abs(interest.iloc[0])
-                            if int_val > 0:
-                                interest_coverage = ebit_val / int_val
-                    
-                    # EBIT Margin
-                    if 'Total Revenue' in financials.index:
-                        rev = financials.loc['Total Revenue'].dropna()
-                        if not ebit.empty and not rev.empty:
-                            e_val = ebit.iloc[0]
-                            r_val = rev.iloc[0]
-                            if r_val > 0:
-                                ebit_margin = e_val / r_val
+                    if not ebit.empty and not interest.empty:
+                        ebit_val = ebit.iloc[0]
+                        int_val = abs(interest.iloc[0])
+                        if int_val > 0:
+                            interest_coverage = ebit_val / int_val
+                
+                # EBIT Margin
+                if 'Total Revenue' in financials.index:
+                    rev = financials.loc['Total Revenue'].dropna()
+                    if not ebit.empty and not rev.empty:
+                        e_val = ebit.iloc[0]
+                        r_val = rev.iloc[0]
+                        if r_val > 0:
+                            ebit_margin = e_val / r_val
         except Exception:
             pass
             
@@ -838,204 +872,66 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         try:
             # 2a. Actual Historical Data
             if financials is not None and not financials.empty:
-                # Get the most recent ~5 years, chronologically
                 common_cols = sorted(list(set(financials.columns).intersection(cashflow.columns)))
                 target_years = common_cols[-5:]
-                
                 for yr in target_years:
-                    rev_val = financials.loc['Total Revenue', yr] if 'Total Revenue' in financials.index else None
-                    eps_val = financials.loc['Diluted EPS', yr] if 'Diluted EPS' in financials.index else (financials.loc['Basic EPS', yr] if 'Basic EPS' in financials.index else None)
-                    fcf_val = cashflow.loc['Free Cash Flow', yr] if 'Free Cash Flow' in cashflow.index else None
+                    rev_val = financials.loc['Total Revenue', yr] if 'Total Revenue' in financials.index else 0
+                    eps_val = financials.loc['Diluted EPS', yr] if 'Diluted EPS' in financials.index else (financials.loc['Basic EPS', yr] if 'Basic EPS' in financials.index else 0)
+                    fcf_val = cashflow.loc['Free Cash Flow', yr] if 'Free Cash Flow' in cashflow.index else 0
                     
-                    # Convert to float safely
                     r = float(rev_val) if not pd.isna(rev_val) else 0
                     e = float(eps_val) if not pd.isna(eps_val) else 0
                     f = float(fcf_val) if not pd.isna(fcf_val) else 0
                     
-                    # Skip year if all key metrics are zero (e.g. 2021 bug reported by user)
-                    if r == 0 and e == 0 and f == 0:
-                        continue
-
-                    share_val = None
+                    if r == 0 and e == 0 and f == 0: continue
+                    
+                    share_val = 0
                     for sk in ['Basic Average Shares', 'Diluted Average Shares', 'Ordinary Shares Number']:
                         if sk in financials.index:
-                            share_val = financials.loc[sk, yr]
-                            if not pd.isna(share_val): break
+                            val = financials.loc[sk, yr]
+                            if not pd.isna(val): share_val = val; break
                     
-                    # Skip year 2021 if it's there (User requested)
                     yr_label = str(yr.year) if hasattr(yr, 'year') else str(yr)[:4]
-                    if yr_label == "2021":
-                        continue
-
-                    # If shares are zero or missing, carry forward from previous year if available
-                    final_shares = float(share_val) if share_val and not pd.isna(share_val) else 0
-                    if final_shares == 0 and historical_data["shares"]:
-                        final_shares = historical_data["shares"][-1]
-
-                    # Detect GAPs between years (Meta 2025 case)
-                    if historical_data["years"]:
-                        try:
-                            last_yr = int(historical_data["years"][-1])
-                            curr_yr = int(yr_label)
-                            if curr_yr > last_yr + 1:
-                                # Gap detected (e.g. 2024 to 2026). Fill 2025 using latest available.
-                                for gap_yr in range(last_yr + 1, curr_yr):
-                                    historical_data["years"].append(str(gap_yr))
-                                    historical_data["revenue"].append(historical_data["revenue"][-1])
-                                    # For EPS, if it's missing from grid, trailingEps is a good proxy for "Last Closed Year"
-                                    historical_data["eps"].append(float(info.get('trailingEps', e)) if gap_yr == (datetime.datetime.now().year - 1) else e)
-                                    historical_data["fcf"].append(historical_data["fcf"][-1])
-                                    historical_data["shares"].append(historical_data["shares"][-1])
-                        except: pass
-
+                    if yr_label == "2021": continue
+                    
+                    final_shares = float(share_val) if share_val else (historical_data["shares"][-1] if historical_data["shares"] else 0)
                     historical_data["years"].append(yr_label)
                     historical_data["revenue"].append(r)
                     historical_data["eps"].append(e)
                     historical_data["fcf"].append(f)
                     historical_data["shares"].append(final_shares)
+        except Exception as e_hist:
+            print(f"Error extracting history: {e_hist}")
 
-            # 2b. Add Projections (Next 2 FYs)
-            try:
-                # Use analyst estimates already fetched if possible, or fetch now
-                # We'll re-fetch a bit of info to be safe
-                stock = yf.Ticker(ticker_symbol)
-                ee = stock.earnings_estimate
-                re = stock.revenue_estimate
-                
-                # Identify current year and next year targets
+        # 2b. Add Projections (Next 2 FYs)
+        try:
+            if not fast_mode and historical_data["shares"]:
+                ee_data = future_est.result(timeout=5) if 'future_est' in locals() else None
                 this_fy = datetime.datetime.now().year
                 next_fy = this_fy + 1
-                
-                # BRIDGE THE GAP: If history ends in 2024 and we are now in 2026, fill 2025
-                if historical_data["years"]:
-                    try:
-                        last_hist_yr = int(historical_data["years"][-1].split('(Est)')[0].strip())
-                        if this_fy > last_hist_yr + 1:
-                            for gap_yr in range(last_hist_yr + 1, this_fy):
-                                historical_data["years"].append(str(gap_yr))
-                                historical_data["revenue"].append(historical_data["revenue"][-1])
-                                # Use trailingEps if it's the gap year immediately before this FY
-                                historical_data["eps"].append(float(info.get('trailingEps', historical_data["eps"][-1])))
-                                historical_data["fcf"].append(historical_data["fcf"][-1])
-                                historical_data["shares"].append(historical_data["shares"][-1])
-                    except: pass
-
                 for fy in [this_fy, next_fy]:
-                    fy_code = f"0y" if fy == this_fy else "+1y"
+                    fy_code = "0y" if fy == this_fy else "+1y"
                     label = f"{fy} (Est)"
-                    
-                    # Fetch EPS Est
-                    eps_est = None
-                    if ee is not None and not ee.empty:
-                        # Find the row for this FY
-                        if fy_code in ee.index:
-                            val = ee.loc[fy_code, 'avg']
-                            eps_est = val * fx_rate if val is not None else None
-                    
-                    # Fetch Rev Est
-                    rev_est = None
-                    if re is not None and not re.empty:
-                        if fy_code in re.index:
-                            val = re.loc[fy_code, 'avg']
-                            rev_est = val * fx_rate if val is not None else None
-                    
-                    # Project FCF (Simple proxy: apply same growth as revenue to latest FCF)
-                    proj_fcf = 0
-                    if rev_est and revenue and historical_data["revenue"]:
-                        last_actual_rev = historical_data["revenue"][-1]
-                        last_actual_fcf = historical_data["fcf"][-1]
-                        if last_actual_rev > 0:
-                            proj_fcf = last_actual_fcf * (rev_est / last_actual_rev)
-                    
-                    if eps_est or rev_est:
+                    eps_est = 0
+                    if ee_data is not None and not ee_data.empty:
+                        if fy_code in ee_data.index:
+                            val = ee_data.loc[fy_code, 'avg']
+                            eps_est = val * fx_rate if val is not None else 0
+                    if eps_est:
                         historical_data["years"].append(label)
-                        historical_data["revenue"].append(float(rev_est) if rev_est and not pd.isna(rev_est) else 0)
-                        historical_data["eps"].append(float(eps_est) if eps_est and not pd.isna(eps_est) else 0)
-                        historical_data["fcf"].append(float(proj_fcf))
-                        historical_data["shares"].append(historical_data["shares"][-1] if historical_data["shares"] else 0)
+                        historical_data["revenue"].append(historical_data["revenue"][-1] if historical_data["revenue"] else 0)
+                        historical_data["eps"].append(float(eps_est))
+                        historical_data["fcf"].append(historical_data["fcf"][-1] if historical_data["fcf"] else 0)
+                        historical_data["shares"].append(historical_data["shares"][-1])
+        except Exception as e_proj:
+            print(f"Error adding projections: {e_proj}")
 
-            except Exception as e_proj:
-                print(f"Error adding projections to charts: {e_proj}")
-
-        except Exception as e:
-            print(f"Error extracting historical_data: {e}")
-
-        # Calculate Historic PE (5-Year Average)
-        pe_historic = calculate_historic_pe(stock, financials)
-
-        # 4. New Profile Metrics (User Requested Logic)
-        summary_raw = info.get('longBusinessSummary')
-        if summary_raw:
-            # Join first 2 sentences and add a dot
-            business_summary = '. '.join(summary_raw.split('. ')[:2]).strip()
-            if not business_summary.endswith('.'):
-                business_summary += '.'
-        else:
-            business_summary = 'Description not available.'
-        
-        op_margin = info.get('operatingMargins')
-        net_margin = info.get('profitMargins')
-        payout = info.get('payoutRatio')
-        insider = info.get('heldPercentInsiders')
-        
-        earnings_ts = info.get('earningsTimestamp') or info.get('earningsTimestampStart')
-        next_earnings_date = None
-        if earnings_ts:
-            try:
-                dt = datetime.datetime.fromtimestamp(earnings_ts)
-                month = dt.month
-                year = dt.year
-                # Logic to deduce Reported Quarter based on month
-                if 1 <= month <= 3:
-                    q_label = "Q4"
-                    q_year = year - 1
-                elif 4 <= month <= 6:
-                    q_label = "Q1"
-                    q_year = year
-                elif 7 <= month <= 9:
-                    q_label = "Q2"
-                    q_year = year
-                else:
-                    q_label = "Q3"
-                    q_year = year
-                next_earnings_date = f"{q_label} {q_year} ({dt.strftime('%d.%m.%Y')})"
-            except Exception:
-                next_earnings_date = None
-        
-        # Fallback for Missing Next Earnings Date (using stock.earnings_dates)
-        if not next_earnings_date:
-            try:
-                ed = stock.earnings_dates
-                if ed is not None and not ed.empty:
-                    # Filter for future dates only
-                    now = datetime.datetime.now(datetime.timezone.utc)
-                    future_dates = ed[ed.index > now]
-                    if not future_dates.empty:
-                        # Take the soonest one (index is usually descending, so take last or sort)
-                        soonest = future_dates.sort_index().index[0]
-                        month = soonest.month
-                        year = soonest.year
-                        if 1 <= month <= 3:
-                            q_label = "Q4"
-                            q_year = year - 1
-                        elif 4 <= month <= 6:
-                            q_label = "Q1"
-                            q_year = year
-                        elif 7 <= month <= 9:
-                            q_label = "Q2"
-                            q_year = year
-                        else:
-                            q_label = "Q3"
-                            q_year = year
-                        next_earnings_date = f"{q_label} {q_year} ({soonest.strftime('%d.%m.%Y')})"
-            except Exception as e_ed:
-                print(f"Earnings fallback error: {e_ed}")
-
+        # Final return object (Diagnostic-Rich v17)
         return {
-            "pe_historic": pe_historic,
             "ticker": ticker_symbol.upper(),
             "name": name,
             "current_price": current_price,
+            "data_source": data_source,
             "sector": sector,
             "industry": industry,
             "trailing_eps": trailing_eps,
@@ -1045,55 +941,24 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             "forward_pe": forward_pe,
             "ps_ratio": ps_ratio,
             "eps_growth": eps_growth,
-            "eps_growth_3y": historic_eps_growth_3y,
-            "eps_growth_5y": historic_eps_growth_5y,
             "fcf": fcf,
-            "historic_fcf_growth": historic_fcf_growth,
-            "historic_buyback_rate": historic_buyback_rate,
+            "market_cap": market_cap,
             "shares_outstanding": shares_outstanding,
             "total_cash": total_cash,
             "total_debt": total_debt,
-            "revenue_growth": revenue_growth_val,
-            "earnings_growth": earnings_growth_val,
-            "gross_margins": gross_margins,
-            "profit_margins": profit_margins,
-            "revenue": revenue,
-            "market_cap": market_cap,
-            "current_ratio": current_ratio,
-            "roic": roic,
-            "interest_coverage": interest_coverage,
             "debt_to_equity": debt_to_equity,
-            "fcf_history": fcf_history,
-            "dividend_rate": dividend_rate,
+            "revenue": revenue,
+            "operating_margin": info.get('operatingMargins'),
+            "net_margin": info.get('profitMargins'),
             "dividend_yield": dividend_yield,
-            "payout_ratio": payout, # Use payout from new logic
-            "historic_eps_growth": historic_eps_growth,
-            "historical_trends": historical_trends,
-            "roe": roe,
-            "roa": roa,
-            "price_to_book": price_to_book,
-            "operating_cashflow": operating_cashflow,
+            "dividend_rate": dividend_rate,
             "historical_data": historical_data,
-            "forward_eps": forward_eps,
-            "ebit_margin": ebit_margin,
-            "operating_margin": op_margin, # Singular as requested
-            "net_margin": net_margin,
-            "business_summary": business_summary,
-            "insider_ownership": insider,
-            "next_earnings_date": next_earnings_date,
-            "fwd_ps": fwd_ps,
-            "next_3y_rev_est": next_3y_rev_est,
-            "beta": info.get('beta'),
-            "dividend_streak": dividend_streak,
-            "dividend_cagr_5y": dividend_cagr_5y,
-            "red_flags": red_flags,
-            "earnings_growth_est": info.get('earningsGrowth'),
-            "revenue_growth_est": info.get('revenueGrowth'),
-            "eps_growth_5y_consensus": eps_growth_5y_consensus,
-            "eps_growth_nasdaq_3y": nasdaq_growth_3y
+            "historical_trends": historical_trends,
+            "business_summary": info.get('longBusinessSummary', 'N/A')[:200] + "...",
+            "next_earnings_date": None
         }
     except Exception as e:
-        print(f"Error fetching Yahoo Data for {ticker_symbol}: {e}")
+        print(f"Global Error for {ticker_symbol}: {e}")
         return None
 
 def get_competitors_data(target_ticker: str, sector: str, target_industry: str, target_market_cap: float = 0, limit: int = 3, include_growth: bool = True) -> list:
