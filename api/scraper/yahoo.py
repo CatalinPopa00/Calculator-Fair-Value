@@ -343,6 +343,55 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
     """
     Fetches comprehensive data from Yahoo Finance + Finnhub fallbacks for resilience.
     """
+    # Initialize all potential variables to prevent UnboundLocalError
+    name = ticker_symbol
+    sector = "N/A"
+    industry = "N/A"
+    current_price = None
+    data_source = "unknown"
+    trailing_eps = 0
+    adjusted_eps = 0
+    forward_eps = 0
+    pe_ratio = None
+    forward_pe = None
+    ps_ratio = None
+    fwd_ps = None
+    eps_growth = 0.05
+    eps_growth_period = "N/A"
+    fcf = None
+    fcf_history = []
+    operating_cashflow = None
+    market_cap = 0
+    shares_outstanding = None
+    total_cash = 0
+    total_debt = 0
+    debt_to_equity = None
+    current_ratio = None
+    roic = None
+    roe = None
+    roa = None
+    interest_coverage = None
+    price_to_book = None
+    revenue = 0
+    revenue_growth_val = None
+    earnings_growth_val = None
+    next_3y_rev_est = None
+    ebit_margin = None
+    dividend_yield = None
+    dividend_rate = None
+    dividend_streak = 0
+    dividend_cagr_5y = None
+    payout_ratio = None
+    historic_eps_growth = None
+    historic_fcf_growth = None
+    historic_buyback_rate = None
+    red_flags = []
+    historical_trends = []
+    historical_data = {
+        "years": [], "revenue": [], "eps": [], "fcf": [], "shares": []
+    }
+    peg_ratio = None
+
     try:
         # --- ATTEMPT 1: yf.Ticker.info (Primary) ---
         stock = yf.Ticker(ticker_symbol)
@@ -702,11 +751,11 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     # Interest Coverage
                     if 'Interest Expense' in financials.index:
                         interest = financials.loc['Interest Expense'].dropna()
-                    if not ebit.empty and not interest.empty:
-                        ebit_val = ebit.iloc[0]
-                        int_val = abs(interest.iloc[0])
-                        if int_val > 0:
-                            interest_coverage = ebit_val / int_val
+                        if interest is not None and not ebit.empty and not interest.empty:
+                            ebit_val = ebit.iloc[0]
+                            int_val = abs(interest.iloc[0])
+                            if int_val > 0:
+                                interest_coverage = ebit_val / int_val
                 
                 # EBIT Margin
                 if 'Total Revenue' in financials.index:
