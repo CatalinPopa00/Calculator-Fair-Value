@@ -47,6 +47,6 @@ def test_yahoo(ticker):
         print(f"Yahoo Error: {e}")
 
 if __name__ == "__main__":
-    for t in ["AAPL", "NVDA", "ADBE"]:
+    for t in ["IBKR", "AAPL"]:
         test_nasdaq(t)
         test_yahoo(t)

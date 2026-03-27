@@ -122,11 +122,16 @@ def get_nasdaq_earnings_growth(ticker: str, trailing_eps: float) -> float:
                 target_eps = float(target_row.get('consensusEPSForecast', 0))
                 
                 if target_eps > 0:
-                    # Years = gap between target index and base index 0
-                    years = target_idx
-                    if years > 0:
-                        cagr = (target_eps / base_eps) ** (1 / years) - 1
-                        return cagr
+                    # Calculate CAGR for all available years and take the most conservative or average
+                    cagrs = []
+                    for i in range(1, target_idx + 1):
+                        y_eps = float(rows[i].get('consensusEPSForecast', 0))
+                        if y_eps > 0:
+                            cagrs.append((y_eps / base_eps) ** (1 / i) - 1)
+                    
+                    if cagrs:
+                        # Use average CAGR instead of just the furthest one to dampen outliers
+                        return sum(cagrs) / len(cagrs)
 
             # Fallback to CAGR from Trailing EPS to the first Forecast Year if only 1 row or base failed
             target_eps = float(rows[0].get('consensusEPSForecast', 0))
@@ -1194,8 +1199,13 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
                         }
                         # ONLY fetch growth if requested (expensive!)
                         if include_growth:
-                            p_data["revenue_growth"] = inf.get('revenueGrowth')
+                            p_data["revenue_growth"] = inf.get('revenueGrowth') or inf.get('revenueQuarterlyGrowth')
                             p_data["earnings_growth"] = inf.get('earningsGrowth') or inf.get('earningsQuarterlyGrowth')
+                            
+                            # Fallback: simple avg of EPS if growth fields are missing but TTM/Fwd are there
+                            if p_data["earnings_growth"] is None and inf.get('trailingEps') and inf.get('forwardEps'):
+                                te, fe = inf['trailingEps'], inf['forwardEps']
+                                if te > 0: p_data["earnings_growth"] = (fe - te) / te
 
                         _peer_info_cache[t] = (p_data, now)
                         final_peers.append(p_data)

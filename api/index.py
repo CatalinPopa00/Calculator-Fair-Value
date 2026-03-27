@@ -30,7 +30,7 @@ app = FastAPI(title="Fair Value Calculator API")
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v28" # Robust Index Matching + Growth Prioritization (v28)
+CACHE_VERSION = "v29" # DCF Mapping Fix + Peer Growth + CAGR Damping (v29)
 
 app.add_middleware(
     CORSMiddleware,
@@ -495,8 +495,8 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
                 "intrinsic_value": sanitize(dcf_value),
                 "margin_of_safety": sanitize(((dcf_value - current_price) / dcf_value * 100)) if dcf_value and dcf_value > 0 else None,
                 "current_price": sanitize(current_price),
-                # Metadata for the modal (Flattened for v26 compatibility)
-                **(_format_dcf_payload(dcf_5yr) if dcf_5yr else {}),
+                # Metadata for the modal (Flattened for compatibility)
+                **(_format_dcf_payload(dcf_5yr or dcf_10yr or {}) if (dcf_5yr or dcf_10yr) else {}),
                 "5yr": _format_dcf_payload(dcf_5yr) if dcf_5yr else None,
                 "10yr": _format_dcf_payload(dcf_10yr) if dcf_10yr else None
             },
