@@ -30,7 +30,7 @@ app = FastAPI(title="Fair Value Calculator API")
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v25" # DCF Breakdown + PE Sync Fix (v25)
+CACHE_VERSION = "v26" # DCF Payload Flattening Fix (v26)
 
 app.add_middleware(
     CORSMiddleware,
@@ -492,11 +492,13 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
                 "perpetual_growth": perpetual_growth,
                 "shares_outstanding": shares,
                 "historic_buyback_rate": sanitize(data.get("historic_buyback_rate")),
-                "5yr": _format_dcf_payload(dcf_5yr) if dcf_5yr else None,
-                "10yr": _format_dcf_payload(dcf_10yr) if dcf_10yr else None,
                 "intrinsic_value": sanitize(dcf_value),
                 "margin_of_safety": sanitize(((dcf_value - current_price) / dcf_value * 100)) if dcf_value and dcf_value > 0 else None,
-                "current_price": sanitize(current_price)
+                "current_price": sanitize(current_price),
+                # Metadata for the modal (Flattened for v26 compatibility)
+                **(_format_dcf_payload(dcf_5yr) if dcf_5yr else {}),
+                "5yr": _format_dcf_payload(dcf_5yr) if dcf_5yr else None,
+                "10yr": _format_dcf_payload(dcf_10yr) if dcf_10yr else None
             },
             "relative": {
                 "fair_value": sanitize(relative_value),
