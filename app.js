@@ -598,7 +598,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (usedGrowth > 0 && currentPe > 0 && industryPeg != null && industryPeg > 0) {
                 currentPegToDisplay = currentPe / (usedGrowth * 100);
                 pegVal = globalData.current_price * (industryPeg / currentPegToDisplay);
-                pegMos = ((pegVal - globalData.current_price) / pegVal) * 100;
+                pegMos = ((pegVal - globalData.current_price) / globalData.current_price) * 100;
             } else if (pegSrc === 'analyst') {
                 pegVal = currentFormulaData.peg.fair_value;
                 pegMos = currentFormulaData.peg.margin_of_safety;
@@ -1619,7 +1619,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const displayFv = hasOverride ? globalOv.computed.fair_value : data.fair_value;
             // ALWAYS recalculate MOS live based on current price
-            const displayMos = (displayFv != null && data.current_price) ? ((displayFv - data.current_price) / displayFv) * 100 : null;
+            const displayMos = (displayFv != null && data.current_price) ? ((displayFv - data.current_price) / data.current_price) * 100 : null;
             
             const displayHealth = (globalOv && globalOv.computed && globalOv.computed.health_score != null) ? globalOv.computed.health_score : data.health_score;
             

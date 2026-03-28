@@ -1,22 +1,31 @@
+
 import sys
-from dotenv import load_load
-import finnhub
 import os
-import requests
+import logging
 
-def test_sofi():
-    print("Testing Finnhub vs Yahoo for SOFI")
+# Set up logging
+logging.basicConfig(level=logging.ERROR)
+sys.path.append(os.getcwd())
+
+from api.scraper.yahoo import get_company_data
+
+def test_ticker(ticker):
+    print(f"Testing {ticker}...")
     try:
-        fh = finnhub.Client(api_key=os.environ.get('FINNHUB_API_KEY'))
-        print("Finnhub Peers:", fh.company_peers('SOFI'))
+        data = get_company_data(ticker, fast_mode=False)
+        if data:
+            print(f"Name: {data.get('name')}")
+            print(f"Price: {data.get('current_price')}")
+            print(f"Trailing EPS: {data.get('trailing_eps')}")
+            print(f"Sector: {data.get('sector')}")
+            print(f"PE Ratio: {data.get('pe_ratio')}")
+            print(f"Success!")
+        else:
+            print("FAILURE: Could not fetch data.")
     except Exception as e:
-        print("Finnhub Failed:", e)
+        import traceback
+        traceback.print_exc()
+        print(f"ERROR: {e}")
 
-    url = "https://query2.finance.yahoo.com/v6/finance/recommendationsbysymbol/SOFI"
-    resp = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'})
-    rec = resp.json().get('finance', {}).get('result', [])
-    if rec:
-        peers = [r.get('symbol') for r in rec[0].get('recommendedSymbols', [])]
-        print("Yahoo Peers:", peers)
-
-test_sofi()
+if __name__ == "__main__":
+    test_ticker("SOFI")

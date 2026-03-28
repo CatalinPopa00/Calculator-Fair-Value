@@ -30,7 +30,7 @@ app = FastAPI(title="Fair Value Calculator API")
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v31" # Fix -Infinity Margin + EPS Robustness (v31)
+CACHE_VERSION = "v32" # Fix UnboundLocalError (SOFI) + Frontend Margin Sync
 
 app.add_middleware(
     CORSMiddleware,
@@ -308,12 +308,14 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
         discount_rate = (wacc / 100.0) if wacc is not None else dynamic_wacc
         perpetual_growth = 0.02 # 2% GDP growth standard
         
+        # Initialize variables before conditional assignment to avoid UnboundLocalError
+        dcf_cash = data.get("total_cash") or 0
+        dcf_debt = data.get("total_debt") or 0
+        
         if fcf and shares and fcf > 0:
             # Special Handling for Financial Services (Banks, Brokers, Insurance)
             # Standard DCF EV = PV(FCF) + Cash - Debt is highly misleading because Cash often includes customer money.
             # For these, we use PV(FCF) as a proxy for Equity Value directly.
-            dcf_cash = data.get("total_cash")
-            dcf_debt = data.get("total_debt")
             if data.get("sector") == "Financial Services":
                 dcf_cash = 0
                 dcf_debt = 0
