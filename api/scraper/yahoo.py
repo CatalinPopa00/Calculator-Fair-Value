@@ -107,36 +107,35 @@ def get_nasdaq_earnings_growth(ticker: str, trailing_eps: float) -> float:
             raw_data = response.read()
             data = json.loads(raw_data)
             
-        rows = data.get('data', {}).get('yearlyForecast', {}).get('rows', [])
+        rows = data.get('data', { }).get('yearlyForecast', { }).get('rows', [])
         if rows and len(rows) > 1:
             # Consistent with Non-GAAP Estimates: 
-            # Calculate CAGR between the Forecast Years themselves if available.
-            # This avoids the GAAP (Trailing) vs Non-GAAP (Forecast) mismatch.
-            base_row = rows[0]
-            base_eps = float(base_row.get('consensusEPSForecast', 0))
+            # Calculate CAGR strictly between the Forecast Years.
+            # This avoids the historical GAAP (Trailing) vs Future Non-GAAP (Forecast) mismatch
+            # which caused hyper-inflated results for stocks like NVDA (e.g. 96% -> 28%).
             
-            if base_eps > 0:
-                # Target the furthest available year up to index 3 (usually 4th year from now)
-                target_idx = min(len(rows) - 1, 3)
-                target_row = rows[target_idx]
-                target_eps = float(target_row.get('consensusEPSForecast', 0))
-                
-                if target_eps > 0:
-                    # Calculate CAGR for all available years and take the most conservative or average
-                    cagrs = []
-                    for i in range(1, target_idx + 1):
-                        y_eps = float(rows[i].get('consensusEPSForecast', 0))
-                        if y_eps > 0:
-                            cagrs.append((y_eps / base_eps) ** (1 / i) - 1)
-                    
-                    if cagrs:
-                        # Use average CAGR instead of just the furthest one to dampen outliers
-                        return sum(cagrs) / len(cagrs)
+            # Start from Year 1 Forecast as base
+            base_eps = float(rows[0].get('consensusEPSForecast', 0))
+            if base_eps <= 0:
+                # If Year 1 is 0/neg, try Year 2 as base or fallback to trailing
+                if len(rows) > 1:
+                    base_eps = float(rows[1].get('consensusEPSForecast', 0))
+                    rows = rows[1:] # shift
+                else:
+                    return (float(rows[0].get('consensusEPSForecast', 0)) / trailing_eps) - 1 if trailing_eps > 0 else None
 
-            # Fallback to CAGR from Trailing EPS to the first Forecast Year if only 1 row or base failed
+            if base_eps > 0:
+                # Calculate CAGR from Year 1 Forecast to furthest available (up to 3 years ahead)
+                target_idx = min(len(rows) - 1, 3) 
+                target_eps = float(rows[target_idx].get('consensusEPSForecast', 0))
+                
+                if target_eps > 0 and target_idx > 0:
+                    # CAGR = (End/Start)^(1/Years) - 1
+                    return (target_eps / base_eps) ** (1 / target_idx) - 1
+
+            # Last resort fallback to trailing -> Year 1 jump
             target_eps = float(rows[0].get('consensusEPSForecast', 0))
-            if target_eps > 0:
-                # Row 0 is roughly 1 year out from Trailing
+            if target_eps > 0 and trailing_eps > 0:
                 return (target_eps / trailing_eps) - 1
 
     except Exception as e:
@@ -598,9 +597,11 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             adjusted_eps = nasdaq_actual_eps
         else:
             adjusted_eps = trailing_eps
-
+        # 0. Always fetch Nasdaq growth if available (Lighter API call, fixes NVDA 96% anomaly)
+        nasdaq_growth_3y = get_nasdaq_earnings_growth(ticker_symbol, trailing_eps)
+        
         # --- GROWTH SELECTION (USER REQUESTED PRIORITY: NASDAQ 3Y) ---
-        if not fast_mode and nasdaq_growth_3y and nasdaq_growth_3y > 0:
+        if nasdaq_growth_3y and nasdaq_growth_3y > 0:
             eps_growth = nasdaq_growth_3y
             eps_growth_period = "Nasdaq 3Y Forecast"
         

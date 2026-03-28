@@ -1565,10 +1565,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 // ... card rendering logic ...
             // Recalculare MOS custom pentru Watchlist
             let customFinalFv = 0;
-            let totalW = 0;
             // Use smart weights per ticker instead of just global customWeights
-            const cw = (data.sector) ? getSmartWeights(data.sector) : customWeights; 
-            const savedOv = cachedOverrides[data.ticker] || {};
+            // v34: prioritizing root data.sector (exposed by backend)
+            const sector = data.sector || (data.company_profile ? data.company_profile.sector : null);
+            const cw = (sector) ? getSmartWeights(sector) : customWeights; 
+            
+            // Linkage priority: cachedOverrides (local memory) -> data.overrides (backend lookup)
+            const savedOv = cachedOverrides[data.ticker] || data.overrides || {};
             const toggles = savedOv.toggles || { 'toggle-peter_lynch': true, 'toggle-peg': true, 'toggle-relative': true, 'toggle-dcf': true };
 
             if (data.formula_data?.dcf && toggles['toggle-dcf']) { 
@@ -1619,7 +1622,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             // Build the card HTML
-            const globalOv = cachedOverrides[data.ticker];
+            const globalOv = cachedOverrides[data.ticker] || data.overrides;
             const hasOverride = globalOv && globalOv.computed && globalOv.computed.fair_value != null;
             
             const displayFv = hasOverride ? globalOv.computed.fair_value : data.fair_value;

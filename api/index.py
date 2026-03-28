@@ -195,7 +195,8 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
         ticker_upper = ticker.upper()
         # Ensure wacc is normalized for the key
         norm_wacc = round(float(wacc), 2) if wacc is not None else "def"
-        cache_key = f"v_res_{ticker_upper}_{norm_wacc}_{CACHE_VERSION}"
+        # v34: include fast_mode in key to prevent poisoning
+        cache_key = f"v_res_{ticker_upper}_{norm_wacc}_{fast_mode}_{CACHE_VERSION}"
         
         # 1. KV Cache Check (Rapid Loading)
         cached_res = kv_get(cache_key)
@@ -213,7 +214,9 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
             
         current_price = data["current_price"]
     
-        # 2. Get Competitors for Relative Valuation
+        # Load overrides to merge "computed" values into response
+        all_overrides = _load_overrides()
+        ticker_overrides = all_overrides.get(ticker.upper())
         sector = data.get("sector")
         industry = data.get("industry")
         target_market_cap = data.get("market_cap") or 0.0
@@ -568,6 +571,8 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
                 "baseline_weights": base_weights,
                 "dcf_value": sanitize(dcf_value),
                 "relative_value": sanitize(relative_value),
+                "sector": data.get("sector"),
+                "industry": data.get("industry"),
                 "lynch_fwd_pe": sanitize(lynch_fwd_pe),
                 "lynch_fair_value": sanitize(lynch_pe20_val),
                 "lynch_status": lynch_status,
@@ -626,7 +631,8 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
                 "algorithmic_insights": {
                     "top_strengths": top_strengths,
                     "risk_factors": risk_factors
-                }
+                },
+                "overrides": ticker_overrides
             }
     except Exception as e:
         import traceback
