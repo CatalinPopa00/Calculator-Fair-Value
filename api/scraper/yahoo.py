@@ -116,27 +116,26 @@ def get_nasdaq_earnings_growth(ticker: str, trailing_eps: float) -> float:
             
             # Start from Year 1 Forecast as base
             base_eps = float(rows[0].get('consensusEPSForecast', 0))
-            if base_eps <= 0:
-                # If Year 1 is 0/neg, try Year 2 as base or fallback to trailing
-                if len(rows) > 1:
-                    base_eps = float(rows[1].get('consensusEPSForecast', 0))
-                    rows = rows[1:] # shift
-                else:
-                    return (float(rows[0].get('consensusEPSForecast', 0)) / trailing_eps) - 1 if trailing_eps > 0 else None
-
-            if base_eps > 0:
+            if base_eps != 0:
                 # Calculate CAGR from Year 1 Forecast to furthest available (up to 3 years ahead)
                 target_idx = min(len(rows) - 1, 3) 
                 target_eps = float(rows[target_idx].get('consensusEPSForecast', 0))
                 
-                if target_eps > 0 and target_idx > 0:
+                # If Year 1 is very small (near zero), CAGR becomes astronomical. 
+                # Floor the base at 0.10 if it's positive but tiny to keep it sane for PEG.
+                effective_base = max(base_eps, 0.10) if base_eps > 0 else base_eps
+                
+                if target_eps > 0 and target_idx > 0 and effective_base > 0:
                     # CAGR = (End/Start)^(1/Years) - 1
-                    return (target_eps / base_eps) ** (1 / target_idx) - 1
+                    return (target_eps / effective_base) ** (1 / target_idx) - 1
 
             # Last resort fallback to trailing -> Year 1 jump
             target_eps = float(rows[0].get('consensusEPSForecast', 0))
             if target_eps > 0 and trailing_eps > 0:
                 return (target_eps / trailing_eps) - 1
+            elif target_eps > 0 and trailing_eps <= 0:
+                # Low base jump: assume 20% if we go from loss to profit but can't CAGR
+                return 0.20
 
     except Exception as e:
         print(f"Error fetching Nasdaq growth for {ticker}: {e}")
@@ -428,8 +427,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 future_cf = executor.submit(lambda: stock.cashflow)
                 future_fin = executor.submit(lambda: stock.financials)
                 future_bs = executor.submit(lambda: stock.balance_sheet)
-                future_qcf = executor.submit(lambda: stock.quarterly_cashflow)
                 future_qfin = executor.submit(lambda: stock.quarterly_income_stmt)
+                future_qbs = executor.submit(lambda: stock.quarterly_balance_sheet)
                 future_divs = executor.submit(lambda: stock.dividends)
             
             try:
@@ -635,6 +634,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         financials = None
         cashflow = None
         bs = None
+        q_bs = None
         q_financials = None
         q_cashflow = None
         dividends_raw = pd.Series()
@@ -653,6 +653,11 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             try:
                 bs = future_bs.result(timeout=10)
                 if bs is not None and fx_rate != 1.0: bs = bs * fx_rate
+            except Exception:
+                pass
+            try:
+                q_bs = future_qbs.result(timeout=10)
+                if q_bs is not None and fx_rate != 1.0: q_bs = q_bs * fx_rate
             except Exception:
                 pass
             try:
@@ -692,13 +697,46 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         if fcf is None:
             fcf = info.get('freeCashflow')
             if fcf is None: fcf = info.get('operatingCashflow')
-            if fcf is not None: fcf *= fx_rate
-            
         shares_outstanding = info.get('sharesOutstanding') # No convert
         
+        # --- TOTAL CASH & DEBT ROBUST FALLBACKS ---
         total_cash = (info.get('totalCash') or 0) * fx_rate
         total_debt = (info.get('totalDebt') or 0) * fx_rate
         
+        def get_val_from_dfs(dfs, keys):
+            for df in dfs:
+                if df is not None and not df.empty:
+                    for k in keys:
+                        idx = find_idx(df, k)
+                        if idx:
+                            try:
+                                val = float(df.loc[idx].iloc[0])
+                                if val != 0: return val
+                            except: pass
+            return 0
+
+            cash_keys = ['Cash And Cash Equivalents', 'Cash Cash Equivalents And Short Term Investments', 'Total Cash', 'Cash']
+            # Try Quarterly BS first (more recent), then Annual
+            tc_raw = get_val_from_dfs([q_bs, bs], cash_keys) 
+            if tc_raw != 0: total_cash = tc_raw * fx_rate
+
+        if total_debt == 0:
+            debt_keys = ['Total Debt', 'Net Debt'] 
+            td_raw = get_val_from_dfs([q_bs, bs], debt_keys)
+            if td_raw == 0:
+                # Try sum of Long Term + Short Term
+                def sum_debt(df):
+                    if df is None or df.empty: return 0
+                    lt_idx = find_idx(df, 'Long Term Debt')
+                    st_idx = find_idx(df, 'Current Debt') or find_idx(df, 'Short Long Term Debt')
+                    lt = float(df.loc[lt_idx].iloc[0]) if lt_idx else 0
+                    st = float(df.loc[st_idx].iloc[0]) if st_idx else 0
+                    return lt + st
+                
+                td_raw = sum_debt(q_bs) or sum_debt(bs)
+            
+            if td_raw != 0: total_debt = td_raw * fx_rate
+
         gross_margins = info.get('grossMargins') # Ratio
         profit_margins = info.get('profitMargins') # Ratio
         
@@ -834,6 +872,15 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     if not ebit.empty and not rev.empty:
                         e_val = ebit.iloc[0]
                         r_val = rev.iloc[0]
+                        
+                        # Robustness Check for Financials (Visa case):
+                        # If e_val is extremely negative or small while 'Operating Income' is better, swap it.
+                        op_idx = find_idx(financials, 'Operating Income')
+                        if op_idx:
+                            op_inc = financials.loc[op_idx].dropna()
+                            if not op_inc.empty and op_inc.iloc[0] > e_val:
+                                e_val = op_inc.iloc[0]
+
                         if r_val > 0:
                             ebit_margin = e_val / r_val
         except Exception:

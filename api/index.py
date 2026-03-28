@@ -195,8 +195,8 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
         ticker_upper = ticker.upper()
         # Ensure wacc is normalized for the key
         norm_wacc = round(float(wacc), 2) if wacc is not None else "def"
-        # v34: include fast_mode in key to prevent poisoning
-        cache_key = f"v_res_{ticker_upper}_{norm_wacc}_{fast_mode}_{CACHE_VERSION}"
+        # v34.2: Force cache refresh for new DCF payload format
+        cache_key = f"valuation_{ticker.upper()}_{fast_mode}_v34.2_{norm_wacc}"
         
         # 1. KV Cache Check (Rapid Loading)
         cached_res = kv_get(cache_key)
@@ -447,7 +447,10 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
                 "present_value_fcf_sum": sanitize(res.get("total_pv_of_fcfs")),
                 "discount_rate": sanitize(res.get("discount_rate_applied")),
                 "perpetual_growth_rate": perpetual_growth,
-                "exit_multiple": 15.0 # Default
+                "exit_multiple": 15.0, # Default
+                "total_cash": sanitize(dcf_cash),
+                "total_debt": sanitize(dcf_debt),
+                "shares_outstanding": sanitize(shares)
             }
 
             def _fmt_branch(branch):
