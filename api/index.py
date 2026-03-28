@@ -507,7 +507,7 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
                 "margin_of_safety": sanitize(((dcf_value - current_price) / dcf_value * 100)) if dcf_value and dcf_value > 0 else None,
                 "current_price": sanitize(current_price),
                 # Metadata for the modal (Flattened for compatibility)
-                **(_format_dcf_payload(dcf_5yr or dcf_10yr or {}) if (dcf_5yr or dcf_10yr) else {}),
+                **( _format_dcf_payload(dcf_5yr or dcf_10yr) or {} ),
                 "5yr": _format_dcf_payload(dcf_5yr) if dcf_5yr else None,
                 "10yr": _format_dcf_payload(dcf_10yr) if dcf_10yr else None
             },
