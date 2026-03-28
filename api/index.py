@@ -68,9 +68,9 @@ class ValuationResponse(BaseModel):
     company_profile: dict | None = None
     historical_trends: list | None = None
     formula_data: dict
-    health_score: int | str | None = None
+    health_score_total: int | str | None = None
     health_breakdown: list | None = None
-    buy_score: int | str | None = None
+    good_to_buy_total: int | str | None = None
     buy_breakdown: list | None = None
     historical_data: dict | None = None
     algorithmic_insights: dict | None = None
@@ -534,15 +534,14 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
             }
     }
 
-        # 6. Compute Comprehensive Scoring
-        h_result = calculate_health_score(data)
-        b_result = calculate_buy_score({"margin_of_safety": margin_of_safety, "sector_median_peg": median_peer_peg}, data)
+        # 6. Compute Comprehensive Scoring (Expert System Reform)
+        scoring_results = calculate_scoring_reform({"margin_of_safety": margin_of_safety, "sector_median_peg": median_peer_peg}, data)
         
-        health_score = h_result.get("total") if isinstance(h_result, dict) else h_result
-        health_breakdown = h_result.get("breakdown") if isinstance(h_result, dict) else []
+        health_score_total = scoring_results.get("health_score_total")
+        health_breakdown = scoring_results.get("health_breakdown")
         
-        buy_score = b_result.get("total") if isinstance(b_result, dict) else b_result
-        buy_breakdown = b_result.get("breakdown") if isinstance(b_result, dict) else []
+        good_to_buy_total = scoring_results.get("good_to_buy_total")
+        buy_breakdown = scoring_results.get("buy_breakdown")
 
         # 7. Algorithmic Insights Generation
         all_breakdowns = health_breakdown + buy_breakdown
@@ -627,9 +626,9 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
                 "historical_trends": historical_trends,
                 "historical_data": data.get("historical_data"),
                 "formula_data": formula_data,
-                "health_score": health_score,
+                "health_score_total": health_score_total,
                 "health_breakdown": health_breakdown,
-                "buy_score": buy_score,
+                "good_to_buy_total": good_to_buy_total,
                 "buy_breakdown": buy_breakdown,
                 "algorithmic_insights": {
                     "top_strengths": top_strengths,
