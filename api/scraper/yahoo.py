@@ -1131,11 +1131,74 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     historical_data["shares"].append(historical_data["shares"][-1])
         except Exception as e_proj:
             print(f"Error adding projections: {e_proj}")
+        # 3. Historical Anchors (Last 4 reported fiscal years - Strict List)
+        historical_anchors = []
+        try:
+            if financials is not None and not financials.empty and cashflow is not None and not cashflow.empty and bs is not None and not bs.empty:
+                # Find common columns across all 3 statements
+                common_cols = sorted(list(set(financials.columns).intersection(cashflow.columns).intersection(bs.columns)), reverse=True)
+                for yr in common_cols[:4]: # Last 4 reported years
+                    # 1. Revenue
+                    r_raw = float(financials.loc['Total Revenue', yr]) if 'Total Revenue' in financials.index and not pd.isna(financials.loc['Total Revenue', yr]) else 0
+                    
+                    # 2. EPS
+                    e_raw = financials.loc['Diluted EPS', yr] if 'Diluted EPS' in financials.index else (financials.loc['Basic EPS', yr] if 'Basic EPS' in financials.index else 0)
+                    e_raw = float(e_raw) if not pd.isna(e_raw) else 0
+                    
+                    # 3. FCF
+                    f_raw = float(cashflow.loc['Free Cash Flow', yr]) if 'Free Cash Flow' in cashflow.index and not pd.isna(cashflow.loc['Free Cash Flow', yr]) else 0
+                    
+                    # 4. Net Income (for Margin and ROIC)
+                    ni_raw = float(financials.loc['Net Income', yr]) if 'Net Income' in financials.index and not pd.isna(financials.loc['Net Income', yr]) else 0
+                    
+                    # 5. Cash
+                    c_idx = find_idx(bs, 'Cash And Cash Equivalents')
+                    c_raw = float(bs.loc[c_idx, yr]) if c_idx and not pd.isna(bs.loc[c_idx, yr]) else 0
+                    
+                    # 6. Total Debt
+                    d_idx = find_idx(bs, 'Total Debt')
+                    d_raw = float(bs.loc[d_idx, yr]) if d_idx and not pd.isna(bs.loc[d_idx, yr]) else 0
+                    
+                    # 7. Shares
+                    s_raw = 0
+                    for sk in ['Basic Average Shares', 'Diluted Average Shares', 'Ordinary Shares Number']:
+                        if sk in financials.index:
+                            val = financials.loc[sk, yr]
+                            if not pd.isna(val): s_raw = float(val); break
+                    if s_raw == 0 and 'Ordinary Shares Number' in bs.index:
+                        s_raw = float(bs.loc['Ordinary Shares Number', yr]) if not pd.isna(bs.loc['Ordinary Shares Number', yr]) else 0
+
+                    # 8. ROIC Inputs (Total Assets, Current Liabilities)
+                    a_idx = find_idx(bs, 'Total Assets')
+                    l_idx = find_idx(bs, 'Current Liabilities')
+                    assets = float(bs.loc[a_idx, yr]) if a_idx and not pd.isna(bs.loc[a_idx, yr]) else 0
+                    liabs = float(bs.loc[l_idx, yr]) if l_idx and not pd.isna(bs.loc[l_idx, yr]) else 0
+                    
+                    # Calculations
+                    margin_v = (ni_raw / r_raw * 100.0) if r_raw > 0 else None
+                    roic_v = (ni_raw / (assets - liabs) * 100.0) if (assets - liabs) > 0 else None
+                    
+                    year_label = str(yr.year) if hasattr(yr, 'year') else str(yr)[:4]
+                    
+                    historical_anchors.append({
+                        "year": year_label,
+                        "revenue_b": round(r_raw / 1e9, 2),
+                        "eps": round(e_raw * fx_rate, 2),
+                        "fcf_b": round(f_raw / 1e9, 2),
+                        "net_margin_pct": f"{margin_v:.1f}%" if margin_v is not None else "0.0%",
+                        "cash_b": round(c_raw / 1e9, 2),
+                        "total_debt_b": round(d_raw / 1e9, 2),
+                        "shares_out_b": round(s_raw / 1e9, 2),
+                        "roic_pct": f"{roic_v:.1f}%" if roic_v is not None else "0.0%"
+                    })
+        except Exception as e_anch:
+            print(f"Error creating historical anchors: {e_anch}")
 
         # Final return object (Diagnostic-Rich v22)
         return {
             "ticker": ticker_symbol.upper(),
             "name": name,
+            "historical_anchors": historical_anchors,
             "current_price": current_price,
             "data_source": data_source,
             "sector": sector,
