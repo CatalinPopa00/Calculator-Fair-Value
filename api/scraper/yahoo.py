@@ -543,15 +543,31 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         eps_growth = None
         eps_growth_period = None
 
-        # 1. Try YF earnings_estimate - HIGHEST PRIORITY for consensus-based valuation
+        # 1. Try YF growth_estimates (Analysis tab - Next 5 Years) - TOP PRIORITY for PEG
+        eps_growth_5y_consensus = None
         if not fast_mode:
+            try:
+                ge = future_growth_est.result(timeout=2)
+                if ge is not None and not ge.empty:
+                    # Find 'Next 5 Years' in index
+                    idx = find_idx(ge, 'Next 5 Years')
+                    if idx:
+                        val = ge.loc[idx, ge.columns[0]]
+                        if val is not None and not pd.isna(val):
+                            eps_growth_5y_consensus = float(val)
+                            eps_growth = eps_growth_5y_consensus
+                            eps_growth_period = "Next 5 Years (Consensus)"
+            except Exception:
+                pass
+
+        # 2. Try YF earnings_estimate (Forward Years) - SECOND PRIORITY
+        if eps_growth is None and not fast_mode:
             try:
                 ef = future_est.result(timeout=2)
                 if ef is not None and not ef.empty:
-                    # Smart selection: pick healthiest forward year (+5y -> +1y -> 0y)
+                    # pick healthiest forward year (+5y -> +1y -> 0y)
                     g_5y = ef.loc['+5y'].get('growth') if '+5y' in ef.index else None
                     g_1y = ef.loc['+1y'].get('growth') if '+1y' in ef.index else None
-                    g_0y = ef.loc['0y'].get('growth') if '0y' in ef.index else None
                     
                     labels = get_period_labels(info)
                     
@@ -559,25 +575,9 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                         eps_growth = float(g_5y)
                         eps_growth_period = labels.get('+5y', 'Next 5 Years (Est)')
                     elif g_1y is not None:
+                        # Only use +1y if it is sane (positive) OR if we have no other choice
                         eps_growth = float(g_1y)
                         eps_growth_period = labels.get('+1y', 'Next Year (Est)')
-                    elif g_0y is not None and g_0y > 0.02:
-                        eps_growth = float(g_0y)
-                        eps_growth_period = labels.get('0y', 'Current Year (Est)')
-            except Exception:
-                pass
-        
-        # 1.5 Try YF growth_estimates (Analysis tab - Next 5 Years)
-        eps_growth_5y_consensus = None
-        if not fast_mode:
-            try:
-                ge = future_growth_est.result(timeout=2)
-                if ge is not None and not ge.empty:
-                    if 'Next 5 Years' in ge.index:
-                        # Columns are [Ticker, 'S&P 500']
-                        val = ge.loc['Next 5 Years', ge.columns[0]]
-                        if val is not None and not pd.isna(val):
-                            eps_growth_5y_consensus = float(val)
             except Exception:
                 pass
 
@@ -599,20 +599,36 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         else:
             adjusted_eps = trailing_eps
 
-        if eps_growth is None:
-            # USER PREFERENCE: Prioritize Nasdaq 3Y Forecast over 5Y Consensus
-            eps_growth = nasdaq_growth_3y or eps_growth_5y_consensus
-            if eps_growth: 
-                eps_growth_period = "Nasdaq 3Y Forecast" if nasdaq_growth_3y else "Analyst 5Y Cons."
+        # --- GROWTH SELECTION (USER REQUESTED PRIORITY: NASDAQ 3Y) ---
+        if not fast_mode and nasdaq_growth_3y and nasdaq_growth_3y > 0:
+            eps_growth = nasdaq_growth_3y
+            eps_growth_period = "Nasdaq 3Y Forecast"
+        
+        # 1. Fallback to YF growth_estimates (Analysis tab - Next 5 Years) if Nasdaq missing
+        if eps_growth is None and eps_growth_5y_consensus:
+            eps_growth = eps_growth_5y_consensus
+            eps_growth_period = "Next 5 Years (Consensus)"
 
-        # 3. Fallback to info.get('earningsGrowth')
+        # 2. Fallback to healthy YF earnings_estimate if still None
         if eps_growth is None:
-            eps_growth = info.get('earningsGrowth')
-            eps_growth_period = "Trailing Growth"
-            if not eps_growth and forward_eps and trailing_eps and trailing_eps > 0:
-                eps_growth = (forward_eps - trailing_eps) / trailing_eps
-            elif not eps_growth:
+            # We already have results from future_est in the earlier block
+            pass
+            
+        # 3. Last resort sanity/fallbacks
+        if eps_growth is None or (isinstance(eps_growth, (int, float)) and eps_growth < 0 and forward_pe and pe_ratio and forward_pe < pe_ratio):
+            # Sanity Check Failed or all sources missing: Yahoo says negative growth, but PE suggests expansion.
+            eg_val = info.get('earningsGrowth')
+            if eg_val and eg_val > 0:
+                eps_growth = eg_val
+                eps_growth_period = "Trailing Growth"
+            elif forward_pe and pe_ratio and pe_ratio > 0 and forward_pe < pe_ratio:
+                # Implied Growth from PE compression
+                implied_g = (pe_ratio / forward_pe) - 1
+                eps_growth = min(implied_g, 0.50) # Cap at 50% for safety
+                eps_growth_period = "Implied PE Growth"
+            else:
                 eps_growth = info.get('revenueGrowth', 0.05)
+                eps_growth_period = "Revenue Growth Proxy"
             
         # Financials for DCF & Margins (Wait for results)
         financials = None
@@ -1390,7 +1406,8 @@ def get_period_labels(ticker_info: dict) -> dict:
     mapping = {
         "0q": f"Q{curr_q} {curr_year}",
         "0y": f"FY {curr_year}",
-        "+1y": f"FY {curr_year + 1}"
+        "+1y": f"FY {curr_year + 1}",
+        "+5y": "Next 5 Years"
     }
     
     # Calculate next quarters based on current

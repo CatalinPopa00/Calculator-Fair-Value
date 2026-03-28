@@ -30,7 +30,7 @@ app = FastAPI(title="Fair Value Calculator API")
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v33" # Fix individual model margin denominators + v32 UnboundLocal
+CACHE_VERSION = "v34" # Nasdaq 3Y Growth Priority + Local Weighting Fix (Visa/SOFI)
 
 app.add_middleware(
     CORSMiddleware,
@@ -254,17 +254,18 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
         # PEG Valuation (Sector-based)
         eps_base = eps_for_valuation or 0
         current_pe = current_price / eps_base if eps_base > 0 else 0
-        # Use Yahoo 5Y Consensus as primary source for PEG
-        eps_growth_rate_peg = data.get("eps_growth_5y_consensus")
         
-        # Fallback to Nasdaq 3Y if 5Y is missing (User requested)
+        # USER REQUESTED PRIORITY: Nasdaq 3Y Forecast first
+        eps_growth_rate_peg = data.get("eps_growth_nasdaq_3y")
+        
+        # Fallback to Yahoo 5Y Consensus
         if eps_growth_rate_peg is None:
-            eps_growth_rate_peg = data.get("eps_growth_nasdaq_3y")
+            eps_growth_rate_peg = data.get("eps_growth_5y_consensus")
             
         if eps_growth_rate_peg is None:
             eps_growth_rate_peg = data.get("eps_growth_5y") or data.get("eps_growth") or 0.05
             
-        peg_period_label = "Yahoo 5Y Cons." if data.get("eps_growth_5y_consensus") else ("Nasdaq 3Y Forecast" if data.get("eps_growth_nasdaq_3y") else ("5-Year Hist. Avg" if data.get("eps_growth_5y") else "Analyst Est."))
+        peg_period_label = "Nasdaq 3Y Forecast" if data.get("eps_growth_nasdaq_3y") else ("Yahoo 5Y Cons." if data.get("eps_growth_5y_consensus") else ("5-Year Hist. Avg" if data.get("eps_growth_5y") else "Analyst Est."))
         company_peg = current_pe / (eps_growth_rate_peg * 100) if eps_growth_rate_peg > 0 else 0
         
         # Calculate Industry PEG from peers + Target Company

@@ -82,7 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
         cachedOverrides = data || {};
     }).catch(() => { cachedOverrides = {}; });
 
-    const setSmartWeights = (sector) => {
+    const getSmartWeights = (sector) => {
         let w = { dcf: 25, peg: 25, relative: 25, lynch: 25 }; 
         const s = sector || '';
         
@@ -95,7 +95,11 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if(s.includes('Industrials') || s.includes('Energy') || s.includes('Basic Materials') || s.includes('Cyclical')) {
             w = { dcf: 30, peg: 10, relative: 40, lynch: 20 };
         }
-        
+        return w;
+    };
+
+    const setSmartWeights = (sector) => {
+        const w = getSmartWeights(sector);
         customWeights = w;
         
         // Sync UI
@@ -1562,7 +1566,8 @@ document.addEventListener('DOMContentLoaded', () => {
             // Recalculare MOS custom pentru Watchlist
             let customFinalFv = 0;
             let totalW = 0;
-            const cw = customWeights; 
+            // Use smart weights per ticker instead of just global customWeights
+            const cw = (data.sector) ? getSmartWeights(data.sector) : customWeights; 
             const savedOv = cachedOverrides[data.ticker] || {};
             const toggles = savedOv.toggles || { 'toggle-peter_lynch': true, 'toggle-peg': true, 'toggle-relative': true, 'toggle-dcf': true };
 
