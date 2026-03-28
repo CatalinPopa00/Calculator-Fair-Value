@@ -144,9 +144,14 @@ document.addEventListener('DOMContentLoaded', () => {
             let pts = 0;
             let peg_str = `${newPeg.toFixed(2)}x`;
             
-            let max_p = pegItem.max_points || 15; 
-            if (newPeg < 1.0 && newPeg > 0) pts = 15;
-            else if (newPeg <= 1.5 && newPeg > 0) pts = 7.5;
+            const isREIT = globalData && globalData.sector === "Real Estate";
+            if (isREIT) {
+                if (newPeg < 1.5 && newPeg > 0) pts = 15;
+                else if (newPeg <= 2.5 && newPeg > 0) pts = 7.5;
+            } else {
+                if (newPeg < 1.0 && newPeg > 0) pts = 15;
+                else if (newPeg <= 1.5 && newPeg > 0) pts = 7.5;
+            }
             
             if (typeof globalData.good_to_buy_total === 'number') {
                 globalData.good_to_buy_total = globalData.good_to_buy_total - (pegItem.points_awarded || 0) + pts;
