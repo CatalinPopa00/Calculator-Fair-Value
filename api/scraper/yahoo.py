@@ -1089,19 +1089,37 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     label = f"{proj_yr} (Est)"
                     fy_code = "0y" if i == 1 else "+1y"
                     
-                    # EPS Estimate
-                    eps_est = 0
+                    # --- EPS Estimate ---
+                    eps_est = historical_data["eps"][-1] if historical_data["eps"] else 0
                     if ee_data is not None and not ee_data.empty:
-                        if fy_code in ee_data.index:
-                            val = ee_data.loc[fy_code, 'avg']
-                            eps_est = val * fx_rate if val is not None else 0
+                        # Try string index then numeric fallback
+                        row = None
+                        if fy_code in ee_data.index: row = ee_data.loc[fy_code]
+                        elif (i-1) < len(ee_data): row = ee_data.iloc[i-1]
+                        
+                        if row is not None:
+                            val = row.get('avg') if hasattr(row, 'get') else row.get('Avg')
+                            if val is not None and not pd.isna(val):
+                                eps_est = float(val) * fx_rate
                     
-                    # Revenue Estimate
+                    # --- Revenue Estimate ---
                     rev_est = historical_data["revenue"][-1] # fallback
                     if rf_data is not None and not rf_data.empty:
-                        if fy_code in rf_data.index:
-                            val = rf_data.loc[fy_code, 'avg']
-                            rev_est = val * fx_rate if val is not None else rev_est
+                        row = None
+                        if fy_code in rf_data.index: row = rf_data.loc[fy_code]
+                        elif (i-1) < len(rf_data): row = rf_data.iloc[i-1]
+                        
+                        if row is not None:
+                            val = row.get('avg') if hasattr(row, 'get') else row.get('Avg')
+                            if val is not None and not pd.isna(val):
+                                val = float(val)
+                                # SCALE CHECK: Yahoo analysis tab usually reports in Billions (e.g. 26.06)
+                                # while financials are absolute (e.g. 26,060,000,000).
+                                if rev_est > 1e6 and val < 10000: # Clearly in Billions
+                                    val *= 1e9
+                                elif rev_est > 1e6 and val < 10000000: # Likely in Millions
+                                    val *= 1e6
+                                rev_est = val * fx_rate
                     
                     # FCF Estimate (Apply historical margin to rev estimate)
                     fcf_est = rev_est * avg_fcf_margin
