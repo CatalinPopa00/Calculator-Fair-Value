@@ -2067,7 +2067,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Build rows matching user's reference design
         breakdown.forEach(item => {
-            const pts = item.points || 0;
+            const pts = item.points_awarded || 0;
             const maxPts = item.max_points || 0;
             const pct = maxPts > 0 ? (pts / maxPts) : 0;
 
@@ -2080,7 +2080,7 @@ document.addEventListener('DOMContentLoaded', () => {
             html += `
                 <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 0; border-top:1px solid rgba(255,255,255,0.06);">
                     <div style="flex:1; min-width:0;">
-                        <div style="font-weight:600; font-size:0.9rem; color:white;">${item.name}</div>
+                        <div style="font-weight:600; font-size:0.9rem; color:white;">${item.metric}</div>
                     </div>
                     <div style="font-weight:700; font-size:0.95rem; color:white; min-width:60px; text-align:center;">${item.value || 'N/A'}</div>
                     <div style="display:flex; align-items:center; gap:8px; min-width:90px; justify-content:flex-end;">

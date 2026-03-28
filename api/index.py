@@ -550,13 +550,13 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
         
         if all_breakdowns:
             # Strengths: items with max points
-            max_point_items = [b for b in all_breakdowns if b.get("points") == b.get("max_points") and b.get("max_points", 0) > 0]
+            max_point_items = [b for b in all_breakdowns if b.get("points_awarded") == b.get("max_points") and b.get("max_points", 0) > 0]
             # Sort by highest max_points just to show the most impactful ones first
             max_point_items.sort(key=lambda x: x.get("max_points", 0), reverse=True)
             top_strengths = max_point_items[:3]
             
             # Risks: items with 0 points
-            zero_point_items = [b for b in all_breakdowns if b.get("points") == 0]
+            zero_point_items = [b for b in all_breakdowns if b.get("points_awarded") == 0]
             if zero_point_items:
                 risk_factors = zero_point_items[:3]
             else:
