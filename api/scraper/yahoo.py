@@ -1067,24 +1067,50 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
 
         # 2b. Add Projections (Next 2 FYs)
         try:
-            if not fast_mode and historical_data["shares"]:
-                ee_data = future_est.result(timeout=5) if 'future_est' in locals() else None
-                this_fy = datetime.datetime.now().year
-                next_fy = this_fy + 1
-                for fy in [this_fy, next_fy]:
-                    fy_code = "0y" if fy == this_fy else "+1y"
-                    label = f"{fy} (Est)"
+            if not fast_mode and historical_data["years"] and historical_data["revenue"]:
+                ee_data = future_est.result(timeout=2) if 'future_est' in locals() else None
+                rf_data = stock.revenue_estimate
+                
+                # Calculate avg FCF margin over historical period to project future FCF
+                hist_rev = historical_data["revenue"]
+                hist_fcf = historical_data["fcf"]
+                avg_fcf_margin = 0.10 # default 10%
+                valid_margins = [f/r for f, r in zip(hist_fcf, hist_rev) if r > 0]
+                if valid_margins:
+                    avg_fcf_margin = sum(valid_margins) / len(valid_margins)
+
+                # Use a more robust year detection logic
+                last_yr_str = historical_data["years"][-1]
+                last_yr = int(last_yr_str) if last_yr_str.isdigit() else datetime.datetime.now().year
+                
+                # We want the next 2 years
+                for i in range(1, 3):
+                    proj_yr = last_yr + i
+                    label = f"{proj_yr} (Est)"
+                    fy_code = "0y" if i == 1 else "+1y"
+                    
+                    # EPS Estimate
                     eps_est = 0
                     if ee_data is not None and not ee_data.empty:
                         if fy_code in ee_data.index:
                             val = ee_data.loc[fy_code, 'avg']
                             eps_est = val * fx_rate if val is not None else 0
-                    if eps_est:
-                        historical_data["years"].append(label)
-                        historical_data["revenue"].append(historical_data["revenue"][-1] if historical_data["revenue"] else 0)
-                        historical_data["eps"].append(float(eps_est))
-                        historical_data["fcf"].append(historical_data["fcf"][-1] if historical_data["fcf"] else 0)
-                        historical_data["shares"].append(historical_data["shares"][-1])
+                    
+                    # Revenue Estimate
+                    rev_est = historical_data["revenue"][-1] # fallback
+                    if rf_data is not None and not rf_data.empty:
+                        if fy_code in rf_data.index:
+                            val = rf_data.loc[fy_code, 'avg']
+                            rev_est = val * fx_rate if val is not None else rev_est
+                    
+                    # FCF Estimate (Apply historical margin to rev estimate)
+                    fcf_est = rev_est * avg_fcf_margin
+                    
+                    historical_data["years"].append(label)
+                    historical_data["revenue"].append(float(rev_est))
+                    historical_data["eps"].append(float(eps_est))
+                    historical_data["fcf"].append(float(fcf_est))
+                    historical_data["shares"].append(historical_data["shares"][-1])
         except Exception as e_proj:
             print(f"Error adding projections: {e_proj}")
 

@@ -1396,32 +1396,37 @@ document.addEventListener('DOMContentLoaded', () => {
             const sharesData = (hd.shares || []).map(v => v ? +(v / 1e6).toFixed(1) : 0);
 
             chartEpsShares = new Chart(ctxEps, {
-                type: 'bar',
+                type: 'bar', // Base type remains bar for the background
                 data: {
                     labels,
                     datasets: [
                         {
-                            label: 'EPS ($)',
-                            data: epsData.map(v => v ? +v.toFixed(2) : 0),
-                            backgroundColor: bgColors('rgba(168, 85, 247, 1)', 0.7, 0.3),
-                            borderColor: 'rgba(168, 85, 247, 1)',
+                            label: 'Shares (M)',
+                            data: sharesData,
+                            backgroundColor: bgColors('rgba(251, 191, 36, 1)', 0.4, 0.2),
+                            borderColor: 'rgba(251, 191, 36, 1)',
                             borderWidth: 1,
                             borderRadius: 4,
-                            yAxisID: 'y',
+                            yAxisID: 'y1',
                             order: 2
                         },
                         {
-                            label: 'Shares (M)',
-                            data: sharesData,
+                            label: 'EPS ($)',
+                            data: epsData.map(v => v ? +v.toFixed(2) : 0),
                             type: 'line',
-                            borderColor: 'rgba(251, 191, 36, 0.8)',
-                            backgroundColor: 'rgba(251, 191, 36, 0.1)',
-                            pointBackgroundColor: 'rgba(251, 191, 36, 1)',
-                            pointRadius: 4,
-                            borderWidth: 2,
-                            fill: true,
+                            borderColor: 'rgba(168, 85, 247, 1)',
+                            backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                            pointBackgroundColor: 'rgba(168, 85, 247, 1)',
+                            pointBorderColor: '#fff',
+                            pointRadius: 5,
+                            pointHoverRadius: 7,
+                            borderWidth: 3,
+                            fill: false,
                             tension: 0.3,
-                            yAxisID: 'y1',
+                            segment: {
+                                borderDash: ctx => labels[ctx.p1DataIndex] && String(labels[ctx.p1DataIndex]).includes('Est') ? [6, 4] : undefined
+                            },
+                            yAxisID: 'y',
                             order: 1
                         }
                     ]
