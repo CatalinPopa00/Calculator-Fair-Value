@@ -210,29 +210,25 @@ def delete_override(ticker: str):
 
 
 def get_recommended_exit_multiple(sector: str, industry: str) -> float:
-    """Assigns recommended exit multiple based on sector/industry (User Strict Rule)."""
+    """Assigns recommended exit multiple based on sector/industry (User Strict Rule Refinement)."""
     s = str(sector).lower()
     ind = str(industry).lower()
     
-    # 1. Tech / Healthcare / Communication
-    if any(x in s for x in ["tech", "health", "communication"]):
+    # 1. Premium: Technology, Software, Healthcare, Communication Services
+    if any(x in s for x in ["tech", "soft", "health", "communication"]):
         return 15.0
     
-    # 2. Consumer Defensive / Utilities
-    if any(x in s for x in ["defensive", "utilities"]):
+    # 2. Defensive: Consumer Defensive, Utilities, Consumer Staples
+    if any(x in s for x in ["defensive", "utilities", "staple"]):
         return 12.0
     
-    # 3. Industrials / Energy / Materials / Auto
-    if any(x in s for x in ["industrial", "energy", "material"]) or "auto" in ind:
+    # 3. Cyclical / Heavy: Energy, Oil & Gas, Basic Materials, Industrials, Auto, Manufacturing
+    if any(x in s for x in ["energy", "oil", "gas", "material", "industrial", "manufacturing"]) or "auto" in ind:
         return 8.0
         
-    # 4. Financials
-    if "financial" in s:
+    # 4. Financials / REITs: Financials, Banks, Insurance, Real Estate, REITs
+    if any(x in s for x in ["financial", "bank", "insurance", "real estate", "reit"]):
         return 10.0
-        
-    # 5. Real Estate (REITs)
-    if any(x in s for x in ["real estate", "reit"]):
-        return 15.0
         
     return 10.0
 
@@ -585,7 +581,10 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
                 "market_pe_trailing": sanitize(market_data.get("trailing_pe")),
                 "market_pe_forward": sanitize(market_data.get("forward_pe"))
             },
-            "recommended_exit_multiple": recommended_exit_multiple
+            "recommended_exit_multiple": recommended_exit_multiple,
+            "dcf_assumptions": {
+                "recommended_exit_multiple": recommended_exit_multiple
+            }
     }
 
         # USER-DRIVEN DATA MAPPING: TRAILING PE ONLY (FORBIDDEN FORWARD PE)
@@ -712,6 +711,9 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
                 "peter_lynch": formula_data["peter_lynch"],
                 "peg_value": sanitize(peg_value),
                 "recommended_exit_multiple": recommended_exit_multiple,
+                "dcf_assumptions": {
+                    "recommended_exit_multiple": recommended_exit_multiple
+                },
                 "company_profile": {
                     "industry": data.get("industry") or "N/A",
                     "sector": data.get("sector") or "N/A",
