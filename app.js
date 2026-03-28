@@ -97,6 +97,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return w;
     };
+    window.getSmartWeights = getSmartWeights;
+
+    const getActiveToggles = (ticker) => {
+        const ov = (cachedOverrides && cachedOverrides[ticker]) ? cachedOverrides[ticker] : {};
+        return ov.toggles || {
+            'toggle-dcf': true,
+            'toggle-peter_lynch': true,
+            'toggle-relative': true,
+            'toggle-peg': true,
+            'toggle-multiple': false
+        };
+    };
+    window.getActiveToggles = getActiveToggles;
 
     const setSmartWeights = (sector) => {
         const w = getSmartWeights(sector);
@@ -1518,192 +1531,170 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             watchlistGrid.innerHTML = '';
 
-        if (!watchlist || watchlist.length === 0) {
-            emptyWatchlistMsg.style.display = 'block';
-            return;
-        }
+            if (!watchlist || watchlist.length === 0) {
+                emptyWatchlistMsg.style.display = 'block';
+                return;
+            }
 
-        emptyWatchlistMsg.style.display = 'none';
+            emptyWatchlistMsg.style.display = 'none';
 
-        if (!Array.isArray(cachedWatchlistData)) {
-            cachedWatchlistData = [];
-        }
+            if (!Array.isArray(cachedWatchlistData)) {
+                cachedWatchlistData = [];
+            }
 
-        // v52: Map watchlist tickers to data, adding placeholders if missing to prevent "disappearing" tickers
-        let augmentedData = watchlist.map(t => {
-            const found = cachedWatchlistData.find(d => d.ticker && d.ticker.toUpperCase() === t.toUpperCase());
-            if (found) return { ...found };
-            return { ticker: t, name: 'Data Unavailable', current_price: null, fair_value: null, margin_of_safety: null, health_score: null, buy_score: null };
-        });
-
-        if (!manualOrder) {
-            augmentedData.sort((a, b) => {
-                if (!a || !b) return 0;
-                const aValid = a.current_price != null && a.fair_value != null;
-                const bValid = b.current_price != null && b.fair_value != null;
-                if (!aValid && bValid) return 1;
-                if (aValid && !bValid) return -1;
-                if (!aValid && !bValid) return 0;
-
-                let aVal, bVal;
-                if (currentSort.column === 'mos') {
-                    aVal = a.margin_of_safety != null ? a.margin_of_safety : -99999;
-                    bVal = b.margin_of_safety != null ? b.margin_of_safety : -99999;
-                } else if (currentSort.column === 'price') {
-                    aVal = a.current_price != null ? a.current_price : 0;
-                    bVal = b.current_price != null ? b.current_price : 0;
-                } else if (currentSort.column === 'ticker') {
-                    aVal = a.ticker || ''; bVal = b.ticker || '';
-                    if (aVal < bVal) return currentSort.order === 'asc' ? -1 : 1;
-                    if (aVal > bVal) return currentSort.order === 'asc' ? 1 : -1;
-                    return 0;
-                }
-                return currentSort.order === 'asc' ? aVal - bVal : bVal - aVal;
+            // Map watchlist tickers to data
+            let augmentedData = watchlist.map(t => {
+                const found = cachedWatchlistData.find(d => d.ticker && d.ticker.toUpperCase() === t.toUpperCase());
+                if (found) return { ...found };
+                return { ticker: t, name: 'Data Unavailable', current_price: null, fair_value: null, margin_of_safety: null, health_score: null, buy_score: null };
             });
-        }
 
+            // Sort
+            if (!manualOrder) {
+                augmentedData.sort((a, b) => {
+                    if (!a || !b) return 0;
+                    const aValid = a.current_price != null && a.fair_value != null;
+                    const bValid = b.current_price != null && b.fair_value != null;
+                    if (!aValid && bValid) return 1;
+                    if (aValid && !bValid) return -1;
+                    if (!aValid && !bValid) return 0;
 
-        augmentedData.forEach((data, index) => {
-            if (!data || !data.ticker) return;
-            try {
-                // Recalculare MOS custom pentru Watchlist
-                const toggles = getActiveToggles(data.ticker);
-                const cw = getSmartWeights(data.sector);
-                const method = toggles['toggle-multiple'] ? 'multiple' : 'perpetual';
-                
-                let customFinalFv = 0;
-                let totalW = 0;
-            // Use smart weights per ticker instead of just global customWeights
-            // v34: prioritizing root data.sector (exposed by backend)
-                const d = data.formula_data;
-                if (d?.dcf && toggles['toggle-dcf']) {
-                    const branch = method === 'multiple' ? d.dcf_exit_multiple : d.dcf_perpetual;
-                    if (branch?.fair_value_per_share) {
-                        customFinalFv += branch.fair_value_per_share * cw.dcf; 
-                        totalW += cw.dcf; 
+                    let aVal, bVal;
+                    if (currentSort.column === 'mos') {
+                        aVal = a.margin_of_safety != null ? a.margin_of_safety : -99999;
+                        bVal = b.margin_of_safety != null ? b.margin_of_safety : -99999;
+                    } else if (currentSort.column === 'price') {
+                        aVal = a.current_price != null ? a.current_price : 0;
+                        bVal = b.current_price != null ? b.current_price : 0;
+                    } else if (currentSort.column === 'ticker') {
+                        aVal = a.ticker || ''; bVal = b.ticker || '';
+                        if (aVal < bVal) return currentSort.order === 'asc' ? -1 : 1;
+                        if (aVal > bVal) return currentSort.order === 'asc' ? 1 : -1;
+                        return 0;
                     }
-                }
-                if (data.formula_data?.peter_lynch?.fair_value_pe_20 && toggles['toggle-peter_lynch']) { 
-                    customFinalFv += data.formula_data.peter_lynch.fair_value_pe_20 * cw.lynch; 
-                    totalW += cw.lynch; 
-                }
-                if (data.relative_value && toggles['toggle-relative']) { 
-                    customFinalFv += data.relative_value * cw.relative; 
-                    totalW += cw.relative; 
-                }
-                if (data.formula_data?.peg?.fair_value && toggles['toggle-peg']) { 
-                    customFinalFv += data.formula_data.peg.fair_value * cw.peg; 
-                    totalW += cw.peg; 
-                }
+                    return currentSort.order === 'asc' ? aVal - bVal : bVal - aVal;
+                });
+            }
 
-                let customMos = null;
-                if (totalW > 0 && data.current_price) {
-                    customFinalFv = customFinalFv / totalW;
-                    customMos = ((customFinalFv - data.current_price) / data.current_price) * 100;
-                    data.fair_value = customFinalFv;
-                    data.margin_of_safety = customMos;
-                }
-
-                let dynamicBuyScore = data.good_to_buy_total;
-                if (data.buy_breakdown && customMos != null) {
-                    let mosItem = data.buy_breakdown.find(i => i.metric && i.metric.includes("Margin of Safety"));
-                    if (mosItem) {
-                        let newPts = 0;
-                        if (customMos > 20.0) newPts = 30;
-                        else if (customMos >= 0.0) newPts = 15;
-                        const oldPts = mosItem.points_awarded || 0;
-                        mosItem.points_awarded = newPts;
-                        mosItem.value = `${customMos.toFixed(1)}%`;
-                        if (typeof dynamicBuyScore === 'number') {
-                            dynamicBuyScore = dynamicBuyScore - oldPts + newPts;
+            // Render loop
+            augmentedData.forEach((data) => {
+                if (!data || !data.ticker) return;
+                try {
+                    const toggles = getActiveToggles(data.ticker);
+                    const cw = getSmartWeights(data.sector);
+                    const method = toggles['toggle-multiple'] ? 'multiple' : 'perpetual';
+                    
+                    let customFinalFv = 0;
+                    let totalW = 0;
+                    const d = data.formula_data;
+                    if (d?.dcf && toggles['toggle-dcf']) {
+                        const branch = method === 'multiple' ? d.dcf_exit_multiple : d.dcf_perpetual;
+                        if (branch?.fair_value_per_share) {
+                            customFinalFv += branch.fair_value_per_share * cw.dcf; 
+                            totalW += cw.dcf; 
                         }
                     }
-                }
-                
-                // Build the card HTML
-                const globalOv = cachedOverrides[data.ticker] || data.overrides;
-                const hasOverride = globalOv && globalOv.computed && globalOv.computed.fair_value != null;
-                
-                const displayFv = hasOverride ? globalOv.computed.fair_value : data.fair_value;
-                const displayMos = (displayFv != null && data.current_price) ? ((displayFv - data.current_price) / data.current_price) * 100 : null;
-                
-                const displayHealth = (globalOv && globalOv.computed && globalOv.computed.health_score_total != null) ? globalOv.computed.health_score_total : data.health_score_total;
-                
-                let displayBuy = (globalOv && globalOv.computed && globalOv.computed.good_to_buy_total != null) ? globalOv.computed.good_to_buy_total : dynamicBuyScore;
-                
-                if (hasOverride && (!globalOv.computed || globalOv.computed.good_to_buy_total == null) && data.buy_breakdown && displayMos != null) {
-                    let mosItem = data.buy_breakdown.find(i => i.metric && i.metric.includes("Margin of Safety"));
-                    if (mosItem) {
-                        let newPts = 0;
-                        if (displayMos > 20.0) newPts = 30;
-                        else if (displayMos >= 0.0) newPts = 15;
-                        
-                        const oldPts = mosItem.points_awarded || 0;
-                        if (typeof data.good_to_buy_total === 'number') {
-                            displayBuy = data.good_to_buy_total - oldPts + newPts;
+                    if (data.formula_data?.peter_lynch?.fair_value_pe_20 && toggles['toggle-peter_lynch']) { 
+                        customFinalFv += data.formula_data.peter_lynch.fair_value_pe_20 * cw.lynch; 
+                        totalW += cw.lynch; 
+                    }
+                    if (data.relative_value && toggles['toggle-relative']) { 
+                        customFinalFv += data.relative_value * cw.relative; 
+                        totalW += cw.relative; 
+                    }
+                    if (data.formula_data?.peg?.fair_value && toggles['toggle-peg']) { 
+                        customFinalFv += data.formula_data.peg.fair_value * cw.peg; 
+                        totalW += cw.peg; 
+                    }
+
+                    let customMos = null;
+                    if (totalW > 0 && data.current_price) {
+                        customFinalFv = customFinalFv / totalW;
+                        customMos = ((customFinalFv - data.current_price) / data.current_price) * 100;
+                        data.fair_value = customFinalFv;
+                        data.margin_of_safety = customMos;
+                    }
+
+                    let dynamicBuyScore = data.good_to_buy_total;
+                    if (data.buy_breakdown && customMos != null) {
+                        let mosItem = data.buy_breakdown.find(i => i.metric && i.metric.includes("Margin of Safety"));
+                        if (mosItem) {
+                            let newPts = 0;
+                            if (customMos > 20.0) newPts = 30;
+                            else if (customMos >= 0.0) newPts = 15;
+                            const oldPts = mosItem.points_awarded || 0;
+                            mosItem.points_awarded = newPts;
+                            mosItem.value = `${customMos.toFixed(1)}%`;
+                            if (typeof dynamicBuyScore === 'number') {
+                                dynamicBuyScore = dynamicBuyScore - oldPts + newPts;
+                            }
                         }
                     }
-                }
-                
-                const fvStr = displayFv != null ? formatCurrency(displayFv) : 'N/A';
-                const mosStr = displayMos != null ? formatPercent(displayMos) : 'N/A';
-                const mosColor = displayMos > 0 ? 'var(--accent)' : (displayMos < 0 ? 'var(--danger)' : 'var(--text-muted)');
-                
-                const dotClass = (displayBuy || 0) >= 76 ? 'dot-green' : ((displayBuy || 0) >= 41 ? 'dot-yellow' : 'dot-red');
-                const hDotClass = (displayHealth || 0) >= 76 ? 'dot-green' : ((displayHealth || 0) >= 41 ? 'dot-yellow' : 'dot-red');
+                    
+                    const globalOv = cachedOverrides[data.ticker] || data.overrides;
+                    const hasOverride = globalOv && globalOv.computed && globalOv.computed.fair_value != null;
+                    const displayFv = hasOverride ? globalOv.computed.fair_value : data.fair_value;
+                    const displayMos = (displayFv != null && data.current_price) ? ((displayFv - data.current_price) / data.current_price) * 100 : null;
+                    const displayHealth = (globalOv && globalOv.computed && globalOv.computed.health_score_total != null) ? globalOv.computed.health_score_total : data.health_score_total;
+                    let displayBuy = (globalOv && globalOv.computed && globalOv.computed.good_to_buy_total != null) ? globalOv.computed.good_to_buy_total : dynamicBuyScore;
+                    
+                    const fvStr = displayFv != null ? formatCurrency(displayFv) : 'N/A';
+                    const mosStr = displayMos != null ? formatPercent(displayMos) : 'N/A';
+                    const mosColor = displayMos > 0 ? 'var(--accent)' : (displayMos < 0 ? 'var(--danger)' : 'var(--text-muted)');
+                    const dotClass = (displayBuy || 0) >= 76 ? 'dot-green' : ((displayBuy || 0) >= 41 ? 'dot-yellow' : 'dot-red');
+                    const hDotClass = (displayHealth || 0) >= 76 ? 'dot-green' : ((displayHealth || 0) >= 41 ? 'dot-yellow' : 'dot-red');
 
-                const card = document.createElement('div');
-                card.className = 'watchlist-card-new';
-                card.innerHTML = `
-                    <button class="wl-close-btn" data-ticker="${data.ticker}">&times;</button>
-                    <div class="wl-header">
-                        <h3 class="wl-ticker">${data.ticker}</h3>
-                        <p class="wl-name">${data.name}</p>
-                    </div>
-                    <div class="wl-metrics-bar">
-                        <div class="wl-metric-item">
-                            <span class="wl-m-label">Price</span>
-                            <span class="wl-m-value">${formatCurrency(data.current_price)}</span>
+                    const card = document.createElement('div');
+                    card.className = 'watchlist-card-new';
+                    card.innerHTML = `
+                        <button class="wl-close-btn" data-ticker="${data.ticker}">&times;</button>
+                        <div class="wl-header">
+                            <h3 class="wl-ticker">${data.ticker}</h3>
+                            <p class="wl-name">${data.name}</p>
                         </div>
-                        <div class="wl-metric-item">
-                            <span class="wl-m-label">Fair Val ${hasOverride ? '✏️' : ''}</span>
-                            <span class="wl-m-value">${fvStr}</span>
+                        <div class="wl-metrics-bar">
+                            <div class="wl-metric-item">
+                                <span class="wl-m-label">Price</span>
+                                <span class="wl-m-value">${formatCurrency(data.current_price)}</span>
+                            </div>
+                            <div class="wl-metric-item">
+                                <span class="wl-m-label">Fair Val ${hasOverride ? '✏️' : ''}</span>
+                                <span class="wl-m-value">${fvStr}</span>
+                            </div>
+                            <div class="wl-metric-item">
+                                <span class="wl-m-label">Margin</span>
+                                <span class="wl-m-value" style="color: ${mosColor}">${mosStr}</span>
+                            </div>
                         </div>
-                        <div class="wl-metric-item">
-                            <span class="wl-m-label">Margin</span>
-                            <span class="wl-m-value" style="color: ${mosColor}">${mosStr}</span>
+                        <div class="wl-scores-row">
+                            <div class="wl-score-pill">
+                                <div class="wl-dot ${hDotClass}"></div>
+                                <span>Health: ${displayHealth || 'N/A'}</span>
+                            </div>
+                            <div class="wl-score-pill">
+                                <div class="wl-dot ${dotClass}"></div>
+                                <span>Buy: ${displayBuy || 'N/A'}</span>
+                            </div>
                         </div>
-                    </div>
-                    <div class="wl-scores-row">
-                        <div class="wl-score-pill">
-                            <div class="wl-dot ${hDotClass}"></div>
-                            <span>Health: ${displayHealth || 'N/A'}</span>
-                        </div>
-                        <div class="wl-score-pill">
-                            <div class="wl-dot ${dotClass}"></div>
-                            <span>Buy: ${displayBuy || 'N/A'}</span>
-                        </div>
-                    </div>
-                `;
-                
-                // Make entire card clickable except for the close button
-                card.addEventListener('click', (e) => {
-                    if (e.target.classList.contains('wl-close-btn')) return;
-                    tickerInput.value = data.ticker;
-                    analyzeTicker(data.ticker);
-                });
+                    `;
+                    
+                    card.addEventListener('click', (e) => {
+                        if (e.target.classList.contains('wl-close-btn')) return;
+                        tickerInput.value = data.ticker;
+                        analyzeTicker(data.ticker);
+                    });
 
-                card.querySelector('.wl-close-btn').addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    watchlist = watchlist.filter(t => t !== data.ticker);
-                    cachedWatchlistData = cachedWatchlistData.filter(d => d.ticker !== data.ticker);
-                    deleteOverrideFromServer(data.ticker);
-                    saveWatchlist();
-                    renderWatchlistUI();
-                    if (currentTicker === data.ticker) updateWatchlistButtonState();
-                });
-                
-                watchlistGrid.appendChild(card);
+                    card.querySelector('.wl-close-btn').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        watchlist = watchlist.filter(t => t !== data.ticker);
+                        cachedWatchlistData = cachedWatchlistData.filter(d => d.ticker !== data.ticker);
+                        deleteOverrideFromServer(data.ticker);
+                        saveWatchlist();
+                        renderWatchlistUI();
+                        if (currentTicker === data.ticker) updateWatchlistButtonState();
+                    });
+                    
+                    watchlistGrid.appendChild(card);
                 } catch (cardErr) {
                     console.error(`Error rendering card for ${data.ticker}:`, cardErr);
                 }
@@ -2062,7 +2053,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Build rows matching user's reference design
         breakdown.forEach(item => {
-            const label = item.metric || item.name || 'Unknown Metric';
+            const label = (item.metric || item.name || 'Unknown Metric').split(' (')[0];
             const pts = (item.points_awarded !== undefined) ? item.points_awarded : (item.points || 0);
             const maxPts = item.max_points || 0;
             const pct = maxPts > 0 ? (pts / maxPts) : 0;

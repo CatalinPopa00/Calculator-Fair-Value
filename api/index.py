@@ -5,6 +5,7 @@ from cachetools import TTLCache
 import uvicorn
 import math
 import statistics
+from typing import List, Dict, Any, Optional
 
 import urllib.request
 import urllib.parse
@@ -24,13 +25,31 @@ from .models.valuation import (
 )
 from .models.scoring import calculate_scoring_reform
 
+class WatchlistRequest(BaseModel):
+    tickers: List[str]
+
+class OverrideRequest(BaseModel):
+    ticker: str
+    inputs: Dict[str, Any]
+    toggles: Dict[str, bool]
+    computed: Dict[str, Any]
+    weights: Dict[str, float]
+
+class ValuationResponse(BaseModel):
+    ticker: str
+    name: str
+    current_price: Optional[float]
+    # Add other fields as needed or use Dict[str, Any] for flexibility
+    class Config:
+        extra = "allow"
+
 app = FastAPI(title="Fair Value Calculator API")
 
 # Cache for search results (30 mins TTL)
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v34" # Nasdaq 3Y Growth Priority + Local Weighting Fix (Visa/SOFI)
+CACHE_VERSION = "v37" # Expert Templates (Final Synchronized Labels & Weights)
 
 app.add_middleware(
     CORSMiddleware,
@@ -195,8 +214,8 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
         ticker_upper = ticker.upper()
         # Ensure wacc is normalized for the key
         norm_wacc = round(float(wacc), 2) if wacc is not None else "def"
-        # v34.2: Force cache refresh for new DCF payload format
-        cache_key = f"valuation_{ticker.upper()}_{fast_mode}_v34.2_{norm_wacc}"
+        # Synchronized with CACHE_VERSION v37 for expert scoring reform
+        cache_key = f"valuation_{ticker.upper()}_{fast_mode}_{CACHE_VERSION}_{norm_wacc}"
         
         # 1. KV Cache Check (Rapid Loading)
         cached_res = kv_get(cache_key)
@@ -535,6 +554,19 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
     }
 
         # 6. Compute Comprehensive Scoring (Expert System Reform)
+        # Ensure additional ratios needed for expert scoring are available
+        if current_price and current_price > 0:
+            if data.get("revenue") and data.get("revenue") > 0:
+                data["fcf_margin"] = (fcf / data["revenue"]) * 100 if fcf else 0
+                data["ebit_margin"] = (data.get("ebit", 0) / data["revenue"]) * 100
+                data["ps_ratio"] = current_price / (data["revenue"] / shares) if shares else None
+            
+            ebitda = data.get("ebitda")
+            if ebitda and ebitda > 0:
+                market_cap = current_price * shares if shares else 0
+                enterprise_value = market_cap + dcf_debt - dcf_cash
+                data["ev_to_ebitda"] = enterprise_value / ebitda
+        
         scoring_results = calculate_scoring_reform({"margin_of_safety": margin_of_safety, "sector_median_peg": median_peer_peg}, data)
         
         health_score_total = scoring_results.get("health_score_total")
