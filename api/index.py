@@ -43,7 +43,7 @@ app = FastAPI(title="Fair Value Calculator API")
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v50" # Expert System Reform (Fix Historical Anchors + AI Synthesis)
+CACHE_VERSION = "v51" # Mobile Overhaul + Scoring Robustness fix
 
 app.add_middleware(
     CORSMiddleware,
