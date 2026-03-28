@@ -1562,12 +1562,16 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!data || !data.ticker) return;
             try {
                 // Recalculare MOS custom pentru Watchlist
+                const toggles = getActiveToggles(data.ticker);
+                const cw = getSmartWeights(data.sector);
+                const method = toggles['toggle-multiple'] ? 'multiple' : 'perpetual';
+                
                 let customFinalFv = 0;
                 let totalW = 0;
             // Use smart weights per ticker instead of just global customWeights
             // v34: prioritizing root data.sector (exposed by backend)
                 const d = data.formula_data;
-                if (d?.dcf) {
+                if (d?.dcf && toggles['toggle-dcf']) {
                     const branch = method === 'multiple' ? d.dcf_exit_multiple : d.dcf_perpetual;
                     if (branch?.fair_value_per_share) {
                         customFinalFv += branch.fair_value_per_share * cw.dcf; 
@@ -2053,7 +2057,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Build rows matching user's reference design
         breakdown.forEach(item => {
-            const pts = item.points_awarded || 0;
+            const label = item.metric || item.name || 'Unknown Metric';
+            const pts = (item.points_awarded !== undefined) ? item.points_awarded : (item.points || 0);
             const maxPts = item.max_points || 0;
             const pct = maxPts > 0 ? (pts / maxPts) : 0;
 
@@ -2066,7 +2071,7 @@ document.addEventListener('DOMContentLoaded', () => {
             html += `
                 <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 0; border-top:1px solid rgba(255,255,255,0.06);">
                     <div style="flex:1; min-width:0;">
-                        <div style="font-weight:600; font-size:0.9rem; color:white;">${item.metric}</div>
+                        <div style="font-weight:600; font-size:0.9rem; color:white;">${label}</div>
                     </div>
                     <div style="font-weight:700; font-size:0.95rem; color:white; min-width:60px; text-align:center;">${item.value || 'N/A'}</div>
                     <div style="display:flex; align-items:center; gap:8px; min-width:90px; justify-content:flex-end;">

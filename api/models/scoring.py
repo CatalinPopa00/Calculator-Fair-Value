@@ -50,24 +50,22 @@ def calculate_scoring_reform(valuation_data: dict, metrics: dict):
     add_h("Debt-to-Equity", de, pts, 20)
 
     # [2] INTEREST COVERAGE / NIM / D-TO-EBITDA
+    pts = 0
     if sector == "Financial Services":
         nim = metrics.get('nim') or (metrics.get('operating_margin') if metrics.get('operating_margin') else 2.5)
-        pts = 0
         if nim > 3.0: pts = 15
         elif nim >= 1.5: pts = 7.5
         add_h("Net Interest Margin (NIM)", nim, pts, 15)
     else:
-        # Default for non-financials
-        pts = 0
         if ic is not None:
             if ic > 10: pts = 15
             elif ic >= 3: pts = 7.5
         add_h("Interest Coverage", ic, pts, 15)
 
     # [3] CURRENT RATIO / CET1 / DEBT-TO-EBITDA
+    pts = 0
     if sector == "Financial Services":
         cet1 = metrics.get('cet1_ratio') or metrics.get('common_equity_tier_1') or 13.0
-        pts = 0
         if cet1 > 12: pts = 15
         elif cet1 >= 9: pts = 7.5
         add_h("CET1 Ratio", cet1, pts, 15)
@@ -75,66 +73,59 @@ def calculate_scoring_reform(valuation_data: dict, metrics: dict):
         td = metrics.get('total_debt')
         ebitda = metrics.get('ebitda')
         dte = (td/ebitda) if td and ebitda and ebitda > 0 else (metrics.get('debt_to_ebitda') or 5.0)
-        pts = 0
         if dte < 5.5: pts = 15
         elif dte <= 7.0: pts = 7.5
         add_h("Debt-to-EBITDA", dte, pts, 15)
     else:
-        pts = 0
         if cr is not None:
             if cr > 1.2: pts = 15
             elif cr >= 0.8: pts = 7.5
         add_h("Current Ratio", cr, pts, 15)
 
     # [4] EBIT MARGIN / ROE / AFFO MARGIN
+    pts = 0
     if sector == "Financial Services":
         roe = clean_percent(metrics.get('roe') or 12.0)
-        pts = 0
         if roe > 15: pts = 15
         elif roe >= 8: pts = 7.5
         add_h("ROE", roe, pts, 15)
     elif sector == "Real Estate":
         affo_m = clean_percent(metrics.get('affo_margin') or (ebit_m * 0.9 if ebit_m else 45.0))
-        pts = 0
         if affo_m > 50: pts = 15
         elif affo_m >= 30: pts = 7.5
         add_h("AFFO Margin", affo_m, pts, 15)
     else:
-        pts = 0
         if ebit_m is not None:
             if ebit_m > 20: pts = 15
             elif ebit_m >= 10: pts = 7.5
         add_h("EBIT Margin", ebit_m, pts, 15)
 
     # [5] ROIC / ROA
+    pts = 0
     if sector == "Financial Services":
         roa = clean_percent(metrics.get('roa') or 1.2)
-        pts = 0
         if roa > 1.5: pts = 20
         elif roa >= 0.5: pts = 10
         add_h("ROA", roa, pts, 20)
     else:
-        pts = 0
         if roic is not None:
             if roic > 15: pts = 20
             elif roic >= 8: pts = 10
         add_h("ROIC", roic, pts, 20)
 
     # [6] FCF TREND / BVPS GROWTH / AFFO GROWTH
+    pts = 0
     if sector == "Financial Services":
         bv_growth = clean_percent(metrics.get('historic_bvps_growth') or metrics.get('eps_growth') or 5.0)
-        pts = 0
         if bv_growth > 8: pts = 15
         elif bv_growth >= 3: pts = 7.5
         add_h("BVPS Growth", bv_growth, pts, 15)
     elif sector == "Real Estate":
         affo_g = clean_percent(metrics.get('affo_growth') or fcf_cagr or 3.0)
-        pts = 0
         if affo_g > 5: pts = 15
         elif affo_g >= 2: pts = 7.5
         add_h("AFFO Growth", affo_g, pts, 15)
     else:
-        pts = 0
         is_increasing = False
         if fcf_hist and len(fcf_hist) >= 2:
             if fcf_hist[0] > fcf_hist[-1]: is_increasing = True # newest first
