@@ -1562,9 +1562,9 @@ document.addEventListener('DOMContentLoaded', () => {
         augmentedData.forEach((data, index) => {
             if (!data || !data.ticker) return;
             try {
-                // ... card rendering logic ...
-            // Recalculare MOS custom pentru Watchlist
-            let customFinalFv = 0;
+                // Recalculare MOS custom pentru Watchlist
+                let customFinalFv = 0;
+                let totalW = 0;
             // Use smart weights per ticker instead of just global customWeights
             // v34: prioritizing root data.sector (exposed by backend)
             const sector = data.sector || (data.company_profile ? data.company_profile.sector : null);
