@@ -84,6 +84,7 @@ class ValuationResponse(BaseModel):
     lynch_fair_value: float | None
     lynch_status: str | None
     peg_value: float | None
+    recommended_exit_multiple: float | None = None
     company_profile: dict | None = None
     historical_trends: list | None = None
     formula_data: dict
@@ -208,6 +209,33 @@ def delete_override(ticker: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def get_recommended_exit_multiple(sector: str, industry: str) -> float:
+    """Assigns recommended exit multiple based on sector/industry (User Strict Rule)."""
+    s = str(sector).lower()
+    ind = str(industry).lower()
+    
+    # 1. Tech / Healthcare / Communication
+    if any(x in s for x in ["tech", "health", "communication"]):
+        return 15.0
+    
+    # 2. Consumer Defensive / Utilities
+    if any(x in s for x in ["defensive", "utilities"]):
+        return 12.0
+    
+    # 3. Industrials / Energy / Materials / Auto
+    if any(x in s for x in ["industrial", "energy", "material"]) or "auto" in ind:
+        return 8.0
+        
+    # 4. Financials
+    if "financial" in s:
+        return 10.0
+        
+    # 5. Real Estate (REITs)
+    if any(x in s for x in ["real estate", "reit"]):
+        return 15.0
+        
+    return 10.0
+
 @app.get("/api/valuation/{ticker}", response_model=ValuationResponse)
 def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
     try:
@@ -267,7 +295,10 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
         sector_median_pe = statistics.median(valid_pes) if valid_pes else 20.0
 
         pe_historic = data.get("pe_historic") or data.get("pe_ratio")
-        eps_for_valuation = data.get("adjusted_eps") or data.get("trailing_eps")
+        
+        # STRICT DATA MAPPING: Trailing TTM EPS Only (Forbid Adjusted/Forward for valuation base)
+        eps_for_valuation = data.get("trailing_eps", 0) 
+        
         lynch_result = calculate_peter_lynch(current_price, eps_for_valuation, eps_growth_estimated, pe_historic, sector_median_pe)
         lynch_fwd_pe = lynch_result.get("fwd_pe")
         lynch_fair_value = lynch_result.get("fair_value")
@@ -306,6 +337,9 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
         
         # Relative Valuation (P/E Based currently)
         relative_value = calculate_relative_valuation(ticker, data, peers_data)
+        
+        # DCF Exit Multiple Mapping
+        recommended_exit_multiple = get_recommended_exit_multiple(sector, industry)
         
         # DCF
         # For DCF, we need FCF, Growth, WACC (discount_rate), terminal growth
@@ -550,7 +584,8 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
                 "mean_peer_pe": sanitize(mean_peer_pe),
                 "market_pe_trailing": sanitize(market_data.get("trailing_pe")),
                 "market_pe_forward": sanitize(market_data.get("forward_pe"))
-            }
+            },
+            "recommended_exit_multiple": recommended_exit_multiple
     }
 
         # USER-DRIVEN DATA MAPPING: TRAILING PE ONLY (FORBIDDEN FORWARD PE)
@@ -676,16 +711,17 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
                 "lynch_status": lynch_status,
                 "peter_lynch": formula_data["peter_lynch"],
                 "peg_value": sanitize(peg_value),
+                "recommended_exit_multiple": recommended_exit_multiple,
                 "company_profile": {
                     "industry": data.get("industry") or "N/A",
                     "sector": data.get("sector") or "N/A",
                     "market_cap": data.get("shares_outstanding", 0) * current_price if data.get("shares_outstanding") else None,
-                    "current_pe": sanitize(data.get("forward_pe")),
-                    "trailing_pe": sanitize(data.get("pe_ratio") or (current_price / data.get("trailing_eps") if data.get("trailing_eps") and data.get("trailing_eps") > 0 else None)),
-                    "historic_pe": sanitize(data.get("pe_historic")),
-                    "current_eps": sanitize(data.get("forward_eps")),
+                    "current_pe": sanitize(ttm_pe), # STRICT: USE TTM ONLY
+                    "trailing_pe": sanitize(ttm_pe),
+                    "historic_pe": sanitize(pe_historic),
+                    "current_eps": sanitize(data.get("trailing_eps")), # STRICT: USE TTM GAAS ONLY
                     "trailing_eps": sanitize(data.get("trailing_eps")),
-                    "adjusted_eps": sanitize(data.get("adjusted_eps")),
+                    "adjusted_eps": 0, # STRICT: FORBIDDEN
                     "historic_eps_growth": sanitize(data.get("historic_eps_growth")),
                     "historic_fcf_growth": sanitize(data.get("historic_fcf_growth")),
                     "status_flags": data.get("status_flags"),

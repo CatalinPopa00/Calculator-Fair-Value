@@ -614,21 +614,16 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             # We already have results from future_est in the earlier block
             pass
             
-        # 3. Last resort sanity/fallbacks
-        if eps_growth is None or (isinstance(eps_growth, (int, float)) and eps_growth < 0 and forward_pe and pe_ratio and forward_pe < pe_ratio):
-            # Sanity Check Failed or all sources missing: Yahoo says negative growth, but PE suggests expansion.
+        # 3. Last resort: strictly use provided growth or 0
+        if eps_growth is None:
             eg_val = info.get('earningsGrowth')
             if eg_val and eg_val > 0:
                 eps_growth = eg_val
                 eps_growth_period = "Trailing Growth"
-            elif forward_pe and pe_ratio and pe_ratio > 0 and forward_pe < pe_ratio:
-                # Implied Growth from PE compression
-                implied_g = (pe_ratio / forward_pe) - 1
-                eps_growth = min(implied_g, 0.50) # Cap at 50% for safety
-                eps_growth_period = "Implied PE Growth"
             else:
-                eps_growth = info.get('revenueGrowth', 0.05)
-                eps_growth_period = "Revenue Growth Proxy"
+                # Use revenue growth if explicitly provided, else 0 (No Implied PE deduction)
+                eps_growth = info.get('revenueGrowth', 0)
+                eps_growth_period = "Revenue Growth Proxy" if eps_growth > 0 else "None"
             
         # Financials for DCF & Margins (Wait for results)
         financials = None
