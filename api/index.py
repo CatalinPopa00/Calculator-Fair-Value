@@ -576,12 +576,37 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
 
         # Real Estate / REITs (mapping from scraper if available)
         # AFFO is often FCF for REITs if specific AFFO not parsed
-        data["affo_margin"] = data.get("affo_margin") or (fcf/data["revenue"]*100 if fcf and data.get("revenue", 0) > 0 else 0)
+        rev_val = data.get("revenue") or 0
+        data["affo_margin"] = data.get("affo_margin") or (fcf/rev_val*100 if fcf and rev_val > 0 else 0)
         data["affo_growth"] = data.get("historic_fcf_growth") or 0
-        data["price_to_affo"] = current_price / (fcf/shares) if fcf and shares and shares > 0 else 0
-        data["fcf_yield"] = (fcf / (current_price * shares)) * 100 if fcf and current_price and shares and shares > 0 else 0
+        
+        # Defensive Price to AFFO (avoid /0)
+        p_affo = 0
+        if fcf and shares and shares > 0 and (fcf/shares) != 0:
+            p_affo = current_price / (fcf/shares)
+        data["price_to_affo"] = p_affo
+        
+        # Defensive FCF Yield (avoid /0)
+        mkt_cap_val = (current_price * shares) if (current_price and shares) else 0
+        data["fcf_yield"] = (fcf / mkt_cap_val * 100) if (fcf and mkt_cap_val > 0) else 0
 
-        scoring_results = calculate_scoring_reform({"margin_of_safety": margin_of_safety, "sector_median_peg": median_peer_peg}, data)
+        # RESTORE: Standard indicators for DEFAULT template (accidentally removed)
+        data["ebit_margin"] = (data.get("ebit", 0) / rev_val) * 100 if rev_val > 0 else 0
+        data["ps_ratio"] = current_price / (rev_val / shares) if rev_val > 0 and shares > 0 else 0
+        
+        ebitda_val = data.get("ebitda")
+        if ebitda_val and ebitda_val > 0:
+            # Need dcf_debt/cash for EV
+            ev_val = mkt_cap_val + (data.get("total_debt") or 0) - (data.get("total_cash") or 0)
+            data["ev_to_ebitda"] = ev_val / ebitda_val
+        else:
+            data["ev_to_ebitda"] = 0
+
+        # Pass safety values to scoring
+        safe_mos = margin_of_safety if margin_of_safety is not None else 0
+        safe_median_peg = median_peer_peg if median_peer_peg is not None else 0
+        
+        scoring_results = calculate_scoring_reform({"margin_of_safety": safe_mos, "sector_median_peg": safe_median_peg}, data)
         
         health_score_total = scoring_results.get("health_score_total")
         health_breakdown = scoring_results.get("health_breakdown")

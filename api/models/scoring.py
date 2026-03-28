@@ -18,6 +18,7 @@ def calculate_scoring_reform(valuation_data, metrics):
 
     def format_val(value, is_ratio=True):
         if value is None: return "0.00"
+        if is_ratio == "raw": return str(value)
         if is_ratio: return f"{value:.2f}x"
         return f"{value:.1f}%"
 
