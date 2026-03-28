@@ -60,10 +60,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ tickers: watchlist })
                     }).catch(e => console.error('Sync-back failed:', e));
-                    
-                    if (document.getElementById('watchlist-grid')) {
-                        renderWatchlistUI();
-                    }
+                }
+                
+                // v38: Always trigger an initial background fetch for watchlist data to ensure scores are sync'd
+                if (watchlist.length > 0) {
+                    refreshWatchlistData();
                 }
             }
         })
@@ -1860,6 +1861,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    const refreshWatchlistData = async () => {
+        if (!watchlist || watchlist.length === 0) return;
+        try {
+            const res = await fetch('/api/batch-valuation', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tickers: watchlist })
+            });
+            if (res.ok) {
+                cachedWatchlistData = await res.json();
+                if (watchlistView.style.display === 'block') {
+                    renderWatchlistUI();
+                }
+            }
+        } catch (e) {
+            console.error("Watchlist background refresh failed", e);
+        }
+    };
+
     navWatchlistBtn.addEventListener('click', async () => {
         dashboard.style.display = 'none';
         watchlistView.style.display = 'block';
@@ -1867,27 +1887,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!cachedWatchlistData || cachedWatchlistData.length !== watchlist.length) {
             loadingState.style.display = 'flex';
             watchlistView.style.display = 'none';
-            
-            try {
-                // Use the new batch-valuation endpoint for maximum performance
-                const res = await fetch('/api/batch-valuation', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ tickers: watchlist })
-                });
-                
-                if (res.ok) {
-                    cachedWatchlistData = await res.json();
-                } else {
-                    console.error("Batch valuation failed");
-                    // Fallback to empty or previous data
-                    cachedWatchlistData = cachedWatchlistData || [];
-                }
-            } catch (e) {
-                console.error("Failed to load watchlist data", e);
-                cachedWatchlistData = cachedWatchlistData || [];
-            }
-
+            await refreshWatchlistData();
             loadingState.style.display = 'none';
             watchlistView.style.display = 'block';
         }

@@ -1,5 +1,7 @@
 def clean_percent(val):
     if val is None: return 0.0
+    if isinstance(val, str):
+        val = val.replace('%', '').replace('x', '').replace('$', '').replace(',', '')
     try:
         f_val = float(val)
         # Standardize decimal (0.05 -> 5%) before calculation and display.
@@ -55,6 +57,8 @@ def calculate_scoring_reform(valuation_data, metrics):
     
     def clean_ratio(val):
         if val is None: return 0.0
+        if isinstance(val, str):
+            val = val.replace('%', '').replace('x', '').replace('$', '').replace(',', '')
         try: return float(val)
         except: return 0.0
 

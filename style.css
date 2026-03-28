@@ -41,6 +41,12 @@ body {
     padding: 2rem;
 }
 
+@media (max-width: 768px) {
+    .app-container {
+        padding: 1rem;
+    }
+}
+
 /* Glassmorphism Card Style */
 .glass-card {
     background: var(--card-bg);
@@ -145,7 +151,6 @@ body {
 
     .search-container {
         order: 2;
-        /* Between logo and watchlist */
         max-width: 500px;
         flex: 1;
         margin: 0 1rem;
@@ -153,8 +158,35 @@ body {
 
     #nav-watchlist-btn {
         order: 3 !important;
-        /* Move to right */
         flex-shrink: 0;
+    }
+}
+
+@media (max-width: 767px) {
+    .header {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .logo {
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+
+    .logo h1 {
+        font-size: 1.5rem;
+    }
+
+    .search-container {
+        width: 100%;
+        gap: 0.25rem;
+    }
+
+    #nav-watchlist-btn {
+        width: 100%;
+        margin-top: 0.5rem;
     }
 }
 
@@ -356,17 +388,17 @@ body {
 
 @media (max-width: 1024px) {
     .hero-layout {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr;
+    }
+    
+    .row-2-grid {
+        grid-template-columns: 1fr;
     }
 }
 
 @media (max-width: 768px) {
-    .hero-layout {
-        grid-template-columns: 1fr;
-    }
-
-    .row-2-grid {
-        grid-template-columns: 1fr;
+    .hero-layout, .row-2-grid, .methods-grid {
+        grid-template-columns: 1fr !important;
     }
 }
 
@@ -393,41 +425,15 @@ body {
     letter-spacing: 1px;
 }
 
-.price-display .value {
-    font-size: 3rem;
-    font-weight: 800;
-    line-height: 1;
-}
-
-/* Fair value specific overrides */
-.fair-value-box {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    padding: 24px;
-}
-
-.fair-value-box .label {
-    display: block;
-    color: var(--text-muted);
-    font-size: 0.9rem;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: 0.5rem;
-    text-align: center;
-}
-
-.fair-value-box .value {
-    font-size: 3rem;
-    font-weight: 800;
-    line-height: 1;
-    margin-bottom: 0.8rem;
-    text-align: center;
-}
-
-.margin-safety {
-    text-align: center;
+/* Adjust large values for smaller screens */
+@media (max-width: 480px) {
+    .price-display .value, .fair-value-box .value {
+        font-size: 2.5rem !important;
+    }
+    
+    .accent-card .value {
+        font-size: 3rem !important;
+    }
 }
 
 /* Insights List Styles */
@@ -1612,6 +1618,16 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
+@media (max-width: 480px) {
+    .wl-metrics-bar {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    .wl-metric-item::after {
+        display: none !important;
+    }
+}
+
 .wl-metric-item {
     flex: 1;
     display: flex;
@@ -1697,6 +1713,7 @@ body {
     border-radius: 2px;
 }
 
+@media (max-width: 768px) {
     /* Expanded breakdown: single column */
     .breakdown-grid {
         grid-template-columns: 1fr;
@@ -1757,7 +1774,6 @@ body {
         border: none !important;
         padding: 0 !important;
     }
-}
 }
 
 /* Analyst Estimates UI Refinement */

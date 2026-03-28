@@ -1080,7 +1080,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         if financials is not None and not financials.empty:
             # We use income stmt as main source of dates (excluding TTM)
             is_cols = [c for c in financials.columns if str(c).upper() != "TTM"]
-            for yr_col in sorted(is_cols, reverse=True)[:4]:
+            for yr_col in sorted(is_cols)[-4:]:
                 # Helper for fuzzy extraction within this scope
                 def get_metric(df, field, target_date):
                     f_idx = find_idx(df, field)
@@ -1135,10 +1135,11 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 last_yr_str = historical_data["years"][-1]
                 last_yr = int(last_yr_str) if last_yr_str.isdigit() else datetime.datetime.now().year
                 
-                # We want the next 2 years
+                # We want the next 2 years (e.g., 2026, 2027 if last was 2025)
                 for i in range(1, 3):
                     proj_yr = last_yr + i
                     label = f"{proj_yr} (Est)"
+                    # Analysis tab uses Next Year for first estimate generally
                     fy_code = "0y" if i == 1 else "+1y"
                     
                     # --- EPS Estimate ---
@@ -1237,6 +1238,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                         "shares_out_b": round(s_raw / 1e9, 2),
                         "roic_pct": f"{roic_v:.1f}%" if roic_v is not None else "0.0%"
                     })
+            # Reverse anchors so newest is first for the UI table
+            historical_anchors.reverse()
         except Exception as e_anch:
             print(f"Error adding anchors: {e_anch}")
 
