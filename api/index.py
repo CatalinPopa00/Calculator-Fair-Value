@@ -49,7 +49,7 @@ app = FastAPI(title="Fair Value Calculator API")
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v37" # Expert Templates (Final Synchronized Labels & Weights)
+CACHE_VERSION = "v38" # Expert System Reform (TTM PE Only + Sector Strict)
 
 app.add_middleware(
     CORSMiddleware,
@@ -553,20 +553,34 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
             }
     }
 
-        # 6. Compute Comprehensive Scoring (Expert System Reform)
-        # Ensure additional ratios needed for expert scoring are available
-        if current_price and current_price > 0:
-            if data.get("revenue") and data.get("revenue") > 0:
-                data["fcf_margin"] = (fcf / data["revenue"]) * 100 if fcf else 0
-                data["ebit_margin"] = (data.get("ebit", 0) / data["revenue"]) * 100
-                data["ps_ratio"] = current_price / (data["revenue"] / shares) if shares else None
-            
-            ebitda = data.get("ebitda")
-            if ebitda and ebitda > 0:
-                market_cap = current_price * shares if shares else 0
-                enterprise_value = market_cap + dcf_debt - dcf_cash
-                data["ev_to_ebitda"] = enterprise_value / ebitda
+        # USER-DRIVEN DATA MAPPING: TRAILING PE ONLY (FORBIDDEN FORWARD PE)
+        # Ensure we prioritize actual TTM multiple
+        ttm_pe = data.get("pe_ratio")
+        if not ttm_pe or ttm_pe <= 0:
+            if current_price and data.get("trailing_eps") and data.get("trailing_eps") > 0:
+                ttm_pe = current_price / data.get("trailing_eps")
+            else:
+                ttm_pe = 0
         
+        data["trailing_pe"] = ttm_pe
+
+        # FCF Trend Logic (Crescător if last 2 years show growth)
+        fcf_vals = data.get("historical_data", {}).get("fcf", [])
+        data["fcf_trend"] = "Crescător" if len(fcf_vals) >= 2 and fcf_vals[-1] > fcf_vals[-2] else "Altfel"
+
+        # Financials placeholders (mapping from scraper if available)
+        data["nim"] = data.get("netInterestMargin") or 0
+        data["cet1_ratio"] = data.get("cet1_ratio") or 0
+        data["bvps_growth"] = data.get("historic_bvps_growth") or 0
+        data["next_3y_rev_growth"] = data.get("revenue_growth") or 0 # Fallback 
+
+        # Real Estate / REITs (mapping from scraper if available)
+        # AFFO is often FCF for REITs if specific AFFO not parsed
+        data["affo_margin"] = data.get("affo_margin") or (fcf/data["revenue"]*100 if fcf and data.get("revenue", 0) > 0 else 0)
+        data["affo_growth"] = data.get("historic_fcf_growth") or 0
+        data["price_to_affo"] = current_price / (fcf/shares) if fcf and shares and shares > 0 else 0
+        data["fcf_yield"] = (fcf / (current_price * shares)) * 100 if fcf and current_price and shares and shares > 0 else 0
+
         scoring_results = calculate_scoring_reform({"margin_of_safety": margin_of_safety, "sector_median_peg": median_peer_peg}, data)
         
         health_score_total = scoring_results.get("health_score_total")

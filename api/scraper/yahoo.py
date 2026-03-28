@@ -1151,6 +1151,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             "historical_trends": historical_trends,
             "business_summary": info.get('longBusinessSummary', 'N/A')[:200] + "...",
             "next_earnings_date": None,
+            "netInterestMargin": info.get('netInterestMargin'),
+            "cet1_ratio": info.get('commonEquityTier1Ratio') or (bs.loc['Common Equity Tier 1'].iloc[0] if bs is not None and not bs.empty and 'Common Equity Tier 1' in bs.index else None),
             "red_flags": red_flags
         }
     except Exception as e:
