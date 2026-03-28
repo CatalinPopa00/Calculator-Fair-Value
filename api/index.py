@@ -49,7 +49,7 @@ app = FastAPI(title="Fair Value Calculator API")
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v39" # Expert System Reform (TTM PE Only + Sector Strict)
+CACHE_VERSION = "v40" # Expert System Reform (TTM PE Only + Sector Strict)
 
 app.add_middleware(
     CORSMiddleware,
@@ -564,13 +564,24 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
         
         data["trailing_pe"] = ttm_pe
 
-        # FCF Trend Logic (Crescător if last 2 years show growth)
-        fcf_vals = data.get("historical_data", {}).get("fcf", [])
-        fcf_trend = "Altfel"
+        # FCF Trend Logic (Growing, Flat, Decreasing)
+        fcf_vals = data.get("historical_data", {}).get("fcf", []) or [t.get("fcf") for t in data.get("historical_trends", []) if t.get("fcf") is not None]
+        fcf_trend = "Flat"
         if len(fcf_vals) >= 2:
-            if fcf_vals[-1] > fcf_vals[-2]: fcf_trend = "Crescător"
-        elif data.get("historic_fcf_growth") and data.get("historic_fcf_growth") > 0.02:
-            fcf_trend = "Crescător"
+            # More robust check: is the current FCF better than the average of past years?
+            current = fcf_vals[-1]
+            prev = fcf_vals[-2]
+            avg_past = sum(fcf_vals[:-1]) / len(fcf_vals[:-1]) if len(fcf_vals) > 1 else prev
+            
+            if current > prev * 1.05 or current > avg_past:
+                fcf_trend = "Growing"
+            elif current < prev * 0.95:
+                fcf_trend = "Decreasing"
+        elif data.get("historic_fcf_growth") is not None:
+            g = data.get("historic_fcf_growth")
+            if g > 0.02: fcf_trend = "Growing"
+            elif g < -0.02: fcf_trend = "Decreasing"
+        
         data["fcf_trend"] = fcf_trend
 
         # Financials placeholders (mapping from scraper if available)

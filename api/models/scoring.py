@@ -185,8 +185,8 @@ def calculate_scoring_reform(valuation_data, metrics):
         pts = 20 if roic > 15 else (10 if roic >= 8 else 0)
         add_h("ROIC", roic, pts, 20, False)
 
-        fcf_trend = metrics.get('fcf_trend', 'Altfel')
-        pts = 15 if fcf_trend == "Crescător" else 0
+        fcf_trend = metrics.get('fcf_trend', 'Flat')
+        pts = 15 if fcf_trend == "Growing" else 0
         add_h("FCF Trend", fcf_trend, pts, 15, "raw")
 
         # BUY (100 pct)
