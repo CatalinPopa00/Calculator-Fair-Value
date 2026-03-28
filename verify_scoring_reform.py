@@ -65,7 +65,7 @@ def test_scoring():
     print(json.dumps(res_fin, indent=2))
     
     # Check if BVPS Growth is used instead of FCF Trend
-    found_bvps = any(item["metric"] == "BVPS Growth" for item in res_fin["health_breakdown"])
+    found_bvps = any(item["name"] == "BVPS Growth (Quality)" for item in res_fin["health_breakdown"])
     assert found_bvps, "BVPS Growth should be in Financial breakdown"
     
     # Mock data for a REIT
@@ -90,8 +90,8 @@ def test_scoring():
     print("\n[REIT RESULTS]")
     print(json.dumps(res_reit, indent=2))
     
-    found_dte = any(item["metric"] == "Debt-to-EBITDA" for item in res_reit["health_breakdown"])
-    assert found_dte, "Debt-to-EBITDA should be in REIT breakdown"
+    found_dte = any(item["name"] == "Debt-to-EBITDA (Safety)" for item in res_reit["health_breakdown"])
+    assert found_dte, "Debt-to-EBITDA (Safety) should be in REIT breakdown"
 
     print("\n--- ALL TESTS PASSED ---")
 

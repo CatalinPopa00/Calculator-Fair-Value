@@ -970,8 +970,8 @@ document.addEventListener('DOMContentLoaded', () => {
         currentHealthBreakdown = data.health_breakdown;
         currentBuyBreakdown = data.buy_breakdown;
 
-        updateScoreUI(data.health_score, 'health-score-circle', 'health-score-fill');
-        updateScoreUI(data.buy_score, 'buy-score-circle', 'buy-score-fill');
+        updateScoreUI(data.health_score_total, 'health-score-circle', 'health-score-fill');
+        updateScoreUI(data.good_to_buy_total, 'buy-score-circle', 'buy-score-fill');
 
         // Bind click handlers on score rows (must be done here, after data is loaded)
         const healthRow = document.getElementById('health-score-row') || document.getElementById('health-score-circle')?.closest('.score-row');
@@ -980,7 +980,7 @@ document.addEventListener('DOMContentLoaded', () => {
             healthRow.style.cursor = 'pointer';
             healthRow.onclick = function() {
                 console.log('[Score Click] Health clicked!');
-                renderScoreBreakdown('Company Health Breakdown', data.health_score, currentHealthBreakdown);
+                renderScoreBreakdown('Company Health Breakdown', data.health_score_total, currentHealthBreakdown);
             };
         }
         const buyRow = document.getElementById('buy-score-row') || document.getElementById('buy-score-circle')?.closest('.score-row');
@@ -989,7 +989,7 @@ document.addEventListener('DOMContentLoaded', () => {
             buyRow.style.cursor = 'pointer';
             buyRow.onclick = function() {
                 console.log('[Score Click] Buy clicked!');
-                renderScoreBreakdown('Good to Buy Score Breakdown', data.buy_score, currentBuyBreakdown);
+                renderScoreBreakdown('Good to Buy Score Breakdown', data.good_to_buy_total, currentBuyBreakdown);
             };
         }
 

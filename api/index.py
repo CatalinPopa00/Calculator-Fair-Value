@@ -22,7 +22,7 @@ from .models.valuation import (
     calculate_dcf_sensitivity,
     calculate_reverse_dcf
 )
-from .models.scoring import calculate_health_score, calculate_buy_score
+from .models.scoring import calculate_scoring_reform
 
 app = FastAPI(title="Fair Value Calculator API")
 
