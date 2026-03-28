@@ -142,25 +142,25 @@ def calculate_scoring_reform(valuation_data, metrics):
         pts = 30 if mos > 20 else (15 if mos >= 0 else 0)
         add_b("Margin of Safety", mos, pts, 30, False)
 
-        f_peg = clean_ratio(metrics.get('peg_ratio'))
-        pts = 15 if (f_peg > 0 and f_peg < 1.5) else (7.5 if (f_peg > 0 and f_peg <= 2.5) else 0)
-        add_b("PEG Ratio", f_peg, pts, 15, True)
-
         p_affo = clean_ratio(metrics.get('price_to_affo'))
-        pts = 15 if (p_affo > 0 and p_affo < 15) else (7.5 if (p_affo > 0 and p_affo <= 20) else 0)
-        add_b("Price-to-AFFO", p_affo, pts, 15, True)
+        pts = 20 if (p_affo > 0 and p_affo < 15.0) else (10 if (p_affo > 0 and p_affo <= 20.0) else 0)
+        add_b("P/AFFO", p_affo, pts, 20, True)
 
         div_y = clean_percent(metrics.get('dividend_yield'))
         pts = 15 if div_y > 5 else (7.5 if div_y >= 3 else 0)
         add_b("Dividend Yield", div_y, pts, 15, False)
 
         fcf_y = clean_percent(metrics.get('fcf_yield'))
-        pts = 15 if fcf_y > 7 else (7.5 if fcf_y >= 3 else 0)
+        pts = 15 if fcf_y > 10 else (7.5 if fcf_y >= 5 else 0)
         add_b("FCF Yield", fcf_y, pts, 15, False)
 
-        rev_g_3y = clean_percent(metrics.get('next_3y_rev_growth'))
-        pts = 10 if rev_g_3y > 5 else (5 if rev_g_3y >= 2 else 0)
-        add_b("Next 3Y Rev Growth", rev_g_3y, pts, 10, False)
+        affo_g = clean_percent(metrics.get('affo_growth'))
+        pts = 10 if affo_g > 5 else (5 if affo_g >= 2 else 0)
+        add_b("AFFO Growth", affo_g, pts, 10, False)
+
+        rev_g = clean_percent(metrics.get('revenue_growth'))
+        pts = 10 if rev_g > 10 else (5 if rev_g >= 5 else 0)
+        add_b("Rev Growth", rev_g, pts, 10, False)
 
     else:
         # --- ȘABLONUL 1: DEFAULT ---
@@ -193,10 +193,10 @@ def calculate_scoring_reform(valuation_data, metrics):
         pts = 30 if mos > 20 else (15 if mos >= 0 else 0)
         add_b("Margin of Safety", mos, pts, 30, False)
 
-        pts = 20 if rev_g > 15 else (10 if rev_g >= 5 else 0)
+        pts = 20 if rev_g > 15 else (10 if rev_g >= 7 else 0)
         add_b("Revenue Growth", rev_g, pts, 20, False)
 
-        pts = 20 if (pe > 0 and pe < 15.0) else (10 if (pe > 0 and pe <= 25.0) else 0)
+        pts = 20 if (pe > 0 and pe < 20.0) else (5 if (pe > 0 and pe <= 30.0) else 0)
         add_b("P/E Ratio", pe, pts, 20, True)
 
         ev_ebitda = clean_ratio(metrics.get('ev_to_ebitda'))
@@ -204,7 +204,7 @@ def calculate_scoring_reform(valuation_data, metrics):
         add_b("EV / EBITDA", ev_ebitda, pts, 10, True)
 
         ps = clean_ratio(metrics.get('ps_ratio'))
-        pts = 10 if (ps > 0 and ps < 4.0) else (5 if (ps > 0 and ps <= 8.0) else 0)
+        pts = 10 if (ps > 0 and ps < 4.0) else (5 if (ps > 0 and ps <= 10.0) else 0)
         add_b("P/S Ratio", ps, pts, 10, True)
 
         f_peg = clean_ratio(metrics.get('peg_ratio'))
