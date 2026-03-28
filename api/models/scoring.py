@@ -8,9 +8,15 @@ def clean_percent(val):
         return f_val
     except:
         return 0.0
-
 def calculate_scoring_reform(valuation_data, metrics):
     sector = metrics.get('sector', 'Technology')
+    industry = str(metrics.get('industry', '')).lower()
+    
+    # Check if this is a traditional bank/lender or a general financial service (like SPGI/MSCI)
+    is_bank = 'bank' in industry or 'credit services' in industry or 'savings' in industry
+    is_financial = 'financial' in sector.lower()
+    is_reit = 'real estate' in sector.lower() or 'reit' in sector.lower()
+
     h_score = 0
     h_breakdown = []
     b_score = 0
@@ -45,13 +51,7 @@ def calculate_scoring_reform(valuation_data, metrics):
     # Prepare standard metrics with 0.05 -> 5% normalization
     mos = clean_percent(valuation_data.get('margin_of_safety'))
     rev_g = clean_percent(metrics.get('revenue_growth'))
-    peg = clean_percent(metrics.get('peg_ratio')) # Normalized to be safe
-    # But PEG is a ratio, if it's 1.2 we keep it as 1.2.
-    # PEG 0.05 -> 5.0x seems weird, however PEG usually > 0.1 for most companies.
-    # Let's ensure ratios like PEG are not incorrectly multiplied.
-    # Actually, clean_percent multiplies by 100 if abs < 1.0.
-    # For PEG, if PEG = 0.8, it becomes 80.0. User said: 0.05 -> 5.
-    # PEG is a ratio, it's NOT a percentage. Let's make separate clean_ratio.
+    peg = clean_percent(metrics.get('peg_ratio')) 
     
     def clean_ratio(val):
         if val is None: return 0.0
@@ -61,7 +61,7 @@ def calculate_scoring_reform(valuation_data, metrics):
     # USER-DRIVEN DATA MAPPING: TRAILING PE ONLY (FORBIDDEN FORWARD PE)
     pe = clean_ratio(metrics.get('trailing_pe') or metrics.get('pe_ratio'))
 
-    if sector == "Financial Services":
+    if is_financial and is_bank:
         # --- ȘABLONUL 2: FINANCIALS ---
         # HEALTH (100 pct)
         de = clean_ratio(metrics.get('debt_to_equity'))
@@ -111,7 +111,7 @@ def calculate_scoring_reform(valuation_data, metrics):
         pts = 10 if rev_g_3y > 10 else (5 if rev_g_3y >= 5 else 0)
         add_b("Next 3Y Rev Growth", rev_g_3y, pts, 10, False)
 
-    elif sector == "Real Estate":
+    elif is_reit:
         # --- ȘABLONUL 3: REAL ESTATE (REITS) ---
         # HEALTH (100 pct)
         de = clean_ratio(metrics.get('debt_to_equity'))
