@@ -1127,7 +1127,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             "revenue_growth": revenue_growth_val,
             "earnings_growth": earnings_growth_val,
             "next_3y_rev_est": next_3y_rev_est,
-            "ebitda": info.get('ebitda'),
+            "ebitda": info.get('ebitda') or (float(financials.loc[find_idx(financials, 'EBITDA')].iloc[0]) if financials is not None and find_idx(financials, 'EBITDA') else None),
             "operating_margin": ebit_margin or info.get('operatingMargins'),
             "ebit_margin": ebit_margin,
             "net_margin": info.get('profitMargins'),
@@ -1151,8 +1151,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             "historical_trends": historical_trends,
             "business_summary": info.get('longBusinessSummary', 'N/A')[:200] + "...",
             "next_earnings_date": None,
-            "netInterestMargin": info.get('netInterestMargin'),
-            "cet1_ratio": info.get('commonEquityTier1Ratio') or (bs.loc['Common Equity Tier 1'].iloc[0] if bs is not None and not bs.empty and 'Common Equity Tier 1' in bs.index else None),
+            "netInterestMargin": info.get('netInterestMargin') or (float(financials.loc[find_idx(financials, 'Net Interest Income')].iloc[0]) / (float(bs.loc[find_idx(bs, 'Total Assets')].iloc[0]) if bs is not None and find_idx(bs, 'Total Assets') else (info.get('totalAssets') or 1)) if financials is not None and find_idx(financials, 'Net Interest Income') else None),
+            "cet1_ratio": info.get('commonEquityTier1Ratio') or (float(bs.loc[find_idx(bs, 'Common Equity Tier 1')].iloc[0]) if bs is not None and find_idx(bs, 'Common Equity Tier 1') else (float(bs.loc[find_idx(bs, 'Total Equity')].iloc[0]) / float(bs.loc[find_idx(bs, 'Total Assets')].iloc[0]) if bs is not None and find_idx(bs, 'Total Assets') and find_idx(bs, 'Total Equity') and float(bs.loc[find_idx(bs, 'Total Assets')].iloc[0]) > 0 else None)),
             "red_flags": red_flags
         }
     except Exception as e:

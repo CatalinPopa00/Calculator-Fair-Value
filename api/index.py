@@ -49,7 +49,7 @@ app = FastAPI(title="Fair Value Calculator API")
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v38" # Expert System Reform (TTM PE Only + Sector Strict)
+CACHE_VERSION = "v39" # Expert System Reform (TTM PE Only + Sector Strict)
 
 app.add_middleware(
     CORSMiddleware,
@@ -566,11 +566,18 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
 
         # FCF Trend Logic (Crescător if last 2 years show growth)
         fcf_vals = data.get("historical_data", {}).get("fcf", [])
-        data["fcf_trend"] = "Crescător" if len(fcf_vals) >= 2 and fcf_vals[-1] > fcf_vals[-2] else "Altfel"
+        fcf_trend = "Altfel"
+        if len(fcf_vals) >= 2:
+            if fcf_vals[-1] > fcf_vals[-2]: fcf_trend = "Crescător"
+        elif data.get("historic_fcf_growth") and data.get("historic_fcf_growth") > 0.02:
+            fcf_trend = "Crescător"
+        data["fcf_trend"] = fcf_trend
 
         # Financials placeholders (mapping from scraper if available)
         data["nim"] = data.get("netInterestMargin") or 0
         data["cet1_ratio"] = data.get("cet1_ratio") or 0
+        data["roe"] = data.get("roe") or 0
+        data["roa"] = data.get("roa") or 0
         data["bvps_growth"] = data.get("historic_bvps_growth") or 0
         data["next_3y_rev_growth"] = data.get("revenue_growth") or 0 # Fallback 
 
@@ -590,17 +597,24 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
         mkt_cap_val = (current_price * shares) if (current_price and shares) else 0
         data["fcf_yield"] = (fcf / mkt_cap_val * 100) if (fcf and mkt_cap_val > 0) else 0
 
-        # RESTORE: Standard indicators for DEFAULT template (accidentally removed)
-        data["ebit_margin"] = (data.get("ebit", 0) / rev_val) * 100 if rev_val > 0 else 0
-        data["ps_ratio"] = current_price / (rev_val / shares) if rev_val > 0 and shares > 0 else 0
+        # RESTORE: Standard indicators for DEFAULT template (Fixed Overwrite)
+        if not data.get("ebit_margin") or data["ebit_margin"] == 0:
+            data["ebit_margin"] = (data.get("ebit", 0) / rev_val) * 100 if rev_val > 0 else 0
+        
+        if not data.get("ps_ratio") or data["ps_ratio"] == 0:
+            data["ps_ratio"] = current_price / (rev_val / shares) if rev_val > 0 and shares > 0 else 0
         
         ebitda_val = data.get("ebitda")
         if ebitda_val and ebitda_val > 0:
             # Need dcf_debt/cash for EV
-            ev_val = mkt_cap_val + (data.get("total_debt") or 0) - (data.get("total_cash") or 0)
+            debt_val = (data.get("total_debt") or 0)
+            cash_val = (data.get("total_cash") or 0)
+            ev_val = mkt_cap_val + debt_val - cash_val
             data["ev_to_ebitda"] = ev_val / ebitda_val
+            data["debt_to_ebitda"] = debt_val / ebitda_val
         else:
             data["ev_to_ebitda"] = 0
+            data["debt_to_ebitda"] = 0
 
         # Pass safety values to scoring
         safe_mos = margin_of_safety if margin_of_safety is not None else 0
