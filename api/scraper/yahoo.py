@@ -511,55 +511,60 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         sector = info.get('sector')
         industry = info.get('industry')
 
-        # --- ATTEMPT 2: yf.history (More robust on Vercel) ---
-        current_price = info.get('currentPrice') or info.get('regularMarketPrice')
-        data_source = "yahoo_info"
+        # --- PRICE DISCOVERY (Authoritative Sequence + Scale Sanity) ---
+        # The 'Anchor' is the last known good trading price from the info summary
+        anchor_price = info.get('regularMarketPrice') or info.get('currentPrice')
+        prev_close = info.get('regularMarketPreviousClose') or anchor_price
+        current_price = None
+        data_source = "yahoo_fast_info"
+
+        # Attempt 1: Fast Info (Modern, Live)
+        try:
+            cf_val = stock.fast_info.get('last_price')
+            if cf_val and cf_val > 0:
+                # Sanity Check: If FastInfo differs from PrevClose by > 50%, it's likely a split-error (e.g. ADBE)
+                if prev_close and (cf_val < prev_close * 0.7 or cf_val > prev_close * 1.3):
+                    # Discrepancy detected, favor the Anchor if it's closer to PrevClose
+                    if anchor_price and abs(anchor_price/prev_close - 1) < abs(cf_val/prev_close - 1):
+                        current_price = float(anchor_price)
+                        data_source = "yahoo_info_anchor"
+                    else:
+                        current_price = float(cf_val)
+                else:
+                    current_price = float(cf_val)
+        except: pass
         
+        # Attempt 2: History (Verified Close)
         if current_price is None:
             try:
-                # History is often not blocked when .info is
                 hist = stock.history(period="1d")
                 if not hist.empty:
-                    current_price = float(hist['Close'].iloc[-1])
-                    data_source = "yahoo_history"
+                    h_val = float(hist['Close'].iloc[-1])
+                    # Sanity Check against PrevClose
+                    if prev_close and (h_val < prev_close * 0.7 or h_val > prev_close * 1.3):
+                         current_price = float(anchor_price) if anchor_price else h_val
+                         data_source = "yahoo_info_anchor"
+                    else:
+                        current_price = h_val
+                        data_source = "yahoo_history"
             except: pass
 
-        # --- ATTEMPT 3: Finnhub Fallback (Nuclear) ---
-        fh_key = os.environ.get('FINNHUB_API_KEY')
-        if current_price is None and fh_key:
-            try:
-                q = requests.get(f"https://finnhub.io/api/v1/quote?symbol={ticker_symbol}&token={fh_key}", timeout=5).json()
-                if q.get('c'):
-                    current_price = q['c']
-                    data_source = "finnhub"
-                    # Fill missing critical info from Finnhub if Yahoo failed completely
-                    if not info:
-                        m = requests.get(f"https://finnhub.io/api/v1/stock/metric?symbol={ticker_symbol}&metric=all&token={fh_key}", timeout=5).json().get('metric', {})
-                        p = requests.get(f"https://finnhub.io/api/v1/stock/profile2?symbol={ticker_symbol}&token={fh_key}", timeout=5).json()
-                        info = {
-                            'currentPrice': current_price,
-                            'shortName': p.get('name', ticker_symbol),
-                            'sector': p.get('finnhubIndustry'),
-                            'industry': p.get('finnhubIndustry'),
-                            'marketCap': m.get('marketCapitalization', 0) * 1e6 if m.get('marketCapitalization') else None,
-                            'trailingEps': m.get('epsExclExtraTTM'),
-                            'operatingMargins': m.get('operatingMarginTTM', 0) / 100.0 if m.get('operatingMarginTTM') else None
-                        }
-                        name = info['shortName']
-                        sector = info['sector']
-                        industry = info['industry']
-            except: pass
-
-        # --- ATTEMPT 4: Direct Chart API (v8) ---
+        # Attempt 3: Direct Chart API (v8)
         if current_price is None:
             try:
                 c_url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker_symbol}?interval=1d&range=1d"
-                c_resp = requests.get(c_url, headers={'User-Agent': get_random_agent()}, timeout=5).json()
+                headers = {'User-Agent': get_random_agent()}
+                c_resp = requests.get(c_url, headers=headers, timeout=5).json()
                 meta = c_resp.get('chart', {}).get('result', [{}])[0].get('meta', {})
                 if meta.get('regularMarketPrice'):
                     current_price = meta['regularMarketPrice']
                     data_source = "yahoo_chart_v8"
             except: pass
+
+        # Final Fallback
+        if current_price is None:
+            current_price = anchor_price
+            data_source = "yahoo_info_fallback"
 
         # Resolve name if everything failed but price was found via backups
         if name == ticker_symbol and current_price:
@@ -1487,18 +1492,32 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
             except Exception as e_scrape:
                 print(f"Scraping fallback error: {e_scrape}")
 
-            # Emergency Industry/Sector Fallback for common groups
+            # Emergency Industry/Sector Fallback for common groups (Semantic Connectivity)
             if sector == "Technology":
                 # Industry specific fallbacks
-                if "Semiconductor" in target_industry:
-                    peers = ["ALAB", "MU", "NVDA", "AMD", "MRVL", "AVGO", "ADI", "MCHP"]
-                elif "Software" in target_industry:
-                    peers = ["MSFT", "ADBE", "CRM", "ORCL", "SNOW", "PLTR", "DDOG"]
+                if "Semiconductor" in target_industry or target_ticker in ["CRDO", "ALAB", "MRVL"]:
+                    # Ensure high-confidence chip peers
+                    peers = ["ALAB", "MRVL", "AVGO", "NVDA", "AMD", "ARM", "MU", "CRDO"]
+                elif "Software" in target_industry or target_ticker == "ADBE":
+                    peers = ["MSFT", "ADBE", "CRM", "ORCL", "SNOW", "PLTR", "DDOG", "CRWD"]
                 else:
                     peers = ["IBM", "IT", "CTSH", "INFY", "ACN", "MSFT", "AAPL", "GOOGL"]
             elif sector == "Financial Services":
-                peers = ["SCHW", "MS", "GS", "JPM", "BAC", "IBKR", "WFC"]
+                if "Bank" in target_industry or "Credit" in target_industry:
+                    peers = ["JPM", "BAC", "WFC", "C", "GS", "MS", "AXP"]
+                else:
+                    peers = ["SCHW", "MSI", "GS", "JPM", "BAC", "IBKR", "WFC"]
             elif sector == "Consumer Cyclical":
+                if "Autos" in target_industry:
+                    peers = ["TSLA", "TM", "GM", "F", "FSR", "RIVN"]
+                else:
+                    peers = ["AMZN", "TSLA", "HD", "NKE", "MCD", "SBUX"]
+            elif sector == "Basic Materials":
+                peers = ["FCX", "LIN", "APD", "NEM", "CTVA", "SHW"]
+            elif sector == "Energy":
+                peers = ["XOM", "CVX", "COP", "SLB", "EOG", "MPC"]
+            elif sector == "Healthcare":
+                peers = ["LLY", "UNH", "JNJ", "ABBV", "MRK", "TMO", "PFE"]
                 peers = ["MC.PA", "RMS.PA", "CDI.PA", "NKE", "AMZN", "TSLA"] # LVMH, Hermes, Dior fallbacks
             elif sector == "Healthcare":
                 peers = ["PFE", "JNJ", "UNH", "ABBV", "LLY", "MRK"]

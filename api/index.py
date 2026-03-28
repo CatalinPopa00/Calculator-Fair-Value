@@ -624,13 +624,18 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
         
         data["fcf_trend"] = fcf_trend
 
-        # Financials placeholders (mapping from scraper if available)
+        # Financials placeholders (mapping from authoritative scraper data)
         data["nim"] = data.get("netInterestMargin") or 0
         data["cet1_ratio"] = data.get("cet1_ratio") or 0
+        
+        # PRIORITIZE CALCULATED RATIOS (ADBE/SMCI FIX)
         data["roe"] = data.get("roe") or 0
         data["roa"] = data.get("roa") or 0
+        data["ebit_margin"] = (data.get("operating_margin") or data.get("ebit_margin") or 0) * 100
+        data["net_margin"] = (data.get("net_margin") or 0) * 100
+        
         data["bvps_growth"] = data.get("historic_bvps_growth") or 0
-        data["next_3y_rev_growth"] = data.get("revenue_growth") or 0 # Fallback 
+        data["next_3y_rev_growth"] = data.get("revenue_growth") or 0
 
         # Real Estate / REITs (mapping from scraper if available)
         # AFFO is often FCF for REITs if specific AFFO not parsed
@@ -648,12 +653,13 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
         mkt_cap_val = (current_price * shares) if (current_price and shares) else 0
         data["fcf_yield"] = (fcf / mkt_cap_val * 100) if (fcf and mkt_cap_val > 0) else 0
 
-        # RESTORE: Standard indicators for DEFAULT template (Fixed Overwrite)
+        # RESTORE: Standard indicators for DEFAULT template (Respect Scraper Values)
         if not data.get("ebit_margin") or data["ebit_margin"] == 0:
-            data["ebit_margin"] = (data.get("ebit", 0) / rev_val) * 100 if rev_val > 0 else 0
+            data["ebit_margin"] = (data.get("ebit", 0) / (rev_val or 1)) * 100
         
+        # Only overwrite ps_ratio if scraper provided 0
         if not data.get("ps_ratio") or data["ps_ratio"] == 0:
-            data["ps_ratio"] = current_price / (rev_val / shares) if rev_val > 0 and shares > 0 else 0
+            data["ps_ratio"] = current_price / (rev_val / (shares or 1)) if rev_val > 0 and shares > 0 else 0
         
         ebitda_val = data.get("ebitda")
         if ebitda_val and ebitda_val > 0:
