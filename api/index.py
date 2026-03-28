@@ -30,7 +30,7 @@ app = FastAPI(title="Fair Value Calculator API")
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v30" # DCF Nested Key Fix (v30)
+CACHE_VERSION = "v31" # Fix -Infinity Margin + EPS Robustness (v31)
 
 app.add_middleware(
     CORSMiddleware,
@@ -380,7 +380,11 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
  
         if total_weight > 0:
             fair_value = weighted_sum / total_weight
-            margin_of_safety = ((fair_value - current_price) / fair_value) * 100
+            # Margin of Safety relative to PRICE is the standard for buy scores
+            if current_price > 0:
+                margin_of_safety = ((fair_value - current_price) / current_price) * 100
+            else:
+                margin_of_safety = 0
         else:
             fair_value = None
             margin_of_safety = None

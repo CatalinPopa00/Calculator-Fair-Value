@@ -513,6 +513,23 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         # Valuation Multiples & EPS (Normalize EPS)
         # trailing_eps is the GAAP TTM from Yahoo
         trailing_eps = (info.get('trailingEps') or info.get('epsTrailingTwelveMonths', 0)) * fx_rate
+        
+        # Fallback for Net Income Common Stock if EPS missing or zero in info
+        if (not trailing_eps or trailing_eps == 0) and not fast_mode:
+            try:
+                # We need to wait for financials result if not already here
+                # (it was started in parallel via future_fin)
+                fin_data = future_fin.result(timeout=1)
+                if fin_data is not None and not fin_data.empty:
+                    ni_idx = find_idx(fin_data, 'Net Income Common Stock Holders')
+                    if not ni_idx: ni_idx = find_idx(fin_data, 'Net Income')
+                    
+                    shares = info.get('sharesOutstanding')
+                    if ni_idx and shares and shares > 0:
+                        net_inc = float(fin_data.loc[ni_idx].iloc[0])
+                        trailing_eps = (net_inc * fx_rate) / shares
+            except: pass
+
         adjusted_eps = None
         forward_eps = (info.get('forwardEps') or 0) * fx_rate
         pe_ratio = info.get('trailingPE') # Ratio: no conversion
