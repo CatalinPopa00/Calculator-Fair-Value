@@ -848,8 +848,25 @@ document.addEventListener('DOMContentLoaded', () => {
             saveOverridesToServer(pendingOverrideTicker, pendingOverridePayload);
         }
 
-        const query = (queryParam && typeof queryParam === 'string') ? queryParam : tickerInput.value.trim();
+        let query = (queryParam && typeof queryParam === 'string') ? queryParam : tickerInput.value.trim();
         if (!query) return;
+
+        try {
+            const searchRes = await fetch(`/api/search/${encodeURIComponent(query)}`);
+            if (searchRes.ok) {
+                const results = await searchRes.json();
+                if (results && results.length > 0) {
+                    // RESOLUTION: If it's a name (like "Apple") search will return "AAPL".
+                    // If the first result's ticker is different from the input, or query is long, resolve it.
+                    if (results[0].ticker.toUpperCase() !== query.toUpperCase() || query.length > 5 || query.includes(' ')) {
+                        query = results[0].ticker;
+                        tickerInput.value = query;
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('[Search] Resolution failed, proceeding with literal query:', e);
+        }
 
         ['fcf-source', 'lynch-eps-source', 'peg-eps-source'].forEach(id => {
             const el = document.getElementById(id);
