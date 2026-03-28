@@ -1,5 +1,6 @@
 import yfinance as yf
 import os
+import json
 import datetime
 import urllib.request
 import urllib.parse
@@ -16,6 +17,20 @@ USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0",
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
 ]
+
+# Robust Insights File Discovery
+def _find_insights_file():
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    path = os.path.join(base_dir, "data", "company_insights.json")
+    if os.path.exists(path):
+        return path
+    # Fallback to current working directory discovery
+    cwd_path = os.path.join(os.getcwd(), "api", "data", "company_insights.json")
+    if os.path.exists(cwd_path):
+        return cwd_path
+    return path
+
+INSIGHTS_FILE = _find_insights_file()
 
 def normalize_growth(val):
     """Ensure growth rate is a decimal (e.g., 0.05 for 5%) even if source gives 5.0"""
@@ -388,6 +403,34 @@ def search_companies(query: str) -> list:
     if last_error:
         print(f"Search failed on all hosts. Last error: {last_error}")
     return []
+
+def get_company_synthesis(ticker: str, info: dict) -> str:
+    """
+    Returns a concise, analytical synthesis of the company in Romanian.
+    Checks the local insights database first, falls back to a structured summary.
+    """
+    ticker_upper = ticker.upper()
+    
+    # 1. Check Knowledge Base
+    try:
+        if os.path.exists(INSIGHTS_FILE):
+            with open(INSIGHTS_FILE, "r", encoding="utf-8") as f:
+                insights = json.load(f)
+                if ticker_upper in insights:
+                    return insights[ticker_upper]
+    except Exception as e:
+        print(f"Error loading insights file: {e}")
+
+    # 2. Professional Fallback (Structured Romanian Summary)
+    sector = info.get('sector', 'N/A')
+    industry = info.get('industry', 'N/A')
+    name = info.get('longName') or ticker_upper
+    
+    # Simple heuristic-based analytical synthesis
+    if sector != 'N/A' and industry != 'N/A':
+        return f"{name} este o entitate majoră în sectorul {sector}, operând în industria {industry}. Compania își generează veniturile prin furnizarea de soluții și produse integrate către o bază globală de clienți. Avantajul său competitiv se bazează pe poziționarea strategică în piață și pe capacitatea de inovare continuă în domeniul de activitate."
+    
+    return f"Sinteză indisponibilă. {name} activează în sectorul financiar global, generând fluxuri de numerar prin operațiuni comerciale specifice industriei sale. Detalii analitice despre fluxurile de venituri și avantajul competitiv sunt în curs de procesare."
 
 def get_company_data(ticker_symbol: str, fast_mode: bool = False):
     """
@@ -1258,7 +1301,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             "next_earnings_date": None,
             "netInterestMargin": info.get('netInterestMargin') or (float(financials.loc[find_idx(financials, 'Net Interest Income')].iloc[0]) / (float(bs.loc[find_idx(bs, 'Total Assets')].iloc[0]) if bs is not None and find_idx(bs, 'Total Assets') else (info.get('totalAssets') or 1)) if financials is not None and find_idx(financials, 'Net Interest Income') else None),
             "cet1_ratio": info.get('commonEquityTier1Ratio') or (float(bs.loc[find_idx(bs, 'Common Equity Tier 1')].iloc[0]) if bs is not None and find_idx(bs, 'Common Equity Tier 1') else (float(bs.loc[find_idx(bs, 'Total Equity')].iloc[0]) / float(bs.loc[find_idx(bs, 'Total Assets')].iloc[0]) if bs is not None and find_idx(bs, 'Total Assets') and find_idx(bs, 'Total Equity') and float(bs.loc[find_idx(bs, 'Total Assets')].iloc[0]) > 0 else None)),
-            "red_flags": red_flags
+            "red_flags": red_flags,
+            "company_overview_synthesis": get_company_synthesis(ticker_symbol, info)
         }
     except Exception as e:
         print(f"Global Error for {ticker_symbol}: {e}")

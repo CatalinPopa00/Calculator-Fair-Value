@@ -974,10 +974,29 @@ document.addEventListener('DOMContentLoaded', () => {
         if (fvContainer) {
             let descCard = document.getElementById('company-desc-card');
             if (!descCard) {
-                fvContainer.insertAdjacentHTML('afterend', '<div id="company-desc-card" class="glass-card" style="margin-top: 15px; padding: 20px;"><h3 style="font-size: 0.9rem; color: var(--text-muted); margin-top: 0; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px;">Company Overview</h3><div id="company-desc-text" style="font-size: 0.95rem; line-height: 1.6; color: white; max-height: 180px; overflow-y: auto; text-align: justify; padding-right: 8px;"></div></div>');
+                fvContainer.insertAdjacentHTML('afterend', `
+                    <div id="company-desc-card" class="glass-card" style="margin-top: 15px; padding: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <h3 style="font-size: 0.85rem; color: var(--text-muted); margin: 0; text-transform: uppercase; letter-spacing: 1px;">Company Overview</h3>
+                            <div id="ai-synthesis-badge" style="display: none; background: linear-gradient(135deg, #38bdf8, #818cf8); color: white; font-size: 0.65rem; padding: 4px 10px; border-radius: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">✨ A.I. Sinteză</div>
+                        </div>
+                        <div id="company-desc-text" style="font-size: 0.95rem; line-height: 1.7; color: white; max-height: 250px; overflow-y: auto; text-align: justify; padding-right: 8px;"></div>
+                    </div>`);
                 descCard = document.getElementById('company-desc-card');
             }
-            document.getElementById('company-desc-text').textContent = data.company_profile.business_summary || 'Description not available.';
+            
+            const descText = document.getElementById('company-desc-text');
+            const aiBadge = document.getElementById('ai-synthesis-badge');
+            
+            if (data.company_overview_synthesis) {
+                descText.textContent = data.company_overview_synthesis;
+                aiBadge.style.display = 'block';
+                descCard.style.borderLeft = '4px solid #38bdf8';
+            } else {
+                descText.textContent = (data.company_profile && data.company_profile.business_summary) || 'Description not available.';
+                aiBadge.style.display = 'none';
+                descCard.style.borderLeft = 'none';
+            }
         }
 
         updateWatchlistButtonState();

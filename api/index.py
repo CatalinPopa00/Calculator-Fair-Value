@@ -43,7 +43,7 @@ app = FastAPI(title="Fair Value Calculator API")
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v49" # Expert System Reform (Fix Historical Anchors Data Flow)
+CACHE_VERSION = "v50" # Expert System Reform (Fix Historical Anchors + AI Synthesis)
 
 app.add_middleware(
     CORSMiddleware,
@@ -82,6 +82,7 @@ class ValuationResponse(BaseModel):
     company_profile: dict | None = None
     historical_trends: list | None = None
     historical_anchors: list | None = None
+    company_overview_synthesis: str | None = None
     formula_data: dict
     health_score_total: int | str | None = None
     health_breakdown: list | None = None
@@ -710,6 +711,7 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
                 "lynch_fair_value": sanitize(lynch_pe20_val),
                 "lynch_status": lynch_status,
                 "peter_lynch": formula_data["peter_lynch"],
+                "company_overview_synthesis": data.get("company_overview_synthesis"),
                 "peg_value": sanitize(peg_value),
                 "recommended_exit_multiple": recommended_exit_multiple,
                 "dcf_assumptions": {
