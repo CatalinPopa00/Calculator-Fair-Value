@@ -1261,6 +1261,54 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     if annual_growth > 0.15 and (revenue_growth_val or 0) < 0.05:
                         revenue_growth_val = annual_growth
 
+            # --- SYSTEMIC RATIO AUDIT (Calculated > Reported) ---
+            if bs is not None and not bs.empty and financials is not None and not financials.empty:
+                try:
+                    # Use most recent column (excluding TTM)
+                    target_date = [c for c in financials.columns if str(c).upper() != "TTM"]
+                    if target_date:
+                        target_date = sorted(target_date)[-1]
+                        
+                        def get_f_metric(df, keys, date):
+                            for k in keys:
+                                idx = find_idx(df, k)
+                                if idx:
+                                    c_idx = find_nearest_col(df, date)
+                                    if c_idx:
+                                        val = df.loc[idx, c_idx]
+                                        if not pd.isna(val): return float(val)
+                            return 0
+
+                        # 1. Margins
+                        rev_val = get_f_metric(financials, ['Total Revenue', 'Revenue'], target_date)
+                        ni_val = get_f_metric(financials, ['Net Income Common Stock Holders', 'Net Income'], target_date)
+                        op_inc_val = get_f_metric(financials, ['Operating Income', 'EBIT'], target_date)
+                        
+                        if rev_val > 0:
+                            ebit_margin = op_inc_val / rev_val
+                            net_margin_calc = ni_val / rev_val
+                        
+                        # 2. Balance Sheet Ratios
+                        ca = get_f_metric(bs, ['Current Assets', 'Total Current Assets'], target_date)
+                        cl = get_f_metric(bs, ['Current Liabilities', 'Total Current Liabilities'], target_date)
+                        equity = get_f_metric(bs, ['Common Stock Equity', 'Stockholders Equity', 'Total Equity'], target_date)
+                        assets_val = get_f_metric(bs, ['Total Assets'], target_date)
+                        debt_val = get_f_metric(bs, ['Total Debt'], target_date)
+                        
+                        if cl > 0: current_ratio = ca / cl
+                        if equity > 0:
+                            debt_to_equity = debt_val / equity
+                            roe = ni_val / equity
+                        if assets_val > 0:
+                            roa = ni_val / assets_val
+                        
+                        # 3. Market Cap Calibration
+                        if current_price and shares_outstanding:
+                            market_cap = current_price * shares_outstanding
+                            
+                except Exception as e_audit:
+                    print(f"Ratio Audit Error for {ticker_symbol}: {e_audit}")
+
         except Exception as e_anch:
             print(f"Error adding anchors: {e_anch}")
 
@@ -1329,7 +1377,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             "ebitda": info.get('ebitda') or (float(financials.loc[find_idx(financials, 'EBITDA')].iloc[0]) if financials is not None and find_idx(financials, 'EBITDA') else None),
             "operating_margin": ebit_margin or info.get('operatingMargins'),
             "ebit_margin": ebit_margin,
-            "net_margin": info.get('profitMargins'),
+            "net_margin": net_margin_calc or info.get('profitMargins'),
             "dividend_yield": dividend_yield,
             "dividend_rate": dividend_rate,
             "dividend_streak": dividend_streak,

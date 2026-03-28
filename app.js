@@ -1638,16 +1638,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 try {
                     const toggles = getActiveToggles(data.ticker);
                     // Use server-provided values for consistency
-                    const displayFv = data.fair_value;
-                    const displayMos = data.margin_of_safety;
-                    const displayHealth = data.health_score_total;
-                    const displayBuy = data.good_to_buy_total;
-                    
                     const globalOv = cachedOverrides[data.ticker] || data.overrides;
                     const hasOverride = globalOv && globalOv.computed && globalOv.computed.fair_value != null;
+                    
                     const displayFv = hasOverride ? globalOv.computed.fair_value : data.fair_value;
-                    const displayMos = (displayFv != null && data.current_price) ? ((displayFv - data.current_price) / data.current_price) * 100 : null;
+                    const displayMos = (displayFv != null && data.current_price) ? ((displayFv - data.current_price) / data.current_price) * 100 : data.margin_of_safety;
                     const displayHealth = (globalOv && globalOv.computed && globalOv.computed.health_score_total != null) ? globalOv.computed.health_score_total : data.health_score_total;
+                    
+                    // buy score sync logic
+                    const dynamicBuyScore = data.good_to_buy_total;
                     let displayBuy = (globalOv && globalOv.computed && globalOv.computed.good_to_buy_total != null) ? globalOv.computed.good_to_buy_total : dynamicBuyScore;
                     
                     const fvStr = displayFv != null ? formatCurrency(displayFv) : 'N/A';
