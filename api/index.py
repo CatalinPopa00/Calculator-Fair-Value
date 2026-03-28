@@ -35,13 +35,7 @@ class OverrideRequest(BaseModel):
     computed: Dict[str, Any]
     weights: Dict[str, float]
 
-class ValuationResponse(BaseModel):
-    ticker: str
-    name: str
-    current_price: Optional[float]
-    # Add other fields as needed or use Dict[str, Any] for flexibility
-    class Config:
-        extra = "allow"
+# Only one ValuationResponse class is needed. Removing the redundant one later.
 
 app = FastAPI(title="Fair Value Calculator API")
 
@@ -49,7 +43,7 @@ app = FastAPI(title="Fair Value Calculator API")
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v47" # Expert System Reform (TTM PE Only + Sector Strict)
+CACHE_VERSION = "v49" # Expert System Reform (Fix Historical Anchors Data Flow)
 
 app.add_middleware(
     CORSMiddleware,
@@ -87,6 +81,7 @@ class ValuationResponse(BaseModel):
     recommended_exit_multiple: float | None = None
     company_profile: dict | None = None
     historical_trends: list | None = None
+    historical_anchors: list | None = None
     formula_data: dict
     health_score_total: int | str | None = None
     health_breakdown: list | None = None
@@ -94,6 +89,9 @@ class ValuationResponse(BaseModel):
     buy_breakdown: list | None = None
     historical_data: dict | None = None
     algorithmic_insights: dict | None = None
+    
+    class Config:
+        extra = "allow"
 
 @app.get("/api/search/{query}")
 def search(query: str):
@@ -761,6 +759,7 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
                     } for p in peers_data] if peers_data else []
                 },
                 "historical_trends": historical_trends,
+                "historical_anchors": data.get("historical_anchors"),
                 "historical_data": data.get("historical_data"),
                 "formula_data": formula_data,
                 "health_score_total": health_score_total,
