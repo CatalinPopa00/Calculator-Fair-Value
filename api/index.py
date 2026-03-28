@@ -30,7 +30,7 @@ app = FastAPI(title="Fair Value Calculator API")
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v32" # Fix UnboundLocalError (SOFI) + Frontend Margin Sync
+CACHE_VERSION = "v33" # Fix individual model margin denominators + v32 UnboundLocal
 
 app.add_middleware(
     CORSMiddleware,
@@ -506,7 +506,7 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
                 "shares_outstanding": shares,
                 "historic_buyback_rate": sanitize(data.get("historic_buyback_rate")),
                 "intrinsic_value": sanitize(dcf_value),
-                "margin_of_safety": sanitize(((dcf_value - current_price) / dcf_value * 100)) if dcf_value and dcf_value > 0 else None,
+                "margin_of_safety": sanitize(((dcf_value - current_price) / current_price * 100)) if dcf_value is not None and current_price > 0 else None,
                 "current_price": sanitize(current_price),
                 # Metadata for the modal (Flattened for compatibility)
                 **( _format_dcf_payload(dcf_5yr or dcf_10yr) or {} ),
@@ -515,7 +515,7 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
             },
             "relative": {
                 "fair_value": sanitize(relative_value),
-                "margin_of_safety": sanitize(((relative_value - current_price) / relative_value * 100)) if relative_value and relative_value > 0 else None,
+                "margin_of_safety": sanitize(((relative_value - current_price) / current_price * 100)) if relative_value is not None and current_price > 0 else None,
                 "company_eps": sanitize(data.get("trailing_eps")),
                 "company_trailing_pe": sanitize(pe_historic),
                 "peers": [p.get("ticker", p) if isinstance(p, dict) else p for p in peers_data] if peers_data else [],
