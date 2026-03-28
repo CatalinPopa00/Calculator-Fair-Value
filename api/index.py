@@ -374,9 +374,9 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
                 dcf_debt = 0
                 
         # 5 Year Calculation (Default for Dashboard)
-        res_5 = calculate_dcf(fcf, eps_growth, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, years=5)
-        sens_5 = calculate_dcf_sensitivity(fcf, eps_growth, shares, dcf_cash, dcf_debt, 5, discount_rate, perpetual_growth)
-        rev_5 = calculate_reverse_dcf(current_price, fcf, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, 5)
+        res_5 = calculate_dcf(fcf, eps_growth, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, years=5, exit_multiple=recommended_exit_multiple)
+        sens_5 = calculate_dcf_sensitivity(fcf, eps_growth, shares, dcf_cash, dcf_debt, 5, discount_rate, perpetual_growth, exit_multiple=recommended_exit_multiple)
+        rev_5 = calculate_reverse_dcf(current_price, fcf, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, 5, exit_multiple=recommended_exit_multiple)
         
         if res_5:
             # Use Perpetual as baseline for weighted average
@@ -391,9 +391,9 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
             }
             
         # 10 Year Calculation 
-        res_10 = calculate_dcf(fcf, eps_growth, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, years=10)
-        sens_10 = calculate_dcf_sensitivity(fcf, eps_growth, shares, dcf_cash, dcf_debt, 10, discount_rate, perpetual_growth)
-        rev_10 = calculate_reverse_dcf(current_price, fcf, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, 10)
+        res_10 = calculate_dcf(fcf, eps_growth, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, years=10, exit_multiple=recommended_exit_multiple)
+        sens_10 = calculate_dcf_sensitivity(fcf, eps_growth, shares, dcf_cash, dcf_debt, 10, discount_rate, perpetual_growth, exit_multiple=recommended_exit_multiple)
+        rev_10 = calculate_reverse_dcf(current_price, fcf, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, 10, exit_multiple=recommended_exit_multiple)
         
         if res_10:
             dcf_10yr = {
@@ -482,7 +482,7 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
         if lynch_result.get("fwd_eps") and median_peer_pe:
             fair_value_sector_pe = lynch_result.get("fwd_eps") * median_peer_pe
  
-        def _format_dcf_payload(dcf_dict):
+        def _format_dcf_payload(dcf_dict, exit_multiple_applied):
             if not dcf_dict or not dcf_dict.get("result"):
                 return None
             res = dcf_dict["result"]
@@ -496,7 +496,7 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
                 "present_value_fcf_sum": sanitize(res.get("total_pv_of_fcfs")),
                 "discount_rate": sanitize(res.get("discount_rate_applied")),
                 "perpetual_growth_rate": perpetual_growth,
-                "exit_multiple": 15.0, # Default
+                "exit_multiple": exit_multiple_applied,
                 "total_cash": sanitize(dcf_cash),
                 "total_debt": sanitize(dcf_debt),
                 "shares_outstanding": sanitize(shares)
@@ -565,9 +565,9 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
                 "margin_of_safety": sanitize(((dcf_value - current_price) / current_price * 100)) if dcf_value is not None and current_price > 0 else None,
                 "current_price": sanitize(current_price),
                 # Metadata for the modal (Flattened for compatibility)
-                **( _format_dcf_payload(dcf_5yr or dcf_10yr) or {} ),
-                "5yr": _format_dcf_payload(dcf_5yr) if dcf_5yr else None,
-                "10yr": _format_dcf_payload(dcf_10yr) if dcf_10yr else None
+                **( _format_dcf_payload(dcf_5yr or dcf_10yr, recommended_exit_multiple) or {} ),
+                "5yr": _format_dcf_payload(dcf_5yr, recommended_exit_multiple) if dcf_5yr else None,
+                "10yr": _format_dcf_payload(dcf_10yr, recommended_exit_multiple) if dcf_10yr else None
             },
             "relative": {
                 "fair_value": sanitize(relative_value),
