@@ -216,7 +216,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    const calcLocalDcf = (fcf, growth, wacc, perp, shares, cash, debt, buybackRate = 0, years = 5, exitMult = 15.0) => {
+    const calcLocalDcf = (fcf, growth, wacc, perp, shares, cash, debt, buybackRate = 0, years = 5, exitMult = 10.0) => {
         if (!fcf || !shares || shares <= 0) return null;
         
         // WACC Smart Cap
@@ -563,16 +563,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     const g = currentFormulaData.dcf.eps_growth_estimated || 0.10;
                     const wAnalyst = (waccInput && waccInput.value) ? parseFloat(waccInput.value)/100 : w;
-                    const em = parseFloat(document.getElementById('input-exit-multiple')?.value) || (data.dcf_assumptions?.recommended_exit_multiple || 15.0);
+                    const em = parseFloat(document.getElementById('input-exit-multiple')?.value) || (data.dcf_assumptions?.recommended_exit_multiple || 10.0);
                     dcfVal = calcLocalDcf(baseFcf, g, wAnalyst, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
                 }
             } else if (fcfSource === 'historical') {
                 const hg = prof.historic_fcf_growth != null ? prof.historic_fcf_growth : 0.05;
-                const em = parseFloat(document.getElementById('input-exit-multiple')?.value) || (data.dcf_assumptions?.recommended_exit_multiple || 15.0);
+                const em = parseFloat(document.getElementById('input-exit-multiple')?.value) || (data.dcf_assumptions?.recommended_exit_multiple || 10.0);
                 dcfVal = calcLocalDcf(baseFcf, hg, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
             } else if (fcfSource === 'eps_growth') {
                 const g = currentFormulaData.dcf.eps_growth_estimated || 0.10;
-                const em = parseFloat(document.getElementById('input-exit-multiple')?.value) || (data.dcf_assumptions?.recommended_exit_multiple || 15.0);
+                const em = parseFloat(document.getElementById('input-exit-multiple')?.value) || (data.dcf_assumptions?.recommended_exit_multiple || 10.0);
                 dcfVal = calcLocalDcf(baseFcf, g, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
             } else if (fcfSource === 'custom') {
                 const gRaw = document.getElementById('dcf-custom-growth').value;
@@ -583,7 +583,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const g = (gRaw === '' || isNaN(parseFloat(gRaw))) ? 0.15 : parseFloat(gRaw) / 100;
                 const wCustom = (wRaw === '' || isNaN(parseFloat(wRaw))) ? 0.09 : parseFloat(wRaw) / 100;
                 const pCustom = (pRaw === '' || isNaN(parseFloat(pRaw))) ? 0.025 : parseFloat(pRaw) / 100;
-                const em = (emRaw === '' || isNaN(parseFloat(emRaw))) ? (data.dcf_assumptions?.recommended_exit_multiple || 15.0) : parseFloat(emRaw);
+                const em = (emRaw === '' || isNaN(parseFloat(emRaw))) ? (data.dcf_assumptions?.recommended_exit_multiple || 10.0) : parseFloat(emRaw);
                 
                 dcfVal = calcLocalDcf(baseFcf, g, wCustom, pCustom, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
             }
@@ -1096,7 +1096,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Sync DCF Exit Multiple from backend assumptions
         const exitMultipleInput = document.getElementById('input-exit-multiple');
         if (exitMultipleInput && data.dcf_assumptions) {
-            exitMultipleInput.value = data.dcf_assumptions.recommended_exit_multiple || 15;
+            exitMultipleInput.value = data.dcf_assumptions.recommended_exit_multiple || 10.0;
         }
     };
 

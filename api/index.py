@@ -49,7 +49,7 @@ app = FastAPI(title="Fair Value Calculator API")
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v43" # Expert System Reform (TTM PE Only + Sector Strict)
+CACHE_VERSION = "v45" # Expert System Reform (TTM PE Only + Sector Strict)
 
 app.add_middleware(
     CORSMiddleware,
@@ -365,11 +365,16 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
         dcf_cash = data.get("total_cash") or 0
         dcf_debt = data.get("total_debt") or 0
         
+        # USER REQUESTED: Sector-Aware DCF Exit Multiples
+        sector = (data.get("company_profile") or {}).get("sector") or data.get("sector") or ""
+        industry = (data.get("company_profile") or {}).get("industry") or data.get("industry") or ""
+        recommended_exit_multiple = get_recommended_exit_multiple(sector, industry)
+
         if fcf and shares and fcf > 0:
             # Special Handling for Financial Services (Banks, Brokers, Insurance)
             # Standard DCF EV = PV(FCF) + Cash - Debt is highly misleading because Cash often includes customer money.
             # For these, we use PV(FCF) as a proxy for Equity Value directly.
-            if data.get("sector") == "Financial Services":
+            if sector == "Financial Services":
                 dcf_cash = 0
                 dcf_debt = 0
                 
@@ -405,9 +410,7 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
         historical_trends = data.get("historical_trends", [])
             
         # Stabilize Fair Value with Sector-Aware Weighting
-        sector = data.get("company_profile", {}).get("sector", "")
-        
-        # Define base sector weights
+        # Define base sector weights using the pre-assigned sector variable
         if sector == "Financial Services":
             base_weights = {"lynch": 0.45, "relative": 0.45, "peg": 0.10, "dcf": 0.0}
         elif sector == "Real Estate":
