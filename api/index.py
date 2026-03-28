@@ -600,16 +600,20 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
         
         data["trailing_pe"] = ttm_pe
 
-        # FCF Trend Logic (Growing, Flat, Decreasing)
+        # FCF Trend Logic (Growing, Improving, Flat, Decreasing)
         fcf_vals = data.get("historical_data", {}).get("fcf", []) or [t.get("fcf") for t in data.get("historical_trends", []) if t.get("fcf") is not None]
         fcf_trend = "Flat"
         if len(fcf_vals) >= 2:
-            # More robust check: is the current FCF better than the average of past years?
+            # Newest is first if reversed by anchors. Let's stabilize it.
+            # If anchors are newest-first, fcf_vals might be too. 
+            # In SMCI diagnostic, it looked like oldest-first [..., 1.53B].
             current = fcf_vals[-1]
             prev = fcf_vals[-2]
-            avg_past = sum(fcf_vals[:-1]) / len(fcf_vals[:-1]) if len(fcf_vals) > 1 else prev
             
-            if current > prev * 1.05 or current > avg_past:
+            # RECOVERY LOGIC: Negative to Positive is a strong Growth signal
+            if current > 0 and prev < 0:
+                fcf_trend = "Growing" # Significant recovery
+            elif current > prev * 1.05:
                 fcf_trend = "Growing"
             elif current < prev * 0.95:
                 fcf_trend = "Decreasing"
@@ -697,83 +701,83 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
                 risk_factors = all_sorted[:2]
 
         response_data = {
-                "ticker": data["ticker"],
-                "name": data["name"],
-                "current_price": sanitize(current_price),
-                "fair_value": sanitize(fair_value),
-                "margin_of_safety": sanitize(margin_of_safety),
-                "baseline_weights": base_weights,
-                "dcf_value": sanitize(dcf_value),
-                "relative_value": sanitize(relative_value),
-                "sector": data.get("sector"),
-                "industry": data.get("industry"),
-                "lynch_fwd_pe": sanitize(lynch_fwd_pe),
-                "lynch_fair_value": sanitize(lynch_pe20_val),
-                "lynch_status": lynch_status,
-                "peter_lynch": formula_data["peter_lynch"],
-                "company_overview_synthesis": data.get("company_overview_synthesis"),
-                "peg_value": sanitize(peg_value),
-                "recommended_exit_multiple": recommended_exit_multiple,
-                "dcf_assumptions": {
-                    "recommended_exit_multiple": recommended_exit_multiple
-                },
-                "company_profile": {
-                    "industry": data.get("industry") or "N/A",
-                    "sector": data.get("sector") or "N/A",
-                    "market_cap": data.get("shares_outstanding", 0) * current_price if data.get("shares_outstanding") else None,
-                    "current_pe": sanitize(ttm_pe), # STRICT: USE TTM ONLY
-                    "trailing_pe": sanitize(ttm_pe),
-                    "historic_pe": sanitize(pe_historic),
-                    "current_eps": sanitize(data.get("trailing_eps")), # STRICT: USE TTM GAAS ONLY
-                    "trailing_eps": sanitize(data.get("trailing_eps")),
-                    "adjusted_eps": 0, # STRICT: FORBIDDEN
-                    "historic_eps_growth": sanitize(data.get("historic_eps_growth")),
-                    "historic_fcf_growth": sanitize(data.get("historic_fcf_growth")),
-                    "status_flags": data.get("status_flags"),
-                    "debt_to_equity": sanitize(data.get("debt_to_equity")),
-                    "shares_outstanding": sanitize(data.get("shares_outstanding")),
-                    "buyback_rate": sanitize(data.get("historic_buyback_rate") * 100 if data.get("historic_buyback_rate") else None),
-                    "dividend_yield": data.get("dividend_yield"),
-                    "operating_margin": sanitize(data.get("operating_margin")),
-                    "net_margin": sanitize(data.get("net_margin")),
-                    "payout_ratio": sanitize(data.get("payout_ratio")),
-                    "revenue_growth": sanitize(data.get("revenue_growth")),
-                    "earnings_growth": sanitize(data.get("earnings_growth")),
-                    "insider_ownership": sanitize(data.get("insider_ownership")),
-                    "next_earnings_date": data.get("next_earnings_date"),
-                    "business_summary": data.get("business_summary"),
-                    "dividend_streak": data.get("dividend_streak"),
-                    "dividend_cagr_5y": data.get("dividend_cagr_5y"),
-                    "red_flags": data.get("red_flags"),
-                    "sector_median_pe": sanitize(median_peer_pe),
-                    "sector_median_peg": sanitize(median_peer_peg),
-                    "competitors": [p.get("ticker", p) if isinstance(p, dict) else p for p in peers_data] if peers_data else [],
-                    "competitor_metrics": [{
-                        "ticker": p.get("ticker"),
-                        "name": p.get("name"),
-                        "price": sanitize(p.get("price")),
-                        "pe_ratio": sanitize(p.get("pe_ratio")),
-                        "market_cap": sanitize(p.get("market_cap")),
-                        "eps": sanitize(p.get("eps")),
-                        "operating_margin": sanitize(p.get("operating_margin")),
-                        "revenue_growth": sanitize(p.get("revenue_growth")),
-                        "earnings_growth": sanitize(p.get("earnings_growth"))
-                    } for p in peers_data] if peers_data else []
-                },
-                "historical_trends": historical_trends,
-                "historical_anchors": data.get("historical_anchors"),
-                "historical_data": data.get("historical_data"),
-                "formula_data": formula_data,
-                "health_score_total": health_score_total,
-                "health_breakdown": health_breakdown,
-                "good_to_buy_total": good_to_buy_total,
-                "buy_breakdown": buy_breakdown,
-                "algorithmic_insights": {
-                    "top_strengths": top_strengths,
-                    "risk_factors": risk_factors
-                },
-                "overrides": ticker_overrides
-            }
+            "ticker": data["ticker"],
+            "name": data["name"],
+            "current_price": sanitize(current_price),
+            "fair_value": sanitize(fair_value),
+            "margin_of_safety": sanitize(margin_of_safety),
+            "baseline_weights": base_weights,
+            "dcf_value": sanitize(dcf_value),
+            "relative_value": sanitize(relative_value),
+            "sector": data.get("sector"),
+            "industry": data.get("industry"),
+            "lynch_fwd_pe": sanitize(lynch_fwd_pe),
+            "lynch_fair_value": sanitize(lynch_pe20_val),
+            "lynch_status": lynch_status,
+            "peter_lynch": formula_data["peter_lynch"],
+            "company_overview_synthesis": data.get("company_overview_synthesis"),
+            "peg_value": sanitize(peg_value),
+            "recommended_exit_multiple": recommended_exit_multiple,
+            "dcf_assumptions": {
+                "recommended_exit_multiple": recommended_exit_multiple
+            },
+            "company_profile": {
+                "industry": data.get("industry") or "N/A",
+                "sector": data.get("sector") or "N/A",
+                "market_cap": data.get("shares_outstanding", 0) * current_price if data.get("shares_outstanding") else None,
+                "current_pe": sanitize(ttm_pe),
+                "trailing_pe": sanitize(ttm_pe),
+                "historic_pe": sanitize(pe_historic),
+                "current_eps": sanitize(data.get("trailing_eps")),
+                "trailing_eps": sanitize(data.get("trailing_eps")),
+                "adjusted_eps": 0,
+                "historic_eps_growth": sanitize(data.get("historic_eps_growth")),
+                "historic_fcf_growth": sanitize(data.get("historic_fcf_growth")),
+                "status_flags": data.get("status_flags"),
+                "debt_to_equity": sanitize(data.get("debt_to_equity")),
+                "shares_outstanding": sanitize(data.get("shares_outstanding")),
+                "buyback_rate": sanitize(data.get("historic_buyback_rate") * 100 if data.get("historic_buyback_rate") else None),
+                "dividend_yield": data.get("dividend_yield"),
+                "operating_margin": sanitize(data.get("operating_margin")),
+                "net_margin": sanitize(data.get("net_margin")),
+                "payout_ratio": sanitize(data.get("payout_ratio")),
+                "revenue_growth": sanitize(data.get("revenue_growth")),
+                "earnings_growth": sanitize(data.get("earnings_growth")),
+                "insider_ownership": sanitize(data.get("insider_ownership")),
+                "next_earnings_date": data.get("next_earnings_date"),
+                "business_summary": data.get("business_summary"),
+                "dividend_streak": data.get("dividend_streak"),
+                "dividend_cagr_5y": data.get("dividend_cagr_5y"),
+                "red_flags": data.get("red_flags"),
+                "sector_median_pe": sanitize(median_peer_pe),
+                "sector_median_peg": sanitize(median_peer_peg),
+                "competitors": [p.get("ticker", p) if isinstance(p, dict) else p for p in peers_data] if peers_data else [],
+            },
+            "health_score_total": health_score_total,
+            "health_breakdown": health_breakdown,
+            "good_to_buy_total": good_to_buy_total,
+            "buy_breakdown": buy_breakdown,
+            "formula_data": formula_data,
+            "historical_trends": historical_trends,
+            "historical_anchors": data.get("historical_anchors"),
+            "historical_data": data.get("historical_data"),
+            "algorithmic_insights": {
+                "top_strengths": top_strengths,
+                "risk_factors": risk_factors
+            },
+            "overrides": ticker_overrides,
+            "competitor_metrics": [{
+                "ticker": p.get("ticker"),
+                "name": p.get("name"),
+                "price": sanitize(p.get("price")),
+                "pe_ratio": sanitize(p.get("pe_ratio")),
+                "market_cap": sanitize(p.get("market_cap")),
+                "eps": sanitize(p.get("eps")),
+                "operating_margin": sanitize(p.get("operating_margin")),
+                "revenue_growth": sanitize(p.get("revenue_growth")),
+                "earnings_growth": sanitize(p.get("earnings_growth"))
+            } for p in peers_data] if peers_data else []
+        }
     except Exception as e:
         import traceback
         print(f"VALUATION CRASH for {ticker}: {str(e)}")

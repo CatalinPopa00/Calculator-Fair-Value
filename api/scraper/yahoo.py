@@ -1240,8 +1240,56 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     })
             # Reverse anchors so newest is first for the UI table
             historical_anchors.reverse()
+            
+            # --- PHASE 2: DATA INTEGRITY REFINEMENT (SMCI FIX) ---
+            # 1. Update ROIC from processed anchors (avoid stale info tags)
+            if historical_anchors:
+                latest = historical_anchors[0]
+                # Extract numeric value from "9.0%" or use 0
+                try:
+                    val_str = latest.get("roic_pct", "0").replace("%", "")
+                    roic = float(val_str) / 100.0
+                except: pass
+                
+            # 2. Update Revenue Growth from annual anchors if quarterly is misleading
+            if len(historical_anchors) >= 2:
+                latest_rev = historical_anchors[0]["revenue_b"]
+                prev_rev = historical_anchors[1]["revenue_b"]
+                if prev_rev > 0:
+                    annual_growth = (latest_rev - prev_rev) / prev_rev
+                    # If annual growth is massive (like SMCI) but the reported 'revenue_growth' is small, trust the annual data
+                    if annual_growth > 0.15 and (revenue_growth_val or 0) < 0.05:
+                        revenue_growth_val = annual_growth
+
         except Exception as e_anch:
             print(f"Error adding anchors: {e_anch}")
+
+        # 3. Next Earnings Extraction
+        next_earnings_date = "N/A"
+        try:
+            # Try calendar first
+            cal = stock.calendar
+            if cal is not None:
+                # Handle both DataFrame and Dict return types from yfinance
+                ed = None
+                if isinstance(cal, dict):
+                    ed = cal.get('Earnings Date')
+                elif hasattr(cal, 'empty') and not cal.empty:
+                    ed = cal.get('Earnings Date')
+                
+                if ed is not None:
+                    if isinstance(ed, list) and len(ed) > 0:
+                        next_earnings_date = ed[0].strftime('%Y-%m-%d')
+                    else:
+                        next_earnings_date = str(ed)
+            
+            if next_earnings_date == "N/A":
+                # Try timestamp fallback
+                ts = info.get('earningsTimestamp') or info.get('nextEarningsDate')
+                if ts:
+                    next_earnings_date = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d')
+        except Exception as e_earn:
+            print(f"Error fetching earnings: {e_earn}")
 
         # Final return object (Diagnostic-Rich v22)
         return {
@@ -1301,7 +1349,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             "historical_data": historical_data,
             "historical_trends": historical_trends,
             "business_summary": info.get('longBusinessSummary', 'N/A')[:200] + "...",
-            "next_earnings_date": None,
+            "next_earnings_date": next_earnings_date,
             "netInterestMargin": info.get('netInterestMargin') or (float(financials.loc[find_idx(financials, 'Net Interest Income')].iloc[0]) / (float(bs.loc[find_idx(bs, 'Total Assets')].iloc[0]) if bs is not None and find_idx(bs, 'Total Assets') else (info.get('totalAssets') or 1)) if financials is not None and find_idx(financials, 'Net Interest Income') else None),
             "cet1_ratio": info.get('commonEquityTier1Ratio') or (float(bs.loc[find_idx(bs, 'Common Equity Tier 1')].iloc[0]) if bs is not None and find_idx(bs, 'Common Equity Tier 1') else (float(bs.loc[find_idx(bs, 'Total Equity')].iloc[0]) / float(bs.loc[find_idx(bs, 'Total Assets')].iloc[0]) if bs is not None and find_idx(bs, 'Total Assets') and find_idx(bs, 'Total Equity') and float(bs.loc[find_idx(bs, 'Total Assets')].iloc[0]) > 0 else None)),
             "red_flags": red_flags,
@@ -1391,10 +1439,15 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
             except Exception as e_scrape:
                 print(f"Scraping fallback error: {e_scrape}")
 
-        if not peers:
-            # Emergency Sector Fallback for common sectors
+            # Emergency Industry/Sector Fallback for common groups
             if sector == "Technology":
-                peers = ["IBM", "IT", "CTSH", "INFY", "ACN", "MSFT", "AAPL", "GOOGL"]
+                # Industry specific fallbacks
+                if "Semiconductor" in target_industry:
+                    peers = ["ALAB", "MU", "NVDA", "AMD", "MRVL", "AVGO", "ADI", "MCHP"]
+                elif "Software" in target_industry:
+                    peers = ["MSFT", "ADBE", "CRM", "ORCL", "SNOW", "PLTR", "DDOG"]
+                else:
+                    peers = ["IBM", "IT", "CTSH", "INFY", "ACN", "MSFT", "AAPL", "GOOGL"]
             elif sector == "Financial Services":
                 peers = ["SCHW", "MS", "GS", "JPM", "BAC", "IBKR", "WFC"]
             elif sector == "Consumer Cyclical":
@@ -1429,6 +1482,7 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
                             "price": inf.get('regularMarketPrice') or inf.get('currentPrice'),
                             "pe_ratio": inf.get('trailingPE') or inf.get('forwardPE'),
                             "market_cap": inf.get('marketCap'),
+                            "ps_ratio": inf.get('priceToSalesTrailing12Months') or inf.get('priceToSales'),
                             "eps": inf.get('trailingEps') or inf.get('forwardEps'),
                             "operating_margin": inf.get('operatingMargins') or inf.get('ebitdaMargins'),
                             "industry": inf.get('industry') or target_industry,
@@ -1525,6 +1579,7 @@ def get_lightweight_company_data(ticker_symbol: str):
                 "peg_ratio": info.get('pegRatio'),
                 "eps": info.get('trailingEps'),
                 "market_cap": info.get('marketCap'),
+                "ps_ratio": info.get('priceToSalesTrailing12Months') or info.get('priceToSales'),
                 "operating_margin": info.get('operatingMargins') or info.get('profitMargins'),
                 "revenue_growth": info.get('revenueGrowth'),
                 "earnings_growth": info.get('earningsGrowth') or info.get('earningsQuarterlyGrowth'),

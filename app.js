@@ -1637,55 +1637,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!data || !data.ticker) return;
                 try {
                     const toggles = getActiveToggles(data.ticker);
-                    const cw = getSmartWeights(data.sector);
-                    const method = toggles['toggle-multiple'] ? 'multiple' : 'perpetual';
-                    
-                    let customFinalFv = 0;
-                    let totalW = 0;
-                    const d = data.formula_data;
-                    if (d?.dcf && toggles['toggle-dcf']) {
-                        const branch = method === 'multiple' ? d.dcf_exit_multiple : d.dcf_perpetual;
-                        if (branch?.fair_value_per_share) {
-                            customFinalFv += branch.fair_value_per_share * cw.dcf; 
-                            totalW += cw.dcf; 
-                        }
-                    }
-                    if (data.formula_data?.peter_lynch?.fair_value_pe_20 && toggles['toggle-peter_lynch']) { 
-                        customFinalFv += data.formula_data.peter_lynch.fair_value_pe_20 * cw.lynch; 
-                        totalW += cw.lynch; 
-                    }
-                    if (data.relative_value && toggles['toggle-relative']) { 
-                        customFinalFv += data.relative_value * cw.relative; 
-                        totalW += cw.relative; 
-                    }
-                    if (data.formula_data?.peg?.fair_value && toggles['toggle-peg']) { 
-                        customFinalFv += data.formula_data.peg.fair_value * cw.peg; 
-                        totalW += cw.peg; 
-                    }
-
-                    let customMos = null;
-                    if (totalW > 0 && data.current_price) {
-                        customFinalFv = customFinalFv / totalW;
-                        customMos = ((customFinalFv - data.current_price) / data.current_price) * 100;
-                        data.fair_value = customFinalFv;
-                        data.margin_of_safety = customMos;
-                    }
-
-                    let dynamicBuyScore = data.good_to_buy_total;
-                    if (data.buy_breakdown && customMos != null) {
-                        let mosItem = data.buy_breakdown.find(i => i.metric && i.metric.includes("Margin of Safety"));
-                        if (mosItem) {
-                            let newPts = 0;
-                            if (customMos > 20.0) newPts = 30;
-                            else if (customMos >= 0.0) newPts = 15;
-                            const oldPts = mosItem.points_awarded || 0;
-                            mosItem.points_awarded = newPts;
-                            mosItem.value = `${customMos.toFixed(1)}%`;
-                            if (typeof dynamicBuyScore === 'number') {
-                                dynamicBuyScore = dynamicBuyScore - oldPts + newPts;
-                            }
-                        }
-                    }
+                    // Use server-provided values for consistency
+                    const displayFv = data.fair_value;
+                    const displayMos = data.margin_of_safety;
+                    const displayHealth = data.health_score_total;
+                    const displayBuy = data.good_to_buy_total;
                     
                     const globalOv = cachedOverrides[data.ticker] || data.overrides;
                     const hasOverride = globalOv && globalOv.computed && globalOv.computed.fair_value != null;

@@ -171,21 +171,27 @@ import statistics
 
 def calculate_relative_valuation(company_ticker: str, company_metrics: dict, competitors_metrics: list):
     """
-    Averages P/E, P/S, Margins, FCF of competitors. Now uses Median.
+    Averages P/E, P/S, Margins, FCF of competitors. Now uses Median with P/S fallback.
     """
     if not competitors_metrics:
         return None
         
-    # A simple relative value based on median P/E of peers
+    # Phase 1: Try median P/E
     valid_pes = [p.get('pe_ratio') if isinstance(p, dict) else None for p in competitors_metrics]
-    valid_pes = [v for v in valid_pes if v is not None]
-    if not valid_pes:
-        return None
-        
-    median_pe = statistics.median(valid_pes)
+    valid_pes = [v for v in valid_pes if v is not None and v > 0]
     
     company_eps = company_metrics.get('trailing_eps')
-    if company_eps and company_eps > 0:
+    if valid_pes and company_eps and company_eps > 0:
+        median_pe = statistics.median(valid_pes)
         return median_pe * company_eps
         
+    # Phase 2: Fallback to median P/S ratio if P/E fails
+    valid_ps = [p.get('ps_ratio') if isinstance(p, dict) else None for p in competitors_metrics]
+    valid_ps = [v for v in valid_ps if v is not None and v > 0]
+    
+    company_revenue_per_share = company_metrics.get('revenue_per_share')
+    if valid_ps and company_revenue_per_share and company_revenue_per_share > 0:
+        median_ps = statistics.median(valid_ps)
+        return median_ps * company_revenue_per_share
+
     return None
