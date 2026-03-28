@@ -38,6 +38,32 @@ def find_idx(df, target):
         if str(idx).lower().strip() == target_lower: return idx
     return None
 
+def find_nearest_col(df, target_date, max_days=7):
+    """Finds the column index in df that most closely matches target_date within max_days."""
+    if df is None or df.empty or target_date is None:
+        return None
+    # Try exact match
+    if target_date in df.columns:
+        return target_date
+    # Normalize target_date to Timestamp if it is a string
+    if isinstance(target_date, str):
+        try: target_date = pd.to_datetime(target_date)
+        except: return None
+    
+    best_col = None
+    min_delta = None
+    
+    for col in df.columns:
+        try:
+            col_ts = pd.to_datetime(col)
+            delta = abs((col_ts - target_date).days)
+            if delta <= max_days:
+                if min_delta is None or delta < min_delta:
+                    min_delta = delta
+                    best_col = col
+        except: continue
+    return best_col
+
 def get_random_agent():
     return random.choice(USER_AGENTS)
 
@@ -999,31 +1025,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             operating_cashflow = info.get('operatingCashflow')
             if operating_cashflow is not None: operating_cashflow *= fx_rate
 
-        # 1. Historical Trends (Annual) for Table
-        historical_trends = []
-        try:
-            if financials is not None and not financials.empty and cashflow is not None and not cashflow.empty:
-                cols = list(set(financials.columns).intersection(cashflow.columns))
-                cols = sorted(cols, reverse=True)
-                years_trends = cols[:10]
-                for year in years_trends:
-                    rev = float(financials.loc['Total Revenue', year]) if 'Total Revenue' in financials.index and not pd.isna(financials.loc['Total Revenue', year]) else None
-                    ni = float(financials.loc['Net Income', year]) if 'Net Income' in financials.index and not pd.isna(financials.loc['Net Income', year]) else None
-                    fcf_v = float(cashflow.loc['Free Cash Flow', year]) if 'Free Cash Flow' in cashflow.index and not pd.isna(cashflow.loc['Free Cash Flow', year]) else None
-                    margin = (ni / rev) if (ni and rev and rev > 0) else None
-                    year_str = year.year if hasattr(year, 'year') else str(year)[:4]
-                    
-                    if rev or margin or fcf_v:
-                        historical_trends.append({
-                            "year": year_str,
-                            "revenue": rev,
-                            "net_margin": margin,
-                            "fcf": fcf_v
-                        })
-        except Exception as e:
-            print(f"Historical trends format issue: {e}")
-
-        # 2. Historical & Projected Data for Charts (Annual)
+        # 1. Historical Trends & Base Chart Data (Descending order)
         historical_data = {
             "years": [],
             "revenue": [],
@@ -1031,41 +1033,48 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             "fcf": [],
             "shares": []
         }
-        try:
-            # 2a. Actual Historical Data
-            if financials is not None and not financials.empty:
-                common_cols = sorted(list(set(financials.columns).intersection(cashflow.columns)))
-                target_years = common_cols[-5:]
-                for yr in target_years:
-                    rev_val = financials.loc['Total Revenue', yr] if 'Total Revenue' in financials.index else 0
-                    eps_val = financials.loc['Diluted EPS', yr] if 'Diluted EPS' in financials.index else (financials.loc['Basic EPS', yr] if 'Basic EPS' in financials.index else 0)
-                    fcf_val = cashflow.loc['Free Cash Flow', yr] if 'Free Cash Flow' in cashflow.index else 0
-                    
-                    r = float(rev_val) if not pd.isna(rev_val) else 0
-                    e = float(eps_val) if not pd.isna(eps_val) else 0
-                    f = float(fcf_val) if not pd.isna(fcf_val) else 0
-                    
-                    if r == 0 and e == 0 and f == 0: continue
-                    
-                    share_val = 0
-                    for sk in ['Basic Average Shares', 'Diluted Average Shares', 'Ordinary Shares Number']:
-                        if sk in financials.index:
-                            val = financials.loc[sk, yr]
-                            if not pd.isna(val): share_val = val; break
-                    
-                    yr_label = str(yr.year) if hasattr(yr, 'year') else str(yr)[:4]
-                    if yr_label == "2021": continue
-                    
-                    final_shares = float(share_val) if share_val else (historical_data["shares"][-1] if historical_data["shares"] else 0)
-                    historical_data["years"].append(yr_label)
-                    historical_data["revenue"].append(r)
-                    historical_data["eps"].append(e)
-                    historical_data["fcf"].append(f)
-                    historical_data["shares"].append(final_shares)
-        except Exception as e_hist:
-            print(f"Error extracting history: {e_hist}")
+        
+        if financials is not None and not financials.empty:
+            # We use income stmt as main source of dates (excluding TTM)
+            is_cols = [c for c in financials.columns if str(c).upper() != "TTM"]
+            for yr_col in sorted(is_cols, reverse=True)[:4]:
+                # Helper for fuzzy extraction within this scope
+                def get_metric(df, field, target_date):
+                    f_idx = find_idx(df, field)
+                    if not f_idx: return 0
+                    c_idx = find_nearest_col(df, target_date)
+                    if not c_idx: return 0
+                    val = df.loc[f_idx, c_idx]
+                    return float(val) if not pd.isna(val) else 0
 
-        # 2b. Add Projections (Next 2 FYs)
+                year_label = str(yr_col.year) if hasattr(yr_col, 'year') else str(yr_col)[:4]
+                
+                r = get_metric(financials, 'Total Revenue', yr_col)
+                ni = get_metric(financials, 'Net Income', yr_col)
+                
+                diluted_eps_idx = find_idx(financials, 'Diluted EPS')
+                e = get_metric(financials, diluted_eps_idx, yr_col) if diluted_eps_idx else get_metric(financials, 'Basic EPS', yr_col)
+                
+                f = get_metric(cashflow, 'Free Cash Flow', yr_col)
+                
+                s = get_metric(financials, 'Basic Average Shares', yr_col) or \
+                    get_metric(financials, 'Diluted Average Shares', yr_col) or \
+                    get_metric(bs, 'Ordinary Shares Number', yr_col)
+                
+                historical_data["years"].append(year_label)
+                historical_data["revenue"].append(r)
+                historical_data["eps"].append(e)
+                historical_data["fcf"].append(f)
+                historical_data["shares"].append(s)
+                
+                margin = (ni / r) if (r > 0 and ni is not None) else None
+                historical_trends.append({
+                    "year": year_label,
+                    "revenue": r,
+                    "net_margin": margin,
+                    "fcf": f
+                })
+        # 2. Add Projections (Next 2 FYs)
         try:
             if not fast_mode and historical_data["years"] and historical_data["revenue"]:
                 ee_data = future_est.result(timeout=2) if 'future_est' in locals() else None
@@ -1131,57 +1140,51 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     historical_data["shares"].append(historical_data["shares"][-1])
         except Exception as e_proj:
             print(f"Error adding projections: {e_proj}")
-        # 3. Historical Anchors (Last 4 reported fiscal years - Strict List)
+        # 3. Historical Anchors (Last 4 reported fiscal years - Robust Selection)
         historical_anchors = []
         try:
-            if financials is not None and not financials.empty and cashflow is not None and not cashflow.empty and bs is not None and not bs.empty:
-                # Find common columns across all 3 statements
-                common_cols = sorted(list(set(financials.columns).intersection(cashflow.columns).intersection(bs.columns)), reverse=True)
-                for yr in common_cols[:4]: # Last 4 reported years
-                    # 1. Revenue
-                    r_raw = float(financials.loc['Total Revenue', yr]) if 'Total Revenue' in financials.index and not pd.isna(financials.loc['Total Revenue', yr]) else 0
+            if financials is not None and not financials.empty:
+                # Iterate over already-extracted historical years from step 1
+                for i in range(len(historical_data["years"])):
+                    # Skip estimate years in anchors table
+                    if "Est" in str(historical_data["years"][i]): continue
                     
-                    # 2. EPS
-                    e_raw = financials.loc['Diluted EPS', yr] if 'Diluted EPS' in financials.index else (financials.loc['Basic EPS', yr] if 'Basic EPS' in financials.index else 0)
-                    e_raw = float(e_raw) if not pd.isna(e_raw) else 0
+                    yr_label = historical_data["years"][i]
+                    # Find matching datetime col to pull Balance Sheet data
+                    is_cols = [c for c in financials.columns if str(c).upper() != "TTM"]
+                    yr_col = None
+                    for c in is_cols:
+                        c_label = str(c.year) if hasattr(c, 'year') else str(c)[:4]
+                        if c_label == str(yr_label):
+                            yr_col = c; break
                     
-                    # 3. FCF
-                    f_raw = float(cashflow.loc['Free Cash Flow', yr]) if 'Free Cash Flow' in cashflow.index and not pd.isna(cashflow.loc['Free Cash Flow', yr]) else 0
-                    
-                    # 4. Net Income (for Margin and ROIC)
-                    ni_raw = float(financials.loc['Net Income', yr]) if 'Net Income' in financials.index and not pd.isna(financials.loc['Net Income', yr]) else 0
-                    
-                    # 5. Cash
-                    c_idx = find_idx(bs, 'Cash And Cash Equivalents')
-                    c_raw = float(bs.loc[c_idx, yr]) if c_idx and not pd.isna(bs.loc[c_idx, yr]) else 0
-                    
-                    # 6. Total Debt
-                    d_idx = find_idx(bs, 'Total Debt')
-                    d_raw = float(bs.loc[d_idx, yr]) if d_idx and not pd.isna(bs.loc[d_idx, yr]) else 0
-                    
-                    # 7. Shares
-                    s_raw = 0
-                    for sk in ['Basic Average Shares', 'Diluted Average Shares', 'Ordinary Shares Number']:
-                        if sk in financials.index:
-                            val = financials.loc[sk, yr]
-                            if not pd.isna(val): s_raw = float(val); break
-                    if s_raw == 0 and 'Ordinary Shares Number' in bs.index:
-                        s_raw = float(bs.loc['Ordinary Shares Number', yr]) if not pd.isna(bs.loc['Ordinary Shares Number', yr]) else 0
+                    if not yr_col: continue
 
-                    # 8. ROIC Inputs (Total Assets, Current Liabilities)
-                    a_idx = find_idx(bs, 'Total Assets')
-                    l_idx = find_idx(bs, 'Current Liabilities')
-                    assets = float(bs.loc[a_idx, yr]) if a_idx and not pd.isna(bs.loc[a_idx, yr]) else 0
-                    liabs = float(bs.loc[l_idx, yr]) if l_idx and not pd.isna(bs.loc[l_idx, yr]) else 0
-                    
+                    r_raw = historical_data["revenue"][i]
+                    e_raw = historical_data["eps"][i]
+                    f_raw = historical_data["fcf"][i]
+                    s_raw = historical_data["shares"][i]
+                    ni_raw = (r_raw * historical_trends[i]["net_margin"]) if (i < len(historical_trends) and historical_trends[i]["net_margin"]) else 0
+
+                    def get_bs_metric(field, target_date):
+                        idx = find_idx(bs, field)
+                        if not idx: return 0
+                        c_idx = find_nearest_col(bs, target_date)
+                        if not c_idx: return 0
+                        val = bs.loc[idx, c_idx]
+                        return float(val) if not pd.isna(val) else 0
+
+                    c_raw = get_bs_metric('Cash And Cash Equivalents', yr_col)
+                    d_raw = get_bs_metric('Total Debt', yr_col)
+                    assets = get_bs_metric('Total Assets', yr_col)
+                    liabs = get_bs_metric('Current Liabilities', yr_col)
+
                     # Calculations
-                    margin_v = (ni_raw / r_raw * 100.0) if r_raw > 0 else None
+                    margin_v = (historical_trends[i]["net_margin"] * 100.0) if (i < len(historical_trends) and historical_trends[i]["net_margin"]) else None
                     roic_v = (ni_raw / (assets - liabs) * 100.0) if (assets - liabs) > 0 else None
                     
-                    year_label = str(yr.year) if hasattr(yr, 'year') else str(yr)[:4]
-                    
                     historical_anchors.append({
-                        "year": year_label,
+                        "year": yr_label,
                         "revenue_b": round(r_raw / 1e9, 2),
                         "eps": round(e_raw * fx_rate, 2),
                         "fcf_b": round(f_raw / 1e9, 2),
@@ -1192,7 +1195,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                         "roic_pct": f"{roic_v:.1f}%" if roic_v is not None else "0.0%"
                     })
         except Exception as e_anch:
-            print(f"Error creating historical anchors: {e_anch}")
+            print(f"Error adding anchors: {e_anch}")
 
         # Final return object (Diagnostic-Rich v22)
         return {

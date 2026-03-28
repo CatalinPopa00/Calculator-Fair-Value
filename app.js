@@ -1351,7 +1351,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const borderDash = labels.map((_, i) => i >= estIndex && estIndex !== -1 ? [6, 4] : []);
 
-        // ── Chart 1: Revenue & FCF (Bar chart, millions) ──
+        // ── Chart 1: Revenue & FCF (Bar chart, billions) ──
         const ctxRevFcf = document.getElementById('chart-rev-fcf');
         if (ctxRevFcf) {
             if (chartRevFcf) chartRevFcf.destroy();
@@ -1361,8 +1361,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     labels,
                     datasets: [
                         {
-                            label: 'Revenue ($M)',
-                            data: hd.revenue.map(v => v ? +(v / 1e6).toFixed(1) : 0),
+                            label: 'Revenue ($B)',
+                            data: hd.revenue.map(v => v ? +(v / 1e9).toFixed(2) : 0),
                             backgroundColor: bgColors('rgba(56, 189, 248, 1)', 0.7, 0.3),
                             borderColor: 'rgba(56, 189, 248, 1)',
                             borderWidth: 1,
@@ -1370,8 +1370,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             order: 2
                         },
                         {
-                            label: 'FCF ($M)',
-                            data: hd.fcf.map(v => v ? +(v / 1e6).toFixed(1) : 0),
+                            label: 'FCF ($B)',
+                            data: hd.fcf.map(v => v ? +(v / 1e9).toFixed(2) : 0),
                             backgroundColor: bgColors('rgba(16, 185, 129, 1)', 0.7, 0.3),
                             borderColor: 'rgba(16, 185, 129, 1)',
                             borderWidth: 1,
@@ -1389,7 +1389,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     },
                     scales: {
                         x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148,163,184,0.1)' } },
-                        y: { ticks: { color: '#94a3b8', callback: v => '$' + v.toLocaleString() + 'M' }, grid: { color: 'rgba(148,163,184,0.1)' } }
+                        y: { ticks: { color: '#94a3b8', callback: v => '$' + v.toLocaleString() + 'B' }, grid: { color: 'rgba(148,163,184,0.1)' } }
                     }
                 }
             });
@@ -1401,7 +1401,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (chartEpsShares) chartEpsShares.destroy();
 
             const epsData = hd.eps || [];
-            const sharesData = (hd.shares || []).map(v => v ? +(v / 1e6).toFixed(1) : 0);
+            const sharesData = (hd.shares || []).map(v => v ? +(v / 1e9).toFixed(3) : 0);
 
             chartEpsShares = new Chart(ctxEps, {
                 type: 'bar', // Base type remains bar for the background
@@ -1409,7 +1409,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     labels,
                     datasets: [
                         {
-                            label: 'Shares (M)',
+                            label: 'Shares (B)',
                             data: sharesData,
                             backgroundColor: bgColors('rgba(251, 191, 36, 1)', 0.4, 0.2),
                             borderColor: 'rgba(251, 191, 36, 1)',
@@ -1449,7 +1449,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     scales: {
                         x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148,163,184,0.1)' } },
                         y:  { position: 'left',  ticks: { color: '#a855f7', callback: v => '$' + v }, grid: { color: 'rgba(148,163,184,0.1)' }, title: { display: true, text: 'EPS ($)', color: '#a855f7' } },
-                        y1: { position: 'right', ticks: { color: '#fbbf24', callback: v => v + 'M' }, grid: { drawOnChartArea: false }, title: { display: true, text: 'Shares (M)', color: '#fbbf24' } }
+                        y1: { position: 'right', ticks: { color: '#fbbf24', callback: v => v + 'B' }, grid: { drawOnChartArea: false }, title: { display: true, text: 'Shares (B)', color: '#fbbf24' } }
                     }
                 }
             });
