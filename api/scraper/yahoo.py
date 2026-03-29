@@ -868,6 +868,13 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             revenue = (info.get('totalRevenue') or 0) * fx_rate
             
         market_cap = info.get('marketCap') # Price * Shares: usually USD for US-listed ADR
+        # CALIBRATION: yfinance marketCap can be stale/wrong (e.g. ADBE showing $95B vs real $170B)
+        # Always recalculate from price * shares if we have both
+        if current_price and shares_outstanding and shares_outstanding > 0:
+            calc_cap = current_price * shares_outstanding
+            # If yfinance marketCap is off by more than 20%, trust our calculation
+            if market_cap is None or abs(calc_cap - market_cap) / calc_cap > 0.20:
+                market_cap = calc_cap
 
         # Scoring Metrics
         debt_to_equity = info.get('debtToEquity')
@@ -1026,31 +1033,39 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         # Historic Buyback Rate (Robust Multi-Source CALC)
         historic_buyback_rate = None
         try:
-            results = []
-            # Method 1: Balance Sheet Share Count Change
+            # Method 1: Balance Sheet Share Count Change (PRIMARY - most reliable)
+            # Ordinary Shares Number = actual diluted count (best for buyback calc)
             if bs is not None and not bs.empty:
-                s_row = None
-                for k in ['Ordinary Shares Number', 'Share Issued', 'Common Stock']:
-                    if find_idx(bs, k): s_row = bs.loc[find_idx(bs, k)].dropna(); break
-                
-                if s_row is not None and len(s_row) >= 2:
-                    v = s_row.head(3).tolist()
-                    for i in range(len(v)-1):
-                        if v[i+1] > 0: results.append((v[i+1] - v[i]) / v[i+1]) # Rate of reduction
+                shares_idx = find_idx(bs, 'Ordinary Shares Number')
+                if shares_idx:
+                    shares_hist = bs.loc[shares_idx].dropna()
+                    if len(shares_hist) >= 2:
+                        # Data is newest-first: [413M, 441M, 455M, 462M]
+                        vals = shares_hist.head(4).tolist()
+                        yoy_rates = []
+                        for i in range(len(vals) - 1):
+                            s_new = vals[i]      # newer (smaller if buyback)
+                            s_old = vals[i + 1]   # older (larger if buyback)
+                            if s_old > 0:
+                                reduction = (s_old - s_new) / s_old  # positive = buyback
+                                yoy_rates.append(reduction)
+                        if yoy_rates:
+                            historic_buyback_rate = sum(yoy_rates) / len(yoy_rates)
+                            # Clamp: if net dilution, set to 0 (only report buybacks)
+                            historic_buyback_rate = max(0.0, historic_buyback_rate)
 
-            # Method 2: Cash Flow Statement (Repurchase of Capital Stock)
-            if cashflow is not None and not cashflow.empty:
-                cf_idx = find_idx(cashflow, 'Repurchase Of Capital Stock') or find_idx(cashflow, 'Common Stock Repurchased')
-                if cf_idx:
+            # Method 2: Cash Flow Fallback (if BS method produces tiny/zero result)
+            if (historic_buyback_rate is None or historic_buyback_rate < 0.005) and cashflow is not None and not cashflow.empty:
+                cf_idx = find_idx(cashflow, 'Repurchase Of Capital Stock')
+                if not cf_idx: cf_idx = find_idx(cashflow, 'Common Stock Payments')
+                if cf_idx and market_cap and market_cap > 1000:
                     repurchase_row = cashflow.loc[cf_idx].dropna()
-                    if not repurchase_row.empty and market_cap and market_cap > 1000:
-                        # Use average of last 3 years repurchases / current market cap as annual rate
-                        # (Repurchase is usually negative in Yahoo)
+                    if not repurchase_row.empty:
+                        # Repurchase values are negative in yfinance
                         avg_repurchase = abs(repurchase_row.head(3).mean())
-                        results.append(avg_repurchase / market_cap)
-
-            if results:
-                historic_buyback_rate = max(0.0, sum(results) / len(results)) # Average of methods
+                        cf_rate = avg_repurchase / market_cap
+                        if cf_rate > (historic_buyback_rate or 0):
+                            historic_buyback_rate = cf_rate
         except Exception:
             pass
         operating_cashflow = fcf # Default to FCF if OCF not specifically separated
@@ -1065,40 +1080,51 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         dividend_cagr_5y = None
         try:
             if dividends_raw is not None and not dividends_raw.empty:
-                # Group by year
-                div_annual = dividends_raw.groupby(dividends_raw.index.year).sum()
+                # CRITICAL: Check if dividends are RECENT (within last 2 years)
+                # yfinance can return ancient dividends (e.g. Adobe 2004-2005)
+                import datetime as dt_mod
+                latest_div_date = dividends_raw.index[-1]
+                if hasattr(latest_div_date, 'year'):
+                    years_since_last = dt_mod.datetime.now().year - latest_div_date.year
+                else:
+                    years_since_last = 99  # Unknown date, treat as ancient
                 
-                # Filter partial years: if latest year < previous year * 0.9, skip it
-                if len(div_annual) >= 2:
-                    if div_annual.iloc[-1] < div_annual.iloc[-2] * 0.9:
-                        div_annual = div_annual.iloc[:-1]
-                
-                div_years = sorted(div_annual.index.tolist(), reverse=True)
-                
-                # Calculate streak
-                current_streak = 0
-                latest_div_year = div_years[0]
-                this_year = datetime.datetime.now().year
-                
-                # If we have no dividends in the current or previous year, the streak is dead
-                if latest_div_year >= this_year - 1:
-                    for i in range(len(div_years) - 1):
-                        curr_yr = div_years[i]
-                        prev_yr = div_years[i+1]
-                        # if dividend is mostly >= prev year, streak continues
-                        if div_annual[curr_yr] >= div_annual[prev_yr] * 0.98: 
-                            current_streak += 1
-                        else:
-                            break
-                dividend_streak = current_streak
-                
-                # 5Y CAGR: (DivCurr / Div_5Y_Ago) ^ (1/5) - 1
-                if len(div_annual) >= 6:
-                    latest_val = div_annual.iloc[-1]
-                    old_val = div_annual.iloc[-6]
-                    if old_val > 0 and latest_val > 0:
-                        # 5-year CAGR usually means 5 intervals (e.g. 2024/2019)
-                        dividend_cagr_5y = (latest_val / old_val) ** (1/5) - 1
+                if years_since_last > 3:
+                    # Dividends are ancient (more than 3 years old) — company stopped paying
+                    dividend_streak = 0
+                    dividend_cagr_5y = None
+                else:
+                    # Group by year
+                    div_annual = dividends_raw.groupby(dividends_raw.index.year).sum()
+                    
+                    # Filter partial years: if latest year < previous year * 0.9, skip it
+                    if len(div_annual) >= 2:
+                        if div_annual.iloc[-1] < div_annual.iloc[-2] * 0.9:
+                            div_annual = div_annual.iloc[:-1]
+                    
+                    div_years = sorted(div_annual.index.tolist(), reverse=True)
+                    
+                    # Calculate streak
+                    current_streak = 0
+                    latest_div_year = div_years[0]
+                    this_year = datetime.datetime.now().year
+                    
+                    if latest_div_year >= this_year - 1:
+                        for i in range(len(div_years) - 1):
+                            curr_yr = div_years[i]
+                            prev_yr = div_years[i+1]
+                            if div_annual[curr_yr] >= div_annual[prev_yr] * 0.98: 
+                                current_streak += 1
+                            else:
+                                break
+                    dividend_streak = current_streak
+                    
+                    # 5Y CAGR
+                    if len(div_annual) >= 6:
+                        latest_val = div_annual.iloc[-1]
+                        old_val = div_annual.iloc[-6]
+                        if old_val > 0 and latest_val > 0:
+                            dividend_cagr_5y = (latest_val / old_val) ** (1/5) - 1
         except Exception as e_div:
             print(f"Error in dividend analysis: {e_div}")
 
