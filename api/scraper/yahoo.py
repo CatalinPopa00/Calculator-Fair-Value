@@ -566,6 +566,26 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             current_price = anchor_price
             data_source = "yahoo_info_fallback"
 
+        # --- RATIONALITY ANCHOR (Deep Multi-Field Baseline) ---
+        # Special check for massive data glitches (ADBE $234 vs $516 / $422)
+        if current_price:
+            try:
+                h_52w = info.get('fiftyTwoWeekHigh')
+                avg_50d = info.get('fiftyDayAverage')
+                
+                # Rational baseline discovery
+                hist_1m = stock.history(period="1mo")
+                high_1m = hist_1m['High'].max() if not hist_1m.empty else 0
+                
+                anchor_baseline = max(filter(None, [h_52w, avg_50d, high_1m, 0]))
+                
+                if anchor_baseline > 0 and current_price < anchor_baseline * 0.6:
+                    # If there's no split record and we are >40% below the anchor, it's a glitch
+                    if stock.splits.empty or (len(stock.splits) > 0 and (datetime.datetime.now() - stock.splits.index[-1].to_pydatetime().replace(tzinfo=None)).days > 30):
+                        current_price = float(anchor_baseline)
+                        data_source = "yahoo_rational_anchor"
+            except: pass
+
         # Resolve name if everything failed but price was found via backups
         if name == ticker_symbol and current_price:
              # Basic check to see if we can resolve the name

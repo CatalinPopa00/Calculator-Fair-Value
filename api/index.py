@@ -1,12 +1,5 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from cachetools import TTLCache
-import uvicorn
-import math
-import statistics
-from typing import List, Dict, Any, Optional
-
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 import urllib.request
 import urllib.parse
 import json
@@ -43,7 +36,7 @@ app = FastAPI(title="Fair Value Calculator API")
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v51" # Mobile Overhaul + Scoring Robustness fix
+CACHE_VERSION = "v53-emergency" # Systemic Price Recovery
 
 app.add_middleware(
     CORSMiddleware,
@@ -814,7 +807,20 @@ def get_batch_valuation(req: WatchlistRequest):
                 ticker = futures[future]
                 print(f"Batch Error for {ticker}: {e}")
                 
-    return results
+# --- Static File Serving (Recovery Fix) ---
+@app.get("/")
+def get_index():
+    return FileResponse("index.html")
+
+# Mount static folder if it exists or serve root files
+app.mount("/static", StaticFiles(directory=".", html=True), name="static")
+
+@app.get("/{filename}")
+def get_static_file(filename: str):
+    if filename.endswith((".js", ".css", ".html", ".png", ".jpg", ".svg")):
+        if os.path.exists(filename):
+            return FileResponse(filename)
+    raise HTTPException(status_code=404)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8000)

@@ -79,7 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let overrideSaveTimer = null;
 
     // Load overrides from server on startup
-    fetch('/api/overrides?t=' + new Date().getTime(), { cache: 'no-store' }).then(r => r.json()).then(data => {
+    fetch('/api/overrides?t=' + Date.now(), { cache: 'no-store' }).then(r => r.json()).then(data => {
         cachedOverrides = data || {};
     }).catch(() => { cachedOverrides = {}; });
 
@@ -1754,7 +1754,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            const res = await fetch(`/api/search/${encodeURIComponent(query)}`);
+            const res = await fetch(`/api/search/${encodeURIComponent(query)}?t=${Date.now()}`);
             if (res.ok) {
                 const suggestions = await res.json();
                 renderAutocomplete(suggestions);
@@ -1819,7 +1819,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const refreshWatchlistData = async () => {
         if (!watchlist || watchlist.length === 0) return;
         try {
-            const res = await fetch('/api/batch-valuation', {
+            const res = await fetch('/api/batch-valuation?t=' + Date.now(), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ tickers: watchlist })
