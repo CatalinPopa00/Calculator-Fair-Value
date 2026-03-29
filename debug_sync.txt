@@ -1,0 +1,16 @@
+--- FAST MODE ---
+FV: 392.9703, Health: 62
+
+== FAST COMPANY PROFILE ==
+current_pe: 13.6773 (Fast) vs 13.3131 (Full)
+trailing_eps: 17.17 (Fast) vs 17.6398 (Full)
+historic_eps_growth: None (Fast) vs 0.189 (Full)
+historic_fcf_growth: None (Fast) vs 0.108 (Full)
+debt_to_equity: 0.5834 (Fast) vs 0.572 (Full)
+operating_margin: 0.3876 (Fast) vs 0.3663 (Full)
+net_margin: 29.477 (Fast) vs 29.9971 (Full)
+historic_pe: 13.6773 (Fast) vs 36.6889 (Full)
+buyback_rate: None (Fast) vs 0.0365 (Full)
+
+--- FULL MODE ---
+FV: 405.4688, Health: 92

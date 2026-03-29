@@ -270,6 +270,13 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
         # Synchronized with CACHE_VERSION v37 for expert scoring reform
         cache_key = f"valuation_{ticker.upper()}_{fast_mode}_{CACHE_VERSION}_{norm_wacc}"
         
+        # 0. Sync enforcement: If we are in fast_mode (Watchlist), check if we already
+        # have a highly-accurate full_mode cache from the main dashboard.
+        if fast_mode:
+            full_mode_key = f"valuation_{ticker.upper()}_False_{CACHE_VERSION}_{norm_wacc}"
+            if full_mode_key in valuation_cache:
+                return valuation_cache[full_mode_key]
+
         # 1. KV Cache Check (Temporarily Bypass for Recovery)
         # cached_res = kv_get(cache_key)
         # if cached_res:
@@ -826,10 +833,10 @@ def get_batch_valuation(req: WatchlistRequest):
     results = []
     
     with ThreadPoolExecutor(max_workers=15) as executor:
-        # We reuse the existing get_valuation logic but in parallel
-        # Use fast_mode=True for watchlist to skip expensive calls (v52)
-        # Fix: correctly pass positional arguments (ticker, wacc, fast_mode)
-        futures = {executor.submit(get_valuation, t.upper(), None, True): t for t in tickers}
+        # User requested reliable data: We must use fast_mode=False for the watchlist. 
+        # Skipping DataFrames completely destroys the Health and Buy scores (e.g. Health 92 -> 62)
+        # because metrics like buyback_rate and historic_eps_growth become None.
+        futures = {executor.submit(get_valuation, t.upper(), None, False): t for t in tickers}
         for future in futures:
             try:
                 res = future.result()
