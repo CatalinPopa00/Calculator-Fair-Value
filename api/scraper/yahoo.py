@@ -622,31 +622,39 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 future_est = nasdaq_executor.submit(lambda: stock.earnings_estimate)
                 future_growth_est = nasdaq_executor.submit(lambda: stock.growth_estimates)
 
-        # Valuation Multiples & EPS (Normalize EPS)
-        # trailing_eps is the GAAP TTM from Yahoo
-        trailing_eps = (info.get('trailingEps') or info.get('epsTrailingTwelveMonths', 0)) * fx_rate
-        
-        # Fallback for Net Income Common Stock if EPS missing or zero in info
-        if (not trailing_eps or trailing_eps == 0) and not fast_mode:
+        # Valuation Multiples & EPS (Prefer GAAP Financials for P/E accuracy)
+        # 1. Fetch TTM GAAP EPS from Financials if possible
+        gaap_trailing_eps = None
+        if not fast_mode:
             try:
-                # We need to wait for financials result if not already here
-                # (it was started in parallel via future_fin)
-                fin_data = future_fin.result(timeout=1)
-                if fin_data is not None and not fin_data.empty:
-                    ni_idx = find_idx(fin_data, 'Net Income Common Stock Holders')
-                    if not ni_idx: ni_idx = find_idx(fin_data, 'Net Income')
+                # financials (TTM/Annual) should have 'Net Income Common Stock Holders'
+                if financials is not None and not financials.empty:
+                    ni_idx = find_idx(financials, 'Net Income Common Stock Holders')
+                    if not ni_idx: ni_idx = find_idx(financials, 'Net Income')
                     
                     shares = info.get('sharesOutstanding')
                     if ni_idx and shares and shares > 0:
-                        net_inc = float(fin_data.loc[ni_idx].iloc[0])
-                        trailing_eps = (net_inc * fx_rate) / shares
+                        # Use the most recent reported annual/TTM value
+                        net_inc = float(financials.loc[ni_idx].iloc[0])
+                        gaap_trailing_eps = (net_inc * fx_rate) / shares
             except: pass
 
-        adjusted_eps = None
+        # 2. Main Trailing EPS Resolution
+        trailing_eps = (info.get('trailingEps') or info.get('epsTrailingTwelveMonths', 0)) * fx_rate
+        
+        # If we have a GAAP version (from financials), prefer it as it's more standardized than 'info' tags (which often use Non-GAAP)
+        if gaap_trailing_eps and abs(gaap_trailing_eps - (trailing_eps or 0)) / (abs(gaap_trailing_eps) or 1) > 0.05:
+            # Significant difference found (e.g. Adobe GAAP EPS ~$11 vs Non-GAAP ~$17). Prefer GAAP for P/E consistency.
+            trailing_eps = gaap_trailing_eps
+
+        adjusted_eps = info.get('trailingEps') * fx_rate if info.get('trailingEps') else trailing_eps
         forward_eps = (info.get('forwardEps') or 0) * fx_rate
-        pe_ratio = info.get('trailingPE') # Ratio: no conversion
-        if not pe_ratio and current_price and trailing_eps and trailing_eps > 0:
+        
+        # Calculate P/E using the resolved trailing_eps (standardized to GAAP if available)
+        pe_ratio = info.get('trailingPE') 
+        if current_price and trailing_eps and trailing_eps > 0:
             pe_ratio = current_price / trailing_eps
+        
         forward_pe = info.get('forwardPE') # Ratio: no conversion
         ps_ratio = info.get('priceToSalesTrailing12Months') # Ratio: no conversion
         revenue_growth_val = info.get('revenueGrowth')
@@ -1016,31 +1024,34 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         # Using revenueGrowth as a proxy for the next 3 years if specific analyst estimates aren't pulled
         next_3y_rev_est = info.get('revenueGrowth')
 
-        # Historic Buyback Rate
+        # Historic Buyback Rate (Robust Multi-Source CALC)
         historic_buyback_rate = None
         try:
+            results = []
+            # Method 1: Balance Sheet Share Count Change
             if bs is not None and not bs.empty:
-                if 'Ordinary Shares Number' in bs.index:
-                    shares_row = bs.loc['Ordinary Shares Number'].dropna()
-                elif 'Share Issued' in bs.index:
-                    shares_row = bs.loc['Share Issued'].dropna()
-                elif 'Common Stock' in bs.index:
-                    shares_row = bs.loc['Common Stock'].dropna()
-                else:
-                    shares_row = None
+                s_row = None
+                for k in ['Ordinary Shares Number', 'Share Issued', 'Common Stock']:
+                    if find_idx(bs, k): s_row = bs.loc[find_idx(bs, k)].dropna(); break
+                
+                if s_row is not None and len(s_row) >= 2:
+                    v = s_row.head(3).tolist()
+                    for i in range(len(v)-1):
+                        if v[i+1] > 0: results.append((v[i+1] - v[i]) / v[i+1]) # Rate of reduction
 
-                if shares_row is not None and len(shares_row) >= 2:
-                    vals = shares_row.head(3).tolist()  # newest first
-                    yoy_rates = []
-                    for i in range(len(vals) - 1):
-                        s_new = vals[i]
-                        s_old = vals[i + 1]
-                        if s_old > 0:
-                            change = (s_old - s_new) / s_old  # positive means reduction (buyback)
-                            yoy_rates.append(change)
-                    if yoy_rates:
-                        historic_buyback_rate = sum(yoy_rates) / len(yoy_rates)
-                        historic_buyback_rate = max(0.0, historic_buyback_rate)  # clamp: ignore share issuance
+            # Method 2: Cash Flow Statement (Repurchase of Capital Stock)
+            if cashflow is not None and not cashflow.empty:
+                cf_idx = find_idx(cashflow, 'Repurchase Of Capital Stock') or find_idx(cashflow, 'Common Stock Repurchased')
+                if cf_idx:
+                    repurchase_row = cashflow.loc[cf_idx].dropna()
+                    if not repurchase_row.empty and market_cap and market_cap > 1000:
+                        # Use average of last 3 years repurchases / current market cap as annual rate
+                        # (Repurchase is usually negative in Yahoo)
+                        avg_repurchase = abs(repurchase_row.head(3).mean())
+                        results.append(avg_repurchase / market_cap)
+
+            if results:
+                historic_buyback_rate = max(0.0, sum(results) / len(results)) # Average of methods
         except Exception:
             pass
         operating_cashflow = fcf # Default to FCF if OCF not specifically separated
