@@ -838,8 +838,8 @@ def get_batch_valuation(req: WatchlistRequest):
         # User requested reliable data: We must use fast_mode=False for the watchlist. 
         # Skipping DataFrames completely destroys the Health and Buy scores (e.g. Health 92 -> 62)
         # because metrics like buyback_rate and historic_eps_growth become None.
-        # However, to prevent Vercel 504 timeouts and slow loading, we pass skip_peers=True.
-        futures = {executor.submit(get_valuation, t.upper(), None, False, True): t for t in tickers}
+        # Likewise, skipping peers breaks the Fair Value and Buy Score algorithms by removing the relative valuation anchors.
+        futures = {executor.submit(get_valuation, t.upper(), None, False, False): t for t in tickers}
         for future in futures:
             try:
                 res = future.result()
