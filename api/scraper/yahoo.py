@@ -1316,6 +1316,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                         revenue_growth_val = annual_growth
 
             # --- SYSTEMIC RATIO AUDIT (Calculated > Reported) ---
+            net_margin_calc = None
             if bs is not None and not bs.empty and financials is not None and not financials.empty:
                 try:
                     # Use most recent column (excluding TTM)
