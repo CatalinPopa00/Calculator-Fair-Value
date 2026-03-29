@@ -496,10 +496,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 future_cf = executor.submit(lambda: stock.cashflow)
                 future_fin = executor.submit(lambda: stock.financials)
                 future_bs = executor.submit(lambda: stock.balance_sheet)
-                future_qfin = executor.submit(lambda: stock.quarterly_income_stmt)
                 future_qbs = executor.submit(lambda: stock.quarterly_balance_sheet)
-                future_qcf = executor.submit(lambda: stock.quarterly_cashflow)
-                future_divs = executor.submit(lambda: stock.dividends)
             
             try:
                 info = future_info.result(timeout=10)
@@ -716,20 +713,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 if q_bs is not None and fx_rate != 1.0: q_bs = q_bs * fx_rate
             except Exception:
                 pass
-            try:
-                q_financials = future_qfin.result(timeout=10)
-                if q_financials is not None and fx_rate != 1.0: q_financials = q_financials * fx_rate
-            except Exception:
-                pass
-            try:
-                q_cashflow = future_qcf.result(timeout=10)
-                if q_cashflow is not None and fx_rate != 1.0: q_cashflow = q_cashflow * fx_rate
-            except Exception:
-                pass
-            try:
-                dividends_raw = future_divs.result(timeout=10)
-            except Exception:
-                pass
+            
+            # Massive speedups: No longer awaiting qfin, qcf, or heavy dividends histories.
 
         # ── TRUE SHARES OUTSTANDING (Fix for Dual-Class) ──
         shares_outstanding = None
@@ -1529,41 +1514,9 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
             except Exception as e_rec:
                 print(f"Yahoo Recommendation fallback error: {e_rec}")
 
-        # 2. Universal Scraper Fallback (if still nothing)
+        # 2. Universal Scraper Fallback (DELETED FOR SPEED)
+        # Using HTTP requests and parsing huge HTML dumps via RegEx was crippling the backend speed.
         if not peers:
-            print(f"No peers for {target_ticker}, attempting scraping fallback...")
-            try:
-                headers = {'User-Agent': random.choice(USER_AGENTS)}
-                url = f"https://finance.yahoo.com/quote/{target_ticker}/"
-                resp = requests.get(url, headers=headers, timeout=10)
-                if resp.status_code == 200:
-                    import re
-                    ignore = {'GSPC', 'DJI', 'IXIC', 'RUT', 'TNX', 'VIX', target_ticker}
-                    found = []
-                    # Look for tickers in common Yahoo Finance patterns
-                    patterns = [
-                        r'/quote/([A-Z]{1,5})/',                       # Standard tickers
-                        r'symbol":"([A-Z]{1,5})"',                    # JSON-embedded symbols
-                        r'data-symbol="([A-Z]{1,5})"',                 # Data attributes
-                        r'symbol">([A-Z]{1,5})</span>',                # Span content
-                        r'data-symbol=\"([A-Z0-9\.-]+)\"',             # Pattern 3: data-symbol attributes (more robust)
-                        r'/quote/([A-Z0-9\.-]+)\?'                     # Pattern 4: Link patterns like /quote/AAPL?
-                    ]
-                    found_set = set()
-                    for pattern in patterns:
-                        matches = re.findall(pattern, resp.text)
-                        for m in matches:
-                            # Allow alphanumeric, dots, and hyphens for more robust ticker matching
-                            if m not in ignore and re.match(r'^[A-Z0-9\.-]+$', m) and m not in found_set:
-                                found_set.add(m)
-                                found.append(m)
-                                if len(found) >= 15: break
-                        if len(found) >= 15: break
-                    peers = found[:15]
-            except Exception as e_scrape:
-                print(f"Scraping fallback error: {e_scrape}")
-
-            # Emergency Industry/Sector Fallback for common groups (Semantic Connectivity)
             if sector == "Technology":
                 # Industry specific fallbacks
                 if "Semiconductor" in target_industry or target_ticker in ["CRDO", "ALAB", "MRVL"]:
@@ -1602,16 +1555,12 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
         try:
             print(f"DEBUG: Attempting yfinance batch for {candidates}")
             batch = yf.Tickers(" ".join(candidates))
-            for t in candidates:
+            def fetch_peer_info(t):
                 try:
-                    # Check memory cache first
                     now = time.time()
                     if t in _peer_info_cache:
                         cached_inf, ts = _peer_info_cache[t]
-                        if now - ts < 3600: # 1 hour cache
-                            final_peers.append(cached_inf)
-                            continue
-
+                        if now - ts < 3600: return cached_inf
                     inf = batch.tickers[t].info
                     if inf and (inf.get('regularMarketPrice') or inf.get('currentPrice')):
                         p_data = {
@@ -1626,19 +1575,24 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
                             "industry": inf.get('industry') or target_industry,
                             "sector": inf.get('sector') or sector
                         }
-                        # ONLY fetch growth if requested (expensive!)
                         if include_growth:
                             p_data["revenue_growth"] = inf.get('revenueGrowth') or inf.get('revenueQuarterlyGrowth')
                             p_data["earnings_growth"] = inf.get('earningsGrowth') or inf.get('earningsQuarterlyGrowth')
-                            
-                            # Fallback: simple avg of EPS if growth fields are missing but TTM/Fwd are there
                             if p_data["earnings_growth"] is None and inf.get('trailingEps') and inf.get('forwardEps'):
                                 te, fe = inf['trailingEps'], inf['forwardEps']
                                 if te > 0: p_data["earnings_growth"] = (fe - te) / te
-
                         _peer_info_cache[t] = (p_data, now)
-                        final_peers.append(p_data)
-                except: continue
+                        return p_data
+                except: return None
+                return None
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=8) as ex:
+                peer_results = [ex.submit(fetch_peer_info, t) for t in candidates]
+                for f in peer_results:
+                    try:
+                        res = f.result(timeout=10)
+                        if res: final_peers.append(res)
+                    except: pass
         except Exception as e:
             print(f"DEBUG: yfinance batch failed: {e}")
 
