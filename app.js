@@ -843,6 +843,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     const analyzeTicker = async (queryParam) => {
+        // v40: Instant UI feedback - Switch to loading state IMMEDIATELY
+        autocompleteList.style.display = 'none';
+        watchlistView.style.display = 'none';
+        dashboard.style.display = 'none';
+        loadingState.style.display = 'flex';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
         // Force flush any pending saves before clearing the DOM
         if (overrideSaveTimer && pendingOverrideTicker) {
             clearTimeout(overrideSaveTimer);
@@ -850,59 +857,34 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         let query = (queryParam && typeof queryParam === 'string') ? queryParam : tickerInput.value.trim();
-        if (!query) return;
-
-        try {
-            const searchRes = await fetch(`/api/search/${encodeURIComponent(query)}`);
-            if (searchRes.ok) {
-                const results = await searchRes.json();
-                if (results && results.length > 0) {
-                    // RESOLUTION: If it's a name (like "Apple") search will return "AAPL".
-                    // If the first result's ticker is different from the input, or query is long, resolve it.
-                    if (results[0].ticker.toUpperCase() !== query.toUpperCase() || query.length > 5 || query.includes(' ')) {
-                        query = results[0].ticker;
-                        tickerInput.value = query;
-                    }
-                }
-            }
-        } catch (e) {
-            console.warn('[Search] Resolution failed, proceeding with literal query:', e);
+        if (!query) {
+            loadingState.style.display = 'none';
+            return;
         }
 
+        // Optimization: If it's a direct ticker from watchlist or autocomplete, SKIP server-side resolution
+        if (!queryParam) {
+            try {
+                const searchRes = await fetch(`/api/search/${encodeURIComponent(query)}`);
+                if (searchRes.ok) {
+                    const results = await searchRes.json();
+                    if (results && results.length > 0) {
+                        if (results[0].ticker.toUpperCase() !== query.toUpperCase() || query.length > 5 || query.includes(' ')) {
+                            query = results[0].ticker;
+                            tickerInput.value = query;
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('[Search] Resolution failed, proceeding with literal query:', e);
+            }
+        }
+
+        // Reset inputs to clean state...
         ['fcf-source', 'lynch-eps-source', 'peg-eps-source'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.value = 'analyst';
         });
-        const lynchMult = document.getElementById('lynch-multiple');
-        if (lynchMult) lynchMult.value = 'PE 20';
-
-        ['dcf-custom-inputs', 'lynch-custom-multiple-inputs', 'lynch-custom-inputs', 'peg-custom-inputs', 'dcf-custom-input-group', 'lynch-custom-input-group', 'peg-custom-input-group', 'dcf-buyback-custom-inputs'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.style.display = 'none';
-        });
-
-        ['dcf-custom-growth', 'dcf-custom-wacc', 'dcf-custom-perp', 'lynch-custom-mult', 'lynch-custom-growth', 'peg-custom-growth', 'dcf-custom-buyback'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.value = '';
-        });
-
-        const selectorDefaults = {
-            'fcf-source': 'analyst',
-            'dcf-buyback-source': 'none',
-            'relative-variant': 'peers',
-            'lynch-multiple': 'PE 20',
-            'lynch-eps-source': 'analyst',
-            'peg-eps-source': 'analyst'
-        };
-        Object.entries(selectorDefaults).forEach(([id, val]) => {
-            const el = document.getElementById(id);
-            if (el) el.value = val;
-        });
-
-        autocompleteList.style.display = 'none';
-        watchlistView.style.display = 'none';
-        dashboard.style.display = 'none';
-        loadingState.style.display = 'flex';
 
         try {
             const response = await fetch(`/api/valuation/${encodeURIComponent(query)}`);
