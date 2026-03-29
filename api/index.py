@@ -1,11 +1,18 @@
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from cachetools import TTLCache
+import uvicorn
+import math
+import statistics
+from typing import List, Dict, Any, Optional
+
 import urllib.request
 import urllib.parse
 import json
-
 import os
 import requests
+
 from .scraper.yahoo import get_company_data, get_competitors_data, get_market_averages, search_companies, get_analyst_data, get_risk_free_rate
 from api.utils.kv import kv_get, kv_set
 from .models.valuation import (
@@ -17,20 +24,6 @@ from .models.valuation import (
     calculate_reverse_dcf
 )
 from .models.scoring import calculate_scoring_reform
-
-class WatchlistRequest(BaseModel):
-    tickers: List[str]
-
-class OverrideRequest(BaseModel):
-    ticker: str
-    inputs: Dict[str, Any]
-    toggles: Dict[str, bool]
-    computed: Dict[str, Any]
-    weights: Dict[str, float]
-
-# Only one ValuationResponse class is needed. Removing the redundant one later.
-
-app = FastAPI(title="Fair Value Calculator API")
 
 # Cache for search results (30 mins TTL)
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
@@ -807,20 +800,7 @@ def get_batch_valuation(req: WatchlistRequest):
                 ticker = futures[future]
                 print(f"Batch Error for {ticker}: {e}")
                 
-# --- Static File Serving (Recovery Fix) ---
-@app.get("/")
-def get_index():
-    return FileResponse("index.html")
-
-# Mount static folder if it exists or serve root files
-app.mount("/static", StaticFiles(directory=".", html=True), name="static")
-
-@app.get("/{filename}")
-def get_static_file(filename: str):
-    if filename.endswith((".js", ".css", ".html", ".png", ".jpg", ".svg")):
-        if os.path.exists(filename):
-            return FileResponse(filename)
-    raise HTTPException(status_code=404)
+    return results
 
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8000)
