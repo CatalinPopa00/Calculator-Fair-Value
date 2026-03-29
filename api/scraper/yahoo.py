@@ -490,7 +490,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         stock = yf.Ticker(ticker_symbol)
         
         # Parallelize data fetching
-        with concurrent.futures.ThreadPoolExecutor(max_workers=7) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
             future_info = executor.submit(lambda: stock.info)
             if not fast_mode:
                 future_cf = executor.submit(lambda: stock.cashflow)
@@ -498,6 +498,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 future_bs = executor.submit(lambda: stock.balance_sheet)
                 future_qfin = executor.submit(lambda: stock.quarterly_income_stmt)
                 future_qbs = executor.submit(lambda: stock.quarterly_balance_sheet)
+                future_qcf = executor.submit(lambda: stock.quarterly_cashflow)
                 future_divs = executor.submit(lambda: stock.dividends)
             
             try:
