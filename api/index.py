@@ -223,8 +223,36 @@ def get_recommended_exit_multiple(sector: str, industry: str) -> float:
 
 @app.get("/api/valuation/{ticker}", response_model=ValuationResponse)
 def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
+    # GOD MODE: Pre-initialize all possible response keys to Safe Defaults (v55)
+    ticker_upper = ticker.upper()
+    current_price = 0.0
+    fair_value = None
+    margin_of_safety = None
+    dcf_value = None
+    relative_value = None
+    lynch_fwd_pe = None
+    lynch_fair_value = None
+    lynch_status = "N/A"
+    peg_value = None
+    recommended_exit_multiple = 15.0
+    formula_data = {}
+    health_score_total = "N/A"
+    health_breakdown = []
+    good_to_buy_total = "N/A"
+    buy_breakdown = []
+    top_strengths = []
+    risk_factors = []
+    red_flags = []
+    peers_data = []
+    median_peer_pe = 20.0
+    median_peer_peg = 1.0
+    eps_for_valuation = 0.0
+    current_pe = 0.0
+    rec_exit_mult = 15.0
+    dcf_val_final = None
+    fair_value_total = None
+    
     try:
-        ticker_upper = ticker.upper()
         # Ensure wacc is normalized for the key
         norm_wacc = round(float(wacc), 2) if wacc is not None else "def"
         # Synchronized with CACHE_VERSION v37 for expert scoring reform
@@ -778,7 +806,8 @@ def get_batch_valuation(req: WatchlistRequest):
     with ThreadPoolExecutor(max_workers=15) as executor:
         # We reuse the existing get_valuation logic but in parallel
         # Use fast_mode=True for watchlist to skip expensive calls (v52)
-        futures = {executor.submit(get_valuation, t.upper(), fast_mode=True): t for t in tickers}
+        # Fix: correctly pass positional arguments (ticker, wacc, fast_mode)
+        futures = {executor.submit(get_valuation, t.upper(), None, True): t for t in tickers}
         for future in futures:
             try:
                 res = future.result()
