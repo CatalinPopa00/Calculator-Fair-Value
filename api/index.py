@@ -12,6 +12,7 @@ import urllib.parse
 import json
 import os
 import requests
+import concurrent.futures
 
 from .scraper.yahoo import get_company_data, get_competitors_data, get_market_averages, search_companies, get_analyst_data, get_risk_free_rate
 from api.utils.kv import kv_get, kv_set
@@ -281,17 +282,35 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False, skip
         if cache_key in valuation_cache:
             return valuation_cache[cache_key]
 
-        # 1. Scrape Yahoo Data (v52: Pass fast_mode to skip heavy DataFrames)
-        data = get_company_data(ticker, fast_mode=fast_mode) or {}
-        
+        # v41: THE PARALLEL BLITZ
+        # Run main scraping and peer fetching simultaneously to cut wait time in half.
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            # 1. Start main scraper
+            main_task = executor.submit(get_company_data, ticker, fast_mode=fast_mode)
+            
+            # 2. Start peer scraper (pass None for strings, yahoo.py handles ticker-based resolution)
+            peer_task = None
+            if not skip_peers:
+                peer_task = executor.submit(get_competitors_data, ticker, None, None, limit=3)
+            
+            # Wait for main data first
+            data = main_task.result() or {}
+            
+            # Get peer data
+            peers_data = []
+            if peer_task:
+                try:
+                    peers_data = peer_task.result(timeout=10) or []
+                except Exception as e:
+                    print(f"DEBUG: Parallel peer fetch failed: {e}")
+                    peers_data = []
+
         # FINAL STRIKE: Graceful recovery if Yahoo is blocked or null
-        current_price = data.get("current_price")
-        if not current_price:
-            current_price = 0.0
-            if not data.get("name"):
-                data["name"] = ticker.upper()
-                data["ticker"] = ticker.upper()
-                data["current_price"] = 0.0
+        current_price = data.get("current_price") or 0.0
+        if not data.get("name"):
+            data["name"] = ticker.upper()
+            data["ticker"] = ticker.upper()
+            data["current_price"] = 0.0
     
         # Load overrides to merge "computed" values into response
         all_overrides = _load_overrides()
@@ -300,9 +319,6 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False, skip
         industry = data.get("industry")
         target_market_cap = data.get("market_cap") or 0.0
         # Watchlist skips expensive peer fetching to save 80% loading time while retaining sync
-        peers_data = []
-        if not skip_peers:
-            peers_data = get_competitors_data(ticker, sector, industry, float(target_market_cap), include_growth=not fast_mode)
         market_data = get_market_averages()
         
         # 3. Compute Valuations

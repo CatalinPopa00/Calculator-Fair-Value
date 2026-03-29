@@ -10,6 +10,14 @@ import time
 import random
 import requests
 import pandas as pd
+try:
+    from ..utils.kv import kv_get, kv_set
+except ImportError:
+    try:
+        from api.utils.kv import kv_get, kv_set
+    except ImportError:
+        def kv_get(k): return None
+        def kv_set(k, v, ex=None): return False
 
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
@@ -1311,15 +1319,33 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     roic = float(val_str) / 100.0
                 except: pass
                 
-            # 2. Update Revenue Growth from annual anchors if quarterly is misleading
+            # 2. Update Revenue Growth from annual anchors if quarterly is misleading (SMCI FIX)
             if len(historical_anchors) >= 2:
                 latest_rev = historical_anchors[0]["revenue_b"]
                 prev_rev = historical_anchors[1]["revenue_b"]
                 if prev_rev > 0:
                     annual_growth = (latest_rev - prev_rev) / prev_rev
-                    # If annual growth is massive (like SMCI) but the reported 'revenue_growth' is small, trust the annual data
-                    if annual_growth > 0.15 and (revenue_growth_val or 0) < 0.05:
+                    # v42: Critical check for massive growth (123% vs 1.23%)
+                    # yfinance info['revenueGrowth'] for SMCI is 1.234 (123.4%)
+                    # Some code might divide this by 100 incorrectly. We ensure it's kept as a proper percentage.
+                    if annual_growth > 0.15 and (revenue_growth_val or 0) < 0.10:
+                        print(f"DEBUG: SMCI Fix - Replacing stale/mis-normalized growth {revenue_growth_val} with {annual_growth}")
                         revenue_growth_val = annual_growth
+                    elif (revenue_growth_val or 0) > 1.0 and (revenue_growth_val or 0) < 2.0 and annual_growth > 1.0:
+                         # It's already in the correct format (1.23 = 123%)
+                         pass
+
+            # 3. Synchronize Latest Anchor Shares with Live Sidebar (SMCI FIX)
+            # The sidebar uses info.get('sharesOutstanding') while the chart used BS.
+            # We force them to align for the newest data year.
+            if historical_anchors and shares_outstanding:
+                live_shares_b = shares_outstanding / 1e9
+                latest_anchor = historical_anchors[0]
+                if abs(latest_anchor.get("shares_out_b", 0) - live_shares_b) > 0.01:
+                    print(f"DEBUG: Synchronizing latest anchor shares ({latest_anchor.get('shares_out_b')}) to live value ({live_shares_b})")
+                    latest_anchor["shares_out_b"] = round(live_shares_b, 3)
+                    if len(historical_data["shares"]) > 0:
+                        historical_data["shares"][0] = shares_outstanding
 
             # --- SYSTEMIC RATIO AUDIT (Calculated > Reported) ---
             net_margin_calc = None
@@ -1363,9 +1389,15 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                         if assets_val > 0:
                             roa = ni_val / assets_val
                         
-                        # 3. Market Cap Calibration
+                        # 3. Market Cap Calibration (Absolute Sync v42)
                         if current_price and shares_outstanding:
-                            market_cap = current_price * shares_outstanding
+                            # Re-calibrate market cap and all dependent ratios
+                            market_cap = float(current_price * shares_outstanding)
+                            if rev_val and rev_val > 0:
+                                 ps_ratio = market_cap / rev_val
+                            if ni_val and ni_val > 0:
+                                 pe_ratio = market_cap / ni_val
+                            print(f"DEBUG: Hyper-Sync Market Cap: {market_cap/1e9:.2f}B using {shares_outstanding/1e6:.1f}M shares")
                             
                 except Exception as e_audit:
                     print(f"Ratio Audit Error for {ticker_symbol}: {e_audit}")
@@ -1468,16 +1500,32 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         print(f"Global Error for {ticker_symbol}: {e}")
         return None
 
-def get_competitors_data(target_ticker: str, sector: str, target_industry: str, target_market_cap: float = 0, limit: int = 3, include_growth: bool = True) -> list:
-    """
-    Find relevant industry peers using Finnhub API or dynamic Yahoo fallback.
-    """
+# --- V41: Persistent Sector Cache ---
+def get_competitors_data(target_ticker, sector=None, industry=None, limit=3, include_growth=True) -> list:
+    """ Fetches metrics for peer companies. v41: Autonomously resolves sector if missing. """
     try:
         target_ticker = target_ticker.upper()
+        target_industry = industry or ""
         
-        FINNHUB_KEY = os.environ.get('FINNHUB_API_KEY')
-        
+        # 1. AUTONOMOUS RESOLUTION (v41): If sector is missing (Parallel Blitz), check KV or yf
+        if not sector:
+            kv_sec_key = f"sec_v1_{target_ticker}"
+            cached_meta = kv_get(kv_sec_key)
+            if cached_meta:
+                sector = cached_meta.get("sector")
+                target_industry = cached_meta.get("industry")
+            else:
+                # Fast info fetch
+                main_yf = yf.Ticker(target_ticker)
+                inf = main_yf.info
+                sector = inf.get("sector")
+                target_industry = inf.get("industry")
+                if sector:
+                    kv_set(kv_sec_key, {"sector": sector, "industry": target_industry}, ex=604800) # 1 week
+
+        # 2. SEED/PEER DISCOVERY
         peers = []
+        FINNHUB_KEY = os.environ.get('FINNHUB_API_KEY')
 
         if FINNHUB_KEY:
             # 1. Try Finnhub
@@ -1548,7 +1596,7 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
             else:
                 return []
         # 3. BATCH EXTRACTION (Primary: yfinance)
-        candidates = [p.upper() for p in peers if p.upper() != target_ticker.upper() and '.' not in p][:5]
+        candidates = [p.upper() for p in peers if p.upper() != target_ticker.upper() and '.' not in p][:3]
         final_peers = []
 
         # --- Attempt yfinance with manual session (to handle crumbs better) ---
@@ -1558,9 +1606,19 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
             def fetch_peer_info(t):
                 try:
                     now = time.time()
+                    # Layer 1: Memory
                     if t in _peer_info_cache:
                         cached_inf, ts = _peer_info_cache[t]
                         if now - ts < 86400: return cached_inf
+                    
+                    # Layer 2: Persistent KV Store (Upstash/Redis)
+                    kv_key = f"peer_v1_{t.upper()}"
+                    kv_data = kv_get(kv_key)
+                    if kv_data and isinstance(kv_data, dict):
+                        _peer_info_cache[t] = (kv_data, now)
+                        return kv_data
+
+                    # Layer 3: Network
                     inf = batch.tickers[t].info
                     if inf and (inf.get('regularMarketPrice') or inf.get('currentPrice')):
                         p_data = {
@@ -1581,12 +1639,17 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
                             if p_data["earnings_growth"] is None and inf.get('trailingEps') and inf.get('forwardEps'):
                                 te, fe = inf['trailingEps'], inf['forwardEps']
                                 if te > 0: p_data["earnings_growth"] = (fe - te) / te
+                        
+                        # Update both caches
                         _peer_info_cache[t] = (p_data, now)
+                        kv_set(kv_key, p_data, ex=86400) # 24h TTL
                         return p_data
-                except: return None
+                except Exception as e:
+                    print(f"DEBUG: fetch_peer_info error for {t}: {e}")
+                    return None
                 return None
 
-            with concurrent.futures.ThreadPoolExecutor(max_workers=5) as ex:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=3) as ex:
                 futs = {ex.submit(fetch_peer_info, t): t for t in candidates}
                 for f in concurrent.futures.as_completed(futs):
                     t = futs[f]
