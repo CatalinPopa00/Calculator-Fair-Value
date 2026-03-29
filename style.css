@@ -1563,12 +1563,14 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    transition: transform 0.2s, box-shadow 0.2s;
+    transition: transform 0.2s, box-shadow 0.2s, background-color 0.2s;
+    cursor: pointer;
 }
 
 .watchlist-card-new:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    background: rgba(30, 41, 59, 0.8);
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
 }
 
 .wl-close-btn {
@@ -1918,7 +1920,7 @@ body {
 .wl-loading-state {
     opacity: 0.8;
     position: relative;
-    pointer-events: none;
+    /* Removed pointer-events: none (v39) so user can still click card during fetch */
 }
 
 .wl-loading-state::after {

@@ -1706,7 +1706,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     `;
                     
                     card.addEventListener('click', (e) => {
-                        if (e.target.classList.contains('wl-close-btn')) return;
+                        if (e.target.closest('.wl-close-btn')) return;
+                        
+                        // v39: Immediate UI feedback
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
                         tickerInput.value = data.ticker;
                         analyzeTicker(data.ticker);
                     });
