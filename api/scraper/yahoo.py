@@ -568,43 +568,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             data_source = "yahoo_info_fallback"
 
         # --- RATIONALITY ANCHOR (Deep Multi-Field Baseline) ---
-        # Special check for massive data glitches (ADBE $234 vs $516 / $422)
-        # Wrap everything in try/except to ensure scraper never crashes the whole request
-        if current_price:
-            try:
-                # 1. Faster non-IO fields first
-                h_52w = info.get('fiftyTwoWeekHigh')
-                avg_50d = info.get('fiftyDayAverage')
-                
-                # 2. Network IO checks (History/Splits) with localized fallbacks
-                high_1m = 0
-                try:
-                    hist_1m = stock.history(period="1mo")
-                    if not hist_1m.empty:
-                        high_1m = hist_1m['High'].max()
-                except:
-                    pass
-                
-                anchor_baseline = max(filter(None, [h_52w, avg_50d, high_1m, 0]))
-                
-                if anchor_baseline > 0 and current_price < anchor_baseline * 0.6:
-                    # Logic: If current price is >40% below historical anchors, check for splits
-                    has_recent_split = False
-                    try:
-                        s_data = stock.splits
-                        if not s_data.empty:
-                            last_split_date = s_data.index[-1].to_pydatetime().replace(tzinfo=None)
-                            if (datetime.datetime.now() - last_split_date).days < 30:
-                                has_recent_split = True
-                    except:
-                        pass
-                        
-                    if not has_recent_split:
-                        current_price = float(anchor_baseline)
-                        data_source = "yahoo_rational_anchor"
-            except Exception as e:
-                # Log error but do NOT crash. Keep the original current_price.
-                print(f"DEBUG: Rational Anchor failed for {ticker_symbol}: {e}")
+        # Logic removed: previously assumed >40% drops were data glitches, causing crashed stocks like ADBE to show 52w highs.
+        # Trust the FastInfo/History price.
 
         # Resolve name if everything failed but price was found via backups
         if name == ticker_symbol and current_price:

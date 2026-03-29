@@ -485,7 +485,7 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
         def sanitize(val):
             if val is None or math.isnan(val) or math.isinf(val):
                 return None
-            return round(val, 2)
+            return round(val, 4)
             
         # Calculate Peer PE stats safely
         median_peer_pe = None
