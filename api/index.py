@@ -267,22 +267,17 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False, skip
     try:
         # Ensure wacc is normalized for the key
         norm_wacc = round(float(wacc), 2) if wacc is not None else "def"
-        # Synchronized with CACHE_VERSION v37 for expert scoring reform
-        cache_key = f"valuation_{ticker.upper()}_{fast_mode}_{CACHE_VERSION}_{norm_wacc}"
+        # Synchronized v38: Always include skip_peers to prevent cache collision
+        cache_key = f"valuation_{ticker.upper()}_{fast_mode}_{skip_peers}_{CACHE_VERSION}_{norm_wacc}"
         
-        # 0. Sync enforcement: If we are in fast_mode (Watchlist), check if we already
-        # have a highly-accurate full_mode cache from the main dashboard.
-        if fast_mode:
-            full_mode_key = f"valuation_{ticker.upper()}_False_{CACHE_VERSION}_{norm_wacc}"
+        # 0. Cache Elevation: If we are in any limited mode (Watchlist/SkipPeers), 
+        # Always check if we have a full_mode cache (Complete Data) in memory first.
+        if fast_mode or skip_peers:
+            full_mode_key = f"valuation_{ticker.upper()}_False_False_{CACHE_VERSION}_{norm_wacc}"
             if full_mode_key in valuation_cache:
                 return valuation_cache[full_mode_key]
 
-        # 1. KV Cache Check (Temporarily Bypass for Recovery)
-        # cached_res = kv_get(cache_key)
-        # if cached_res:
-        #     return cached_res
-
-        # 2. Local Memory Cache
+        # 2. Local Memory Cache check for the specific requested mode
         if cache_key in valuation_cache:
             return valuation_cache[cache_key]
 
@@ -823,6 +818,9 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False, skip
         print(f"VALUATION CRASH for {ticker}: {str(e)}")
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Backend Error for {ticker}: {str(e)}")
+
+    # 3. Save to memory cache (v38: Fix for slowness and desync)
+    valuation_cache[cache_key] = response_data
 
     # LIQUID DEFENSE: Deep clean before sending
     return deep_clean_data(response_data)

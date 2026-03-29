@@ -1600,9 +1600,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Map watchlist tickers to data
             let augmentedData = watchlist.map(t => {
-                const found = cachedWatchlistData.find(d => d.ticker && d.ticker.toUpperCase() === t.toUpperCase());
+                const tickerUpper = t.toUpperCase();
+                const found = (cachedWatchlistData || []).find(d => d && d.ticker && d.ticker.toUpperCase() === tickerUpper);
                 if (found) return { ...found };
-                return { ticker: t, name: 'Data Unavailable', current_price: null, fair_value: null, margin_of_safety: null, health_score: null, buy_score: null };
+                
+                // If not found in cache, check if it's currently in flight
+                const isLoading = window._watchlistFetching && window._watchlistFetching.has(tickerUpper);
+                return { 
+                    ticker: t, 
+                    name: isLoading ? 'Loading...' : 'Data Unavailable', 
+                    current_price: null, 
+                    fair_value: null, 
+                    margin_of_safety: null, 
+                    health_score_total: null, 
+                    good_to_buy_total: null,
+                    is_loading: isLoading
+                };
             });
 
             // Sort
@@ -1656,25 +1669,28 @@ document.addEventListener('DOMContentLoaded', () => {
                     const hDotClass = (displayHealth || 0) >= 76 ? 'dot-green' : ((displayHealth || 0) >= 41 ? 'dot-yellow' : 'dot-red');
 
                     const card = document.createElement('div');
-                    card.className = 'watchlist-card-new';
+                    card.className = `watchlist-card-new ${data.is_loading ? 'wl-loading-state' : ''}`;
+                    
+                    const loadingSpinner = `<div class="wl-spinner"></div>`;
+                    
                     card.innerHTML = `
                         <button class="wl-close-btn" data-ticker="${data.ticker}">&times;</button>
                         <div class="wl-header">
                             <h3 class="wl-ticker">${data.ticker}</h3>
-                            <p class="wl-name">${data.name}</p>
+                            <p class="wl-name">${data.is_loading ? 'Fetching latest data...' : data.name}</p>
                         </div>
                         <div class="wl-metrics-bar">
                             <div class="wl-metric-item">
                                 <span class="wl-m-label">Price</span>
-                                <span class="wl-m-value">${formatCurrency(data.current_price)}</span>
+                                <span class="wl-m-value">${data.is_loading ? loadingSpinner : formatCurrency(data.current_price)}</span>
                             </div>
                             <div class="wl-metric-item">
                                 <span class="wl-m-label">Fair Val ${hasOverride ? '✏️' : ''}</span>
-                                <span class="wl-m-value">${fvStr}</span>
+                                <span class="wl-m-value">${data.is_loading ? loadingSpinner : fvStr}</span>
                             </div>
                             <div class="wl-metric-item">
                                 <span class="wl-m-label">Margin</span>
-                                <span class="wl-m-value" style="color: ${mosColor}">${mosStr}</span>
+                                <span class="wl-m-value" style="color: ${mosColor}">${data.is_loading ? loadingSpinner : mosStr}</span>
                             </div>
                         </div>
                         <div class="wl-scores-row">
@@ -1818,21 +1834,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const refreshWatchlistData = async () => {
         if (!watchlist || watchlist.length === 0) return;
-        try {
-            const res = await fetch('/api/batch-valuation?t=' + Date.now(), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ tickers: watchlist })
-            });
-            if (res.ok) {
-                cachedWatchlistData = await res.json();
-                if (watchlistView.style.display === 'block') {
-                    renderWatchlistUI();
+        
+        if (!window._watchlistFetching) window._watchlistFetching = new Set();
+        if (!cachedWatchlistData) cachedWatchlistData = [];
+
+        // Progressive Fetch: Call each ticker individually in parallel
+        watchlist.forEach(async (ticker) => {
+            const tUpper = ticker.toUpperCase();
+            if (window._watchlistFetching.has(tUpper)) return; // Already fetching
+            
+            window._watchlistFetching.add(tUpper);
+            if (watchlistView.style.display === 'block') renderWatchlistUI();
+
+            try {
+                // v38: Call individual valuation endpoint. 
+                // skip_peers=false to ensure scores are 100% sync'd with dashboard.
+                const res = await fetch(`/api/valuation/${tUpper}?t=${Date.now()}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    
+                    // Update the local cache for this specific ticker
+                    const idx = cachedWatchlistData.findIndex(d => d.ticker.toUpperCase() === tUpper);
+                    if (idx !== -1) {
+                        cachedWatchlistData[idx] = data;
+                    } else {
+                        cachedWatchlistData.push(data);
+                    }
                 }
+            } catch (e) {
+                console.error(`Individual fetch failed for ${tUpper}`, e);
+            } finally {
+                window._watchlistFetching.delete(tUpper);
+                if (watchlistView.style.display === 'block') renderWatchlistUI();
             }
-        } catch (e) {
-            console.error("Watchlist background refresh failed", e);
-        }
+        });
     };
 
     navWatchlistBtn.addEventListener('click', async () => {

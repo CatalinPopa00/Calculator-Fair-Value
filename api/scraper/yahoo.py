@@ -1548,7 +1548,7 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
             else:
                 return []
         # 3. BATCH EXTRACTION (Primary: yfinance)
-        candidates = [p.upper() for p in peers if p.upper() != target_ticker.upper() and '.' not in p][:8]
+        candidates = [p.upper() for p in peers if p.upper() != target_ticker.upper() and '.' not in p][:5]
         final_peers = []
 
         # --- Attempt yfinance with manual session (to handle crumbs better) ---
@@ -1560,7 +1560,7 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
                     now = time.time()
                     if t in _peer_info_cache:
                         cached_inf, ts = _peer_info_cache[t]
-                        if now - ts < 3600: return cached_inf
+                        if now - ts < 86400: return cached_inf
                     inf = batch.tickers[t].info
                     if inf and (inf.get('regularMarketPrice') or inf.get('currentPrice')):
                         p_data = {
@@ -1586,13 +1586,15 @@ def get_competitors_data(target_ticker: str, sector: str, target_industry: str, 
                 except: return None
                 return None
 
-            with concurrent.futures.ThreadPoolExecutor(max_workers=8) as ex:
-                peer_results = [ex.submit(fetch_peer_info, t) for t in candidates]
-                for f in peer_results:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=5) as ex:
+                futs = {ex.submit(fetch_peer_info, t): t for t in candidates}
+                for f in concurrent.futures.as_completed(futs):
+                    t = futs[f]
                     try:
-                        res = f.result(timeout=10)
+                        res = f.result(timeout=5)
                         if res: final_peers.append(res)
-                    except: pass
+                    except Exception as e:
+                        print(f"DEBUG: Peer {t} failed: {e}")
         except Exception as e:
             print(f"DEBUG: yfinance batch failed: {e}")
 
