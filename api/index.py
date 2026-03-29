@@ -240,11 +240,16 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
             return valuation_cache[cache_key]
 
         # 1. Scrape Yahoo Data (v52: Pass fast_mode to skip heavy DataFrames)
-        data = get_company_data(ticker, fast_mode=fast_mode)
-        if not data or not data.get("current_price"):
-            raise HTTPException(status_code=404, detail=f"Data not found for {ticker}")
-            
-        current_price = data["current_price"]
+        data = get_company_data(ticker, fast_mode=fast_mode) or {}
+        
+        # FINAL STRIKE: Graceful recovery if Yahoo is blocked or null
+        current_price = data.get("current_price")
+        if not current_price:
+            current_price = 0.0
+            if not data.get("name"):
+                data["name"] = ticker.upper()
+                data["ticker"] = ticker.upper()
+                data["current_price"] = 0.0
     
         # Load overrides to merge "computed" values into response
         all_overrides = _load_overrides()
