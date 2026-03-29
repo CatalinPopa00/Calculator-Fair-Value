@@ -5,7 +5,8 @@ def clean_percent(val):
     try:
         f_val = float(val)
         # Standardize decimal (0.05 -> 5%) before calculation and display.
-        if 0 < abs(f_val) < 1.0:
+        # v43: Threshold increased to 10.0 (1000%) to handle hyper-growth like SMCI (1.23 -> 123%).
+        if 0 < abs(f_val) < 10.0:
             return f_val * 100.0
         return f_val
     except:
