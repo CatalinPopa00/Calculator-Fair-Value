@@ -221,7 +221,18 @@ def get_recommended_exit_multiple(sector: str, industry: str) -> float:
         
     return 10.0
 
-@app.get("/api/valuation/{ticker}", response_model=ValuationResponse)
+def deep_clean_data(val):
+    if isinstance(val, dict):
+        return {k: deep_clean_data(v) for k, v in val.items()}
+    if isinstance(val, list):
+        return [deep_clean_data(v) for v in val]
+    if hasattr(val, "item"): # Handle numpy scalars
+        return val.item()
+    if isinstance(val, (int, float, str, bool)) or val is None:
+        return val
+    return str(val)
+
+@app.get("/api/valuation/{ticker}")
 def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
     # GOD MODE: Pre-initialize all possible response keys to Safe Defaults (v55)
     ticker_upper = ticker.upper()
@@ -258,10 +269,10 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
         # Synchronized with CACHE_VERSION v37 for expert scoring reform
         cache_key = f"valuation_{ticker.upper()}_{fast_mode}_{CACHE_VERSION}_{norm_wacc}"
         
-        # 1. KV Cache Check (Rapid Loading)
-        cached_res = kv_get(cache_key)
-        if cached_res:
-            return cached_res
+        # 1. KV Cache Check (Temporarily Bypass for Recovery)
+        # cached_res = kv_get(cache_key)
+        # if cached_res:
+        #     return cached_res
 
         # 2. Local Memory Cache
         if cache_key in valuation_cache:
@@ -792,9 +803,8 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Backend Error for {ticker}: {str(e)}")
 
-    valuation_cache[cache_key] = response_data
-    kv_set(cache_key, response_data, ex=3600) # Persist for 1 hour
-    return response_data
+    # LIQUID DEFENSE: Deep clean before sending
+    return deep_clean_data(response_data)
 
 from concurrent.futures import ThreadPoolExecutor
 
