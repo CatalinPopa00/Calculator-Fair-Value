@@ -731,6 +731,21 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             except Exception:
                 pass
 
+        # ── TRUE SHARES OUTSTANDING (Fix for Dual-Class) ──
+        shares_outstanding = None
+        if financials is not None and not financials.empty:
+            for k in ['Diluted Average Shares', 'Basic Average Shares']:
+                idx = find_idx(financials, k)
+                if idx:
+                    try:
+                        val = float(financials.loc[idx].iloc[0])
+                        if val > 0:
+                            shares_outstanding = val
+                            break
+                    except: pass
+        if not shares_outstanding:
+            shares_outstanding = info.get('sharesOutstanding') or 0
+
         # ── GAAP EPS RECALIBRATION (runs AFTER financials are resolved) ──
         # Now that we have the actual income statement, calculate GAAP EPS
         # and recalibrate P/E if it differs significantly from the info-tag version
@@ -740,10 +755,9 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     ni_idx = find_idx(financials, 'Net Income Common Stock Holders')
                     if not ni_idx: ni_idx = find_idx(financials, 'Net Income')
                     
-                    shares = info.get('sharesOutstanding')
-                    if ni_idx and shares and shares > 0:
+                    if ni_idx and shares_outstanding and shares_outstanding > 0:
                         net_inc = float(financials.loc[ni_idx].iloc[0])
-                        gaap_eps = (net_inc * fx_rate) / shares
+                        gaap_eps = (net_inc * fx_rate) / shares_outstanding
                         
                         # Save the Non-GAAP version for display
                         adjusted_eps = trailing_eps
@@ -778,7 +792,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         if fcf is None:
             fcf = info.get('freeCashflow')
             if fcf is None: fcf = info.get('operatingCashflow')
-        shares_outstanding = info.get('sharesOutstanding') # No convert
+        # shares_outstanding already computed above
         
         # --- TOTAL CASH & DEBT ROBUST FALLBACKS ---
         total_cash = (info.get('totalCash') or 0) * fx_rate
@@ -867,7 +881,14 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
 
         # Dividends
         dividend_rate = info.get('dividendRate') or info.get('trailingAnnualDividendRate')
-        dividend_yield = info.get('dividendYield') or info.get('trailingAnnualDividendYield')
+        dividend_yield = info.get('trailingAnnualDividendYield')
+        # Fallbacks for extreme yfinance bugs (e.g. GOOGL returning 0.31 instead of 0.0031)
+        if dividend_yield is None or dividend_yield > 0.15:
+            if dividend_rate and current_price and current_price > 0:
+                dividend_yield = dividend_rate / current_price
+            else:
+                dividend_yield = info.get('dividendYield')
+                
         payout_ratio = info.get('payoutRatio')
 
         # FCF Trend

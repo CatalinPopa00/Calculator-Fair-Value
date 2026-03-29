@@ -234,7 +234,7 @@ def deep_clean_data(val):
     return str(val)
 
 @app.get("/api/valuation/{ticker}")
-def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
+def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False, skip_peers: bool = False):
     # GOD MODE: Pre-initialize all possible response keys to Safe Defaults (v55)
     ticker_upper = ticker.upper()
     current_price = 0.0
@@ -304,8 +304,10 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
         sector = data.get("sector")
         industry = data.get("industry")
         target_market_cap = data.get("market_cap") or 0.0
-        # Fast mode skips expensive peer growth fetching (v51)
-        peers_data = get_competitors_data(ticker, sector, industry, float(target_market_cap), include_growth=not fast_mode)
+        # Watchlist skips expensive peer fetching to save 80% loading time while retaining sync
+        peers_data = []
+        if not skip_peers:
+            peers_data = get_competitors_data(ticker, sector, industry, float(target_market_cap), include_growth=not fast_mode)
         market_data = get_market_averages()
         
         # 3. Compute Valuations
@@ -836,7 +838,8 @@ def get_batch_valuation(req: WatchlistRequest):
         # User requested reliable data: We must use fast_mode=False for the watchlist. 
         # Skipping DataFrames completely destroys the Health and Buy scores (e.g. Health 92 -> 62)
         # because metrics like buyback_rate and historic_eps_growth become None.
-        futures = {executor.submit(get_valuation, t.upper(), None, False): t for t in tickers}
+        # However, to prevent Vercel 504 timeouts and slow loading, we pass skip_peers=True.
+        futures = {executor.submit(get_valuation, t.upper(), None, False, True): t for t in tickers}
         for future in futures:
             try:
                 res = future.result()
