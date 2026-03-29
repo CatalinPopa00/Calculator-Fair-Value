@@ -950,6 +950,14 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         except Exception:
             pass
 
+        # 5Y Average P/E Calibration
+        historic_pe_val = None
+        if not fast_mode:
+            try:
+                historic_pe_val = calculate_historic_pe(stock, financials)
+            except Exception:
+                pass
+
             
         # Interest coverage & EBIT Margin — reuse already-fetched financials
         interest_coverage = None
@@ -1438,7 +1446,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             "historic_fcf_growth": normalize_growth(historic_fcf_growth),
             "historic_bvps_growth": normalize_growth(next((calc_yoy_avg(bs.loc[idx].dropna().tolist(), 3) for idx in ['Common Stock Equity', 'Total Assets'] if bs is not None and not bs.empty and idx in bs.index), None)),
             "historic_buyback_rate": normalize_growth(historic_buyback_rate),
-            "pe_historic": info.get('trailingPE'),
+            "pe_historic": historic_pe_val or info.get('trailingPE'),
             "historical_data": historical_data,
             "historical_trends": historical_trends,
             "business_summary": info.get('longBusinessSummary', 'N/A')[:200] + "...",

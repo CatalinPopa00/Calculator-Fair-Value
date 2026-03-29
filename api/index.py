@@ -770,6 +770,28 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
                 "business_summary": data.get("business_summary"),
                 "sector_median_pe": sanitize(median_peer_pe),
                 "sector_median_peg": sanitize(median_peer_peg),
+                # Newly added fields (v59 Fix)
+                "next_earnings_date": data.get("next_earnings_date") or "N/A",
+                "historic_pe": sanitize(data.get("pe_historic")),
+                "insider_ownership": sanitize(data.get("insider_ownership")),
+                "shares_outstanding": sanitize(data.get("shares_outstanding")),
+                "buyback_rate": sanitize(data.get("historic_buyback_rate")),
+                "dividend_yield": sanitize(data.get("dividend_yield")),
+                "payout_ratio": sanitize(data.get("payout_ratio")),
+                "dividend_streak": data.get("dividend_streak"),
+                "dividend_cagr_5y": sanitize(data.get("dividend_cagr_5y")),
+                "competitors": [p.get("ticker") for p in peers_data] if peers_data else [],
+                "competitor_metrics": [{
+                    "ticker": p.get("ticker"),
+                    "name": p.get("name"),
+                    "price": sanitize(p.get("price")),
+                    "pe_ratio": sanitize(p.get("pe_ratio")),
+                    "market_cap": sanitize(p.get("market_cap")),
+                    "eps": sanitize(p.get("eps")),
+                    "operating_margin": sanitize(p.get("operating_margin")),
+                    "revenue_growth": sanitize(p.get("revenue_growth")),
+                    "earnings_growth": sanitize(p.get("earnings_growth"))
+                } for p in peers_data] if peers_data else []
             },
             "historical_trends": data.get("historical_trends"),
             "historical_anchors": data.get("historical_anchors"),
@@ -785,18 +807,7 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False):
                 "risk_factors": risk_factors
             },
             "red_flags": data.get("red_flags", []),
-            "overrides": ticker_overrides,
-            "competitor_metrics": [{
-                "ticker": p.get("ticker"),
-                "name": p.get("name"),
-                "price": sanitize(p.get("price")),
-                "pe_ratio": sanitize(p.get("pe_ratio")),
-                "market_cap": sanitize(p.get("market_cap")),
-                "eps": sanitize(p.get("eps")),
-                "operating_margin": sanitize(p.get("operating_margin")),
-                "revenue_growth": sanitize(p.get("revenue_growth")),
-                "earnings_growth": sanitize(p.get("earnings_growth"))
-            } for p in peers_data] if peers_data else []
+            "overrides": ticker_overrides
         }
     except Exception as e:
         import traceback
