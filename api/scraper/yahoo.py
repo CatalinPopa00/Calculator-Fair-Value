@@ -622,41 +622,15 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 future_est = nasdaq_executor.submit(lambda: stock.earnings_estimate)
                 future_growth_est = nasdaq_executor.submit(lambda: stock.growth_estimates)
 
-        # Valuation Multiples & EPS (Prefer GAAP Financials for P/E accuracy)
-        # 1. Fetch TTM GAAP EPS from Financials if possible
-        gaap_trailing_eps = None
-        if not fast_mode:
-            try:
-                # financials (TTM/Annual) should have 'Net Income Common Stock Holders'
-                if financials is not None and not financials.empty:
-                    ni_idx = find_idx(financials, 'Net Income Common Stock Holders')
-                    if not ni_idx: ni_idx = find_idx(financials, 'Net Income')
-                    
-                    shares = info.get('sharesOutstanding')
-                    if ni_idx and shares and shares > 0:
-                        # Use the most recent reported annual/TTM value
-                        net_inc = float(financials.loc[ni_idx].iloc[0])
-                        gaap_trailing_eps = (net_inc * fx_rate) / shares
-            except: pass
-
-        # 2. Main Trailing EPS Resolution
+        # Valuation Multiples & EPS (Initial from info tags - will be recalibrated after financials load)
         trailing_eps = (info.get('trailingEps') or info.get('epsTrailingTwelveMonths', 0)) * fx_rate
-        
-        # If we have a GAAP version (from financials), prefer it as it's more standardized than 'info' tags (which often use Non-GAAP)
-        if gaap_trailing_eps and abs(gaap_trailing_eps - (trailing_eps or 0)) / (abs(gaap_trailing_eps) or 1) > 0.05:
-            # Significant difference found (e.g. Adobe GAAP EPS ~$11 vs Non-GAAP ~$17). Prefer GAAP for P/E consistency.
-            trailing_eps = gaap_trailing_eps
-
-        adjusted_eps = info.get('trailingEps') * fx_rate if info.get('trailingEps') else trailing_eps
+        adjusted_eps = trailing_eps  # Will be updated to Non-GAAP after financials load
         forward_eps = (info.get('forwardEps') or 0) * fx_rate
-        
-        # Calculate P/E using the resolved trailing_eps (standardized to GAAP if available)
-        pe_ratio = info.get('trailingPE') 
-        if current_price and trailing_eps and trailing_eps > 0:
+        pe_ratio = info.get('trailingPE')  # Initial from info, recalculated later
+        if not pe_ratio and current_price and trailing_eps and trailing_eps > 0:
             pe_ratio = current_price / trailing_eps
-        
-        forward_pe = info.get('forwardPE') # Ratio: no conversion
-        ps_ratio = info.get('priceToSalesTrailing12Months') # Ratio: no conversion
+        forward_pe = info.get('forwardPE')
+        ps_ratio = info.get('priceToSalesTrailing12Months')
         revenue_growth_val = info.get('revenueGrowth')
         earnings_growth_val = info.get('earningsGrowth')
         
@@ -791,6 +765,31 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 dividends_raw = future_divs.result(timeout=10)
             except Exception:
                 pass
+
+        # ── GAAP EPS RECALIBRATION (runs AFTER financials are resolved) ──
+        # Now that we have the actual income statement, calculate GAAP EPS
+        # and recalibrate P/E if it differs significantly from the info-tag version
+        if not fast_mode and financials is not None:
+            try:
+                if not financials.empty:
+                    ni_idx = find_idx(financials, 'Net Income Common Stock Holders')
+                    if not ni_idx: ni_idx = find_idx(financials, 'Net Income')
+                    
+                    shares = info.get('sharesOutstanding')
+                    if ni_idx and shares and shares > 0:
+                        net_inc = float(financials.loc[ni_idx].iloc[0])
+                        gaap_eps = (net_inc * fx_rate) / shares
+                        
+                        # Save the Non-GAAP version for display
+                        adjusted_eps = trailing_eps
+                        
+                        # Use GAAP EPS for P/E calculation (actual reported earnings)
+                        if gaap_eps and gaap_eps > 0:
+                            trailing_eps = gaap_eps
+                            pe_ratio = current_price / gaap_eps if current_price else pe_ratio
+            except Exception as e_gaap:
+                print(f"GAAP recalibration error: {e_gaap}")
+
         peg_ratio = None
         if pe_ratio and eps_growth and eps_growth > 0:
             peg_ratio = pe_ratio / (eps_growth * 100)
