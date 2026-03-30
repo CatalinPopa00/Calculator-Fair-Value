@@ -152,7 +152,7 @@ def get_nasdaq_earnings_growth(ticker: str, trailing_eps: float) -> float:
     try:
         url = f'https://api.nasdaq.com/api/analyst/{ticker.upper()}/earnings-forecast'
         req = urllib.request.Request(url, headers={'User-Agent': get_random_agent()})
-        with urllib.request.urlopen(req) as response:
+        with urllib.request.urlopen(req, timeout=3) as response:
             raw_data = response.read()
             data = json.loads(raw_data)
             
@@ -198,7 +198,7 @@ def get_nasdaq_actual_eps(ticker: str) -> float:
     try:
         url = f'https://api.nasdaq.com/api/company/{ticker.upper()}/earnings-surprise'
         req = urllib.request.Request(url, headers={'User-Agent': get_random_agent()})
-        with urllib.request.urlopen(req) as response:
+        with urllib.request.urlopen(req, timeout=3) as response:
             raw_data = response.read()
             data = json.loads(raw_data)
             
@@ -326,7 +326,7 @@ def resolve_company_name(query: str) -> str:
         try:
             url = f'https://query2.finance.yahoo.com/v1/finance/search?q={urllib.parse.quote(query)}'
             req = urllib.request.Request(url, headers={'User-Agent': get_random_agent()})
-            with urllib.request.urlopen(req) as response:
+            with urllib.request.urlopen(req, timeout=3) as response:
                 data = json.loads(response.read())
                 quotes = data.get('quotes', [])
                 for q in quotes:
@@ -498,19 +498,11 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         stock = yf.Ticker(ticker_symbol)
         
         # Parallelize data fetching
-        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-            future_info = executor.submit(lambda: stock.info)
-            if not fast_mode:
-                future_cf = executor.submit(lambda: stock.cashflow)
-                future_fin = executor.submit(lambda: stock.financials)
-                future_bs = executor.submit(lambda: stock.balance_sheet)
-                future_qbs = executor.submit(lambda: stock.quarterly_balance_sheet)
-            
-            try:
-                info = future_info.result(timeout=10)
-                if not info: info = {}
-            except Exception:
-                info = {}
+        try:
+            info = stock.info
+            if not info: info = {}
+        except Exception:
+            info = {}
 
         # Identifying Info
         name = info.get('shortName', ticker_symbol)
@@ -701,26 +693,23 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         dividends_raw = pd.Series()
 
         if not fast_mode:
-            try:
-                financials = future_fin.result(timeout=10)
-                if financials is not None and fx_rate != 1.0: financials = financials * fx_rate
-            except Exception:
-                pass
-            try:
-                cashflow = future_cf.result(timeout=10)
-                if cashflow is not None and fx_rate != 1.0: cashflow = cashflow * fx_rate
-            except Exception:
-                pass
-            try:
-                bs = future_bs.result(timeout=10)
-                if bs is not None and fx_rate != 1.0: bs = bs * fx_rate
-            except Exception:
-                pass
-            try:
-                q_bs = future_qbs.result(timeout=10)
-                if q_bs is not None and fx_rate != 1.0: q_bs = q_bs * fx_rate
-            except Exception:
-                pass
+            financials = stock.financials
+            if financials is not None and fx_rate != 1.0 and not financials.empty: financials = financials * fx_rate
+            if financials is None or financials.empty:
+                financials = {}
+
+            cashflow = stock.cashflow
+            if cashflow is not None and fx_rate != 1.0 and not cashflow.empty: cashflow = cashflow * fx_rate
+            if cashflow is None or cashflow.empty:
+                cashflow = {}
+
+            bs = stock.balance_sheet
+            if bs is not None and fx_rate != 1.0 and not bs.empty: bs = bs * fx_rate
+            if bs is None or bs.empty:
+                bs = {}
+
+            q_bs = stock.quarterly_balance_sheet
+            if q_bs is not None and fx_rate != 1.0: q_bs = q_bs * fx_rate
             
             # Massive speedups: No longer awaiting qfin, qcf, or heavy dividends histories.
 
