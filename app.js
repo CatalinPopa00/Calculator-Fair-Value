@@ -1524,9 +1524,19 @@ document.addEventListener('DOMContentLoaded', () => {
             (data.eps_estimates || []).slice(0, 8).forEach(row => {
                 let colorKey = 'var(--text-main)';
                 let finalVal = fvPct(row.growth);
+                let checkVal = row.growth;
                 if (row.status === 'reported') {
-                    colorKey = (row.surprise_pct > 0) ? 'var(--accent)' : (row.surprise_pct < 0 ? 'var(--danger)' : 'var(--text-main)');
-                    finalVal = (row.surprise_pct != null) ? fvPct(row.surprise_pct) : '--';
+                    if (row.surprise_pct != null) {
+                        checkVal = row.surprise_pct;
+                        finalVal = fvPct(row.surprise_pct);
+                    } else {
+                        checkVal = null;
+                        finalVal = '--';
+                    }
+                }
+                if (checkVal != null) {
+                    if (checkVal > 0) colorKey = 'var(--accent)';
+                    else if (checkVal < 0) colorKey = 'var(--danger)';
                 }
                 epsHtml += `<tr><td style="padding: 0.4rem 0;">${row.period}</td><td style="text-align: right; font-weight: 600;">${fvScale(row.avg)}</td><td style="text-align: right; color: ${colorKey};">${finalVal}</td></tr>`;
             });
@@ -1537,10 +1547,19 @@ document.addEventListener('DOMContentLoaded', () => {
             (data.rev_estimates || []).slice(0, 8).forEach(row => {
                 let colorKey = 'var(--text-main)';
                 let finalVal = fvPct(row.growth);
+                let checkVal = row.growth;
                 if (row.status === 'reported') {
-                    finalVal = (row.surprise_pct != null) ? fvPct(row.surprise_pct) : '--';
-                    if (row.surprise_pct > 0) colorKey = 'var(--accent)';
-                    else if (row.surprise_pct < 0) colorKey = 'var(--danger)';
+                    if (row.surprise_pct != null) {
+                        checkVal = row.surprise_pct;
+                        finalVal = fvPct(row.surprise_pct);
+                    } else {
+                        checkVal = null;
+                        finalVal = '--';
+                    }
+                }
+                if (checkVal != null) {
+                    if (checkVal > 0) colorKey = 'var(--accent)';
+                    else if (checkVal < 0) colorKey = 'var(--danger)';
                 }
                 revHtml += `<tr><td style="padding: 0.4rem 0;">${row.period}</td><td style="text-align: right; font-weight: 600;">${fvM(row.avg)}</td><td style="text-align: right; color: ${colorKey};">${finalVal}</td></tr>`;
             });
