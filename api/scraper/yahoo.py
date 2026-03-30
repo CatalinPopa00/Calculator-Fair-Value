@@ -1579,9 +1579,6 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=3, inc
                 peers = ["XOM", "CVX", "COP", "SLB", "EOG", "MPC"]
             elif sector == "Healthcare":
                 peers = ["LLY", "UNH", "JNJ", "ABBV", "MRK", "TMO", "PFE"]
-                peers = ["MC.PA", "RMS.PA", "CDI.PA", "NKE", "AMZN", "TSLA"] # LVMH, Hermes, Dior fallbacks
-            elif sector == "Healthcare":
-                peers = ["PFE", "JNJ", "UNH", "ABBV", "LLY", "MRK"]
             else:
                 return []
         # 3. BATCH EXTRACTION (Primary: yfinance)

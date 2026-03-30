@@ -2107,10 +2107,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const maxPts = item.max_points || 0;
             const pct = maxPts > 0 ? (pts / maxPts) : 0;
 
-            // Dot color: green if >= 75%, yellow if >= 40%, red otherwise
+            // Dot color: green if >= 99% (full points), yellow if >= 40%, red otherwise
             let dotColor = 'var(--danger)';
             let ptsColor = 'var(--danger)';
-            if (pct >= 0.75) { dotColor = 'var(--accent)'; ptsColor = 'var(--accent)'; }
+            if (pct >= 0.99) { dotColor = 'var(--accent)'; ptsColor = 'var(--accent)'; }
             else if (pct >= 0.4) { dotColor = '#fbbf24'; ptsColor = '#fbbf24'; }
 
             html += `

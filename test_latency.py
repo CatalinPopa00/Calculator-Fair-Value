@@ -3,7 +3,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from api.scraper.yahoo import get_company_data, get_analyst_data, get_competitors_data
 
-ticker = "SMCI"
+ticker = "NVO"
 
 t0 = time.time()
 print("Fetching company data...")
