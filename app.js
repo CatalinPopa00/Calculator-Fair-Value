@@ -1540,23 +1540,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         else if (row.surprise_pct < 0) colorKey = 'var(--danger)';
                     }
                 } else if (isFY) {
-                    // FY row (estimate): only color if all 4 quarters reported
+                    // FY row (estimate): show growth but do not color
                     finalVal = fvPct(row.growth);
-                    if (row.reported_count != null && row.reported_count >= 4) {
-                        // All quarters reported, color by growth
-                        if (row.growth != null) {
-                            if (row.growth > 0) colorKey = 'var(--accent)';
-                            else if (row.growth < 0) colorKey = 'var(--danger)';
-                        }
-                    }
-                    // else: keep neutral color (estimate, not all Qs reported)
                 } else {
-                    // ESTIMATE quarter: color by growth sign
+                    // ESTIMATE quarter: show growth but do not color
                     finalVal = fvPct(row.growth);
-                    if (row.growth != null) {
-                        if (row.growth > 0) colorKey = 'var(--accent)';
-                        else if (row.growth < 0) colorKey = 'var(--danger)';
-                    }
                 }
                 return { colorKey, finalVal };
             };

@@ -2103,13 +2103,12 @@ def get_analyst_data(ticker_symbol: str) -> dict:
                 print(f"Nasdaq fallback fetch failed: {ne}")
                 return None
 
-        # Determine if we even need the fallback. Start fetch in background just in case.
-        import concurrent.futures
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future_nasdaq = executor.submit(fetch_nasdaq)
-
-            # Wait to see if we actually need it based on yahoo estimates length
-            if len([e for e in eps_estimates if 'q' in e['period_code']]) < 4 or len([e for e in rev_estimates if 'q' in e['period_code']]) < 4:
+        # Determine if we even need the fallback.
+        needs_nasdaq = len([e for e in eps_estimates if 'q' in e['period_code']]) < 4 or len([r for r in rev_estimates if 'q' in r['period_code']]) < 4
+        if needs_nasdaq:
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future_nasdaq = executor.submit(fetch_nasdaq)
                 n_data = future_nasdaq.result()
         
 
@@ -2191,9 +2190,28 @@ def get_analyst_data(ticker_symbol: str) -> dict:
         
         unified_rev = curr_yr_reported_rev + rev_qtrs + rev_years
         
+        # ALIGNMENT: Ensure unified_rev perfectly matches unified_eps periods
+        aligned_rev = []
+        rev_dict = {r.get('period'): r for r in unified_rev}
+        for e in unified_eps:
+            p = e.get('period')
+            if p in rev_dict:
+                aligned_rev.append(rev_dict[p])
+            else:
+                # Missing in rev, pad it
+                aligned_rev.append({
+                    "period": p,
+                    "period_code": e.get('period_code'),
+                    "avg": None,
+                    "growth": None,
+                    "status": e.get('status', 'estimate'),
+                    "surprise_pct": None
+                })
+        unified_rev = aligned_rev
+        
         # Add reported_count to FY rows so frontend knows when to color them
         reported_eps_count = len(curr_yr_reported_eps)
-        reported_rev_count = len(curr_yr_reported_rev)
+        reported_rev_count = len([x for x in curr_yr_reported_rev if x.get('avg') is not None])
         
         for e in unified_eps:
             if e.get('period_code') in ('0y', '+1y') or (e.get('period', '').startswith('FY')):
