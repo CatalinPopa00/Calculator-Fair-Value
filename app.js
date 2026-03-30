@@ -1519,25 +1519,52 @@ document.addEventListener('DOMContentLoaded', () => {
             const fvPct = (v) => v != null ? `${(v * 100).toFixed(1)}%` : '--';
             const fvM = (v) => v == null ? '--' : (v / 1e9).toFixed(2);
 
+            // Helper: determine color and display value for a row
+            const getRowDisplay = (row) => {
+                let colorKey = 'var(--text-main)';
+                let finalVal = fvPct(row.growth);
+                const isFY = (row.period || '').startsWith('FY');
+                
+                if (row.status === 'reported') {
+                    // REPORTED quarter: show Y/Y growth value, color by surprise (beat/miss)
+                    if (row.growth != null) {
+                        finalVal = fvPct(row.growth);
+                    } else if (row.surprise_pct != null) {
+                        finalVal = fvPct(row.surprise_pct);
+                    } else {
+                        finalVal = '--';
+                    }
+                    // Color by surprise (beat = green, miss = red)
+                    if (row.surprise_pct != null) {
+                        if (row.surprise_pct > 0) colorKey = 'var(--accent)';
+                        else if (row.surprise_pct < 0) colorKey = 'var(--danger)';
+                    }
+                } else if (isFY) {
+                    // FY row (estimate): only color if all 4 quarters reported
+                    finalVal = fvPct(row.growth);
+                    if (row.reported_count != null && row.reported_count >= 4) {
+                        // All quarters reported, color by growth
+                        if (row.growth != null) {
+                            if (row.growth > 0) colorKey = 'var(--accent)';
+                            else if (row.growth < 0) colorKey = 'var(--danger)';
+                        }
+                    }
+                    // else: keep neutral color (estimate, not all Qs reported)
+                } else {
+                    // ESTIMATE quarter: color by growth sign
+                    finalVal = fvPct(row.growth);
+                    if (row.growth != null) {
+                        if (row.growth > 0) colorKey = 'var(--accent)';
+                        else if (row.growth < 0) colorKey = 'var(--danger)';
+                    }
+                }
+                return { colorKey, finalVal };
+            };
+
             const epsBody = document.querySelector('#eps-est-table tbody');
             let epsHtml = '';
             (data.eps_estimates || []).slice(0, 8).forEach(row => {
-                let colorKey = 'var(--text-main)';
-                let finalVal = fvPct(row.growth);
-                let checkVal = row.growth;
-                if (row.status === 'reported') {
-                    if (row.surprise_pct != null) {
-                        checkVal = row.surprise_pct;
-                        finalVal = fvPct(row.surprise_pct);
-                    } else {
-                        checkVal = null;
-                        finalVal = '--';
-                    }
-                }
-                if (checkVal != null) {
-                    if (checkVal > 0) colorKey = 'var(--accent)';
-                    else if (checkVal < 0) colorKey = 'var(--danger)';
-                }
+                const { colorKey, finalVal } = getRowDisplay(row);
                 epsHtml += `<tr><td style="padding: 0.4rem 0;">${row.period}</td><td style="text-align: right; font-weight: 600;">${fvScale(row.avg)}</td><td style="text-align: right; color: ${colorKey};">${finalVal}</td></tr>`;
             });
             epsBody.innerHTML = epsHtml;
@@ -1545,22 +1572,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const revBody = document.querySelector('#rev-est-table tbody');
             let revHtml = '';
             (data.rev_estimates || []).slice(0, 8).forEach(row => {
-                let colorKey = 'var(--text-main)';
-                let finalVal = fvPct(row.growth);
-                let checkVal = row.growth;
-                if (row.status === 'reported') {
-                    if (row.surprise_pct != null) {
-                        checkVal = row.surprise_pct;
-                        finalVal = fvPct(row.surprise_pct);
-                    } else {
-                        checkVal = null;
-                        finalVal = '--';
-                    }
-                }
-                if (checkVal != null) {
-                    if (checkVal > 0) colorKey = 'var(--accent)';
-                    else if (checkVal < 0) colorKey = 'var(--danger)';
-                }
+                const { colorKey, finalVal } = getRowDisplay(row);
                 revHtml += `<tr><td style="padding: 0.4rem 0;">${row.period}</td><td style="text-align: right; font-weight: 600;">${fvM(row.avg)}</td><td style="text-align: right; color: ${colorKey};">${finalVal}</td></tr>`;
             });
             revBody.innerHTML = revHtml;

@@ -1813,20 +1813,65 @@ def get_period_labels(ticker_info: dict) -> dict:
     """
     Returns a mapping from '0q', '+1q', '+2q', '+3q', '0y', '+1y' to human-readable 
     labels like 'Q1 2026', 'FY 2026' based on fiscal year end.
+    Uses mostRecentQuarter and lastFiscalYearEnd to compute proper fiscal quarters.
     """
     from datetime import datetime
     now = datetime.now()
     curr_year = now.year
+    
+    mapping = {"+5y": "Next 5 Years"}
+    
+    # Try to use fiscal year data for accurate quarter mapping
+    mrq_ts = ticker_info.get('mostRecentQuarter')
+    lfy_ts = ticker_info.get('lastFiscalYearEnd')
+    
+    if mrq_ts and lfy_ts:
+        try:
+            mrq_dt = datetime.fromtimestamp(mrq_ts)
+            lfy_dt = datetime.fromtimestamp(lfy_ts)
+            fy_end_month = lfy_dt.month
+            fy_start_month = (fy_end_month % 12) + 1  # month right after FY end
+            
+            # Determine which fiscal quarter MRQ belongs to
+            months_offset = (mrq_dt.month - fy_start_month) % 12
+            mrq_fiscal_q = (months_offset // 3) + 1
+            
+            # Determine fiscal year of MRQ
+            if mrq_dt.month <= fy_end_month:
+                mrq_fy = mrq_dt.year
+            else:
+                mrq_fy = mrq_dt.year + 1
+            
+            # 0q = next quarter to report (MRQ + 1)
+            next_q = mrq_fiscal_q + 1
+            next_fy = mrq_fy
+            if next_q > 4:
+                next_q = 1
+                next_fy += 1
+            
+            # Map 0q, +1q, +2q, +3q
+            for i, code in enumerate(['0q', '+1q', '+2q', '+3q']):
+                q = next_q + i
+                fy = next_fy
+                while q > 4:
+                    q -= 4
+                    fy += 1
+                mapping[code] = f"Q{q} {fy}"
+            
+            # FY labels: 0y = current fiscal year being estimated, +1y = next
+            mapping["0y"] = f"FY {next_fy}"
+            mapping["+1y"] = f"FY {next_fy + 1}"
+            
+            return mapping
+        except Exception as e:
+            print(f"[Labels] Fiscal quarter calculation error: {e}")
+    
+    # Fallback: use calendar quarters
     curr_q = (now.month - 1) // 3 + 1
+    mapping["0q"] = f"Q{curr_q} {curr_year}"
+    mapping["0y"] = f"FY {curr_year}"
+    mapping["+1y"] = f"FY {curr_year + 1}"
     
-    mapping = {
-        "0q": f"Q{curr_q} {curr_year}",
-        "0y": f"FY {curr_year}",
-        "+1y": f"FY {curr_year + 1}",
-        "+5y": "Next 5 Years"
-    }
-    
-    # Calculate next quarters based on current
     q_num = curr_q
     q_year = curr_year
     for i in range(1, 5):
@@ -1834,7 +1879,6 @@ def get_period_labels(ticker_info: dict) -> dict:
         if q_num > 4:
             q_num = 1
             q_year += 1
-        
         mapping[f"+{i}q"] = f"Q{q_num} {q_year}"
         
     return mapping
@@ -1902,6 +1946,27 @@ def get_analyst_data(ticker_symbol: str) -> dict:
         # ── Historical Reported Data (EPS and Revenue) ───────────────────────────
         reported_eps = []
         reported_rev = []
+        
+        # Pre-compute fiscal quarter helper
+        fy_end_month = 12  # default Dec
+        try:
+            lfy_ts2 = info.get('lastFiscalYearEnd')
+            if lfy_ts2:
+                fy_end_month = datetime.fromtimestamp(lfy_ts2).month
+        except: pass
+        fy_start_month = (fy_end_month % 12) + 1
+        
+        def to_fiscal_label(dt):
+            """Convert a date to fiscal quarter label like 'Q1 2026'."""
+            months_off = (dt.month - fy_start_month) % 12
+            fq = (months_off // 3) + 1
+            # Determine fiscal year
+            if dt.month <= fy_end_month:
+                fy = dt.year
+            else:
+                fy = dt.year + 1
+            return f"Q{fq} {fy}"
+        
         try:
             import pandas as pd
             # EPS History
@@ -1914,8 +1979,7 @@ def get_analyst_data(ticker_symbol: str) -> dict:
                     
                     date_str = "--"
                     if isinstance(idx, (pd.Timestamp, datetime)):
-                        q_num = (idx.month - 1) // 3 + 1
-                        date_str = f"Q{q_num} {idx.year}"
+                        date_str = to_fiscal_label(idx)
                     elif idx:
                         date_str = str(idx)
 
@@ -1926,23 +1990,65 @@ def get_analyst_data(ticker_symbol: str) -> dict:
                             "surprise_pct": float(surprise_pct) if surprise_pct is not None and not pd.isna(surprise_pct) else None
                         })
             
-            # Revenue History
+            # Revenue History - compute Y/Y growth and compare with estimates
             istmt = stock.quarterly_income_stmt
             if istmt is not None and not istmt.empty and 'Total Revenue' in istmt.index:
                 rev_row = istmt.loc['Total Revenue']
-                # rev_row index is dates (descending usually). Take latest 4.
-                for col_date in list(rev_row.index)[:4][::-1]: 
-                    rev_act = rev_row[col_date]
-                    if pd.isna(rev_act): continue
+                valid_cols = [c for c in rev_row.index if not pd.isna(rev_row[c])]
+                
+                # Build a lookup: (fiscal_q, fiscal_year) -> revenue value
+                rev_by_fq = {}
+                for col_date in valid_cols:
+                    if isinstance(col_date, (pd.Timestamp, datetime)):
+                        label = to_fiscal_label(col_date)
+                        rev_by_fq[label] = float(rev_row[col_date])
+                
+                # Take latest 4 reported quarters (newest first in valid_cols, reverse for chronological)
+                for col_date in list(valid_cols)[:4][::-1]: 
+                    rev_act = float(rev_row[col_date])
                     
                     date_str = "--"
+                    rev_growth = None
                     if isinstance(col_date, (pd.Timestamp, datetime)):
-                        q_num = (col_date.month - 1) // 3 + 1
-                        date_str = f"Q{q_num} {col_date.year}"
+                        date_str = to_fiscal_label(col_date)
+                        
+                        # Compute Y/Y growth: find same fiscal quarter last year
+                        # Parse the fiscal label we generated
+                        parts = date_str.split()
+                        if len(parts) == 2:
+                            prev_label = f"{parts[0]} {int(parts[1]) - 1}"
+                            prev_rev = rev_by_fq.get(prev_label)
+                            if prev_rev and prev_rev > 0:
+                                rev_growth = (rev_act - prev_rev) / prev_rev
                     
                     reported_rev.append({
-                        "period": date_str, "avg": float(rev_act) * fx_rate, "status": "reported", "surprise_pct": None
+                        "period": date_str, "avg": rev_act * fx_rate, "status": "reported",
+                        "growth": rev_growth,
+                        "surprise_pct": None  # will be computed below if estimate data available
                     })
+            
+            # Try to compute revenue surprise for reported quarters
+            # We compare actual revenue with the yearAgoRevenue * (1 + estimatedGrowth)
+            # from the revenue_estimate data for each period
+            try:
+                rf_est = stock.revenue_estimate
+                if rf_est is not None and not rf_est.empty:
+                    for rr in reported_rev:
+                        period_label = rr.get('period', '')
+                        # Check if this reported Q matches a period in revenue estimates
+                        # by comparing with yearAgoRevenue data
+                        for est_idx, est_row in rf_est.iterrows():
+                            est_label = labels.get(str(est_idx), str(est_idx))
+                            if est_label == period_label:
+                                # This estimate matches a reported Q - compute surprise
+                                est_avg = est_row.get('avg')
+                                if est_avg and not pd.isna(est_avg) and est_avg > 0:
+                                    actual_rev = rr['avg'] / fx_rate if fx_rate != 1.0 else rr['avg']
+                                    rr['surprise_pct'] = (actual_rev - float(est_avg)) / float(est_avg)
+                                break
+            except Exception as e_surp:
+                print(f"[Analyst] Revenue surprise calc error: {e_surp}")
+                
         except Exception as e:
             print(f"[Analyst] Reported history error: {e}")
 
@@ -2059,18 +2165,15 @@ def get_analyst_data(ticker_symbol: str) -> dict:
         eps_estimates.sort(key=sort_key)
         rev_estimates.sort(key=sort_key)
 
-        # Extract the current fiscal year from the '0y' (current year) estimate
+        # Extract the current fiscal year from the '0y' label
+        import re
         current_year_str = str(datetime.now().year)
-        for e in eps_estimates:
-            if e.get('period_code') == '0y' and e.get('period'):
-                # Extract the 4 digit year from the string 'FY 2026' or '2026'
-                import re
-                match = re.search(r'\d{4}', str(e.get('period')))
-                if match:
-                    current_year_str = match.group(0)
-                break
+        fy_0y_label = labels.get('0y', '')
+        fy_match = re.search(r'\d{4}', fy_0y_label)
+        if fy_match:
+            current_year_str = fy_match.group(0)
         
-        # Only include reported quarters from the current year
+        # Only include reported quarters from the current fiscal year
         curr_yr_reported_eps = [e for e in reported_eps if current_year_str in str(e.get('period', ''))]
         reported_eps_periods = {e.get('period') for e in curr_yr_reported_eps if e.get('period')}
         
@@ -2087,6 +2190,26 @@ def get_analyst_data(ticker_symbol: str) -> dict:
         rev_years = [e for e in rev_estimates if 'y' in e.get('period_code', '')][:2]
         
         unified_rev = curr_yr_reported_rev + rev_qtrs + rev_years
+        
+        # Add reported_count to FY rows so frontend knows when to color them
+        reported_eps_count = len(curr_yr_reported_eps)
+        reported_rev_count = len(curr_yr_reported_rev)
+        
+        for e in unified_eps:
+            if e.get('period_code') in ('0y', '+1y') or (e.get('period', '').startswith('FY')):
+                fy_yr = re.search(r'\d{4}', str(e.get('period', '')))
+                if fy_yr and fy_yr.group(0) == current_year_str:
+                    e['reported_count'] = reported_eps_count
+                else:
+                    e['reported_count'] = 0
+        
+        for r in unified_rev:
+            if r.get('period_code') in ('0y', '+1y') or (r.get('period', '').startswith('FY')):
+                fy_yr = re.search(r'\d{4}', str(r.get('period', '')))
+                if fy_yr and fy_yr.group(0) == current_year_str:
+                    r['reported_count'] = reported_rev_count
+                else:
+                    r['reported_count'] = 0
 
         # ── EPS growth from estimates ─────────────────────────────────────────────
         # Smart selection: pick the healthiest forward year
