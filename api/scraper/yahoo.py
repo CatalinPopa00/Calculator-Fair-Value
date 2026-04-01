@@ -179,6 +179,13 @@ def get_nasdaq_comprehensive_estimates(ticker: str) -> dict:
         kv_set(cache_key, results, ex=600) # 10 mins cache
     return results
 
+def safe_nasdaq_float(val):
+    if val is None: return 0.0
+    if isinstance(val, (int, float)): return float(val)
+    try:
+        return float(str(val).replace('$', '').replace(',', '').strip())
+    except: return 0.0
+
 def get_nasdaq_earnings_growth(ticker: str, trailing_eps: float) -> float:
     """
     Fetches multi-year forward earnings growth estimates from Nasdaq.
@@ -197,8 +204,8 @@ def get_nasdaq_earnings_growth(ticker: str, trailing_eps: float) -> float:
         
         # Target the 3rd year in the forecast if available (T3), else the furthest available.
         target_idx = min(len(rows) - 1, 2) # Target up to T3 (rows[2])
-        val_str = rows[target_idx].get('consensusEPSForecast', '0').replace('$', '').replace(',', '')
-        target_eps = float(val_str)
+        raw_val = rows[target_idx].get('consensusEPSForecast', 0)
+        target_eps = safe_nasdaq_float(raw_val)
         n_years = target_idx + 1 # Years from T0 to Target
         
         # Floor the base at 0.10 if it's positive but tiny
@@ -1222,9 +1229,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     
                     # Nasdaq Priority (New)
                     if len(nq_yearly_eps) >= i:
-                        val_str = nq_yearly_eps[i-1].get('consensusEPSForecast', '').replace('$', '').replace(',', '')
-                        if val_str:
-                             eps_est = float(val_str) * fx_rate
+                        raw_val = nq_yearly_eps[i-1].get('consensusEPSForecast', 0)
+                        eps_est = safe_nasdaq_float(raw_val) * fx_rate
                     # Fallback to Yahoo if Nasdaq failed
                     elif ee_data is not None and not ee_data.empty:
                         # Try string index then numeric fallback
@@ -1242,11 +1248,10 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     
                     # Nasdaq Priority (New)
                     if len(nq_yearly_rev) >= i:
-                        val_str = nq_yearly_rev[i-1].get('consensusRevenueForecast', '').replace('$', '').replace(',', '')
-                        if val_str:
-                            # Nasdaq revenue is already in Billions/Millions but string format.
-                            # Scale check similar to Yahoo fallback
-                            val = float(val_str)
+                        raw_val = nq_yearly_rev[i-1].get('consensusRevenueForecast', 0)
+                        val = safe_nasdaq_float(raw_val)
+                        if val > 0:
+                            # Nasdaq revenue scaling check
                             if (historical_data["revenue"][-1] or 0) > 1e6 and val < 10000: val *= 1e9
                             elif (historical_data["revenue"][-1] or 0) > 1e6 and val < 10000000: val *= 1e6
                             rev_est = val * fx_rate
@@ -1872,46 +1877,42 @@ def get_analyst_data(ticker_symbol: str) -> dict:
             
             # Map Nasdaq EPS Quarters
             for q_row in nq_quarterly_eps[:4]:
-                 label = q_row.get('fiscalQuarterEnd', 'N/A')
-                 val_str = q_row.get('consensusEPSForecast', '').replace('$', '').replace(',', '')
-                 if val_str:
-                     eps_estimates.append({
-                         "period": label,
-                         "avg": round(float(val_str), 2),
-                         "growth_yy": None
-                     })
+                 label = q_row.get('fiscalQuarterEnd') or q_row.get('fiscalEnd', 'N/A')
+                 raw_val = q_row.get('consensusEPSForecast', 0)
+                 eps_estimates.append({
+                     "period": label,
+                     "avg": round(safe_nasdaq_float(raw_val), 2),
+                     "growth_yy": None
+                 })
             
             # Map Nasdaq EPS Years
             for y_row in nq_yearly_eps[:2]:
-                 label = f"FY {y_row.get('fiscalYearEnd', 'N/A')}"
-                 val_str = y_row.get('consensusEPSForecast', '').replace('$', '').replace(',', '')
-                 if val_str:
-                     eps_estimates.append({
-                         "period": label,
-                         "avg": round(float(val_str), 2),
-                         "growth_yy": None
-                     })
+                 label = f"FY {y_row.get('fiscalYearEnd') or y_row.get('fiscalEnd') or 'N/A'}"
+                 raw_val = y_row.get('consensusEPSForecast', 0)
+                 eps_estimates.append({
+                     "period": label,
+                     "avg": round(safe_nasdaq_float(raw_val), 2),
+                     "growth_yy": None
+                 })
 
             # Map Nasdaq Revenue Quarters/Years for the Revenue table
             for q_row in nq_quarterly_rev[:4]:
-                label = q_row.get('fiscalQuarterEnd', 'N/A')
-                val_str = q_row.get('consensusRevenueForecast', '').replace('$', '').replace(',', '')
-                if val_str:
-                    rev_estimates.append({
-                        "period": label,
-                        "avg": round(float(val_str), 2),
-                        "growth_yy": None
-                    })
+                label = q_row.get('fiscalQuarterEnd') or q_row.get('fiscalEnd', 'N/A')
+                raw_val = q_row.get('consensusRevenueForecast', 0)
+                rev_estimates.append({
+                    "period": label,
+                    "avg": round(safe_nasdaq_float(raw_val), 2),
+                    "growth_yy": None
+                })
             
             for y_row in nq_yearly_rev[:2]:
-                label = f"FY {y_row.get('fiscalYearEnd', 'N/A')}"
-                val_str = y_row.get('consensusRevenueForecast', '').replace('$', '').replace(',', '')
-                if val_str:
-                    rev_estimates.append({
-                        "period": label,
-                        "avg": round(float(val_str), 2),
-                        "growth_yy": None
-                    })
+                label = f"FY {y_row.get('fiscalYearEnd') or y_row.get('fiscalEnd') or 'N/A'}"
+                raw_val = y_row.get('consensusRevenueForecast', 0)
+                rev_estimates.append({
+                    "period": label,
+                    "avg": round(safe_nasdaq_float(raw_val), 2),
+                    "growth_yy": None
+                })
 
             # FALLBACK to Yahoo only if Nasdaq results were empty
             if not eps_estimates:

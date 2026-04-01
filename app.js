@@ -19,9 +19,67 @@ document.addEventListener('DOMContentLoaded', () => {
     const emptyWatchlistMsg = document.getElementById('empty-watchlist-msg');
     const addToWatchlistBtn = document.getElementById('add-to-watchlist-btn');
 
-    // Autocomplete elements
     const autocompleteList = document.getElementById('autocomplete-list');
     const logoBtn = document.getElementById('logo-btn');
+    
+    // v59: Instant Capitalization & Search Feedback logic
+    if (tickerInput) {
+        tickerInput.addEventListener('input', function() {
+            this.value = this.value.toUpperCase();
+            if (this.value.length >= 1) {
+                fetchSuggestions(this.value);
+            } else {
+                autocompleteList.innerHTML = '';
+                autocompleteList.style.display = 'none';
+            }
+        });
+        
+        tickerInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') analyzeTicker();
+        });
+    }
+
+    const fetchSuggestions = async (q) => {
+        try {
+            const res = await fetch(`/api/search/${encodeURIComponent(q)}`);
+            if (res.ok) {
+                const results = await res.json();
+                populateAutocomplete(results);
+            }
+        } catch (e) { console.error('Autocomplete fetch failed:', e); }
+    };
+
+    const populateAutocomplete = (items) => {
+        autocompleteList.innerHTML = '';
+        if (!items || items.length === 0) {
+            autocompleteList.style.display = 'none';
+            return;
+        }
+        
+        items.slice(0, 8).forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'autocomplete-item';
+            div.style.cssText = 'padding: 10px 15px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.05); color: white; display: flex; justify-content: space-between;';
+            div.innerHTML = `
+                <span style="font-weight: bold; color: var(--accent);">${item.ticker}</span>
+                <span style="font-size: 0.85em; color: var(--text-muted); text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 200px;">${item.name}</span>
+            `;
+            div.onclick = () => {
+                tickerInput.value = item.ticker;
+                autocompleteList.style.display = 'none';
+                analyzeTicker(item.ticker);
+            };
+            autocompleteList.appendChild(div);
+        });
+        autocompleteList.style.display = 'block';
+    };
+
+    // Close autocomplete on outside click
+    document.addEventListener('click', (e) => {
+        if (!tickerInput.contains(e.target) && !autocompleteList.contains(e.target)) {
+            autocompleteList.style.display = 'none';
+        }
+    });
 
     let currentFormulaData = null;
     let currentTicker = null;
@@ -848,6 +906,13 @@ document.addEventListener('DOMContentLoaded', () => {
         watchlistView.style.display = 'none';
         dashboard.style.display = 'none';
         loadingState.style.display = 'flex';
+        
+        // v59: Update button text to show progress
+        if (searchBtn) {
+            searchBtn.disabled = true;
+            searchBtn.textContent = 'Analyzing...';
+        }
+        
         window.scrollTo({ top: 0, behavior: 'smooth' });
 
         // Force flush any pending saves before clearing the DOM
@@ -897,6 +962,11 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('Error fetching valuation:', error);
             alert('Error: ' + error.message + '\nStack: ' + error.stack);
             loadingState.style.display = 'none';
+        } finally {
+            if (searchBtn) {
+                searchBtn.disabled = false;
+                searchBtn.textContent = 'Analyze';
+            }
         }
     };
 
