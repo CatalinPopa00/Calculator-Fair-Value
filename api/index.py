@@ -654,10 +654,6 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False, skip
                 "mean_peer_pe": sanitize(mean_peer_pe),
                 "market_pe_trailing": sanitize(market_data.get("trailing_pe")),
                 "market_pe_forward": sanitize(market_data.get("forward_pe"))
-            },
-            "recommended_exit_multiple": recommended_exit_multiple,
-            "dcf_assumptions": {
-                "recommended_exit_multiple": recommended_exit_multiple
             }
     }
 
@@ -838,6 +834,10 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False, skip
             "good_to_buy_total": good_to_buy_total,
             "buy_breakdown": buy_breakdown,
             "formula_data": formula_data,
+            "recommended_exit_multiple": recommended_exit_multiple,
+            "dcf_assumptions": {
+                "recommended_exit_multiple": recommended_exit_multiple
+            },
             "historical_data": data.get("historical_data"),
             "algorithmic_insights": {
                 "top_strengths": top_strengths,
