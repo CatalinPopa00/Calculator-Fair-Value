@@ -139,41 +139,69 @@
             </section>
 
             <!-- VALUATION METHODS GRID -->
-            <section class="methods-grid" style="margin-bottom: 2rem;">
+            <section class="methods-grid" style="margin-bottom: 2rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
                 <!-- DCF -->
-                <div class="method-card glass-card">
+                <div class="method-card glass-card" style="padding: 1.2rem; position: relative; text-align: center;">
                     <div class="method-toggle"><input type="checkbox" id="toggle-dcf" class="valuation-toggle" data-method="dcf" checked><label for="toggle-dcf"></label></div>
-                    <h4>DCF Model</h4>
+                    <h4 style="margin-bottom: 10px;">DCF Model</h4>
                     <div class="card-metrics">
-                        <div class="method-val" id="dcf-value" style="color: var(--accent);">--</div>
+                        <div class="method-val" id="dcf-value" style="font-size: 1.6rem; font-weight: 800; color: var(--accent);">--</div>
                         <p id="dcf-status" style="font-weight: bold; font-size: 0.9rem;">--</p>
+                        <div id="dcf-card-mos" style="font-weight: 700; color: var(--accent); font-size: 0.8rem; margin-top: 5px;">MOS: --</div>
                     </div>
                 </div>
+
                 <!-- Graham -->
-                <div class="method-card glass-card">
+                <div class="method-card glass-card" style="padding: 1.2rem; position: relative; text-align: center;">
                     <div class="method-toggle"><input type="checkbox" id="toggle-graham" class="valuation-toggle" data-method="graham" checked><label for="toggle-graham"></label></div>
-                    <h4>Graham Number</h4>
+                    <h4 style="margin-bottom: 10px;">Graham Number</h4>
                     <div class="card-metrics">
-                        <div class="method-val" id="graham-value" style="color: var(--accent);">--</div>
+                        <div class="method-val" id="graham-value" style="font-size: 1.6rem; font-weight: 800; color: var(--accent);">--</div>
                         <p id="graham-status" style="font-size: 0.85rem;">--</p>
                     </div>
                 </div>
+
                 <!-- Multiple -->
-                <div class="method-card glass-card">
+                <div class="method-card glass-card" style="padding: 1.2rem; position: relative; text-align: center;">
                     <div class="method-toggle"><input type="checkbox" id="toggle-pe" class="valuation-toggle" data-method="pe" checked><label for="toggle-pe"></label></div>
-                    <h4>P/E Multiplier</h4>
+                    <h4 style="margin-bottom: 10px;">P/E Multiplier</h4>
                     <div class="card-metrics">
-                        <div class="method-val" id="pe-multi-value" style="color: var(--accent);">--</div>
+                        <div class="method-val" id="pe-multi-value" style="font-size: 1.6rem; font-weight: 800; color: var(--accent);">--</div>
                         <p id="pe-multi-status" style="font-size: 0.85rem;">--</p>
                     </div>
                 </div>
-                <!-- PEG -->
-                <div class="method-card glass-card">
-                    <div class="method-toggle"><input type="checkbox" id="toggle-peg" class="valuation-toggle" data-method="peg" checked><label for="toggle-peg"></label></div>
-                    <h4>PEG Valuation</h4>
+
+                <!-- Peter Lynch -->
+                <div class="method-card glass-card" style="padding: 1.2rem; position: relative; text-align: center;">
+                    <div class="method-toggle"><input type="checkbox" id="toggle-peter_lynch" class="valuation-toggle" data-method="peter_lynch" checked><label for="toggle-peter_lynch"></label></div>
+                    <h4 style="margin-bottom: 10px;">Peter Lynch</h4>
                     <div class="card-metrics">
-                        <div class="method-val" id="peg-value" style="color: var(--accent);">--</div>
-                        <p id="peg-status" style="font-size: 0.85rem;">--</p>
+                        <div class="method-val" id="lynch-fair-value" style="font-size: 1.6rem; font-weight: 800; color: var(--accent);">--</div>
+                        <p id="lynch-status" style="font-weight: bold; font-size: 0.85rem;">--</p>
+                        <div id="lynch-card-mos" style="font-weight: 700; color: var(--accent); font-size: 0.8rem; margin-top: 5px;">MOS: --</div>
+                    </div>
+                </div>
+
+                <!-- PEG -->
+                <div class="method-card glass-card" style="padding: 1.2rem; position: relative; text-align: center;">
+                    <div class="method-toggle"><input type="checkbox" id="toggle-peg" class="valuation-toggle" data-method="peg" checked><label for="toggle-peg"></label></div>
+                    <h4 style="margin-bottom: 10px;">PEG Valuation</h4>
+                    <div class="card-metrics">
+                        <div class="method-val" id="peg-value" style="font-size: 1.6rem; font-weight: 800; color: var(--accent);">--</div>
+                        <p id="peg-status" style="font-weight: bold; font-size: 0.85rem;">--</p>
+                        <div id="peg-card-mos" style="font-weight: 700; color: var(--accent); font-size: 0.8rem; margin-top: 5px;">MOS: --</div>
+                    </div>
+                </div>
+
+                <!-- Relative -->
+                <div class="method-card glass-card" style="padding: 1.2rem; position: relative; text-align: center;">
+                    <div class="method-toggle"><input type="checkbox" id="toggle-relative" class="valuation-toggle" data-method="relative" checked><label for="toggle-relative"></label></div>
+                    <h4 style="margin-bottom: 10px;">Relative Val.</h4>
+                    <div class="card-metrics">
+                        <div class="method-val" id="relative-value" style="font-size: 1.6rem; font-weight: 800; color: var(--accent);">--</div>
+                        <p id="relative-status" style="font-weight: bold; font-size: 0.85rem;">--</p>
+                        <div id="relative-card-mos" style="font-weight: 700; color: var(--accent); font-size: 0.8rem; margin-top: 5px;">MOS: --</div>
+                        <p id="relative-market-compare" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 5px;">--</p>
                     </div>
                 </div>
             </section>
