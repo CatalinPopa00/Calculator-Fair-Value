@@ -1163,6 +1163,15 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 diluted_eps_idx = find_idx(financials, 'Diluted EPS')
                 e = get_metric(financials, diluted_eps_idx, yr_col) if diluted_eps_idx else get_metric(financials, 'Basic EPS', yr_col)
                 
+                # REPAIR Logic (v63): If EPS is missing (NaN/0) but Net Income & Revenue are present
+                if (not e or e == 0) and ni != 0:
+                    s_calc = get_metric(financials, 'Basic Average Shares', yr_col) or \
+                             get_metric(financials, 'Diluted Average Shares', yr_col) or \
+                             get_metric(bs, 'Ordinary Shares Number', yr_col)
+                    if s_calc and s_calc > 0:
+                        e = ni / s_calc
+                        print(f"DEBUG: Repaired missing EPS for {year_label} using NetIncome/Shares: {e}")
+                
                 f = get_metric(cashflow, 'Free Cash Flow', yr_col)
                 
                 s = get_metric(financials, 'Basic Average Shares', yr_col) or \
@@ -1214,16 +1223,15 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     fy_code = "0y" if i == 1 else "+1y"
                     
                     # --- EPS Estimate ---
-                    eps_est = historical_data["eps"][-1] if historical_data["eps"] else 0
+                    eps_est = None
                     
-                    # Nasdaq Priority (New)
-                    if len(nq_yearly_eps) >= i:
-                        raw_val = nq_yearly_eps[i-1].get('consensusEPSForecast', 0)
-                        # CRITICAL: Nasdaq ADR forecasts are already in USD. Do NOT apply fx_rate.
+                    # 1. Nasdaq Priority
+                    if i <= len(nq_yearly_eps):
+                        raw_val = nq_yearly_eps[i-1].get('consensusEPSForecast')
                         eps_est = safe_nasdaq_float(raw_val)
-                    # Fallback to Yahoo if Nasdaq failed
-                    elif ee_data is not None and not ee_data.empty:
-                        # Try string index then numeric fallback
+                    
+                    # 2. Yahoo Fallback (Individual Year Check)
+                    if eps_est is None and ee_data is not None and not ee_data.empty:
                         row = None
                         if fy_code in ee_data.index: row = ee_data.loc[fy_code]
                         elif (i-1) < len(ee_data): row = ee_data.iloc[i-1]
@@ -1232,6 +1240,10 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                             val = row.get('avg') if hasattr(row, 'get') else row.get('Avg')
                             if val is not None and not pd.isna(val):
                                 eps_est = float(val) * fx_rate
+                    
+                    # 3. Last Resort Fallback to historical (only if still None)
+                    if eps_est is None:
+                        eps_est = historical_data["eps"][-1] if historical_data["eps"] else 0
                     
                     # --- Revenue Estimate ---
                     rev_est = historical_data["revenue"][-1] # fallback
