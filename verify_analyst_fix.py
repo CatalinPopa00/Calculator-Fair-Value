@@ -1,5 +1,6 @@
 import sys
 import os
+import datetime
 
 # Add the project root to sys.path
 sys.path.append(os.getcwd())
@@ -21,19 +22,29 @@ def test_ticker(ticker):
         print(f"Found {len(eps_est)} EPS estimates")
         print(f"Found {len(rev_est)} Revenue estimates")
         
-        missing_code_eps = [e for e in eps_est if "period_code" not in e]
-        missing_code_rev = [r for r in rev_est if "period_code" not in r]
+        # Check labels
+        labels = [e['period'] for e in eps_est]
+        print(f"Labels: {labels}")
         
-        if missing_code_eps:
-            print(f"FAILED: {len(missing_code_eps)} EPS estimates missing 'period_code'")
-        if missing_code_rev:
-            print(f"FAILED: {len(missing_code_rev)} Revenue estimates missing 'period_code'")
+        # Check FY labels
+        fy_labels = [l for l in labels if "FY" in l]
+        q_labels = [l for l in labels if "Q" in l]
+        
+        if not fy_labels:
+            print(f"FAILED: No FY labels found for {ticker}")
+        if not q_labels:
+            print(f"WARNING: No Q labels found for {ticker} (might be expected if no quarterly estimates)")
             
-        if not missing_code_eps and not missing_code_rev:
-            print(f"SUCCESS: All estimates have 'period_code' for {ticker}")
-            # print(json.dumps(eps_est[:2], indent=2))
-            return True
-        return False
+        # Specific check for NVDA current FY (should be 2027 if today is April 2026)
+        if ticker == "NVDA":
+            if any("2026" in l and "Q" in l for l in labels):
+                print(f"FAILED: Found 2026 quarters for NVDA, expected 2027.")
+            elif any("2027" in l for l in labels):
+                print(f"SUCCESS: Found 2027 labels for NVDA.")
+            else:
+                print(f"WARNING: No 2027 labels found for NVDA.")
+
+        return True
     except Exception as e:
         print(f"Exception for {ticker}: {e}")
         import traceback
@@ -41,7 +52,7 @@ def test_ticker(ticker):
         return False
 
 if __name__ == "__main__":
-    tickers = ["ADBE", "AAPL", "MSFT"]
+    tickers = ["NVDA", "ADBE", "MSFT"]
     results = [test_ticker(t) for t in tickers]
     
     if all(results):

@@ -4,12 +4,12 @@ import json
 import datetime
 import urllib.request
 import urllib.parse
-import json
 import concurrent.futures
 import time
 import random
 import requests
 import pandas as pd
+import re
 try:
     from ..utils.kv import kv_get, kv_set
 except ImportError:
@@ -302,52 +302,38 @@ def calculate_historic_pe(stock, financials):
 
 def get_period_labels(ticker_info: dict) -> dict:
     """
-    Returns a mapping from '0q', '+1q', '0y', '+1y' to human-readable 
-    labels like 'Q1 2026', 'FY 2026' based on fiscal year end.
+    Returns a mapping for relative period codes based on the company's fiscal year.
+    Standardizes on 'FY 20XX' and relative quarters.
     """
-    now = datetime.datetime.now()
-    curr_year = now.year
-    curr_month = now.month
-    
-    # fiscalYearEnd is usually the timestamp of the last month/day
-    fye_timestamp = ticker_info.get('fiscalYearEnd')
-    # mostRecentQuarter is timestamp of the last reported quarter
-    mrq_timestamp = ticker_info.get('mostRecentQuarter')
-    
-    mapping = {
-        "0q": "Current Quarter",
-        "+1q": "Next Quarter",
-        "0y": f"FY {curr_year}",
-        "+1y": f"FY {curr_year + 1}"
-    }
-    
     try:
-        if mrq_timestamp:
-            mrq_dt = datetime.datetime.fromtimestamp(mrq_timestamp)
-            # If MRQ is very recent (within 4 months), we assume it's the latest finished.
-            # Otherwise, 0y is likely the current year we are in.
-            
-            # For Adobe (ADBE): MRQ might be Feb 2026. Fiscal year ends Nov.
-            # So FY 2026 started Dec 2025.
-            # In March 2026, 0y is FY 2026.
-            pass
-            
-        # Simplified but effective mapping for now:
-        # Detect if we are already 'deep' into the year
-        # most companies 0y = current year.
-        # However, some companies are advanced.
-        
-        # Let's use a more robust logic if possible or stick to simple Next/Current 
-        # but with years attached.
-        mapping["0y"] = f"FY {curr_year}"
-        mapping["+1y"] = f"FY {curr_year + 1}"
-        
-        # If we have MRQ, we can try to guess quarter.
-        # But for now, let's at least prepend years to 0y/+1y.
+        now = datetime.datetime.now()
+        lfy_ts = ticker_info.get('lastFiscalYearEnd')
+        if not lfy_ts:
+            current_fy = now.year if now.month <= 12 else now.year + 1
+        else:
+            lfy_dt = datetime.datetime.fromtimestamp(lfy_ts)
+            fy_end_month = lfy_dt.month
+            # We are currently in the fiscal year that ends NEXT.
+            # If our current month is past the last fiscal end month, the next end is next year.
+            if now.month > fy_end_month:
+                current_fy = now.year + 1
+            else:
+                current_fy = now.year
+
+        return {
+            "0q": "Current Qtr",
+            "+1q": "Next Qtr",
+            "+2q": "Q3 Est.",
+            "+3q": "Q4 Est.",
+            "0y": f"FY {current_fy}",
+            "+1y": f"FY {current_fy + 1}"
+        }
     except:
-        pass
-        
-    return mapping
+        curr_year = datetime.datetime.now().year
+        return {
+            "0q": "Current Qtr", "+1q": "Next Qtr",
+            "0y": f"FY {curr_year}", "+1y": f"FY {curr_year + 1}"
+        }
 
 def resolve_company_name(query: str) -> str:
     """Uses Yahoo Finance search to resolve a company name to a ticker symbol."""
@@ -1894,7 +1880,6 @@ def get_analyst_data(ticker_symbol: str) -> dict:
     - EPS history (actual vs estimate, last 4 quarters)
     """
     try:
-        from datetime import datetime
         stock = yf.Ticker(ticker_symbol)
         info  = stock.info
         fx_rate = get_fx_rate(info)
@@ -1928,23 +1913,38 @@ def get_analyst_data(ticker_symbol: str) -> dict:
             
             # Map Nasdaq EPS Quarters
             for i, q_row in enumerate(nq_quarterly_eps[:4]):
-                 label = q_row.get('fiscalQuarterEnd') or q_row.get('fiscalEnd', 'N/A')
-                 raw_val = q_row.get('consensusEPSForecast', 0)
+                 date_val = q_row.get('fiscalQuarterEnd') or q_row.get('fiscalEnd')
+                 label = "N/A"
+                 if date_val and date_val != "N/A":
+                    try:
+                        dt_parsed = pd.to_datetime(date_val)
+                        label = to_fiscal_label(dt_parsed)
+                    except: label = str(date_val)
+                 
                  eps_estimates.append({
                      "period": label,
                      "period_code": "0q" if i == 0 else f"+{i}q",
-                     "avg": round(safe_nasdaq_float(raw_val), 2),
+                     "avg": round(safe_nasdaq_float(q_row.get('consensusEPSForecast', 0)), 2),
                      "growth_yy": None
                  })
             
             # Map Nasdaq EPS Years
             for i, y_row in enumerate(nq_yearly_eps[:2]):
-                 label = f"FY {y_row.get('fiscalYearEnd') or y_row.get('fiscalEnd') or 'N/A'}"
-                 raw_val = y_row.get('consensusEPSForecast', 0)
+                 date_val = y_row.get('fiscalYearEnd') or y_row.get('fiscalEnd')
+                 label = "N/A"
+                 if date_val and date_val != "N/A":
+                    try:
+                        dt_parsed = pd.to_datetime(date_val)
+                        # Years should be FY 20XX
+                        if dt_parsed.month <= fy_end_month: fy_yr = dt_parsed.year
+                        else: fy_yr = dt_parsed.year + 1
+                        label = f"FY {fy_yr}"
+                    except: label = f"FY {date_val}"
+                 
                  eps_estimates.append({
                      "period": label,
                      "period_code": "0y" if i == 0 else f"+{i}y",
-                     "avg": round(safe_nasdaq_float(raw_val), 2),
+                     "avg": round(safe_nasdaq_float(y_row.get('consensusEPSForecast', 0)), 2),
                      "growth_yy": None
                  })
 
@@ -1952,7 +1952,14 @@ def get_analyst_data(ticker_symbol: str) -> dict:
             last_rev = info.get('totalRevenue') or 0
 
             for i, q_row in enumerate(nq_quarterly_rev[:4]):
-                label = q_row.get('fiscalQuarterEnd') or q_row.get('fiscalEnd', 'N/A')
+                date_val = q_row.get('fiscalQuarterEnd') or q_row.get('fiscalEnd')
+                label = "N/A"
+                if date_val and date_val != "N/A":
+                    try:
+                        dt_parsed = pd.to_datetime(date_val)
+                        label = to_fiscal_label(dt_parsed)
+                    except: label = str(date_val)
+                
                 val = safe_nasdaq_float(q_row.get('consensusRevenueForecast', 0))
                 # Normalize Nasdaq Billions/Millions to absolute
                 if last_rev > 1e6 and val < 10000: val *= 1e9
@@ -1966,7 +1973,16 @@ def get_analyst_data(ticker_symbol: str) -> dict:
                 })
             
             for i, y_row in enumerate(nq_yearly_rev[:2]):
-                label = f"FY {y_row.get('fiscalYearEnd') or y_row.get('fiscalEnd') or 'N/A'}"
+                date_val = y_row.get('fiscalYearEnd') or y_row.get('fiscalEnd')
+                label = "N/A"
+                if date_val and date_val != "N/A":
+                    try:
+                        dt_parsed = pd.to_datetime(date_val)
+                        if dt_parsed.month <= fy_end_month: fy_yr = dt_parsed.year
+                        else: fy_yr = dt_parsed.year + 1
+                        label = f"FY {fy_yr}"
+                    except: label = f"FY {date_val}"
+
                 val = safe_nasdaq_float(y_row.get('consensusRevenueForecast', 0))
                 if last_rev > 1e6 and val < 10000: val *= 1e9
                 elif last_rev > 1e6 and val < 10000000: val *= 1e6
@@ -2026,24 +2042,37 @@ def get_analyst_data(ticker_symbol: str) -> dict:
         reported_eps = []
         reported_rev = []
         
-        # Pre-compute fiscal quarter helper
-        fy_end_month = 12  # default Dec
-        try:
-            lfy_ts2 = info.get('lastFiscalYearEnd')
-            if lfy_ts2:
-                fy_end_month = datetime.fromtimestamp(lfy_ts2).month
-        except: pass
+        # Pre-compute fiscal year logic
+        lfy_ts2 = info.get('lastFiscalYearEnd')
+        if lfy_ts2:
+            lfy_dt = datetime.datetime.fromtimestamp(lfy_ts2)
+            fy_end_month = lfy_dt.month
+            # Detect current fiscal year
+            if datetime.datetime.now().month > fy_end_month:
+                current_fy_num = datetime.datetime.now().year + 1
+            else:
+                current_fy_num = datetime.datetime.now().year
+        else:
+            fy_end_month = 12
+            current_fy_num = datetime.datetime.now().year
+            
         fy_start_month = (fy_end_month % 12) + 1
         
         def to_fiscal_label(dt):
-            """Convert a date to fiscal quarter label like 'Q1 2026'."""
-            months_off = (dt.month - fy_start_month) % 12
-            fq = (months_off // 3) + 1
+            """Convert a date to standard fiscal label like 'Q1 2026'."""
+            if not isinstance(dt, (pd.Timestamp, datetime.datetime)):
+                return str(dt)
+            
             # Determine fiscal year
             if dt.month <= fy_end_month:
                 fy = dt.year
             else:
                 fy = dt.year + 1
+            
+            # Determine quarter
+            # 0-indexed months from start of fiscal year
+            months_since_start = (dt.month - fy_start_month) % 12
+            fq = (months_since_start // 3) + 1
             return f"Q{fq} {fy}"
         
         try:
@@ -2141,8 +2170,14 @@ def get_analyst_data(ticker_symbol: str) -> dict:
                     avg = row.get('avg') if hasattr(row, 'get') else row.get('Avg')
                     growth = row.get('growth') if hasattr(row, 'get') else row.get('Growth')
                     val_unscaled = float(avg) if avg is not None and not (isinstance(avg, float) and pd.isna(avg)) else None
+                    try:
+                        p_label = to_fiscal_label(pd.to_datetime(period_idx)) if isinstance(period_idx, (pd.Timestamp, datetime.datetime, str)) and any(c in str(period_idx) for c in ['-', '/', '.', '20']) else labels.get(p_key, p_key)
+                    except:
+                        p_label = labels.get(p_key, p_key)
+                    
                     eps_estimates.append({
-                        "period": labels.get(p_key, p_key), "period_code": p_key,
+                        "period": p_label, 
+                        "period_code": p_key,
                         "avg": val_unscaled * fx_rate if val_unscaled is not None else None,
                         "growth": float(growth) if growth is not None and not (isinstance(growth, float) and pd.isna(growth)) else None,
                         "status": "estimate"
@@ -2160,8 +2195,14 @@ def get_analyst_data(ticker_symbol: str) -> dict:
                     avg = row.get('avg') if hasattr(row, 'get') else None
                     growth = row.get('growth') if hasattr(row, 'get') else None
                     val_unscaled = float(avg) if avg is not None and not (isinstance(avg, float) and pd.isna(avg)) else None
+                    try:
+                        p_label = to_fiscal_label(pd.to_datetime(period_idx)) if isinstance(period_idx, (pd.Timestamp, datetime.datetime, str)) and any(c in str(period_idx) for c in ['-', '/', '.', '20']) else labels.get(p_key, p_key)
+                    except:
+                        p_label = labels.get(p_key, p_key)
+                    
                     rev_estimates.append({
-                        "period": labels.get(p_key, p_key), "period_code": p_key,
+                        "period": p_label, 
+                        "period_code": p_key,
                         "avg": val_unscaled * fx_rate if val_unscaled is not None else None,
                         "growth": float(growth) if growth is not None and not (isinstance(growth, float) and pd.isna(growth)) else None,
                         "status": "estimate"
@@ -2243,28 +2284,40 @@ def get_analyst_data(ticker_symbol: str) -> dict:
         eps_estimates.sort(key=sort_key)
         rev_estimates.sort(key=sort_key)
 
-        # Extract the current fiscal year from the '0y' label
-        import re
-        current_year_str = str(datetime.now().year)
-        fy_0y_label = labels.get('0y', '')
-        fy_match = re.search(r'\d{4}', fy_0y_label)
-        if fy_match:
-            current_year_str = fy_match.group(0)
+        # Use the precisely calculated current fiscal year
+        current_year_str = str(current_fy_num)
         
-        # Only include reported quarters from the current fiscal year
+        # 1. Filter and extract current fiscal year quarters
+        def is_current_fy_qtr(item):
+            p = str(item.get('period', ''))
+            # Check for "QX 20XX"
+            match = re.search(r'Q\d (\d{4})', p)
+            if match and match.group(1) == current_year_str:
+                return True
+            # Also accept "0q", "+1q" if label still generic
+            code = item.get('period_code', '')
+            if 'q' in code and 'Est' in p:
+                return True
+            return False
+
+        eps_qtrs = [e for e in eps_estimates if 'q' in e.get('period_code', '') and is_current_fy_qtr(e)]
+        # Exclude reported periods with no match
+        reported_eps_periods = {e.get('period') for e in reported_eps if e.get('period')}
+        eps_qtrs = [e for e in eps_qtrs if e.get('period') not in reported_eps_periods]
+        
         curr_yr_reported_eps = [e for e in reported_eps if current_year_str in str(e.get('period', ''))]
-        reported_eps_periods = {e.get('period') for e in curr_yr_reported_eps if e.get('period')}
         
-        # Pull estimates, but exclude any that match a period we already have reported data for
-        eps_qtrs = [e for e in eps_estimates if 'q' in e.get('period_code', '') and current_year_str in str(e.get('period', '')) and e.get('period') not in reported_eps_periods]
         eps_years = [e for e in eps_estimates if 'y' in e.get('period_code', '')][:2]
         
         unified_eps = curr_yr_reported_eps + eps_qtrs + eps_years
 
+        # Revenue
+        rev_qtrs = [e for e in rev_estimates if 'q' in e.get('period_code', '') and is_current_fy_qtr(e)]
+        reported_rev_periods = {e.get('period') for e in reported_rev if e.get('period')}
+        rev_qtrs = [e for e in rev_qtrs if e.get('period') not in reported_rev_periods]
+        
         curr_yr_reported_rev = [e for e in reported_rev if current_year_str in str(e.get('period', ''))]
-        reported_rev_periods = {e.get('period') for e in curr_yr_reported_rev if e.get('period')}
-
-        rev_qtrs = [e for e in rev_estimates if 'q' in e.get('period_code', '') and current_year_str in str(e.get('period', '')) and e.get('period') not in reported_rev_periods]
+        
         rev_years = [e for e in rev_estimates if 'y' in e.get('period_code', '')][:2]
         
         unified_rev = curr_yr_reported_rev + rev_qtrs + rev_years
