@@ -86,14 +86,7 @@ class ValuationResponse(BaseModel):
     class Config:
         extra = "allow"
 
-@app.get("/api/analyst/{ticker}")
-def get_analyst(ticker: str):
-    try:
-        data = get_analyst_data(ticker)
-        return data
-    except Exception as e:
-        print(f"Analyst Route Error for {ticker}: {e}")
-        return {"ticker": ticker.upper(), "error": str(e)}
+
 
 @app.get("/api/search/{query}")
 def search(query: str):

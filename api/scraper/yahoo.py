@@ -1927,30 +1927,31 @@ def get_analyst_data(ticker_symbol: str) -> dict:
             nq_quarterly_rev = nq_est.get("quarterly_rev", [])
             
             # Map Nasdaq EPS Quarters
-            for q_row in nq_quarterly_eps[:4]:
+            for i, q_row in enumerate(nq_quarterly_eps[:4]):
                  label = q_row.get('fiscalQuarterEnd') or q_row.get('fiscalEnd', 'N/A')
                  raw_val = q_row.get('consensusEPSForecast', 0)
                  eps_estimates.append({
                      "period": label,
+                     "period_code": "0q" if i == 0 else f"+{i}q",
                      "avg": round(safe_nasdaq_float(raw_val), 2),
                      "growth_yy": None
                  })
             
             # Map Nasdaq EPS Years
-            for y_row in nq_yearly_eps[:2]:
+            for i, y_row in enumerate(nq_yearly_eps[:2]):
                  label = f"FY {y_row.get('fiscalYearEnd') or y_row.get('fiscalEnd') or 'N/A'}"
                  raw_val = y_row.get('consensusEPSForecast', 0)
                  eps_estimates.append({
                      "period": label,
+                     "period_code": "0y" if i == 0 else f"+{i}y",
                      "avg": round(safe_nasdaq_float(raw_val), 2),
                      "growth_yy": None
                  })
 
             # Map Nasdaq Revenue Quarters/Years for the Revenue table
-            hist_rev = historical_data.get("revenue", [0])
-            last_rev = hist_rev[-1] if hist_rev else 0
+            last_rev = info.get('totalRevenue') or 0
 
-            for q_row in nq_quarterly_rev[:4]:
+            for i, q_row in enumerate(nq_quarterly_rev[:4]):
                 label = q_row.get('fiscalQuarterEnd') or q_row.get('fiscalEnd', 'N/A')
                 val = safe_nasdaq_float(q_row.get('consensusRevenueForecast', 0))
                 # Normalize Nasdaq Billions/Millions to absolute
@@ -1959,11 +1960,12 @@ def get_analyst_data(ticker_symbol: str) -> dict:
                 
                 rev_estimates.append({
                     "period": label,
+                    "period_code": "0q" if i == 0 else f"+{i}q",
                     "avg": round(val, 2),
                     "growth_yy": None
                 })
             
-            for y_row in nq_yearly_rev[:2]:
+            for i, y_row in enumerate(nq_yearly_rev[:2]):
                 label = f"FY {y_row.get('fiscalYearEnd') or y_row.get('fiscalEnd') or 'N/A'}"
                 val = safe_nasdaq_float(y_row.get('consensusRevenueForecast', 0))
                 if last_rev > 1e6 and val < 10000: val *= 1e9
@@ -1971,6 +1973,7 @@ def get_analyst_data(ticker_symbol: str) -> dict:
 
                 rev_estimates.append({
                     "period": label,
+                    "period_code": "0y" if i == 0 else f"+{i}y",
                     "avg": round(val, 2),
                     "growth_yy": None
                 })
@@ -2332,8 +2335,8 @@ def get_analyst_data(ticker_symbol: str) -> dict:
         g_1y = None
         if eps_estimates:
             for est in eps_estimates:
-                if est['period_code'] == '0y': g_0y = est['growth']
-                if est['period_code'] == '+1y': g_1y = est['growth']
+                if est.get('period_code') == '0y': g_0y = est.get('growth')
+                if est.get('period_code') == '+1y': g_1y = est.get('growth')
         
         # Logic: If 0y is positive and stable (>2%), prioritize it.
         # Otherwise (if negative like Uber's -28% or very low), use +1y.
