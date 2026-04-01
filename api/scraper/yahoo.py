@@ -2270,61 +2270,87 @@ def get_analyst_data(ticker_symbol: str) -> dict:
 
         # ── FINAL ASSEMBLY (6-Row Standard) ────────────────────────────────────
         current_year_str = str(current_fy_num)
+        # Calculate exactly which quarter we are in now (1-4)
+        now_dt = datetime.datetime.now()
+        lfy_yr = now_dt.year if now_dt.month > fy_end_month else now_dt.year - 1
+        months_since_fye = (now_dt.year - lfy_yr) * 12 + now_dt.month - fy_end_month
+        this_q = ((months_since_fye - 1) // 3) + 1
+        # Defensive check
+        if this_q < 1: this_q = 1
+        if this_q > 4: this_q = 4
 
         def fill_buckets(buckets, data_sources, target_fy):
             for source in data_sources:
                 if not source: continue
                 for item in source:
                     p = str(item.get('period', ''))
+                    code = str(item.get('period_code', ''))
                     q_num = None
                     yr = None
                     is_fy = False
+                    
                     q_match = re.search(r'Q(\d)\s+(\d{4})', p)
                     fy_match = re.search(r'FY\s+(\d{4})', p) or re.search(r'FY\s+[A-Za-z]+\s+(\d{4})', p)
                     
                     if q_match:
                         q_num = int(q_match.group(1)); yr = int(q_match.group(2))
                     elif fy_match:
-                        # Extract last grouping of digits
-                        digits = re.findall(r'\d{4}', p)
-                        if digits: 
-                            yr = int(digits[-1])
-                            is_fy = True
-                    
+                        digits = re.findall(r'\d{4}', p); yr = int(digits[-1]) if digits else None; is_fy = True
+                    elif 'q' in code:
+                        # Map relative 0q, +1q etc.
+                        try:
+                            rel_idx = int(code.replace('q', '').replace('+', ''))
+                            q_num = ((this_q + rel_idx - 1) % 4) + 1
+                            # Simplified: assume current relative sequence stays in target FY 
+                            # (except for wraps which we ignore for qtr-display-symmetry)
+                            yr = target_fy
+                        except: pass
+                    elif 'y' in code:
+                        try:
+                            rel_idx = int(code.replace('y', '').replace('+', ''))
+                            yr = target_fy + rel_idx; is_fy = True
+                        except: pass
+
                     if yr == target_fy:
                         if not is_fy and q_num:
                             idx = f"Q{q_num}"
-                            if buckets[idx]["avg"] is None: buckets[idx].update(item)
+                            # Favor reported data over estimates
+                            if buckets[idx]["avg"] is None or item.get('status') == 'reported':
+                                buckets[idx].update({k: v for k, v in item.items() if v is not None})
                         elif is_fy:
-                            if buckets["FY0"]["avg"] is None: buckets["FY0"].update(item)
+                            if buckets["FY0"]["avg"] is None: buckets["FY0"].update({k: v for k, v in item.items() if v is not None})
                     elif yr == target_fy + 1 and is_fy:
-                        if buckets["FY1"]["avg"] is None: buckets["FY1"].update(item)
+                        if buckets["FY1"]["avg"] is None: buckets["FY1"].update({k: v for k, v in item.items() if v is not None})
 
-        eps_buckets = {f"Q{i}": {"period": f"Q{i} {current_fy_num}", "avg": None, "growth": None} for i in range(1, 5)}
-        eps_buckets.update({"FY0": {"period": f"FY {current_fy_num}", "avg": None, "growth": None}, "FY1": {"period": f"FY {current_fy_num + 1}", "avg": None, "growth": None}})
-        rev_buckets = {f"Q{i}": {"period": f"Q{i} {current_fy_num}", "avg": None, "growth": None} for i in range(1, 5)}
-        rev_buckets.update({"FY0": {"period": f"FY {current_fy_num}", "avg": None, "growth": None}, "FY1": {"period": f"FY {current_fy_num + 1}", "avg": None, "growth": None}})
+        # Count reported items
+        reported_eps_count = len([x for x in reported_eps if current_year_str in str(x.get('period'))])
+        reported_rev_count = len([x for x in reported_rev if current_year_str in str(x.get('period'))])
 
-        fill_buckets(eps_buckets, [reported_eps, eps_estimates], current_fy_num)
-        fill_buckets(rev_buckets, [reported_rev, rev_estimates], current_fy_num)
+        # Initialize
+        eps_buckets = {f"Q{i}": {"period": f"Q{i} {current_fy_num}", "avg": None, "growth": None, "status": "estimate"} for i in range(1, 5)}
+        eps_buckets.update({"FY0": {"period": f"FY {current_fy_num}", "avg": None, "growth": None, "reported_count": reported_eps_count}, 
+                            "FY1": {"period": f"FY {current_fy_num + 1}", "avg": None, "growth": None}})
+        
+        rev_buckets = {f"Q{i}": {"period": f"Q{i} {current_fy_num}", "avg": None, "growth": None, "status": "estimate"} for i in range(1, 5)}
+        rev_buckets.update({"FY0": {"period": f"FY {current_fy_num}", "avg": None, "growth": None, "reported_count": reported_rev_count}, 
+                            "FY1": {"period": f"FY {current_fy_num + 1}", "avg": None, "growth": None}})
+
+        # Fill: Combine all eps and revenue sources
+        all_eps = reported_eps + eps_estimates
+        all_rev = reported_rev + rev_estimates
+
+        fill_buckets(eps_buckets, [all_eps], current_fy_num)
+        fill_buckets(rev_buckets, [all_rev], current_fy_num)
 
         unified_eps = []; unified_rev = []
         for k in ["Q1", "Q2", "Q3", "Q4", "FY0", "FY1"]:
             e = eps_buckets[k]; r = rev_buckets[k]
-            # Force standard labels
+            # Force labels
             if k.startswith("Q"): label = f"{k} {current_fy_num}"
             elif k == "FY0": label = f"FY {current_fy_num}"
             else: label = f"FY {current_fy_num + 1}"
             e["period"] = label; r["period"] = label
             unified_eps.append(e); unified_rev.append(r)
-
-        # Count reported items for FY highlights
-        reported_eps_count = len([x for x in reported_eps if current_year_str in str(x.get('period'))])
-        reported_rev_count = len([x for x in reported_rev if current_year_str in str(x.get('period'))])
-        for e in unified_eps:
-             if "FY" in str(e["period"]) and current_year_str in str(e["period"]): e['reported_count'] = reported_eps_count
-        for r in unified_rev:
-             if "FY" in str(r["period"]) and current_year_str in str(r["period"]): r['reported_count'] = reported_rev_count
 
         # ── EPS growth from estimates ─────────────────────────────────────────────
         # Smart selection: pick the healthiest forward year
