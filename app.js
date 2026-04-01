@@ -1593,27 +1593,56 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('rec-mean').textContent = (rec && rec.mean && typeof rec.mean === 'number') ? `Score: ${rec.mean.toFixed(2)} (1-5)` : 'Score: -- (1-5)';
             }
 
-            // Tables population
+            // Clear existing rows
             const epsBody = document.querySelector('#eps-est-table tbody');
-            epsBody.innerHTML = '';
-            (data.eps_estimates || []).slice(0, 6).forEach(row => {
-                const color = row.status === 'reported' ? (row.surprise_pct > 0 ? 'var(--accent)' : 'var(--danger)') : 'var(--text-main)';
-                const val = (row.avg !== null && row.avg !== undefined) ? '$' + parseFloat(row.avg).toFixed(2) : '--';
-                const growth = row.growth ? (row.growth * 100).toFixed(1) + '%' : (row.surprise_pct ? (row.surprise_pct * 100).toFixed(1) + '% Surp' : '--');
-                epsBody.innerHTML += `<tr style="border-bottom:1px solid rgba(255,255,255,0.03);"><td style="padding:4px 0;">${row.period}</td><td style="text-align:right; font-weight:600;">${val}</td><td style="text-align:right; color:${color};">${growth}</td></tr>`;
-            });
-
             const revBody = document.querySelector('#rev-est-table tbody');
-            revBody.innerHTML = '';
-            (data.rev_estimates || []).slice(0, 6).forEach(row => {
-                const color = row.status === 'reported' ? 'var(--text-muted)' : 'var(--text-main)';
-                const val = (row.avg !== null && row.avg !== undefined) ? (parseFloat(row.avg) / 1e9).toFixed(2) + 'B' : '--';
-                const growth = row.growth ? (row.growth * 100).toFixed(1) + '%' : '--';
-                revBody.innerHTML += `<tr style="border-bottom:1px solid rgba(255,255,255,0.03);"><td style="padding:4px 0;">${row.period}</td><td style="text-align:right; font-weight:600;">${val}</td><td style="text-align:right; color:${color};">${growth}</td></tr>`;
-            });
+            if (epsBody) epsBody.innerHTML = '';
+            if (revBody) revBody.innerHTML = '';
+
+            // Safe population for EPS
+            if (data.eps_estimates && Array.isArray(data.eps_estimates)) {
+                data.eps_estimates.slice(0, 8).forEach(row => {
+                    try {
+                        if (!row) return;
+                        const period = row.period || 'N/A';
+                        const avgRaw = row.avg;
+                        const val = (avgRaw !== null && avgRaw !== undefined) ? '$' + parseFloat(avgRaw).toFixed(2) : '--';
+                        
+                        let growth = '--';
+                        if (row.growth !== null && row.growth !== undefined) growth = (row.growth * 100).toFixed(1) + '%';
+                        else if (row.surprise_pct !== null && row.surprise_pct !== undefined) growth = (row.surprise_pct * 100).toFixed(1) + '% Surp';
+                        
+                        const color = row.status === 'reported' ? (row.surprise_pct > 0 ? 'var(--accent)' : 'var(--danger)') : 'var(--text-main)';
+                        
+                        if (epsBody) {
+                             epsBody.innerHTML += `<tr style="border-bottom:1px solid rgba(255,255,255,0.03);"><td style="padding:4px 0;">${period}</td><td style="text-align:right; font-weight:600;">${val}</td><td style="text-align:right; color:${color};">${growth}</td></tr>`;
+                        }
+                    } catch (e) { console.warn("Row render fail", e); }
+                });
+            }
+
+            // Safe population for Revenue
+            if (data.rev_estimates && Array.isArray(data.rev_estimates)) {
+                data.rev_estimates.slice(0, 8).forEach(row => {
+                    try {
+                        if (!row) return;
+                        const period = row.period || 'N/A';
+                        const avgRaw = row.avg;
+                        const val = (avgRaw !== null && avgRaw !== undefined) ? (parseFloat(avgRaw) / 1e9).toFixed(2) + 'B' : '--';
+                        
+                        let growth = '--';
+                        if (row.growth !== null && row.growth !== undefined) growth = (row.growth * 100).toFixed(1) + '%';
+                        
+                        const color = row.status === 'reported' ? 'var(--text-muted)' : 'var(--text-main)';
+                        
+                        if (revBody) {
+                            revBody.innerHTML += `<tr style="border-bottom:1px solid rgba(255,255,255,0.03);"><td style="padding:4px 0;">${period}</td><td style="text-align:right; font-weight:600;">${val}</td><td style="text-align:right; color:${color};">${growth}</td></tr>`;
+                        }
+                    } catch (e) { console.warn("Row render fail", e); }
+                });
+            }
         } catch (err) {
             console.error("Analyst inline error:", err, err.stack);
-            // analystCard.style.display = 'none';
         }
     };
 
