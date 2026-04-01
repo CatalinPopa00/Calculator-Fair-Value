@@ -2180,7 +2180,7 @@ def get_analyst_data(ticker_symbol: str) -> dict:
                 return None
 
         # Determine if we even need the fallback.
-        needs_nasdaq = len([e for e in eps_estimates if 'q' in e['period_code']]) < 4 or len([r for r in rev_estimates if 'q' in r['period_code']]) < 4
+        needs_nasdaq = len([e for e in eps_estimates if 'q' in e.get('period_code', '')]) < 4 or len([r for r in rev_estimates if 'q' in r.get('period_code', '')]) < 4
         if needs_nasdaq:
             import concurrent.futures
             with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -2193,14 +2193,14 @@ def get_analyst_data(ticker_symbol: str) -> dict:
             q_forecasts = n_data.get('data', {}).get('quarterlyForecast', {}).get('rows', [])
             for i, qf in enumerate(q_forecasts[:4]):
                 p_code = "0q" if i == 0 else f"+{i}q"
-                existing = next((e for e in eps_estimates if e['period_code'] == p_code), None)
+                existing = next((e for e in eps_estimates if e.get('period_code') == p_code), None)
                 avg = qf.get('consensusEPSForecast')
                 if avg and avg != "N/A":
                     avg_val = float(str(avg).replace('$', '').replace(',', ''))
                     period_lbl = labels.get(p_code, p_code)
                     if existing:
-                        if not existing['avg']: existing['avg'] = avg_val
-                        if existing['period'] in ['Current Qtr', 'Next Qtr']: existing['period'] = period_lbl
+                        if not existing.get('avg'): existing['avg'] = avg_val
+                        if existing.get('period') in ['Current Qtr', 'Next Qtr']: existing['period'] = period_lbl
                     else:
                         eps_estimates.append({"period": period_lbl, "period_code": p_code, "avg": avg_val, "growth": None, "status": "estimate"})
             
@@ -2208,7 +2208,7 @@ def get_analyst_data(ticker_symbol: str) -> dict:
             r_forecasts = n_data.get('data', {}).get('revenueForecast', {}).get('rows', [])
             for i, rf in enumerate(r_forecasts[:4]):
                 p_code = "0q" if i == 0 else f"+{i}q"
-                existing = next((e for e in rev_estimates if e['period_code'] == p_code), None)
+                existing = next((e for e in rev_estimates if e.get('period_code') == p_code), None)
                 avg = rf.get('consensusRevenueForecast')
                 if avg and avg != "N/A":
                     avg_str = str(avg).replace('$', '').replace(',', '').replace('B', '').replace('M', '').strip()
@@ -2217,8 +2217,8 @@ def get_analyst_data(ticker_symbol: str) -> dict:
                         if 'M' in str(avg): avg_val /= 1000.0
                         period_lbl = labels.get(p_code, p_code)
                         if existing:
-                            if not existing['avg']: existing['avg'] = avg_val
-                            if existing['period'] in ['Current Qtr', 'Next Qtr']: existing['period'] = period_lbl
+                            if not existing.get('avg'): existing['avg'] = avg_val
+                            if existing.get('period') in ['Current Qtr', 'Next Qtr']: existing['period'] = period_lbl
                         else:
                             rev_estimates.append({"period": period_lbl, "period_code": p_code, "avg": avg_val, "growth": None, "status": "estimate"})
                     except: pass
@@ -2226,9 +2226,9 @@ def get_analyst_data(ticker_symbol: str) -> dict:
         # ── PADDING QUARTERS ───────────────────────────────────────────
         # Ensure that +2q and +3q exist even if empty, so the UI aligns
         for prefix in ['0q', '+1q', '+2q', '+3q']:
-            if not any(e['period_code'] == prefix for e in eps_estimates):
+            if not any(e.get('period_code') == prefix for e in eps_estimates):
                 eps_estimates.append({"period": labels.get(prefix, prefix), "period_code": prefix, "avg": None, "growth": None, "status": "estimate"})
-            if not any(r['period_code'] == prefix for r in rev_estimates):
+            if not any(r.get('period_code') == prefix for r in rev_estimates):
                 rev_estimates.append({"period": labels.get(prefix, prefix), "period_code": prefix, "avg": None, "growth": None, "status": "estimate"})
 
         # ── POST-PROCESSING: Combine and Sort ───────────────────────────────────
