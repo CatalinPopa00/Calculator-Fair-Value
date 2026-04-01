@@ -93,6 +93,57 @@
                     </div>
                 </section>
 
+                <!-- Analyst Estimates Card (REPOSITIONED & FORCED VISIBLE) -->
+                <section class="analyst-estimates-section" style="margin-top: 1.5rem; margin-bottom: 24px;">
+                    <div id="analyst-estimates-card" class="glass-card" style="padding: 1.5rem; display: block; border: 1px solid rgba(56, 189, 248, 0.4);">
+                        <h3 style="margin-bottom: 1.5rem; color: var(--text-main); font-size: 1.2rem; text-align: center; text-transform: uppercase;">Analyst Projections</h3>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2rem;">
+                            <!-- Targets -->
+                            <div style="border-right: 1px solid var(--card-border); padding-right: 1.5rem;">
+                                <div style="text-align: center; margin-bottom: 1.5rem;">
+                                    <span class="label">Price Target (AVG)</span>
+                                    <div id="pt-avg" class="value" style="font-size: 2.2rem; margin: 0.3rem 0; color: var(--accent);">...</div>
+                                    <div id="pt-upside" style="font-weight: bold; font-size: 1.1rem;">...</div>
+                                    <div style="display: flex; justify-content: center; gap: 1rem; margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-muted);">
+                                        <span>Low: <b id="pt-low" style="color: var(--text-main);">...</b></span>
+                                        <span>High: <b id="pt-high" style="color: var(--text-main);">...</b></span>
+                                    </div>
+                                </div>
+                                <div style="text-align: center;">
+                                    <span class="label" style="display: block; margin-bottom: 0.5rem;">Consensus</span>
+                                    <div id="rec-status" style="font-size: 1.4rem; font-weight: 800; color: var(--primary); margin-bottom: 0.2rem;">...</div>
+                                    <div id="rec-mean" style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Score: ...</div>
+                                    <div id="rec-bars" style="display: flex; flex-direction: column; gap: 0.3rem; text-align: left;"></div>
+                                </div>
+                            </div>
+                            <!-- EPS -->
+                            <div style="border-right: 1px solid var(--card-border); padding: 0 1rem;">
+                                <h4 style="font-size: 0.9rem; color: var(--text-muted); text-align: center; margin-bottom: 0.5rem;">EPS Forecasts</h4>
+                                <table id="eps-est-table" style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
+                                    <thead><tr style="color: var(--text-muted); text-align: right; border-bottom: 1px solid var(--card-border);">
+                                        <th style="text-align: left; padding: 0.3rem 0;">Period</th>
+                                        <th style="padding: 0.3rem 0;">Avg</th>
+                                        <th style="padding: 0.3rem 0;">Y/Y</th>
+                                    </tr></thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                            <!-- Revenue -->
+                            <div style="padding-left: 1rem;">
+                                <h4 style="font-size: 0.9rem; color: var(--text-muted); text-align: center; margin-bottom: 0.5rem;">Revenue (B)</h4>
+                                <table id="rev-est-table" style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
+                                    <thead><tr style="color: var(--text-muted); text-align: right; border-bottom: 1px solid var(--card-border);">
+                                        <th style="text-align: left; padding: 0.3rem 0;">Period</th>
+                                        <th style="padding: 0.3rem 0;">Avg</th>
+                                        <th style="padding: 0.3rem 0;">Y/Y</th>
+                                    </tr></thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
                 <!-- ROW 2: Unified Company Scores & Key Drivers (100% width) -->
                 <section class="row-2-card glass-card tooltip-container"
                     style="margin-top: 1.5rem; width: 100%; position: relative;">
@@ -446,8 +497,8 @@
 
                 <!-- Analyst Estimates Card -->
                 <section class="analyst-estimates-section" style="margin-top: 2rem;">
-                    <div class="glass-card analyst-card" id="analyst-estimates-card"
-                        style="padding: 1.5rem; display: none;">
+                    <div id="analyst-estimates-card" class="glass-card analyst-estimates-card"
+                        style="padding: 1.5rem; display: block;">
                         <h3
                             style="margin-bottom: 1.5rem; color: var(--text-main); font-size: 1.2rem; text-align: center;">
                             ANALYST ESTIMATES & CONSENSUS</h3>
@@ -492,64 +543,19 @@
                                     </div>
                                 </div>
                             </div>
-
-                            <!-- Recommendation -->
-                            <div class="analyst-col tab-content" id="tab-rec"
-                                style="border-right: 1px solid var(--card-border); padding: 0 1rem;">
-                                <h4
-                                    style="font-size: 0.9rem; color: var(--text-muted); text-align: center; margin-bottom: 1rem;">
-                                    Recommendation</h4>
-                                <div class="rec-content" style="text-align: center;">
-                                    <div id="rec-status"
-                                        style="font-size: 1.2rem; font-weight: 800; color: var(--accent); text-transform: uppercase;">
-                                        --</div>
-                                    <div id="rec-mean"
-                                        style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">Score: --
-                                    </div>
-                                    <div id="rec-bars"
-                                        style="margin-top: 0.8rem; display: flex; flex-direction: column; gap: 0.3rem; text-align: left;">
-                                        <!-- Injected by JS -->
-                                    </div>
-                                </div>
+                            HISTORICAL STABILITY & ANALYST PROJECTIONS (ANNUAL)
+                        </h2>
+                    </div>
+    <div class="charts-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
+                            <!-- Chart 1: Revenue & FCF -->
+                            <div class="chart-container">
+                                <h4 style="font-size: 0.9rem; color: var(--text-muted); text-align: center; margin-bottom: 10px;">Revenue & Free Cash Flow (Billions)</h4>
+                                <canvas id="chart-rev-fcf"></canvas>
                             </div>
-
-                            <!-- EPS Estimates -->
-                            <div class="analyst-col tab-content" id="tab-eps"
-                                style="border-right: 1px solid var(--card-border); padding: 0 1rem;">
-                                <h4
-                                    style="font-size: 0.9rem; color: var(--text-muted); text-align: center; margin-bottom: 0.5rem;">
-                                    EPS Estimates</h4>
-                                <table style="width: 100%; border-collapse: collapse; font-size: 0.75rem;"
-                                    id="eps-est-table">
-                                    <thead>
-                                        <tr
-                                            style="color: var(--text-muted); text-align: right; border-bottom: 1px solid var(--card-border);">
-                                            <th style="text-align: left; padding: 0.3rem 0;">Period</th>
-                                            <th style="padding: 0.3rem 0;">Avg</th>
-                                            <th style="padding: 0.3rem 0;">Growth Y/Y</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody></tbody>
-                                </table>
-                            </div>
-
-                            <!-- Revenue Estimates -->
-                            <div class="analyst-col tab-content" id="tab-rev" style="padding-left: 1rem;">
-                                <h4
-                                    style="font-size: 0.9rem; color: var(--text-muted); text-align: center; margin-bottom: 0.5rem;">
-                                    Revenue (B)</h4>
-                                <table style="width: 100%; border-collapse: collapse; font-size: 0.75rem;"
-                                    id="rev-est-table">
-                                    <thead>
-                                        <tr
-                                            style="color: var(--text-muted); text-align: right; border-bottom: 1px solid var(--card-border);">
-                                            <th style="text-align: left; padding: 0.3rem 0;">Period</th>
-                                            <th style="padding: 0.3rem 0;">Avg</th>
-                                            <th style="padding: 0.3rem 0;">Growth Y/Y</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody></tbody>
-                                </table>
+                            <!-- Chart 2: EPS & Shares Outstanding -->
+                            <div class="chart-container">
+                                <h4 style="font-size: 0.9rem; color: var(--text-muted); text-align: center; margin-bottom: 10px;">EPS & Shares Outstanding (Dual Axis)</h4>
+                                <canvas id="chart-eps-shares"></canvas>
                             </div>
                         </div>
                     </div>
