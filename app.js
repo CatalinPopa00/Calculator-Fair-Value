@@ -615,10 +615,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (fcfSource === 'analyst') {
                 const waccInput = document.getElementById('dcf-custom-wacc');
                 const backendWacc = currentFormulaData.dcf.discount_rate_applied / 100;
+                const method = document.getElementById('dcf-method-selector')?.value || 'perpetual';
+                const branch = method === 'multiple' ? dcfData.dcf_exit_multiple : dcfData.dcf_perpetual;
                 
+                // SYNC v62: Use backend branch if no manual overrides affecting calc are present
                 if (buybackRate === 0 && (!waccInput || !waccInput.value) && fcfSource !== 'custom') {
-                    const method = document.getElementById('dcf-method-selector')?.value || 'perpetual';
-                    const branch = method === 'multiple' ? dcfData.dcf_exit_multiple : dcfData.dcf_perpetual;
                     dcfVal = branch ? branch.fair_value_per_share : null;
                 } else {
                     const g = currentFormulaData.dcf.eps_growth_applied || 0.10;
@@ -1199,7 +1200,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Overrides Sync ---
     const overrideInputIds = [
-        'fcf-source', 'dcf-years-source', 'dcf-custom-growth', 'dcf-custom-wacc', 'dcf-custom-perp',
+        'fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple',
+        'dcf-custom-growth', 'dcf-custom-wacc', 'dcf-custom-perp',
         'dcf-buyback-source', 'dcf-custom-buyback', 'relative-variant',
         'lynch-multiple', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth',
         'peg-eps-source', 'peg-custom-growth'
@@ -1394,8 +1396,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const dcfMethodSelector = document.getElementById('dcf-method-selector');
     if (dcfMethodSelector) {
-        dcfMethodSelector.addEventListener('change', (e) => switchDCFMethod(e.target.value));
+        dcfMethodSelector.addEventListener('change', (e) => {
+            switchDCFMethod(e.target.value);
+            saveOverridesDebounced(currentTicker);
+        });
     }
+
+    // UNIVERSAL PERSISTENCE: Attach listeners to ALL override-able components (v62)
+    overrideInputIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('change', () => {
+                updateFairValue();
+                saveOverridesDebounced(currentTicker);
+            });
+            // Also listen for input on number/text fields for immediate feedback
+            if (el.tagName === 'INPUT') {
+                el.addEventListener('input', () => {
+                    updateFairValue();
+                    saveOverridesDebounced(currentTicker);
+                });
+            }
+        }
+    });
+
+    overrideToggleIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('change', () => {
+                updateFairValue();
+                saveOverridesDebounced(currentTicker);
+            });
+        }
+    });
 
     // INITIALIZATION: Default to Perpetual
     switchDCFMethod('perpetual');
