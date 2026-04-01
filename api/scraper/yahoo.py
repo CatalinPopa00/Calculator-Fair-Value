@@ -2367,5 +2367,7 @@ def get_analyst_data(ticker_symbol: str) -> dict:
         }
 
     except Exception as e:
+        import traceback
         print(f"[Analyst] Data fetch failed for {ticker_symbol}: {e}")
+        print(traceback.format_exc())
         return {"ticker": ticker_symbol.upper(), "error": str(e)}
