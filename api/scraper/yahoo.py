@@ -142,20 +142,42 @@ def get_fx_rate(info: dict) -> float:
         
     return 1.0
 
-def get_nasdaq_estimates(ticker: str) -> dict:
-    """ Fetches yearly and quarterly EPS estimates from Nasdaq. """
-    try:
-        url = f'https://api.nasdaq.com/api/analyst/{ticker.upper()}/earnings-forecast'
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        req = urllib.request.Request(url, headers=headers)
-        with urllib.request.urlopen(req, timeout=5) as response:
-            data = json.loads(response.read())
-            yearly = data.get('data', {}).get('yearlyForecast', {}).get('rows', [])
-            quarterly = data.get('data', {}).get('quarterlyForecast', {}).get('rows', [])
-            return {"yearly": yearly, "quarterly": quarterly}
-    except Exception as e:
-        print(f"Error fetching Nasdaq estimates for {ticker}: {e}")
-        return {"yearly": [], "quarterly": []}
+def get_nasdaq_comprehensive_estimates(ticker: str) -> dict:
+    """ Fetches yearly and quarterly EPS AND Revenue estimates from Nasdaq in parallel. """
+    ticker = ticker.upper()
+    cache_key = f"nq_comp_v1_{ticker}"
+    cached = kv_get(cache_key)
+    if cached: return cached
+
+    results = {"yearly_eps": [], "quarterly_eps": [], "yearly_rev": [], "quarterly_rev": []}
+    
+    def fetch_url(url_type):
+        endpoint = "earnings-forecast" if url_type == "eps" else "revenue-forecast"
+        try:
+            url = f'https://api.nasdaq.com/api/analyst/{ticker}/{endpoint}'
+            headers = {'User-Agent': get_random_agent()}
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=3) as response:
+                return json.loads(response.read())
+        except: return None
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        future_eps = executor.submit(fetch_url, "eps")
+        future_rev = executor.submit(fetch_url, "rev")
+        
+        eps_data = future_eps.result()
+        rev_data = future_rev.result()
+        
+        if eps_data:
+            results["yearly_eps"] = eps_data.get('data', {}).get('yearlyForecast', {}).get('rows', [])
+            results["quarterly_eps"] = eps_data.get('data', {}).get('quarterlyForecast', {}).get('rows', [])
+        if rev_data:
+            results["yearly_rev"] = rev_data.get('data', {}).get('yearlyForecast', {}).get('rows', [])
+            results["quarterly_rev"] = rev_data.get('data', {}).get('quarterlyForecast', {}).get('rows', [])
+
+    if results["yearly_eps"] or results["yearly_rev"]:
+        kv_set(cache_key, results, ex=600) # 10 mins cache
+    return results
 
 def get_nasdaq_earnings_growth(ticker: str, trailing_eps: float) -> float:
     """
@@ -165,32 +187,26 @@ def get_nasdaq_earnings_growth(ticker: str, trailing_eps: float) -> float:
     if not trailing_eps or trailing_eps <= 0:
         return None
     try:
-        url = f'https://api.nasdaq.com/api/analyst/{ticker.upper()}/earnings-forecast'
-        req = urllib.request.Request(url, headers={'User-Agent': get_random_agent()})
-        with urllib.request.urlopen(req, timeout=3) as response:
-            raw_data = response.read()
-            data = json.loads(raw_data)
-            
-        rows = data.get('data', { }).get('yearlyForecast', { }).get('rows', [])
-        if rows:
-            # IMPROVED: Start from Trailing EPS (T0) as the base to include "An 1" growth.
-            # This captures the transition from real reporting (Actuals) to forecasts (Estimates).
-            
-            # Use provided trailing_eps as the anchor (T0)
-            base_eps = trailing_eps
-            
-            # Target the 3rd year in the forecast if available (T3), else the furthest available.
-            # N (Years) will be index + 1 (since index 0 is T1, index 1 is T2, index 2 is T3).
-            target_idx = min(len(rows) - 1, 2) # Target up to T3 (rows[2])
-            target_eps = float(rows[target_idx].get('consensusEPSForecast', 0))
-            n_years = target_idx + 1 # Years from T0 to Target
-            
-            # Floor the base at 0.10 if it's positive but tiny to keep CAGR/PEG calculations sane.
-            effective_base = max(base_eps, 0.10) if base_eps > 0 else base_eps
-            
-            if target_eps > 0 and n_years > 0 and effective_base > 0:
-                # CAGR = (End/Start)^(1/Years) - 1
-                return (target_eps / effective_base) ** (1 / n_years) - 1
+        # Optimization: Use the comprehensive fetcher
+        nq_data = get_nasdaq_comprehensive_estimates(ticker)
+        rows = nq_data.get("yearly_eps", [])
+        if not rows: return None
+        
+        # Start from Trailing EPS (T0) as the base
+        base_eps = trailing_eps
+        
+        # Target the 3rd year in the forecast if available (T3), else the furthest available.
+        target_idx = min(len(rows) - 1, 2) # Target up to T3 (rows[2])
+        val_str = rows[target_idx].get('consensusEPSForecast', '0').replace('$', '').replace(',', '')
+        target_eps = float(val_str)
+        n_years = target_idx + 1 # Years from T0 to Target
+        
+        # Floor the base at 0.10 if it's positive but tiny
+        effective_base = max(base_eps, 0.10) if base_eps > 0 else base_eps
+        
+        if target_eps > 0 and n_years > 0 and effective_base > 0:
+            # CAGR = (End/Start)^(1/Years) - 1
+            return (target_eps / effective_base) ** (1 / n_years) - 1
 
     except Exception as e:
         print(f"Error fetching Nasdaq growth for {ticker}: {e}")
@@ -1174,9 +1190,10 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         # 2. Add Projections (Next 2 FYs)
         try:
             if not fast_mode and historical_data["years"] and historical_data["revenue"]:
-                # Use Nasdaq Yearly Estimates if available, otherwise fallback to Yahoo
-                nq_estimates = get_nasdaq_estimates(ticker_symbol)
-                nq_yearly = nq_estimates.get("yearly", [])
+                # Use Nasdaq Comprehensive Estimates
+                nq_estimates = get_nasdaq_comprehensive_estimates(ticker_symbol)
+                nq_yearly_eps = nq_estimates.get("yearly_eps", [])
+                nq_yearly_rev = nq_estimates.get("yearly_rev", [])
                 
                 ee_data = future_est.result(timeout=2) if 'future_est' in locals() else None
                 rf_data = stock.revenue_estimate
@@ -1204,8 +1221,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     eps_est = historical_data["eps"][-1] if historical_data["eps"] else 0
                     
                     # Nasdaq Priority (New)
-                    if len(nq_yearly) >= i:
-                        val_str = nq_yearly[i-1].get('consensusEPSForecast', '').replace('$', '').replace(',', '')
+                    if len(nq_yearly_eps) >= i:
+                        val_str = nq_yearly_eps[i-1].get('consensusEPSForecast', '').replace('$', '').replace(',', '')
                         if val_str:
                              eps_est = float(val_str) * fx_rate
                     # Fallback to Yahoo if Nasdaq failed
@@ -1222,7 +1239,19 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     
                     # --- Revenue Estimate ---
                     rev_est = historical_data["revenue"][-1] # fallback
-                    if rf_data is not None and not rf_data.empty:
+                    
+                    # Nasdaq Priority (New)
+                    if len(nq_yearly_rev) >= i:
+                        val_str = nq_yearly_rev[i-1].get('consensusRevenueForecast', '').replace('$', '').replace(',', '')
+                        if val_str:
+                            # Nasdaq revenue is already in Billions/Millions but string format.
+                            # Scale check similar to Yahoo fallback
+                            val = float(val_str)
+                            if (historical_data["revenue"][-1] or 0) > 1e6 and val < 10000: val *= 1e9
+                            elif (historical_data["revenue"][-1] or 0) > 1e6 and val < 10000000: val *= 1e6
+                            rev_est = val * fx_rate
+                    # Fallback to Yahoo
+                    elif rf_data is not None and not rf_data.empty:
                         row = None
                         if fy_code in rf_data.index: row = rf_data.loc[fy_code]
                         elif (i-1) < len(rf_data): row = rf_data.iloc[i-1]
@@ -1832,26 +1861,28 @@ def get_analyst_data(ticker_symbol: str) -> dict:
         eps_estimates = []
         rev_estimates = []
 
-        # ── EPS Estimates ──────────────────────────────────────────────────
+        # ── EPS & Revenue Estimates ─────────────────────────────────────────
         try:
             # 1. Fetch Nasdaq Estimates for Unitary Balance
-            nq_est = get_nasdaq_estimates(ticker_symbol)
-            nq_yearly = nq_est.get("yearly", [])
-            nq_quarterly = nq_est.get("quarterly", [])
+            nq_est = get_nasdaq_comprehensive_estimates(ticker_symbol)
+            nq_yearly_eps = nq_est.get("yearly_eps", [])
+            nq_quarterly_eps = nq_est.get("quarterly_eps", [])
+            nq_yearly_rev = nq_est.get("yearly_rev", [])
+            nq_quarterly_rev = nq_est.get("quarterly_rev", [])
             
-            # Map Nasdaq Quarters to Tab
-            for q_row in nq_quarterly[:4]:
+            # Map Nasdaq EPS Quarters
+            for q_row in nq_quarterly_eps[:4]:
                  label = q_row.get('fiscalQuarterEnd', 'N/A')
                  val_str = q_row.get('consensusEPSForecast', '').replace('$', '').replace(',', '')
                  if val_str:
                      eps_estimates.append({
                          "period": label,
                          "avg": round(float(val_str), 2),
-                         "growth_yy": None # Nasdaq doesn't provide Y/Y growth directly
+                         "growth_yy": None
                      })
             
-            # Map Nasdaq Years to Tab
-            for y_row in nq_yearly[:2]:
+            # Map Nasdaq EPS Years
+            for y_row in nq_yearly_eps[:2]:
                  label = f"FY {y_row.get('fiscalYearEnd', 'N/A')}"
                  val_str = y_row.get('consensusEPSForecast', '').replace('$', '').replace(',', '')
                  if val_str:
@@ -1860,6 +1891,27 @@ def get_analyst_data(ticker_symbol: str) -> dict:
                          "avg": round(float(val_str), 2),
                          "growth_yy": None
                      })
+
+            # Map Nasdaq Revenue Quarters/Years for the Revenue table
+            for q_row in nq_quarterly_rev[:4]:
+                label = q_row.get('fiscalQuarterEnd', 'N/A')
+                val_str = q_row.get('consensusRevenueForecast', '').replace('$', '').replace(',', '')
+                if val_str:
+                    rev_estimates.append({
+                        "period": label,
+                        "avg": round(float(val_str), 2),
+                        "growth_yy": None
+                    })
+            
+            for y_row in nq_yearly_rev[:2]:
+                label = f"FY {y_row.get('fiscalYearEnd', 'N/A')}"
+                val_str = y_row.get('consensusRevenueForecast', '').replace('$', '').replace(',', '')
+                if val_str:
+                    rev_estimates.append({
+                        "period": label,
+                        "avg": round(float(val_str), 2),
+                        "growth_yy": None
+                    })
 
             # FALLBACK to Yahoo only if Nasdaq results were empty
             if not eps_estimates:
