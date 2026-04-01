@@ -1645,7 +1645,7 @@ document.addEventListener('DOMContentLoaded', () => {
             revBody.innerHTML = revHtml;
         } catch (err) {
             console.error("Analyst inline error:", err);
-            analystCard.style.display = 'none';
+            // analystCard.style.display = 'none';
         }
     };
 
