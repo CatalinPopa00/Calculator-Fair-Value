@@ -1801,38 +1801,35 @@ def get_lightweight_company_data(ticker_symbol: str):
     if cached:
         return cached
 
+    data = None
     try:
-        # v59: MASSIVE SPEED BOOST - Avoid .info for company overview
+        # Use yfinance as it handles Crumbs and Cookies automatically
         stock = yf.Ticker(ticker_symbol)
-        
-        # Use fast_info (C++ backend, <1s) or manually scrape if missing
-        f_info = getattr(stock, 'fast_info', {})
-        
-        # ── Price Scraper (Ultra Fast) ───────────────────────────────────────────
-        # We fetch summary info only - much faster than full profile
-        cur_price = f_info.get('lastPrice') or f_info.get('regularMarketPrice')
-        
-        data = {
-            "ticker": ticker_symbol,
-            "name": ticker_symbol, # Fallback
-            "price": cur_price,
-            "pe_ratio": f_info.get('trailingPE') or f_info.get('forwardPE'),
-            "eps": f_info.get('trailingEps'),
-            "market_cap": f_info.get('marketCap'),
-            "revenue_growth": 0.10, # Defaulting to avoid slow fetch
-            "industry": "Technology",
-            "sector": "Tech"
-        }
-        
-        # Determine scaling (Very fast)
-        fx_rate = 1.0 # Standard
-        # Scale currencies if not USD
-        if fx_rate != 1.0:
-            for k in ["price", "eps", "market_cap"]:
-                if data.get(k): data[k] *= fx_rate
+        info = stock.info
+        if info and info.get('currentPrice'):
+            fx_rate = get_fx_rate(info)
+            data = {
+                "ticker": ticker_symbol,
+                "name": info.get('shortName') or info.get('longName') or ticker_symbol,
+                "price": info.get('currentPrice') or info.get('regularMarketPrice'),
+                "pe_ratio": info.get('trailingPE') or info.get('forwardPE'),
+                "peg_ratio": info.get('pegRatio'),
+                "eps": info.get('trailingEps'),
+                "market_cap": info.get('marketCap'),
+                "ps_ratio": info.get('priceToSalesTrailing12Months') or info.get('priceToSales'),
+                "operating_margin": info.get('operatingMargins') or info.get('profitMargins'),
+                "revenue_growth": info.get('revenueGrowth'),
+                "earnings_growth": info.get('earningsGrowth') or info.get('earningsQuarterlyGrowth'),
+                "industry": info.get('industry'),
+                "sector": info.get('sector')
+            }
+            # Scale currencies if not USD
+            if fx_rate != 1.0:
+                for k in ["price", "eps", "market_cap"]:
+                    if data.get(k): data[k] *= fx_rate
 
     except Exception as e:
-        print(f"yfinance fast fetch failed for {ticker_symbol}: {e}")
+        print(f"yfinance peer fetch failed for {ticker_symbol}: {e}")
 
     # Final Nuclear Fallback: Finnhub
     if not data or not data.get('pe_ratio') or not data.get('revenue_growth'):
@@ -1898,34 +1895,23 @@ def get_analyst_data(ticker_symbol: str) -> dict:
     """
     try:
         from datetime import datetime
-        # v59: Optimization - Avoid expensive stock.info call for analyst data
-        # Fetch comprehensive estimates (which is already parallelized and fast)
-        nq_est = get_nasdaq_comprehensive_estimates(ticker_symbol)
-        
-        # Get basic info for the target price (very fast fallback)
         stock = yf.Ticker(ticker_symbol)
-        
-        # Determine scaling from a lightweight check instead of full .info
-        fx_rate = 1.0 # Default, will scale if using local currencies in future
-        
-        # ── Price Targets (Use fast fast_info if available or fallback) ──────────
-        # We'll use a try-except to get targets without the full 10s info overhead
-        try:
-            info = stock.info
-        except:
-            info = {}
-            
+        info  = stock.info
+        fx_rate = get_fx_rate(info)
+        labels = get_period_labels(info)
+
+        # ── Price Target ─────────────────────────────────────────────────────────
         target_mean  = info.get('targetMeanPrice')
         target_low   = info.get('targetLowPrice')
         target_high  = info.get('targetHighPrice')
         target_median = info.get('targetMedianPrice')
         current_price = info.get('currentPrice') or info.get('regularMarketPrice')
         upside = ((target_mean - current_price) / current_price * 100) if (target_mean and current_price) else None
-        
-        # ── ANALYST REC ──────────────────────────────────────────────────────────
-        rec_key = info.get('recommendationKey', 'hold')
-        rec_mean = info.get('recommendationMean', 3.0)
         num_analysts = info.get('numberOfAnalystOpinions')
+
+        # ── Analyst Recommendation ───────────────────────────────────────────────
+        rec_key = info.get('recommendationKey', '')       # e.g. "buy", "strong_buy"
+        rec_mean = info.get('recommendationMean')          # 1=Strong Buy … 5=Strong Sell
 
         # ── INITIALIZE LISTS ──────────────────────────────────────────────────
         eps_estimates = []
@@ -1960,13 +1946,9 @@ def get_analyst_data(ticker_symbol: str) -> dict:
                      "growth_yy": None
                  })
 
-            # FIX: Ensure historical_data exists for revenue scaling check
-            hist_rev = [0]
-            try:
-                hist_rev = stock.history(period="2y")['Dividends'].tolist() # Dummy fast check or similar if needed
-                # Actually, better: just use a sensible default if we don't have it
-                last_rev = 0
-            except: last_rev = 0
+            # Map Nasdaq Revenue Quarters/Years for the Revenue table
+            hist_rev = historical_data.get("revenue", [0])
+            last_rev = hist_rev[-1] if hist_rev else 0
 
             for q_row in nq_quarterly_rev[:4]:
                 label = q_row.get('fiscalQuarterEnd') or q_row.get('fiscalEnd', 'N/A')
