@@ -142,6 +142,21 @@ def get_fx_rate(info: dict) -> float:
         
     return 1.0
 
+def get_nasdaq_estimates(ticker: str) -> dict:
+    """ Fetches yearly and quarterly EPS estimates from Nasdaq. """
+    try:
+        url = f'https://api.nasdaq.com/api/analyst/{ticker.upper()}/earnings-forecast'
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=5) as response:
+            data = json.loads(response.read())
+            yearly = data.get('data', {}).get('yearlyForecast', {}).get('rows', [])
+            quarterly = data.get('data', {}).get('quarterlyForecast', {}).get('rows', [])
+            return {"yearly": yearly, "quarterly": quarterly}
+    except Exception as e:
+        print(f"Error fetching Nasdaq estimates for {ticker}: {e}")
+        return {"yearly": [], "quarterly": []}
+
 def get_nasdaq_earnings_growth(ticker: str, trailing_eps: float) -> float:
     """
     Fetches multi-year forward earnings growth estimates from Nasdaq.
@@ -285,7 +300,7 @@ def get_period_labels(ticker_info: dict) -> dict:
     
     try:
         if mrq_timestamp:
-            mrq_dt = datetime.fromtimestamp(mrq_timestamp)
+            mrq_dt = datetime.datetime.fromtimestamp(mrq_timestamp)
             # If MRQ is very recent (within 4 months), we assume it's the latest finished.
             # Otherwise, 0y is likely the current year we are in.
             
@@ -555,15 +570,6 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             current_price = anchor_price
             data_source = "yahoo_info_fallback"
 
-        # --- RATIONALITY ANCHOR (Deep Multi-Field Baseline) ---
-        # Logic removed: previously assumed >40% drops were data glitches, causing crashed stocks like ADBE to show 52w highs.
-        # Trust the FastInfo/History price.
-
-        # Resolve name if everything failed but price was found via backups
-        if name == ticker_symbol and current_price:
-             # Basic check to see if we can resolve the name
-             pass
-
         # 0. FX Normalization (Dynamic conversion for ADRs)
         fx_rate = get_fx_rate(info)
 
@@ -651,7 +657,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         # --- GROWTH SELECTION (USER REQUESTED PRIORITY: NASDAQ 3Y) ---
         if nasdaq_growth_3y and nasdaq_growth_3y > 0:
             eps_growth = nasdaq_growth_3y
-            eps_growth_period = "Nasdaq 3Y (incl. T0)"
+            eps_growth_period = "3Y CAGR EPS (Nasdaq)"
         
         # 1. Fallback to YF growth_estimates (Analysis tab - Next 5 Years) if Nasdaq missing
         if eps_growth is None and eps_growth_5y_consensus:
@@ -1168,6 +1174,10 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         # 2. Add Projections (Next 2 FYs)
         try:
             if not fast_mode and historical_data["years"] and historical_data["revenue"]:
+                # Use Nasdaq Yearly Estimates if available, otherwise fallback to Yahoo
+                nq_estimates = get_nasdaq_estimates(ticker_symbol)
+                nq_yearly = nq_estimates.get("yearly", [])
+                
                 ee_data = future_est.result(timeout=2) if 'future_est' in locals() else None
                 rf_data = stock.revenue_estimate
                 
@@ -1192,7 +1202,14 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     
                     # --- EPS Estimate ---
                     eps_est = historical_data["eps"][-1] if historical_data["eps"] else 0
-                    if ee_data is not None and not ee_data.empty:
+                    
+                    # Nasdaq Priority (New)
+                    if len(nq_yearly) >= i:
+                        val_str = nq_yearly[i-1].get('consensusEPSForecast', '').replace('$', '').replace(',', '')
+                        if val_str:
+                             eps_est = float(val_str) * fx_rate
+                    # Fallback to Yahoo if Nasdaq failed
+                    elif ee_data is not None and not ee_data.empty:
                         # Try string index then numeric fallback
                         row = None
                         if fy_code in ee_data.index: row = ee_data.loc[fy_code]
@@ -1781,85 +1798,6 @@ def get_market_averages():
     except Exception as e:
         print(f"Error fetching SPY market average: {e}")
         return {"trailing_pe": 20.0, "forward_pe": 18.0}
-        return {
-            "trailing_pe": 25.0, # Fallback S&P avg
-            "forward_pe": 21.0
-        }
-
-
-def get_period_labels(ticker_info: dict) -> dict:
-    """
-    Returns a mapping from '0q', '+1q', '+2q', '+3q', '0y', '+1y' to human-readable 
-    labels like 'Q1 2026', 'FY 2026' based on fiscal year end.
-    Uses mostRecentQuarter and lastFiscalYearEnd to compute proper fiscal quarters.
-    """
-    from datetime import datetime
-    now = datetime.now()
-    curr_year = now.year
-    
-    mapping = {"+5y": "Next 5 Years"}
-    
-    # Try to use fiscal year data for accurate quarter mapping
-    mrq_ts = ticker_info.get('mostRecentQuarter')
-    lfy_ts = ticker_info.get('lastFiscalYearEnd')
-    
-    if mrq_ts and lfy_ts:
-        try:
-            mrq_dt = datetime.fromtimestamp(mrq_ts)
-            lfy_dt = datetime.fromtimestamp(lfy_ts)
-            fy_end_month = lfy_dt.month
-            fy_start_month = (fy_end_month % 12) + 1  # month right after FY end
-            
-            # Determine which fiscal quarter MRQ belongs to
-            months_offset = (mrq_dt.month - fy_start_month) % 12
-            mrq_fiscal_q = (months_offset // 3) + 1
-            
-            # Determine fiscal year of MRQ
-            if mrq_dt.month <= fy_end_month:
-                mrq_fy = mrq_dt.year
-            else:
-                mrq_fy = mrq_dt.year + 1
-            
-            # 0q = next quarter to report (MRQ + 1)
-            next_q = mrq_fiscal_q + 1
-            next_fy = mrq_fy
-            if next_q > 4:
-                next_q = 1
-                next_fy += 1
-            
-            # Map 0q, +1q, +2q, +3q
-            for i, code in enumerate(['0q', '+1q', '+2q', '+3q']):
-                q = next_q + i
-                fy = next_fy
-                while q > 4:
-                    q -= 4
-                    fy += 1
-                mapping[code] = f"Q{q} {fy}"
-            
-            # FY labels: 0y = current fiscal year being estimated, +1y = next
-            mapping["0y"] = f"FY {next_fy}"
-            mapping["+1y"] = f"FY {next_fy + 1}"
-            
-            return mapping
-        except Exception as e:
-            print(f"[Labels] Fiscal quarter calculation error: {e}")
-    
-    # Fallback: use calendar quarters
-    curr_q = (now.month - 1) // 3 + 1
-    mapping["0q"] = f"Q{curr_q} {curr_year}"
-    mapping["0y"] = f"FY {curr_year}"
-    mapping["+1y"] = f"FY {curr_year + 1}"
-    
-    q_num = curr_q
-    q_year = curr_year
-    for i in range(1, 5):
-        q_num += 1
-        if q_num > 4:
-            q_num = 1
-            q_year += 1
-        mapping[f"+{i}q"] = f"Q{q_num} {q_year}"
-        
-    return mapping
 
 def get_analyst_data(ticker_symbol: str) -> dict:
     """
@@ -1893,6 +1831,49 @@ def get_analyst_data(ticker_symbol: str) -> dict:
         # ── INITIALIZE LISTS ──────────────────────────────────────────────────
         eps_estimates = []
         rev_estimates = []
+
+        # ── EPS Estimates ──────────────────────────────────────────────────
+        try:
+            # 1. Fetch Nasdaq Estimates for Unitary Balance
+            nq_est = get_nasdaq_estimates(ticker_symbol)
+            nq_yearly = nq_est.get("yearly", [])
+            nq_quarterly = nq_est.get("quarterly", [])
+            
+            # Map Nasdaq Quarters to Tab
+            for q_row in nq_quarterly[:4]:
+                 label = q_row.get('fiscalQuarterEnd', 'N/A')
+                 val_str = q_row.get('consensusEPSForecast', '').replace('$', '').replace(',', '')
+                 if val_str:
+                     eps_estimates.append({
+                         "period": label,
+                         "avg": round(float(val_str), 2),
+                         "growth_yy": None # Nasdaq doesn't provide Y/Y growth directly
+                     })
+            
+            # Map Nasdaq Years to Tab
+            for y_row in nq_yearly[:2]:
+                 label = f"FY {y_row.get('fiscalYearEnd', 'N/A')}"
+                 val_str = y_row.get('consensusEPSForecast', '').replace('$', '').replace(',', '')
+                 if val_str:
+                     eps_estimates.append({
+                         "period": label,
+                         "avg": round(float(val_str), 2),
+                         "growth_yy": None
+                     })
+
+            # FALLBACK to Yahoo only if Nasdaq results were empty
+            if not eps_estimates:
+                e_est = stock.earnings_estimate
+                if e_est is not None and not e_est.empty:
+                    for idx, row in e_est.iterrows():
+                        label = labels.get(idx, idx)
+                        eps_estimates.append({
+                            "period": label,
+                            "avg": round(float(row.get('avg', 0)), 2),
+                            "growth_yy": row.get('growth', None)
+                        })
+        except Exception as e:
+            print(f"[Analyst] EPS estimates error: {e}")
 
         # ── Recommendation Counts Fix ──────────────────────────────────────────
         rec_counts = {"strongBuy": 0, "buy": 0, "hold": 0, "sell": 0, "strongSell": 0}
