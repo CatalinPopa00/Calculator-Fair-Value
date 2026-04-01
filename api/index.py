@@ -30,7 +30,7 @@ from .models.scoring import calculate_scoring_reform
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v58"
+CACHE_VERSION = "v59"
 # 1. Initialize FastAPI App (Systemic Recovery Fix)
 app = FastAPI(title="Fair Value Calculator API")
 
@@ -103,7 +103,7 @@ def search(query: str):
 @app.get("/api/analyst/{ticker}")
 def get_analyst(ticker: str):
     ticker_upper = ticker.upper()
-    cache_key = f"analyst_{ticker_upper}_{CACHE_VERSION}"
+    cache_key = f"nq_comp_v2_{ticker_upper}_{CACHE_VERSION}"
     if cache_key in valuation_cache:
         return valuation_cache[cache_key]
     result = get_analyst_data(ticker_upper)
@@ -300,7 +300,7 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False, skip
             peers_data = []
             if peer_task:
                 try:
-                    peers_data = peer_task.result(timeout=10) or []
+                    peers_data = peer_task.result(timeout=7) or []
                 except Exception as e:
                     print(f"DEBUG: Parallel peer fetch failed: {e}")
                     peers_data = []

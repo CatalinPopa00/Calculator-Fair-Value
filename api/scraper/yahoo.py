@@ -145,7 +145,7 @@ def get_fx_rate(info: dict) -> float:
 def get_nasdaq_comprehensive_estimates(ticker: str) -> dict:
     """ Fetches yearly and quarterly EPS AND Revenue estimates from Nasdaq in parallel. """
     ticker = ticker.upper()
-    cache_key = f"nq_comp_v1_{ticker}"
+    cache_key = f"nq_comp_v2_{ticker}"
     cached = kv_get(cache_key)
     if cached: return cached
 
@@ -157,7 +157,7 @@ def get_nasdaq_comprehensive_estimates(ticker: str) -> dict:
             url = f'https://api.nasdaq.com/api/analyst/{ticker}/{endpoint}'
             headers = {'User-Agent': get_random_agent()}
             req = urllib.request.Request(url, headers=headers)
-            with urllib.request.urlopen(req, timeout=3) as response:
+            with urllib.request.urlopen(req, timeout=7) as response:
                 return json.loads(response.read())
         except: return None
 
