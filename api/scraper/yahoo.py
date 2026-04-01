@@ -1529,8 +1529,59 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             "company_overview_synthesis": get_company_synthesis(ticker_symbol, info)
         }
     except Exception as e:
-        print(f"Global Error for {ticker_symbol}: {e}")
-        return None
+        print(f"Error in get_analyst_data for {ticker_symbol}: {e}")
+        return {"error": str(e)}
+
+# --- TICKER SEARCH ENGINE (v59) ---
+MASTER_TICKERS = [
+    {"ticker": "AAPL", "name": "Apple Inc."}, {"ticker": "MSFT", "name": "Microsoft Corp."},
+    {"ticker": "GOOGL", "name": "Alphabet Inc. (Class A)"}, {"ticker": "AMZN", "name": "Amazon.com Inc."},
+    {"ticker": "NVDA", "name": "NVIDIA Corporation"}, {"ticker": "META", "name": "Meta Platforms Inc."},
+    {"ticker": "TSLA", "name": "Tesla Inc."}, {"ticker": "BRK-B", "name": "Berkshire Hathaway Inc."},
+    {"ticker": "UNH", "name": "UnitedHealth Group Inc."}, {"ticker": "V", "name": "Visa Inc."},
+    {"ticker": "JPM", "name": "JPMorgan Chase & Co."}, {"ticker": "LLY", "name": "Eli Lilly and Co."},
+    {"ticker": "XOM", "name": "Exxon Mobil Corp."}, {"ticker": "AVGO", "name": "Broadcom Inc."},
+    {"ticker": "MA", "name": "Mastercard Inc."}, {"ticker": "WMT", "name": "Walmart Inc."},
+    {"ticker": "PG", "name": "Procter & Gamble Co."}, {"ticker": "JNJ", "name": "Johnson & Johnson"},
+    {"ticker": "HD", "name": "Home Depot Inc."}, {"ticker": "COST", "name": "Costco Wholesale Corp."},
+    {"ticker": "ADBE", "name": "Adobe Inc."}, {"ticker": "ORCL", "name": "Oracle Corp."},
+    {"ticker": "AMD", "name": "Advanced Micro Devices"}, {"ticker": "CRM", "name": "Salesforce Inc."},
+    {"ticker": "NFLX", "name": "Netflix Inc."}, {"ticker": "BAC", "name": "Bank of America Corp."},
+    {"ticker": "PEP", "name": "PepsiCo Inc."}, {"ticker": "KO", "name": "Coca-Cola Co."},
+    {"ticker": "CVX", "name": "Chevron Corp."}, {"ticker": "ACN", "name": "Accenture plc"},
+    {"ticker": "TMO", "name": "Thermo Fisher Scientific"}, {"ticker": "ABT", "name": "Abbott Laboratories"},
+    {"ticker": "MRK", "name": "Merck & Co. Inc."}, {"ticker": "DIS", "name": "Walt Disney Co."},
+    {"ticker": "CSCO", "name": "Cisco Systems Inc."}, {"ticker": "DHR", "name": "Danaher Corp."},
+    {"ticker": "WFC", "name": "Wells Fargo & Co."}, {"ticker": "INTC", "name": "Intel Corp."},
+    {"ticker": "INTU", "name": "Intuit Inc."}, {"ticker": "IBM", "name": "IBM Corp."},
+    {"ticker": "QCOM", "name": "Qualcomm Inc."}, {"ticker": "CAT", "name": "Caterpillar Inc."},
+    {"ticker": "AMAT", "name": "Applied Materials Inc."}, {"ticker": "GE", "name": "General Electric Co."},
+    {"ticker": "TXN", "name": "Texas Instruments Inc."}, {"ticker": "PLTR", "name": "Palantir Technologies"},
+    {"ticker": "SMCI", "name": "Super Micro Computer Inc."}, {"ticker": "UBER", "name": "Uber Technologies"},
+    {"ticker": "NKE", "name": "NIKE Inc."}, {"ticker": "SBUX", "name": "Starbucks Corp."}
+]
+
+def ticker_search(q: str):
+    if not q: return []
+    q = q.upper().strip()
+    
+    hits = []
+    # 1. Exact ticker matches
+    for item in MASTER_TICKERS:
+        if item["ticker"] == q:
+            hits.append(item)
+    
+    # 2. Ticker starts with
+    for item in MASTER_TICKERS:
+        if item["ticker"].startswith(q) and item not in hits:
+            hits.append(item)
+            
+    # 3. Name matches
+    for item in MASTER_TICKERS:
+        if q in item["name"].upper() and item not in hits:
+            hits.append(item)
+            
+    return hits[:8]
 
 # --- V41: Persistent Sector Cache ---
 def get_competitors_data(target_ticker, sector=None, industry=None, limit=3, include_growth=True) -> list:

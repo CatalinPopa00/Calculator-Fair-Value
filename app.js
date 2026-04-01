@@ -41,6 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const fetchSuggestions = async (q) => {
         try {
+            // v59: Use relative path for production safety
             const res = await fetch(`/api/search/${encodeURIComponent(q)}`);
             if (res.ok) {
                 const results = await res.json();
@@ -1528,11 +1529,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    const analystCard = document.getElementById('analyst-estimates-card');
-
     const renderAnalystEstimatesInline = async (ticker) => {
+        const analystCard = document.getElementById('analyst-estimates-card');
         if (!ticker || !analystCard) return;
-        analystCard.style.display = 'block';
+        
+        analystCard.style.setProperty('display', 'block', 'important');
         document.getElementById('pt-avg').textContent = '...';
         document.getElementById('rec-status').textContent = '...';
         document.querySelector('#eps-est-table tbody').innerHTML = '';
