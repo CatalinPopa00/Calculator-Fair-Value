@@ -1583,6 +1583,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div style="flex:1; height:4px; background:rgba(255,255,255,0.05); border-radius:2px; overflow:hidden;">
                             <div style="width:${pct}%; height:100%; background:var(--accent);"></div>
                         </div>
+                        <span style="width:15px; text-align:right;">${count}</span>
+                    </div>
+                `;
+            });
+
             if (document.getElementById('rec-key')) {
                 document.getElementById('rec-key').textContent = (rec.key || '...').toUpperCase();
                 document.getElementById('rec-key').style.color = 'var(--accent)';
@@ -1591,38 +1596,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('rec-mean').textContent = rec.mean ? `Score: ${parseFloat(rec.mean).toFixed(2)}` : 'Score: --';
             }
 
-            // 3. Simple Tables
+            // Tables population
             const eBody = document.querySelector('#eps-est-table tbody');
             const rBody = document.querySelector('#rev-est-table tbody');
             if (eBody) eBody.innerHTML = '';
             if (rBody) rBody.innerHTML = '';
 
-            // EPS Loop
             const eItems = data.eps_estimates || [];
-            for (let i = 0; i < Math.min(eItems.length, 8); i++) {
-                const item = eItems[i];
-                if (!item) continue;
+            eItems.slice(0, 8).forEach(item => {
+                if (!item) return;
                 const pLabel = item.period || '--';
                 const aVal = (item.avg != null) ? '$' + parseFloat(item.avg).toFixed(2) : '--';
                 let gVal = '--';
                 if (item.growth != null) gVal = (parseFloat(item.growth) * 100).toFixed(1) + '%';
                 else if (item.surprise_pct != null) gVal = (parseFloat(item.surprise_pct) * 100).toFixed(1) + '% s';
-                
-                const sColor = item.status === 'reported' ? (item.surprise_pct > 0 ? '#4ade80' : '#f87171') : 'inherit';
+                const sColor = item.status === 'reported' ? (item.surprise_pct > 0 ? '#4ade80' : '#f87171') : 'var(--text-main)';
                 if (eBody) eBody.innerHTML += `<tr><td style="padding:4px 0;">${pLabel}</td><td style="text-align:right;">${aVal}</td><td style="text-align:right;color:${sColor};">${gVal}</td></tr>`;
-            }
+            });
 
-            // Rev Loop
             const rItems = data.rev_estimates || [];
-            for (let j = 0; j < Math.min(rItems.length, 8); j++) {
-                const item = rItems[j];
-                if (!item) continue;
+            rItems.slice(0, 8).forEach(item => {
+                if (!item) return;
                 const pLabel = item.period || '--';
                 const aVal = (item.avg != null) ? (parseFloat(item.avg) / 1e9).toFixed(2) + 'B' : '--';
                 const gVal = (item.growth != null) ? (parseFloat(item.growth) * 100).toFixed(1) + '%' : '--';
                 if (rBody) rBody.innerHTML += `<tr><td style="padding:4px 0;">${pLabel}</td><td style="text-align:right;">${aVal}</td><td style="text-align:right;">${gVal}</td></tr>`;
-            }
-
+            });
         } catch (err) {
             console.error("Analyst major error:", err);
         }
