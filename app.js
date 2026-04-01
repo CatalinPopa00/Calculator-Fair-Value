@@ -1546,6 +1546,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch(`/api/analyst/${ticker}`);
             if (!res.ok) throw new Error('API Error');
             const data = await res.json();
+            console.log("ANALYST API DATA RECEIVED:", data);
+
             if (data.error) throw new Error(data.error);
 
             const pt = data.price_target || {};
@@ -1565,78 +1567,49 @@ document.addEventListener('DOMContentLoaded', () => {
             const barsContainer = document.getElementById('rec-bars');
             barsContainer.innerHTML = '';
 
-            const labels = { strongBuy: 'S. Buy', buy: 'Buy', hold: 'Hold', sell: 'Sell', strongSell: 'S. Sell' };
+            const labels = { strongBuy: 'SB', buy: 'B', hold: 'H', sell: 'S', strongSell: 'SS' };
             const fullLabels = { strongBuy: 'STRONG BUY', buy: 'BUY', hold: 'HOLD', sell: 'SELL', strongSell: 'STRONG SELL' };
             
             let topCategory = 'N/A';
             let topCount = -1;
 
-            let barsHtml = '';
             ['strongBuy', 'buy', 'hold', 'sell', 'strongSell'].forEach(k => {
                 const count = counts[k] || 0;
-                if (count > topCount) {
-                    topCount = count;
-                    topCategory = fullLabels[k];
-                }
+                if (count > topCount) { topCount = count; topCategory = fullLabels[k]; }
                 const pct = (count / maxVal) * 100;
-                barsHtml += `
-                    <div class="rec-bar-row">
-                        <span class="rec-bar-label">${labels[k]}</span>
-                        <div class="rec-bar-bg"><div class="rec-bar-fill" style="width: ${pct}%;"></div></div>
-                        <span class="rec-bar-count">${count}</span>
+                barsContainer.innerHTML += `
+                    <div style="display:flex; align-items:center; gap:8px; font-size:0.7rem; color:var(--text-muted); margin-bottom:2px;">
+                        <span style="width:20px;">${labels[k]}</span>
+                        <div style="flex:1; height:4px; background:rgba(255,255,255,0.05); border-radius:2px; overflow:hidden;">
+                            <div style="width:${pct}%; height:100%; background:var(--accent);"></div>
+                        </div>
+                        <span style="width:15px; text-align:right;">${count}</span>
                     </div>
                 `;
             });
-            barsContainer.innerHTML = barsHtml || '<div style="color:var(--text-muted); font-size:0.8em;">No data available</div>';
             
             statusElem.textContent = topCount > 0 ? topCategory : ((rec && rec.key) ? rec.key.replace('_', ' ').toUpperCase() : 'N/A');
             if (document.getElementById('rec-mean')) {
                 document.getElementById('rec-mean').textContent = (rec && rec.mean && typeof rec.mean === 'number') ? `Score: ${rec.mean.toFixed(2)} (1-5)` : 'Score: -- (1-5)';
             }
 
-            const fvScale = (v) => v != null ? `$${v.toFixed(2)}` : '--';
-            const fvPct = (v) => v != null ? `${(v * 100).toFixed(1)}%` : '--';
-            const fvM = (v) => v == null ? '--' : (v / 1e9).toFixed(2);
-
-            // Helper: determine color and display value for a row
-            const getRowDisplay = (row) => {
-                let colorKey = 'var(--text-main)';
-                let finalVal = '--';
-                
-                if (row.status === 'reported') {
-                    // For reported quarters, show surprise or growth
-                    if (row.surprise_pct != null) {
-                        finalVal = (row.surprise_pct * 100).toFixed(1) + '% Surp';
-                        if (row.surprise_pct > 0) colorKey = 'var(--accent)';
-                        else if (row.surprise_pct < 0) colorKey = 'var(--danger)';
-                    } else if (row.growth != null) {
-                        finalVal = (row.growth * 100).toFixed(1) + '% Y/Y';
-                    }
-                } else {
-                    // For estimates, show growth
-                    if (row.growth != null) {
-                        finalVal = (row.growth * 100).toFixed(1) + '% Est';
-                    } else if (row.surprise_pct != null) {
-                         finalVal = (row.surprise_pct * 100).toFixed(1) + '% Est';
-                    }
-                }
-                return { colorKey, finalVal };
-            };
-
+            // Tables population
             const epsBody = document.querySelector('#eps-est-table tbody');
             epsBody.innerHTML = '';
             (data.eps_estimates || []).slice(0, 6).forEach(row => {
-                const { colorKey, finalVal } = getRowDisplay(row);
-                const val = row.avg != null ? '$' + row.avg.toFixed(2) : '--';
-                epsBody.innerHTML += `<tr><td style="padding: 0.4rem 0;">${row.period}</td><td style="text-align: right; font-weight: 600;">${val}</td><td style="text-align: right; color: ${colorKey};">${finalVal}</td></tr>`;
+                const color = row.status === 'reported' ? (row.surprise_pct > 0 ? 'var(--accent)' : 'var(--danger)') : 'var(--text-main)';
+                const val = (row.avg !== null && row.avg !== undefined) ? '$' + parseFloat(row.avg).toFixed(2) : '--';
+                const growth = row.growth ? (row.growth * 100).toFixed(1) + '%' : (row.surprise_pct ? (row.surprise_pct * 100).toFixed(1) + '% Surp' : '--');
+                epsBody.innerHTML += `<tr style="border-bottom:1px solid rgba(255,255,255,0.03);"><td style="padding:4px 0;">${row.period}</td><td style="text-align:right; font-weight:600;">${val}</td><td style="text-align:right; color:${color};">${growth}</td></tr>`;
             });
 
             const revBody = document.querySelector('#rev-est-table tbody');
             revBody.innerHTML = '';
             (data.rev_estimates || []).slice(0, 6).forEach(row => {
-                const { colorKey, finalVal } = getRowDisplay(row);
-                const val = row.avg != null ? (row.avg / 1e9).toFixed(2) + 'B' : (row.raw_avg ? row.raw_avg : '--');
-                revBody.innerHTML += `<tr><td style="padding: 0.4rem 0;">${row.period}</td><td style="text-align: right; font-weight: 600;">${val}</td><td style="text-align: right; color: ${colorKey};">${finalVal}</td></tr>`;
+                const color = row.status === 'reported' ? 'var(--text-muted)' : 'var(--text-main)';
+                const val = (row.avg !== null && row.avg !== undefined) ? (parseFloat(row.avg) / 1e9).toFixed(2) + 'B' : '--';
+                const growth = row.growth ? (row.growth * 100).toFixed(1) + '%' : '--';
+                revBody.innerHTML += `<tr style="border-bottom:1px solid rgba(255,255,255,0.03);"><td style="padding:4px 0;">${row.period}</td><td style="text-align:right; font-weight:600;">${val}</td><td style="text-align:right; color:${color};">${growth}</td></tr>`;
             });
         } catch (err) {
             console.error("Analyst inline error:", err);
