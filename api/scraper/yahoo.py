@@ -2062,7 +2062,7 @@ def get_analyst_data(ticker_symbol: str) -> dict:
                     val = float(eps_act) if eps_act is not None and not (isinstance(eps_act, float) and pd.isna(eps_act)) else None
                     if val is not None:
                         reported_eps.append({
-                            "period": date_str, "avg": val * fx_rate, "status": "reported",
+                            "period": date_str, "period_code": "reported", "avg": val * fx_rate, "status": "reported",
                             "surprise_pct": float(surprise_pct) if surprise_pct is not None and not pd.isna(surprise_pct) else None
                         })
             
@@ -2098,7 +2098,7 @@ def get_analyst_data(ticker_symbol: str) -> dict:
                                 rev_growth = (rev_act - prev_rev) / prev_rev
                     
                     reported_rev.append({
-                        "period": date_str, "avg": rev_act * fx_rate, "status": "reported",
+                        "period": date_str, "period_code": "reported", "avg": rev_act * fx_rate, "status": "reported",
                         "growth": rev_growth,
                         "surprise_pct": None  # will be computed below if estimate data available
                     })

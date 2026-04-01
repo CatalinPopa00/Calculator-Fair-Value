@@ -1612,7 +1612,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 revBody.innerHTML += `<tr style="border-bottom:1px solid rgba(255,255,255,0.03);"><td style="padding:4px 0;">${row.period}</td><td style="text-align:right; font-weight:600;">${val}</td><td style="text-align:right; color:${color};">${growth}</td></tr>`;
             });
         } catch (err) {
-            console.error("Analyst inline error:", err);
+            console.error("Analyst inline error:", err, err.stack);
             // analystCard.style.display = 'none';
         }
     };
