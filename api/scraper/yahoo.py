@@ -2231,7 +2231,6 @@ def get_analyst_data(ticker_symbol: str) -> dict:
                 future_nasdaq = executor.submit(fetch_nasdaq)
                 n_data = future_nasdaq.result()
         
-
         if n_data:
             # Nasdaq EPS Quarters
             q_forecasts = n_data.get('data', {}).get('quarterlyForecast', {}).get('rows', [])
@@ -2240,13 +2239,15 @@ def get_analyst_data(ticker_symbol: str) -> dict:
                 existing = next((e for e in eps_estimates if e.get('period_code') == p_code), None)
                 avg = qf.get('consensusEPSForecast')
                 if avg and avg != "N/A":
-                    avg_val = float(str(avg).replace('$', '').replace(',', ''))
-                    period_lbl = labels.get(p_code, p_code)
-                    if existing:
-                        if not existing.get('avg'): existing['avg'] = avg_val
-                        if existing.get('period') in ['Current Qtr', 'Next Qtr']: existing['period'] = period_lbl
-                    else:
-                        eps_estimates.append({"period": period_lbl, "period_code": p_code, "avg": avg_val, "growth": None, "status": "estimate"})
+                    try:
+                        avg_val = float(str(avg).replace('$', '').replace(',', ''))
+                        period_lbl = labels.get(p_code, p_code)
+                        if existing:
+                            if not existing.get('avg'): existing['avg'] = avg_val
+                            if existing.get('period') in ['Current Qtr', 'Next Qtr']: existing['period'] = period_lbl
+                        else:
+                            eps_estimates.append({"period": period_lbl, "period_code": p_code, "avg": avg_val, "growth": None, "status": "estimate"})
+                    except: pass
             
             # Nasdaq Revenue Quarters
             r_forecasts = n_data.get('data', {}).get('revenueForecast', {}).get('rows', [])
@@ -2255,8 +2256,8 @@ def get_analyst_data(ticker_symbol: str) -> dict:
                 existing = next((e for e in rev_estimates if e.get('period_code') == p_code), None)
                 avg = rf.get('consensusRevenueForecast')
                 if avg and avg != "N/A":
-                    avg_str = str(avg).replace('$', '').replace(',', '').replace('B', '').replace('M', '').strip()
                     try:
+                        avg_str = str(avg).replace('$', '').replace(',', '').replace('B', '').replace('M', '').strip()
                         avg_val = float(avg_str)
                         if 'M' in str(avg): avg_val /= 1000.0
                         period_lbl = labels.get(p_code, p_code)
@@ -2267,99 +2268,63 @@ def get_analyst_data(ticker_symbol: str) -> dict:
                             rev_estimates.append({"period": period_lbl, "period_code": p_code, "avg": avg_val, "growth": None, "status": "estimate"})
                     except: pass
 
-        # ── PADDING QUARTERS ───────────────────────────────────────────
-        # Ensure that +2q and +3q exist even if empty, so the UI aligns
-        for prefix in ['0q', '+1q', '+2q', '+3q']:
-            if not any(e.get('period_code') == prefix for e in eps_estimates):
-                eps_estimates.append({"period": labels.get(prefix, prefix), "period_code": prefix, "avg": None, "growth": None, "status": "estimate"})
-            if not any(r.get('period_code') == prefix for r in rev_estimates):
-                rev_estimates.append({"period": labels.get(prefix, prefix), "period_code": prefix, "avg": None, "growth": None, "status": "estimate"})
-
-        # ── POST-PROCESSING: Combine and Sort ───────────────────────────────────
-        def sort_key(e):
-            code = e.get('period_code', '')
-            order = {"0q": 1, "+1q": 2, "+2q": 3, "+3q": 4, "0y": 5, "+1y": 6}
-            return order.get(code, 99)
-
-        eps_estimates.sort(key=sort_key)
-        rev_estimates.sort(key=sort_key)
-
-        # Use the precisely calculated current fiscal year
+        # ── FINAL ASSEMBLY (6-Row Standard) ────────────────────────────────────
         current_year_str = str(current_fy_num)
-        
-        # 1. Filter and extract current fiscal year quarters
-        def is_current_fy_qtr(item):
-            p = str(item.get('period', ''))
-            # Check for "QX 20XX"
-            match = re.search(r'Q\d (\d{4})', p)
-            if match and match.group(1) == current_year_str:
-                return True
-            # Also accept "0q", "+1q" if label still generic
-            code = item.get('period_code', '')
-            if 'q' in code and 'Est' in p:
-                return True
-            return False
 
-        eps_qtrs = [e for e in eps_estimates if 'q' in e.get('period_code', '') and is_current_fy_qtr(e)]
-        # Exclude reported periods with no match
-        reported_eps_periods = {e.get('period') for e in reported_eps if e.get('period')}
-        eps_qtrs = [e for e in eps_qtrs if e.get('period') not in reported_eps_periods]
-        
-        curr_yr_reported_eps = [e for e in reported_eps if current_year_str in str(e.get('period', ''))]
-        
-        eps_years = [e for e in eps_estimates if 'y' in e.get('period_code', '')][:2]
-        
-        unified_eps = curr_yr_reported_eps + eps_qtrs + eps_years
+        def fill_buckets(buckets, data_sources, target_fy):
+            for source in data_sources:
+                if not source: continue
+                for item in source:
+                    p = str(item.get('period', ''))
+                    q_num = None
+                    yr = None
+                    is_fy = False
+                    q_match = re.search(r'Q(\d)\s+(\d{4})', p)
+                    fy_match = re.search(r'FY\s+(\d{4})', p) or re.search(r'FY\s+[A-Za-z]+\s+(\d{4})', p)
+                    
+                    if q_match:
+                        q_num = int(q_match.group(1)); yr = int(q_match.group(2))
+                    elif fy_match:
+                        # Extract last grouping of digits
+                        digits = re.findall(r'\d{4}', p)
+                        if digits: 
+                            yr = int(digits[-1])
+                            is_fy = True
+                    
+                    if yr == target_fy:
+                        if not is_fy and q_num:
+                            idx = f"Q{q_num}"
+                            if buckets[idx]["avg"] is None: buckets[idx].update(item)
+                        elif is_fy:
+                            if buckets["FY0"]["avg"] is None: buckets["FY0"].update(item)
+                    elif yr == target_fy + 1 and is_fy:
+                        if buckets["FY1"]["avg"] is None: buckets["FY1"].update(item)
 
-        # Revenue
-        rev_qtrs = [e for e in rev_estimates if 'q' in e.get('period_code', '') and is_current_fy_qtr(e)]
-        reported_rev_periods = {e.get('period') for e in reported_rev if e.get('period')}
-        rev_qtrs = [e for e in rev_qtrs if e.get('period') not in reported_rev_periods]
-        
-        curr_yr_reported_rev = [e for e in reported_rev if current_year_str in str(e.get('period', ''))]
-        
-        rev_years = [e for e in rev_estimates if 'y' in e.get('period_code', '')][:2]
-        
-        unified_rev = curr_yr_reported_rev + rev_qtrs + rev_years
-        
-        # ALIGNMENT: Ensure unified_rev perfectly matches unified_eps periods
-        aligned_rev = []
-        rev_dict = {r.get('period'): r for r in unified_rev}
+        eps_buckets = {f"Q{i}": {"period": f"Q{i} {current_fy_num}", "avg": None, "growth": None} for i in range(1, 5)}
+        eps_buckets.update({"FY0": {"period": f"FY {current_fy_num}", "avg": None, "growth": None}, "FY1": {"period": f"FY {current_fy_num + 1}", "avg": None, "growth": None}})
+        rev_buckets = {f"Q{i}": {"period": f"Q{i} {current_fy_num}", "avg": None, "growth": None} for i in range(1, 5)}
+        rev_buckets.update({"FY0": {"period": f"FY {current_fy_num}", "avg": None, "growth": None}, "FY1": {"period": f"FY {current_fy_num + 1}", "avg": None, "growth": None}})
+
+        fill_buckets(eps_buckets, [reported_eps, eps_estimates], current_fy_num)
+        fill_buckets(rev_buckets, [reported_rev, rev_estimates], current_fy_num)
+
+        unified_eps = []; unified_rev = []
+        for k in ["Q1", "Q2", "Q3", "Q4", "FY0", "FY1"]:
+            e = eps_buckets[k]; r = rev_buckets[k]
+            # Force standard labels
+            if k.startswith("Q"): label = f"{k} {current_fy_num}"
+            elif k == "FY0": label = f"FY {current_fy_num}"
+            else: label = f"FY {current_fy_num + 1}"
+            e["period"] = label; r["period"] = label
+            unified_eps.append(e); unified_rev.append(r)
+
+        # Count reported items for FY highlights
+        reported_eps_count = len([x for x in reported_eps if current_year_str in str(x.get('period'))])
+        reported_rev_count = len([x for x in reported_rev if current_year_str in str(x.get('period'))])
         for e in unified_eps:
-            p = e.get('period')
-            if p in rev_dict:
-                aligned_rev.append(rev_dict[p])
-            else:
-                # Missing in rev, pad it
-                aligned_rev.append({
-                    "period": p,
-                    "period_code": e.get('period_code'),
-                    "avg": None,
-                    "growth": None,
-                    "status": e.get('status', 'estimate'),
-                    "surprise_pct": None
-                })
-        unified_rev = aligned_rev
-        
-        # Add reported_count to FY rows so frontend knows when to color them
-        reported_eps_count = len(curr_yr_reported_eps)
-        reported_rev_count = len([x for x in curr_yr_reported_rev if x.get('avg') is not None])
-        
-        for e in unified_eps:
-            if e.get('period_code') in ('0y', '+1y') or (e.get('period', '').startswith('FY')):
-                fy_yr = re.search(r'\d{4}', str(e.get('period', '')))
-                if fy_yr and fy_yr.group(0) == current_year_str:
-                    e['reported_count'] = reported_eps_count
-                else:
-                    e['reported_count'] = 0
-        
+             if "FY" in str(e["period"]) and current_year_str in str(e["period"]): e['reported_count'] = reported_eps_count
         for r in unified_rev:
-            if r.get('period_code') in ('0y', '+1y') or (r.get('period', '').startswith('FY')):
-                fy_yr = re.search(r'\d{4}', str(r.get('period', '')))
-                if fy_yr and fy_yr.group(0) == current_year_str:
-                    r['reported_count'] = reported_rev_count
-                else:
-                    r['reported_count'] = 0
+             if "FY" in str(r["period"]) and current_year_str in str(r["period"]): r['reported_count'] = reported_rev_count
 
         # ── EPS growth from estimates ─────────────────────────────────────────────
         # Smart selection: pick the healthiest forward year
