@@ -2254,28 +2254,54 @@ def get_analyst_data(ticker_symbol: str) -> dict:
             for i, rf in enumerate(r_forecasts[:4]):
                 p_code = "0q" if i == 0 else f"+{i}q"
                 existing = next((e for e in rev_estimates if e.get('period_code') == p_code), None)
-                avg = rf.get('consensusRevenueForecast')
-                if avg and avg != "N/A":
-                    try:
-                        avg_str = str(avg).replace('$', '').replace(',', '').replace('B', '').replace('M', '').strip()
-                        avg_val = float(avg_str)
-                        if 'M' in str(avg): avg_val /= 1000.0
-                        period_lbl = labels.get(p_code, p_code)
-                        if existing:
-                            if not existing.get('avg'): existing['avg'] = avg_val
-                            if existing.get('period') in ['Current Qtr', 'Next Qtr']: existing['period'] = period_lbl
-                        else:
-                            rev_estimates.append({"period": period_lbl, "period_code": p_code, "avg": avg_val, "growth": None, "status": "estimate"})
-                    except: pass
+                       # ── HISTORY MAPPING (for Y/Y Growth) ──────────────────────────────────
+        history_eps = {}
+        history_rev = {}
+        try:
+            # EPS History
+            if stock.earnings_history is not None and not stock.earnings_history.empty:
+                for date_idx, row in stock.earnings_history.iterrows():
+                    lbl = to_fiscal_label(date_idx)
+                    if lbl and not pd.isna(row.get('epsActual')):
+                        history_eps[lbl] = float(row.get('epsActual'))
+            
+            # Revenue History (Quarterly)
+            qf = stock.quarterly_financials
+            if qf is not None and not qf.empty and "Total Revenue" in qf.index:
+                rev_row = qf.loc["Total Revenue"]
+                for date_idx, val in rev_row.items():
+                    lbl = to_fiscal_label(date_idx)
+                    if lbl and val is not None and not pd.isna(val):
+                        history_rev[lbl] = float(val) / fx_rate # Adjust if stmt in different currency
+            
+            # Annual History (for FY growth)
+            af = stock.financials
+            if af is not None and not af.empty and "Total Revenue" in af.index:
+                # Store annual rev by FY label
+                rev_row = af.loc["Total Revenue"]
+                for date_idx, val in rev_row.items():
+                    # Standardize: last day of month X 20XX
+                    fy_lbl = f"FY {date_idx.year if date_idx.month > fy_end_month else date_idx.year}"
+                    if val is not None and not pd.isna(val) and fy_lbl not in history_rev:
+                        history_rev[fy_lbl] = float(val) / fx_rate
+            
+            # Annual EPS from income statement (using Net Income / Shares or Diluted EPS)
+            if af is not None and not af.empty and "Diluted EPS" in af.index:
+                eps_row = af.loc["Diluted EPS"]
+                for date_idx, val in eps_row.items():
+                    fy_lbl = f"FY {date_idx.year if date_idx.month > fy_end_month else date_idx.year}"
+                    if val is not None and not pd.isna(val):
+                        history_eps[fy_lbl] = float(val)
+        except Exception as he:
+            print(f"[Analyst] History mapping error: {he}")
 
         # ── FINAL ASSEMBLY (6-Row Standard) ────────────────────────────────────
         current_year_str = str(current_fy_num)
         # Calculate exactly which quarter we are in now (1-4)
         now_dt = datetime.datetime.now()
-        lfy_yr = now_dt.year if now_dt.month > fy_end_month else now_dt.year - 1
-        months_since_fye = (now_dt.year - lfy_yr) * 12 + now_dt.month - fy_end_month
+        l_fy_yr = now_dt.year if now_dt.month > fy_end_month else now_dt.year - 1
+        months_since_fye = (now_dt.year - l_fy_yr) * 12 + now_dt.month - fy_end_month
         this_q = ((months_since_fye - 1) // 3) + 1
-        # Defensive check
         if this_q < 1: this_q = 1
         if this_q > 4: this_q = 4
 
@@ -2288,22 +2314,17 @@ def get_analyst_data(ticker_symbol: str) -> dict:
                     q_num = None
                     yr = None
                     is_fy = False
-                    
                     q_match = re.search(r'Q(\d)\s+(\d{4})', p)
                     fy_match = re.search(r'FY\s+(\d{4})', p) or re.search(r'FY\s+[A-Za-z]+\s+(\d{4})', p)
-                    
                     if q_match:
                         q_num = int(q_match.group(1)); yr = int(q_match.group(2))
                     elif fy_match:
                         digits = re.findall(r'\d{4}', p); yr = int(digits[-1]) if digits else None; is_fy = True
                     elif 'q' in code:
-                        # Map relative 0q, +1q etc.
                         try:
                             rel_idx = int(code.replace('q', '').replace('+', ''))
                             q_num = ((this_q + rel_idx - 1) % 4) + 1
-                            # Simplified: assume current relative sequence stays in target FY 
-                            # (except for wraps which we ignore for qtr-display-symmetry)
-                            yr = target_fy
+                            yr = target_fy if (this_q + rel_idx) <= 4 else target_fy
                         except: pass
                     elif 'y' in code:
                         try:
@@ -2314,7 +2335,6 @@ def get_analyst_data(ticker_symbol: str) -> dict:
                     if yr == target_fy:
                         if not is_fy and q_num:
                             idx = f"Q{q_num}"
-                            # Favor reported data over estimates
                             if buckets[idx]["avg"] is None or item.get('status') == 'reported':
                                 buckets[idx].update({k: v for k, v in item.items() if v is not None})
                         elif is_fy:
@@ -2330,66 +2350,61 @@ def get_analyst_data(ticker_symbol: str) -> dict:
         eps_buckets = {f"Q{i}": {"period": f"Q{i} {current_fy_num}", "avg": None, "growth": None, "status": "estimate"} for i in range(1, 5)}
         eps_buckets.update({"FY0": {"period": f"FY {current_fy_num}", "avg": None, "growth": None, "reported_count": reported_eps_count}, 
                             "FY1": {"period": f"FY {current_fy_num + 1}", "avg": None, "growth": None}})
-        
         rev_buckets = {f"Q{i}": {"period": f"Q{i} {current_fy_num}", "avg": None, "growth": None, "status": "estimate"} for i in range(1, 5)}
         rev_buckets.update({"FY0": {"period": f"FY {current_fy_num}", "avg": None, "growth": None, "reported_count": reported_rev_count}, 
                             "FY1": {"period": f"FY {current_fy_num + 1}", "avg": None, "growth": None}})
 
-        # Fill: Combine all eps and revenue sources
-        all_eps = reported_eps + eps_estimates
-        all_rev = reported_rev + rev_estimates
-
-        fill_buckets(eps_buckets, [all_eps], current_fy_num)
-        fill_buckets(rev_buckets, [all_rev], current_fy_num)
+        fill_buckets(eps_buckets, [reported_eps + eps_estimates], current_fy_num)
+        fill_buckets(rev_buckets, [reported_rev + rev_estimates], current_fy_num)
 
         unified_eps = []; unified_rev = []
         for k in ["Q1", "Q2", "Q3", "Q4", "FY0", "FY1"]:
             e = eps_buckets[k]; r = rev_buckets[k]
-            # Force labels
-            if k.startswith("Q"): label = f"{k} {current_fy_num}"
-            elif k == "FY0": label = f"FY {current_fy_num}"
-            else: label = f"FY {current_fy_num + 1}"
-            e["period"] = label; r["period"] = label
+            if k.startswith("Q"):
+                current_lbl = f"{k} {current_fy_num}"
+                prev_lbl = f"{k} {current_fy_num - 1}"
+            elif k == "FY0":
+                current_lbl = f"FY {current_fy_num}"
+                prev_lbl = f"FY {current_fy_num - 1}"
+            else:
+                current_lbl = f"FY {current_fy_num + 1}"
+                prev_lbl = f"FY {current_fy_num}"
+            
+            # Y/Y Growth
+            if e.get("growth") is None and e.get("avg") is not None:
+                past_val = history_eps.get(prev_lbl)
+                if past_val and past_val != 0: e["growth"] = (e["avg"] / past_val) - 1
+            if r.get("growth") is None and r.get("avg") is not None:
+                past_val = history_rev.get(prev_lbl)
+                if past_val and past_val != 0: r["growth"] = (r["avg"] / past_val) - 1
+            
+            e["period"] = current_lbl; r["period"] = current_lbl
             unified_eps.append(e); unified_rev.append(r)
 
         # ── EPS growth from estimates ─────────────────────────────────────────────
-        # Smart selection: pick the healthiest forward year
         eps_forward_growth = info.get('earningsGrowth', 0.10)
-        
-        # New: 5 year analyst consensus from "Analysis" tab (via yfinance.growth_estimates)
         eps_growth_5y_consensus = None
         try:
             ge = stock.growth_estimates
             if ge is not None and not ge.empty:
-                # Some companies use 'LTG' (Long Term Growth) instead of 'Next 5 Years'
                 target_labels = ['Next 5 Years', 'LTG']
                 val = None
                 for lbl in target_labels:
                     if lbl in ge.index:
                         val = ge.loc[lbl, ge.columns[0]]
-                        if val is not None and not pd.isna(val):
-                            break
-                            
+                        if val is not None and not pd.isna(val): break
                 if val is not None and not pd.isna(val):
                     eps_growth_5y_consensus = float(val)
-        except:
-            pass
+        except: pass
 
-        g_0y = None
-        g_1y = None
-        if eps_estimates:
-            for est in eps_estimates:
-                if est.get('period_code') == '0y': g_0y = est.get('growth')
-                if est.get('period_code') == '+1y': g_1y = est.get('growth')
+        g_0y = None; g_1y = None
+        for est in eps_estimates:
+            if est.get('period_code') == '0y': g_0y = est.get('growth')
+            if est.get('period_code') == '+1y': g_1y = est.get('growth')
         
-        # Logic: If 0y is positive and stable (>2%), prioritize it.
-        # Otherwise (if negative like Uber's -28% or very low), use +1y.
-        if g_0y is not None and g_0y > 0.02:
-            eps_forward_growth = g_0y
-        elif g_1y is not None:
-            eps_forward_growth = g_1y
-        elif g_0y is not None:
-            eps_forward_growth = g_0y
+        if g_0y is not None and g_0y > 0.02: eps_forward_growth = g_0y
+        elif g_1y is not None: eps_forward_growth = g_1y
+        elif g_0y is not None: eps_forward_growth = g_0y
 
         return {
             "ticker": ticker_symbol.upper(),

@@ -1602,6 +1602,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (eBody) eBody.innerHTML = '';
             if (rBody) rBody.innerHTML = '';
 
+            const getColor = (item) => {
+                const val = (item.growth != null) ? item.growth : (item.surprise_pct || 0);
+                if (val > 0) return '#4ade80'; // accent green
+                if (val < 0) return '#f87171'; // danger red
+                return 'var(--text-main)';
+            };
+
             const eItems = data.eps_estimates || [];
             eItems.slice(0, 8).forEach(item => {
                 if (!item) return;
@@ -1610,8 +1617,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 let gVal = '--';
                 if (item.growth != null) gVal = (parseFloat(item.growth) * 100).toFixed(1) + '%';
                 else if (item.surprise_pct != null) gVal = (parseFloat(item.surprise_pct) * 100).toFixed(1) + '% s';
-                const sColor = item.status === 'reported' ? (item.surprise_pct > 0 ? '#4ade80' : '#f87171') : 'var(--text-main)';
-                if (eBody) eBody.innerHTML += `<tr><td style="padding:4px 0;">${pLabel}</td><td style="text-align:right;">${aVal}</td><td style="text-align:right;color:${sColor};">${gVal}</td></tr>`;
+                
+                const sColor = getColor(item);
+                const weight = item.status === 'reported' ? 'bold' : 'normal';
+                if (eBody) eBody.innerHTML += `<tr><td style="padding:4px 0;${item.status === 'reported' ? 'color:var(--accent);' : ''}">${pLabel}</td><td style="text-align:right;">${aVal}</td><td style="text-align:right;color:${sColor};font-weight:${weight};">${gVal}</td></tr>`;
             });
 
             const rItems = data.rev_estimates || [];
@@ -1620,7 +1629,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const pLabel = item.period || '--';
                 const aVal = (item.avg != null) ? (parseFloat(item.avg) / 1e9).toFixed(2) + 'B' : '--';
                 const gVal = (item.growth != null) ? (parseFloat(item.growth) * 100).toFixed(1) + '%' : '--';
-                if (rBody) rBody.innerHTML += `<tr><td style="padding:4px 0;">${pLabel}</td><td style="text-align:right;">${aVal}</td><td style="text-align:right;">${gVal}</td></tr>`;
+                
+                const sColor = getColor(item);
+                const weight = item.status === 'reported' ? 'bold' : 'normal';
+                if (rBody) rBody.innerHTML += `<tr><td style="padding:4px 0;${item.status === 'reported' ? 'color:var(--accent);' : ''}">${pLabel}</td><td style="text-align:right;">${aVal}</td><td style="text-align:right;color:${sColor};font-weight:${weight};">${gVal}</td></tr>`;
             });
         } catch (err) {
             console.error("Analyst major error:", err);
