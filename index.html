@@ -5,657 +5,238 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Babi Calculator v23</title>
-
-    <!-- PWA & iOS Home Screen Settings -->
     <link rel="manifest" href="manifest.json">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Babi Calculator-inatorul">
     <link rel="icon" type="image/png" href="icon.png">
-    <link rel="apple-touch-icon" href="icon.png">
-
-    <!-- Modern Font: Outfit -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=17">
-    <!-- Chart.js for Historical Analysis -->
+    <link rel="stylesheet" href="style.css?v=59">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
     <div class="app-container">
-        <!-- Header / Search Section -->
+        <!-- HEADER -->
         <header class="header">
             <div class="logo" id="logo-btn" title="Go to Dashboard" style="cursor: pointer;">
                 <h1>Babi Calculator-<span>inatorul</span></h1>
             </div>
-
             <div class="search-container">
                 <div class="autocomplete-wrapper">
-                    <input type="text" id="ticker-input" placeholder="Enter Ticker or Company Name..."
-                        autocomplete="off">
+                    <input type="text" id="ticker-input" placeholder="Enter Ticker or Company Name..." autocomplete="off">
                     <div id="autocomplete-list" class="autocomplete-dropdown"></div>
                 </div>
                 <button id="search-btn">Analyze</button>
             </div>
-
-            <button id="nav-watchlist-btn">
-                ★ Watchlist
-            </button>
+            <button id="nav-watchlist-btn">★ Watchlist</button>
         </header>
 
-        <!-- Main Dashboard Content (Hidden initially until search) -->
+        <!-- DASHBOARD -->
         <main class="dashboard" id="dashboard" style="display: none;">
-
-            <!-- Top Hero Section -> Fair Value Box -->
-            <section class="hero-section">
-                <!-- ROW 1: 2 Columns (50/50 split) -->
-                <section class="hero-layout">
-                    <!-- Column 1: Identity & Fair Value -->
-                    <div class="hero-left-col">
-                        <div class="company-header glass-card"
-                            style="display: flex; flex-direction: column; align-items: center; text-align: center;">
-                            <div class="name-watchlist-row"
-                                style="display: flex; justify-content: center; align-items: center; width: 100%; gap: 10px;">
-                                <h2 style="margin: 0;"><span id="company-name">Loading...</span> <span class="ticker"
-                                        id="company-ticker"></span></h2>
-                                <button id="add-to-watchlist-btn" class="star-btn" title="Toggle Watchlist">☆</button>
-                            </div>
-                            <div class="price-display" style="align-items: center; margin-top: 10px;">
+            
+            <!-- HERO SECTION: Identity & Fair Value -->
+            <section class="hero-section" style="margin-bottom: 2rem;">
+                <div class="hero-layout" style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+                    <div class="hero-left-col" style="display: flex; flex-direction: column; gap: 24px;">
+                        <div class="company-header glass-card" style="text-align: center; padding: 1.5rem;">
+                            <h2 style="margin: 0;"><span id="company-name">Loading...</span> <span id="company-ticker" style="color: var(--primary);"></span></h2>
+                            <button id="add-to-watchlist-btn" class="star-btn">☆</button>
+                            <div class="price-display" style="margin-top: 10px;">
                                 <span class="label">Current Price</span>
-                                <span class="value" id="current-price">$0.00</span>
+                                <div class="value" id="current-price">$0.00</div>
                             </div>
                         </div>
-
-                        <div class="fair-value-box glass-card accent-card" style="height: 100%;">
+                        <div class="fair-value-box glass-card accent-card">
                             <span class="label">Estimated Fair Value</span>
-                            <!-- The ID is moved inside a span so we can color JUST the text or keep it neutral -->
-                            <div class="value" style="color: white;" id="fair-value">$0.00</div>
-                            <div class="margin-safety" id="margin-safety">0% Margin of Safety</div>
+                            <div class="value" id="fair-value">$0.00</div>
+                            <div id="margin-safety" class="margin-safety">0% Margin of Safety</div>
                         </div>
                     </div>
+                    <div class="company-profile-box glass-card" style="padding: 1.5rem;">
+                        <h3 style="margin-bottom: 1rem; color: var(--text-main); font-size: 1.1rem;">Profile & Metrics</h3>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.95rem;">
+                            <tbody id="profile-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
 
-                    <!-- Column 2: Profile & Metrics -->
-                    <div class="company-profile-box glass-card" style="padding: 1.5rem; height: 100%;">
-                        <h3 style="margin-bottom: 1rem; color: var(--text-main); font-size: 1.1rem;">Profile & Metrics
-                        </h3>
-                        <div class="profile-table-wrapper">
-                            <!-- Increased padding via inline styles or CSS -->
-                            <table style="width: 100%; border-collapse: collapse; font-size: 0.95rem;">
-                                <tbody id="profile-body">
-                                    <!-- Injected via JS -->
-                                </tbody>
+            <!-- ANALYST ESTIMATES SECTION -->
+            <section class="analyst-estimates-section" style="margin-bottom: 2rem;">
+                <div id="analyst-estimates-card" class="glass-card" style="padding: 1.5rem; border: 1px solid rgba(56, 189, 248, 0.3);">
+                    <h3 style="margin-bottom: 1.5rem; color: var(--text-main); font-size: 1.2rem; text-align: center; text-transform: uppercase;">Analyst Projections & Targets</h3>
+                    <div class="analyst-grid-layout" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem;">
+                        <!-- Col 1: PT -->
+                        <div id="tab-pt" style="border-right: 1px solid var(--card-border); padding-right: 10px; text-align: center;">
+                            <span class="label">Price Target (AVG)</span>
+                            <div id="pt-avg" style="font-size: 1.8rem; font-weight: 800; color: var(--accent); margin: 5px 0;">--</div>
+                            <div id="pt-upside" style="font-weight: 700;">--</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 10px; border-top: 1px solid var(--card-border); padding-top: 5px;">
+                                L: <span id="pt-low" style="color: white;">--</span> | H: <span id="pt-high" style="color: white;">--</span>
+                            </div>
+                        </div>
+                        <!-- Col 2: REC -->
+                        <div id="tab-rec" style="border-right: 1px solid var(--card-border); padding-right: 10px; text-align: center;">
+                            <span class="label">Consensus</span>
+                            <div id="rec-status" style="font-size: 1.1rem; font-weight: 800; color: var(--primary); margin: 5px 0; text-transform: uppercase;">--</div>
+                            <div id="rec-mean" style="font-size: 0.7rem; color: var(--text-muted);">Score: --</div>
+                            <div id="rec-bars" style="margin-top: 8px; display: flex; flex-direction: column; gap: 3px; text-align: left;"></div>
+                        </div>
+                        <!-- Col 3: EPS -->
+                        <div id="tab-eps" style="border-right: 1px solid var(--card-border); padding-right: 10px;">
+                            <h4 style="font-size: 0.85rem; color: var(--text-muted); text-align: center; margin-bottom: 5px;">EPS Est.</h4>
+                            <table id="eps-est-table" style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
+                                <thead><tr style="color: var(--text-muted); border-bottom: 1px solid var(--card-border);"><th style="text-align: left;">Period</th><th style="text-align: right;">Avg</th><th style="text-align: right;">Y/Y</th></tr></thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                        <!-- Col 4: REV -->
+                        <div id="tab-rev">
+                            <h4 style="font-size: 0.85rem; color: var(--text-muted); text-align: center; margin-bottom: 5px;">Revenue (B)</h4>
+                            <table id="rev-est-table" style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
+                                <thead><tr style="color: var(--text-muted); border-bottom: 1px solid var(--card-border);"><th style="text-align: left;">Period</th><th style="text-align: right;">Avg</th><th style="text-align: right;">Y/Y</th></tr></thead>
+                                <tbody></tbody>
                             </table>
                         </div>
                     </div>
-                </section>
+                </div>
+            </section>
 
-                <!-- Analyst Estimates Card (REPOSITIONED & FORCED VISIBLE) -->
-                <section class="analyst-estimates-section" style="margin-top: 1.5rem; margin-bottom: 24px;">
-                    <div id="analyst-estimates-card" class="glass-card" style="padding: 1.5rem; display: block; border: 1px solid rgba(56, 189, 248, 0.4);">
-                        <h3 style="margin-bottom: 1.5rem; color: var(--text-main); font-size: 1.2rem; text-align: center; text-transform: uppercase;">Analyst Projections</h3>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2rem;">
-                            <!-- Targets -->
-                            <div style="border-right: 1px solid var(--card-border); padding-right: 1.5rem;">
-                                <div style="text-align: center; margin-bottom: 1.5rem;">
-                                    <span class="label">Price Target (AVG)</span>
-                                    <div id="pt-avg" class="value" style="font-size: 2.2rem; margin: 0.3rem 0; color: var(--accent);">...</div>
-                                    <div id="pt-upside" style="font-weight: bold; font-size: 1.1rem;">...</div>
-                                    <div style="display: flex; justify-content: center; gap: 1rem; margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-muted);">
-                                        <span>Low: <b id="pt-low" style="color: var(--text-main);">...</b></span>
-                                        <span>High: <b id="pt-high" style="color: var(--text-main);">...</b></span>
-                                    </div>
-                                </div>
-                                <div style="text-align: center;">
-                                    <span class="label" style="display: block; margin-bottom: 0.5rem;">Consensus</span>
-                                    <div id="rec-status" style="font-size: 1.4rem; font-weight: 800; color: var(--primary); margin-bottom: 0.2rem;">...</div>
-                                    <div id="rec-mean" style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Score: ...</div>
-                                    <div id="rec-bars" style="display: flex; flex-direction: column; gap: 0.3rem; text-align: left;"></div>
-                                </div>
+            <!-- SCORES SECTION -->
+            <section class="row-2-card glass-card" style="margin-bottom: 2rem; padding: 1.5rem;">
+                <h3 style="text-align: center; margin-bottom: 1.5rem; text-transform: uppercase;">Company Scores & Key Drivers</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                    <div class="scores-column" style="display: flex; flex-direction: column; gap: 1.2rem;">
+                        <div id="health-score-row" style="cursor: pointer;">
+                            <span class="label">Health Score</span>
+                            <div class="score-display">
+                                <div class="score-circle" id="health-score-circle">--</div>
+                                <div class="score-bar-wrapper"><div class="score-bar-fill" id="health-score-fill"></div></div>
                             </div>
-                            <!-- EPS -->
-                            <div style="border-right: 1px solid var(--card-border); padding: 0 1rem;">
-                                <h4 style="font-size: 0.9rem; color: var(--text-muted); text-align: center; margin-bottom: 0.5rem;">EPS Forecasts</h4>
-                                <table id="eps-est-table" style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
-                                    <thead><tr style="color: var(--text-muted); text-align: right; border-bottom: 1px solid var(--card-border);">
-                                        <th style="text-align: left; padding: 0.3rem 0;">Period</th>
-                                        <th style="padding: 0.3rem 0;">Avg</th>
-                                        <th style="padding: 0.3rem 0;">Y/Y</th>
-                                    </tr></thead>
-                                    <tbody></tbody>
-                                </table>
-                            </div>
-                            <!-- Revenue -->
-                            <div style="padding-left: 1rem;">
-                                <h4 style="font-size: 0.9rem; color: var(--text-muted); text-align: center; margin-bottom: 0.5rem;">Revenue (B)</h4>
-                                <table id="rev-est-table" style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
-                                    <thead><tr style="color: var(--text-muted); text-align: right; border-bottom: 1px solid var(--card-border);">
-                                        <th style="text-align: left; padding: 0.3rem 0;">Period</th>
-                                        <th style="padding: 0.3rem 0;">Avg</th>
-                                        <th style="padding: 0.3rem 0;">Y/Y</th>
-                                    </tr></thead>
-                                    <tbody></tbody>
-                                </table>
+                        </div>
+                        <div id="buy-score-row" style="cursor: pointer;">
+                            <span class="label">Buy Score</span>
+                            <div class="score-display">
+                                <div class="score-circle" id="buy-score-circle">--</div>
+                                <div class="score-bar-wrapper"><div class="score-bar-fill" id="buy-score-fill"></div></div>
                             </div>
                         </div>
                     </div>
-                </section>
-
-                <!-- ROW 2: Unified Company Scores & Key Drivers (100% width) -->
-                <section class="row-2-card glass-card tooltip-container"
-                    style="margin-top: 1.5rem; width: 100%; position: relative;">
-                    <!-- Modal Info Icon Removed per User Request -->
-
-                    <h3 style="margin-bottom: 1.5rem; color: var(--text-main); font-size: 1.2rem; text-align: center;">
-                        COMPANY SCORES & KEY DRIVERS</h3>
-
-                    <div class="row-2-grid">
-                        <!-- Left 50%: Scores -->
-                        <div class="scores-column">
-                            <div class="score-row" id="health-score-row" style="margin-bottom: 1rem; cursor: pointer;"
-                                title="Click to see Health Score details">
-                                <span class="label"
-                                    style="display: block; margin-bottom: 0.3rem; font-weight: 500; font-size: 0.85rem;">Company
-                                    Health Score</span>
-                                <div class="score-display">
-                                    <div class="score-circle" id="health-score-circle">N/A</div>
-                                    <div class="score-bar-wrapper">
-                                        <div class="score-bar-fill" id="health-score-fill"></div>
-                                    </div>
-                                    <div class="score-max"
-                                        style="margin-left: 10px; color: var(--text-muted); font-size: 0.8rem;">/ 100
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="score-row" id="buy-score-row" style="cursor: pointer;"
-                                title="Click to see Buy Score details">
-                                <span class="label"
-                                    style="display: block; margin-bottom: 0.3rem; font-weight: 500; font-size: 0.85rem;">Good
-                                    to Buy Score</span>
-                                <div class="score-display">
-                                    <div class="score-circle" id="buy-score-circle">N/A</div>
-                                    <div class="score-bar-wrapper">
-                                        <div class="score-bar-fill" id="buy-score-fill"></div>
-                                    </div>
-                                    <div class="score-max"
-                                        style="margin-left: 10px; color: var(--text-muted); font-size: 0.8rem;">/ 100
-                                    </div>
-                                </div>
-                            </div>
+                    <div class="insights-column" style="background: rgba(15, 23, 42, 0.4); padding: 1.2rem; border-radius: 8px; border: 1px solid var(--card-border);">
+                        <div class="strengths-section">
+                            <h4 style="color: var(--accent); font-size: 0.95rem; margin-bottom: 5px;">🟢 TOP STRENGTHS</h4>
+                            <ul id="top-strengths-list" style="font-size: 0.85rem; list-style: none; padding: 0;"><li>Loading...</li></ul>
                         </div>
-
-                        <!-- Right 50%: Algorithmic Insights -->
-                        <div class="insights-column"
-                            style="display: flex; flex-direction: column; gap: 1rem; background: rgba(15, 23, 42, 0.4); padding: 1.2rem; border-radius: 8px; border: 1px solid var(--card-border);">
-                            <div class="strengths-section">
-                                <h4
-                                    style="color: var(--accent); margin-bottom: 0.5rem; font-size: 1rem; display: flex; align-items: center; gap: 5px;">
-                                    <span style="font-size: 1.2rem;">🟢</span> TOP STRENGTHS
-                                </h4>
-                                <ul id="top-strengths-list"
-                                    style="list-style-type: none; padding: 0; margin: 0; color: var(--text-muted); font-size: 0.9rem; line-height: 1.5;">
-                                    <li>Loading...</li>
-                                </ul>
-                            </div>
-                            <div class="risks-section">
-                                <h4
-                                    style="color: var(--danger); margin-bottom: 0.5rem; font-size: 1rem; display: flex; align-items: center; gap: 5px;">
-                                    <span style="font-size: 1.2rem;">🔴</span> RISK FACTORS
-                                </h4>
-                                <ul id="risk-factors-list"
-                                    style="list-style-type: none; padding: 0; margin: 0; color: var(--text-muted); font-size: 0.9rem; line-height: 1.5;">
-                                    <li>Loading...</li>
-                                </ul>
-                            </div>
+                        <div class="risks-section" style="margin-top: 1rem;">
+                            <h4 style="color: var(--danger); font-size: 0.95rem; margin-bottom: 5px;">🔴 RISK FACTORS</h4>
+                            <ul id="risk-factors-list" style="font-size: 0.85rem; list-style: none; padding: 0;"><li>Loading...</li></ul>
                         </div>
                     </div>
-                </section>
+                </div>
+            </section>
 
-                <!-- Valuation Methods Breakdown -->
-                <section class="methods-grid">
-                    <!-- DCF Card -->
-                    <div class="method-card glass-card" style="position: relative;">
-                        <div class="method-toggle">
-                            <input type="checkbox" id="toggle-dcf" class="valuation-toggle" data-method="dcf" checked>
-                            <label for="toggle-dcf" title="Include in Fair Value Average"></label>
+            <!-- VALUATION METHODS GRID -->
+            <section class="methods-grid" style="margin-bottom: 2rem;">
+                <!-- DCF -->
+                <div class="method-card glass-card">
+                    <div class="method-toggle"><input type="checkbox" id="toggle-dcf" class="valuation-toggle" data-method="dcf" checked><label for="toggle-dcf"></label></div>
+                    <h4>DCF Model</h4>
+                    <div class="card-metrics">
+                        <div class="method-val" id="dcf-value" style="color: var(--accent);">--</div>
+                        <p id="dcf-status" style="font-weight: bold; font-size: 0.9rem;">--</p>
+                    </div>
+                </div>
+                <!-- Graham -->
+                <div class="method-card glass-card">
+                    <div class="method-toggle"><input type="checkbox" id="toggle-graham" class="valuation-toggle" data-method="graham" checked><label for="toggle-graham"></label></div>
+                    <h4>Graham Number</h4>
+                    <div class="card-metrics">
+                        <div class="method-val" id="graham-value" style="color: var(--accent);">--</div>
+                        <p id="graham-status" style="font-size: 0.85rem;">--</p>
+                    </div>
+                </div>
+                <!-- Multiple -->
+                <div class="method-card glass-card">
+                    <div class="method-toggle"><input type="checkbox" id="toggle-pe" class="valuation-toggle" data-method="pe" checked><label for="toggle-pe"></label></div>
+                    <h4>P/E Multiplier</h4>
+                    <div class="card-metrics">
+                        <div class="method-val" id="pe-multi-value" style="color: var(--accent);">--</div>
+                        <p id="pe-multi-status" style="font-size: 0.85rem;">--</p>
+                    </div>
+                </div>
+                <!-- PEG -->
+                <div class="method-card glass-card">
+                    <div class="method-toggle"><input type="checkbox" id="toggle-peg" class="valuation-toggle" data-method="peg" checked><label for="toggle-peg"></label></div>
+                    <h4>PEG Valuation</h4>
+                    <div class="card-metrics">
+                        <div class="method-val" id="peg-value" style="color: var(--accent);">--</div>
+                        <p id="peg-status" style="font-size: 0.85rem;">--</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- HISTORICAL CHARTS -->
+            <section class="historical-charts-section" id="historical-charts-container" style="margin-bottom: 2rem; display: none;">
+                <div class="glass-card" style="padding: 1.5rem;">
+                    <h3 style="text-align: center; text-transform: uppercase; margin-bottom: 1.5rem;">Historical Stability & Projections</h3>
+                    <div class="charts-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                        <div class="chart-container">
+                            <h4 style="text-align: center; font-size: 0.9rem; margin-bottom: 10px;">Revenue & FCF (Billions)</h4>
+                            <canvas id="chart-rev-fcf"></canvas>
                         </div>
-                        <div class="card-header">
-                            <h4>DCF Model</h4>
-                        </div>
-                        <div class="card-metrics">
-                            <div class="method-val" id="dcf-value" style="color: var(--accent);">--</div>
-                            <p class="method-desc" id="dcf-status" style="font-weight: bold; margin-bottom: 5px;">--</p>
-                            <div id="dcf-card-mos-row" style="display: none; flex-direction: column; align-items: center; gap: 2px;">
-                                <span id="dcf-card-price" style="font-size: 0.85rem; color: var(--text-muted);">Price: --</span>
-                                <span id="dcf-card-mos" style="font-size: 0.9rem; font-weight: 700;">MOS: --</span>
-                            </div>
-                        </div>
-                        <div class="card-inputs">
-                            <div class="custom-fcf-container"
-                                style="display: flex; flex-direction: column; justify-content: center; gap: 0.5rem; margin-top: 1rem; margin-bottom: 0.5rem;">
-                                <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
-                                    <label for="dcf-method-selector" style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500; white-space: nowrap;">TV Method</label>
-                                    <select id="dcf-method-selector" style="background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--card-border); border-radius: 4px; padding: 0.3rem 0.5rem; font-family: 'Outfit', sans-serif; font-size: 0.85rem; outline: none; cursor: pointer;">
-                                        <option value="perpetual">Perpetual Growth</option>
-                                        <option value="multiple">Exit Multiple</option>
-                                    </select>
-                                </div>
-                                <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
-                                    <label for="fcf-source"
-                                        style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">FCF
-                                        Based
-                                        on</label>
-                                    <select id="fcf-source"
-                                        style="background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--card-border); border-radius: 4px; padding: 0.3rem 0.5rem; font-family: 'Outfit', sans-serif; font-size: 0.85rem; outline: none; cursor: pointer;">
-                                        <option value="analyst">Analyst Est.</option>
-                                        <option value="eps_growth">Earnings Growth</option>
-                                        <option value="historical">Historical</option>
-                                        <option value="custom">Custom</option>
-                                    </select>
-                                </div>
-                                <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-top: 0.5rem;">
-                                    <label for="dcf-years-source" style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500; white-space: nowrap;">Projection</label>
-                                    <select id="dcf-years-source" style="background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--card-border); border-radius: 4px; padding: 0.3rem 0.5rem; font-family: 'Outfit', sans-serif; font-size: 0.85rem; outline: none; cursor: pointer;">
-                                        <option value="5yr">5 Years</option>
-                                        <option value="10yr">10 Years</option>
-                                    </select>
-                                </div>
-                                <div id="dcf-custom-inputs"
-                                    style="display: none; flex-direction: column; gap: 0.4rem; margin-top: 0.5rem;">
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <label for="dcf-custom-growth"
-                                            style="font-size: 0.8rem; color: var(--text-muted);">Growth Rate (%)</label>
-                                        <input type="number" id="dcf-custom-growth" placeholder="15"
-                                            style="width: 60px; background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--card-border); border-radius: 4px; padding: 0.2rem; outline: none; text-align: right;">
-                                    </div>
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <label for="dcf-custom-wacc"
-                                            style="font-size: 0.8rem; color: var(--text-muted);">WACC (%)</label>
-                                        <input type="number" id="dcf-custom-wacc" placeholder="9"
-                                            style="width: 60px; background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--card-border); border-radius: 4px; padding: 0.2rem; outline: none; text-align: right;">
-                                    </div>
-                                    <div id="row-input-perpetual" style="display: flex; justify-content: space-between; align-items: center;">
-                                        <label for="dcf-custom-perp"
-                                            style="font-size: 0.8rem; color: var(--text-muted);">Perpetual Growth
-                                            (%)</label>
-                                        <input type="number" id="dcf-custom-perp" placeholder="2.5"
-                                            style="width: 60px; background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--card-border); border-radius: 4px; padding: 0.2rem; outline: none; text-align: right;">
-                                    </div>
-                                    <div id="row-input-exit-multiple" style="display: none; justify-content: space-between; align-items: center;">
-                                        <label for="input-exit-multiple"
-                                            style="font-size: 0.8rem; color: var(--text-muted);">Exit Multiple (x)</label>
-                                        <input type="number" id="input-exit-multiple" value="15"
-                                            style="width: 60px; background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--card-border); border-radius: 4px; padding: 0.2rem; outline: none; text-align: right;">
-                                    </div>
-                                </div>
-                                <!-- Share Buybacks row -->
-                                <div
-                                    style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-top: 0.5rem;">
-                                    <label for="dcf-buyback-source"
-                                        style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500; white-space: nowrap;">Buybacks</label>
-                                    <select id="dcf-buyback-source"
-                                        style="background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--card-border); border-radius: 4px; padding: 0.3rem 0.5rem; font-family: 'Outfit', sans-serif; font-size: 0.85rem; outline: none; cursor: pointer;">
-                                        <option value="none">None</option>
-                                        <option value="historical">Historical</option>
-                                        <option value="custom">Custom</option>
-                                    </select>
-                                </div>
-                                <div id="dcf-buyback-custom-inputs"
-                                    style="display: none; flex-direction: column; gap: 0.4rem; margin-top: 0.3rem;">
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <label for="dcf-custom-buyback"
-                                            style="font-size: 0.8rem; color: var(--text-muted);">Buyback Rate
-                                            (%/yr)</label>
-                                        <input type="number" id="dcf-custom-buyback" placeholder="2"
-                                            style="width: 60px; background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--card-border); border-radius: 4px; padding: 0.2rem; outline: none; text-align: right;">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="card-footer">
-                            <button class="view-data-btn modal-trigger" data-method="dcf">View Data</button>
+                        <div class="chart-container">
+                            <h4 style="text-align: center; font-size: 0.9rem; margin-bottom: 10px;">EPS & Shares (Dual Axis)</h4>
+                            <canvas id="chart-eps-shares"></canvas>
                         </div>
                     </div>
+                </div>
+            </section>
 
-                    <!-- Relative Valuation Card -->
-                    <div class="method-card glass-card" style="position: relative;">
-                        <div class="method-toggle">
-                            <input type="checkbox" id="toggle-relative" class="valuation-toggle" data-method="relative"
-                                checked>
-                            <label for="toggle-relative" title="Include in Fair Value Average"></label>
-                        </div>
-                        <div class="card-header">
-                            <h4>Relative Valuation</h4>
-                        </div>
-                        <div class="card-metrics">
-                            <div class="method-val" id="relative-value" style="color: var(--accent);">--</div>
-                            <p class="method-desc" id="relative-status" style="font-weight: bold;">--</p>
-                            <p class="method-desc" id="relative-card-mos" style="font-size: 0.85rem; color: var(--accent); margin-top: 0.2rem; display: none;">--</p>
-                        </div>
-                        <div class="card-inputs">
-                            <div
-                                style="display: flex; flex-direction: column; gap: 0.8rem; margin-top: 1rem; margin-bottom: 0.5rem; align-items: center;">
-                                <div
-                                    style="display: flex; flex-direction: column; align-items: center; gap: 0.4rem; width: 100%;">
-                                    <label for="relative-variant"
-                                        style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">Compare
-                                        vs.</label>
-                                    <select id="relative-variant"
-                                        style="width: 90%; background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--card-border); border-radius: 4px; padding: 0.4rem 0.5rem; font-family: 'Outfit', sans-serif; font-size: 0.85rem; outline: none; cursor: pointer;">
-                                        <option value="peers" selected>Sector Peers (Median)</option>
-                                        <option value="average">Sector Peers (Mean)</option>
-                                        <option value="sp500">S&amp;P 500 Index</option>
-                                    </select>
-                                </div>
-                                <p class="method-desc" id="relative-market-compare"
-                                    style="font-size: 0.8rem; color: var(--text-muted); text-align: center; margin-top: 0.2rem; min-height: 1.2em;">
-                                    Peer Median P/E: --</p>
-                            </div>
-                        </div>
-                        <div class="card-footer">
-                            <button class="view-data-btn modal-trigger" data-method="relative">View Data</button>
-                        </div>
-                    </div>
-
-                    <!-- Forward Multiple Card -->
-                    <div class="method-card glass-card" style="position: relative;">
-                        <div class="method-toggle">
-                            <input type="checkbox" id="toggle-peter_lynch" class="valuation-toggle"
-                                data-method="peter_lynch" checked>
-                            <label for="toggle-peter_lynch" title="Include in Fair Value Average"></label>
-                        </div>
-                        <div class="card-header">
-                            <h4>Forward Multiple Valuation</h4>
-                        </div>
-                        <div class="card-metrics">
-                            <div class="method-val" id="lynch-fair-value" style="color: var(--accent);">--</div>
-                            <p class="method-desc" id="lynch-status" style="font-weight: bold;">--</p>
-                            <p class="method-desc" id="lynch-card-mos" style="font-size: 0.85rem; color: var(--accent); margin-top: 0.2rem; display: none;">--</p>
-                        </div>
-
-                        <div class="card-inputs">
-                            <div class="custom-lynch-container"
-                                style="display: flex; flex-direction: column; gap: 0.4rem; margin-top: 1rem; margin-bottom: 0.5rem;">
-                                <div
-                                    style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
-                                    <label for="lynch-multiple"
-                                        style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">Multiple</label>
-                                    <select id="lynch-multiple"
-                                        style="background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--card-border); border-radius: 4px; padding: 0.3rem 0.5rem; font-family: 'Outfit', sans-serif; font-size: 0.85rem; outline: none; cursor: pointer; min-width: 100px;">
-                                        <option value="PE 15">PE 15</option>
-                                        <option value="PE 20" selected>PE 20</option>
-                                        <option value="PE 25">PE 25</option>
-                                        <option value="historic">Historic</option>
-                                        <option value="custom">Custom</option>
-                                    </select>
-                                </div>
-                                <div id="lynch-custom-multiple-inputs"
-                                    style="display: none; justify-content: space-between; align-items: center;">
-                                    <label for="lynch-custom-mult"
-                                        style="font-size: 0.8rem; color: var(--text-muted);">Custom P/E</label>
-                                    <input type="number" id="lynch-custom-mult" placeholder="18"
-                                        style="width: 60px; background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--card-border); border-radius: 4px; padding: 0.2rem; outline: none; text-align: right;">
-                                </div>
-                                <div
-                                    style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
-                                    <label for="lynch-eps-source"
-                                        style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">EPS
-                                        Based
-                                        on</label>
-                                    <select id="lynch-eps-source"
-                                        style="background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--card-border); border-radius: 4px; padding: 0.3rem 0.5rem; font-family: 'Outfit', sans-serif; font-size: 0.85rem; outline: none; cursor: pointer; min-width: 100px;">
-                                        <option value="analyst" selected>Analyst Est.</option>
-                                        <option value="historical">Historical</option>
-                                        <option value="custom">Custom</option>
-                                    </select>
-                                </div>
-                                <div id="lynch-custom-inputs"
-                                    style="display: none; justify-content: space-between; align-items: center;">
-                                    <label for="lynch-custom-growth"
-                                        style="font-size: 0.8rem; color: var(--text-muted);">3Y Est. Growth Rate</label>
-                                    <input type="number" id="lynch-custom-growth" placeholder="20"
-                                        style="width: 60px; background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--card-border); border-radius: 4px; padding: 0.2rem; outline: none; text-align: right;">
-                                </div>
-
-                            </div>
-                        </div>
-                        <div class="card-footer">
-                            <button class="view-data-btn modal-trigger" data-method="peter_lynch">View Data</button>
-                        </div>
-                    </div>
-
-                    <!-- PEG Card -->
-                    <div class="method-card glass-card">
-                        <div class="method-toggle">
-                            <input type="checkbox" id="toggle-peg" class="valuation-toggle" data-method="peg" checked>
-                            <label for="toggle-peg" title="Include in Fair Value Average"></label>
-                        </div>
-                        <div class="card-header">
-                            <h4>PEG Valuation</h4>
-                        </div>
-                        <div class="card-metrics">
-                            <div class="method-val" id="peg-value" style="color: var(--accent);">--</div>
-                            <p class="method-desc" id="peg-status" style="font-weight: bold;">--</p>
-                            <p class="method-desc" id="peg-card-mos" style="font-size: 0.85rem; color: var(--accent); margin-top: 0.2rem; display: none;">--</p>
-                            <p class="method-desc" id="peg-compare" style="font-size: 0.85rem; color: var(--text-muted); text-align: center; margin-top: 0.2rem;">--</p>
-                        </div>
-                        <div class="card-inputs">
-                            <div class="custom-fcf-container"
-                                style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.8rem; margin-top: 1rem; margin-bottom: 0.5rem; width: 100%;">
-                                <div
-                                    style="display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 250px;">
-                                    <label for="peg-eps-source"
-                                        style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">EPS
-                                        Based
-                                        on</label>
-                                    <select id="peg-eps-source"
-                                        style="background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--card-border); border-radius: 4px; padding: 0.3rem 0.5rem; font-family: 'Outfit', sans-serif; font-size: 0.85rem; outline: none; cursor: pointer; min-width: 100px;">
-                                        <option value="analyst">Analyst Est.</option>
-                                        <option value="custom">Custom</option>
-                                    </select>
-                                </div>
-                                <div id="peg-custom-inputs"
-                                    style="display: none; justify-content: space-between; align-items: center; width: 100%; max-width: 250px;">
-                                    <label for="peg-custom-growth"
-                                        style="font-size: 0.8rem; color: var(--text-muted);">EPS Growth (%)</label>
-                                    <input type="number" id="peg-custom-growth" placeholder="20"
-                                        style="width: 60px; background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--card-border); border-radius: 4px; padding: 0.2rem; outline: none; text-align: right;">
-                                </div>
-                            </div>
-                        </div>
-                        <div class="card-footer">
-                            <button class="view-data-btn modal-trigger" data-method="peg">View Data</button>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- Historical Financial Stability Charts -->
-                <section class="historical-charts-section" style="margin-top: 1.5rem; display: none;" id="historical-charts-container">
-                    <div class="glass-card" style="padding: 1.5rem;">
-                        <div class="section-title-wrapper" style="margin-bottom: 2rem; text-align: center;">
-                        <h2 id="historical-title" style="font-size: 1.5rem; text-transform: uppercase; letter-spacing: 2px; color: var(--text-main); font-weight: 800;">
-                            HISTORICAL STABILITY & ANALYST PROJECTIONS (ANNUAL)
-                        </h2>
-                    </div>
-    <div class="charts-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
-                            <!-- Chart 1: Revenue & FCF -->
-                            <div class="chart-container">
-                                <h4 style="font-size: 0.9rem; color: var(--text-muted); text-align: center; margin-bottom: 10px;">Revenue & Free Cash Flow (Billions)</h4>
-                                <canvas id="chart-rev-fcf"></canvas>
-                            </div>
-                            <!-- Chart 2: EPS & Shares Outstanding -->
-                            <div class="chart-container">
-                                <h4 style="font-size: 0.9rem; color: var(--text-muted); text-align: center; margin-bottom: 10px;">EPS & Shares Outstanding (Dual Axis)</h4>
-                                <canvas id="chart-eps-shares"></canvas>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- Analyst Estimates Card -->
-                <section class="analyst-estimates-section" style="margin-top: 2rem;">
-                    <div id="analyst-estimates-card" class="glass-card analyst-estimates-card"
-                        style="padding: 1.5rem; display: block;">
-                        <h3
-                            style="margin-bottom: 1.5rem; color: var(--text-main); font-size: 1.2rem; text-align: center;">
-                            ANALYST ESTIMATES & CONSENSUS</h3>
-
-                        <!-- Desktop Header (Unified View) -->
-                        <div class="analyst-desktop-header" style="display: none; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 1.5rem; padding-bottom: 10px; gap: 1rem;">
-                            <span class="desktop-tab-label">Price Target</span>
-                            <span class="desktop-tab-label">Recommendation</span>
-                            <span class="desktop-tab-label">EPS Est.</span>
-                            <span class="desktop-tab-label">Revenue</span>
-                        </div>
-
-                        <!-- Mobile Tabs Navigation -->
-                        <div class="analyst-tabs-nav"
-                            style="display: none; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 1.5rem; padding-bottom: 5px; gap: 8px;">
-                            <button class="tab-btn active" data-tab="pt">Price Target</button>
-                            <button class="tab-btn" data-tab="rec">Recommendation</button>
-                            <button class="tab-btn" data-tab="eps">EPS Est.</button>
-                            <button class="tab-btn" data-tab="rev">Revenue</button>
-                        </div>
-
-                        <div class="analyst-grid-layout"
-                            style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem;">
-                            <!-- Price Target -->
-                            <div class="analyst-col tab-content active" id="tab-pt"
-                                style="border-right: 1px solid var(--card-border); padding-right: 1rem;">
-                                <h4
-                                    style="font-size: 0.9rem; color: var(--text-muted); text-align: center; margin-bottom: 1rem;">
-                                    Price Target</h4>
-                                <div class="pt-content" style="text-align: center;">
-                                    <div
-                                        style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">
-                                        Average</div>
-                                    <div id="pt-avg"
-                                        style="font-size: 1.5rem; font-weight: 800; color: var(--accent); margin: 5px 0;">
-                                        --</div>
-                                    <div id="pt-upside" style="font-size: 0.85rem; font-weight: 600;">--</div>
-                                    <div
-                                        style="display: flex; justify-content: space-between; margin-top: 1rem; font-size: 0.75rem; border-top: 1px solid var(--card-border); padding-top: 8px;">
-                                        <div>Low: <span id="pt-low" style="color: white;">--</span></div>
-                                        <div>High: <span id="pt-high" style="color: white;">--</span></div>
-                                    </div>
-                                </div>
-                            </div>
-                            HISTORICAL STABILITY & ANALYST PROJECTIONS (ANNUAL)
-                        </h2>
-                    </div>
-    <div class="charts-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
-                            <!-- Chart 1: Revenue & FCF -->
-                            <div class="chart-container">
-                                <h4 style="font-size: 0.9rem; color: var(--text-muted); text-align: center; margin-bottom: 10px;">Revenue & Free Cash Flow (Billions)</h4>
-                                <canvas id="chart-rev-fcf"></canvas>
-                            </div>
-                            <!-- Chart 2: EPS & Shares Outstanding -->
-                            <div class="chart-container">
-                                <h4 style="font-size: 0.9rem; color: var(--text-muted); text-align: center; margin-bottom: 10px;">EPS & Shares Outstanding (Dual Axis)</h4>
-                                <canvas id="chart-eps-shares"></canvas>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- Historical Anchors -->
-                <section class="trends-section" style="margin-top: 2rem;">
-                    <h3 style="margin-bottom: 1rem; color: var(--text-main);">Historical Anchors (Trends)</h3>
-                    <div class="trends-container glass-card"
-                        style="padding: 1rem; overflow-x: auto; -webkit-overflow-scrolling: touch;">
-                        <table class="trends-table" id="trends-table" style="min-width: 800px;">
-                            <thead>
-                                <tr>
-                                    <th>Year</th>
-                                    <th>Revenue (B)</th>
-                                    <th>EPS</th>
-                                    <th>FCF (B)</th>
-                                    <th>Net Margin</th>
-                                    <th>Cash (B)</th>
-                                    <th>Debt (B)</th>
-                                    <th>Shares (B)</th>
-                                    <th>ROIC</th>
-                                </tr>
-                            </thead>
-                            <tbody id="trends-body">
-                                <tr>
-                                    <td colspan="4"
-                                        style="text-align: center; color: var(--text-muted); padding: 1rem;">No
-                                        data loaded.</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
+            <!-- TRENDS TABLE -->
+            <section class="trends-section">
+                <h3 style="margin-bottom: 1rem;">Historical Anchors (Trends)</h3>
+                <div class="trends-container glass-card" style="padding: 1rem; overflow-x: auto;">
+                    <table class="trends-table" id="trends-table" style="width: 100%; min-width: 800px;">
+                        <thead><tr><th>Year</th><th>Revenue (B)</th><th>EPS</th><th>FCF (B)</th><th>Margin</th><th>Cash (B)</th><th>Debt (B)</th><th>Shares (B)</th><th>ROIC</th></tr></thead>
+                        <tbody id="trends-body"><tr><td colspan="9" style="text-align: center; padding: 1.5rem;">No data loaded.</td></tr></tbody>
+                    </table>
+                </div>
+            </section>
         </main>
 
-        <!-- Loading State -->
+        <!-- LOADING -->
         <div id="loading-state" class="loading-state" style="display: none;">
             <div class="spinner"></div>
-            <p>Analyzing financials...</p>
+            <p>Analyzing company financials...</p>
         </div>
 
-        <!-- Watchlist Dashboard Content -->
+        <!-- WATCHLIST VIEW -->
         <main class="watchlist-view" id="watchlist-view" style="display: none;">
             <h2>My Watchlist</h2>
-
-            <div class="watchlist-controls" style="display: flex; justify-content: flex-end; margin-bottom: 2rem; max-width: 600px; margin-left: auto; margin-right: auto;">
-                <div class="sort-wrapper" style="display: flex; align-items: center; gap: 10px;">
-                    <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Sort By:</span>
-                    <select id="wl-sort-select" style="background: rgba(30, 41, 59, 0.8); border: 1px solid var(--card-border); color: var(--text-main); padding: 0.5rem 1rem; border-radius: 8px; font-family: inherit; font-size: 0.9rem; outline: none; cursor: pointer;">
-                        <option value="mos-desc">Margin (High to Low)</option>
-                        <option value="mos-asc">Margin (Low to High)</option>
-                        <option value="ticker-asc">Ticker (A-Z)</option>
-                        <option value="price-desc">Price (High to Low)</option>
-                    </select>
-                </div>
-            </div>
-
-            <div id="watchlist-grid" class="watchlist-container">
-                <!-- Injected via JS -->
-            </div>
-            <p id="empty-watchlist-msg"
-                style="display: none; color: var(--text-muted); text-align: center; margin-top: 2rem;">
-                Your watchlist is empty. Search for a company and click "Add to Watchlist" to save it here.
-            </p>
+            <div id="watchlist-grid" class="watchlist-container"></div>
+            <p id="empty-watchlist-msg" style="display: none; color: var(--text-muted); text-align: center; margin-top: 2rem;">Your watchlist is empty.</p>
         </main>
 
-
-        <!-- Data Transparency Modal -->
+        <!-- MODALS -->
         <div id="data-modal" class="modal-overlay" style="display: none; z-index: 1000;">
-            <div class="modal-content glass-card" style="padding-top: 15px; position: relative;">
-                <div
-                    style="position: absolute; top: 10px; right: 10px; z-index: 100; display: flex; justify-content: flex-end;">
-                    <span id="close-modal" class="close-btn"
-                        style="background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 50%; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: white; font-size: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">&times;</span>
-                </div>
-                <h3 id="modal-title" style="margin-top: 5px; padding-right: 40px;">Formula Data Used</h3>
-                <div class="modal-body" id="modal-body-content" style="margin-top: 15px;">
-                    <!-- Injected via JS -->
-                </div>
+            <div class="modal-content glass-card" style="padding: 20px; position: relative;">
+                <span id="close-modal" class="close-btn" style="position: absolute; top: 15px; right: 20px; cursor: pointer; font-size: 24px;">&times;</span>
+                <h3 id="modal-title">Data Used</h3>
+                <div class="modal-body" id="modal-body-content"></div>
             </div>
         </div>
 
-        <!-- Score Breakdown Modal -->
         <div id="score-modal" class="modal-overlay" style="display: none; z-index: 1000;">
-            <div class="modal-content glass-card score-modal-card" style="padding-top: 15px; position: relative;">
-                <div
-                    style="position: absolute; top: 10px; right: 10px; z-index: 100; display: flex; justify-content: flex-end;">
-                    <span id="close-score-modal" class="close-btn"
-                        style="background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 50%; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: white; font-size: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">&times;</span>
-                </div>
-                <div class="score-modal-body" id="score-modal-body-content">
-                    <!-- Injected via JS -->
-                </div>
+            <div class="modal-content glass-card score-modal-card" style="padding: 20px; position: relative;">
+                <span id="close-score-modal" class="close-btn" style="position: absolute; top: 15px; right: 20px; cursor: pointer; font-size: 24px;">&times;</span>
+                <div class="score-modal-body" id="score-modal-body-content"></div>
             </div>
         </div>
-
     </div>
 
-    <script src="app.js?v=54"></script>
+    <script src="app.js?v=59"></script>
 </body>
-
 </html>
