@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=64">
+    <link rel="stylesheet" href="style.css?v=65">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -19,7 +19,7 @@
             </div>
             <div class="search-container">
                 <div class="autocomplete-wrapper">
-                    <input type="text" id="ticker-input" placeholder="Enter Ticker..." autocomplete="off">
+                    <input type="text" id="ticker-input" placeholder="ADBE" autocomplete="off">
                     <div id="autocomplete-list" class="autocomplete-dropdown"></div>
                 </div>
                 <button id="search-btn">Analyze</button>
@@ -29,34 +29,27 @@
 
         <main class="dashboard" id="dashboard" style="display: none;">
             <div class="hero-section">
-                <!-- Zona Identity & Fair Value -->
-                <div class="main-card glass-card">
-                    <div class="company-header">
-                        <h2 id="company-name-display"><span id="company-name">Loading...</span> <span id="company-ticker"></span></h2>
-                        <button id="add-to-watchlist-btn" class="star-btn">☆</button>
-                        <div class="price-info">
-                            <span class="label">Current Price</span>
-                            <div class="value" id="current-price">$0.00</div>
-                        </div>
-                    </div>
-                    <div class="fair-value-display">
-                        <div class="fv-box">
-                            <span class="label">Estimated Fair Value</span>
-                            <div class="value" id="fair-value">$0.00</div>
-                            <div id="margin-safety" class="margin-safety">0% Margin of Safety</div>
-                        </div>
-                        <div class="profile-summary">
-                            <table class="profile-table">
-                                <tbody id="profile-body"></tbody>
-                            </table>
+                <div class="hero-layout">
+                    <div class="hero-left">
+                        <div class="company-card glass-card">
+                            <button id="add-to-watchlist-btn" class="star-btn">★</button>
+                            <h2 id="company-name-display"><span id="company-name">Loading...</span> <span id="company-ticker"></span></h2>
+                            <div class="price-box">
+                                <span class="label">CURRENT PRICE</span>
+                                <div class="value" id="current-price">$0.00</div>
+                            </div>
+                            <div id="fv-card" class="fv-card">
+                                <span class="label">ESTIMATED FAIR VALUE</span>
+                                <div class="value" id="fair-value">$0.00</div>
+                                <div id="margin-safety" class="margin-safety">0% Margin of Safety</div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- ANALYST ESTIMATES TABLE (SINGURA ADĂUGARE) -->
                 <div id="analyst-estimates-card" class="glass-card" style="margin-top: 20px; padding: 20px; display: block !important;">
                     <h3 style="text-align:center; margin-bottom: 20px;">Analyst Projections & Targets</h3>
-                    <div class="analyst-grid" style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 15px;">
+                    <div class="analyst-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px;">
                         <div id="tab-pt" style="text-align: center; border-right: 1px solid rgba(255,255,255,0.1);">
                             <span class="label">Price Target</span>
                             <div id="pt-avg" style="font-size: 1.8rem; font-weight: 800; color: var(--accent);">--</div>
@@ -84,88 +77,86 @@
                     </div>
                 </div>
 
-                <!-- Zona Scoruri & Modele -->
+                <div class="profile-card glass-card" style="margin-top: 20px;">
+                    <table class="profile-table">
+                        <tbody id="profile-body"></tbody>
+                    </table>
+                </div>
+
                 <div class="row-2" style="margin-top: 20px;">
                     <div class="scores-card glass-card">
-                        <div class="scores-container">
-                            <div id="health-score-row">
+                        <div class="scores-wrapper">
+                            <div class="score-item" id="health-score-row">
                                 <span class="label">Health Score</span>
-                                <div class="score-display">
-                                    <div class="score-circle" id="health-score-circle">--</div>
-                                    <div class="score-bar-wrapper"><div class="score-bar-fill" id="health-score-fill"></div></div>
-                                </div>
+                                <div class="score-circle" id="health-score-circle">--</div>
+                                <div class="score-bar"><div class="score-fill" id="health-score-fill"></div></div>
                             </div>
-                            <div id="buy-score-row">
+                            <div class="score-item" id="buy-score-row">
                                 <span class="label">Buy Score</span>
-                                <div class="score-display">
-                                    <div class="score-circle" id="buy-score-circle">--</div>
-                                    <div class="score-bar-wrapper"><div class="score-bar-fill" id="buy-score-fill"></div></div>
-                                </div>
+                                <div class="score-circle" id="buy-score-circle">--</div>
+                                <div class="score-bar"><div class="score-fill" id="buy-score-fill"></div></div>
                             </div>
                         </div>
-                        <div class="insights-container">
-                            <div class="strengths">
-                                <h4>🟢 Top Strengths</h4>
+                        <div class="insights-wrapper">
+                            <div class="insight-col">
+                                <h4>🟢 Strengths</h4>
                                 <ul id="top-strengths-list"></ul>
                             </div>
-                            <div class="risks">
-                                <h4>🔴 Risk Factors</h4>
+                            <div class="insight-col">
+                                <h4>🔴 Risks</h4>
                                 <ul id="risk-factors-list"></ul>
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    <div class="methods-grid" style="margin-top: 20px;">
-                        <div class="method-card glass-card">
-                            <div class="method-toggle"><input type="checkbox" id="toggle-dcf" data-method="dcf" checked><label for="toggle-dcf"></label></div>
-                            <h4>DCF Model</h4>
-                            <div id="dcf-value" class="method-val">--</div>
-                            <div id="dcf-card-mos" class="mos-val">--</div>
-                        </div>
-                        <div class="method-card glass-card">
-                            <div class="method-toggle"><input type="checkbox" id="toggle-graham" data-method="graham" checked><label for="toggle-graham"></label></div>
-                            <h4>Graham</h4>
-                            <div id="graham-value" class="method-val">--</div>
-                        </div>
-                        <div class="method-card glass-card">
-                            <div class="method-toggle"><input type="checkbox" id="toggle-pe" data-method="pe" checked><label for="toggle-pe"></label></div>
-                            <h4>P/E Multiplier</h4>
-                            <div id="pe-multi-value" class="method-val">--</div>
-                        </div>
-                        <div class="method-card glass-card">
-                            <div class="method-toggle"><input type="checkbox" id="toggle-peter_lynch" data-method="peter_lynch" checked><label for="toggle-peter_lynch"></label></div>
-                            <h4>Peter Lynch</h4>
-                            <div id="lynch-fair-value" class="method-val">--</div>
-                            <div id="lynch-card-mos" class="mos-val">--</div>
-                        </div>
-                        <div class="method-card glass-card">
-                            <div class="method-toggle"><input type="checkbox" id="toggle-peg" data-method="peg" checked><label for="toggle-peg"></label></div>
-                            <h4>PEG Val.</h4>
-                            <div id="peg-value" class="method-val">--</div>
-                            <div id="peg-card-mos" class="mos-val">--</div>
-                        </div>
-                        <div class="method-card glass-card">
-                            <div class="method-toggle"><input type="checkbox" id="toggle-relative" data-method="relative" checked><label for="toggle-relative"></label></div>
-                            <h4>Relative Val.</h4>
-                            <div id="relative-value" class="method-val">--</div>
-                            <div id="relative-card-mos" class="mos-val">--</div>
-                        </div>
+                <div class="methods-grid" style="margin-top: 20px;">
+                    <div class="method-card glass-card">
+                        <div class="method-toggle"><input type="checkbox" id="toggle-dcf" data-method="dcf" checked><label for="toggle-dcf"></label></div>
+                        <h4>DCF Model</h4>
+                        <div id="dcf-value" class="method-val">--</div>
+                        <div id="dcf-card-mos" class="mos-val">--</div>
+                    </div>
+                    <div class="method-card glass-card">
+                        <div class="method-toggle"><input type="checkbox" id="toggle-graham" data-method="graham" checked><label for="toggle-graham"></label></div>
+                        <h4>Graham</h4>
+                        <div id="graham-value" class="method-val">--</div>
+                    </div>
+                    <div class="method-card glass-card">
+                        <div class="method-toggle"><input type="checkbox" id="toggle-pe" data-method="pe" checked><label for="toggle-pe"></label></div>
+                        <h4>P/E Multiplier</h4>
+                        <div id="pe-multi-value" class="method-val">--</div>
+                    </div>
+                    <div class="method-card glass-card">
+                        <div class="method-toggle"><input type="checkbox" id="toggle-peter_lynch" data-method="peter_lynch" checked><label for="toggle-peter_lynch"></label></div>
+                        <h4>Peter Lynch</h4>
+                        <div id="lynch-fair-value" class="method-val">--</div>
+                        <div id="lynch-card-mos" class="mos-val">--</div>
+                    </div>
+                    <div class="method-card glass-card">
+                        <div class="method-toggle"><input type="checkbox" id="toggle-peg" data-method="peg" checked><label for="toggle-peg"></label></div>
+                        <h4>PEG Valuation</h4>
+                        <div id="peg-value" class="method-val">--</div>
+                        <div id="peg-card-mos" class="mos-val">--</div>
+                    </div>
+                    <div class="method-card glass-card">
+                        <div class="method-toggle"><input type="checkbox" id="toggle-relative" data-method="relative" checked><label for="toggle-relative"></label></div>
+                        <h4>Relative Val.</h4>
+                        <div id="relative-value" class="method-val">--</div>
+                        <div id="relative-card-mos" class="mos-val">--</div>
                     </div>
                 </div>
 
-                <!-- Grafice & Trenduri -->
                 <div id="historical-charts-container" class="glass-card" style="margin-top: 20px; display: none;">
-                    <h3>Historical Stability & Projections</h3>
-                    <div class="charts-wrap" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div class="charts-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                         <canvas id="chart-rev-fcf"></canvas>
                         <canvas id="chart-eps-shares"></canvas>
                     </div>
                 </div>
 
-                <div class="trends-wrap" style="margin-top: 20px;">
-                    <h3>Historical Trends</h3>
-                    <div class="table-scroll glass-card">
-                        <table id="trends-table" style="width: 100%;">
+                <div class="trends-card glass-card" style="margin-top: 20px;">
+                    <div class="table-container">
+                        <table id="trends-table">
                             <thead><tr><th>Year</th><th>Revenue</th><th>EPS</th><th>FCF</th><th>Margin</th><th>Cash</th><th>Debt</th><th>Shares</th><th>ROIC</th></tr></thead>
                             <tbody id="trends-body"></tbody>
                         </table>
@@ -175,17 +166,10 @@
         </main>
 
         <div id="loading-state" class="loading-state" style="display: none;"><div class="spinner"></div><p>Syncing...</p></div>
-        
-        <main class="watchlist-view" id="watchlist-view" style="display: none;">
-            <h2>Watchlist</h2>
-            <div id="watchlist-grid" class="watchlist-container"></div>
-            <p id="empty-watchlist-msg" style="display: none;">Empty</p>
-        </main>
-
-        <!-- Modals -->
+        <main class="watchlist-view" id="watchlist-view" style="display: none;"><div id="watchlist-grid" class="watchlist-container"></div></main>
         <div id="data-modal" class="modal-overlay" style="display: none;"><div class="modal-content glass-card"><span id="close-modal" class="close-btn">&times;</span><div id="modal-body-content"></div></div></div>
         <div id="score-modal" class="modal-overlay" style="display: none;"><div class="modal-content glass-card"><span id="close-score-modal" class="close-btn">&times;</span><div id="score-modal-body-content"></div></div></div>
     </div>
-    <script src="app.js?v=64"></script>
+    <script src="app.js?v=65"></script>
 </body>
 </html>
