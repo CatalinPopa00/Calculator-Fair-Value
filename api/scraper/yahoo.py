@@ -591,9 +591,9 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 future_growth_est = nasdaq_executor.submit(lambda: stock.growth_estimates)
 
         # Valuation Multiples & EPS (Initial from info tags - will be recalibrated after financials load)
-        trailing_eps = (info.get('trailingEps') or info.get('epsTrailingTwelveMonths', 0)) * fx_rate
+        trailing_eps = (info.get('trailingEps') or info.get('epsTrailingTwelveMonths', 0))
         adjusted_eps = trailing_eps  # Will be updated to Non-GAAP after financials load
-        forward_eps = (info.get('forwardEps') or 0) * fx_rate
+        forward_eps = (info.get('forwardEps') or 0)
         pe_ratio = info.get('trailingPE')  # Initial from info, recalculated later
         if not pe_ratio and current_price and trailing_eps and trailing_eps > 0:
             pe_ratio = current_price / trailing_eps
@@ -700,22 +700,18 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
 
         if not fast_mode:
             financials = stock.financials
-            if financials is not None and fx_rate != 1.0 and not financials.empty: financials = financials * fx_rate
             if financials is None or financials.empty:
                 financials = {}
 
             cashflow = stock.cashflow
-            if cashflow is not None and fx_rate != 1.0 and not cashflow.empty: cashflow = cashflow * fx_rate
             if cashflow is None or cashflow.empty:
                 cashflow = {}
 
             bs = stock.balance_sheet
-            if bs is not None and fx_rate != 1.0 and not bs.empty: bs = bs * fx_rate
             if bs is None or bs.empty:
                 bs = {}
 
             q_bs = stock.quarterly_balance_sheet
-            if q_bs is not None and fx_rate != 1.0: q_bs = q_bs * fx_rate
             
             # Massive speedups: No longer awaiting qfin, qcf, or heavy dividends histories.
 
@@ -745,6 +741,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     
                     if ni_idx and shares_outstanding and shares_outstanding > 0:
                         net_inc = float(financials.loc[ni_idx].iloc[0])
+                        # Recalibrate GAAP EPS using fx_rate since financials are now raw (local currency)
                         gaap_eps = (net_inc * fx_rate) / shares_outstanding
                         
                         # Save the Non-GAAP version for display
@@ -1168,9 +1165,10 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     get_metric(bs, 'Ordinary Shares Number', yr_col)
                 
                 historical_data["years"].append(year_label)
-                historical_data["revenue"].append(r)
-                historical_data["eps"].append(e)
-                historical_data["fcf"].append(f)
+                historical_data["revenue"].append(r * fx_rate)
+                historical_data["eps"].append(e * fx_rate)
+                historical_data["fcf"].append(f * fx_rate)
+                # Shares are unscaled (count)
                 historical_data["shares"].append(s)
                 
                 margin = (ni / r) if (r > 0 and ni is not None) else None
@@ -1216,7 +1214,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     # Nasdaq Priority (New)
                     if len(nq_yearly_eps) >= i:
                         raw_val = nq_yearly_eps[i-1].get('consensusEPSForecast', 0)
-                        eps_est = safe_nasdaq_float(raw_val) * fx_rate
+                        # CRITICAL: Nasdaq ADR forecasts are already in USD. Do NOT apply fx_rate.
+                        eps_est = safe_nasdaq_float(raw_val)
                     # Fallback to Yahoo if Nasdaq failed
                     elif ee_data is not None and not ee_data.empty:
                         # Try string index then numeric fallback
@@ -1240,7 +1239,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                             # Nasdaq revenue scaling check
                             if (historical_data["revenue"][-1] or 0) > 1e6 and val < 10000: val *= 1e9
                             elif (historical_data["revenue"][-1] or 0) > 1e6 and val < 10000000: val *= 1e6
-                            rev_est = val * fx_rate
+                            # CRITICAL: Nasdaq ADR forecasts are already in USD. Do NOT apply fx_rate.
+                            rev_est = val
                     # Fallback to Yahoo
                     elif rf_data is not None and not rf_data.empty:
                         row = None
@@ -1314,9 +1314,9 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     
                     historical_anchors.append({
                         "year": yr_label,
-                        "revenue_b": round(r_raw / 1e9, 2),
+                        "revenue_b": round((r_raw * fx_rate) / 1e9, 2),
                         "eps": round(e_raw * fx_rate, 2),
-                        "fcf_b": round(f_raw / 1e9, 2),
+                        "fcf_b": round((f_raw * fx_rate) / 1e9, 2),
                         "net_margin_pct": f"{margin_v:.1f}%" if margin_v is not None else "0.0%",
                         "cash_b": round(c_raw / 1e9, 2),
                         "total_debt_b": round(d_raw / 1e9, 2),
