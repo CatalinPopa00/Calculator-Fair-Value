@@ -180,11 +180,14 @@ def get_nasdaq_comprehensive_estimates(ticker: str) -> dict:
     return results
 
 def safe_nasdaq_float(val):
-    if val is None: return 0.0
+    if val is None or str(val).strip() == "" or str(val).upper() == "N/A": 
+        return None
     if isinstance(val, (int, float)): return float(val)
     try:
-        return float(str(val).replace('$', '').replace(',', '').strip())
-    except: return 0.0
+        clean_val = str(val).replace('$', '').replace(',', '').strip()
+        if not clean_val: return None
+        return float(clean_val)
+    except: return None
 
 def get_nasdaq_earnings_growth(ticker: str, trailing_eps: float) -> float:
     """
@@ -1905,113 +1908,86 @@ def get_analyst_data(ticker_symbol: str) -> dict:
         rev_estimates = []
 
         # ── EPS & Revenue Estimates ─────────────────────────────────────────
+        # Priority 1: Yahoo Finance (Usually contains Non-GAAP consensus)
         try:
-            # 1. Fetch Nasdaq Estimates for Unitary Balance
-            nq_est = get_nasdaq_comprehensive_estimates(ticker_symbol)
-            nq_yearly_eps = nq_est.get("yearly_eps", [])
-            nq_quarterly_eps = nq_est.get("quarterly_eps", [])
-            nq_yearly_rev = nq_est.get("yearly_rev", [])
-            nq_quarterly_rev = nq_est.get("quarterly_rev", [])
+            e_est = stock.earnings_estimate
+            if e_est is not None and not e_est.empty:
+                for idx, row in e_est.iterrows():
+                    lbl = str(idx)
+                    label = labels.get(lbl, lbl)
+                    eps_estimates.append({
+                        "period": label,
+                        "avg": round(float(row.get('avg', 0)), 2),
+                        "growth": float(row.get('growth', 0)) if row.get('growth') else None,
+                        "status": "estimate"
+                    })
             
-            # Map Nasdaq EPS Quarters
-            for i, q_row in enumerate(nq_quarterly_eps[:4]):
-                 date_val = q_row.get('fiscalQuarterEnd') or q_row.get('fiscalEnd')
-                 label = "N/A"
-                 if date_val and date_val != "N/A":
-                    try:
-                        dt_parsed = pd.to_datetime(date_val)
-                        label = to_fiscal_label(dt_parsed)
-                    except: label = str(date_val)
-                 
-                 eps_estimates.append({
-                     "period": label,
-                     "period_code": "0q" if i == 0 else f"+{i}q",
-                     "avg": round(safe_nasdaq_float(q_row.get('consensusEPSForecast', 0)), 2),
-                     "growth_yy": None
-                 })
-            
-            # Map Nasdaq EPS Years
-            for i, y_row in enumerate(nq_yearly_eps[:2]):
-                 date_val = y_row.get('fiscalYearEnd') or y_row.get('fiscalEnd')
-                 label = "N/A"
-                 if date_val and date_val != "N/A":
-                    try:
-                        dt_parsed = pd.to_datetime(date_val)
-                        # Years should be FY 20XX
-                        if dt_parsed.month <= fy_end_month: fy_yr = dt_parsed.year
-                        else: fy_yr = dt_parsed.year + 1
-                        label = f"FY {fy_yr}"
-                    except: label = f"FY {date_val}"
-                 
-                 eps_estimates.append({
-                     "period": label,
-                     "period_code": "0y" if i == 0 else f"+{i}y",
-                     "avg": round(safe_nasdaq_float(y_row.get('consensusEPSForecast', 0)), 2),
-                     "growth_yy": None
-                 })
-
-            # Map Nasdaq Revenue Quarters/Years for the Revenue table
-            last_rev = info.get('totalRevenue') or 0
-
-            for i, q_row in enumerate(nq_quarterly_rev[:4]):
-                date_val = q_row.get('fiscalQuarterEnd') or q_row.get('fiscalEnd')
-                label = "N/A"
-                if date_val and date_val != "N/A":
-                    try:
-                        dt_parsed = pd.to_datetime(date_val)
-                        label = to_fiscal_label(dt_parsed)
-                    except: label = str(date_val)
-                
-                val = safe_nasdaq_float(q_row.get('consensusRevenueForecast', 0))
-                # Normalize Nasdaq Billions/Millions to absolute
-                if last_rev > 1e6 and val < 10000: val *= 1e9
-                elif last_rev > 1e6 and val < 10000000: val *= 1e6
-                
-                rev_estimates.append({
-                    "period": label,
-                    "period_code": "0q" if i == 0 else f"+{i}q",
-                    "avg": round(val, 2),
-                    "growth_yy": None
-                })
-            
-            for i, y_row in enumerate(nq_yearly_rev[:2]):
-                date_val = y_row.get('fiscalYearEnd') or y_row.get('fiscalEnd')
-                label = "N/A"
-                if date_val and date_val != "N/A":
-                    try:
-                        dt_parsed = pd.to_datetime(date_val)
-                        if dt_parsed.month <= fy_end_month: fy_yr = dt_parsed.year
-                        else: fy_yr = dt_parsed.year + 1
-                        label = f"FY {fy_yr}"
-                    except: label = f"FY {date_val}"
-
-                val = safe_nasdaq_float(y_row.get('consensusRevenueForecast', 0))
-                if last_rev > 1e6 and val < 10000: val *= 1e9
-                elif last_rev > 1e6 and val < 10000000: val *= 1e6
-
-                rev_estimates.append({
-                    "period": label,
-                    "period_code": "0y" if i == 0 else f"+{i}y",
-                    "avg": round(val, 2),
-                    "growth_yy": None
-                })
-
-            # FALLBACK to Yahoo only if Nasdaq results were empty
-            if not eps_estimates:
-                try:
-                    e_est = stock.earnings_estimate
-                    if e_est is not None and not e_est.empty:
-                        for idx, row in e_est.iterrows():
-                            label = labels.get(str(idx), str(idx))
-                            eps_estimates.append({
-                                "period": label,
-                                "avg": round(float(row.get('avg', 0)), 2),
-                                "growth": float(row.get('growth', 0)) if row.get('growth') else None,
-                                "status": "estimate"
-                            })
-                except: pass
+            r_est = stock.revenue_estimate
+            if r_est is not None and not r_est.empty:
+                for idx, row in r_est.iterrows():
+                    lbl = str(idx)
+                    label = labels.get(lbl, lbl)
+                    rev_estimates.append({
+                        "period": label,
+                        "avg": round(float(row.get('avg', 0)), 2),
+                        "growth": float(row.get('growth', 0)) if row.get('growth') else None,
+                        "status": "estimate"
+                    })
         except Exception as e:
-            print(f"[Analyst] EPS estimates error: {e}")
+            print(f"[Analyst] Yahoo Estimates fail: {e}")
+
+        # Priority 2: Nasdaq Fallback/Supplement (if lists still empty)
+        if not eps_estimates:
+            try:
+                nq_est = get_nasdaq_comprehensive_estimates(ticker_symbol)
+                nq_yearly_eps = nq_est.get("yearly_eps", [])
+                
+                for i, y_row in enumerate(nq_yearly_eps[:3]):
+                     date_val = y_row.get('fiscalYearEnd') or y_row.get('fiscalEnd')
+                     label = f"FY {date_val}" if date_val else "N/A"
+                     avg_val = safe_nasdaq_float(y_row.get('consensusEPSForecast'))
+                     if avg_val is not None:
+                         eps_estimates.append({
+                             "period": label,
+                             "period_code": f"+{i}y",
+                             "avg": round(avg_val, 2),
+                             "status": "estimate"
+                         })
+            except: pass
+
+        # ── BASE YEAR BACKFILL (Fix for FRSH 2025 issue) ─────────────────────
+        try:
+            current_yr = datetime.datetime.now().year
+            last_yr = current_yr - 1
+            
+            # Check if 2025 (or current - 1) is already in the list
+            has_last_yr = any(str(last_yr) in str(e.get('period')) for e in eps_estimates)
+            
+            if not has_last_yr:
+                eh = stock.earnings_history
+                if eh is not None and not eh.empty:
+                    # Filter for rows where the index (date) is in the last fiscal year
+                    # For FRSH, Dec 2025 is the target.
+                    actual_eps = 0.0
+                    found_q = 0
+                    
+                    # Sort chronological to get the last 4 quarters
+                    sorted_eh = eh.sort_index(ascending=False)
+                    for idx, row in sorted_eh.iterrows():
+                        val = row.get('epsActual')
+                        if val is not None and not pd.isna(val):
+                            actual_eps += float(val)
+                            found_q += 1
+                        if found_q >= 4: break
+                    
+                    if found_q >= 1: # We have some actuals
+                        eps_estimates.insert(0, {
+                            "period": f"FY {last_yr} (Actual)",
+                            "avg": round(actual_eps, 2),
+                            "status": "reported"
+                        })
+        except Exception as e:
+            print(f"[Analyst] Base year backfill fail: {e}")
 
         # ── Recommendation Counts Fix ──────────────────────────────────────────
         rec_counts = {"strongBuy": 0, "buy": 0, "hold": 0, "sell": 0, "strongSell": 0}
@@ -2106,7 +2082,6 @@ def get_analyst_data(ticker_symbol: str) -> dict:
             return f"Q{fq} {fy}"
         
         try:
-            import pandas as pd
             # EPS History
             eh = stock.earnings_history
             if eh is not None and not eh.empty:
