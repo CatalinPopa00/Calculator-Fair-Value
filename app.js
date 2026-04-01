@@ -1545,11 +1545,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (data.error) throw new Error(data.error);
 
             const pt = data.price_target || {};
-            document.getElementById('pt-avg').textContent = pt.avg ? `$${pt.avg.toFixed(2)}` : '--';
-            document.getElementById('pt-upside').textContent = pt.upside_pct ? `${pt.upside_pct > 0 ? '+' : ''}${pt.upside_pct.toFixed(1)}%` : '--';
-            document.getElementById('pt-upside').style.color = (pt.upside_pct > 0) ? 'var(--accent)' : (pt.upside_pct < 0 ? 'var(--danger)' : 'var(--text-muted)');
-            document.getElementById('pt-low').textContent = pt.low ? `$${pt.low.toFixed(2)}` : '--';
-            document.getElementById('pt-high').textContent = pt.high ? `$${pt.high.toFixed(2)}` : '--';
+            if (document.getElementById('pt-avg')) document.getElementById('pt-avg').textContent = (pt.avg && typeof pt.avg === 'number') ? `$${pt.avg.toFixed(2)}` : '--';
+            if (document.getElementById('pt-upside')) {
+                const ups = pt.upside_pct;
+                document.getElementById('pt-upside').textContent = (ups && typeof ups === 'number') ? `${ups > 0 ? '+' : ''}${ups.toFixed(1)}%` : '--';
+                document.getElementById('pt-upside').style.color = (ups > 0) ? 'var(--accent)' : (ups < 0 ? 'var(--danger)' : 'var(--text-muted)');
+            }
+            if (document.getElementById('pt-low')) document.getElementById('pt-low').textContent = (pt.low && typeof pt.low === 'number') ? `$${pt.low.toFixed(2)}` : '--';
+            if (document.getElementById('pt-high')) document.getElementById('pt-high').textContent = (pt.high && typeof pt.high === 'number') ? `$${pt.high.toFixed(2)}` : '--';
 
             const rec = data.recommendation || {};
             const statusElem = document.getElementById('rec-status');
@@ -1580,10 +1583,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 `;
             });
-            barsContainer.innerHTML = barsHtml;
+            barsContainer.innerHTML = barsHtml || '<div style="color:var(--text-muted); font-size:0.8em;">No data available</div>';
             
-            statusElem.textContent = topCount > 0 ? topCategory : ((rec.key || 'N/A').replace('_', ' ').toUpperCase());
-            document.getElementById('rec-mean').textContent = `Score: ${rec.mean ? rec.mean.toFixed(2) : '--'} (1-5)`;
+            statusElem.textContent = topCount > 0 ? topCategory : ((rec && rec.key) ? rec.key.replace('_', ' ').toUpperCase() : 'N/A');
+            if (document.getElementById('rec-mean')) {
+                document.getElementById('rec-mean').textContent = (rec && rec.mean && typeof rec.mean === 'number') ? `Score: ${rec.mean.toFixed(2)} (1-5)` : 'Score: -- (1-5)';
+            }
 
             const fvScale = (v) => v != null ? `$${v.toFixed(2)}` : '--';
             const fvPct = (v) => v != null ? `${(v * 100).toFixed(1)}%` : '--';

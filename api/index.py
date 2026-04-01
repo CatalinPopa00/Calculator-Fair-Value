@@ -103,7 +103,7 @@ def search(query: str):
 @app.get("/api/analyst/{ticker}")
 def get_analyst(ticker: str):
     ticker_upper = ticker.upper()
-    cache_key = f"nq_comp_v2_{ticker_upper}_{CACHE_VERSION}"
+    cache_key = f"analyst_v2_{ticker_upper}_{CACHE_VERSION}"
     if cache_key in valuation_cache:
         return valuation_cache[cache_key]
     result = get_analyst_data(ticker_upper)

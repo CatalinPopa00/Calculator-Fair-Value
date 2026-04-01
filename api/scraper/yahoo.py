@@ -1896,21 +1896,31 @@ def get_analyst_data(ticker_symbol: str) -> dict:
                  })
 
             # Map Nasdaq Revenue Quarters/Years for the Revenue table
+            hist_rev = historical_data.get("revenue", [0])
+            last_rev = hist_rev[-1] if hist_rev else 0
+
             for q_row in nq_quarterly_rev[:4]:
                 label = q_row.get('fiscalQuarterEnd') or q_row.get('fiscalEnd', 'N/A')
-                raw_val = q_row.get('consensusRevenueForecast', 0)
+                val = safe_nasdaq_float(q_row.get('consensusRevenueForecast', 0))
+                # Normalize Nasdaq Billions/Millions to absolute
+                if last_rev > 1e6 and val < 10000: val *= 1e9
+                elif last_rev > 1e6 and val < 10000000: val *= 1e6
+                
                 rev_estimates.append({
                     "period": label,
-                    "avg": round(safe_nasdaq_float(raw_val), 2),
+                    "avg": round(val, 2),
                     "growth_yy": None
                 })
             
             for y_row in nq_yearly_rev[:2]:
                 label = f"FY {y_row.get('fiscalYearEnd') or y_row.get('fiscalEnd') or 'N/A'}"
-                raw_val = y_row.get('consensusRevenueForecast', 0)
+                val = safe_nasdaq_float(y_row.get('consensusRevenueForecast', 0))
+                if last_rev > 1e6 and val < 10000: val *= 1e9
+                elif last_rev > 1e6 and val < 10000000: val *= 1e6
+
                 rev_estimates.append({
                     "period": label,
-                    "avg": round(safe_nasdaq_float(raw_val), 2),
+                    "avg": round(val, 2),
                     "growth_yy": None
                 })
 
