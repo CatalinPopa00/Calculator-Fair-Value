@@ -349,6 +349,7 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False, skip
             valid_pes.append(data.get("pe_ratio"))
             
         sector_median_pe = statistics.median(valid_pes) if valid_pes else 20.0
+        median_peer_pe = sector_median_pe
 
         pe_historic = data.get("pe_historic") or data.get("pe_ratio")
         
@@ -365,6 +366,13 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False, skip
         lynch_fwd_pe = lynch_result.get("fwd_pe")
         lynch_fair_value = lynch_result.get("fair_value")
         lynch_status = lynch_result.get("status")
+
+        # Additional Benchmarks for Data Transparency
+        res_pe20 = calculate_peter_lynch(current_price, eps_for_valuation, consensus_growth, pe_historic, 20.0)
+        lynch_pe20_val = res_pe20.get("fair_value")
+        
+        res_sector = calculate_peter_lynch(current_price, eps_for_valuation, consensus_growth, pe_historic, sector_median_pe)
+        fair_value_sector_pe = res_sector.get("fair_value")
         
         # PEG Valuation (Sector-based)
         eps_base = eps_for_valuation or 0
@@ -402,6 +410,8 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False, skip
         
         # DCF
         # For DCF, we need FCF, Growth, WACC (discount_rate), terminal growth
+        fcf = data.get("fcf")
+        shares = data.get("shares_outstanding")
         # We will use simple defaults if missing
         # For DCF, we strictly use the consensus_growth (v62 fix for growing FCF in negative scenarios)
         eps_growth = consensus_growth
