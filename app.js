@@ -1603,9 +1603,17 @@ document.addEventListener('DOMContentLoaded', () => {
             if (rBody) rBody.innerHTML = '';
 
             const getColor = (item) => {
-                const val = (item.growth != null) ? item.growth : (item.surprise_pct || 0);
-                if (val > 0) return '#4ade80'; // accent green
-                if (val < 0) return '#f87171'; // danger red
+                if (item.status !== 'reported') return 'var(--text-main)'; // neutral for estimates
+                
+                // For reported: color based on surprise if available, otherwise growth
+                const surprise = item.surprise_pct || 0;
+                if (surprise > 0) return '#4ade80'; // Beat
+                if (surprise < 0) return '#f87171'; // Miss
+                
+                // Fallback to growth if surprise is missing but it's reported
+                if (item.growth > 0) return '#4ade80';
+                if (item.growth < 0) return '#f87171';
+                
                 return 'var(--text-main)';
             };
 
@@ -1615,8 +1623,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 const pLabel = item.period || '--';
                 const aVal = (item.avg != null) ? '$' + parseFloat(item.avg).toFixed(2) : '--';
                 let gVal = '--';
-                if (item.growth != null) gVal = (parseFloat(item.growth) * 100).toFixed(1) + '%';
-                else if (item.surprise_pct != null) gVal = (parseFloat(item.surprise_pct) * 100).toFixed(1) + '% s';
+                
+                if (item.status === 'reported' && item.surprise_pct != null) {
+                    gVal = (parseFloat(item.surprise_pct) * 100).toFixed(1) + '% s';
+                } else if (item.growth != null) {
+                    gVal = (parseFloat(item.growth) * 100).toFixed(1) + '%';
+                }
                 
                 const sColor = getColor(item);
                 const weight = item.status === 'reported' ? 'bold' : 'normal';
