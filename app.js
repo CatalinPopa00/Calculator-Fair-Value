@@ -1592,6 +1592,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('rec-key').textContent = (rec.key || '...').toUpperCase();
                 document.getElementById('rec-key').style.color = 'var(--accent)';
             }
+
+            const getRecLabel = (m) => {
+                if (!m || m === 0) return 'N/A';
+                if (m <= 1.5) return 'STRONG BUY';
+                if (m <= 2.5) return 'BUY';
+                if (m <= 3.5) return 'HOLD';
+                if (m <= 4.5) return 'SELL';
+                return 'STRONG SELL';
+            };
+
+            const getRecColor = (m) => {
+                if (!m || m === 0) return 'var(--text-muted)';
+                if (m <= 2.5) return '#4ade80'; // Buy
+                if (m <= 3.5) return '#fbbf24'; // Hold
+                return '#f87171'; // Sell
+            };
+
+            if (statusElem) {
+                const meanVal = parseFloat(rec.mean);
+                statusElem.textContent = getRecLabel(meanVal);
+                statusElem.style.color = getRecColor(meanVal);
+            }
+
             if (document.getElementById('rec-mean')) {
                 document.getElementById('rec-mean').textContent = rec.mean ? `Score: ${parseFloat(rec.mean).toFixed(2)}` : 'Score: --';
             }
