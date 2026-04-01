@@ -1807,9 +1807,7 @@ def get_lightweight_company_data(ticker_symbol: str):
                 "revenue_growth": info.get('revenueGrowth'),
                 "earnings_growth": info.get('earningsGrowth') or info.get('earningsQuarterlyGrowth'),
                 "industry": info.get('industry'),
-                "sector": info.get('sector'),
-                "rec_sentiment": sentiment_score,
-                "rec_median_label": median_label
+                "sector": info.get('sector')
             }
             # Scale currencies if not USD
             if fx_rate != 1.0:
@@ -2039,6 +2037,34 @@ def get_analyst_data(ticker_symbol: str) -> dict:
                         rec_mean = weighted_sum / total_votes
         except Exception:
             pass
+
+        # ── Intuitive Sentiment & Median Calculation ──────────────────────────
+        total_rec = sum(rec_counts.values())
+        rec_sentiment = 0
+        rec_median_label = "N/A"
+        if total_rec > 0:
+            # Score 0-100: SB=100, B=75, H=50, S=25, SS=0
+            p = (rec_counts["strongBuy"] * 100) + (rec_counts["buy"] * 75) + \
+                (rec_counts["hold"] * 50) + (rec_counts["sell"] * 25) + (rec_counts["strongSell"] * 0)
+            rec_sentiment = round(p / total_rec, 2)
+            
+            # Median Analyst
+            mid = total_rec / 2
+            running = 0
+            for k, label in [("strongBuy", "STRONG BUY"), ("buy", "BUY"), ("hold", "HOLD"), ("sell", "SELL"), ("strongSell", "STRONG SELL")]:
+                running += rec_counts[k]
+                if running >= mid:
+                    rec_median_label = label
+                    break
+        elif rec_mean:
+            # Fallback to inverse 1-5 mean if counts are missing
+            rec_sentiment = round((5.0 - rec_mean) / 4.0 * 100, 2)
+            # Rough label fallback
+            if rec_mean <= 1.5: rec_median_label = "STRONG BUY"
+            elif rec_mean <= 2.5: rec_median_label = "BUY"
+            elif rec_mean <= 3.5: rec_median_label = "HOLD"
+            elif rec_mean <= 4.5: rec_median_label = "SELL"
+            else: rec_median_label = "STRONG SELL"
 
         # ── Historical Reported Data (EPS and Revenue) ───────────────────────────
         reported_eps = []
@@ -2463,7 +2489,8 @@ def get_analyst_data(ticker_symbol: str) -> dict:
             },
             "recommendation": {
                 "key":  rec_key,
-                "mean": rec_mean,
+                "sentiment": rec_sentiment,
+                "median_label": rec_median_label,
                 "counts": rec_counts
             },
             "eps_5yr_growth": eps_growth_5y_consensus if eps_growth_5y_consensus is not None else eps_forward_growth,
