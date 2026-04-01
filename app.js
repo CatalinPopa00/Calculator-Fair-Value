@@ -1568,14 +1568,9 @@ document.addEventListener('DOMContentLoaded', () => {
             barsContainer.innerHTML = '';
 
             const labels = { strongBuy: 'SB', buy: 'B', hold: 'H', sell: 'S', strongSell: 'SS' };
-            const fullLabels = { strongBuy: 'STRONG BUY', buy: 'BUY', hold: 'HOLD', sell: 'SELL', strongSell: 'STRONG SELL' };
             
-            let topCategory = 'N/A';
-            let topCount = -1;
-
             ['strongBuy', 'buy', 'hold', 'sell', 'strongSell'].forEach(k => {
                 const count = counts[k] || 0;
-                if (count > topCount) { topCount = count; topCategory = fullLabels[k]; }
                 const pct = (count / maxVal) * 100;
                 barsContainer.innerHTML += `
                     <div style="display:flex; align-items:center; gap:8px; font-size:0.7rem; color:var(--text-muted); margin-bottom:2px;">
@@ -1588,35 +1583,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             });
 
-            if (document.getElementById('rec-key')) {
-                document.getElementById('rec-key').textContent = (rec.key || '...').toUpperCase();
-                document.getElementById('rec-key').style.color = 'var(--accent)';
-            }
-
-            const getRecLabel = (m) => {
-                if (!m || m === 0) return 'N/A';
-                if (m <= 1.5) return 'STRONG BUY';
-                if (m <= 2.5) return 'BUY';
-                if (m <= 3.5) return 'HOLD';
-                if (m <= 4.5) return 'SELL';
-                return 'STRONG SELL';
-            };
-
-            const getRecColor = (m) => {
-                if (!m || m === 0) return 'var(--text-muted)';
-                if (m <= 2.5) return '#4ade80'; // Buy
-                if (m <= 3.5) return '#fbbf24'; // Hold
-                return '#f87171'; // Sell
-            };
-
             if (statusElem) {
-                const meanVal = parseFloat(rec.mean);
-                statusElem.textContent = getRecLabel(meanVal);
-                statusElem.style.color = getRecColor(meanVal);
+                const medianRating = rec.median_label || 'N/A';
+                statusElem.textContent = medianRating;
+                
+                // Color based on sentiment score (0-100)
+                const sent = rec.sentiment || 0;
+                if (sent >= 66) statusElem.style.color = '#4ade80'; // Green
+                else if (sent >= 45) statusElem.style.color = '#fbbf24'; // Yellow
+                else statusElem.style.color = '#f87171'; // Red
             }
 
             if (document.getElementById('rec-mean')) {
-                document.getElementById('rec-mean').textContent = rec.mean ? `Score: ${parseFloat(rec.mean).toFixed(2)}` : 'Score: --';
+                const sent = rec.sentiment || 0;
+                document.getElementById('rec-mean').textContent = `Sentiment: ${sent.toFixed(1)}/100`;
             }
 
             // Tables population

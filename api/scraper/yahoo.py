@@ -1807,7 +1807,9 @@ def get_lightweight_company_data(ticker_symbol: str):
                 "revenue_growth": info.get('revenueGrowth'),
                 "earnings_growth": info.get('earningsGrowth') or info.get('earningsQuarterlyGrowth'),
                 "industry": info.get('industry'),
-                "sector": info.get('sector')
+                "sector": info.get('sector'),
+                "rec_sentiment": sentiment_score,
+                "rec_median_label": median_label
             }
             # Scale currencies if not USD
             if fx_rate != 1.0:
@@ -2356,6 +2358,21 @@ def get_analyst_data(ticker_symbol: str) -> dict:
 
         fill_buckets(eps_buckets, [reported_eps + eps_estimates], current_fy_num)
         fill_buckets(rev_buckets, [reported_rev + rev_estimates], current_fy_num)
+
+        # ── PLUG MISSING QUARTERS ──────────────────────────────────────────────
+        # If 3 quarters and FY are present, calculate the 4th.
+        def plug_missing_q(buckets):
+            q_keys = ["Q1", "Q2", "Q3", "Q4"]
+            missing = [q for q in q_keys if buckets[q].get("avg") is None]
+            if len(missing) == 1 and buckets["FY0"].get("avg") is not None:
+                m_key = missing[0]
+                total = buckets["FY0"]["avg"]
+                others = sum(buckets[q]["avg"] for q in q_keys if q != m_key and buckets[q].get("avg") is not None)
+                buckets[m_key]["avg"] = round(total - others, 2)
+                buckets[m_key]["status"] = "estimate" # It's a calculated estimate
+
+        plug_missing_q(eps_buckets)
+        plug_missing_q(rev_buckets)
 
         # ── REFINED GROWTH CALCULATION ──────────────────────────────────────────
         unified_eps = []; unified_rev = []
