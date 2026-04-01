@@ -2357,7 +2357,23 @@ def get_analyst_data(ticker_symbol: str) -> dict:
         fill_buckets(eps_buckets, [reported_eps + eps_estimates], current_fy_num)
         fill_buckets(rev_buckets, [reported_rev + rev_estimates], current_fy_num)
 
+        # ── REFINED GROWTH CALCULATION ──────────────────────────────────────────
         unified_eps = []; unified_rev = []
+        
+        # Improve FY0 baseline: yfinance info['trailingEps'] is often Adjusted
+        actual_trailing_eps = info.get('trailingEps')
+        actual_trailing_rev = info.get('totalRevenue')
+        
+        # Try to calculate FY-1 Actual by summing history (if all 4 qtrs present)
+        # Note: prev_fy_lbl for ADBE FY 2026 is FY 2025
+        prev_fy_lbl = f"FY {current_fy_num - 1}"
+        
+        # Revise history_eps[prev_fy_lbl] if trailingEps is better/available
+        if actual_trailing_eps and prev_fy_lbl not in history_eps:
+            history_eps[prev_fy_lbl] = actual_trailing_eps
+        if actual_trailing_rev and prev_fy_lbl not in history_rev:
+            history_rev[prev_fy_lbl] = actual_trailing_rev
+
         for k in ["Q1", "Q2", "Q3", "Q4", "FY0", "FY1"]:
             e = eps_buckets[k]; r = rev_buckets[k]
             if k.startswith("Q"):
@@ -2366,17 +2382,28 @@ def get_analyst_data(ticker_symbol: str) -> dict:
             elif k == "FY0":
                 current_lbl = f"FY {current_fy_num}"
                 prev_lbl = f"FY {current_fy_num - 1}"
-            else:
+            else: # FY1
                 current_lbl = f"FY {current_fy_num + 1}"
-                prev_lbl = f"FY {current_fy_num}"
+                prev_lbl = "FY0" # Sentinel for forward-comparison
             
             # Y/Y Growth
             if e.get("growth") is None and e.get("avg") is not None:
-                past_val = history_eps.get(prev_lbl)
-                if past_val and past_val != 0: e["growth"] = (e["avg"] / past_val) - 1
+                if prev_lbl == "FY0":
+                    past_val = eps_buckets["FY0"]["avg"]
+                else:
+                    past_val = history_eps.get(prev_lbl)
+                
+                if past_val and past_val != 0: 
+                    e["growth"] = (e["avg"] / past_val) - 1
+            
             if r.get("growth") is None and r.get("avg") is not None:
-                past_val = history_rev.get(prev_lbl)
-                if past_val and past_val != 0: r["growth"] = (r["avg"] / past_val) - 1
+                if prev_lbl == "FY0":
+                    past_val = rev_buckets["FY0"]["avg"]
+                else:
+                    past_val = history_rev.get(prev_lbl)
+                
+                if past_val and past_val != 0: 
+                    r["growth"] = (r["avg"] / past_val) - 1
             
             e["period"] = current_lbl; r["period"] = current_lbl
             unified_eps.append(e); unified_rev.append(r)
