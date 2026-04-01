@@ -1977,15 +1977,18 @@ def get_analyst_data(ticker_symbol: str) -> dict:
 
             # FALLBACK to Yahoo only if Nasdaq results were empty
             if not eps_estimates:
-                e_est = stock.earnings_estimate
-                if e_est is not None and not e_est.empty:
-                    for idx, row in e_est.iterrows():
-                        label = labels.get(idx, idx)
-                        eps_estimates.append({
-                            "period": label,
-                            "avg": round(float(row.get('avg', 0)), 2),
-                            "growth_yy": row.get('growth', None)
-                        })
+                try:
+                    e_est = stock.earnings_estimate
+                    if e_est is not None and not e_est.empty:
+                        for idx, row in e_est.iterrows():
+                            label = labels.get(str(idx), str(idx))
+                            eps_estimates.append({
+                                "period": label,
+                                "avg": round(float(row.get('avg', 0)), 2),
+                                "growth": float(row.get('growth', 0)) if row.get('growth') else None,
+                                "status": "estimate"
+                            })
+                except: pass
         except Exception as e:
             print(f"[Analyst] EPS estimates error: {e}")
 

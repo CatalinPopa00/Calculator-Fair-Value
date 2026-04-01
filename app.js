@@ -1601,48 +1601,43 @@ document.addEventListener('DOMContentLoaded', () => {
             // Helper: determine color and display value for a row
             const getRowDisplay = (row) => {
                 let colorKey = 'var(--text-main)';
-                let finalVal = fvPct(row.growth);
-                const isFY = (row.period || '').startsWith('FY');
+                let finalVal = '--';
                 
                 if (row.status === 'reported') {
-                    // REPORTED quarter: show Y/Y growth value, color by surprise (beat/miss)
-                    if (row.growth != null) {
-                        finalVal = fvPct(row.growth);
-                    } else if (row.surprise_pct != null) {
-                        finalVal = fvPct(row.surprise_pct);
-                    } else {
-                        finalVal = '--';
-                    }
-                    // Color by surprise (beat = green, miss = red)
+                    // For reported quarters, show surprise or growth
                     if (row.surprise_pct != null) {
+                        finalVal = (row.surprise_pct * 100).toFixed(1) + '% Surp';
                         if (row.surprise_pct > 0) colorKey = 'var(--accent)';
                         else if (row.surprise_pct < 0) colorKey = 'var(--danger)';
+                    } else if (row.growth != null) {
+                        finalVal = (row.growth * 100).toFixed(1) + '% Y/Y';
                     }
-                } else if (isFY) {
-                    // FY row (estimate): show growth but do not color
-                    finalVal = fvPct(row.growth);
                 } else {
-                    // ESTIMATE quarter: show growth but do not color
-                    finalVal = fvPct(row.growth);
+                    // For estimates, show growth
+                    if (row.growth != null) {
+                        finalVal = (row.growth * 100).toFixed(1) + '% Est';
+                    } else if (row.surprise_pct != null) {
+                         finalVal = (row.surprise_pct * 100).toFixed(1) + '% Est';
+                    }
                 }
                 return { colorKey, finalVal };
             };
 
             const epsBody = document.querySelector('#eps-est-table tbody');
-            let epsHtml = '';
-            (data.eps_estimates || []).slice(0, 8).forEach(row => {
+            epsBody.innerHTML = '';
+            (data.eps_estimates || []).slice(0, 6).forEach(row => {
                 const { colorKey, finalVal } = getRowDisplay(row);
-                epsHtml += `<tr><td style="padding: 0.4rem 0;">${row.period}</td><td style="text-align: right; font-weight: 600;">${fvScale(row.avg)}</td><td style="text-align: right; color: ${colorKey};">${finalVal}</td></tr>`;
+                const val = row.avg != null ? '$' + row.avg.toFixed(2) : '--';
+                epsBody.innerHTML += `<tr><td style="padding: 0.4rem 0;">${row.period}</td><td style="text-align: right; font-weight: 600;">${val}</td><td style="text-align: right; color: ${colorKey};">${finalVal}</td></tr>`;
             });
-            epsBody.innerHTML = epsHtml;
 
             const revBody = document.querySelector('#rev-est-table tbody');
-            let revHtml = '';
-            (data.rev_estimates || []).slice(0, 8).forEach(row => {
+            revBody.innerHTML = '';
+            (data.rev_estimates || []).slice(0, 6).forEach(row => {
                 const { colorKey, finalVal } = getRowDisplay(row);
-                revHtml += `<tr><td style="padding: 0.4rem 0;">${row.period}</td><td style="text-align: right; font-weight: 600;">${fvM(row.avg)}</td><td style="text-align: right; color: ${colorKey};">${finalVal}</td></tr>`;
+                const val = row.avg != null ? (row.avg / 1e9).toFixed(2) + 'B' : (row.raw_avg ? row.raw_avg : '--');
+                revBody.innerHTML += `<tr><td style="padding: 0.4rem 0;">${row.period}</td><td style="text-align: right; font-weight: 600;">${val}</td><td style="text-align: right; color: ${colorKey};">${finalVal}</td></tr>`;
             });
-            revBody.innerHTML = revHtml;
         } catch (err) {
             console.error("Analyst inline error:", err);
             // analystCard.style.display = 'none';
