@@ -1632,7 +1632,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 const sColor = getColor(item);
                 const weight = item.status === 'reported' ? 'bold' : 'normal';
-                if (eBody) eBody.innerHTML += `<tr><td style="padding:4px 0;${item.status === 'reported' ? 'color:var(--accent);' : ''}">${pLabel}</td><td style="text-align:right;">${aVal}</td><td style="text-align:right;color:${sColor};font-weight:${weight};">${gVal}</td></tr>`;
+                if (eBody) eBody.innerHTML += `<tr><td style="padding:4px 0;${item.status === 'reported' ? 'color:#4ade80;' : ''}">${pLabel}</td><td style="text-align:right;">${aVal}</td><td style="text-align:right;color:${sColor};font-weight:${weight};">${gVal}</td></tr>`;
             });
 
             const rItems = data.rev_estimates || [];
@@ -1644,7 +1644,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 const sColor = getColor(item);
                 const weight = item.status === 'reported' ? 'bold' : 'normal';
-                if (rBody) rBody.innerHTML += `<tr><td style="padding:4px 0;${item.status === 'reported' ? 'color:var(--accent);' : ''}">${pLabel}</td><td style="text-align:right;">${aVal}</td><td style="text-align:right;color:${sColor};font-weight:${weight};">${gVal}</td></tr>`;
+                if (rBody) rBody.innerHTML += `<tr><td style="padding:4px 0;${item.status === 'reported' ? 'color:#4ade80;' : ''}">${pLabel}</td><td style="text-align:right;">${aVal}</td><td style="text-align:right;color:${sColor};font-weight:${weight};">${gVal}</td></tr>`;
             });
         } catch (err) {
             console.error("Analyst major error:", err);
