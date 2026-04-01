@@ -157,34 +157,25 @@ def get_nasdaq_earnings_growth(ticker: str, trailing_eps: float) -> float:
             data = json.loads(raw_data)
             
         rows = data.get('data', { }).get('yearlyForecast', { }).get('rows', [])
-        if rows and len(rows) > 1:
-            # Consistent with Non-GAAP Estimates: 
-            # Calculate CAGR strictly between the Forecast Years.
-            # This avoids the historical GAAP (Trailing) vs Future Non-GAAP (Forecast) mismatch
-            # which caused hyper-inflated results for stocks like NVDA (e.g. 96% -> 28%).
+        if rows:
+            # IMPROVED: Start from Trailing EPS (T0) as the base to include "An 1" growth.
+            # This captures the transition from real reporting (Actuals) to forecasts (Estimates).
             
-            # Start from Year 1 Forecast as base
-            base_eps = float(rows[0].get('consensusEPSForecast', 0))
-            if base_eps != 0:
-                # Calculate CAGR from Year 1 Forecast to furthest available (up to 3 years ahead)
-                target_idx = min(len(rows) - 1, 3) 
-                target_eps = float(rows[target_idx].get('consensusEPSForecast', 0))
-                
-                # If Year 1 is very small (near zero), CAGR becomes astronomical. 
-                # Floor the base at 0.10 if it's positive but tiny to keep it sane for PEG.
-                effective_base = max(base_eps, 0.10) if base_eps > 0 else base_eps
-                
-                if target_eps > 0 and target_idx > 0 and effective_base > 0:
-                    # CAGR = (End/Start)^(1/Years) - 1
-                    return (target_eps / effective_base) ** (1 / target_idx) - 1
-
-            # Last resort fallback to trailing -> Year 1 jump
-            target_eps = float(rows[0].get('consensusEPSForecast', 0))
-            if target_eps > 0 and trailing_eps > 0:
-                return (target_eps / trailing_eps) - 1
-            elif target_eps > 0 and trailing_eps <= 0:
-                # Low base jump: assume 20% if we go from loss to profit but can't CAGR
-                return 0.20
+            # Use provided trailing_eps as the anchor (T0)
+            base_eps = trailing_eps
+            
+            # Target the 3rd year in the forecast if available (T3), else the furthest available.
+            # N (Years) will be index + 1 (since index 0 is T1, index 1 is T2, index 2 is T3).
+            target_idx = min(len(rows) - 1, 2) # Target up to T3 (rows[2])
+            target_eps = float(rows[target_idx].get('consensusEPSForecast', 0))
+            n_years = target_idx + 1 # Years from T0 to Target
+            
+            # Floor the base at 0.10 if it's positive but tiny to keep CAGR/PEG calculations sane.
+            effective_base = max(base_eps, 0.10) if base_eps > 0 else base_eps
+            
+            if target_eps > 0 and n_years > 0 and effective_base > 0:
+                # CAGR = (End/Start)^(1/Years) - 1
+                return (target_eps / effective_base) ** (1 / n_years) - 1
 
     except Exception as e:
         print(f"Error fetching Nasdaq growth for {ticker}: {e}")
@@ -660,7 +651,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         # --- GROWTH SELECTION (USER REQUESTED PRIORITY: NASDAQ 3Y) ---
         if nasdaq_growth_3y and nasdaq_growth_3y > 0:
             eps_growth = nasdaq_growth_3y
-            eps_growth_period = "Nasdaq 3Y Forecast"
+            eps_growth_period = "Nasdaq 3Y (incl. T0)"
         
         # 1. Fallback to YF growth_estimates (Analysis tab - Next 5 Years) if Nasdaq missing
         if eps_growth is None and eps_growth_5y_consensus:
@@ -1467,6 +1458,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             "payout_ratio": payout_ratio,
             "insider_ownership": info.get('heldPercentInsiders'),
             "eps_growth": normalize_growth(eps_growth),
+            "eps_growth_period": eps_growth_period,
             "eps_growth_3y": normalize_growth(historic_eps_growth_3y),
             "eps_growth_5y": normalize_growth(historic_eps_growth_5y),
             "eps_growth_5y_consensus": normalize_growth(eps_growth_5y_consensus),

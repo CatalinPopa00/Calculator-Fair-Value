@@ -328,7 +328,7 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False, skip
         if eps_growth_estimated is None:
             eps_growth_estimated = data.get("eps_growth_3y") or data.get("eps_growth") or 0.05
         
-        lynch_period_label = "Nasdaq 3Y Forecast" if data.get("eps_growth_nasdaq_3y") else ("3-Year Hist. Avg" if data.get("eps_growth_3y") else "Analyst Est.")
+        lynch_period_label = data.get("eps_growth_period") or ("Nasdaq 3Y" if data.get("eps_growth_nasdaq_3y") else ("3-Year Hist. Avg" if data.get("eps_growth_3y") else "Analyst Est."))
         
         
         # Calculate Industry Median PE for Peter Lynch fallback
@@ -368,7 +368,7 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False, skip
         if eps_growth_rate_peg is None:
             eps_growth_rate_peg = data.get("eps_growth_5y") or data.get("eps_growth") or 0.05
             
-        peg_period_label = "Nasdaq 3Y Forecast" if data.get("eps_growth_nasdaq_3y") else ("Yahoo 5Y Cons." if data.get("eps_growth_5y_consensus") else ("5-Year Hist. Avg" if data.get("eps_growth_5y") else "Analyst Est."))
+        peg_period_label = data.get("eps_growth_period") or ("Nasdaq 3Y" if data.get("eps_growth_nasdaq_3y") else ("Yahoo 5Y Cons." if data.get("eps_growth_5y_consensus") else ("5-Year Hist. Avg" if data.get("eps_growth_5y") else "Analyst Est.")))
         company_peg = current_pe / (eps_growth_rate_peg * 100) if eps_growth_rate_peg > 0 else 0
         
         # Calculate Industry PEG from peers + Target Company
