@@ -621,7 +621,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const branch = method === 'multiple' ? dcfData.dcf_exit_multiple : dcfData.dcf_perpetual;
                     dcfVal = branch ? branch.fair_value_per_share : null;
                 } else {
-                    const g = currentFormulaData.dcf.eps_growth_estimated || 0.10;
+                    const g = currentFormulaData.dcf.eps_growth_applied || 0.10;
                     const wAnalyst = (waccInput && waccInput.value) ? parseFloat(waccInput.value)/100 : w;
                     const em = parseFloat(document.getElementById('input-exit-multiple')?.value) || (data.dcf_assumptions?.recommended_exit_multiple || 10.0);
                     dcfVal = calcLocalDcf(baseFcf, g, wAnalyst, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
@@ -631,7 +631,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const em = parseFloat(document.getElementById('input-exit-multiple')?.value) || (data.dcf_assumptions?.recommended_exit_multiple || 10.0);
                 dcfVal = calcLocalDcf(baseFcf, hg, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
             } else if (fcfSource === 'eps_growth') {
-                const g = currentFormulaData.dcf.eps_growth_estimated || 0.10;
+                const g = currentFormulaData.dcf.eps_growth_applied || 0.10;
                 const em = parseFloat(document.getElementById('input-exit-multiple')?.value) || (data.dcf_assumptions?.recommended_exit_multiple || 10.0);
                 dcfVal = calcLocalDcf(baseFcf, g, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
             } else if (fcfSource === 'custom') {
@@ -2090,6 +2090,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     return `
                         <div style="background:rgba(255,255,255,0.02); padding:20px; border-radius:8px; border:1px solid rgba(255,255,255,0.05); margin-bottom:20px;">
                             <div style="display:flex; justify-content:space-between; padding:4px 0;"><span style="color:var(--text-muted);">Discount Rate (Applied):</span><span style="font-weight:500; color:white;">${fmtPct(dataObj.discount_rate)}</span></div>
+                            <div style="display:flex; justify-content:space-between; padding:4px 0;"><span style="color:var(--text-muted);">Growth Rate (Applied):</span><span style="font-weight:500; color:${d.eps_growth_applied < 0 ? 'var(--danger)' : 'white'};">${fmtPct(d.eps_growth_applied)}</span></div>
                             ${method === 'perpetual' ? `<div style="display:flex; justify-content:space-between; padding:4px 0;"><span style="color:var(--text-muted);">Perpetual Growth:</span><span style="font-weight:500; color:white;">${fmtPct(dataObj.perpetual_growth_rate)}</span></div>` : `<div style="display:flex; justify-content:space-between; padding:4px 0;"><span style="color:var(--text-muted);">Exit Multiple:</span><span style="font-weight:500; color:white;">${dataObj.exit_multiple}x</span></div>`}
                             <div style="display:flex; justify-content:space-between; padding:4px 0;"><span style="color:var(--text-muted);">Shares Outstanding:</span><span style="font-weight:500; color:white;">${d.shares_outstanding ? fmtBigNum(d.shares_outstanding, '') : 'N/A'}</span></div>
                         </div>

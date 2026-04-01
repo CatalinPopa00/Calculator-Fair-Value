@@ -323,10 +323,13 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False, skip
         # Watchlist skips expensive peer fetching to save 80% loading time while retaining sync
         market_data = get_market_averages()
         
-        # 3. Compute Valuations
-        eps_growth_estimated = data.get("eps_growth_nasdaq_3y")
-        if eps_growth_estimated is None:
-            eps_growth_estimated = data.get("eps_growth_5y_consensus") or data.get("eps_growth_3y") or data.get("eps_growth_5y") or data.get("eps_growth") or 0.05
+        # 3. Compute Valuations (v62: Unified Consensus Growth)
+        consensus_growth = data.get("eps_growth_nasdaq_3y")
+        if consensus_growth is None:
+            consensus_growth = data.get("eps_growth_5y_consensus") or data.get("eps_growth_3y") or data.get("eps_growth_5y") or data.get("eps_growth") or 0.05
+        
+        # Use a safe growth baseline for labels
+        eps_growth_estimated = consensus_growth
         
         lynch_period_label = data.get("eps_growth_period") if data.get("eps_growth_nasdaq_3y") else (
             "Yahoo 5Y Cons." if data.get("eps_growth_5y_consensus") else (
@@ -352,7 +355,13 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False, skip
         # STRICT DATA MAPPING: Trailing TTM EPS Only (Forbid Adjusted/Forward for valuation base)
         eps_for_valuation = data.get("trailing_eps", 0) 
         
-        lynch_result = calculate_peter_lynch(current_price, eps_for_valuation, eps_growth_estimated, pe_historic, sector_median_pe)
+        # Peter Lynch - Conservative Guardrails for Negative Growth
+        # Standard Lynch PE is 20, but for shrinking companies (<0% growth), we cap it at 12x (Risk Adjusted)
+        effective_lynch_pe = sector_median_pe
+        if consensus_growth < 0:
+            effective_lynch_pe = min(sector_median_pe, 12.0)
+            
+        lynch_result = calculate_peter_lynch(current_price, eps_for_valuation, consensus_growth, pe_historic, effective_lynch_pe)
         lynch_fwd_pe = lynch_result.get("fwd_pe")
         lynch_fair_value = lynch_result.get("fair_value")
         lynch_status = lynch_result.get("status")
@@ -361,16 +370,12 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False, skip
         eps_base = eps_for_valuation or 0
         current_pe = current_price / eps_base if eps_base > 0 else 0
         
-        # USER REQUESTED PRIORITY: Nasdaq 3Y Forecast first
-        eps_growth_rate_peg = data.get("eps_growth_nasdaq_3y")
+        # Fallback logic handled by consensus_growth
+        eps_growth_rate_peg = consensus_growth
         
-        # Fallback to Yahoo 5Y Consensus
-        if eps_growth_rate_peg is None:
-            eps_growth_rate_peg = data.get("eps_growth_5y_consensus") or data.get("eps_growth_3y") or data.get("eps_growth") or 0.05
-            
         peg_period_label = data.get("eps_growth_period") if data.get("eps_growth_nasdaq_3y") else (
             "Yahoo 5Y Cons." if data.get("eps_growth_5y_consensus") else (
-            "5-Year Hist. Avg" if data.get("eps_growth_5y") else "Analyst Est."
+            "3-Year Hist. Avg" if data.get("eps_growth_3y") else "Analyst Est."
         ))
         company_peg = current_pe / (eps_growth_rate_peg * 100) if eps_growth_rate_peg > 0 else 0
         
@@ -398,9 +403,8 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False, skip
         # DCF
         # For DCF, we need FCF, Growth, WACC (discount_rate), terminal growth
         # We will use simple defaults if missing
-        fcf = data.get("fcf")
-        shares = data.get("shares_outstanding")
-        eps_growth = data.get("eps_growth", 0.05) if data.get("eps_growth") is not None else 0.05
+        # For DCF, we strictly use the consensus_growth (v62 fix for growing FCF in negative scenarios)
+        eps_growth = consensus_growth
         
         dcf_value = None
         dcf_5yr = None
@@ -423,10 +427,9 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False, skip
         dcf_cash = data.get("total_cash") or 0
         dcf_debt = data.get("total_debt") or 0
         
-        # USER REQUESTED: Sector-Aware DCF Exit Multiples
-        sector = (data.get("company_profile") or {}).get("sector") or data.get("sector") or ""
-        industry = (data.get("company_profile") or {}).get("industry") or data.get("industry") or ""
-        recommended_exit_multiple = get_recommended_exit_multiple(sector, industry)
+        # EXIT MULTIPLE CAP: If growth is negative, cap exit multiple to 12.0 for prudence
+        if eps_growth < 0:
+            recommended_exit_multiple = min(recommended_exit_multiple or 15.0, 12.0)
 
         if fcf and shares and fcf > 0:
             # Special Handling for Financial Services (Banks, Brokers, Insurance)
@@ -616,8 +619,8 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False, skip
             },
             "dcf": {
                 "fcf": sanitize(fcf),
-                "eps_growth_estimated": sanitize(eps_growth),
-                "eps_growth_period": data.get("eps_growth_period", "Next Year"),
+                "eps_growth_applied": sanitize(eps_growth),
+                "eps_growth_period": peg_period_label,
                 "discount_rate": discount_rate,
                 "perpetual_growth": perpetual_growth,
                 "shares_outstanding": shares,
