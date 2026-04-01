@@ -16,6 +16,7 @@ def verify_ticker(ticker):
     print(f"Price: {data.get('current_price')}")
     print(f"Trailing EPS: {data.get('trailing_eps')}")
     print(f"Adjusted EPS: {data.get('adjusted_eps')}")
+    print(f"Historic PE (5Y Avg): {data.get('pe_historic')}")
     print(f"Forward EPS: {data.get('forward_eps')}")
     print(f"Growth Rate: {data.get('eps_growth') * 100:.2f}%")
     print(f"Growth Period: {data.get('eps_growth_period')}")

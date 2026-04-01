@@ -385,7 +385,8 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False, skip
                 if v is not None and isinstance(v, (int, float)) and math.isfinite(v) and v > 0:
                     valid_pegs.append(float(v))
         
-        industry_peg = statistics.median(valid_pegs) if valid_pegs else None
+        # v61: Improved industry PEG fallback to 1.25 if no peer data is available
+        industry_peg = statistics.median(valid_pegs) if valid_pegs else 1.25
         peg_value = calculate_peg_fair_value(current_price, company_peg, industry_peg)
         
         # Relative Valuation (P/E Based currently)
@@ -609,7 +610,7 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False, skip
                 "eps_growth_estimated": sanitize(eps_growth_rate_peg),
                 "eps_growth_period": peg_period_label,
                 "current_peg": sanitize(company_peg) if company_peg > 0 else None,
-                "industry_peg": sanitize(industry_peg),
+                "industry_peg": sanitize(industry_peg) if industry_peg else 1.25,
                 "fair_value": sanitize(peg_value),
                 "margin_of_safety": sanitize(((peg_value - current_price) / peg_value * 100)) if peg_value and peg_value > 0 else None
             },

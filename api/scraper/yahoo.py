@@ -252,7 +252,7 @@ def get_nasdaq_actual_eps(ticker: str) -> float:
         print(f"Error fetching Nasdaq Actual EPS for {ticker}: {e}")
     return None
 
-def calculate_historic_pe(stock, financials):
+def calculate_historic_pe(stock, financials, fx_rate=1.0):
     """Calculates a 5-year average P/E ratio by matching annual EPS with historical prices."""
     if financials is None or financials.empty:
         return None
@@ -288,7 +288,9 @@ def calculate_historic_pe(stock, financials):
                 if not hist.empty:
                     # Get the price closest to the target date (usually the last available in window)
                     price = float(hist['Close'].iloc[-1])
-                    pe_ratios.append(price / eps)
+                    # CRITICAL: price is in ticker currency (USD), eps is in local (DKK). 
+                    # Scale eps by fx_rate to get P/E in USD terms.
+                    pe_ratios.append(price / (eps * fx_rate))
             except Exception:
                 continue
                 
@@ -939,7 +941,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         historic_pe_val = None
         if not fast_mode:
             try:
-                historic_pe_val = calculate_historic_pe(stock, financials)
+                data['pe_historic'] = calculate_historic_pe(stock, financials, fx_rate)
             except Exception:
                 pass
 

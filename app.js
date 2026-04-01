@@ -674,9 +674,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const currentPe = currentFormulaData.peg.current_pe || (parseFloat(globalData.company_profile.trailing_pe) || 0);
-            const industryPeg = currentFormulaData.peg.industry_peg;
+            // v61: Default to 1.25 if industry_peg is missing (e.g. no peers found)
+            const industryPeg = currentFormulaData.peg.industry_peg || 1.25;
 
-            if (usedGrowth > 0 && currentPe > 0 && industryPeg != null && industryPeg > 0) {
+            if (usedGrowth > 0 && currentPe > 0 && industryPeg > 0) {
                 currentPegToDisplay = currentPe / (usedGrowth * 100);
                 pegVal = globalData.current_price * (industryPeg / currentPegToDisplay);
                 pegMos = ((pegVal - globalData.current_price) / globalData.current_price) * 100;
