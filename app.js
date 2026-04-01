@@ -1141,6 +1141,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
+        // --- ADDITIONAL SECTIONS ---
+        renderAnalystEstimatesInline(data.ticker);
+
         const trendsBody = document.getElementById('trends-body');
         if (trendsBody) {
             const anchors = data.historical_anchors || [];
