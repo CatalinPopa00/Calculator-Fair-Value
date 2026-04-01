@@ -1984,10 +1984,11 @@ def get_analyst_data(ticker_symbol: str) -> dict:
                     found_q = 0
                     
                     # Sort chronological to get the last 4 quarters
+                    import pandas as _pd
                     sorted_eh = eh.sort_index(ascending=False)
                     for idx, row in sorted_eh.iterrows():
                         val = row.get('epsActual')
-                        if val is not None and not pd.isna(val):
+                        if val is not None and not _pd.isna(val):
                             actual_eps += float(val)
                             found_q += 1
                         if found_q >= 4: break
@@ -2078,7 +2079,8 @@ def get_analyst_data(ticker_symbol: str) -> dict:
         
         def to_fiscal_label(dt):
             """Convert a date to standard fiscal label like 'Q1 2026'."""
-            if not isinstance(dt, (pd.Timestamp, datetime.datetime)):
+            import pandas as _pd
+            if not isinstance(dt, (_pd.Timestamp, datetime.datetime)):
                 return str(dt)
             
             # Determine fiscal year
@@ -2095,6 +2097,7 @@ def get_analyst_data(ticker_symbol: str) -> dict:
         
         try:
             # EPS History
+            import pandas as _pd
             eh = stock.earnings_history
             if eh is not None and not eh.empty:
                 for idx, row in eh.tail(4).iterrows(): # take up to last 4 reported
@@ -2103,28 +2106,29 @@ def get_analyst_data(ticker_symbol: str) -> dict:
                     surprise_pct = row.get('surprisePercent') if hasattr(row, 'get') else None
                     
                     date_str = "--"
-                    if isinstance(idx, (pd.Timestamp, datetime)):
+                    if isinstance(idx, (_pd.Timestamp, datetime.datetime)):
                         date_str = to_fiscal_label(idx)
                     elif idx:
                         date_str = str(idx)
 
-                    val = float(eps_act) if eps_act is not None and not (isinstance(eps_act, float) and pd.isna(eps_act)) else None
+                    val = float(eps_act) if eps_act is not None and not (isinstance(eps_act, float) and _pd.isna(eps_act)) else None
                     if val is not None:
                         reported_eps.append({
                             "period": date_str, "period_code": "reported", "avg": val * fx_rate, "status": "reported",
-                            "surprise_pct": float(surprise_pct) if surprise_pct is not None and not pd.isna(surprise_pct) else None
+                            "surprise_pct": float(surprise_pct) if surprise_pct is not None and not _pd.isna(surprise_pct) else None
                         })
             
             # Revenue History - compute Y/Y growth and compare with estimates
             istmt = stock.quarterly_income_stmt
+            import pandas as _pd
             if istmt is not None and not istmt.empty and 'Total Revenue' in istmt.index:
                 rev_row = istmt.loc['Total Revenue']
-                valid_cols = [c for c in rev_row.index if not pd.isna(rev_row[c])]
+                valid_cols = [c for c in rev_row.index if not _pd.isna(rev_row[c])]
                 
                 # Build a lookup: (fiscal_q, fiscal_year) -> revenue value
                 rev_by_fq = {}
                 for col_date in valid_cols:
-                    if isinstance(col_date, (pd.Timestamp, datetime)):
+                    if isinstance(col_date, (_pd.Timestamp, datetime.datetime)):
                         label = to_fiscal_label(col_date)
                         rev_by_fq[label] = float(rev_row[col_date])
                 
@@ -2134,7 +2138,8 @@ def get_analyst_data(ticker_symbol: str) -> dict:
                     
                     date_str = "--"
                     rev_growth = None
-                    if isinstance(col_date, (pd.Timestamp, datetime)):
+                    import pandas as _pd
+                    if isinstance(col_date, (_pd.Timestamp, datetime.datetime)):
                         date_str = to_fiscal_label(col_date)
                         
                         # Compute Y/Y growth: find same fiscal quarter last year
