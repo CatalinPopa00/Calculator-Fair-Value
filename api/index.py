@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from cachetools import TTLCache
@@ -30,7 +30,7 @@ from .models.scoring import calculate_scoring_reform
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v60"
+CACHE_VERSION = "v61"
 # 1. Initialize FastAPI App (Systemic Recovery Fix)
 app = FastAPI(title="Fair Value Calculator API")
 
@@ -89,7 +89,10 @@ class ValuationResponse(BaseModel):
 
 
 @app.get("/api/search/{query}")
-def search(query: str):
+def search(query: str, response: Response):
+    # Agresiv cache for search (24h edge, 7d background revalidate)
+    response.headers["Cache-Control"] = "public, s-maxage=86400, stale-while-revalidate=604800"
+    
     q_key = query.lower().strip()
     if q_key in search_cache:
         return search_cache[q_key]
@@ -103,7 +106,10 @@ def search(query: str):
     return result
 
 @app.get("/api/analyst/{ticker}")
-def get_analyst(ticker: str):
+def get_analyst(ticker: str, response: Response):
+    # Cache analyst data for 1 hour on Edge, background refresh up to 24h
+    response.headers["Cache-Control"] = "public, s-maxage=3600, stale-while-revalidate=86400"
+    
     ticker_upper = ticker.upper()
     cache_key = f"analyst_v2_{ticker_upper}_{CACHE_VERSION}"
     if cache_key in valuation_cache:
@@ -237,7 +243,10 @@ def deep_clean_data(val):
     return str(val)
 
 @app.get("/api/valuation/{ticker}")
-def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False, skip_peers: bool = False):
+def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode: bool = False, skip_peers: bool = False):
+    # Set Vercel Edge Cache headers for pseudo-ISR (Cache 1hr, stale up to 24hr)
+    response.headers["Cache-Control"] = "public, s-maxage=3600, stale-while-revalidate=86400"
+    
     # GOD MODE: Pre-initialize all possible response keys to Safe Defaults (v55)
     ticker_upper = ticker.upper()
     current_price = 0.0

@@ -2005,11 +2005,23 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 // v38: Call individual valuation endpoint. 
                 // skip_peers=false to ensure scores are 100% sync'd with dashboard.
-                const res = await fetch(`/api/valuation/${tUpper}?t=${Date.now()}`);
+                // Check client-side cache first (15 min TTL)
+                const cacheKey = `valuation_${tUpper}`;
+                const cached = sessionStorage.getItem(cacheKey);
+                if (cached) {
+                    const { data: cachedData, ts } = JSON.parse(cached);
+                    if (Date.now() - ts < 15 * 60 * 1000) {
+                        // Use cached data
+                        const idx = cachedWatchlistData.findIndex(d => d.ticker.toUpperCase() === tUpper);
+                        if (idx !== -1) cachedWatchlistData[idx] = cachedData; else cachedWatchlistData.push(cachedData);
+                        return; // skip network fetch
+                    }
+                }
+                const res = await fetch(`/api/valuation/${tUpper}`); // no timestamp param for edge cache
                 if (res.ok) {
                     const data = await res.json();
-                    
-                    // Update the local cache for this specific ticker
+                    // Store in sessionStorage
+                    sessionStorage.setItem(cacheKey, JSON.stringify({ data, ts: Date.now() }));
                     const idx = cachedWatchlistData.findIndex(d => d.ticker.toUpperCase() === tUpper);
                     if (idx !== -1) {
                         cachedWatchlistData[idx] = data;

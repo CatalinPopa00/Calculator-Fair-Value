@@ -1206,8 +1206,12 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 for idx, row in ed.iterrows():
                     val = row.get('Reported EPS')
                     if val is not None and not _pd.isna(val) and isinstance(idx, (_pd.Timestamp, datetime.datetime)):
+                        # Subtract 45 days so the 'Report Date' accurately maps back to the fiscal quarter/year it belongs to.
+                        import datetime as _dt
+                        adjusted_date = idx - _dt.timedelta(days=45)
+                        
                         # If Nov (Month 11) is year end, then Dec (Month 12) belongs to next year
-                        ey = idx.year if idx.month <= fy_end_month else idx.year + 1
+                        ey = adjusted_date.year if adjusted_date.month <= fy_end_month else adjusted_date.year + 1
                         
                         if str(ey) not in adjusted_history:
                             adjusted_history[str(ey)] = []
