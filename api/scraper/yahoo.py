@@ -1703,7 +1703,7 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=3, inc
             # 1. Try Finnhub
             try:
                 url = f"https://finnhub.io/api/v1/stock/peers?symbol={target_ticker}&token={FINNHUB_KEY}"
-                resp = requests.get(url, timeout=10)
+                resp = requests.get(url, timeout=3)
                 if resp.status_code == 200:
                     peers = resp.json()
             except Exception as e:
@@ -1720,7 +1720,7 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=3, inc
                 # Yahoo Recommendations API
                 url = f"https://query2.finance.yahoo.com/v6/finance/recommendationsbysymbol/{target_ticker}"
                 headers = {'User-Agent': get_random_agent()}
-                resp = requests.get(url, headers=headers, timeout=10)
+                resp = requests.get(url, headers=headers, timeout=3)
                 if resp.status_code == 200:
                     rec_json = resp.json()
                     results = rec_json.get('finance', {}).get('result', [])
@@ -1818,15 +1818,20 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=3, inc
                     return None
                 return None
 
-            with concurrent.futures.ThreadPoolExecutor(max_workers=3) as ex:
-                futs = {ex.submit(fetch_peer_info, t): t for t in candidates}
-                for f in concurrent.futures.as_completed(futs):
+            ex = concurrent.futures.ThreadPoolExecutor(max_workers=3)
+            futs = {ex.submit(fetch_peer_info, t): t for t in candidates}
+            try:
+                for f in concurrent.futures.as_completed(futs, timeout=5):
                     t = futs[f]
                     try:
-                        res = f.result(timeout=5)
+                        res = f.result(timeout=1)
                         if res: final_peers.append(res)
                     except Exception as e:
                         print(f"DEBUG: Peer {t} failed: {e}")
+            except concurrent.futures.TimeoutError:
+                print("DEBUG: Peer fetch batch timed out")
+            finally:
+                ex.shutdown(wait=False)
         except Exception as e:
             print(f"DEBUG: yfinance batch failed: {e}")
 

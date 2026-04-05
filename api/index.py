@@ -286,26 +286,28 @@ def get_valuation(ticker: str, wacc: float = None, fast_mode: bool = False, skip
 
         # v41: THE PARALLEL BLITZ
         # Run main scraping and peer fetching simultaneously to cut wait time in half.
-        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-            # 1. Start main scraper
-            main_task = executor.submit(get_company_data, ticker, fast_mode=fast_mode)
-            
-            # 2. Start peer scraper (pass None for strings, yahoo.py handles ticker-based resolution)
-            peer_task = None
-            if not skip_peers:
-                peer_task = executor.submit(get_competitors_data, ticker, None, None, limit=3)
-            
-            # Wait for main data first
-            data = main_task.result() or {}
-            
-            # Get peer data
-            peers_data = []
-            if peer_task:
-                try:
-                    peers_data = peer_task.result(timeout=7) or []
-                except Exception as e:
-                    print(f"DEBUG: Parallel peer fetch failed: {e}")
-                    peers_data = []
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=2)
+        # 1. Start main scraper
+        main_task = executor.submit(get_company_data, ticker, fast_mode=fast_mode)
+        
+        # 2. Start peer scraper (pass None for strings, yahoo.py handles ticker-based resolution)
+        peer_task = None
+        if not skip_peers:
+            peer_task = executor.submit(get_competitors_data, ticker, None, None, limit=3)
+        
+        # Wait for main data first
+        data = main_task.result() or {}
+        
+        # Get peer data
+        peers_data = []
+        if peer_task:
+            try:
+                peers_data = peer_task.result(timeout=4) or []
+            except Exception as e:
+                print(f"DEBUG: Parallel peer fetch failed: {e}")
+                peers_data = []
+                
+        executor.shutdown(wait=False)
 
         # FINAL STRIKE: Graceful recovery if Yahoo is blocked or null
         current_price = data.get("current_price") or 0.0
