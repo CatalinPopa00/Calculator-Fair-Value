@@ -1578,6 +1578,31 @@ body {
     transform: translateX(14px);
 }
 
+/* Valuation Models Grid (v68) */
+.valuation-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* 2 columns for a balanced 2x2 look */
+    gap: 25px;
+    margin-bottom: 30px;
+}
+
+.valuation-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 24px;
+    padding: 25px;
+    display: flex;
+    flex-direction: column;
+    height: 100%; /* Ensure equal height */
+    transition: transform 0.3s ease, border-color 0.3s ease;
+}
+
+@media (max-width: 1024px) {
+    .valuation-grid {
+        grid-template-columns: 1fr; /* Stack on smaller screens */
+    }
+}
+
 /* --- NEW WATCHLIST DESIGN --- */
 .watchlist-container {
     display: flex;

@@ -1976,16 +1976,22 @@ def get_market_averages():
 
 def get_analyst_data(ticker_symbol: str) -> dict:
     """
-    Fetches analyst estimates data:
-    - Price targets (low / average / high / current)
-    - Recommendation (Strong Buy / Buy / Hold / Sell / Strong Sell + counts)
-    - EPS estimates (current year, next year, next 5yr CAGR)
-    - Revenue estimates (current year, next year)
-    - EPS history (actual vs estimate, last 4 quarters)
+    Fetches analyst estimates data with 10-minute caching (v67)
     """
+    ticker_symbol = ticker_symbol.upper()
+    cache_key = f"analyst_v67_{ticker_symbol}"
+    
+    # Check cache first
+    cached = kv_get(cache_key)
+    if cached:
+        print(f"DEBUG: Returning cached analyst data for {ticker_symbol}")
+        return cached
+
     try:
         stock = yf.Ticker(ticker_symbol)
         info  = stock.info
+        if not info: return {"error": "No data found"}
+        
         fx_rate = get_fx_rate(info)
         labels = get_period_labels(info)
 
@@ -2557,7 +2563,7 @@ def get_analyst_data(ticker_symbol: str) -> dict:
         elif g_1y is not None: eps_forward_growth = g_1y
         elif g_0y is not None: eps_forward_growth = g_0y
 
-        return {
+        final_data = {
             "ticker": ticker_symbol.upper(),
             "price_target": {
                 "current": current_price,
@@ -2579,6 +2585,11 @@ def get_analyst_data(ticker_symbol: str) -> dict:
             "eps_estimates":  unified_eps,
             "rev_estimates":  unified_rev
         }
+        
+        # Cache for 10 minutes (600 sec)
+        kv_set(cache_key, final_data, ex=600)
+        
+        return final_data
 
     except Exception as e:
         import traceback
