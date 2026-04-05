@@ -1782,6 +1782,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     } else if (currentSort.column === 'price') {
                         aVal = a.current_price != null ? a.current_price : 0;
                         bVal = b.current_price != null ? b.current_price : 0;
+                    } else if (currentSort.column === 'health') {
+                        aVal = a.health_score_total != null ? a.health_score_total : -99999;
+                        bVal = b.health_score_total != null ? b.health_score_total : -99999;
+                    } else if (currentSort.column === 'buy') {
+                        aVal = a.good_to_buy_total != null ? a.good_to_buy_total : -99999;
+                        bVal = b.good_to_buy_total != null ? b.good_to_buy_total : -99999;
                     } else if (currentSort.column === 'ticker') {
                         aVal = a.ticker || ''; bVal = b.ticker || '';
                         if (aVal < bVal) return currentSort.order === 'asc' ? -1 : 1;
