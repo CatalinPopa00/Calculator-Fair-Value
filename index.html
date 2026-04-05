@@ -1,45 +1,34 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ro">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Babi Calculator-inatorul - Financial Analysis</title>
-    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <title>Financial Analysis Dashboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="app-container">
-        <!-- Sidebar and other components... -->
-        
         <header class="header">
-            <div class="logo" id="logo-btn" title="Go to Dashboard" style="cursor: pointer;">
+            <div class="logo" id="logo-btn" title="Refaceți Dashboard-ul" style="cursor: pointer;">
                 <h1>Babi Calculator-<span>inatorul</span></h1>
             </div>
-
             <div class="search-container">
-                <div class="autocomplete-wrapper">
-                    <input type="text" id="ticker-input" placeholder="Enter Ticker or Company Name..." autocomplete="off">
-                    <div id="autocomplete-list" class="autocomplete-dropdown"></div>
-                </div>
-                <button id="analyze-btn" class="btn btn-primary">Analyze</button>
+                <input type="text" id="ticker-input" placeholder="Introduceți Ticker (ex: AAPL)..." autocomplete="off">
+                <button id="analyze-btn" class="btn btn-primary">Analizează</button>
+                <div id="autocomplete-list" class="autocomplete-dropdown"></div>
             </div>
-            
-            <div class="watchlist-section">
-                <button id="watchlist-toggle-btn" class="btn btn-outline-success">
+            <div class="header-actions">
+                <button id="watchlist-toggle-btn" class="btn btn-outline">
                     <span class="star-icon">★</span> Watchlist
                 </button>
             </div>
         </header>
 
         <main class="main-content" id="dashboard-content">
-            <!-- Content will be populated by app.js -->
-            <div style="text-align: center; margin-top: 100px; color: var(--text-dim);">
-                <h2>Welcome to Babi Calculator-inatorul</h2>
-                <p>Search for a ticker above to begin your analysis.</p>
-            </div>
+            <!-- Conținutul va fi populat de app.js -->
         </main>
     </div>
 
