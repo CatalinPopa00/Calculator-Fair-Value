@@ -1172,7 +1172,6 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         
         # --- PHASE 0: PRE-CALCULATE NON-GAAP (ADJUSTED) EPS HISTORY ---
         adjusted_history = {}
-        adjusted_q_counts = {} # To track if we have a full 4-quarter year
         try:
             # Source 1: Nasdaq Surprise (Best historical depth)
             nq_hist = get_nasdaq_historical_eps(ticker_symbol)
@@ -1180,12 +1179,9 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             for entry in nq_hist:
                 dt = entry['date']
                 val = entry['eps']
-                # Correct Fiscal Year Alignment (ADBE Fix)
-                # If year ends in Nov (11), months 12 of year X-1 and 1-11 of year X belong to FY X
+                # If Nov (Month 11) is year end, then Dec (Month 12) belongs to next year
                 ey = dt.year if dt.month <= fy_end_month else dt.year + 1
-                ey_str = str(ey)
-                adjusted_history[ey_str] = adjusted_history.get(ey_str, 0) + val
-                adjusted_q_counts[ey_str] = adjusted_q_counts.get(ey_str, 0) + 1
+                adjusted_history[str(ey)] = adjusted_history.get(str(ey), 0) + val
             
             # Source 2: Yahoo Earnings History (Supplement for most recent 4q)
             eh = stock.earnings_history
@@ -1193,29 +1189,12 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 for idx, row in eh.iterrows():
                     if isinstance(idx, (_pd.Timestamp, datetime.datetime)):
                         ey = idx.year if idx.month <= fy_end_month else idx.year + 1
-                        ey_str = str(ey)
                         val = row.get('epsActual')
                         # For history, we only want rows with a 'surprise' context (reported quarters)
-                        if val is not None and not _pd.isna(val) and (ey_str not in adjusted_history or adjusted_q_counts.get(ey_str, 0) < 4):
-                            # If we are supplementing Nasdaq, we need to be careful not to double count
-                            # For simplicity, if we don't have 4 quarters from Nasdaq, we trust Yahoo more for the recent ones.
-                            if adjusted_q_counts.get(ey_str, 0) < 4:
-                                # Start fresh for this year if it was partial
-                                if ey_str not in adjusted_history:
-                                    adjusted_history[ey_str] = 0
-                                    adjusted_q_counts[ey_str] = 0
-                                # Note: This simple logic might still double count if not careful, 
-                                # but usually yfinance earnings_history overlaps with Nasdaq.
-                                pass 
-            
-            # Final Sanity Check: Only keep years with 4 quarters (v65)
-            # This prevents showing a massive drop just because 1 quarter hasn't been reported yet.
-            final_adjusted = {}
-            for yr, total in adjusted_history.items():
-                if adjusted_q_counts.get(yr, 0) >= 4:
-                    final_adjusted[yr] = round(total, 2)
-            adjusted_history = final_adjusted
-
+                        if val is not None and not _pd.isna(val) and str(ey) not in adjusted_history:
+                            adjusted_history[str(ey)] = adjusted_history.get(str(ey), 0) + float(val)
+            # Final check: If a year in adjusted_history only has e.g. 1-2 quarters, it might be partial.
+            # But the surprise chart usually has full years for history.
             print(f"DEBUG: Consolidated Non-GAAP History for {ticker_symbol}: {adjusted_history}")
         except Exception as e:
             print(f"DEBUG: Non-GAAP Aggregation fail: {e}")
@@ -1976,22 +1955,16 @@ def get_market_averages():
 
 def get_analyst_data(ticker_symbol: str) -> dict:
     """
-    Fetches analyst estimates data with 10-minute caching (v67)
+    Fetches analyst estimates data:
+    - Price targets (low / average / high / current)
+    - Recommendation (Strong Buy / Buy / Hold / Sell / Strong Sell + counts)
+    - EPS estimates (current year, next year, next 5yr CAGR)
+    - Revenue estimates (current year, next year)
+    - EPS history (actual vs estimate, last 4 quarters)
     """
-    ticker_symbol = ticker_symbol.upper()
-    cache_key = f"analyst_v67_{ticker_symbol}"
-    
-    # Check cache first
-    cached = kv_get(cache_key)
-    if cached:
-        print(f"DEBUG: Returning cached analyst data for {ticker_symbol}")
-        return cached
-
     try:
         stock = yf.Ticker(ticker_symbol)
         info  = stock.info
-        if not info: return {"error": "No data found"}
-        
         fx_rate = get_fx_rate(info)
         labels = get_period_labels(info)
 
@@ -2563,7 +2536,7 @@ def get_analyst_data(ticker_symbol: str) -> dict:
         elif g_1y is not None: eps_forward_growth = g_1y
         elif g_0y is not None: eps_forward_growth = g_0y
 
-        final_data = {
+        return {
             "ticker": ticker_symbol.upper(),
             "price_target": {
                 "current": current_price,
@@ -2585,11 +2558,6 @@ def get_analyst_data(ticker_symbol: str) -> dict:
             "eps_estimates":  unified_eps,
             "rev_estimates":  unified_rev
         }
-        
-        # Cache for 10 minutes (600 sec)
-        kv_set(cache_key, final_data, ex=600)
-        
-        return final_data
 
     except Exception as e:
         import traceback
