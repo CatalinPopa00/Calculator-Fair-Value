@@ -22,6 +22,34 @@ document.addEventListener('DOMContentLoaded', () => {
     const autocompleteList = document.getElementById('autocomplete-list');
     const logoBtn = document.getElementById('logo-btn');
     
+    // --- Analyst Tabs Logic ---
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('.analyst-tab-btn');
+        if (!btn) return;
+
+        const targetTab = btn.getAttribute('data-tab');
+        if (!targetTab) return;
+
+        // Update buttons
+        document.querySelectorAll('.analyst-tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        // Update contents
+        document.querySelectorAll('.analyst-tab-content').forEach(content => {
+            if (content.id === `tab-${targetTab}`) {
+                content.classList.add('active');
+                content.style.display = 'block'; 
+            } else {
+                content.classList.remove('active');
+                if (window.innerWidth <= 768) {
+                    content.style.display = 'none';
+                } else {
+                    content.style.display = ''; 
+                }
+            }
+        });
+    });
+
     // v59: Instant Capitalization & Search Feedback logic
     if (tickerInput) {
         tickerInput.addEventListener('input', function() {
