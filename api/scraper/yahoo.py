@@ -304,23 +304,39 @@ def calculate_historic_pe(stock, financials, fx_rate=1.0):
         if eps_values.empty:
             return None
         
+        # Fetch 5-year history once
+        try:
+            hist_5y = stock.history(period="5y")
+            if not hist_5y.empty and hasattr(hist_5y.index, 'tz_localize') and hist_5y.index.tz is not None:
+                hist_5y.index = hist_5y.index.tz_localize(None)
+        except Exception:
+            return None
+
         pe_ratios = []
         for date, eps in eps_values.items():
             if eps <= 0: # Skip negative/zero EPS for P/E average
                 continue
             
-            # Fetch price around the fiscal year end date
             try:
-                # Use a small window to ensure we get a trading day price
-                start_date = date - pd.Timedelta(days=10)
-                end_date = date + pd.Timedelta(days=1)
-                hist = stock.history(start=start_date, end=end_date)
+                # Find closest date in hist_5y
+                if hasattr(date, 'tz_localize') and date.tz is not None:
+                    target_date = date.tz_localize(None)
+                else:
+                    target_date = date
+                    
+                # Get window of +/- 10 days around target_date
+                window = hist_5y[(hist_5y.index >= target_date - pd.Timedelta(days=10)) & 
+                                 (hist_5y.index <= target_date + pd.Timedelta(days=10))]
                 
-                if not hist.empty:
-                    # Get the price closest to the target date (usually the last available in window)
-                    price = float(hist['Close'].iloc[-1])
-                    # CRITICAL: price is in ticker currency (USD), eps is in local (DKK). 
-                    # Scale eps by fx_rate to get P/E in USD terms.
+                if not window.empty:
+                    # Get the price closest to target date
+                    valid_dates = window[window.index <= target_date]
+                    if not valid_dates.empty:
+                        price = float(valid_dates['Close'].iloc[-1])
+                    else:
+                        price = float(window['Close'].iloc[0])
+                        
+                    # CRITICAL: Scale eps by fx_rate to get P/E in USD terms.
                     pe_ratios.append(price / (eps * fx_rate))
             except Exception:
                 continue
@@ -977,10 +993,9 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         historic_pe_val = None
         if not fast_mode:
             try:
-                data['pe_historic'] = calculate_historic_pe(stock, financials, fx_rate)
+                historic_pe_val = calculate_historic_pe(stock, financials, fx_rate)
             except Exception:
                 pass
-
             
         # Interest coverage & EBIT Margin — reuse already-fetched financials
         interest_coverage = None
