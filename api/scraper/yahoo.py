@@ -616,12 +616,14 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         fx_rate = get_fx_rate(info)
 
         # Start background fetches while processing info
+        executor = None
         if not fast_mode:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=4) as nasdaq_executor:
-                future_nasdaq_cagr = nasdaq_executor.submit(get_nasdaq_earnings_growth, ticker_symbol, info.get('trailingEps'))
-                future_nasdaq_actual = nasdaq_executor.submit(get_nasdaq_actual_eps, ticker_symbol)
-                future_est = nasdaq_executor.submit(lambda: stock.earnings_estimate)
-                future_growth_est = nasdaq_executor.submit(lambda: stock.growth_estimates)
+            executor = concurrent.futures.ThreadPoolExecutor(max_workers=8)
+            future_nasdaq_cagr = executor.submit(get_nasdaq_earnings_growth, ticker_symbol, info.get('trailingEps'))
+            future_nasdaq_actual = executor.submit(get_nasdaq_actual_eps, ticker_symbol)
+            future_est = executor.submit(lambda: getattr(stock, 'earnings_estimate', None))
+            future_growth_est = executor.submit(lambda: getattr(stock, 'growth_estimates', None))
+            future_fin = executor.submit(lambda: getattr(stock, 'financials', None))
 
         # Valuation Multiples & EPS (Initial from info tags - will be recalibrated after financials load)
         trailing_eps = (info.get('trailingEps') or info.get('epsTrailingTwelveMonths', 0))
@@ -640,10 +642,10 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
 
         # 1. Try YF growth_estimates (Analysis tab - Next 5 Years) - TOP PRIORITY for PEG
         eps_growth_5y_consensus = None
-        if not fast_mode:
+        if not fast_mode and executor is not None:
             try:
                 ge = future_growth_est.result(timeout=2)
-                if ge is not None and not ge.empty:
+                if ge is not None and not (hasattr(ge, 'empty') and ge.empty):
                     # Find 'Next 5 Years' in index
                     idx = find_idx(ge, 'Next 5 Years')
                     if idx:
@@ -656,10 +658,10 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 pass
 
         # 2. Try YF earnings_estimate (Forward Years) - SECOND PRIORITY
-        if eps_growth is None and not fast_mode:
+        if eps_growth is None and not fast_mode and executor is not None:
             try:
                 ef = future_est.result(timeout=2)
-                if ef is not None and not ef.empty:
+                if ef is not None and not (hasattr(ef, 'empty') and ef.empty):
                     # pick healthiest forward year (+5y -> +1y -> 0y)
                     g_5y = ef.loc['+5y'].get('growth') if '+5y' in ef.index else None
                     g_1y = ef.loc['+1y'].get('growth') if '+1y' in ef.index else None
@@ -676,10 +678,10 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             except Exception:
                 pass
 
-        # 2. Try Nasdaq growth (fallback)
+        # 3. Try Nasdaq growth (fallback)
         nasdaq_growth_3y = None
         nasdaq_actual_eps = None
-        if not fast_mode:
+        if not fast_mode and executor is not None:
             try:
                 nasdaq_growth_3y = future_nasdaq_cagr.result(timeout=5)
                 nasdaq_actual_eps = future_nasdaq_actual.result(timeout=5)
@@ -693,9 +695,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             adjusted_eps = nasdaq_actual_eps
         else:
             adjusted_eps = trailing_eps
-        # 0. Always fetch Nasdaq growth if available (Lighter API call, fixes NVDA 96% anomaly)
-        nasdaq_growth_3y = get_nasdaq_earnings_growth(ticker_symbol, trailing_eps)
-        
+
         # --- GROWTH SELECTION (USER REQUESTED PRIORITY: NASDAQ 3Y) ---
         if nasdaq_growth_3y and nasdaq_growth_3y > 0:
             eps_growth = nasdaq_growth_3y
@@ -705,11 +705,6 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         if eps_growth is None and eps_growth_5y_consensus:
             eps_growth = eps_growth_5y_consensus
             eps_growth_period = "Next 5 Years (Consensus)"
-
-        # 2. Fallback to healthy YF earnings_estimate if still None
-        if eps_growth is None:
-            # We already have results from future_est in the earlier block
-            pass
             
         # 3. Last resort: strictly use provided growth or 0
         if eps_growth is None:
@@ -732,17 +727,27 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         dividends_raw = pd.Series()
 
         if not fast_mode:
-            financials = stock.financials
-            if financials is None or financials.empty:
+            try:
+                if executor is not None:
+                    financials = future_fin.result(timeout=5)
+                else: financials = getattr(stock, 'financials', {})
+            except Exception:
+                financials = {}
+            if financials is None or (hasattr(financials, 'empty') and financials.empty):
                 financials = {}
 
-            cashflow = stock.cashflow
-            if cashflow is None or cashflow.empty:
+            try: cashflow = getattr(stock, 'cashflow', {})
+            except Exception: cashflow = {}
+            if cashflow is None or (hasattr(cashflow, 'empty') and cashflow.empty):
                 cashflow = {}
 
-            bs = stock.balance_sheet
-            if bs is None or bs.empty:
+            try: bs = getattr(stock, 'balance_sheet', {})
+            except Exception: bs = {}
+            if bs is None or (hasattr(bs, 'empty') and bs.empty):
                 bs = {}
+            
+            if executor is not None:
+                executor.shutdown(wait=False)
 
             q_bs = stock.quarterly_balance_sheet
             
