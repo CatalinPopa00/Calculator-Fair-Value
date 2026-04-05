@@ -35,20 +35,18 @@
 
             <div class="search-container">
                 <div class="autocomplete-wrapper">
-                    <input type="text" id="ticker-input" placeholder="Enter Ticker or Company Name..."
-                        autocomplete="off">
+                    <input type="text" id="ticker-input" placeholder="Enter Ticker or Company Name..." autocomplete="off">
                     <div id="autocomplete-list" class="autocomplete-dropdown"></div>
                 </div>
-                <button id="search-btn">Analyze</button>
+                <button id="analyze-btn" class="btn btn-primary">Analyze</button>
             </div>
-
-            <button id="nav-watchlist-btn">
-                ★ Watchlist
-            </button>
+            
+            <div class="watchlist-section">
+                <button id="watchlist-toggle-btn" class="btn btn-outline-success">
+                    <span class="star-icon">★</span> Watchlist
+                </button>
+            </div>
         </header>
-
-        <!-- Main Dashboard Content (Hidden initially until search) -->
-        <main class="dashboard" id="dashboard" style="display: none;">
 
             <!-- Top Hero Section -> Fair Value Box -->
             <section class="hero-section">
