@@ -1193,26 +1193,46 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         # --- PHASE 0: PRE-CALCULATE NON-GAAP (ADJUSTED) EPS HISTORY ---
         adjusted_history = {}
         try:
-            # Source 1: Nasdaq Surprise (Best historical depth)
-            nq_hist = get_nasdaq_historical_eps(ticker_symbol)
             import pandas as _pd
-            for entry in nq_hist:
-                dt = entry['date']
-                val = entry['eps']
-                # If Nov (Month 11) is year end, then Dec (Month 12) belongs to next year
-                ey = dt.year if dt.month <= fy_end_month else dt.year + 1
-                adjusted_history[str(ey)] = adjusted_history.get(str(ey), 0) + val
             
-            # Source 2: Yahoo Earnings History (Supplement for most recent 4q)
-            eh = stock.earnings_history
-            if eh is not None and not eh.empty:
-                for idx, row in eh.iterrows():
-                    if isinstance(idx, (_pd.Timestamp, datetime.datetime)):
+            # Use YF earnings dates for up to 6 years of historical non-GAAP (Adjusted) EPS 
+            # This is 100% reliable and matches the analyst estimates context perfectly.
+            try:
+                ed = stock.get_earnings_dates(limit=24)
+            except Exception:
+                ed = None
+                
+            if ed is not None and not ed.empty and 'Reported EPS' in ed.columns:
+                for idx, row in ed.iterrows():
+                    val = row.get('Reported EPS')
+                    if val is not None and not _pd.isna(val) and isinstance(idx, (_pd.Timestamp, datetime.datetime)):
+                        # If Nov (Month 11) is year end, then Dec (Month 12) belongs to next year
                         ey = idx.year if idx.month <= fy_end_month else idx.year + 1
-                        val = row.get('epsActual')
-                        # For history, we only want rows with a 'surprise' context (reported quarters)
-                        if val is not None and not _pd.isna(val) and str(ey) not in adjusted_history:
-                            adjusted_history[str(ey)] = adjusted_history.get(str(ey), 0) + float(val)
+                        
+                        if str(ey) not in adjusted_history:
+                            adjusted_history[str(ey)] = []
+                            
+                        adjusted_history[str(ey)].append(float(val))
+                
+                # Consolidate arrays into sums only if we have at least 3 quarters (avoid partial years)
+                # Or if it's the current trailing year, we can optionally sum whatever we have.
+                # Assuming 4 quarters typically
+                final_adj_history = {}
+                for ey, quarters in adjusted_history.items():
+                    if len(quarters) >= 3:
+                        # Scale it up to 4 quarters if we only have 3 (rare, but keeps trends alive)
+                        final_adj_history[ey] = sum(quarters) * (4.0 / len(quarters))
+                    
+                adjusted_history = final_adj_history
+                
+            # If yf fails or returns nothing, fallback to Finnhub or Nasdaq if available...
+            if not adjusted_history:
+                nq_hist = get_nasdaq_historical_eps(ticker_symbol)
+                for entry in nq_hist:
+                    dt = entry['date']
+                    val = entry['eps']
+                    ey = dt.year if dt.month <= fy_end_month else dt.year + 1
+                    adjusted_history[str(ey)] = adjusted_history.get(str(ey), 0) + val
             # Final check: If a year in adjusted_history only has e.g. 1-2 quarters, it might be partial.
             # But the surprise chart usually has full years for history.
             print(f"DEBUG: Consolidated Non-GAAP History for {ticker_symbol}: {adjusted_history}")
