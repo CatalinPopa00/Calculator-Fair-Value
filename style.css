@@ -1994,3 +1994,82 @@ body {
     width: 12px;
     height: 12px;
 }
+
+/* --- ANALYST ESTIMATES TABS (v100) --- */
+.analyst-tabs-container {
+    display: none; /* Hidden on desktop by default */
+    margin-bottom: 1.5rem;
+    width: 100%;
+}
+
+.analyst-tabs {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding-bottom: 10px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--primary) transparent;
+    -webkit-overflow-scrolling: touch;
+}
+
+.analyst-tabs::-webkit-scrollbar {
+    height: 4px;
+}
+
+.analyst-tabs::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 4px;
+}
+
+.analyst-tab-btn {
+    white-space: nowrap;
+    padding: 0.6rem 1.2rem;
+    background: rgba(30, 41, 59, 0.5);
+    border: 1px solid var(--card-border);
+    border-radius: 30px;
+    color: var(--text-muted);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.analyst-tab-btn.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+}
+
+/* Mobile adjustments for Analyst Tabs */
+@media (max-width: 768px) {
+    .analyst-tabs-container {
+        display: block;
+    }
+
+    .analyst-tab-content {
+        display: none;
+        width: 100%;
+        animation: fadeIn 0.3s ease;
+    }
+
+    .analyst-tab-content.active {
+        display: block !important;
+    }
+
+    .analyst-grid {
+        display: block !important; /* Stack them but logic will hide inactive ones */
+    }
+
+    .analyst-tab-content {
+        border-right: none !important;
+        border-bottom: none !important;
+        padding-right: 0 !important;
+    }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+}

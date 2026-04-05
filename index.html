@@ -447,10 +447,19 @@
                                     <div id="analyst-estimates-card" style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 2rem; width: 100%;">
                                         <h3 style="margin-bottom: 2rem; color: var(--text-main); font-size: 1.3rem; text-align: center;">ANALYST ESTIMATES & CONSENSUS</h3>
                                         
+                                        <div class="analyst-tabs-container">
+                                            <div class="analyst-tabs">
+                                                <button class="analyst-tab-btn active" data-tab="price-target">Price Target</button>
+                                                <button class="analyst-tab-btn" data-tab="analyst-rating">Analyst Rating</button>
+                                                <button class="analyst-tab-btn" data-tab="eps-projections">EPS Projections</button>
+                                                <button class="analyst-tab-btn" data-tab="revenue-projections">Revenue Projections</button>
+                                            </div>
+                                        </div>
+
                                         <div class="analyst-grid">
                                             
                                             <!-- Col 1: Price Target -->
-                                            <div style="border-right: 1px solid rgba(255,255,255,0.05); padding-right: 1rem; text-align: center;">
+                                            <div id="tab-price-target" class="analyst-tab-content active" style="border-right: 1px solid rgba(255,255,255,0.05); padding-right: 1rem; text-align: center;">
                                                 <h4 style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1rem; text-transform: uppercase;">Price Target</h4>
                                                 <div style="font-size: 0.75rem; color: var(--text-muted);">AVERAGE</div>
                                                 <div id="pt-avg" style="font-size: 1.8rem; font-weight: 800; color: var(--accent); margin: 0.5rem 0;">--</div>
@@ -462,7 +471,7 @@
                                             </div>
 
                                             <!-- Col 2: Recommendation -->
-                                            <div style="border-right: 1px solid rgba(255,255,255,0.05); padding-right: 1rem; text-align: center;">
+                                            <div id="tab-analyst-rating" class="analyst-tab-content" style="border-right: 1px solid rgba(255,255,255,0.05); padding-right: 1rem; text-align: center;">
                                                 <h4 style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1rem; text-transform: uppercase;">Analyst Rating</h4>
                                                 <div id="rec-status" style="font-size: 1.3rem; font-weight: 800; color: var(--accent); text-transform: uppercase;">--</div>
                                                 <div id="rec-mean" style="font-size: 0.85rem; color: var(--text-muted); margin-top: 5px;">Score: --</div>
@@ -472,7 +481,7 @@
                                             </div>
 
                                             <!-- Col 3: EPS Estimates -->
-                                            <div style="border-right: 1px solid rgba(255,255,255,0.05); padding-right: 1rem;">
+                                            <div id="tab-eps-projections" class="analyst-tab-content" style="border-right: 1px solid rgba(255,255,255,0.05); padding-right: 1rem;">
                                                 <h4 style="font-size: 0.9rem; color: var(--text-muted); text-align: center; margin-bottom: 1rem; text-transform: uppercase;">EPS Projections</h4>
                                                 <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;" id="eps-est-table">
                                                     <thead>
@@ -487,7 +496,7 @@
                                             </div>
 
                                             <!-- Col 4: Revenue Estimates -->
-                                            <div>
+                                            <div id="tab-revenue-projections" class="analyst-tab-content">
                                                 <h4 style="font-size: 0.9rem; color: var(--text-muted); text-align: center; margin-bottom: 1rem; text-transform: uppercase;">Revenue Projections</h4>
                                                 <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;" id="rev-est-table">
                                                     <thead>

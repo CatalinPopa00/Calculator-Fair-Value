@@ -22,6 +22,41 @@ document.addEventListener('DOMContentLoaded', () => {
     const autocompleteList = document.getElementById('autocomplete-list');
     const logoBtn = document.getElementById('logo-btn');
     
+    // Analyst Tabs Logic (v100)
+    const initAnalystTabs = () => {
+        const tabBtns = document.querySelectorAll('.analyst-tab-btn');
+        const tabContents = document.querySelectorAll('.analyst-tab-content');
+        
+        if (!tabBtns.length) return;
+
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const targetTab = btn.getAttribute('data-tab');
+                
+                // Update buttons
+                tabBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                
+                // Update contents
+                tabContents.forEach(content => {
+                    if (content.id === `tab-${targetTab}`) {
+                        content.classList.add('active');
+                        content.style.display = 'block'; // Ensure it's visible on mobile
+                    } else {
+                        content.classList.remove('active');
+                        // On desktop we want them all visible if it's the grid, but on mobile only one
+                        if (window.innerWidth <= 768) {
+                            content.style.display = 'none';
+                        } else {
+                            content.style.display = ''; // Reset to default (grid/flex)
+                        }
+                    }
+                });
+            });
+        });
+    };
+    initAnalystTabs();
+    
     // v59: Instant Capitalization & Search Feedback logic
     if (tickerInput) {
         tickerInput.addEventListener('input', function() {
