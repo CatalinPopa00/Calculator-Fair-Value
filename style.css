@@ -1578,35 +1578,36 @@ body {
     transform: translateX(14px);
 }
 
-/* Valuation Models Grid (v69) */
+/* Valuation Models Grid (v70) - HARD FORCE 4 COLUMNS */
 .valuation-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr); /* Force all 4 on 1 row */
-    gap: 15px; /* Reduced gap to fit everything */
-    margin-bottom: 25px;
-    width: 100%;
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 12px !important;
+    margin-bottom: 30px;
+    width: 100% !important;
+    max-width: 1400px;
 }
 
 .valuation-card {
     background: var(--card-bg);
     border: 1px solid var(--border-color);
-    border-radius: 20px;
-    padding: 15px; /* Reduced padding for space */
+    border-radius: 18px;
+    padding: 15px !important;
     display: flex;
     flex-direction: column;
+    min-width: 0 !important; /* Critical to prevent wrapping */
     height: 100%;
-    min-width: 0; /* Prevent overflow */
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 1250px) {
     .valuation-grid {
-        grid-template-columns: 1fr 1fr; /* Switch to 2x2 for laptops */
+        grid-template-columns: repeat(2, 1fr) !important;
     }
 }
 
 @media (max-width: 768px) {
     .valuation-grid {
-        grid-template-columns: 1fr; /* Stack on mobile */
+        grid-template-columns: 1fr !important;
     }
 }
 
