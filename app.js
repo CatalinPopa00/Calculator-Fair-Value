@@ -898,7 +898,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 usedGrowth = (rawG === '' || isNaN(parseFloat(rawG))) ? 0.20 : parseFloat(rawG) / 100;
             }
 
-            const currentPe = currentFormulaData.peg.current_pe || (parseFloat(globalData.company_profile.trailing_pe) || 0);
+            const eps = globalData.company_profile.trailing_eps || 0;
+            const currentPe = (eps > 0) ? (globalData.current_price / eps) : (currentFormulaData.peg.current_pe || (parseFloat(globalData.company_profile.trailing_pe) || 0));
             // v61: Default to 1.25 if industry_peg is missing (e.g. no peers found)
             const industryPeg = currentFormulaData.peg.industry_peg || 1.25;
 
@@ -908,8 +909,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 pegMos = ((pegVal - globalData.current_price) / globalData.current_price) * 100;
             } else if (pegSrc === 'analyst') {
                 pegVal = currentFormulaData.peg.fair_value;
-                pegMos = currentFormulaData.peg.margin_of_safety;
                 currentPegToDisplay = currentFormulaData.peg.current_peg;
+                if (pegVal != null) {
+                    pegMos = ((pegVal - globalData.current_price) / globalData.current_price) * 100;
+                }
             }
         }
         
