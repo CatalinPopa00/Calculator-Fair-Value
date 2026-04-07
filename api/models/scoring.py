@@ -33,6 +33,7 @@ def calculate_scoring_reform(valuation_data, metrics):
 
     def add_h(metric, value, pts, max_pts, is_ratio=True):
         nonlocal h_score
+        pts = min(pts, max_pts)  # Guard: never exceed max
         h_score += pts
         h_breakdown.append({
             "metric": metric,
@@ -43,6 +44,7 @@ def calculate_scoring_reform(valuation_data, metrics):
 
     def add_b(metric, value, pts, max_pts, is_ratio=True):
         nonlocal b_score
+        pts = min(pts, max_pts)  # Guard: never exceed max
         b_score += pts
         b_breakdown.append({
             "metric": metric,
@@ -235,8 +237,8 @@ def calculate_scoring_reform(valuation_data, metrics):
         add_b("PEG Ratio", f_peg, pts, 10, True)
 
     return {
-        "health_score_total": int(h_score),
-        "good_to_buy_total": int(b_score),
+        "health_score_total": min(int(h_score), 100),
+        "good_to_buy_total": min(int(b_score), 100),
         "health_breakdown": h_breakdown,
         "buy_breakdown": b_breakdown
     }
