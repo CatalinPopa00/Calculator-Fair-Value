@@ -66,7 +66,12 @@
                             </div>
                             <div class="price-display" style="align-items: center; margin-top: 10px;">
                                 <span class="label">Current Price</span>
-                                <span class="value" id="current-price">$0.00</span>
+                                <div style="display: flex; align-items: center; gap: 8px; justify-content: center;">
+                                    <span class="value" id="current-price">$0.00</span>
+                                    <input type="number" id="simulate-price-input" class="simulate-price-input" style="display:none;" step="0.01" min="0" placeholder="0.00">
+                                    <button id="simulate-price-btn" class="simulate-price-btn" title="Simulate a different price">⚡</button>
+                                </div>
+                                <div id="simulate-price-label" class="simulate-label" style="display:none;">Simulated Price</div>
                             </div>
                         </div>
 

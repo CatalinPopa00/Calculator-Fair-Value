@@ -2072,3 +2072,67 @@ body {
     from { opacity: 0; transform: translateY(5px); }
     to { opacity: 1; transform: translateY(0); }
 }
+
+/* Simulate Price Button & Input */
+.simulate-price-btn {
+    background: rgba(56, 189, 248, 0.1);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.simulate-price-btn:hover {
+    background: rgba(56, 189, 248, 0.25);
+    border-color: #38bdf8;
+    transform: scale(1.1);
+}
+.simulate-price-btn.active {
+    background: rgba(251, 191, 36, 0.2);
+    color: #fbbf24;
+    border-color: #fbbf24;
+    box-shadow: 0 0 12px rgba(251, 191, 36, 0.3);
+}
+
+.simulate-price-input {
+    width: 110px;
+    padding: 6px 10px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid #fbbf24;
+    color: #fbbf24;
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.4rem;
+    font-weight: 800;
+    text-align: center;
+    border-radius: 8px;
+    outline: none;
+    transition: all 0.2s ease;
+    appearance: textfield;
+    -moz-appearance: textfield;
+}
+.simulate-price-input::-webkit-inner-spin-button,
+.simulate-price-input::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.simulate-price-input:focus {
+    border-color: #fbbf24;
+    box-shadow: 0 0 15px rgba(251, 191, 36, 0.2);
+}
+
+.simulate-label {
+    font-size: 0.7rem;
+    color: #fbbf24;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 4px;
+    animation: fadeIn 0.3s ease;
+}
