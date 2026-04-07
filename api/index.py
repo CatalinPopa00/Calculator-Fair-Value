@@ -30,7 +30,7 @@ from .models.scoring import calculate_scoring_reform
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v64"
+CACHE_VERSION = "v65"
 # 1. Initialize FastAPI App (Systemic Recovery Fix)
 app = FastAPI(title="Fair Value Calculator API")
 
@@ -824,6 +824,12 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 "payout_ratio": sanitize(data.get("payout_ratio")),
                 "dividend_streak": data.get("dividend_streak"),
                 "dividend_cagr_5y": sanitize(data.get("dividend_cagr_5y")),
+                "revenue": sanitize(data.get("revenue")),
+                "ebitda": sanitize(data.get("ebitda")),
+                "total_cash": sanitize(data.get("total_cash")),
+                "total_debt": sanitize(data.get("total_debt")),
+                "price_to_book": sanitize(data.get("price_to_book")),
+                "dividend_rate": sanitize(data.get("dividend_rate")),
                 "competitors": [p.get("ticker") for p in peers_data] if peers_data else [],
                 "competitor_metrics": [{
                     "ticker": p.get("ticker"),

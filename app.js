@@ -177,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const totalCash = prof.total_cash || 0;
         const totalDebt = prof.total_debt || 0;
         const ebitda = prof.ebitda || 0;
-        const bookValuePerShare = prof.book_value_per_share || 0;
+        const bookValuePerShare = prof.price_to_book && _originalPrice ? (_originalPrice / prof.price_to_book) : 0;
         const dividendRate = prof.dividend_rate || 0;
         const pe5y = prof.historic_pe || 0;
 
