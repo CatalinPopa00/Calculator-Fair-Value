@@ -101,7 +101,16 @@ def calculate_scoring_reform(valuation_data, metrics):
         pts = 15 if (f_peg > 0 and f_peg < 1.0) else (7.5 if (f_peg > 0 and f_peg <= 1.5) else 0)
         add_b("PEG Ratio", f_peg, pts, 15, True)
 
-        pts = 15 if (pe > 0 and pe < 10) else (7.5 if (pe > 0 and pe <= 15) else 0)
+        # P/E Ratio (HYBRID BLENDED SCORE - 15 pct max)
+        pe_5y = clean_ratio(metrics.get('pe_historic'))
+        # Part A: Absolute (7.5 pct)
+        pts_abs = 7.5 if (pe > 0 and pe < 10.0) else (3.75 if (pe > 0 and pe <= 15.0) else 0)
+        # Part B: Relative to 5Y Avg (7.5 pct)
+        pts_rel = 0
+        if pe > 0 and pe_5y > 0:
+            pe_diff_pct = ((pe - pe_5y) / pe_5y) * 100
+            pts_rel = 7.5 if pe_diff_pct < -15 else (3.75 if abs(pe_diff_pct) <= 15 else 0)
+        pts = pts_abs + pts_rel
         add_b("P/E Ratio", pe, pts, 15, True)
 
         pb = clean_ratio(metrics.get('price_to_book'))
@@ -198,10 +207,19 @@ def calculate_scoring_reform(valuation_data, metrics):
         pts = 30 if mos > 20 else (15 if mos >= 0 else 0)
         add_b("Margin of Safety", mos, pts, 30, False)
 
-        pts = 20 if rev_g > 15 else (10 if rev_g >= 7 else 0)
-        add_b("Revenue Growth", rev_g, pts, 20, False)
+        pts = 20 if rev_g > 15 else (10 if rev_g >= 5 else 0)
+        add_b("Revenue Growth (Next 3Y)", rev_g, pts, 20, False)
 
-        pts = 20 if (pe > 0 and pe < 20.0) else (5 if (pe > 0 and pe <= 30.0) else 0)
+        # P/E Ratio (HYBRID BLENDED SCORE - 20 pct max)
+        pe_5y = clean_ratio(metrics.get('pe_historic'))
+        # Part A: Absolute (10 pct)
+        pts_abs = 10 if (pe > 0 and pe < 15.0) else (5 if (pe > 0 and pe <= 25.0) else 0)
+        # Part B: Relative to 5Y Avg (10 pct)
+        pts_rel = 0
+        if pe > 0 and pe_5y > 0:
+            pe_diff_pct = ((pe - pe_5y) / pe_5y) * 100
+            pts_rel = 10 if pe_diff_pct < -15 else (5 if abs(pe_diff_pct) <= 15 else 0)
+        pts = pts_abs + pts_rel
         add_b("P/E Ratio", pe, pts, 20, True)
 
         ev_ebitda = clean_ratio(metrics.get('ev_to_ebitda'))
@@ -209,7 +227,7 @@ def calculate_scoring_reform(valuation_data, metrics):
         add_b("EV / EBITDA", ev_ebitda, pts, 10, True)
 
         ps = clean_ratio(metrics.get('ps_ratio'))
-        pts = 10 if (ps > 0 and ps < 4.0) else (5 if (ps > 0 and ps <= 10.0) else 0)
+        pts = 10 if (ps > 0 and ps < 4.0) else (5 if (ps > 0 and ps <= 8.0) else 0)
         add_b("P/S Ratio", ps, pts, 10, True)
 
         f_peg = clean_ratio(metrics.get('peg_ratio'))
