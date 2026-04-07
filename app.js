@@ -443,14 +443,8 @@ document.addEventListener('DOMContentLoaded', () => {
             let pts = 0;
             let peg_str = `${newPeg.toFixed(2)}x`;
             
-            const isREIT = globalData && globalData.sector === "Real Estate";
-            if (isREIT) {
-                if (newPeg < 1.5 && newPeg > 0) pts = 15;
-                else if (newPeg <= 2.5 && newPeg > 0) pts = 7.5;
-            } else {
-                if (newPeg < 1.0 && newPeg > 0) pts = 15;
-                else if (newPeg <= 1.5 && newPeg > 0) pts = 7.5;
-            }
+            if (newPeg < 1.2 && newPeg > 0) pts = 10;
+            else if (newPeg <= 2.0 && newPeg > 0) pts = 5;
             
             pegItem.points_awarded = pts;
             pegItem.value = peg_str;
