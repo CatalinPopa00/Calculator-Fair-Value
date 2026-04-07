@@ -238,10 +238,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 let newPts = oldPts; // default: keep
                 const metric = item.metric || '';
 
-                if (metric.includes('Margin of Safety')) {
-                    newPts = newMos > 20 ? 30 : (newMos >= 0 ? 15 : 0);
-                    item.value = newMos != null ? newMos.toFixed(1) + '%' : 'N/A';
-                } else if (metric === 'P/E Ratio') {
+                if (metric === 'P/E Ratio') {
                     // Hybrid blended scoring (absolute + relative)
                     const isFin = prof.sector && prof.sector.toLowerCase().includes('financial');
                     let ptsAbs = 0, ptsRel = 0;
@@ -285,23 +282,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     item.value = dyPct.toFixed(1) + '%';
                 }
 
-                totalDelta += (newPts - oldPts);
                 item.points_awarded = newPts;
             });
-
-            // Update total score
-            if (typeof globalData.good_to_buy_total === 'number') {
-                globalData.good_to_buy_total = Math.min(Math.max(globalData.good_to_buy_total + totalDelta, 0), 100);
-                updateScoreUI(globalData.good_to_buy_total, 'buy-score-circle', 'buy-score-fill');
-            }
+            // Score UI updating and summation will be reliably handled by updateInsightsAndScores
+            // via the window.triggerRecalculate() call at the end of this function.
         }
 
-        // --- 5. Update Fair Value / MoS display ---
-        const mosEl = document.getElementById('margin-safety');
-        if (mosEl && newMos != null) {
-            mosEl.textContent = `${newMos.toFixed(2)}% Margin of Safety`;
-            mosEl.style.color = newMos > 0 ? 'var(--accent)' : 'var(--danger)';
-            mosEl.style.background = newMos > 0 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)';
+        // Let window.triggerRecalculate() handle Fair Value and MoS display dynamically
+        if(window.triggerRecalculate) {
+            window.triggerRecalculate();
         }
 
         // --- 6. Update strengths/risks ---
@@ -444,10 +433,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 else if (newMos >= 0.0) pts = 15;
             }
 
-            if (typeof globalData.good_to_buy_total === 'number') {
-                globalData.good_to_buy_total = globalData.good_to_buy_total - (mosItem.points_awarded || 0) + pts;
-            }
-
             mosItem.points_awarded = pts;
             mosItem.value = mos_str;
         }
@@ -467,15 +452,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 else if (newPeg <= 1.5 && newPeg > 0) pts = 7.5;
             }
             
-            if (typeof globalData.good_to_buy_total === 'number') {
-                globalData.good_to_buy_total = globalData.good_to_buy_total - (pegItem.points_awarded || 0) + pts;
-            }
-            
             pegItem.points_awarded = pts;
             pegItem.value = peg_str;
         }
 
         if (typeof globalData.good_to_buy_total === 'number') {
+            const rawTotal = currentBuyBreakdown.reduce((sum, item) => sum + (item.points_awarded || 0), 0);
+            globalData.good_to_buy_total = Math.min(Math.max(rawTotal, 0), 100);
             updateScoreUI(globalData.good_to_buy_total, 'buy-score-circle', 'buy-score-fill');
         }
 
