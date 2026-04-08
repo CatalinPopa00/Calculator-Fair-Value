@@ -1385,6 +1385,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 
                 # We want the next 2 years (e.g., 2026, 2027 if last was 2025)
                 for i in range(1, 3):
+                    eps_est = None
                     proj_yr = last_yr + i
                     label = f"{proj_yr} (Est)"
                     # Analysis tab uses Next Year for first estimate generally
@@ -1406,16 +1407,40 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                             eps_est = safe_nasdaq_float(nq_yearly_eps[i-1].get('consensusEPSForecast'))
                             if eps_est is not None: eps_est *= fx_rate # v69: Fixed scaling
                     
-                    # 3. Yahoo Fallback (Individual Year Check)
-                    if eps_est is None and ee_data is not None and not ee_data.empty:
-                        row = None
-                        if fy_code in ee_data.index: row = ee_data.loc[fy_code]
-                        elif (i-1) < len(ee_data): row = ee_data.iloc[i-1]
+                    # 3. Yahoo Fallback (Search by Code and then by Year string)
+                    if eps_est is None:
+                        # Try existing background data first
+                        if ee_data is not None and not ee_data.empty:
+                            if fy_code in ee_data.index:
+                                val = ee_data.loc[fy_code].get('avg')
+                                if val is not None and not pd.isna(val): eps_est = float(val) * fx_rate
+                            
+                            if eps_est is None: # Search for year string in index
+                                for idx_name in ee_data.index:
+                                    if str(proj_yr) in str(idx_name):
+                                        val = ee_data.loc[idx_name].get('avg')
+                                        if val is not None and not pd.isna(val):
+                                            eps_est = float(val) * fx_rate; break
+                            
+                            if eps_est is None and (i-1) < len(ee_data):
+                                val = ee_data.iloc[i-1].get('avg')
+                                if val is not None and not pd.isna(val): eps_est = float(val) * fx_rate
                         
-                        if row is not None:
-                            val = row.get('avg') if hasattr(row, 'get') else row.get('Avg')
-                            if val is not None and not pd.isna(val):
-                                eps_est = float(val) * fx_rate
+                        # Direct synchronous fallback if still None
+                        if eps_est is None:
+                            try:
+                                e_est_sync = getattr(stock, 'earnings_estimate', None)
+                                if e_est_sync is not None and not e_est_sync.empty:
+                                    if fy_code in e_est_sync.index:
+                                        val = e_est_sync.loc[fy_code].get('avg')
+                                        if val is not None and not pd.isna(val): eps_est = float(val) * fx_rate
+                                    if eps_est is None:
+                                        for idx_name in e_est_sync.index:
+                                            if str(proj_yr) in str(idx_name):
+                                                val = e_est_sync.loc[idx_name].get('avg')
+                                                if val is not None and not pd.isna(val):
+                                                    eps_est = float(val) * fx_rate; break
+                            except: pass
                     
                     # 4. Last Resort Fallback to historical (only if still None)
                     if eps_est is None:
