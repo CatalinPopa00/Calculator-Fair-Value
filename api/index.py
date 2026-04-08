@@ -431,20 +431,6 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         dcf_5yr = None
         dcf_10yr = None
     
-        # v63: Stabilize Revenue Growth for Comparison (Avoid buggy TTM/quarterly picks)
-        # We calculate the 1-year historical growth from reported trends to ensure consistency
-        stable_rev_growth = data.get("revenue_growth")
-        if historical_trends and len(historical_trends) >= 2:
-            try:
-                # trends are usually [2025, 2024, 2023...]
-                revs = [h.get("revenue") for h in historical_trends if h.get("revenue")]
-                if len(revs) >= 2:
-                    curr_r = revs[0]
-                    prev_r = revs[1]
-                    if curr_r and prev_r and prev_r > 0:
-                        stable_rev_growth = (curr_r - prev_r) / prev_r
-            except:
-                pass
         # Dynamic WACC (CAPM)
         risk_free_rate = get_risk_free_rate()
         erp = 0.055 # Equity Risk Premium fallback
@@ -505,6 +491,20 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             }
         # historical trends
         historical_trends = data.get("historical_trends", [])
+
+        # v63: Stabilize Revenue Growth for Comparison (Avoid buggy TTM/quarterly picks)
+        stable_rev_growth = data.get("revenue_growth")
+        if historical_trends and len(historical_trends) >= 2:
+            try:
+                # trends are usually [latest, previous, ...]
+                revs = [h.get("revenue") for h in historical_trends if h.get("revenue")]
+                if len(revs) >= 2:
+                    curr_r = revs[0]
+                    prev_r = revs[1]
+                    if curr_r and prev_r and prev_r > 0:
+                        stable_rev_growth = (curr_r - prev_r) / prev_r
+            except:
+                pass
             
         # Stabilize Fair Value with Sector-Aware Weighting
         # Define base sector weights using the pre-assigned sector variable
