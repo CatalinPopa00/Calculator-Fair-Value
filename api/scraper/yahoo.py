@@ -1065,41 +1065,49 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         next_3y_rev_est = info.get('revenueGrowth')
 
         # Historic Buyback Rate (Robust Multi-Source CALC)
-        historic_buyback_rate = None
+        historic_buyback_rate = 0.0 # Default to 0 instead of None
         try:
-            # Method 1: Balance Sheet Share Count Change (PRIMARY - most reliable)
-            # Ordinary Shares Number = actual diluted count (best for buyback calc)
+            # Method 1: Balance Sheet Share Count Change (PRIMARY - most reliable net calc)
             if bs is not None and not bs.empty:
-                shares_idx = find_idx(bs, 'Ordinary Shares Number')
+                shares_idx = find_idx(bs, 'Ordinary Shares Number') or \
+                             find_idx(bs, 'Share Issued')
                 if shares_idx:
                     shares_hist = bs.loc[shares_idx].dropna()
                     if len(shares_hist) >= 2:
-                        # Data is newest-first: [413M, 441M, 455M, 462M]
                         vals = shares_hist.head(4).tolist()
                         yoy_rates = []
                         for i in range(len(vals) - 1):
-                            s_new = vals[i]      # newer (smaller if buyback)
-                            s_old = vals[i + 1]   # older (larger if buyback)
+                            s_new = vals[i]      # newer
+                            s_old = vals[i + 1]   # older
                             if s_old > 0:
-                                reduction = (s_old - s_new) / s_old  # positive = buyback
+                                # v65: Allow negative results (dilution)
+                                reduction = (s_old - s_new) / s_old
                                 yoy_rates.append(reduction)
                         if yoy_rates:
                             historic_buyback_rate = sum(yoy_rates) / len(yoy_rates)
-                            # Clamp: if net dilution, set to 0 (only report buybacks)
-                            historic_buyback_rate = max(0.0, historic_buyback_rate)
 
-            # Method 2: Cash Flow Fallback (if BS method produces tiny/zero result)
-            if (historic_buyback_rate is None or historic_buyback_rate < 0.005) and cashflow is not None and not cashflow.empty:
-                cf_idx = find_idx(cashflow, 'Repurchase Of Capital Stock')
-                if not cf_idx: cf_idx = find_idx(cashflow, 'Common Stock Payments')
-                if cf_idx and market_cap and market_cap > 1000:
-                    repurchase_row = cashflow.loc[cf_idx].dropna()
-                    if not repurchase_row.empty:
-                        # Repurchase values are negative in yfinance
-                        avg_repurchase = abs(repurchase_row.head(3).mean())
-                        cf_rate = avg_repurchase / market_cap
-                        if cf_rate > (historic_buyback_rate or 0):
-                            historic_buyback_rate = cf_rate
+            # Method 2: Cash Flow Net Fallback (Only use if Method 1 results in exactly 0.0 or is very small/uncertain)
+            # v65: Subtract issuance from repurchases to get the 'Net' cash impact on shares.
+            if abs(historic_buyback_rate or 0) < 0.001 and cashflow is not None and not cashflow.empty:
+                outflow_idx = find_idx(cashflow, 'Repurchase Of Capital Stock') or find_idx(cashflow, 'Common Stock Payments')
+                inflow_idx = find_idx(cashflow, 'Common Stock Issuance')
+                
+                outflow = 0
+                if outflow_idx:
+                    outflow = abs(cashflow.loc[outflow_idx].head(3).mean())
+                
+                inflow = 0
+                if inflow_idx:
+                    inflow = abs(cashflow.loc[inflow_idx].head(3).mean())
+                    
+                net_buyback_cash = outflow - inflow
+                if market_cap and market_cap > 1000:
+                    cf_rate = net_buyback_cash / market_cap
+                    # Only use CF if it shows a stronger signal (e.g. clear dilution or clear buyback)
+                    if abs(cf_rate) > abs(historic_buyback_rate):
+                        historic_buyback_rate = cf_rate
+        except Exception:
+            pass
         except Exception:
             pass
         operating_cashflow = fcf # Default to FCF if OCF not specifically separated
