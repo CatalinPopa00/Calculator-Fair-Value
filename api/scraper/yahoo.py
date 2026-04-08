@@ -1238,7 +1238,6 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                         adjusted_history[str(ey)].append(float(val))
                 
                 # Consolidate arrays into sums only if we have data
-                # v67: More stable scaling that only applies if we have a significant portion of the year
                 final_adj_history = {}
                 now = datetime.datetime.now()
                 for ey, quarters in adjusted_history.items():
@@ -1248,8 +1247,11 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                             final_adj_history[ey] = sum(quarters)
                         elif len(quarters) >= 1 and ey_int >= (now.year - 1):
                             # Scale up partial current/recent years
-                            # But only if the sum isn't suspiciously low already
-                            final_adj_history[ey] = sum(quarters) * (4.0 / len(quarters))
+                            # v68: Added logging to trace the source of partials
+                            avg_q = sum(quarters) / len(quarters)
+                            scaled = avg_q * 4.0
+                            print(f"DEBUG: Scaled Non-GAAP for {ticker_symbol} Year {ey}: {scaled} (Avg Q: {avg_q}, Count: {len(quarters)})")
+                            final_adj_history[ey] = scaled
                         else:
                             final_adj_history[ey] = sum(quarters)
                     except: pass
@@ -1314,16 +1316,25 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     get_metric(financials, 'Diluted Average Shares', yr_col) or \
                     get_metric(bs, 'Ordinary Shares Number', yr_col)
                 
-                # --- NON-GAAP OVERLAY (v67: Reverted Rejection Logic) ---
+                # --- NON-GAAP OVERLAY (v68: Margin Safety Valve) ---
                 if year_label in adjusted_history:
                     adj_val = adjusted_history[year_label]
                     
-                    # We prefer the Adjusted value if it looks like a full-year sum
-                    # (At least 70% of GAAP EPS or above)
-                    if adj_val > 0.1 and (e == 0 or adj_val > (e * 0.7)):
-                        e = adj_val
-                        # Recalibrate NI if we have shares available
-                        if s and s > 0: ni = e * s
+                    # SAFETY VALVE: Calculate implied margin from this Adjusted value
+                    # If it implies a margin < 25% of the GAAP margin AND company is big,
+                    # it's likely a data-poisoning or partial year issue.
+                    shares_calc = s or info.get('sharesOutstanding') or 2500000000 # fallback to large number if missing
+                    implied_ni = adj_val * shares_calc
+                    margin_adj = (implied_ni / r) if (r and r > 0) else 0
+                    margin_gaap = (ni / r) if (r and r > 0) else 0
+                    
+                    # If GAAP margin is healthy (e.g. 15%+) but Adjusted suggests 3%, reject it.
+                    if r > 1e9 and abs(margin_gaap) > 0.15 and margin_adj < (margin_gaap * 0.3):
+                        print(f"DEBUG: REJECTING suspicious Adjusted EPS {adj_val} for {year_label} (Implied margin {margin_adj:.1%} vs GAAP {margin_gaap:.1%})")
+                    else:
+                        if adj_val > 0.1 and (e == 0 or adj_val > (e * 0.6)):
+                            e = adj_val
+                            if s and s > 0: ni = e * s
                 
                 # REPAIR Logic (v63) Fallback
                 elif (not e or e == 0) and ni != 0:
@@ -1379,15 +1390,19 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     fy_code = "0y" if i == 1 else "+1y"
                     
                     # 1. Adjusted History Priority (Bridge Year)
-                    # If Step 0 already has a robust sum for this future year (e.g. bridge year), use it.
                     if str(proj_yr) in adjusted_history:
                         eps_est = adjusted_history[str(proj_yr)]
-                        print(f"DEBUG: Using bridge-year Adjusted EPS for {proj_yr}: {eps_est}")
                     
-                    # 2. Nasdaq Priority
-                    if eps_est is None and i <= len(nq_yearly_eps):
-                        raw_val = nq_yearly_eps[i-1].get('consensusEPSForecast')
-                        eps_est = safe_nasdaq_float(raw_val)
+                    # 2. Nasdaq Priority (v68: Improved Year Alignment)
+                    if eps_est is None:
+                        # Nasdaq sometimes returns Dec 2026 as the first row even when the bridge year is 2025.
+                        # We try to find the matching year in nq_yearly_eps.
+                        match = next((row for row in nq_yearly_eps if str(proj_yr) in str(row.get('fiscalEnd') or '')), None)
+                        if match:
+                            eps_est = safe_nasdaq_float(match.get('consensusEPSForecast'))
+                        elif i <= len(nq_yearly_eps):
+                            # Traditional index-based fallback (often correct if they didn't skip the current year)
+                            eps_est = safe_nasdaq_float(nq_yearly_eps[i-1].get('consensusEPSForecast'))
                     
                     # 3. Yahoo Fallback (Individual Year Check)
                     if eps_est is None and ee_data is not None and not ee_data.empty:
