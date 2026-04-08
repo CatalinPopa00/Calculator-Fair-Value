@@ -121,6 +121,10 @@ def get_risk_free_rate() -> float:
 
 def get_fx_rate(info: dict) -> float:
     """Detects currency mismatch and fetches dynamic FX rate from Yahoo."""
+    # Hard-stop for known USD tickers that shouldn't fluctuate
+    if info.get('symbol') in ['META', 'NVDA', 'AAPL', 'MSFT', 'GOOG', 'GOOGL', 'AMZN', 'TSLA', 'FDS']:
+        return 1.0
+
     financial_currency = info.get('financialCurrency', 'USD')
     price_currency = info.get('currency', 'USD')
     
@@ -1316,23 +1320,20 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     get_metric(financials, 'Diluted Average Shares', yr_col) or \
                     get_metric(bs, 'Ordinary Shares Number', yr_col)
                 
-                # --- NON-GAAP OVERLAY (v68: Margin Safety Valve) ---
+                # --- NON-GAAP OVERLAY (v69: Stability Guard) ---
                 if year_label in adjusted_history:
                     adj_val = adjusted_history[year_label]
                     
-                    # SAFETY VALVE: Calculate implied margin from this Adjusted value
-                    # If it implies a margin < 25% of the GAAP margin AND company is big,
-                    # it's likely a data-poisoning or partial year issue.
-                    shares_calc = s or info.get('sharesOutstanding') or 2500000000 # fallback to large number if missing
+                    # SAFETY VALVE (v69): Only reject if we have a non-zero GAAP number to fall back on.
+                    shares_calc = s or info.get('sharesOutstanding') or 2500000000
                     implied_ni = adj_val * shares_calc
                     margin_adj = (implied_ni / r) if (r and r > 0) else 0
                     margin_gaap = (ni / r) if (r and r > 0) else 0
                     
-                    # If GAAP margin is healthy (e.g. 15%+) but Adjusted suggests 3%, reject it.
-                    if r > 1e9 and abs(margin_gaap) > 0.15 and margin_adj < (margin_gaap * 0.3):
-                        print(f"DEBUG: REJECTING suspicious Adjusted EPS {adj_val} for {year_label} (Implied margin {margin_adj:.1%} vs GAAP {margin_gaap:.1%})")
+                    if r > 1e9 and e != 0 and abs(margin_gaap) > 0.15 and margin_adj < (margin_gaap * 0.3):
+                        print(f"DEBUG: REJECTING Adjusted {adj_val} for {year_label} because GAAP {e} is better.")
                     else:
-                        if adj_val > 0.1 and (e == 0 or adj_val > (e * 0.6)):
+                        if adj_val > 0.1:
                             e = adj_val
                             if s and s > 0: ni = e * s
                 
@@ -1400,9 +1401,10 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                         match = next((row for row in nq_yearly_eps if str(proj_yr) in str(row.get('fiscalEnd') or '')), None)
                         if match:
                             eps_est = safe_nasdaq_float(match.get('consensusEPSForecast'))
+                            if eps_est is not None: eps_est *= fx_rate # v69: Fixed scaling
                         elif i <= len(nq_yearly_eps):
-                            # Traditional index-based fallback (often correct if they didn't skip the current year)
                             eps_est = safe_nasdaq_float(nq_yearly_eps[i-1].get('consensusEPSForecast'))
+                            if eps_est is not None: eps_est *= fx_rate # v69: Fixed scaling
                     
                     # 3. Yahoo Fallback (Individual Year Check)
                     if eps_est is None and ee_data is not None and not ee_data.empty:
