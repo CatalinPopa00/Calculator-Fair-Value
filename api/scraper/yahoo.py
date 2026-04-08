@@ -1802,6 +1802,8 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=3, inc
                     peers = ["ALAB", "MRVL", "AVGO", "NVDA", "AMD", "ARM", "MU", "CRDO"]
                 elif "Software" in target_industry or target_ticker == "ADBE":
                     peers = ["MSFT", "ADBE", "CRM", "ORCL", "SNOW", "PLTR", "DDOG", "CRWD"]
+                elif "Hardware" in target_industry or target_ticker == "SMCI":
+                    peers = ["DELL", "HPE", "NTAP", "STX", "WDC", "AAPL", "SMCI"]
                 else:
                     peers = ["IBM", "IT", "CTSH", "INFY", "ACN", "MSFT", "AAPL", "GOOGL"]
             elif sector == "Financial Services":
@@ -1816,14 +1818,27 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=3, inc
                     peers = ["TSLA", "TM", "GM", "F", "FSR", "RIVN"]
                 else:
                     peers = ["AMZN", "TSLA", "HD", "NKE", "MCD", "SBUX"]
-            elif sector == "Basic Materials":
-                peers = ["FCX", "LIN", "APD", "NEM", "CTVA", "SHW"]
+            elif sector == "Consumer Defensive":
+                if "Retail" in target_industry or "Discount" in target_industry:
+                    peers = ["WMT", "COST", "TGT", "DG", "DLTR", "BJ"]
+                elif "Beverages" in target_industry:
+                    peers = ["KO", "PEP", "MNST", "KDP", "CELH"]
+                else:
+                    peers = ["PG", "KO", "PEP", "COST", "WMT", "PM"]
+            elif sector == "Real Estate":
+                peers = ["PLD", "AMT", "EQIX", "CCI", "PSA", "O", "VICI"]
             elif sector == "Energy":
-                peers = ["XOM", "CVX", "COP", "SLB", "EOG", "MPC"]
+                peers = ["XOM", "CVX", "COP", "SLB", "EOG", "MPC", "PSX"]
             elif sector == "Healthcare":
-                peers = ["LLY", "UNH", "JNJ", "ABBV", "MRK", "TMO", "PFE"]
+                if "Drug" in target_industry or "Biotech" in target_industry:
+                    peers = ["LLY", "JNJ", "ABBV", "MRK", "PFE", "AMGN"]
+                else:
+                    peers = ["UNH", "TMO", "ISRG", "DHR", "LLY", "VRTX"]
+            elif sector == "Basic Materials":
+                peers = ["FCX", "LIN", "APD", "NEM", "CTVA", "SHW", "ECL"]
             else:
-                return []
+                # Absolute last resort across any US stock
+                peers = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA"]
         # 3. BATCH EXTRACTION (Primary: yfinance)
         candidates = [p.upper() for p in peers if p.upper() != target_ticker.upper() and '.' not in p][:3]
         final_peers = []
