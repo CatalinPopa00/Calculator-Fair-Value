@@ -311,7 +311,8 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         peers_data = []
         if peer_task:
             try:
-                peers_data = peer_task.result(timeout=4) or []
+                # v63: Increased timeout to 10s to handle slow Yahoo parallel fetches
+                peers_data = peer_task.result(timeout=10) or []
             except Exception as e:
                 print(f"DEBUG: Parallel peer fetch failed: {e}")
                 peers_data = []
@@ -496,15 +497,30 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         stable_rev_growth = data.get("revenue_growth")
         if historical_trends and len(historical_trends) >= 2:
             try:
-                # trends are usually [latest, previous, ...]
-                revs = [h.get("revenue") for h in historical_trends if h.get("revenue")]
-                if len(revs) >= 2:
-                    curr_r = revs[0]
-                    prev_r = revs[1]
+                # trends might be [2022, 2023, 2024, 2025] or reversed. 
+                # We extract the year number to sort correctly even with "(Est)" labels.
+                def get_yr_num(h):
+                    y_str = str(h.get("year", "0"))
+                    nums = "".join(filter(str.isdigit, y_str))
+                    return int(nums) if nums else 0
+                
+                # Sort descending: [2027 (Est), 2026 (Est), 2025, 2024...]
+                sorted_trends = sorted(historical_trends, key=get_yr_num, reverse=True)
+                
+                # We only want REPORTED years for the 'historical' growth comparison (e.g. 2025 vs 2024)
+                reported_revs = [h.get("revenue") for h in sorted_trends if h.get("revenue") and "(Est)" not in str(h.get("year"))]
+                
+                if len(reported_revs) >= 2:
+                    curr_r = reported_revs[0]
+                    prev_r = reported_revs[1]
                     if curr_r and prev_r and prev_r > 0:
                         stable_rev_growth = (curr_r - prev_r) / prev_r
             except:
                 pass
+        
+        # Propagate stable revenue growth to both the profile and the scoring engine (v63 fix)
+        data["revenue_growth"] = stable_rev_growth
+        data["next_3y_rev_growth"] = stable_rev_growth
             
         # Stabilize Fair Value with Sector-Aware Weighting
         # Define base sector weights using the pre-assigned sector variable

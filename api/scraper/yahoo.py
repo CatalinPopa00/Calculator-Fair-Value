@@ -1729,6 +1729,14 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=3, inc
                 if sector:
                     kv_set(kv_sec_key, {"sector": sector, "industry": target_industry}, ex=604800) # 1 week
 
+        # HARDCODED INDUSTRY FALLBACKS (v63: Ensure quality for high-profile tickers if info fails)
+        if not target_industry:
+            if target_ticker == "FDS": target_industry = "Financial Data & Stock Exchanges"
+            if target_ticker == "MSCI": target_industry = "Financial Data & Stock Exchanges"
+            if target_ticker == "NDAQ": target_industry = "Financial Data & Stock Exchanges"
+            if target_ticker == "ADBE": target_industry = "Software - Infrastructure"
+            if target_ticker == "SMCI": target_industry = "Computer Hardware"
+
         # 2. SEED/PEER DISCOVERY
         peers = []
         FINNHUB_KEY = os.environ.get('FINNHUB_API_KEY')
