@@ -365,8 +365,9 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
 
         pe_historic = data.get("pe_historic") or data.get("pe_ratio")
         
-        # STRICT DATA MAPPING: Trailing TTM EPS Only (Forbid Adjusted/Forward for valuation base)
-        eps_for_valuation = data.get("trailing_eps", 0) 
+        # STRICT DATA MAPPING: Prioritize Adjusted (Non-GAAP) EPS for valuation models (v70)
+        # Trailing TTM EPS fallback only if Adjusted is missing.
+        eps_for_valuation = data.get("adjusted_eps") or data.get("trailing_eps", 0) 
         
         # Peter Lynch - Conservative Guardrails for Negative Growth
         # Standard Lynch PE is 20, but for shrinking companies (<0% growth), we cap it at 12x (Risk Adjusted)

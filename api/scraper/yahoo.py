@@ -282,7 +282,8 @@ def get_nasdaq_actual_eps(ticker: str) -> float:
                         continue
             
             if count >= 3: # Require at least 3 quarters for a valid sum
-                return total_eps
+                # v70: Scale to full year (4 quarters) if one is missing
+                return (total_eps / count) * 4.0
     except Exception as e:
         print(f"Error fetching Nasdaq Actual EPS for {ticker}: {e}")
     return None
@@ -1324,16 +1325,18 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 if year_label in adjusted_history:
                     adj_val = adjusted_history[year_label]
                     
-                    # SAFETY VALVE (v69): Only reject if we have a non-zero GAAP number to fall back on.
-                    shares_calc = s or info.get('sharesOutstanding') or 2500000000
+                    # SAFETY VALVE (v70): account for splits/scaling by using best available share count
+                    shares_calc = s or next((val for val in historical_data.get("shares", []) if val > 0), None) or \
+                                   info.get('sharesOutstanding') or 2500000000
                     implied_ni = adj_val * shares_calc
                     margin_adj = (implied_ni / r) if (r and r > 0) else 0
                     margin_gaap = (ni / r) if (r and r > 0) else 0
                     
-                    if r > 1e9 and e != 0 and abs(margin_gaap) > 0.15 and margin_adj < (margin_gaap * 0.3):
-                        print(f"DEBUG: REJECTING Adjusted {adj_val} for {year_label} because GAAP {e} is better.")
+                    # More prudent check: only reject if the implied margin is impossibly low or high (e.g. 10x scaling error)
+                    if r > 1e9 and e != 0 and abs(margin_gaap) > 0.05 and (margin_adj < (margin_gaap * 0.1) or margin_adj > (margin_gaap * 10)):
+                        print(f"DEBUG: REJECTING Adjusted {adj_val} for {year_label} because it implies {margin_adj:.1%} margin vs GAAP {margin_gaap:.1%}")
                     else:
-                        if adj_val > 0.1:
+                        if adj_val > 0.01: # v70: Lowered threshold for penny stocks/post-split
                             e = adj_val
                             if s and s > 0: ni = e * s
                 
