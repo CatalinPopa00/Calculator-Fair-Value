@@ -1237,19 +1237,29 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                             
                         adjusted_history[str(ey)].append(float(val))
                 
-                # Consolidate arrays into sums only if we have at least 3 quarters (avoid partial years)
-                # v65: Scale up even for the previous year (curr_y - 1) to avoid "dips" during reporting season.
+                # Consolidate arrays into sums only if we have at least 1 quarter
+                # v66: More aggressive scaling for the current/bridge year to avoid "dips"
                 final_adj_history = {}
-                curr_y = datetime.datetime.now().year
+                now = datetime.datetime.now()
+                curr_y = now.year
+                # If we are in the first few months of the year, curr_y - 1 is still essentially current
+                bridge_y = curr_y if now.month > 3 else curr_y - 1
+                
                 for ey, quarters in adjusted_history.items():
                     try:
                         ey_int = int(ey)
-                        if len(quarters) >= 3:
-                            # Standard scale to 4 quarters
-                            final_adj_history[ey] = sum(quarters) * (4.0 / len(quarters))
-                        elif len(quarters) >= 1 and ey_int >= (curr_y - 1):
-                            # Current or previous year (partial) - scale up to 4
-                            final_adj_history[ey] = sum(quarters) * (4.0 / len(quarters))
+                        if len(quarters) >= 4:
+                            final_adj_history[ey] = sum(quarters)
+                        elif len(quarters) >= 1:
+                            # Scale up to 4 quarters if it's the current, next, or bridge year
+                            if ey_int >= (bridge_y - 1):
+                                final_adj_history[ey] = sum(quarters) * (4.0 / len(quarters))
+                            else:
+                                # For older years, if we have 3, it's likely a full year with one small quarter missing/NaN
+                                if len(quarters) == 3:
+                                     final_adj_history[ey] = sum(quarters) * 1.33
+                                else:
+                                     final_adj_history[ey] = sum(quarters)
                     except:
                         pass
                     
@@ -1313,26 +1323,29 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     get_metric(financials, 'Diluted Average Shares', yr_col) or \
                     get_metric(bs, 'Ordinary Shares Number', yr_col)
                 
-                # --- NON-GAAP OVERLAY (v65) ---
-                # If we found a Non-GAAP sum for this year in Step 0, USE IT.
+                # --- NON-GAAP OVERLAY (v66) ---
                 if year_label in adjusted_history:
                     adj_val = adjusted_history[year_label]
                     
-                    # MARGIN-BASED SANITY CHECK: 
-                    # If one value implies a radically lower margin (e.g. 5%) vs the other (e.g. 25%) 
-                    # while revenue is massive, we favor the one that aligns with historical reality.
-                    # This catches cases where Yahoo 'GAAP' or 'Adjusted' is just a single quarter.
-                    margin_gaap = (e * (s or info.get('sharesOutstanding', 1)) / r) if (r and r > 0) else 0
-                    margin_adj = (adj_val * (s or info.get('sharesOutstanding', 1)) / r) if (r and r > 0) else 0
+                    # MARGIN-BASED SANITY CHECK (Enhanced v66):
+                    # We compare the IMPLIED net income from Adjusted EPS with the GAAP Net Income.
+                    # If Revenue is massive (>1B), we check if the Adjusted margin is suspiciously low (< 5%) 
+                    # while GAAP margin is healthy (> 15%).
+                    implied_ni_adj = adj_val * (s or info.get('sharesOutstanding') or 1)
+                    margin_gaap = (ni / r) if (r and r > 0) else 0
+                    margin_adj = (implied_ni_adj / r) if (r and r > 0) else 0
                     
-                    if (r or 0) > 1e9 and abs(margin_gaap) > 0.10 and abs(margin_adj) < 0.05:
-                         print(f"DEBUG: Ignoring likely partial Adjusted EPS {adj_val} for {year_label} (GAAP margin is {margin_gaap:.1%}).")
-                    elif (r or 0) > 1e9 and abs(margin_adj) > 0.10 and abs(margin_gaap) < 0.05:
-                         print(f"DEBUG: Using Adjusted EPS {adj_val} for {year_label} (GAAP margin was suspiciously low {margin_gaap:.1%}).")
-                         e = adj_val
-                    else:
-                        # Standard overwrite if both are sane or company is small
+                    # If Adjusted is a tiny fraction of GAAP (e.g. 20% or less) for a large cap, it's almost certainly partial data.
+                    if r > 1e9 and abs(margin_gaap) > 0.10 and margin_adj < (margin_gaap * 0.4):
+                        print(f"DEBUG: Rejecting suspicious Adjusted EPS {adj_val} for {year_label} (GAAP margin {margin_gaap:.1%} vs Implied Adj margin {margin_adj:.1%}).")
+                    elif r > 1e9 and abs(margin_adj) > 0.10 and abs(margin_gaap) < 0.05:
+                        print(f"DEBUG: Prioritizing Adjusted EPS {adj_val} for {year_label} (GAAP margin was suspiciously low {margin_gaap:.1%}).")
                         e = adj_val
+                        ni = implied_ni_adj # Sync NI for margin calculation below
+                    else:
+                        # Standard overwrite
+                        e = adj_val
+                        ni = implied_ni_adj # Sync NI
                 
                 # REPAIR Logic (v63) Fallback: Only if Non-GAAP is missing
                 elif (not e or e == 0) and ni != 0:
@@ -1387,15 +1400,18 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     # Analysis tab uses Next Year for first estimate generally
                     fy_code = "0y" if i == 1 else "+1y"
                     
-                    # --- EPS Estimate ---
-                    eps_est = None
+                    # 1. Adjusted History Priority (Bridge Year)
+                    # If Step 0 already has a robust sum for this future year (e.g. bridge year), use it.
+                    if str(proj_yr) in adjusted_history:
+                        eps_est = adjusted_history[str(proj_yr)]
+                        print(f"DEBUG: Using bridge-year Adjusted EPS for {proj_yr}: {eps_est}")
                     
-                    # 1. Nasdaq Priority
-                    if i <= len(nq_yearly_eps):
+                    # 2. Nasdaq Priority
+                    if eps_est is None and i <= len(nq_yearly_eps):
                         raw_val = nq_yearly_eps[i-1].get('consensusEPSForecast')
                         eps_est = safe_nasdaq_float(raw_val)
                     
-                    # 2. Yahoo Fallback (Individual Year Check)
+                    # 3. Yahoo Fallback (Individual Year Check)
                     if eps_est is None and ee_data is not None and not ee_data.empty:
                         row = None
                         if fy_code in ee_data.index: row = ee_data.loc[fy_code]
@@ -1406,7 +1422,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                             if val is not None and not pd.isna(val):
                                 eps_est = float(val) * fx_rate
                     
-                    # 3. Last Resort Fallback to historical (only if still None)
+                    # 4. Last Resort Fallback to historical (only if still None)
                     if eps_est is None:
                         eps_est = historical_data["eps"][-1] if historical_data["eps"] else 0
                     

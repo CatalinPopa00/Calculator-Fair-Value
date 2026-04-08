@@ -1176,7 +1176,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         try {
-            const response = await fetch(`/api/valuation/${encodeURIComponent(query)}`);
+            const response = await fetch(`/api/valuation/${encodeURIComponent(query)}?t=${Date.now()}`);
             if (!response.ok) throw new Error('Network response was not ok');
 
             const data = await response.json();
@@ -2222,7 +2222,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         return; // skip network fetch
                     }
                 }
-                const res = await fetch(`/api/valuation/${tUpper}`); // no timestamp param for edge cache
+                const res = await fetch(`/api/valuation/${tUpper}?t=${Date.now()}`);
                 if (res.ok) {
                     const data = await res.json();
                     // Store in sessionStorage
