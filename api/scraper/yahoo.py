@@ -631,6 +631,16 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         # 0. FX Normalization (Dynamic conversion for ADRs)
         fx_rate = get_fx_rate(info)
 
+        # FY End Month extraction (v63: Fixed for Non-GAAP Aggregation)
+        lfy_ts = info.get('lastFiscalYearEnd')
+        fy_end_month = 12 # Default
+        if lfy_ts:
+            try:
+                # Use a safer conversion for timestamp
+                fy_end_month = datetime.datetime.fromtimestamp(lfy_ts).month
+            except Exception:
+                pass
+
         # Start background fetches while processing info
         executor = None
         if not fast_mode:
@@ -1773,6 +1783,8 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=3, inc
             elif sector == "Financial Services":
                 if "Bank" in target_industry or "Credit" in target_industry:
                     peers = ["JPM", "BAC", "WFC", "C", "GS", "MS", "AXP"]
+                elif "Data" in target_industry or "Exchange" in target_industry:
+                    peers = ["MSCI", "NDAQ", "ICE", "SPGI", "MCO", "CBOE", "FDS"]
                 else:
                     peers = ["SCHW", "MSI", "GS", "JPM", "BAC", "IBKR", "WFC"]
             elif sector == "Consumer Cyclical":

@@ -453,10 +453,11 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             recommended_exit_multiple = min(recommended_exit_multiple or 15.0, 12.0)
 
         if fcf and shares and fcf > 0:
-            # Special Handling for Financial Services (Banks, Brokers, Insurance)
             # Standard DCF EV = PV(FCF) + Cash - Debt is highly misleading because Cash often includes customer money.
             # For these, we use PV(FCF) as a proxy for Equity Value directly.
-            if sector == "Financial Services":
+            # v63: Only apply to actual Banks/Insurance, not Data/FinTech providers like FDS or MSCI.
+            is_bank_or_insurance = any(x in str(industry).lower() for x in ["bank", "insurance", "savings", "credit"])
+            if sector == "Financial Services" and is_bank_or_insurance:
                 dcf_cash = 0
                 dcf_debt = 0
                 
@@ -803,6 +804,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 "sector": data.get("sector") or "N/A",
                 "market_cap": sanitize(data.get("shares_outstanding", 0) * current_price if data.get("shares_outstanding") and current_price else 0.0),
                 "current_pe": sanitize(current_pe),
+                "trailing_pe": sanitize(current_pe), # Align with what app.js expects for comparison
                 "trailing_eps": sanitize(eps_for_valuation),
                 "historic_eps_growth": sanitize(data.get("historic_eps_growth")),
                 "historic_fcf_growth": sanitize(data.get("historic_fcf_growth")),
@@ -810,7 +812,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 "operating_margin": sanitize(data.get("operating_margin")),
                 "net_margin": sanitize(data.get("net_margin")),
                 "revenue_growth": sanitize(data.get("revenue_growth")),
-                "earnings_growth": sanitize(data.get("earnings_growth")),
+                "earnings_growth": sanitize(consensus_growth), # Use Consensus/Nasdaq CAGRs for comparison instead of buggy Yahoo TTM
                 "business_summary": data.get("business_summary"),
                 "sector_median_pe": sanitize(median_peer_pe),
                 "sector_median_peg": sanitize(median_peer_peg),
