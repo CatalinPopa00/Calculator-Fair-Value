@@ -1770,6 +1770,14 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=3, inc
 
         # 2. Universal Scraper Fallback (DELETED FOR SPEED)
         # Using HTTP requests and parsing huge HTML dumps via RegEx was crippling the backend speed.
+        
+        # 2.5 INDUSTRY QUALITY SHIELD (v63): Force high-quality peers and prune irrelevant symbols (like COIN for FDS)
+        if target_industry and ("Financial Data" in target_industry or "Exchange" in target_industry):
+            hq_peers = ["MSCI", "NDAQ", "ICE", "SPGI", "MCO", "CBOE"]
+            peers = list(dict.fromkeys(peers + hq_peers))
+            irrelevant = ["COIN"] # Yahoo often incorrectly suggests COIN for data providers
+            peers = [p for p in peers if p.upper() not in irrelevant]
+
         if not peers:
             if sector == "Technology":
                 # Industry specific fallbacks

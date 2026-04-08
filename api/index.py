@@ -431,6 +431,20 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         dcf_5yr = None
         dcf_10yr = None
     
+        # v63: Stabilize Revenue Growth for Comparison (Avoid buggy TTM/quarterly picks)
+        # We calculate the 1-year historical growth from reported trends to ensure consistency
+        stable_rev_growth = data.get("revenue_growth")
+        if historical_trends and len(historical_trends) >= 2:
+            try:
+                # trends are usually [2025, 2024, 2023...]
+                revs = [h.get("revenue") for h in historical_trends if h.get("revenue")]
+                if len(revs) >= 2:
+                    curr_r = revs[0]
+                    prev_r = revs[1]
+                    if curr_r and prev_r and prev_r > 0:
+                        stable_rev_growth = (curr_r - prev_r) / prev_r
+            except:
+                pass
         # Dynamic WACC (CAPM)
         risk_free_rate = get_risk_free_rate()
         erp = 0.055 # Equity Risk Premium fallback
@@ -811,7 +825,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 "debt_to_equity": sanitize(data.get("debt_to_equity")),
                 "operating_margin": sanitize(data.get("operating_margin")),
                 "net_margin": sanitize(data.get("net_margin")),
-                "revenue_growth": sanitize(data.get("revenue_growth")),
+                "revenue_growth": sanitize(stable_rev_growth), # Use calculated 1Y historical growth for stability
                 "earnings_growth": sanitize(consensus_growth), # Use Consensus/Nasdaq CAGRs for comparison instead of buggy Yahoo TTM
                 "business_summary": data.get("business_summary"),
                 "sector_median_pe": sanitize(median_peer_pe),

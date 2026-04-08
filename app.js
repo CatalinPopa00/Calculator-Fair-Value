@@ -1895,7 +1895,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 let gVal = '--';
                 
                 if (item.status === 'reported' && item.surprise_pct != null) {
-                    gVal = (parseFloat(item.surprise_pct) * 100).toFixed(1) + '% s';
+                    gVal = (parseFloat(item.surprise_pct) * 100).toFixed(1) + '%';
                 } else if (item.growth != null) {
                     gVal = (parseFloat(item.growth) * 100).toFixed(1) + '%';
                 }
