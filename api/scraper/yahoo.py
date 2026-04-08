@@ -1257,15 +1257,31 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             # If yf fails or returns nothing, fallback to Finnhub or Nasdaq if available...
             if not adjusted_history:
                 nq_hist = get_nasdaq_historical_eps(ticker_symbol)
+                temp_hist = {}
                 for entry in nq_hist:
                     dt = entry['date']
                     val = entry['eps']
                     # Use provided fy_end_month for better mapping
                     ey = dt.year if dt.month <= fy_end_month else dt.year + 1
-                    adjusted_history[str(ey)] = adjusted_history.get(str(ey), 0) + val
+                    key = str(ey)
+                    if key not in temp_hist: temp_hist[key] = []
+                    temp_hist[key].append(val)
+                
+                # Apply scaling logic to Nasdaq fallback as well
+                curr_y = datetime.datetime.now().year
+                for ey, quarters in temp_hist.items():
+                    try:
+                        ey_int = int(ey)
+                        if len(quarters) >= 3 or (len(quarters) >= 1 and ey_int >= curr_y):
+                            adjusted_history[ey] = sum(quarters) * (4.0 / len(quarters))
+                    except: pass
             # Final check: If a year in adjusted_history only has e.g. 1-2 quarters, it might be partial.
             # But the surprise chart usually has full years for history.
-            print(f"DEBUG: Consolidated Non-GAAP History for {ticker_symbol}: {augmented_history := {k: round(v,2) for k,v in adjusted_history.items()}}")
+            try:
+                rounded_hist = {k: round(v, 2) for k, v in adjusted_history.items()}
+                print(f"DEBUG: Consolidated Non-GAAP History for {ticker_symbol}: {rounded_hist}")
+            except:
+                pass
         except Exception as e:
             print(f"DEBUG: Non-GAAP Aggregation fail: {e}")
 
@@ -1292,12 +1308,15 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 
                 # --- NON-GAAP OVERLAY (v64) ---
                 # If we found a Non-GAAP sum for this year in Step 0, USE IT.
-                # This ensures ADBE 2024 is shown as ~$18.00 (Adjusted) vs ~$11.00 (GAAP).
                 if year_label in adjusted_history:
-                    # Note: We only overwrite if it's a 'clean' 4-quarter sum or reasonably complete.
-                    # For ADBE 2025, it might be 18.71.
-                    e = adjusted_history[year_label]
-                    # We remove the repair logic as Adjusted History is already 'repaired' via quarters.
+                    adj_val = adjusted_history[year_label]
+                    
+                    # SANITY CHECK: If GAAP is substantial and Adjusted is near-zero/negative while revenue is huge,
+                    # it indicates a mapping error or missing data quarter. Trust GAAP in this case.
+                    if abs(e) > 2.0 and abs(adj_val) < 0.5 and (r or 0) > 1e6:
+                         print(f"DEBUG: Ignoring suspicious Adjusted EPS {adj_val} for {year_label} (GAAP is {e}). Scaling error likely.")
+                    else:
+                        e = adj_val
                 
                 # REPAIR Logic (v63) Fallback: Only if Non-GAAP is missing
                 elif (not e or e == 0) and ni != 0:
