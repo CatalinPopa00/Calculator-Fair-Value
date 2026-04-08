@@ -1224,9 +1224,10 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 for idx, row in ed.iterrows():
                     val = row.get('Reported EPS')
                     if val is not None and not _pd.isna(val) and isinstance(idx, (_pd.Timestamp, datetime.datetime)):
-                        # Subtract 45 days so the 'Report Date' accurately maps back to the fiscal quarter/year it belongs to.
+                        # Subtract 65 days (v65: increased from 45) so the 'Report Date' accurately maps back 
+                        # to the fiscal year it belongs to, even for late Q4 reports.
                         import datetime as _dt
-                        adjusted_date = idx - _dt.timedelta(days=45)
+                        adjusted_date = idx - _dt.timedelta(days=65)
                         
                         # If Nov (Month 11) is year end, then Dec (Month 12) belongs to next year
                         ey = adjusted_date.year if adjusted_date.month <= fy_end_month else adjusted_date.year + 1
@@ -1237,7 +1238,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                         adjusted_history[str(ey)].append(float(val))
                 
                 # Consolidate arrays into sums only if we have at least 3 quarters (avoid partial years)
-                # v64: Special Exception for Current/Future years - we scale up even 1-2 quarters to keep trends alive.
+                # v65: Scale up even for the previous year (curr_y - 1) to avoid "dips" during reporting season.
                 final_adj_history = {}
                 curr_y = datetime.datetime.now().year
                 for ey, quarters in adjusted_history.items():
@@ -1246,8 +1247,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                         if len(quarters) >= 3:
                             # Standard scale to 4 quarters
                             final_adj_history[ey] = sum(quarters) * (4.0 / len(quarters))
-                        elif len(quarters) >= 1 and ey_int >= curr_y:
-                            # Current year (partial) - scale up to 4 to avoid the "dip to zero" in charts
+                        elif len(quarters) >= 1 and ey_int >= (curr_y - 1):
+                            # Current or previous year (partial) - scale up to 4
                             final_adj_history[ey] = sum(quarters) * (4.0 / len(quarters))
                     except:
                         pass
@@ -1272,7 +1273,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 for ey, quarters in temp_hist.items():
                     try:
                         ey_int = int(ey)
-                        if len(quarters) >= 3 or (len(quarters) >= 1 and ey_int >= curr_y):
+                        if len(quarters) >= 3 or (len(quarters) >= 1 and ey_int >= (curr_y - 1)):
                             adjusted_history[ey] = sum(quarters) * (4.0 / len(quarters))
                     except: pass
             # Final check: If a year in adjusted_history only has e.g. 1-2 quarters, it might be partial.
@@ -1306,16 +1307,31 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 diluted_eps_idx = find_idx(financials, 'Diluted EPS')
                 e = get_metric(financials, diluted_eps_idx, yr_col) if diluted_eps_idx else get_metric(financials, 'Basic EPS', yr_col)
                 
-                # --- NON-GAAP OVERLAY (v64) ---
+                f = get_metric(cashflow, 'Free Cash Flow', yr_col)
+                
+                s = get_metric(financials, 'Basic Average Shares', yr_col) or \
+                    get_metric(financials, 'Diluted Average Shares', yr_col) or \
+                    get_metric(bs, 'Ordinary Shares Number', yr_col)
+                
+                # --- NON-GAAP OVERLAY (v65) ---
                 # If we found a Non-GAAP sum for this year in Step 0, USE IT.
                 if year_label in adjusted_history:
                     adj_val = adjusted_history[year_label]
                     
-                    # SANITY CHECK: If GAAP is substantial and Adjusted is near-zero/negative while revenue is huge,
-                    # it indicates a mapping error or missing data quarter. Trust GAAP in this case.
-                    if abs(e) > 2.0 and abs(adj_val) < 0.5 and (r or 0) > 1e6:
-                         print(f"DEBUG: Ignoring suspicious Adjusted EPS {adj_val} for {year_label} (GAAP is {e}). Scaling error likely.")
+                    # MARGIN-BASED SANITY CHECK: 
+                    # If one value implies a radically lower margin (e.g. 5%) vs the other (e.g. 25%) 
+                    # while revenue is massive, we favor the one that aligns with historical reality.
+                    # This catches cases where Yahoo 'GAAP' or 'Adjusted' is just a single quarter.
+                    margin_gaap = (e * (s or info.get('sharesOutstanding', 1)) / r) if (r and r > 0) else 0
+                    margin_adj = (adj_val * (s or info.get('sharesOutstanding', 1)) / r) if (r and r > 0) else 0
+                    
+                    if (r or 0) > 1e9 and abs(margin_gaap) > 0.10 and abs(margin_adj) < 0.05:
+                         print(f"DEBUG: Ignoring likely partial Adjusted EPS {adj_val} for {year_label} (GAAP margin is {margin_gaap:.1%}).")
+                    elif (r or 0) > 1e9 and abs(margin_adj) > 0.10 and abs(margin_gaap) < 0.05:
+                         print(f"DEBUG: Using Adjusted EPS {adj_val} for {year_label} (GAAP margin was suspiciously low {margin_gaap:.1%}).")
+                         e = adj_val
                     else:
+                        # Standard overwrite if both are sane or company is small
                         e = adj_val
                 
                 # REPAIR Logic (v63) Fallback: Only if Non-GAAP is missing
@@ -1326,12 +1342,6 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     if s_calc and s_calc > 0:
                         e = ni / s_calc
                         print(f"DEBUG: Repaired missing EPS for {year_label} using NetIncome/Shares: {e}")
-                
-                f = get_metric(cashflow, 'Free Cash Flow', yr_col)
-                
-                s = get_metric(financials, 'Basic Average Shares', yr_col) or \
-                    get_metric(financials, 'Diluted Average Shares', yr_col) or \
-                    get_metric(bs, 'Ordinary Shares Number', yr_col)
                 
                 historical_data["years"].append(year_label)
                 historical_data["revenue"].append(r * fx_rate)
