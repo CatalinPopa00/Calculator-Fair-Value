@@ -151,10 +151,10 @@ def get_nasdaq_comprehensive_estimates(ticker: str) -> dict:
 
     results = {"yearly_eps": [], "quarterly_eps": [], "yearly_rev": [], "quarterly_rev": []}
     
-    def fetch_url(url_type):
+    def fetch_url(url_type, t_sym):
         endpoint = "earnings-forecast" if url_type == "eps" else "revenue-forecast"
         try:
-            url = f'https://api.nasdaq.com/api/analyst/{ticker}/{endpoint}'
+            url = f'https://api.nasdaq.com/api/analyst/{t_sym}/{endpoint}'
             headers = {'User-Agent': get_random_agent()}
             req = urllib.request.Request(url, headers=headers)
             with urllib.request.urlopen(req, timeout=7) as response:
@@ -162,8 +162,8 @@ def get_nasdaq_comprehensive_estimates(ticker: str) -> dict:
         except: return None
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-        future_eps = executor.submit(fetch_url, "eps")
-        future_rev = executor.submit(fetch_url, "rev")
+        future_eps = executor.submit(fetch_url, "eps", ticker)
+        future_rev = executor.submit(fetch_url, "rev", ticker)
         
         eps_data = future_eps.result()
         rev_data = future_rev.result()
@@ -1237,32 +1237,23 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                             
                         adjusted_history[str(ey)].append(float(val))
                 
-                # Consolidate arrays into sums only if we have at least 1 quarter
-                # v66: More aggressive scaling for the current/bridge year to avoid "dips"
+                # Consolidate arrays into sums only if we have data
+                # v67: More stable scaling that only applies if we have a significant portion of the year
                 final_adj_history = {}
                 now = datetime.datetime.now()
-                curr_y = now.year
-                # If we are in the first few months of the year, curr_y - 1 is still essentially current
-                bridge_y = curr_y if now.month > 3 else curr_y - 1
-                
                 for ey, quarters in adjusted_history.items():
                     try:
                         ey_int = int(ey)
                         if len(quarters) >= 4:
                             final_adj_history[ey] = sum(quarters)
-                        elif len(quarters) >= 1:
-                            # Scale up to 4 quarters if it's the current, next, or bridge year
-                            if ey_int >= (bridge_y - 1):
-                                final_adj_history[ey] = sum(quarters) * (4.0 / len(quarters))
-                            else:
-                                # For older years, if we have 3, it's likely a full year with one small quarter missing/NaN
-                                if len(quarters) == 3:
-                                     final_adj_history[ey] = sum(quarters) * 1.33
-                                else:
-                                     final_adj_history[ey] = sum(quarters)
-                    except:
-                        pass
-                    
+                        elif len(quarters) >= 1 and ey_int >= (now.year - 1):
+                            # Scale up partial current/recent years
+                            # But only if the sum isn't suspiciously low already
+                            final_adj_history[ey] = sum(quarters) * (4.0 / len(quarters))
+                        else:
+                            final_adj_history[ey] = sum(quarters)
+                    except: pass
+                
                 adjusted_history = final_adj_history
                 
             # If yf fails or returns nothing, fallback to Finnhub or Nasdaq if available...
@@ -1323,31 +1314,18 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     get_metric(financials, 'Diluted Average Shares', yr_col) or \
                     get_metric(bs, 'Ordinary Shares Number', yr_col)
                 
-                # --- NON-GAAP OVERLAY (v66) ---
+                # --- NON-GAAP OVERLAY (v67: Reverted Rejection Logic) ---
                 if year_label in adjusted_history:
                     adj_val = adjusted_history[year_label]
                     
-                    # MARGIN-BASED SANITY CHECK (Enhanced v66):
-                    # We compare the IMPLIED net income from Adjusted EPS with the GAAP Net Income.
-                    # If Revenue is massive (>1B), we check if the Adjusted margin is suspiciously low (< 5%) 
-                    # while GAAP margin is healthy (> 15%).
-                    implied_ni_adj = adj_val * (s or info.get('sharesOutstanding') or 1)
-                    margin_gaap = (ni / r) if (r and r > 0) else 0
-                    margin_adj = (implied_ni_adj / r) if (r and r > 0) else 0
-                    
-                    # If Adjusted is a tiny fraction of GAAP (e.g. 20% or less) for a large cap, it's almost certainly partial data.
-                    if r > 1e9 and abs(margin_gaap) > 0.10 and margin_adj < (margin_gaap * 0.4):
-                        print(f"DEBUG: Rejecting suspicious Adjusted EPS {adj_val} for {year_label} (GAAP margin {margin_gaap:.1%} vs Implied Adj margin {margin_adj:.1%}).")
-                    elif r > 1e9 and abs(margin_adj) > 0.10 and abs(margin_gaap) < 0.05:
-                        print(f"DEBUG: Prioritizing Adjusted EPS {adj_val} for {year_label} (GAAP margin was suspiciously low {margin_gaap:.1%}).")
+                    # We prefer the Adjusted value if it looks like a full-year sum
+                    # (At least 70% of GAAP EPS or above)
+                    if adj_val > 0.1 and (e == 0 or adj_val > (e * 0.7)):
                         e = adj_val
-                        ni = implied_ni_adj # Sync NI for margin calculation below
-                    else:
-                        # Standard overwrite
-                        e = adj_val
-                        ni = implied_ni_adj # Sync NI
+                        # Recalibrate NI if we have shares available
+                        if s and s > 0: ni = e * s
                 
-                # REPAIR Logic (v63) Fallback: Only if Non-GAAP is missing
+                # REPAIR Logic (v63) Fallback
                 elif (not e or e == 0) and ni != 0:
                     s_calc = get_metric(financials, 'Basic Average Shares', yr_col) or \
                              get_metric(financials, 'Diluted Average Shares', yr_col) or \
