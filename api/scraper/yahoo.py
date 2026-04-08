@@ -1229,13 +1229,20 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                         adjusted_history[str(ey)].append(float(val))
                 
                 # Consolidate arrays into sums only if we have at least 3 quarters (avoid partial years)
-                # Or if it's the current trailing year, we can optionally sum whatever we have.
-                # Assuming 4 quarters typically
+                # v64: Special Exception for Current/Future years - we scale up even 1-2 quarters to keep trends alive.
                 final_adj_history = {}
+                curr_y = datetime.datetime.now().year
                 for ey, quarters in adjusted_history.items():
-                    if len(quarters) >= 3:
-                        # Scale it up to 4 quarters if we only have 3 (rare, but keeps trends alive)
-                        final_adj_history[ey] = sum(quarters) * (4.0 / len(quarters))
+                    try:
+                        ey_int = int(ey)
+                        if len(quarters) >= 3:
+                            # Standard scale to 4 quarters
+                            final_adj_history[ey] = sum(quarters) * (4.0 / len(quarters))
+                        elif len(quarters) >= 1 and ey_int >= curr_y:
+                            # Current year (partial) - scale up to 4 to avoid the "dip to zero" in charts
+                            final_adj_history[ey] = sum(quarters) * (4.0 / len(quarters))
+                    except:
+                        pass
                     
                 adjusted_history = final_adj_history
                 
@@ -1245,11 +1252,12 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 for entry in nq_hist:
                     dt = entry['date']
                     val = entry['eps']
+                    # Use provided fy_end_month for better mapping
                     ey = dt.year if dt.month <= fy_end_month else dt.year + 1
                     adjusted_history[str(ey)] = adjusted_history.get(str(ey), 0) + val
             # Final check: If a year in adjusted_history only has e.g. 1-2 quarters, it might be partial.
             # But the surprise chart usually has full years for history.
-            print(f"DEBUG: Consolidated Non-GAAP History for {ticker_symbol}: {adjusted_history}")
+            print(f"DEBUG: Consolidated Non-GAAP History for {ticker_symbol}: {augmented_history := {k: round(v,2) for k,v in adjusted_history.items()}}")
         except Exception as e:
             print(f"DEBUG: Non-GAAP Aggregation fail: {e}")
 
