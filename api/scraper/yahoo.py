@@ -224,7 +224,7 @@ def safe_nasdaq_float(val):
 def get_nasdaq_earnings_growth(ticker: str, trailing_eps: float) -> float:
     """
     Fetches multi-year forward earnings growth estimates from Nasdaq.
-    Targets the 3-year horizon (e.g., 2027-2029) to calculate a CAGR.
+    Calculates the arithmetic mean of the YoY growth rates for the next 3 years.
     """
     if not trailing_eps or trailing_eps <= 0:
         return None
@@ -234,21 +234,42 @@ def get_nasdaq_earnings_growth(ticker: str, trailing_eps: float) -> float:
         rows = nq_data.get("yearly_eps", [])
         if not rows: return None
         
-        # Start from Trailing EPS (T0) as the base
-        base_eps = trailing_eps
+        # We also need a clean Non-GAAP base for accurate YoY growth
+        # If we use Yahoo's GAAP trailing_eps with Nasdaq's Non-GAAP forecasts, it's distorted.
+        actual_eps_base = None
+        try:
+            # We call the companion function to get the sum of last 4 quarters (Non-GAAP)
+            actual_eps_base = get_nasdaq_actual_eps(ticker)
+        except:
+            pass
+            
+        base_eps = actual_eps_base if actual_eps_base and actual_eps_base > 0 else trailing_eps
         
-        # Target the 3rd year in the forecast if available (T3), else the furthest available.
-        target_idx = min(len(rows) - 1, 2) # Target up to T3 (rows[2])
-        raw_val = rows[target_idx].get('consensusEPSForecast', 0)
-        target_eps = safe_nasdaq_float(raw_val)
-        n_years = target_idx + 1 # Years from T0 to Target
+        # Collect base + up to 3 years of forecasts
+        eps_values = [base_eps]
+        for row in rows[:3]:
+            val = safe_nasdaq_float(row.get('consensusEPSForecast'))
+            if val is not None and val > 0:
+                eps_values.append(val)
         
-        # Floor the base at 0.10 if it's positive but tiny
-        effective_base = max(base_eps, 0.10) if base_eps > 0 else base_eps
+        if len(eps_values) < 2: return None
         
-        if target_eps > 0 and n_years > 0 and effective_base > 0:
-            # CAGR = (End/Start)^(1/Years) - 1
-            return (target_eps / effective_base) ** (1 / n_years) - 1
+        # Calculate individual YoY growths
+        growths = []
+        for i in range(1, len(eps_values)):
+            prev = eps_values[i-1]
+            curr = eps_values[i]
+            if prev > 0:
+                growth = (curr - prev) / prev
+                # Clamp extreme growth rates to avoid skewing the average too much
+                # (e.g. recovering from a low base)
+                clamped_growth = min(max(growth, -0.5), 1.5)
+                growths.append(clamped_growth)
+        
+        if not growths: return None
+        
+        # Return arithmetic mean of the growth rates
+        return sum(growths) / len(growths)
 
     except Exception as e:
         print(f"Error fetching Nasdaq growth for {ticker}: {e}")
@@ -730,7 +751,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         # --- GROWTH SELECTION (USER REQUESTED PRIORITY: NASDAQ 3Y) ---
         if nasdaq_growth_3y and nasdaq_growth_3y > 0:
             eps_growth = nasdaq_growth_3y
-            eps_growth_period = "3Y CAGR EPS (Nasdaq)"
+            eps_growth_period = "3Y Avg Growth (Nasdaq)"
         
         # 1. Fallback to YF growth_estimates (Analysis tab - Next 5 Years) if Nasdaq missing
         if eps_growth is None and eps_growth_5y_consensus:
@@ -1277,7 +1298,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
 
             # Debug Log
             rounded_hist = {k: round(v, 2) for k, v in adjusted_history.items() if v != 0}
-            print(f"DEBUG: Consolidated Non-GAAP History for {ticker_symbol}: {rounded_hist}")
+            log(f"DEBUG: Consolidated Non-GAAP History for {ticker_symbol}: {rounded_hist}")
             
         except Exception as e:
             print(f"DEBUG: Non-GAAP Aggregation fail: {e}")
@@ -1329,7 +1350,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     
                     if is_recent_history and abs(adj_val) > abs(e * 1.02) and adj_val != 0:
                         # Force Adjusted if difference > 2% and it's recent history
-                        print(f"DEBUG: FORCING Adjusted {adj_val} over GAAP {e} for {year_label}")
+                        log(f"DEBUG: FORCING Adjusted {adj_val} over GAAP {e} for {year_label}")
                         e = adj_val
                         if shares_calc > 0: ni = e * shares_calc
                     elif is_recent_history and (not e or e == 0) and abs(adj_val) > 0.01:
@@ -1337,7 +1358,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                         e = adj_val
                         if shares_calc > 0: ni = e * shares_calc
                     elif r > 1e9 and e != 0 and abs(margin_gaap) > 0.05 and (margin_adj < (margin_gaap * 0.1) or margin_adj > (margin_gaap * 10)):
-                        print(f"DEBUG: REJECTING Adjusted {adj_val} due to extreme margin mismatch")
+                        log(f"DEBUG: REJECTING Adjusted {adj_val} due to extreme margin mismatch")
                     else:
                         # Standard Force if adj_val is non-zero
                         if abs(adj_val) > 0.01:

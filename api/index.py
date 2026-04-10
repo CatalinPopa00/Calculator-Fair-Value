@@ -81,9 +81,7 @@ class ValuationResponse(BaseModel):
     piotroski_breakdown: Optional[list] = None
     historical_data: Optional[dict] = None
     algorithmic_insights: Optional[dict] = None
-    red_flags: Optional[list] = None
-    overrides: Optional[dict] = None
-    competitor_metrics: Optional[list] = None
+    debug_info: Optional[dict] = None
     
     class Config:
         extra = "allow"
@@ -827,6 +825,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 risk_factors = all_sorted[:2]
 
         response_data = {
+            "debug_info": {"version": CACHE_VERSION, "logs": data.get("debug_logs", [])},
             "ticker": ticker_upper,
             "name": data.get("name", "Unknown"),
             "current_price": float(current_price or 0.0),
