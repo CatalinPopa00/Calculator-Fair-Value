@@ -1241,12 +1241,23 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         }
         
         # --- PHASE 0: PRE-CALCULATE NON-GAAP (ADJUSTED) EPS HISTORY ---
-        # v87: Hyper-Robust Unified Aggregation (YF + Nasdaq)
+        # v88: Robust Unified Aggregation (YF + Nasdaq) with Fiscal Year Awareness
         adjusted_history = {}
         try:
             import pandas as _pd
             raw_data_map = {} # {year_str: {date_str: val}}
             
+            # Determine Fiscal Year End Month
+            fy_end_month = 12
+            try:
+                fye = info.get('fiscalYearEndMonth')
+                if fye: fy_end_month = int(fye)
+                else:
+                    last_fye = info.get('lastFiscalYearEnd')
+                    if last_fye:
+                        fy_end_month = datetime.datetime.fromtimestamp(last_fye).month
+            except: pass
+
             def add_to_map(dt_obj, eps_val):
                 try:
                     # v87: Robust Date offset to map report date to fiscal year
@@ -1261,8 +1272,9 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     for existing_dt_str in raw_data_map[yr_key].keys():
                         existing_dt = datetime.datetime.strptime(existing_dt_str, '%Y-%m-%d')
                         if abs((dt_obj - existing_dt).days) <= 45:
-                            # Keep the one with larger absolute value
-                            if abs(eps_val) > abs(raw_data_map[yr_key][existing_dt_str]):
+                            # Keep the one with larger absolute value (often the Non-GAAP/Adjusted figure)
+                            if abs(float(eps_val)) > abs(float(raw_data_map[yr_key][existing_dt_str])):
+                                # Update to the larger one but KEEP the existing date key to maintain stability
                                 raw_data_map[yr_key][existing_dt_str] = float(eps_val)
                             found_duplicate = True
                             break
@@ -1274,7 +1286,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
 
             # 1. Source A: Yfinance Earnings Dates
             try:
-                ed = stock.get_earnings_dates(limit=32) # Increased limit
+                ed = stock.get_earnings_dates(limit=60) # Increased limit for 10Y+ depth
                 if ed is not None and not ed.empty:
                     c_opts = [c for c in ed.columns if any(x in c for x in ['Reported', 'Actual', 'EPS', 'Earnings'])]
                     col_name = c_opts[0] if c_opts else 'Reported EPS'
@@ -1283,7 +1295,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                             val = row.get(col_name)
                             if val is not None and not _pd.isna(val):
                                 add_to_map(_pd.to_datetime(idx).tz_localize(None), val)
-            except: pass
+            except Exception as e_a: 
+                print(f"DEBUG: Source A fail: {e_a}")
 
             # 2. Source B: Nasdaq Surprise API (Often more reliable for Non-GAAP)
             try:
@@ -1379,22 +1392,23 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     margin_adj = (implied_ni / (r * fx_rate)) if (r and r > 0) else 0
                     margin_gaap = (ni / r) if (r and r > 0) else 0
                     
-                    # v87: Extend Force logic to the last 3 fiscal years to ensure data consistency
-                    is_recent_history = int(year_label) >= (datetime.datetime.now().year - 3)
-                    
-                    if is_recent_history and abs(adj_val) > abs(e * 1.02) and adj_val != 0:
-                        # Force Adjusted if difference > 2% and it's recent history
-                        log(f"DEBUG: FORCING Adjusted {adj_val} over GAAP {e} for {year_label}")
+                    # v88: Universal Force logic for all historical years to ensure data consistency
+                    # If we found an adjusted value (adj_val) from our pooled sources, it's almost always 
+                    # what analysts use (Non-GAAP). We prefer it over the GAAP 'e' from financials.
+                    if abs(adj_val) > abs(e * 1.02) and adj_val != 0:
+                        # Force Adjusted if difference > 2%
                         e = adj_val
                         if shares_calc > 0: ni = e * shares_calc
-                    elif is_recent_history and (not e or e == 0) and abs(adj_val) > 0.01:
+                    elif not e or e == 0:
                         # Fallback if GAAP is missing
-                        e = adj_val
-                        if shares_calc > 0: ni = e * shares_calc
+                        if abs(adj_val) > 0.01:
+                            e = adj_val
+                            if shares_calc > 0: ni = e * shares_calc
                     elif r > 1e9 and e != 0 and abs(margin_gaap) > 0.05 and (margin_adj < (margin_gaap * 0.1) or margin_adj > (margin_gaap * 10)):
+                        # Reject only if it results in an impossible margin mismatch (>10x diff)
                         log(f"DEBUG: REJECTING Adjusted {adj_val} due to extreme margin mismatch")
                     else:
-                        # Standard Force if adj_val is non-zero
+                        # Standard Force if adj_val is non-zero and reasonable
                         if abs(adj_val) > 0.01:
                             e = adj_val
                             if shares_calc > 0: ni = e * shares_calc

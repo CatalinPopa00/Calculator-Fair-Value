@@ -1,55 +1,61 @@
-
-import sys
-import os
+import yfinance as yf
 import datetime
 import pandas as pd
+import sys
+import os
 
 # Add the directory to sys.path
 sys.path.append(r'c:\Users\Snoozie\Downloads\Calculator-Fair-Value-f4d1464ea2b03f0531ce89163a3625517662702d\Calculator-Fair-Value-f4d1464ea2b03f0531ce89163a3625517662702d')
 
-import yfinance as yf
-from scraper.yahoo import get_analyst_data, get_nasdaq_historical_eps
+from scraper.yahoo import get_nasdaq_historical_eps
 
 def diagnose_adbe():
-    ticker = "ADBE"
-    print(f"--- DIAGNOSING {ticker} ---")
+    ticker_symbol = "ADBE"
+    stock = yf.Ticker(ticker_symbol)
+    info = stock.info
+    fy_end_month = 11 # Adobe
     
-    # 1. Fetch yfinance financials (GAAP)
-    stock = yf.Ticker(ticker)
-    financials = stock.financials
-    print("\n[Source 1] GAAP EPS (yfinance financials):")
-    if financials is not None and not financials.empty:
-        # Search for 'Diluted EPS' or 'Basic EPS'
-        eps_row = None
-        for row in financials.index:
-            if 'EPS' in str(row).upper():
-                eps_row = financials.loc[row]
-                print(f"Row: {row}")
-                for col, val in eps_row.items():
-                    print(f"  {col.year}: {val}")
-                break
-    else:
-        print("No financials found.")
+    raw_data_map = {}
+    
+    def add_to_map(dt_obj, eps_val):
+        adj_dt = dt_obj - datetime.timedelta(days=65)
+        ey = adj_dt.year if adj_dt.month <= fy_end_month else adj_dt.year + 1
+        yr_key = str(ey)
+        if yr_key not in raw_data_map: raw_data_map[yr_key] = {}
+        dt_key = dt_obj.strftime('%Y-%m-%d')
+        raw_data_map[yr_key][dt_key] = float(eps_val)
 
-    # 2. Fetch Nasdaq Surprise (Non-GAAP)
-    print("\n[Source 2] Non-GAAP EPS (Nasdaq Surprise API):")
-    nq_hist = get_nasdaq_historical_eps(ticker)
-    if nq_hist:
-        # Group by year
-        # ADBE Fiscal Year ends in November. 
-        # Dec, Jan, Feb -> Q1?
-        # Let's see raw dates
-        for item in nq_hist:
-            print(f"  Date: {item['date'].strftime('%Y-%m-%d')}, EPS: {item['eps']}")
-    else:
-        print("No Nasdaq data found.")
+    # 1. YF Earnings Dates
+    try:
+        ed = stock.get_earnings_dates(limit=32)
+        if ed is not None and not ed.empty:
+            for idx, row in ed.iterrows():
+                val = row.get('Reported EPS') or row.get('Actual EPS')
+                if val is not None and not pd.isna(val):
+                    add_to_map(pd.to_datetime(idx).tz_localize(None), val)
+    except: pass
 
-    # 3. Run full platform logic
-    print("\n[Result] Platform 'Historical Anchors' (Consolidated):")
-    result = get_analyst_data(ticker)
-    anchors = result.get('historical_anchors', [])
-    for a in anchors:
-        print(f"  Year: {a['year']}, Revenue(B): {a['revenue_b']}, EPS*: {a['eps']}, Margin: {a['net_margin_pct']}")
+    # 2. Nasdaq
+    try:
+        nq_hist = get_nasdaq_historical_eps(ticker_symbol)
+        for entry in nq_hist:
+            add_to_map(entry['date'], entry['eps'])
+    except: pass
+
+    # 3. EH
+    try:
+        eh = stock.earnings_history
+        if eh is not None and not eh.empty:
+            for idx, row in eh.iterrows():
+                val = row.get('epsActual')
+                if val is not None and not pd.isna(val):
+                    add_to_map(pd.to_datetime(idx).tz_localize(None), val)
+    except: pass
+
+    print("--- RAW DATA MAP ---")
+    for yr, data in sorted(raw_data_map.items()):
+        vals = list(data.values())
+        print(f"FY {yr}: Count={len(vals)}, Sum={sum(vals):.2f}, Values={data}")
 
 if __name__ == "__main__":
     diagnose_adbe()

@@ -1518,7 +1518,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <tr>
                             <td data-label="Year">${row.year}</td>
                             <td data-label="Revenue (B)">${row.revenue_b !== 0 ? row.revenue_b.toFixed(2) : '0.00'} B</td>
-                            <td data-label="EPS (Adj)"><span class="eps-adj-val">${row.eps !== 0 ? '$' + row.eps.toFixed(2) : '$0.00'}</span></td>
+                            <td data-label="EPS (Adj)">${row.eps !== 0 ? '$' + row.eps.toFixed(2) : '$0.00'}</td>
                             <td data-label="FCF (B)">${row.fcf_b !== 0 ? row.fcf_b.toFixed(2) : '0.00'} B</td>
                             <td data-label="Net Margin">${row.net_margin_pct}</td>
                             <td data-label="Cash (B)">${row.cash_b !== 0 ? row.cash_b.toFixed(2) : '0.00'} B</td>

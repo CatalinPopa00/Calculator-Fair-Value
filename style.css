@@ -157,15 +157,6 @@ body {
     .trends-table tr:hover {
         background: rgba(255, 255, 255, 0.02);
     }
-    
-    .eps-adj-val {
-        color: var(--accent);
-        background: rgba(16, 185, 129, 0.1);
-        padding: 2px 8px;
-        border-radius: 4px;
-        font-weight: 800;
-        display: inline-block;
-    }
 
     .header {
         flex-wrap: nowrap;
