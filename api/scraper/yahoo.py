@@ -1353,7 +1353,6 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                         if abs(adj_val) > 0.01:
                             e = adj_val
                             if shares_calc > 0: ni = e * shares_calc
-                
                 # REPAIR Logic (v63) Fallback
                 elif (not e or e == 0) and ni != 0:
                     s_calc = get_metric(financials, 'Basic Average Shares', yr_col) or \
