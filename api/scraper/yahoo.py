@@ -2249,13 +2249,16 @@ def get_analyst_data(ticker_symbol: str, base_eps: float = None, q_history: dict
                     avg_val = round(float(row.get('avg', 0)), 2)
                     growth_val = float(row.get('growth', 0)) if row.get('growth') else None
                     
-                    # SYNC: Recalculate first projection year growth against our actual Non-GAAP base
-                    # Detection includes FY labels for 2024-2026 to catch both current and newly started fiscal years
-                    is_current_target = any(x in label.upper() for x in ['CURRENT YEAR', '0Y', 'FY 2026', 'FY 2025', 'FY 2024'])
-                    if is_current_target and base_eps and base_eps > 0 and avg_val > 0:
+                    # SYNC: Recalculate growth rates against our actual Non-GAAP base
+                    # This ensures consistency: if history shows $29.70 and projs show $29.60, growth should be ~0%.
+                    
+                    # 1. Annual Recalc (Detect FY or Year labels)
+                    is_year_label = any(x in label.upper() for x in ['FY', 'YEAR', '2024', '2025', '2026', '0Y', '+1Y'])
+                    if is_year_label and base_eps and base_eps > 0 and avg_val > 0:
+                        # Prioritize the Recalc Growth
                         growth_val = (avg_val - base_eps) / base_eps
                     
-                    # SYNC: Recalculate quarterly growth against Non-GAAP history for the same quarter last year
+                    # 2. Quarterly Recalc (Detect Q labels)
                     # Matches "Q1 2026", "1Q 2026" etc.
                     m_q = re.search(r'(\d)Q', label.upper()) or re.search(r'Q(\d)', label.upper())
                     m_y = re.search(r'20\d{2}', label)
@@ -2263,10 +2266,8 @@ def get_analyst_data(ticker_symbol: str, base_eps: float = None, q_history: dict
                         q_num_idx = int(m_q.group(1)) # 1, 2, 3, or 4
                         prev_year = str(int(m_y.group(0)) - 1)
                         if prev_year in q_history:
-                            # Get sorted list of dates (sorted by date, oldest to newest)
                             q_dates = sorted(q_history[prev_year].keys())
                             if len(q_dates) >= q_num_idx:
-                                # Map Q1 to the first reported quarter found for that year, etc.
                                 base_q_eps = q_history[prev_year][q_dates[q_num_idx - 1]]
                                 if base_q_eps and abs(base_q_eps) > 0.01:
                                     growth_val = (avg_val - base_q_eps) / base_q_eps
