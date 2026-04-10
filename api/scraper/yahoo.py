@@ -1243,22 +1243,39 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                         adjusted_history[str(ey)].append(float(val))
                 
                 # Consolidate arrays into sums only if we have data
+                # v72: Improved aggregation logic to handle year-end lags and duplicates
                 final_adj_history = {}
                 now = datetime.datetime.now()
-                for ey, quarters in adjusted_history.items():
+                
+                # Sort adjusted_history keys to process years in order
+                for ey in sorted(adjusted_history.keys(), key=lambda x: int(x)):
+                    quarters = adjusted_history[ey]
                     try:
                         ey_int = int(ey)
-                        if len(quarters) >= 4:
-                            final_adj_history[ey] = sum(quarters)
-                        elif len(quarters) >= 1 and ey_int >= (now.year - 1):
-                            # Scale up partial current/recent years
-                            # v68: Added logging to trace the source of partials
-                            avg_q = sum(quarters) / len(quarters)
-                            scaled = avg_q * 4.0
-                            print(f"DEBUG: Scaled Non-GAAP for {ticker_symbol} Year {ey}: {scaled} (Avg Q: {avg_q}, Count: {len(quarters)})")
-                            final_adj_history[ey] = scaled
+                        # We only want to sum up distinct quarterly reports.
+                        # yfinance sometimes provides duplicates if called multiple times or near report dates.
+                        # Rule: If two values are identical within a small epsilon for the same year, they might be duplicates.
+                        unique_qs = []
+                        for q in quarters:
+                            if abs(q) < 0.001: continue
+                            # Very basic deduplication: don't add if exactly same as another in same year 
+                            # (usually different quarters have different pennies)
+                            if not any(abs(q - u) < 0.0001 for u in unique_qs):
+                                unique_qs.append(q)
+                        
+                        count = len(unique_qs)
+                        total = sum(unique_qs)
+                        
+                        if count >= 4:
+                            # We have a full year of data
+                            final_adj_history[ey] = total
+                        elif count >= 1 and ey_int >= (now.year - 1):
+                            # Scale up partial years only for the bridge year or current year
+                            final_adj_history[ey] = (total / count) * 4.0
+                            print(f"DEBUG: Scaled {ticker_symbol} Year {ey}: {final_adj_history[ey]} (Found {count} quarters)")
                         else:
-                            final_adj_history[ey] = sum(quarters)
+                            # Too few quarters for old years, just use sum as is
+                            final_adj_history[ey] = total
                     except: pass
                 
                 adjusted_history = final_adj_history
@@ -1327,16 +1344,24 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     
                     # SAFETY VALVE (v70): account for splits/scaling by using best available share count
                     shares_calc = s or next((val for val in historical_data.get("shares", []) if val > 0), None) or \
-                                   info.get('sharesOutstanding') or 2500000000
+                                   info.get('shares_outstanding') or info.get('sharesOutstanding') or 2500000000
                     implied_ni = adj_val * shares_calc
-                    margin_adj = (implied_ni / r) if (r and r > 0) else 0
+                    margin_adj = (implied_ni / (r * fx_rate)) if (r and r > 0) else 0
                     margin_gaap = (ni / r) if (r and r > 0) else 0
                     
-                    # More prudent check: only reject if the implied margin is impossibly low or high (e.g. 10x scaling error)
+                    # CRITICAL (v71): If the adjusted EPS is extremely low compared to GAAP EPS for a reported period,
+                    # it is likely a partial/unscaled record. Scale it up if possible.
+                    if e != 0 and abs(adj_val) < abs(e * 0.4) and year_label == str(datetime.datetime.now().year - 1):
+                        print(f"DEBUG: Potential partial adjusted EPS for {ticker_symbol} {year_label}: {adj_val} vs GAAP {e}. Scaling up...")
+                        adj_val *= 4.0
+                        implied_ni = adj_val * shares_calc
+                        margin_adj = (implied_ni / (r * fx_rate)) if (r and r > 0) else 0
+
+                    # Prudent check: only reject if the implied margin is impossibly low or high (e.g. 10x scaling error)
                     if r > 1e9 and e != 0 and abs(margin_gaap) > 0.05 and (margin_adj < (margin_gaap * 0.1) or margin_adj > (margin_gaap * 10)):
                         print(f"DEBUG: REJECTING Adjusted {adj_val} for {year_label} because it implies {margin_adj:.1%} margin vs GAAP {margin_gaap:.1%}")
                     else:
-                        if adj_val > 0.01: # v70: Lowered threshold for penny stocks/post-split
+                        if abs(adj_val) > 0.01: # v70: Lowered threshold for penny stocks/post-split
                             e = adj_val
                             if s and s > 0: ni = e * s
                 
@@ -1525,12 +1550,35 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                         return float(val) if not pd.isna(val) else 0
 
                     c_raw = get_bs_metric('Cash And Cash Equivalents', yr_col)
+                    
+                    # --- ROBUST DEBT DETECTION (v71) ---
+                    # yfinance 'Total Debt' can sometimes map to 'Total Liabilities' incorrectly.
+                    # We prioritize LongTerm + ShortTerm components if 'Total Debt' looks like Total Liabilities.
                     d_raw = get_bs_metric('Total Debt', yr_col)
+                    lt_debt = get_bs_metric('Long Term Debt', yr_col)
+                    st_debt = get_bs_metric('Short Long Term Debt', yr_col) or get_bs_metric('Current Debt', yr_col)
+                    if (lt_debt + st_debt) > 0 and (d_raw > (lt_debt + st_debt) * 1.5):
+                        # Total Debt is significantly higher than its components, likely mis-mapped to liabilities
+                        d_raw = lt_debt + st_debt
+                    elif d_raw == 0:
+                        d_raw = lt_debt + st_debt
+
                     assets = get_bs_metric('Total Assets', yr_col)
                     liabs = get_bs_metric('Current Liabilities', yr_col)
 
                     # Calculations
                     margin_v = (historical_trends[i]["net_margin"] * 100.0) if (i < len(historical_trends) and historical_trends[i]["net_margin"]) else None
+                    
+                    # --- PARTIAL YEAR SANITY CHECK ---
+                    # If margin in latest year drops > 60% vs previous year with similar revenue, it's likely a partial year.
+                    if i > 0 and margin_v and i == (len(historical_data["years"]) - 1):
+                        prev_m = (historical_trends[i-1]["net_margin"] * 100.0)
+                        if prev_m > 5 and margin_v < (prev_m * 0.4):
+                             # Look at Revenue. If Revenue is also low, it's definitely partial.
+                             # If Revenue is high but margin low, it might be an unscaled Income Statement.
+                             yr_label = f"{yr_label} (Partial)"
+                             print(f"DEBUG: Tagging {yr_label} as Partial due to margin drop ({margin_v:.1f}% vs {prev_m:.1f}%)")
+
                     cr_v = (c_raw / liabs) if liabs > 0 else (get_bs_metric('Total Current Assets', yr_col) / liabs if liabs > 0 else None)
                     roic_v = (ni_raw / (assets - liabs) * 100.0) if (assets - liabs) > 0 else None
                     
