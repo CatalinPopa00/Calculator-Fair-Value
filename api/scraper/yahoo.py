@@ -1809,6 +1809,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             "pe_historic": historic_pe_val or info.get('trailingPE'),
             "historical_data": historical_data,
             "historical_trends": historical_trends,
+            "raw_quarterly_history": raw_data_map,
             "business_summary": info.get('longBusinessSummary', 'N/A')[:200] + "...",
             "next_earnings_date": next_earnings_date,
             "netInterestMargin": info.get('netInterestMargin') or (float(financials.loc[find_idx(financials, 'Net Interest Income')].iloc[0]) / (float(bs.loc[find_idx(bs, 'Total Assets')].iloc[0]) if bs is not None and find_idx(bs, 'Total Assets') else (info.get('totalAssets') or 1)) if financials is not None and find_idx(financials, 'Net Interest Income') else None),
@@ -2205,7 +2206,7 @@ def get_market_averages():
         print(f"Error fetching SPY market average: {e}")
         return {"trailing_pe": 20.0, "forward_pe": 18.0}
 
-def get_analyst_data(ticker_symbol: str, base_eps: float = None) -> dict:
+def get_analyst_data(ticker_symbol: str, base_eps: float = None, q_history: dict = None) -> dict:
     """
     Fetches analyst estimates data:
     - Price targets (low / average / high / current)
@@ -2249,10 +2250,26 @@ def get_analyst_data(ticker_symbol: str, base_eps: float = None) -> dict:
                     growth_val = float(row.get('growth', 0)) if row.get('growth') else None
                     
                     # SYNC: Recalculate first projection year growth against our actual Non-GAAP base
-                    # This prevents the "Lower EPS but 20% Growth" paradox in tech stocks like META
-                    is_current_target = any(x in label.upper() for x in ['CURRENT YEAR', 'FY 2026', 'FY 2025'])
+                    # Detection includes FY labels for 2024-2026 to catch both current and newly started fiscal years
+                    is_current_target = any(x in label.upper() for x in ['CURRENT YEAR', '0Y', 'FY 2026', 'FY 2025', 'FY 2024'])
                     if is_current_target and base_eps and base_eps > 0 and avg_val > 0:
                         growth_val = (avg_val - base_eps) / base_eps
+                    
+                    # SYNC: Recalculate quarterly growth against Non-GAAP history for the same quarter last year
+                    # Matches "Q1 2026", "1Q 2026" etc.
+                    m_q = re.search(r'(\d)Q', label.upper()) or re.search(r'Q(\d)', label.upper())
+                    m_y = re.search(r'20\d{2}', label)
+                    if m_q and m_y and q_history:
+                        q_num_idx = int(m_q.group(1)) # 1, 2, 3, or 4
+                        prev_year = str(int(m_y.group(0)) - 1)
+                        if prev_year in q_history:
+                            # Get sorted list of dates (sorted by date, oldest to newest)
+                            q_dates = sorted(q_history[prev_year].keys())
+                            if len(q_dates) >= q_num_idx:
+                                # Map Q1 to the first reported quarter found for that year, etc.
+                                base_q_eps = q_history[prev_year][q_dates[q_num_idx - 1]]
+                                if base_q_eps and abs(base_q_eps) > 0.01:
+                                    growth_val = (avg_val - base_q_eps) / base_q_eps
                     
                     eps_estimates.append({
                         "period": label,

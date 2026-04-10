@@ -30,7 +30,7 @@ from .models.scoring import calculate_scoring_reform, calculate_piotroski_score
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v88"
+CACHE_VERSION = "v89"
 # 1. Initialize FastAPI App (Systemic Recovery Fix)
 app = FastAPI(title="Fair Value Calculator API")
 
@@ -117,7 +117,8 @@ def get_analyst(ticker: str, response: Response):
     # SYNC: Get company data (cached) to have the actual Non-GAAP base for growth calcs
     c_data = get_company_data(ticker_upper, fast_mode=True)
     base_eps = c_data.get('adjusted_eps')
-    result = get_analyst_data(ticker_upper, base_eps=base_eps)
+    q_map = c_data.get('raw_quarterly_history')
+    result = get_analyst_data(ticker_upper, base_eps=base_eps, q_history=q_map)
     valuation_cache[cache_key] = result
     return result
 
@@ -133,6 +134,7 @@ def get_watchlist():
             override_tickers = [t.upper() for t in all_overrides.keys()]
             data = list(set(data + override_tickers))
         
+        # Final fallback to local file
         if not data and os.path.exists(WATCHLIST_FILE):
             try:
                 with open(WATCHLIST_FILE, "r") as f:
