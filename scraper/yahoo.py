@@ -2160,7 +2160,7 @@ def get_market_averages():
         return data
     except Exception as e:
         print(f"Error fetching SPY market average: {e}")
- def get_analyst_data(ticker_symbol: str) -> dict:
+def get_analyst_data(ticker_symbol: str) -> dict:
     """
     Fetches analyst estimates, ratings, and price targets.
     Refactored v72: Unified fiscal mapping and comprehensive Nasdaq integration.
