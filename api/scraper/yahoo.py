@@ -1553,12 +1553,15 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     
                     # --- ROBUST DEBT DETECTION (v71) ---
                     # yfinance 'Total Debt' can sometimes map to 'Total Liabilities' incorrectly.
-                    # We prioritize LongTerm + ShortTerm components if 'Total Debt' looks like Total Liabilities.
+                    # We prioritize LongTerm + ShortTerm components and check against Total Liabilities.
                     d_raw = get_bs_metric('Total Debt', yr_col)
-                    lt_debt = get_bs_metric('Long Term Debt', yr_col)
-                    st_debt = get_bs_metric('Short Long Term Debt', yr_col) or get_bs_metric('Current Debt', yr_col)
-                    if (lt_debt + st_debt) > 0 and (d_raw > (lt_debt + st_debt) * 1.5):
-                        # Total Debt is significantly higher than its components, likely mis-mapped to liabilities
+                    lt_debt = get_bs_metric('Long Term Debt', yr_col) or get_bs_metric('Total Long Term Debt', yr_col)
+                    st_debt = get_bs_metric('Short Long Term Debt', yr_col) or get_bs_metric('Current Debt', yr_col) or get_bs_metric('Commercial Paper', yr_col)
+                    total_liabs = get_bs_metric('Total Liabilities Net Minority Interest', yr_col) or get_bs_metric('Total Liabilities', yr_col)
+                    
+                    # Sanity check: If Total Debt is suspiciously close to Total Liabilities, it's a mapping error (Common for META/GOOGL)
+                    if (total_liabs > 0 and d_raw > (total_liabs * 0.95)) or (d_raw > (lt_debt + st_debt) * 2 and (lt_debt + st_debt) > 0):
+                        print(f"DEBUG: Debt Mapping Correction for {yr_label}: {d_raw} -> {lt_debt + st_debt}")
                         d_raw = lt_debt + st_debt
                     elif d_raw == 0:
                         d_raw = lt_debt + st_debt
