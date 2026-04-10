@@ -340,11 +340,17 @@ def calculate_piotroski_score(metrics):
     margin_pri = nm_pri if nm_pri is not None else gm_pri
 
     # F9 Metrics (ROIC / Efficiency)
-    # Fallback to Asset Turnover proxy if ROIC missing
-    roic_cur = safe_float(metrics.get("roic")) or safe_float(anchor_cur.get("roic"))
+    # Fallback to ROA if ROIC missing
+    roic_cur = safe_float(metrics.get("roic")) or pct_from_str(anchor_cur.get("roic_pct"))
     if roic_cur and abs(roic_cur) > 1.5: roic_cur /= 100.0
-    roic_pri = safe_float(anchor_pri.get("roic"))
+    
+    roic_pri = pct_from_str(anchor_pri.get("roic_pct"))
     if roic_pri and abs(roic_pri) > 1.5: roic_pri /= 100.0
+    
+    # Final Fallback: if data is still missing for ROIC delta, use ROA delta as proxy
+    roic_cur_final = roic_cur if roic_cur is not None else roa_cur_final
+    roic_pri_final = roic_pri if roic_pri is not None else roa_pri
+
 
     # ── Comparison Helper ──────────────────────────────────────────────────────
     def add_point(group, code, name, desc, val_str, passed):
@@ -431,11 +437,12 @@ def calculate_piotroski_score(metrics):
               f8_passed)
 
     # F9: Asset Turnover / Efficiency Proxy (ROIC)
-    f9_passed = (roic_cur > roic_pri) if (roic_cur is not None and roic_pri is not None) else None
+    f9_passed = (roic_cur_final > roic_pri_final) if (roic_cur_final is not None and roic_pri_final is not None) else None
     add_point("Operating Efficiency", "F9", "Capital Efficiency (ROIC)", 
               "ROIC is strictly higher than in the previous year",
-              f"{roic_cur*100:.1f}% vs {roic_pri*100:.1f}%" if f9_passed is not None else "N/A",
+              f"{roic_cur_final*100:.1f}% vs {roic_pri_final*100:.1f}%" if f9_passed is not None else "N/A",
               f9_passed)
+
 
     # ── Final score ────────────────────────────────────────────────────────────
     if total_score >= 7: label = "Strong"

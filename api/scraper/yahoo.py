@@ -1531,6 +1531,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
 
                     # Calculations
                     margin_v = (historical_trends[i]["net_margin"] * 100.0) if (i < len(historical_trends) and historical_trends[i]["net_margin"]) else None
+                    cr_v = (c_raw / liabs) if liabs > 0 else (get_bs_metric('Total Current Assets', yr_col) / liabs if liabs > 0 else None)
                     roic_v = (ni_raw / (assets - liabs) * 100.0) if (assets - liabs) > 0 else None
                     
                     historical_anchors.append({
@@ -1542,7 +1543,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                         "cash_b": round(c_raw / 1e9, 2),
                         "total_debt_b": round(d_raw / 1e9, 2),
                         "shares_out_b": round(s_raw / 1e9, 2),
-                        "roic_pct": f"{roic_v:.1f}%" if roic_v is not None else "0.0%"
+                        "roic_pct": f"{roic_v:.1f}%" if roic_v is not None else "0.0%",
+                        "current_ratio": round(cr_v, 2) if cr_v is not None else None
                     })
             # Reverse anchors so newest is first for the UI table
             historical_anchors.reverse()
