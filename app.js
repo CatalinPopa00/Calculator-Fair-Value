@@ -1942,7 +1942,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelector('#rev-est-table tbody').innerHTML = '';
 
         try {
-            const res = await fetch(`/api/analyst/${ticker}`);
+            const res = await fetch(`/api/analyst/${ticker}?t=${Date.now()}`);
             if (!res.ok) throw new Error('API Error');
             const data = await res.json();
             console.log("ANALYST API DATA RECEIVED:", data);
