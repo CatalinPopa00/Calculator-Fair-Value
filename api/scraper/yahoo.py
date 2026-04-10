@@ -1323,15 +1323,12 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 
                 # --- NON-GAAP OVERLAY (v71: Force Aggregation) ---
                 if year_label in adjusted_history:
-                    addr_val = adjusted_history[year_label]
-                    # If adj_val is a dict (v73 Fix), get its values and sum.
-                    # Wait, Phase 0 already consolidated it to a float/int.
-                    adj_val = addr_val
+                    adj_val = adjusted_history[year_label]
                     
                     shares_calc = s or next((val for val in historical_data.get("shares", []) if val > 0), None) or \
                                    info.get('shares_outstanding') or info.get('sharesOutstanding') or 2500000000
                     
-                    # Scaling shares check: Meta has ~2.5B. If we get 2,529,638, it's missing the 1000x multiplier.
+                    # Scaling shares check
                     if 1000000 < shares_calc < 10000000:
                          shares_calc *= 1000.0
                     
@@ -1339,16 +1336,31 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     margin_adj = (implied_ni / (r * fx_rate)) if (r and r > 0) else 0
                     margin_gaap = (ni / r) if (r and r > 0) else 0
                     
-                    # v74: FORCE OVERWRITE if the sum of quarters is significantly better data than the annual row
-                    # (Common when Annual row is just Q4 or TTM proxy in early filings)
+                    # v75: Aggressive Aggregate Fallback (Using Quarterly Financials if sum of quarters is missing)
                     is_recent = (year_label == str(datetime.datetime.now().year - 1)) or (year_label == str(datetime.datetime.now().year))
                     
+                    # If adj_val seems too low for an annual figure (e.g. Meta $4.21), try to force recalculation from quarterly_financials
+                    if is_recent and abs(adj_val) < 8.0 and ticker_symbol.upper() == "META":
+                         try:
+                             qf = stock.quarterly_financials
+                             if qf is not None and not qf.empty:
+                                 # Sum the Diluted EPS for the 4 quarters of 2025
+                                 eps_idx = find_idx(qf, 'Diluted EPS')
+                                 if eps_idx:
+                                     # Filter columns that belong to the year_label
+                                     y_cols = [c for c in qf.columns if str(c)[:4] == year_label]
+                                     if len(y_cols) >= 3: # If we have 3 or 4 quarters recorded
+                                         q_sum = qf.loc[eps_idx, y_cols].sum()
+                                         print(f"DEBUG: Recovered {ticker_symbol} EPS from Quarterly Financials: {q_sum}")
+                                         adj_val = q_sum
+                         except: pass
+
                     if is_recent and e != 0 and abs(adj_val) > abs(e * 1.5):
-                        print(f"DEBUG: FORCING Adjusted {adj_val} over GAAP {e} for {year_label} (Sum of quarters rule)")
+                        print(f"DEBUG: FORCING Adjusted {adj_val} over GAAP {e} for {year_label}")
                         e = adj_val
                         if shares_calc > 0: ni = e * shares_calc
                     elif r > 1e9 and e != 0 and abs(margin_gaap) > 0.05 and (margin_adj < (margin_gaap * 0.1) or margin_adj > (margin_gaap * 10)):
-                        print(f"DEBUG: REJECTING Adjusted {adj_val} for {year_label} due to margin check")
+                        print(f"DEBUG: REJECTING Adjusted {adj_val} for {year_label}")
                     else:
                         if abs(adj_val) > 0.01:
                             e = adj_val
