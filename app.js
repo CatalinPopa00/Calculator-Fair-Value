@@ -1516,21 +1516,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 anchors.forEach(row => {
                     html += `
                         <tr>
-                            <td>${row.year}</td>
-                            <td>${row.revenue_b !== 0 ? row.revenue_b.toFixed(2) : '0.00'}</td>
-                            <td>${row.eps !== 0 ? '$' + row.eps.toFixed(2) : '$0.00'}</td>
-                            <td>${row.fcf_b !== 0 ? row.fcf_b.toFixed(2) : '0.00'}</td>
-                            <td>${row.net_margin_pct}</td>
-                            <td>${row.cash_b !== 0 ? row.cash_b.toFixed(2) : '0.00'}</td>
-                            <td>${row.total_debt_b !== 0 ? row.total_debt_b.toFixed(2) : '0.00'}</td>
-                            <td>${row.shares_out_b !== 0 ? row.shares_out_b.toFixed(2) : '0.00'}</td>
-                            <td>${row.roic_pct}</td>
+                            <td data-label="Year">${row.year}</td>
+                            <td data-label="Revenue (B)">${row.revenue_b !== 0 ? row.revenue_b.toFixed(2) : '0.00'} B</td>
+                            <td data-label="EPS (Adj)"><span class="eps-adj-val">${row.eps !== 0 ? '$' + row.eps.toFixed(2) : '$0.00'}</span></td>
+                            <td data-label="FCF (B)">${row.fcf_b !== 0 ? row.fcf_b.toFixed(2) : '0.00'} B</td>
+                            <td data-label="Net Margin">${row.net_margin_pct}</td>
+                            <td data-label="Cash (B)">${row.cash_b !== 0 ? row.cash_b.toFixed(2) : '0.00'} B</td>
+                            <td data-label="Debt (B)">${row.total_debt_b !== 0 ? row.total_debt_b.toFixed(2) : '0.00'} B</td>
+                            <td data-label="Shares (B)">${row.shares_out_b !== 0 ? row.shares_out_b.toFixed(2) : '0.00'} B</td>
+                            <td data-label="ROIC">${row.roic_pct}</td>
                         </tr>
                     `;
                 });
                 trendsBody.innerHTML = html;
             } else {
-                trendsBody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 1rem;">No historical anchors available.</td></tr>';
+                trendsBody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 2rem;">No historical anchors available (Calculated from Quarterly Non-GAAP reports).</td></tr>';
             }
         }
 
