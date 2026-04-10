@@ -114,6 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentTicker = null;
     let currentHealthBreakdown = null;
     let currentBuyBreakdown = null;
+    let currentPiotroskiBreakdown = null;
     let chartRevFcf = null;
     let chartEpsShares = null;
     let globalData = null; 
@@ -720,6 +721,17 @@ document.addEventListener('DOMContentLoaded', () => {
                         return `<td style="padding:12px; text-align:right; font-weight:bold; color:${color};">${fmtPctRow(val)}</td>`;
                     }).join('')}
                 </tr>
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); background: rgba(56, 189, 248, 0.03);">
+                    <td style="padding:12px; color:var(--accent); font-weight:bold;">Piotroski F-Score</td>
+                    ${all.map((c, i) => {
+                        const val = i === 0 ? (globalData ? globalData.piotroski_score : 'N/A') : (c.piotroski_score || '—');
+                        let color = 'var(--text-muted)';
+                        if (val !== 'N/A' && val !== '—') {
+                            color = val >= 7 ? 'var(--accent)' : (val >= 4 ? '#fbbf24' : 'var(--danger)');
+                        }
+                        return `<td style="padding:12px; text-align:right; font-weight:800; color:${color};">${val}${val !== 'N/A' && val !== '—' ? '/9' : ''}</td>`;
+                    }).join('')}
+                </tr>
             </tbody>
         </table>`;
         
@@ -791,6 +803,112 @@ document.addEventListener('DOMContentLoaded', () => {
             circle.classList.add('score-red');
             fill.classList.add('bg-score-red');
         }
+    };
+
+    // ── Piotroski F-Score UI ──────────────────────────────────────────────────
+    const updatePiotroskiUI = (scoreVal) => {
+        const circle = document.getElementById('piotroski-score-circle');
+        const fill   = document.getElementById('piotroski-score-fill');
+        const badge  = document.getElementById('piotroski-label-badge');
+        if (!circle || !fill) return;
+
+        // Reset classes
+        circle.className = 'score-circle';
+        fill.className = 'score-bar-fill';
+        circle.style.color = '';
+        fill.style.backgroundColor = '';
+        fill.style.width = '0%';
+
+        if (scoreVal === 'N/A' || scoreVal == null) {
+            circle.textContent = 'N/A';
+            circle.style.color = 'var(--text-muted)';
+            fill.style.backgroundColor = 'var(--text-muted)';
+            if (badge) { badge.textContent = '--'; badge.style.background = 'rgba(148,163,184,0.2)'; badge.style.color = 'var(--text-muted)'; }
+            return;
+        }
+
+        const num = parseInt(scoreVal);
+        circle.textContent = num;
+        // Bar width based on /9 scale
+        const barPct = Math.round((num / 9) * 100);
+        setTimeout(() => { fill.style.width = `${barPct}%`; }, 50);
+
+        if (num >= 7) {
+            circle.classList.add('score-green');
+            fill.classList.add('bg-score-green');
+            if (badge) { badge.textContent = 'Strong'; badge.style.background = 'rgba(16,185,129,0.25)'; badge.style.color = 'var(--accent)'; }
+        } else if (num >= 4) {
+            circle.classList.add('score-yellow');
+            fill.classList.add('bg-score-yellow');
+            if (badge) { badge.textContent = 'Neutral'; badge.style.background = 'rgba(251,191,36,0.2)'; badge.style.color = '#fbbf24'; }
+        } else {
+            circle.classList.add('score-red');
+            fill.classList.add('bg-score-red');
+            if (badge) { badge.textContent = 'Weak'; badge.style.background = 'rgba(239,68,68,0.2)'; badge.style.color = 'var(--danger)'; }
+        }
+    };
+
+    const renderPiotroskiBreakdown = (score, breakdown) => {
+        const modalEl = document.getElementById('score-modal');
+        const bodyEl  = document.getElementById('score-modal-body-content');
+        if (!modalEl || !bodyEl) return;
+
+        const num = (score === 'N/A' || score == null) ? null : parseInt(score);
+        const labelColor = num == null ? '#94a3b8' : (num >= 7 ? 'var(--accent)' : num >= 4 ? '#fbbf24' : 'var(--danger)');
+        const labelText  = num == null ? 'N/A' : (num >= 7 ? 'Strong' : num >= 4 ? 'Neutral' : 'Weak');
+
+        const groups = ['Profitability', 'Leverage & Liquidity', 'Operating Efficiency'];
+        const groupIcons = { 'Profitability': '📈', 'Leverage & Liquidity': '🏦', 'Operating Efficiency': '⚙️' };
+
+        let html = `
+            <div style="text-align:center; margin-bottom: 1.5rem;">
+                <h3 style="font-size: 1.2rem; margin: 0 0 0.5rem; color: white;">Piotroski F-Score Breakdown</h3>
+                <div style="font-size: 2.8rem; font-weight: 800; color: ${labelColor}; line-height: 1;">${num != null ? num : 'N/A'}<span style="font-size: 1.2rem; color: var(--text-muted); font-weight: 500;">/9</span></div>
+                <div style="font-size: 0.9rem; font-weight: 700; color: ${labelColor}; margin-top: 4px;">${labelText}</div>
+                <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 8px; max-width: 380px; margin-left: auto; margin-right: auto;">
+                    Score ≥ 7 = Strong financial health &nbsp;|&nbsp; 4-6 = Neutral &nbsp;|&nbsp; ≤ 3 = Weak
+                </p>
+            </div>`;
+
+        if (!breakdown || breakdown.length === 0) {
+            html += `<p style="color: var(--text-muted); text-align: center;">No breakdown data available.</p>`;
+        } else {
+            groups.forEach(group => {
+                const items = breakdown.filter(b => b.group === group);
+                if (!items.length) return;
+                html += `
+                    <div style="margin-bottom: 1.2rem;">
+                        <h4 style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.6rem; border-bottom: 1px solid rgba(255,255,255,0.07); padding-bottom: 6px;">
+                            ${groupIcons[group] || ''} ${group}
+                        </h4>`;
+                items.forEach(item => {
+                    const passed = item.passed;
+                    const icon   = passed === null ? '⬜' : (passed ? '✅' : '❌');
+                    const rowColor = passed === null ? 'var(--text-muted)' : (passed ? 'var(--accent)' : 'var(--danger)');
+                    html += `
+                        <div style="display:flex; align-items:flex-start; gap:10px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04);">
+                            <span style="font-size:1.1rem; min-width:22px;">${icon}</span>
+                            <div style="flex:1; min-width:0;">
+                                <div style="font-size:0.85rem; font-weight:700; color:white;">${item.criterion}</div>
+                                <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">${item.description}</div>
+                                ${item.value && item.value !== 'N/A' ? `<div style="font-size:0.78rem; color:${rowColor}; margin-top:3px; font-weight:600;">${item.value}</div>` : ''}
+                            </div>
+                            <span style="font-size:0.85rem; font-weight:700; color:${passed === null ? 'var(--text-muted)' : rowColor}; min-width:28px; text-align:right;">
+                                ${passed === null ? '—' : (passed ? '+1' : '0')}
+                            </span>
+                        </div>`;
+                });
+                html += `</div>`;
+            });
+        }
+
+        bodyEl.innerHTML = html;
+        modalEl.style.display = 'flex';
+
+        // Close button
+        const closeBtn = document.getElementById('close-score-modal');
+        if (closeBtn) closeBtn.onclick = () => { modalEl.style.display = 'none'; };
+        modalEl.onclick = (e) => { if (e.target === modalEl) modalEl.style.display = 'none'; };
     };
 
     const updateFairValue = () => {
@@ -1335,6 +1453,17 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         }
 
+        // Piotroski F-Score UI
+        currentPiotroskiBreakdown = data.piotroski_breakdown;
+        updatePiotroskiUI(data.piotroski_score);
+        const piotroskiRow = document.getElementById('piotroski-score-row');
+        if (piotroskiRow) {
+            piotroskiRow.style.cursor = 'pointer';
+            piotroskiRow.onclick = function() {
+                renderPiotroskiBreakdown(data.piotroski_score, currentPiotroskiBreakdown);
+            };
+        }
+
         // UPDATED: Sync both MOS and PEG to the Score Breakdown dynamically
 
         // Restore overrides BEFORE first updateFairValue
@@ -1471,14 +1600,17 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const hScoreEl = document.getElementById('health-score-circle');
         const bScoreEl = document.getElementById('buy-score-circle');
+        const pScoreEl = document.getElementById('piotroski-score-circle');
         const hScore = hScoreEl ? parseInt(hScoreEl.textContent) : null;
         const bScore = bScoreEl ? parseInt(bScoreEl.textContent) : null;
+        const pScore = pScoreEl ? parseInt(pScoreEl.textContent) : null;
         
         return { 
             fair_value: fv, 
             margin_of_safety: mos,
             health_score: hScore,
-            buy_score: bScore
+            buy_score: bScore,
+            piotroski_score: pScore
         };
     };
 
@@ -2132,6 +2264,12 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div class="wl-score-pill">
                                 <div class="wl-dot ${dotClass}"></div>
                                 <span>Buy: ${displayBuy || 'N/A'}</span>
+                            </div>
+                            <div class="wl-score-pill" title="Piotroski F-Score">
+                                <span style="font-size: 0.75rem; font-weight: 800; margin-right: 4px; color: ${data.piotroski_score >= 7 ? 'var(--accent)' : (data.piotroski_score >= 4 ? '#fbbf24' : (data.piotroski_score == null ? 'var(--text-muted)' : 'var(--danger)'))}">
+                                    ${data.piotroski_score != null ? data.piotroski_score : '--'}
+                                </span>
+                                <span style="font-size: 0.7rem; color: var(--text-muted);">Piotroski</span>
                             </div>
                         </div>
                     `;

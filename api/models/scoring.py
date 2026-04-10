@@ -250,3 +250,290 @@ def calculate_health_score(metrics):
 def calculate_buy_score(valuation_data, metrics):
     res = calculate_scoring_reform(valuation_data, metrics)
     return {"total": res["good_to_buy_total"], "breakdown": res["buy_breakdown"]}
+
+
+def calculate_piotroski_score(metrics):
+    """
+    Calculates the Piotroski F-Score (0-9) based on 9 binary criteria.
+    Groups: Profitability (F1-F4), Leverage & Liquidity (F5-F7), Operating Efficiency (F8-F9).
+    Uses historical_anchors for YoY delta calculations when available.
+    Missing data => criterion is skipped (not penalized), marked as None.
+    """
+
+    def safe_float(val, default=None):
+        if val is None:
+            return default
+        try:
+            return float(val)
+        except (TypeError, ValueError):
+            return default
+
+    breakdown = []
+    total_score = 0
+    total_possible = 0  # Track how many criteria had data
+
+    # ── Extract current-year and prior-year from historical_anchors ────────────
+    anchors = metrics.get("historical_anchors") or []
+    # historical_anchors may contain estimated years — filter to reported only
+    reported = [a for a in anchors if "(Est)" not in str(a.get("year", ""))]
+    # Sort ascending by year number
+    def yr_num(a):
+        y = str(a.get("year", "0"))
+        nums = "".join(filter(str.isdigit, y))
+        return int(nums) if nums else 0
+    reported.sort(key=yr_num)
+
+    # Current = most recent reported, prior = one before that
+    anchor_cur = reported[-1] if len(reported) >= 1 else {}
+    anchor_pri = reported[-2] if len(reported) >= 2 else {}
+
+    # ── Current-year scalars from live scraper data ────────────────────────────
+    roa_cur       = safe_float(metrics.get("roa"))              # decimal e.g. 0.12 = 12%
+    cfo_cur       = safe_float(metrics.get("operating_cash_flow") or metrics.get("fcf"))
+    current_ratio = safe_float(metrics.get("current_ratio"))
+    total_assets  = safe_float(metrics.get("total_assets"))
+    total_debt    = safe_float(metrics.get("total_debt"))
+    shares_cur    = safe_float(metrics.get("shares_outstanding"))
+    gross_margin  = safe_float(metrics.get("gross_margin") or metrics.get("gross_margins"))
+    revenue_cur   = safe_float(metrics.get("revenue"))
+
+    # Normalise roa: if stored as percentage (e.g. 12.0) convert to decimal
+    if roa_cur is not None and abs(roa_cur) > 1.5:
+        roa_cur = roa_cur / 100.0
+
+    # ── Prior-year scalars from historical_anchors ─────────────────────────────
+    # anchors store revenue_b (billions), net_margin_pct (string "12.3%"), shares_out_b
+    def pct_from_str(s):
+        """Parse '12.3%' -> 0.123"""
+        if s is None:
+            return None
+        try:
+            return float(str(s).replace("%", "").strip()) / 100.0
+        except:
+            return None
+
+    def net_income_from_anchor(a):
+        rev_b = safe_float(a.get("revenue_b"))
+        nm    = pct_from_str(a.get("net_margin_pct"))
+        if rev_b is not None and nm is not None:
+            return rev_b * 1e9 * nm
+        return None
+
+    # Derive prior ROA from anchor net income / (total_assets proxy via revenue scale)
+    # We don't have prior total assets directly, so we approximate:
+    # Prior ROA ≈ (prior net income) / (prior revenue * asset_turnover_proxy)
+    # Simpler: compare net_margin as ROA proxy when assets unknown
+    net_margin_cur = pct_from_str(anchor_cur.get("net_margin_pct")) if anchor_cur else None
+    net_margin_pri = pct_from_str(anchor_pri.get("net_margin_pct")) if anchor_pri else None
+    # Fall back to direct roa from metrics for current
+    roa_approx_cur = roa_cur if roa_cur is not None else net_margin_cur
+    roa_approx_pri = net_margin_pri  # best proxy we have for prior year
+
+    # Prior long-term debt proxy: we use total_debt from anchor (debt_b field)
+    debt_b_cur = safe_float(anchor_cur.get("total_debt_b")) if anchor_cur else None
+    debt_b_pri = safe_float(anchor_pri.get("total_debt_b")) if anchor_pri else None
+    debt_cur_raw = (debt_b_cur * 1e9) if debt_b_cur is not None else total_debt
+    debt_pri_raw = (debt_b_pri * 1e9) if debt_b_pri is not None else None
+
+    # Prior shares
+    shares_b_cur = safe_float(anchor_cur.get("shares_out_b")) if anchor_cur else None
+    shares_b_pri = safe_float(anchor_pri.get("shares_out_b")) if anchor_pri else None
+    shares_prior = (shares_b_pri * 1e9) if shares_b_pri is not None else None
+
+    # Asset turnover (revenue / assets) — proxy for F9
+    # We approximate prior asset turnover via revenue_b change vs. shares proxy
+    rev_b_cur = safe_float(anchor_cur.get("revenue_b")) if anchor_cur else None
+    rev_b_pri = safe_float(anchor_pri.get("revenue_b")) if anchor_pri else None
+
+    # ── Helper to add a criterion ──────────────────────────────────────────────
+    def add_criterion(group, name, description, value_str, passed):
+        nonlocal total_score, total_possible
+        if passed is None:
+            # Data not available — skip (no penalty)
+            pt = None
+        else:
+            pt = 1 if passed else 0
+            total_score += pt
+            total_possible += 1
+        breakdown.append({
+            "group": group,
+            "criterion": name,
+            "description": description,
+            "value": value_str,
+            "passed": passed,
+            "points_awarded": pt,
+            "max_points": 1
+        })
+
+    # ════════════════════════════════════════════════════════════
+    # GROUP 1: PROFITABILITY
+    # ════════════════════════════════════════════════════════════
+
+    # F1 — ROA > 0
+    if roa_approx_cur is not None:
+        add_criterion(
+            "Profitability", "ROA > 0 (F1)",
+            "Return on Assets is positive",
+            f"{roa_approx_cur*100:.2f}%",
+            roa_approx_cur > 0
+        )
+    else:
+        add_criterion("Profitability", "ROA > 0 (F1)", "Return on Assets is positive", "N/A", None)
+
+    # F2 — Operating Cash Flow > 0
+    if cfo_cur is not None:
+        add_criterion(
+            "Profitability", "Operating CFO > 0 (F2)",
+            "Operating cash flow is positive",
+            f"${cfo_cur/1e9:.2f}B" if abs(cfo_cur) >= 1e8 else f"${cfo_cur:,.0f}",
+            cfo_cur > 0
+        )
+    else:
+        add_criterion("Profitability", "Operating CFO > 0 (F2)", "Operating cash flow is positive", "N/A", None)
+
+    # F3 — Δ ROA (improving year-over-year)
+    if roa_approx_cur is not None and roa_approx_pri is not None:
+        add_criterion(
+            "Profitability", "Δ ROA Improving (F3)",
+            "ROA increased vs prior year",
+            f"{roa_approx_cur*100:.2f}% vs {roa_approx_pri*100:.2f}% prior",
+            roa_approx_cur > roa_approx_pri
+        )
+    else:
+        add_criterion("Profitability", "Δ ROA Improving (F3)", "ROA increased vs prior year", "N/A", None)
+
+    # F4 — Accruals: CFO / Assets > ROA (cash quality of earnings)
+    if cfo_cur is not None and total_assets and total_assets > 0 and roa_approx_cur is not None:
+        cfo_to_assets = cfo_cur / total_assets
+        add_criterion(
+            "Profitability", "Accruals (CFO Quality) (F4)",
+            "CFO/Assets > ROA — profit backed by real cash",
+            f"CFO/A={cfo_to_assets*100:.2f}% vs ROA={roa_approx_cur*100:.2f}%",
+            cfo_to_assets > roa_approx_cur
+        )
+    else:
+        add_criterion("Profitability", "Accruals (CFO Quality) (F4)", "CFO/Assets > ROA", "N/A", None)
+
+    # ════════════════════════════════════════════════════════════
+    # GROUP 2: LEVERAGE & LIQUIDITY
+    # ════════════════════════════════════════════════════════════
+
+    # F5 — Δ Leverage: Long-term debt decreased (or stayed same)
+    if debt_cur_raw is not None and debt_pri_raw is not None:
+        add_criterion(
+            "Leverage & Liquidity", "Δ Leverage ↓ (F5)",
+            "Long-term debt did not increase",
+            f"${debt_cur_raw/1e9:.2f}B vs ${debt_pri_raw/1e9:.2f}B prior",
+            debt_cur_raw <= debt_pri_raw
+        )
+    else:
+        add_criterion("Leverage & Liquidity", "Δ Leverage ↓ (F5)", "Long-term debt did not increase", "N/A", None)
+
+    # F6 — Δ Current Ratio: Improving liquidity
+    # We only have current year current_ratio; compare vs gross margin trend as proxy
+    # If we have 2 anchor years with implied liquidity proxy — use cash_b / debt_b proxy
+    cash_b_cur = safe_float(anchor_cur.get("cash_b")) if anchor_cur else None
+    cash_b_pri = safe_float(anchor_pri.get("cash_b")) if anchor_pri else None
+    if current_ratio is not None and cash_b_cur is not None and cash_b_pri is not None and debt_b_cur and debt_b_pri:
+        # Proxy: cash-to-debt ratio YoY
+        liq_cur = cash_b_cur / debt_b_cur if debt_b_cur > 0 else None
+        liq_pri = cash_b_pri / debt_b_pri if debt_b_pri > 0 else None
+        if liq_cur is not None and liq_pri is not None:
+            add_criterion(
+                "Leverage & Liquidity", "Δ Current Ratio ↑ (F6)",
+                "Liquidity (cash/debt) improved vs prior year",
+                f"{liq_cur:.2f}x vs {liq_pri:.2f}x prior",
+                liq_cur >= liq_pri
+            )
+        else:
+            add_criterion("Leverage & Liquidity", "Δ Current Ratio ↑ (F6)", "Liquidity improved vs prior year", "N/A", None)
+    elif current_ratio is not None:
+        # We have current ratio but no prior year — just check > 1.0 as baseline
+        add_criterion(
+            "Leverage & Liquidity", "Current Ratio > 1.0 (F6)",
+            "Current ratio above 1 (adequate liquidity)",
+            f"{current_ratio:.2f}x",
+            current_ratio >= 1.0
+        )
+    else:
+        add_criterion("Leverage & Liquidity", "Δ Current Ratio ↑ (F6)", "Liquidity improved vs prior year", "N/A", None)
+
+    # F7 — No dilution (shares did not increase)
+    if shares_cur is not None and shares_prior is not None:
+        add_criterion(
+            "Leverage & Liquidity", "No Dilution (F7)",
+            "Share count did not increase (no new equity issued)",
+            f"{shares_cur/1e9:.3f}B vs {shares_prior/1e9:.3f}B prior",
+            shares_cur <= shares_prior * 1.01  # 1% tolerance
+        )
+    elif shares_b_cur is not None and shares_b_pri is not None:
+        add_criterion(
+            "Leverage & Liquidity", "No Dilution (F7)",
+            "Share count did not increase (no new equity issued)",
+            f"{shares_b_cur:.3f}B vs {shares_b_pri:.3f}B prior",
+            shares_b_cur <= shares_b_pri * 1.01
+        )
+    else:
+        add_criterion("Leverage & Liquidity", "No Dilution (F7)", "No new equity issued", "N/A", None)
+
+    # ════════════════════════════════════════════════════════════
+    # GROUP 3: OPERATING EFFICIENCY
+    # ════════════════════════════════════════════════════════════
+
+    # F8 — Δ Gross Margin improving
+    gm_raw = safe_float(metrics.get("gross_margin") or metrics.get("gross_margins"))
+    if gm_raw is not None and abs(gm_raw) > 1.5:
+        gm_raw = gm_raw / 100.0  # normalise from 62.0 -> 0.62
+    # Prior gross margin from anchors: net_margin_pct is a proxy (not gross), use revenue vs net income
+    # Better: use operating_margin for the delta trend
+    op_margin_cur = safe_float(metrics.get("operating_margin"))
+    if op_margin_cur is not None and abs(op_margin_cur) > 1.5:
+        op_margin_cur = op_margin_cur / 100.0
+
+    if net_margin_cur is not None and net_margin_pri is not None:
+        add_criterion(
+            "Operating Efficiency", "Δ Gross Margin ↑ (F8)",
+            "Net margin improved vs prior year (proxy for gross margin trend)",
+            f"{net_margin_cur*100:.2f}% vs {net_margin_pri*100:.2f}% prior",
+            net_margin_cur > net_margin_pri
+        )
+    elif gm_raw is not None:
+        add_criterion(
+            "Operating Efficiency", "Gross Margin > 20% (F8)",
+            "Gross margin above 20% (healthy profitability)",
+            f"{gm_raw*100:.1f}%",
+            gm_raw > 0.20
+        )
+    else:
+        add_criterion("Operating Efficiency", "Δ Gross Margin ↑ (F8)", "Gross margin improved vs prior year", "N/A", None)
+
+    # F9 — Δ Asset Turnover improving (revenue growth vs prior year as proxy)
+    if rev_b_cur is not None and rev_b_pri is not None and rev_b_pri > 0:
+        rev_growth = (rev_b_cur - rev_b_pri) / rev_b_pri
+        add_criterion(
+            "Operating Efficiency", "Δ Asset Turnover ↑ (F9)",
+            "Revenue grew vs prior year (asset efficiency improving)",
+            f"${rev_b_cur:.2f}B vs ${rev_b_pri:.2f}B ({rev_growth*100:+.1f}%)",
+            rev_growth > 0
+        )
+    else:
+        add_criterion("Operating Efficiency", "Δ Asset Turnover ↑ (F9)", "Asset turnover improved vs prior year", "N/A", None)
+
+    # ── Final score ────────────────────────────────────────────────────────────
+    # Interpretation
+    if total_possible == 0:
+        label = "N/A"
+    elif total_score >= 7:
+        label = "Strong"
+    elif total_score >= 4:
+        label = "Neutral"
+    else:
+        label = "Weak"
+
+    return {
+        "score": total_score,
+        "max_possible": total_possible,
+        "label": label,
+        "breakdown": breakdown
+    }
+

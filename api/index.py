@@ -24,7 +24,7 @@ from .models.valuation import (
     calculate_dcf_sensitivity,
     calculate_reverse_dcf
 )
-from .models.scoring import calculate_scoring_reform
+from .models.scoring import calculate_scoring_reform, calculate_piotroski_score
 
 # Cache for search results (30 mins TTL)
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
@@ -77,6 +77,8 @@ class ValuationResponse(BaseModel):
     health_breakdown: Optional[list] = None
     good_to_buy_total: Optional[Any] = None
     buy_breakdown: Optional[list] = None
+    piotroski_score: Optional[Any] = None
+    piotroski_breakdown: Optional[list] = None
     historical_data: Optional[dict] = None
     algorithmic_insights: Optional[dict] = None
     red_flags: Optional[list] = None
@@ -264,6 +266,8 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
     health_breakdown = []
     good_to_buy_total = "N/A"
     buy_breakdown = []
+    piotroski_score = "N/A"
+    piotroski_breakdown = []
     top_strengths = []
     risk_factors = []
     red_flags = []
@@ -796,6 +800,11 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         good_to_buy_total = scoring_results.get("good_to_buy_total")
         buy_breakdown = scoring_results.get("buy_breakdown")
 
+        # Piotroski F-Score (pass full data dict including historical_anchors)
+        piotroski_result = calculate_piotroski_score(data)
+        piotroski_score = piotroski_result.get("score")
+        piotroski_breakdown = piotroski_result.get("breakdown", [])
+
         # 7. Algorithmic Insights Generation
         all_breakdowns = health_breakdown + buy_breakdown
         top_strengths = []
@@ -883,6 +892,8 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             "health_breakdown": health_breakdown,
             "good_to_buy_total": good_to_buy_total,
             "buy_breakdown": buy_breakdown,
+            "piotroski_score": piotroski_score,
+            "piotroski_breakdown": piotroski_breakdown,
             "formula_data": formula_data,
             "recommended_exit_multiple": recommended_exit_multiple,
             "dcf_assumptions": {
