@@ -739,9 +739,11 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         nasdaq_actual_eps = None
         if not fast_mode and executor is not None:
             try:
-                nasdaq_growth_3y = future_nasdaq_cagr.result(timeout=5)
-                nasdaq_actual_eps = future_nasdaq_actual.result(timeout=5)
-            except Exception:
+                # Increased timeout to 10s as Nasdaq can be slow
+                nasdaq_growth_3y = future_nasdaq_cagr.result(timeout=10)
+                nasdaq_actual_eps = future_nasdaq_actual.result(timeout=10)
+            except Exception as e:
+                log(f"DEBUG: Nasdaq growth result timeout/fail: {e}")
                 pass
 
         # Detect Nasdaq Actual (Non-GAAP)
@@ -1254,12 +1256,12 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     
                     if yr_key not in raw_data_map: raw_data_map[yr_key] = {}
                     
-                    # Deduplication logic: If a record exists within 20 days, it's the same quarter
+                    # Deduplication logic: If a record exists within 45 days (safe bridge for qtr-end vs report-date), it's the same quarter
                     found_duplicate = False
                     for existing_dt_str in raw_data_map[yr_key].keys():
                         existing_dt = datetime.datetime.strptime(existing_dt_str, '%Y-%m-%d')
-                        if abs((dt_obj - existing_dt).days) <= 20:
-                            # Keep the one with larger absolute value (usually more accurate/non-zero)
+                        if abs((dt_obj - existing_dt).days) <= 45:
+                            # Keep the one with larger absolute value
                             if abs(eps_val) > abs(raw_data_map[yr_key][existing_dt_str]):
                                 raw_data_map[yr_key][existing_dt_str] = float(eps_val)
                             found_duplicate = True
@@ -1314,15 +1316,15 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 ey_int = int(ey)
                 
                 # Rule: If we have 4 qtrs, it's a full year. 
-                # If we have 1-3 qtrs for the current or bridge year, scale it to 4.
+                # If we have 1-3 qtrs for recent years, scale it to 4.
                 if count >= 4:
                     adjusted_history[ey] = total
                 elif count >= 1 and ey_int >= (curr_y - 1):
                     # Robust Scaling for recent/partial years
                     adjusted_history[ey] = (total / count) * 4.0
                 else:
-                    # Historical years must have at least 3 qtrs to be valid, otherwise use raw sum
-                    adjusted_history[ey] = total if count >= 3 else 0
+                    # Historical years: if we have at least 2 qtrs, scale it. Otherwise raw sum.
+                    adjusted_history[ey] = (total / count) * 4.0 if count >= 2 else 0
 
             # Debug Log
             rounded_hist = {k: round(v, 2) for k, v in adjusted_history.items() if v != 0}
@@ -1361,6 +1363,10 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 # --- NON-GAAP OVERLAY (v87: Universal Force for Recent History) ---
                 if year_label in adjusted_history:
                     adj_val = adjusted_history[year_label]
+                    
+                    # Update the main adjusted_eps if we found a more recent year (e.g. current year - 1)
+                    if int(year_label) >= (datetime.datetime.now().year - 1):
+                        adjusted_eps = adj_val
                     
                     shares_calc = s or next((val for val in historical_data.get("shares", []) if val > 0), None) or \
                                    info.get('shares_outstanding') or info.get('sharesOutstanding') or 2500000000
