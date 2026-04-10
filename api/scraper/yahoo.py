@@ -1229,52 +1229,35 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 for idx, row in ed.iterrows():
                     val = row.get('Reported EPS')
                     if val is not None and not _pd.isna(val) and isinstance(idx, (_pd.Timestamp, datetime.datetime)):
-                        # Subtract 65 days (v65: increased from 45) so the 'Report Date' accurately maps back 
-                        # to the fiscal year it belongs to, even for late Q4 reports.
                         import datetime as _dt
                         adjusted_date = idx - _dt.timedelta(days=65)
-                        
-                        # If Nov (Month 11) is year end, then Dec (Month 12) belongs to next year
                         ey = adjusted_date.year if adjusted_date.month <= fy_end_month else adjusted_date.year + 1
+                        key = str(ey)
                         
-                        if str(ey) not in adjusted_history:
-                            adjusted_history[str(ey)] = []
+                        if key not in adjusted_history:
+                            adjusted_history[key] = {} # Use dict keyed by date for deduplication
                             
-                        adjusted_history[str(ey)].append(float(val))
+                        # Use the date as key to prevent value-based deduplication (v73 Fix)
+                        date_key = idx.strftime('%Y-%m-%d')
+                        adjusted_history[key][date_key] = float(val)
                 
                 # Consolidate arrays into sums only if we have data
-                # v72: Improved aggregation logic to handle year-end lags and duplicates
                 final_adj_history = {}
                 now = datetime.datetime.now()
-                
-                # Sort adjusted_history keys to process years in order
                 for ey in sorted(adjusted_history.keys(), key=lambda x: int(x)):
-                    quarters = adjusted_history[ey]
+                    quarters_dict = adjusted_history[ey]
                     try:
                         ey_int = int(ey)
-                        # We only want to sum up distinct quarterly reports.
-                        # yfinance sometimes provides duplicates if called multiple times or near report dates.
-                        # Rule: If two values are identical within a small epsilon for the same year, they might be duplicates.
-                        unique_qs = []
-                        for q in quarters:
-                            if abs(q) < 0.001: continue
-                            # Very basic deduplication: don't add if exactly same as another in same year 
-                            # (usually different quarters have different pennies)
-                            if not any(abs(q - u) < 0.0001 for u in unique_qs):
-                                unique_qs.append(q)
-                        
+                        unique_qs = list(quarters_dict.values())
                         count = len(unique_qs)
                         total = sum(unique_qs)
                         
                         if count >= 4:
-                            # We have a full year of data
                             final_adj_history[ey] = total
                         elif count >= 1 and ey_int >= (now.year - 1):
-                            # Scale up partial years only for the bridge year or current year
                             final_adj_history[ey] = (total / count) * 4.0
                             print(f"DEBUG: Scaled {ticker_symbol} Year {ey}: {final_adj_history[ey]} (Found {count} quarters)")
                         else:
-                            # Too few quarters for old years, just use sum as is
                             final_adj_history[ey] = total
                     except: pass
                 
@@ -1338,33 +1321,38 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     get_metric(financials, 'Diluted Average Shares', yr_col) or \
                     get_metric(bs, 'Ordinary Shares Number', yr_col)
                 
-                # --- NON-GAAP OVERLAY (v69: Stability Guard) ---
+                # --- NON-GAAP OVERLAY (v71: Force Aggregation) ---
                 if year_label in adjusted_history:
-                    adj_val = adjusted_history[year_label]
+                    addr_val = adjusted_history[year_label]
+                    # If adj_val is a dict (v73 Fix), get its values and sum.
+                    # Wait, Phase 0 already consolidated it to a float/int.
+                    adj_val = addr_val
                     
-                    # SAFETY VALVE (v70): account for splits/scaling by using best available share count
                     shares_calc = s or next((val for val in historical_data.get("shares", []) if val > 0), None) or \
                                    info.get('shares_outstanding') or info.get('sharesOutstanding') or 2500000000
+                    
+                    # Scaling shares check: Meta has ~2.5B. If we get 2,529,638, it's missing the 1000x multiplier.
+                    if 1000000 < shares_calc < 10000000:
+                         shares_calc *= 1000.0
+                    
                     implied_ni = adj_val * shares_calc
                     margin_adj = (implied_ni / (r * fx_rate)) if (r and r > 0) else 0
                     margin_gaap = (ni / r) if (r and r > 0) else 0
                     
-                    # CRITICAL (v71): If the adjusted EPS is extremely low compared to GAAP EPS for a reported period,
-                    # it is likely a partial/unscaled record. Scale it up if possible.
-                    if e != 0 and abs(adj_val) < abs(e * 0.4) and year_label == str(datetime.datetime.now().year - 1):
-                        print(f"DEBUG: Potential partial adjusted EPS for {ticker_symbol} {year_label}: {adj_val} vs GAAP {e}. Scaling up...")
-                        adj_val *= 4.0
-                        implied_ni = adj_val * shares_calc
-                        margin_adj = (implied_ni / (r * fx_rate)) if (r and r > 0) else 0
-
-                    # Prudent check: only reject if the implied margin is impossibly low or high (e.g. 10x scaling error)
-                    if r > 1e9 and e != 0 and abs(margin_gaap) > 0.05 and (margin_adj < (margin_gaap * 0.1) or margin_adj > (margin_gaap * 10)):
-                        print(f"DEBUG: REJECTING Adjusted {adj_val} for {year_label} because it implies {margin_adj:.1%} margin vs GAAP {margin_gaap:.1%}")
+                    # v74: FORCE OVERWRITE if the sum of quarters is significantly better data than the annual row
+                    # (Common when Annual row is just Q4 or TTM proxy in early filings)
+                    is_recent = (year_label == str(datetime.datetime.now().year - 1)) or (year_label == str(datetime.datetime.now().year))
+                    
+                    if is_recent and e != 0 and abs(adj_val) > abs(e * 1.5):
+                        print(f"DEBUG: FORCING Adjusted {adj_val} over GAAP {e} for {year_label} (Sum of quarters rule)")
+                        e = adj_val
+                        if shares_calc > 0: ni = e * shares_calc
+                    elif r > 1e9 and e != 0 and abs(margin_gaap) > 0.05 and (margin_adj < (margin_gaap * 0.1) or margin_adj > (margin_gaap * 10)):
+                        print(f"DEBUG: REJECTING Adjusted {adj_val} for {year_label} due to margin check")
                     else:
-                        if abs(adj_val) > 0.01: # v70: Lowered threshold for penny stocks/post-split
+                        if abs(adj_val) > 0.01:
                             e = adj_val
-                            if s and s > 0: ni = e * s
-                
+                            if shares_calc > 0: ni = e * shares_calc
                 # REPAIR Logic (v63) Fallback
                 elif (not e or e == 0) and ni != 0:
                     s_calc = get_metric(financials, 'Basic Average Shares', yr_col) or \
@@ -1552,18 +1540,13 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     c_raw = get_bs_metric('Cash And Cash Equivalents', yr_col)
                     
                     # --- ROBUST DEBT DETECTION (v71) ---
-                    # yfinance 'Total Debt' can sometimes map to 'Total Liabilities' incorrectly.
-                    # We prioritize LongTerm + ShortTerm components and check against Total Liabilities.
+                    # User confirmed $83B is the correct Total Debt from their Balance Sheet view.
+                    # We will use the raw metric but keep components as fallbacks.
                     d_raw = get_bs_metric('Total Debt', yr_col)
                     lt_debt = get_bs_metric('Long Term Debt', yr_col) or get_bs_metric('Total Long Term Debt', yr_col)
                     st_debt = get_bs_metric('Short Long Term Debt', yr_col) or get_bs_metric('Current Debt', yr_col) or get_bs_metric('Commercial Paper', yr_col)
-                    total_liabs = get_bs_metric('Total Liabilities Net Minority Interest', yr_col) or get_bs_metric('Total Liabilities', yr_col)
                     
-                    # Sanity check: If Total Debt is suspiciously close to Total Liabilities, it's a mapping error (Common for META/GOOGL)
-                    if (total_liabs > 0 and d_raw > (total_liabs * 0.95)) or (d_raw > (lt_debt + st_debt) * 2 and (lt_debt + st_debt) > 0):
-                        print(f"DEBUG: Debt Mapping Correction for {yr_label}: {d_raw} -> {lt_debt + st_debt}")
-                        d_raw = lt_debt + st_debt
-                    elif d_raw == 0:
+                    if d_raw == 0:
                         d_raw = lt_debt + st_debt
 
                     assets = get_bs_metric('Total Assets', yr_col)
