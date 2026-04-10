@@ -19,6 +19,9 @@ except ImportError:
         def kv_get(k): return None
         def kv_set(k, v, ex=None): return False
 
+def log(*args, **kwargs):
+    print(*args, **kwargs)
+
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
@@ -235,7 +238,6 @@ def get_nasdaq_earnings_growth(ticker: str, trailing_eps: float) -> float:
         if not rows: return None
         
         # We also need a clean Non-GAAP base for accurate YoY growth
-        # If we use Yahoo's GAAP trailing_eps with Nasdaq's Non-GAAP forecasts, it's distorted.
         actual_eps_base = None
         try:
             # We call the companion function to get the sum of last 4 quarters (Non-GAAP)
@@ -262,7 +264,6 @@ def get_nasdaq_earnings_growth(ticker: str, trailing_eps: float) -> float:
             if prev > 0:
                 growth = (curr - prev) / prev
                 # Clamp extreme growth rates to avoid skewing the average too much
-                # (e.g. recovering from a low base)
                 clamped_growth = min(max(growth, -0.5), 1.5)
                 growths.append(clamped_growth)
         
@@ -272,7 +273,7 @@ def get_nasdaq_earnings_growth(ticker: str, trailing_eps: float) -> float:
         return sum(growths) / len(growths)
 
     except Exception as e:
-        print(f"Error fetching Nasdaq growth for {ticker}: {e}")
+        log(f"Error fetching Nasdaq growth for {ticker}: {e}")
     return None
 
 def get_nasdaq_actual_eps(ticker: str) -> float:
@@ -2144,22 +2145,6 @@ def get_lightweight_company_data(ticker_symbol: str):
         return data
     
     return None
-
-def get_nasdaq_comprehensive_estimates(ticker):
-    """Fetches high-quality analyst projections from Nasdaq or fallbacks."""
-    try:
-        url = f"https://api.nasdaq.com/api/analyst/{ticker}/estimates"
-        headers = {"User-Agent": get_random_agent(), "Accept": "application/json"}
-        resp = requests.get(url, headers=headers, timeout=5)
-        if resp.status_code == 200:
-            d = resp.json().get('data', {})
-            return {
-                "yearly_eps": d.get('yearlyEpsForecast', []),
-                "yearly_rev": d.get('yearlyRevenueForecast', [])
-            }
-    except Exception as e:
-        print(f"Nasdaq Estimate Fetch Failed for {ticker}: {e}")
-    return {"yearly_eps": [], "yearly_rev": []}
 
 
 def get_market_averages():
