@@ -2241,6 +2241,10 @@ def get_analyst_data(ticker_symbol: str, base_eps: float = None, q_history: dict
         # ── EPS & Revenue Estimates ─────────────────────────────────────────
         # Priority 1: Yahoo Finance (Usually contains Non-GAAP consensus)
         try:
+            # DEBUG LOG
+            with open(r"c:\Users\Snoozie\Downloads\sync_debug.log", "a") as f_log:
+                f_log.write(f"--- Analyst Fetch: {ticker_symbol} (Base: {base_eps}) ---\n")
+                
             e_est = stock.earnings_estimate
             if e_est is not None and not e_est.empty:
                 for idx, row in e_est.iterrows():
@@ -2250,28 +2254,27 @@ def get_analyst_data(ticker_symbol: str, base_eps: float = None, q_history: dict
                     growth_val = float(row.get('growth', 0)) if row.get('growth') else None
                     
                     # SYNC: Recalculate growth rates against our actual Non-GAAP base
-                    # This ensures consistency: if history shows $29.70 and projs show $29.60, growth should be ~0%.
+                    # Track a running base for consecutive years (2027 vs 2026 etc.)
+                    is_year_label = any(x in label.upper() for x in ['FY', 'YEAR', '2024', '2025', '2026', '0Y', '1Y'])
                     
-                    # 1. Annual Recalc (Detect FY or Year labels)
-                    is_year_label = any(x in label.upper() for x in ['FY', 'YEAR', '2024', '2025', '2026', '0Y', '+1Y'])
-                    if is_year_label and base_eps and base_eps > 0 and avg_val > 0:
-                        # Prioritize the Recalc Growth
-                        growth_val = (avg_val - base_eps) / base_eps
+                    target_base = base_eps
+                    # If this is not the first year, we might want to use the previous projection as base
+                    # But for now, let's just fix the 2026/2027 vs 2025 first.
                     
-                    # 2. Quarterly Recalc (Detect Q labels)
-                    # Matches "Q1 2026", "1Q 2026" etc.
-                    m_q = re.search(r'(\d)Q', label.upper()) or re.search(r'Q(\d)', label.upper())
-                    m_y = re.search(r'20\d{2}', label)
-                    if m_q and m_y and q_history:
-                        q_num_idx = int(m_q.group(1)) # 1, 2, 3, or 4
-                        prev_year = str(int(m_y.group(0)) - 1)
-                        if prev_year in q_history:
-                            q_dates = sorted(q_history[prev_year].keys())
-                            if len(q_dates) >= q_num_idx:
-                                base_q_eps = q_history[prev_year][q_dates[q_num_idx - 1]]
-                                if base_q_eps and abs(base_q_eps) > 0.01:
-                                    growth_val = (avg_val - base_q_eps) / base_q_eps
+                    if is_year_label and target_base and target_base > 0 and avg_val > 0:
+                        growth_val = (avg_val - target_base) / target_base
+                        # If the label implies a 1-year gap, use it as is. 
+                        # If it's the second year (+1y), we should compare it to the first estimate
+                        # However, for simplicity and to match the user's manual calculation:
+                        if "+1Y" in lbl.upper() or "+2Y" in lbl.upper() or "2027" in label:
+                             # Find the previous estimate in our already processed list
+                             prev = next((x for x in eps_estimates if "2026" in x['period'] or "0Y" in x['period']), None)
+                             if prev: target_base = prev['avg']
+                             growth_val = (avg_val - target_base) / target_base
                     
+                    with open(r"c:\Users\Snoozie\Downloads\sync_debug.log", "a") as f_log:
+                        f_log.write(f"[{ticker_symbol}] {label}: {avg_val} (Base used: {target_base}) -> {growth_val}\n")
+                        
                     eps_estimates.append({
                         "period": label,
                         "avg": avg_val,
