@@ -1321,7 +1321,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     get_metric(financials, 'Diluted Average Shares', yr_col) or \
                     get_metric(bs, 'Ordinary Shares Number', yr_col)
                 
-                # --- NON-GAAP OVERLAY (v77: Global Standardization) ---
+                # --- NON-GAAP OVERLAY (v80: Global Standardization) ---
                 if year_label in adjusted_history:
                     adj_val = adjusted_history[year_label]
                     
