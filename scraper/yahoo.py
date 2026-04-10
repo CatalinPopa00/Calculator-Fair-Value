@@ -1226,41 +1226,44 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             except Exception:
                 ed = None
                 
-            if ed is not None and not ed.empty and 'Reported EPS' in ed.columns:
-                # v71: Deduplicate by date to avoid summing Estimate + Actual rows
-                deduped = ed[ed['Reported EPS'].notna()].sort_index().groupby(level=0).last()
-                
-                for idx, row in deduped.iterrows():
-                    val = row.get('Reported EPS')
-                    if val is not None and not _pd.isna(val) and isinstance(idx, (_pd.Timestamp, datetime.datetime)):
-                        # Subtract 65 days so the 'Report Date' accurately maps back 
-                        # to the fiscal year it belongs to.
-                        import datetime as _dt
-                        adjusted_date = idx - _dt.timedelta(days=65)
-                        
-                        ey = adjusted_date.year if adjusted_date.month <= fy_end_month else adjusted_date.year + 1
-                        
-                        if str(ey) not in adjusted_history:
-                            adjusted_history[str(ey)] = []
-                            
-                        adjusted_history[str(ey)].append(float(val))
-                
-                # Consolidate arrays
-                final_adj_history = {}
-                for ey, quarters in adjusted_history.items():
-                    try:
-                        ey_int = int(ey)
-                        if len(quarters) >= 4:
-                            final_adj_history[ey] = sum(quarters)
-                        elif len(quarters) >= 1:
-                            # v71: Scale partial years even for older periods (2022-2024) 
-                            # if YFinance data is incomplete.
-                            avg_q = sum(quarters) / len(quarters)
-                            scaled = avg_q * 4.0
-                            final_adj_history[ey] = scaled
-                    except: pass
-                
-                adjusted_history = final_adj_history
+            raw_adjusted = {}
+            # v73: Also use earnings_history as a reliable source for Non-GAAP actuals
+            try:
+                eh = stock.earnings_history
+                if eh is not None and not eh.empty:
+                    for idx, row in eh.iterrows():
+                        val = row.get('epsActual')
+                        if val is not None and not _pd.isna(val) and isinstance(idx, (pd.Timestamp, datetime.datetime)):
+                            # Standard mapping logic
+                            adjusted_date = idx - datetime.timedelta(days=65)
+                            ey = adjusted_date.year if adjusted_date.month <= fy_end_month else adjusted_date.year + 1
+                            if str(ey) not in raw_adjusted: raw_adjusted[str(ey)] = {}
+                            # Store by date to avoid duplicates if using both ed and eh
+                            raw_adjusted[str(ey)][idx.date()] = float(val)
+            except: pass
+
+            try:
+                if ed is not None and not ed.empty:
+                    # Try different possible column names for Reported EPS
+                    col = next((c for c in ed.columns if 'REPORTED' in c.upper() and 'EPS' in c.upper()), None)
+                    if col:
+                        for idx, row in ed.iterrows():
+                            val = row.get(col)
+                            if val is not None and not _pd.isna(val) and isinstance(idx, (pd.Timestamp, datetime.datetime)):
+                                adjusted_date = idx - datetime.timedelta(days=65)
+                                ey = adjusted_date.year if adjusted_date.month <= fy_end_month else adjusted_date.year + 1
+                                if str(ey) not in raw_adjusted: raw_adjusted[str(ey)] = {}
+                                raw_adjusted[str(ey)][idx.date()] = float(val)
+            except: pass
+
+            # Consolidate raw_adjusted into adjusted_history
+            for ey, dates_dict in raw_adjusted.items():
+                quarters = list(dates_dict.values())
+                if len(quarters) >= 4:
+                    adjusted_history[ey] = sum(quarters)
+                elif len(quarters) >= 1:
+                    # Bridge year or partial history: Scale up
+                    adjusted_history[ey] = (sum(quarters) / len(quarters)) * 4.0
                 
             # If yf fails or returns nothing, fallback to Finnhub or Nasdaq if available...
             if not adjusted_history:
@@ -1447,6 +1450,11 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     # 4. Last Resort Fallback to historical (only if still None)
                     if eps_est is None:
                         eps_est = historical_data["eps"][-1] if historical_data["eps"] else 0
+                    
+                    historical_data["years"].append(label)
+                    historical_data["revenue"].append(None) # revenue projections handled separately
+                    historical_data["eps"].append(eps_est)
+                    historical_data["fcf"].append(eps_est * avg_fcf_margin * (historical_data["revenue"][-1]/historical_data["eps"][-1] if historical_data["eps"][-1] else 1)) 
                     
                     # --- Revenue Estimate ---
                     rev_est = historical_data["revenue"][-1] # fallback
@@ -2189,21 +2197,21 @@ def get_market_averages():
         eps_estimates = []
         rev_estimates = []
 
-        # 1. Yahoo Estimates (Priority)
+        # v73: Fetch consensus from Yahoo first
         try:
             e_est = stock.earnings_estimate
             if e_est is not None and not e_est.empty:
+                # v73 Fix: If 0y or +1y exist, use them as priorities for the FY buckets
                 for idx, row in e_est.iterrows():
                     p_key = str(idx)
                     avg = row.get('avg')
-                    growth = row.get('growth')
                     val = float(avg) if avg is not None and not pd.isna(avg) else None
                     if val is None: continue
                     try:
                         p_label = to_fiscal_label(pd.to_datetime(idx))
                     except:
                         p_label = labels.get(p_key, p_key)
-                    eps_estimates.append({"period": p_label, "period_code": p_key, "avg": val * fx_rate, "growth": float(growth) if growth is not None and not pd.isna(growth) else None, "status": "estimate"})
+                    eps_estimates.append({"period": p_label, "period_code": p_key, "avg": val * fx_rate, "status": "estimate"})
             
             r_est = stock.revenue_estimate
             if r_est is not None and not r_est.empty:
@@ -2239,12 +2247,16 @@ def get_market_averages():
             for i, y_row in enumerate(nq_est.get("yearly_eps", [])[:3]):
                 fy_end = y_row.get('fiscalEnd')
                 if not fy_end: continue
-                digits = re.findall(r'\d{4}', str(fy_end))
-                yr_str = digits[-1] if digits else str(current_fy_num + i)
+                digits = re.findall(r'\d{4}', str(fy_end)); yr_str = digits[-1] if digits else str(current_fy_num + i)
                 p_label = f"FY {yr_str}"
+                
+                # v73: Force mapping for FY buckets to avoid GAAP/Non-GAAP mix
                 if any(p_label in str(e.get('period', '')) for e in eps_estimates): continue
+                
                 avg = safe_nasdaq_float(y_row.get('consensusEPSForecast'))
                 if avg is not None:
+                    # Check if this FY already has quarterly estimates in list
+                    # (Will be unified in fill_buckets)
                     eps_estimates.append({"period": p_label, "period_code": f"+{i}y", "avg": avg * fx_rate, "status": "estimate"})
         except: pass
 
@@ -2359,6 +2371,25 @@ def get_market_averages():
         fill_buckets(eps_buckets, reported_eps + eps_estimates, current_fy_num)
         fill_buckets(rev_buckets, reported_rev + rev_estimates, current_fy_num)
 
+        # ── BUCKET REFINEMENT (v73: Force Sum for FY Estimates) ─────────────────
+        def refine_fy_buckets(buckets):
+            # If Q1-Q4 are all present (estimate or reported), force FY to be their sum.
+            # This prevents GAAP/Non-GAAP mixing (e.g. ADBE Qs = 22.5, FY = 19.1)
+            q_sum = sum(buckets[f"Q{i}"]["avg"] for i in range(1, 5) if buckets[f"Q{i}"]["avg"] is not None)
+            q_count = len([i for i in range(1, 5) if buckets[f"Q{i}"]["avg"] is not None])
+            
+            if q_count == 4:
+                # All 4 Qs are there. Force FY0 to matches the sum.
+                # Only do this if FY0 is an estimate or drastically different
+                current_fy0 = buckets["FY0"]["avg"]
+                if current_fy0 is None or abs(current_fy0 - q_sum) > 0.1:
+                    buckets["FY0"]["avg"] = round(q_sum, 2)
+                    buckets["FY0"]["status"] = "derived"
+
+        refine_fy_buckets(eps_buckets)
+        refine_fy_buckets(rev_buckets)
+
+        # Growth calculation
         for k in ["Q1", "Q2", "Q3", "Q4", "FY0", "FY1"]:
             e = eps_buckets[k]; r = rev_buckets[k]
             prev_lbl = f"{k} {current_fy_num - 1}" if k.startswith("Q") else f"FY {current_fy_num - 1}"
