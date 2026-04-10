@@ -822,24 +822,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             if zero_point_items:
                 risk_factors = zero_point_items[:3]
             else:
-                # v77: Global Standardization: ALWAYS prefer the Adjusted aggregate for recent years 
-                # if it exists, to ensure alignment with Non-GAAP oriented analyst projections.
-                if is_recent and e != 0 and abs(adj_val) > abs(e * 1.05):
-                    # Use at least 5% difference to prefer Adjusted over GAAP (Standard Non-GAAP bias)
-                    print(f"DEBUG: FORCING Adjusted {adj_val} over GAAP {e} for {year_label}")
-                    e = adj_val
-                    if shares_calc > 0: ni = e * shares_calc
-                elif is_recent and (not e or e == 0) and abs(adj_val) > 0.01:
-                    # Fallback if GAAP is missing but Adjusted exists
-                    e = adj_val
-                    if shares_calc > 0: ni = e * shares_calc
-                elif r > 1e9 and e != 0 and abs(margin_gaap) > 0.05 and (margin_adj < (margin_gaap * 0.1) or margin_adj > (margin_gaap * 10)):
-                    print(f"DEBUG: REJECTING Adjusted {adj_val} due to extreme margin mismatch")
-                else:
-                    if abs(adj_val) > 0.01:
-                        e = adj_val
-                        if shares_calc > 0: ni = e * shares_calc
-                
+                # Fallback: lowest partial points if no 0s
                 all_sorted = sorted(all_breakdowns, key=lambda x: x.get("points", 100))
                 risk_factors = all_sorted[:2]
 
