@@ -1225,14 +1225,17 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             except Exception:
                 ed = None
                 
-            if ed is not None and not ed.empty and 'Reported EPS' in ed.columns:
-                for idx, row in ed.iterrows():
-                    val = row.get('Reported EPS')
-                    if val is not None and not _pd.isna(val) and isinstance(idx, (_pd.Timestamp, datetime.datetime)):
-                        import datetime as _dt
-                        adjusted_date = idx - _dt.timedelta(days=65)
-                        ey = adjusted_date.year if adjusted_date.month <= fy_end_month else adjusted_date.year + 1
-                        key = str(ey)
+            # Case-insensitive column search
+            if ed is not None and not ed.empty:
+                col_name = next((c for c in ed.columns if 'Reported' in c or 'Actual' in c), 'Reported EPS')
+                if col_name in ed.columns:
+                    for idx, row in ed.iterrows():
+                        val = row.get(col_name)
+                        if val is not None and not _pd.isna(val) and isinstance(idx, (_pd.Timestamp, datetime.datetime)):
+                            import datetime as _dt
+                            adjusted_date = idx - _dt.timedelta(days=65)
+                            ey = adjusted_date.year if adjusted_date.month <= fy_end_month else adjusted_date.year + 1
+                            key = str(ey)
                         
                         if key not in adjusted_history:
                             adjusted_history[key] = {} # Use dict keyed by date for deduplication
@@ -2098,11 +2101,6 @@ def get_lightweight_company_data(ticker_symbol: str):
                 "eps": info.get('trailingEps'),
                 "market_cap": info.get('marketCap'),
                 "ps_ratio": info.get('priceToSalesTrailing12Months') or info.get('priceToSales'),
-                "operating_margin": info.get('operatingMargins') or info.get('profitMargins'),
-                "revenue_growth": info.get('revenueGrowth'),
-                "earnings_growth": info.get('earningsGrowth') or info.get('earningsQuarterlyGrowth'),
-                "industry": info.get('industry'),
-                "sector": info.get('sector')
             }
             # Scale currencies if not USD
             if fx_rate != 1.0:
@@ -2138,6 +2136,22 @@ def get_lightweight_company_data(ticker_symbol: str):
         return data
     
     return None
+
+def get_nasdaq_comprehensive_estimates(ticker):
+    """Fetches high-quality analyst projections from Nasdaq or fallbacks."""
+    try:
+        url = f"https://api.nasdaq.com/api/analyst/{ticker}/estimates"
+        headers = {"User-Agent": get_random_agent(), "Accept": "application/json"}
+        resp = requests.get(url, headers=headers, timeout=5)
+        if resp.status_code == 200:
+            d = resp.json().get('data', {})
+            return {
+                "yearly_eps": d.get('yearlyEpsForecast', []),
+                "yearly_rev": d.get('yearlyRevenueForecast', [])
+            }
+    except Exception as e:
+        print(f"Nasdaq Estimate Fetch Failed for {ticker}: {e}")
+    return {"yearly_eps": [], "yearly_rev": []}
 
 
 def get_market_averages():
