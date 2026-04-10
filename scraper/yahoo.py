@@ -1226,44 +1226,68 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             except Exception:
                 ed = None
                 
-            raw_adjusted = {}
-            # v73: Also use earnings_history as a reliable source for Non-GAAP actuals
+            raw_adjusted_map = {} # { "year": { "source": sum } }
+            
+            # --- Source 1: Nasdaq Historical (Usually strictly Non-GAAP) ---
+            try:
+                nq_hist = get_nasdaq_historical_eps(ticker_symbol)
+                for entry in nq_hist:
+                    dt = entry['date']
+                    val = entry['eps']
+                    ey = dt.year if dt.month <= fy_end_month else dt.year + 1
+                    key = str(ey)
+                    if key not in raw_adjusted_map: raw_adjusted_map[key] = {}
+                    if 'nasdaq' not in raw_adjusted_map[key]: raw_adjusted_map[key]['nasdaq'] = []
+                    raw_adjusted_map[key]['nasdaq'].append(val)
+            except: pass
+
+            # --- Source 2: Yahoo Earnings History ---
             try:
                 eh = stock.earnings_history
                 if eh is not None and not eh.empty:
                     for idx, row in eh.iterrows():
                         val = row.get('epsActual')
                         if val is not None and not _pd.isna(val) and isinstance(idx, (pd.Timestamp, datetime.datetime)):
-                            # Standard mapping logic
-                            adjusted_date = idx - datetime.timedelta(days=65)
-                            ey = adjusted_date.year if adjusted_date.month <= fy_end_month else adjusted_date.year + 1
-                            if str(ey) not in raw_adjusted: raw_adjusted[str(ey)] = {}
-                            # Store by date to avoid duplicates if using both ed and eh
-                            raw_adjusted[str(ey)][idx.date()] = float(val)
+                            ey = idx.year if idx.month <= fy_end_month else idx.year + 1
+                            key = str(ey)
+                            if key not in raw_adjusted_map: raw_adjusted_map[key] = {}
+                            if 'yf_eh' not in raw_adjusted_map[key]: raw_adjusted_map[key]['yf_eh'] = []
+                            raw_adjusted_map[key]['yf_eh'].append(float(val))
             except: pass
 
+            # --- Source 3: Yahoo Earnings Dates ---
             try:
                 if ed is not None and not ed.empty:
-                    # Try different possible column names for Reported EPS
                     col = next((c for c in ed.columns if 'REPORTED' in c.upper() and 'EPS' in c.upper()), None)
                     if col:
                         for idx, row in ed.iterrows():
                             val = row.get(col)
                             if val is not None and not _pd.isna(val) and isinstance(idx, (pd.Timestamp, datetime.datetime)):
-                                adjusted_date = idx - datetime.timedelta(days=65)
-                                ey = adjusted_date.year if adjusted_date.month <= fy_end_month else adjusted_date.year + 1
-                                if str(ey) not in raw_adjusted: raw_adjusted[str(ey)] = {}
-                                raw_adjusted[str(ey)][idx.date()] = float(val)
+                                ey = idx.year if idx.month <= fy_end_month else idx.year + 1
+                                key = str(ey)
+                                if key not in raw_adjusted_map: raw_adjusted_map[key] = {}
+                                if 'yf_ed' not in raw_adjusted_map[key]: raw_adjusted_map[key]['yf_ed'] = []
+                                raw_adjusted_map[key]['yf_ed'].append(float(val))
             except: pass
 
-            # Consolidate raw_adjusted into adjusted_history
-            for ey, dates_dict in raw_adjusted.items():
-                quarters = list(dates_dict.values())
-                if len(quarters) >= 4:
-                    adjusted_history[ey] = sum(quarters)
-                elif len(quarters) >= 1:
-                    # Bridge year or partial history: Scale up
-                    adjusted_history[ey] = (sum(quarters) / len(quarters)) * 4.0
+            # --- CONSOLIDATION ENGINE ---
+            # Standard Rule: Non-GAAP > GAAP. For each year, pick the source with the most complete and highest EPS.
+            for ey, sources in raw_adjusted_map.items():
+                best_val = 0
+                # Priority: Nasdaq (most reliable non-gaap source)
+                if 'nasdaq' in sources and len(sources['nasdaq']) >= 1:
+                    avg = sum(sources['nasdaq']) / len(sources['nasdaq'])
+                    best_val = avg * 4.0
+                else:
+                    # Choose source with max sum (likely Non-GAAP)
+                    for s_name, q_list in sources.items():
+                        if not q_list: continue
+                        s_val = (sum(q_list) / len(q_list)) * 4.0
+                        if s_val > best_val: best_val = s_val
+                
+                if best_val > 0:
+                    adjusted_history[ey] = best_val
+                    print(f"DEBUG: Selected Anchor {ey} = {best_val:.2f} using source options: {list(sources.keys())}")
                 
             # If yf fails or returns nothing, fallback to Finnhub or Nasdaq if available...
             if not adjusted_history:
