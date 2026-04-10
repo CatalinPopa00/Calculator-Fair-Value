@@ -1238,7 +1238,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                             # Robust Date handling
                             try:
                                 ts = pd.to_datetime(idx).tz_localize(None)
-                                adjusted_date = ts - _dt.timedelta(days=65)
+                                # v86: Robust Date handling using datetime.timedelta
+                                adjusted_date = ts - datetime.timedelta(days=65)
                                 # Meta (FY End 12): Nov 2025 -> 2025. Feb 2026 -> 2025.
                                 ey = adjusted_date.year if adjusted_date.month <= fy_end_month else adjusted_date.year + 1
                                 key = str(ey)
@@ -1264,8 +1265,6 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     except: pass
                 adjusted_history = final_adj_history
                 
-                adjusted_history = final_adj_history
-                
             # If yf fails or returns nothing, fallback to Finnhub or Nasdaq if available...
             if not adjusted_history:
                 nq_hist = get_nasdaq_historical_eps(ticker_symbol)
@@ -1273,8 +1272,9 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 for entry in nq_hist:
                     dt = entry['date']
                     val = entry['eps']
-                    # Use provided fy_end_month for better mapping
-                    ey = dt.year if dt.month <= fy_end_month else dt.year + 1
+                    # Use provided fy_end_month with robust year mapping
+                    adj_dt = dt - datetime.timedelta(days=65)
+                    ey = adj_dt.year if adj_dt.month <= fy_end_month else adj_dt.year + 1
                     key = str(ey)
                     if key not in temp_hist: temp_hist[key] = []
                     temp_hist[key].append(val)
