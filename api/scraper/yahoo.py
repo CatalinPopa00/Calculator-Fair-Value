@@ -1225,44 +1225,44 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             except Exception:
                 ed = None
                 
-            # Case-insensitive column search
+            # v85: Ultra-Robust Aggregation
             if ed is not None and not ed.empty:
-                col_name = next((c for c in ed.columns if 'Reported' in c or 'Actual' in c), 'Reported EPS')
+                # Identify the data column (many Yahoo variants)
+                c_opts = [c for c in ed.columns if any(x in c for x in ['Reported', 'Actual', 'EPS', 'Earnings'])]
+                col_name = c_opts[0] if c_opts else 'Reported EPS'
+                
                 if col_name in ed.columns:
                     for idx, row in ed.iterrows():
                         val = row.get(col_name)
-                        if val is not None and not _pd.isna(val) and isinstance(idx, (_pd.Timestamp, datetime.datetime)):
-                            import datetime as _dt
-                            adjusted_date = idx - _dt.timedelta(days=65)
-                            ey = adjusted_date.year if adjusted_date.month <= fy_end_month else adjusted_date.year + 1
-                            key = str(ey)
-                        
-                        if key not in adjusted_history:
-                            adjusted_history[key] = {} # Use dict keyed by date for deduplication
-                            
-                        # Use the date as key to prevent value-based deduplication (v73 Fix)
-                        date_key = idx.strftime('%Y-%m-%d')
-                        adjusted_history[key][date_key] = float(val)
-                
-                # Consolidate arrays into sums only if we have data
+                        if val is not None and not _pd.isna(val):
+                            # Robust Date handling
+                            try:
+                                ts = pd.to_datetime(idx).tz_localize(None)
+                                adjusted_date = ts - _dt.timedelta(days=65)
+                                # Meta (FY End 12): Nov 2025 -> 2025. Feb 2026 -> 2025.
+                                ey = adjusted_date.year if adjusted_date.month <= fy_end_month else adjusted_date.year + 1
+                                key = str(ey)
+                                if key not in adjusted_history: adjusted_history[key] = {}
+                                date_key = ts.strftime('%Y-%m-%d')
+                                adjusted_history[key][date_key] = float(val)
+                            except: continue
+
+                # Consolidate
                 final_adj_history = {}
                 now = datetime.datetime.now()
-                for ey in sorted(adjusted_history.keys(), key=lambda x: int(x)):
-                    quarters_dict = adjusted_history[ey]
+                for ey, quarters_dict in adjusted_history.items():
                     try:
-                        ey_int = int(ey)
-                        unique_qs = list(quarters_dict.values())
-                        count = len(unique_qs)
-                        total = sum(unique_qs)
-                        
+                        vals = list(quarters_dict.values())
+                        count = len(vals)
+                        total = sum(vals)
                         if count >= 4:
                             final_adj_history[ey] = total
-                        elif count >= 1 and ey_int >= (now.year - 1):
+                        elif count >= 1 and int(ey) >= (now.year - 1):
                             final_adj_history[ey] = (total / count) * 4.0
-                            print(f"DEBUG: Scaled {ticker_symbol} Year {ey}: {final_adj_history[ey]} (Found {count} quarters)")
                         else:
                             final_adj_history[ey] = total
                     except: pass
+                adjusted_history = final_adj_history
                 
                 adjusted_history = final_adj_history
                 
