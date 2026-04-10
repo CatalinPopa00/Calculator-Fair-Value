@@ -2259,22 +2259,14 @@ def get_analyst_data(ticker_symbol: str, base_eps: float = None, q_history: dict
                     
                     target_base = base_eps
                     # If this is not the first year, we might want to use the previous projection as base
-                    # But for now, let's just fix the 2026/2027 vs 2025 first.
                     
-                    if is_year_label and target_base and target_base > 0 and avg_val > 0:
+                    if avg_val > 0 and target_base and target_base > 0:
+                        # Use moving base for consecutive years (2027 vs 2026)
+                        if "2027" in label or "+1Y" in label:
+                            prev = next((x for x in eps_estimates if "2026" in x['period'] or "0Y" in x['period']), None)
+                            if prev: target_base = prev['avg']
                         growth_val = (avg_val - target_base) / target_base
-                        # If the label implies a 1-year gap, use it as is. 
-                        # If it's the second year (+1y), we should compare it to the first estimate
-                        # However, for simplicity and to match the user's manual calculation:
-                        if "+1Y" in lbl.upper() or "+2Y" in lbl.upper() or "2027" in label:
-                             # Find the previous estimate in our already processed list
-                             prev = next((x for x in eps_estimates if "2026" in x['period'] or "0Y" in x['period']), None)
-                             if prev: target_base = prev['avg']
-                             growth_val = (avg_val - target_base) / target_base
                     
-                    with open(r"c:\Users\Snoozie\Downloads\sync_debug.log", "a") as f_log:
-                        f_log.write(f"[{ticker_symbol}] {label}: {avg_val} (Base used: {target_base}) -> {growth_val}\n")
-                        
                     eps_estimates.append({
                         "period": label,
                         "avg": avg_val,
@@ -2307,10 +2299,22 @@ def get_analyst_data(ticker_symbol: str, base_eps: float = None, q_history: dict
                      label = f"FY {date_val}" if date_val else "N/A"
                      avg_val = safe_nasdaq_float(y_row.get('consensusEPSForecast'))
                      if avg_val is not None:
+                         avg_val = round(avg_val, 2)
+                         # SYNC: Recalculate growth rates against our actual Non-GAAP base
+                         growth_val = None
+                         target_base = base_eps
+                         if avg_val > 0 and target_base and target_base > 0:
+                             # Use moving base for consecutive years (2027 vs 2026)
+                             if "2027" in label or "+1y" in f"+{i}y":
+                                 prev = next((x for x in eps_estimates if "2026" in x['period']), None)
+                                 if prev: target_base = prev['avg']
+                             growth_val = (avg_val - target_base) / target_base
+                             
                          eps_estimates.append({
                              "period": label,
                              "period_code": f"+{i}y",
-                             "avg": round(avg_val, 2),
+                             "avg": avg_val,
+                             "growth": growth_val,
                              "status": "estimate"
                          })
             except: pass
