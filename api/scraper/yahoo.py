@@ -189,29 +189,32 @@ def get_nasdaq_comprehensive_estimates(ticker: str) -> dict:
 def get_nasdaq_historical_eps(ticker: str) -> list:
     """Fetch quarterly Adjusted (Non-GAAP) EPS from Nasdaq Surprise API."""
     try:
-        url = f"https://api.nasdaq.com/api/company/{ticker}/earnings-surprise"
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-            'Accept': 'application/json, text/plain, */*',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Origin': 'https://www.nasdaq.com',
-            'Referer': f'https://www.nasdaq.com/market-activity/stocks/{ticker.lower()}/earnings'
-        }
+        url = f"https://api.nasdaq.com/api/company/{ticker.upper()}/earnings-surprise"
+        headers = {'User-Agent': get_random_agent(), 'Accept': 'application/json'}
         resp = requests.get(url, headers=headers, timeout=5)
         if resp.status_code == 200:
             data = resp.json()
-            chart = data.get('data', {}).get('chart', [])
+            rows = data.get('data', {}).get('earningsSurpriseTable', {}).get('rows', [])
             result = []
-            for item in chart:
+            for row in rows:
                 try:
-                    # 'x' is timestamp in seconds, 'y' is actual EPS
-                    dt = datetime.datetime.fromtimestamp(int(item['x']), tz=datetime.timezone.utc)
-                    eps = float(item['y'])
-                    result.append({"date": dt, "eps": eps})
+                    # fiscalQtrEnd example: 'Nov 2025'
+                    # dateReported example: '12/10/2025'
+                    dt_str = row.get('dateReported')
+                    if not dt_str: continue
+                    dt = datetime.datetime.strptime(dt_str, '%m/%d/%Y')
+                    
+                    # 'eps' field in surprise table is the Reported Actual
+                    val = row.get('eps') or row.get('actualEPS')
+                    if val:
+                        # Clean currency and commas
+                        clean_val = str(val).replace('$', '').replace(',', '').strip()
+                        eps = float(clean_val)
+                        result.append({"date": dt, "eps": eps})
                 except: continue
             return result
     except Exception as e:
-        print(f"Error fetching Nasdaq Historical Adj EPS for {ticker}: {e}")
+        log(f"Error fetching Nasdaq Historical Adj EPS for {ticker}: {e}")
     return []
 
 def safe_nasdaq_float(val):
@@ -1248,10 +1251,22 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     adj_dt = dt_obj - datetime.timedelta(days=65)
                     ey = adj_dt.year if adj_dt.month <= fy_end_month else adj_dt.year + 1
                     yr_key = str(ey)
-                    dt_key = dt_obj.strftime('%Y-%m-%d')
+                    
                     if yr_key not in raw_data_map: raw_data_map[yr_key] = {}
-                    # Prioritize newer or non-zero values if collision
-                    if dt_key not in raw_data_map[yr_key] or abs(eps_val) > abs(raw_data_map[yr_key][dt_key]):
+                    
+                    # Deduplication logic: If a record exists within 20 days, it's the same quarter
+                    found_duplicate = False
+                    for existing_dt_str in raw_data_map[yr_key].keys():
+                        existing_dt = datetime.datetime.strptime(existing_dt_str, '%Y-%m-%d')
+                        if abs((dt_obj - existing_dt).days) <= 20:
+                            # Keep the one with larger absolute value (usually more accurate/non-zero)
+                            if abs(eps_val) > abs(raw_data_map[yr_key][existing_dt_str]):
+                                raw_data_map[yr_key][existing_dt_str] = float(eps_val)
+                            found_duplicate = True
+                            break
+                    
+                    if not found_duplicate:
+                        dt_key = dt_obj.strftime('%Y-%m-%d')
                         raw_data_map[yr_key][dt_key] = float(eps_val)
                 except: pass
 
@@ -1273,6 +1288,18 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 nq_hist = get_nasdaq_historical_eps(ticker_symbol)
                 for entry in nq_hist:
                     add_to_map(entry['date'], entry['eps'])
+            except: pass
+
+            # 3. Source C: yfinance earnings_history (High Priority - "Analysis" tab chart)
+            try:
+                eh = stock.earnings_history
+                if eh is not None and not eh.empty:
+                    for idx, row in eh.iterrows():
+                        val = row.get('epsActual')
+                        if val is not None and not _pd.isna(val):
+                            # The index 'quarter' might be datetime or string
+                            dt = _pd.to_datetime(idx).tz_localize(None)
+                            add_to_map(dt, val)
             except: pass
 
             # 3. Consolidation with Scaling
