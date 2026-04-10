@@ -1321,7 +1321,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     get_metric(financials, 'Diluted Average Shares', yr_col) or \
                     get_metric(bs, 'Ordinary Shares Number', yr_col)
                 
-                # --- NON-GAAP OVERLAY (v71: Force Aggregation) ---
+                # --- NON-GAAP OVERLAY (v77: Global Standardization) ---
                 if year_label in adjusted_history:
                     adj_val = adjusted_history[year_label]
                     
@@ -1336,35 +1336,24 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     margin_adj = (implied_ni / (r * fx_rate)) if (r and r > 0) else 0
                     margin_gaap = (ni / r) if (r and r > 0) else 0
                     
-                    # v75: Aggressive Aggregate Fallback (Using Quarterly Financials if sum of quarters is missing)
                     is_recent = (year_label == str(datetime.datetime.now().year - 1)) or (year_label == str(datetime.datetime.now().year))
                     
-                    # If adj_val seems too low for an annual figure (e.g. Meta $4.21), try to force recalculation from quarterly_financials
-                    if is_recent and abs(adj_val) < 8.0 and ticker_symbol.upper() == "META":
-                         try:
-                             qf = stock.quarterly_financials
-                             if qf is not None and not qf.empty:
-                                 # Sum the Diluted EPS for the 4 quarters of 2025
-                                 eps_idx = find_idx(qf, 'Diluted EPS')
-                                 if eps_idx:
-                                     # Filter columns that belong to the year_label
-                                     y_cols = [c for c in qf.columns if str(c)[:4] == year_label]
-                                     if len(y_cols) >= 3: # If we have 3 or 4 quarters recorded
-                                         q_sum = qf.loc[eps_idx, y_cols].sum()
-                                         print(f"DEBUG: Recovered {ticker_symbol} EPS from Quarterly Financials: {q_sum}")
-                                         adj_val = q_sum
-                         except: pass
-
-                    if is_recent and e != 0 and abs(adj_val) > abs(e * 1.5):
+                    if is_recent and e != 0 and abs(adj_val) > abs(e * 1.05):
+                        # Force Adjusted if significant difference and recent
                         print(f"DEBUG: FORCING Adjusted {adj_val} over GAAP {e} for {year_label}")
                         e = adj_val
                         if shares_calc > 0: ni = e * shares_calc
+                    elif is_recent and (not e or e == 0) and abs(adj_val) > 0.01:
+                        # Fallback if GAAP is missing
+                        e = adj_val
+                        if shares_calc > 0: ni = e * shares_calc
                     elif r > 1e9 and e != 0 and abs(margin_gaap) > 0.05 and (margin_adj < (margin_gaap * 0.1) or margin_adj > (margin_gaap * 10)):
-                        print(f"DEBUG: REJECTING Adjusted {adj_val} for {year_label}")
+                        print(f"DEBUG: REJECTING Adjusted {adj_val} due to extreme margin mismatch")
                     else:
                         if abs(adj_val) > 0.01:
                             e = adj_val
                             if shares_calc > 0: ni = e * shares_calc
+                
                 # REPAIR Logic (v63) Fallback
                 elif (not e or e == 0) and ni != 0:
                     s_calc = get_metric(financials, 'Basic Average Shares', yr_col) or \
