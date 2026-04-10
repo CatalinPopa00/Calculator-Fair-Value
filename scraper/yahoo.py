@@ -197,19 +197,22 @@ def get_nasdaq_historical_eps(ticker: str) -> list:
         resp = requests.get(url, headers=headers, timeout=5)
         if resp.status_code == 200:
             data = resp.json()
-            chart = data.get('data', {}).get('chart', [])
+            rows = data.get('data', {}).get('earningsSurpriseTable', {}).get('rows', [])
             result = []
-            for item in chart:
+            for row in rows:
                 try:
-                    # 'x' is timestamp in seconds, 'y' is actual EPS
-                    dt = datetime.datetime.fromtimestamp(int(item['x']), tz=datetime.timezone.utc)
-                    eps = float(item['y'])
-                    result.append({"date": dt, "eps": eps})
+                    # dateReported is often 'MM/DD/YYYY'
+                    date_str = row.get('dateReported')
+                    eps = safe_nasdaq_float(row.get('eps'))
+                    if date_str and eps is not None:
+                        dt = datetime.datetime.strptime(date_str, '%m/%d/%Y')
+                        result.append({"date": dt, "eps": eps})
                 except: continue
             return result
     except Exception as e:
         print(f"Error fetching Nasdaq Historical Adj EPS for {ticker}: {e}")
     return []
+
 
 def safe_nasdaq_float(val):
     if val is None or str(val).strip() == "" or str(val).upper() == "N/A": 
