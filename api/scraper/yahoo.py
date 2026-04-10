@@ -2205,7 +2205,7 @@ def get_market_averages():
         print(f"Error fetching SPY market average: {e}")
         return {"trailing_pe": 20.0, "forward_pe": 18.0}
 
-def get_analyst_data(ticker_symbol: str) -> dict:
+def get_analyst_data(ticker_symbol: str, base_eps: float = None) -> dict:
     """
     Fetches analyst estimates data:
     - Price targets (low / average / high / current)
@@ -2245,10 +2245,19 @@ def get_analyst_data(ticker_symbol: str) -> dict:
                 for idx, row in e_est.iterrows():
                     lbl = str(idx)
                     label = labels.get(lbl, lbl)
+                    avg_val = round(float(row.get('avg', 0)), 2)
+                    growth_val = float(row.get('growth', 0)) if row.get('growth') else None
+                    
+                    # SYNC: Recalculate first projection year growth against our actual Non-GAAP base
+                    # This prevents the "Lower EPS but 20% Growth" paradox in tech stocks like META
+                    is_current_target = any(x in label.upper() for x in ['CURRENT YEAR', 'FY 2026', 'FY 2025'])
+                    if is_current_target and base_eps and base_eps > 0 and avg_val > 0:
+                        growth_val = (avg_val - base_eps) / base_eps
+                    
                     eps_estimates.append({
                         "period": label,
-                        "avg": round(float(row.get('avg', 0)), 2),
-                        "growth": float(row.get('growth', 0)) if row.get('growth') else None,
+                        "avg": avg_val,
+                        "growth": growth_val,
                         "status": "estimate"
                     })
             

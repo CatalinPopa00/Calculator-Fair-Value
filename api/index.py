@@ -114,7 +114,10 @@ def get_analyst(ticker: str, response: Response):
     cache_key = f"analyst_v2_{ticker_upper}_{CACHE_VERSION}"
     if cache_key in valuation_cache:
         return valuation_cache[cache_key]
-    result = get_analyst_data(ticker_upper)
+    # SYNC: Get company data (cached) to have the actual Non-GAAP base for growth calcs
+    c_data = get_company_data(ticker_upper, fast_mode=True)
+    base_eps = c_data.get('adjusted_eps')
+    result = get_analyst_data(ticker_upper, base_eps=base_eps)
     valuation_cache[cache_key] = result
     return result
 
