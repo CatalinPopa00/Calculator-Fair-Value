@@ -1214,86 +1214,71 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         }
         
         # --- PHASE 0: PRE-CALCULATE NON-GAAP (ADJUSTED) EPS HISTORY ---
+        # v87: Hyper-Robust Unified Aggregation (YF + Nasdaq)
         adjusted_history = {}
         try:
             import pandas as _pd
+            raw_data_map = {} # {year_str: {date_str: val}}
             
-            # Use YF earnings dates for up to 6 years of historical non-GAAP (Adjusted) EPS 
-            # This is 100% reliable and matches the analyst estimates context perfectly.
-            try:
-                ed = stock.get_earnings_dates(limit=24)
-            except Exception:
-                ed = None
-                
-            # v85: Ultra-Robust Aggregation
-            if ed is not None and not ed.empty:
-                # Identify the data column (many Yahoo variants)
-                c_opts = [c for c in ed.columns if any(x in c for x in ['Reported', 'Actual', 'EPS', 'Earnings'])]
-                col_name = c_opts[0] if c_opts else 'Reported EPS'
-                
-                if col_name in ed.columns:
-                    for idx, row in ed.iterrows():
-                        val = row.get(col_name)
-                        if val is not None and not _pd.isna(val):
-                            # Robust Date handling
-                            try:
-                                ts = pd.to_datetime(idx).tz_localize(None)
-                                # v86: Robust Date handling using datetime.timedelta
-                                adjusted_date = ts - datetime.timedelta(days=65)
-                                # Meta (FY End 12): Nov 2025 -> 2025. Feb 2026 -> 2025.
-                                ey = adjusted_date.year if adjusted_date.month <= fy_end_month else adjusted_date.year + 1
-                                key = str(ey)
-                                if key not in adjusted_history: adjusted_history[key] = {}
-                                date_key = ts.strftime('%Y-%m-%d')
-                                adjusted_history[key][date_key] = float(val)
-                            except: continue
-
-                # Consolidate
-                final_adj_history = {}
-                now = datetime.datetime.now()
-                for ey, quarters_dict in adjusted_history.items():
-                    try:
-                        vals = list(quarters_dict.values())
-                        count = len(vals)
-                        total = sum(vals)
-                        if count >= 4:
-                            final_adj_history[ey] = total
-                        elif count >= 1 and int(ey) >= (now.year - 1):
-                            final_adj_history[ey] = (total / count) * 4.0
-                        else:
-                            final_adj_history[ey] = total
-                    except: pass
-                adjusted_history = final_adj_history
-                
-            # If yf fails or returns nothing, fallback to Finnhub or Nasdaq if available...
-            if not adjusted_history:
-                nq_hist = get_nasdaq_historical_eps(ticker_symbol)
-                temp_hist = {}
-                for entry in nq_hist:
-                    dt = entry['date']
-                    val = entry['eps']
-                    # Use provided fy_end_month with robust year mapping
-                    adj_dt = dt - datetime.timedelta(days=65)
+            def add_to_map(dt_obj, eps_val):
+                try:
+                    # v87: Robust Date offset to map report date to fiscal year
+                    adj_dt = dt_obj - datetime.timedelta(days=65)
                     ey = adj_dt.year if adj_dt.month <= fy_end_month else adj_dt.year + 1
-                    key = str(ey)
-                    if key not in temp_hist: temp_hist[key] = []
-                    temp_hist[key].append(val)
-                
-                # Apply scaling logic to Nasdaq fallback as well
-                curr_y = datetime.datetime.now().year
-                for ey, quarters in temp_hist.items():
-                    try:
-                        ey_int = int(ey)
-                        if len(quarters) >= 3 or (len(quarters) >= 1 and ey_int >= (curr_y - 1)):
-                            adjusted_history[ey] = sum(quarters) * (4.0 / len(quarters))
-                    except: pass
-            # Final check: If a year in adjusted_history only has e.g. 1-2 quarters, it might be partial.
-            # But the surprise chart usually has full years for history.
+                    yr_key = str(ey)
+                    dt_key = dt_obj.strftime('%Y-%m-%d')
+                    if yr_key not in raw_data_map: raw_data_map[yr_key] = {}
+                    # Prioritize newer or non-zero values if collision
+                    if dt_key not in raw_data_map[yr_key] or abs(eps_val) > abs(raw_data_map[yr_key][dt_key]):
+                        raw_data_map[yr_key][dt_key] = float(eps_val)
+                except: pass
+
+            # 1. Source A: Yfinance Earnings Dates
             try:
-                rounded_hist = {k: round(v, 2) for k, v in adjusted_history.items()}
-                print(f"DEBUG: Consolidated Non-GAAP History for {ticker_symbol}: {rounded_hist}")
-            except:
-                pass
+                ed = stock.get_earnings_dates(limit=32) # Increased limit
+                if ed is not None and not ed.empty:
+                    c_opts = [c for c in ed.columns if any(x in c for x in ['Reported', 'Actual', 'EPS', 'Earnings'])]
+                    col_name = c_opts[0] if c_opts else 'Reported EPS'
+                    if col_name in ed.columns:
+                        for idx, row in ed.iterrows():
+                            val = row.get(col_name)
+                            if val is not None and not _pd.isna(val):
+                                add_to_map(_pd.to_datetime(idx).tz_localize(None), val)
+            except: pass
+
+            # 2. Source B: Nasdaq Surprise API (Often more reliable for Non-GAAP)
+            try:
+                nq_hist = get_nasdaq_historical_eps(ticker_symbol)
+                for entry in nq_hist:
+                    add_to_map(entry['date'], entry['eps'])
+            except: pass
+
+            # 3. Consolidation with Scaling
+            now = datetime.datetime.now()
+            curr_y = now.year
+            for ey, quarters_dict in raw_data_map.items():
+                vals = list(quarters_dict.values())
+                if not vals: continue
+                
+                count = len(vals)
+                total = sum(vals)
+                ey_int = int(ey)
+                
+                # Rule: If we have 4 qtrs, it's a full year. 
+                # If we have 1-3 qtrs for the current or bridge year, scale it to 4.
+                if count >= 4:
+                    adjusted_history[ey] = total
+                elif count >= 1 and ey_int >= (curr_y - 1):
+                    # Robust Scaling for recent/partial years
+                    adjusted_history[ey] = (total / count) * 4.0
+                else:
+                    # Historical years must have at least 3 qtrs to be valid, otherwise use raw sum
+                    adjusted_history[ey] = total if count >= 3 else 0
+
+            # Debug Log
+            rounded_hist = {k: round(v, 2) for k, v in adjusted_history.items() if v != 0}
+            print(f"DEBUG: Consolidated Non-GAAP History for {ticker_symbol}: {rounded_hist}")
+            
         except Exception as e:
             print(f"DEBUG: Non-GAAP Aggregation fail: {e}")
 
@@ -1324,7 +1309,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     get_metric(financials, 'Diluted Average Shares', yr_col) or \
                     get_metric(bs, 'Ordinary Shares Number', yr_col)
                 
-                # --- NON-GAAP OVERLAY (v80: Global Standardization) ---
+                # --- NON-GAAP OVERLAY (v87: Universal Force for Recent History) ---
                 if year_label in adjusted_history:
                     adj_val = adjusted_history[year_label]
                     
@@ -1339,20 +1324,22 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     margin_adj = (implied_ni / (r * fx_rate)) if (r and r > 0) else 0
                     margin_gaap = (ni / r) if (r and r > 0) else 0
                     
-                    is_recent = (year_label == str(datetime.datetime.now().year - 1)) or (year_label == str(datetime.datetime.now().year))
+                    # v87: Extend Force logic to the last 3 fiscal years to ensure data consistency
+                    is_recent_history = int(year_label) >= (datetime.datetime.now().year - 3)
                     
-                    if is_recent and e != 0 and abs(adj_val) > abs(e * 1.05):
-                        # Force Adjusted if significant difference and recent
+                    if is_recent_history and abs(adj_val) > abs(e * 1.02) and adj_val != 0:
+                        # Force Adjusted if difference > 2% and it's recent history
                         print(f"DEBUG: FORCING Adjusted {adj_val} over GAAP {e} for {year_label}")
                         e = adj_val
                         if shares_calc > 0: ni = e * shares_calc
-                    elif is_recent and (not e or e == 0) and abs(adj_val) > 0.01:
+                    elif is_recent_history and (not e or e == 0) and abs(adj_val) > 0.01:
                         # Fallback if GAAP is missing
                         e = adj_val
                         if shares_calc > 0: ni = e * shares_calc
                     elif r > 1e9 and e != 0 and abs(margin_gaap) > 0.05 and (margin_adj < (margin_gaap * 0.1) or margin_adj > (margin_gaap * 10)):
                         print(f"DEBUG: REJECTING Adjusted {adj_val} due to extreme margin mismatch")
                     else:
+                        # Standard Force if adj_val is non-zero
                         if abs(adj_val) > 0.01:
                             e = adj_val
                             if shares_calc > 0: ni = e * shares_calc
