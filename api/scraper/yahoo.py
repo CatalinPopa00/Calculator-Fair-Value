@@ -1406,6 +1406,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     get_metric(financials, 'Diluted Average Shares', yr_col) or \
                     get_metric(bs, 'Ordinary Shares Number', yr_col)
                 
+                ni_gaap = ni # v128: Initialize for all tickers to avoid UnboundLocalError
+                
                 # --- NON-GAAP OVERLAY (v87: Universal Force for Recent History) ---
                 if year_label in adjusted_history:
                     adj_val = adjusted_history[year_label]
@@ -1433,7 +1435,6 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     
                     significant_diff = (abs(adj_val - e) > 0.05 or abs(adj_val) > abs(e * 1.10)) and adj_val != 0
                     
-                    ni_gaap = ni  # v126: Store raw GAAP NI before force
                     if is_tech and significant_diff:
                         # Tech stocks: Favor the analyst consensus (Non-GAAP)
                         log(f"DEBUG: Tech Sector - Prioritizing Non-GAAP for {ticker_symbol} {year_label}")

@@ -302,9 +302,12 @@ def calculate_piotroski_score(metrics):
     
     # F3 Metrics
     # Use Net Margin from anchors as ROA proxy if ROA missing for delta
-    # v126: Prioritize Forensic GAAP Margin for scoring honesty
-    nm_cur = safe_float(anchor_cur.get("gaap_net_margin") or anchor_cur.get("net_margin") or anchor_cur.get("net_margin_pct"))
-    nm_pri = safe_float(anchor_pri.get("gaap_net_margin") or anchor_pri.get("net_margin") or anchor_pri.get("net_margin_pct"))
+    # v127: Robust extraction of both Adjusted and Forensic GAAP margins
+    anchor_cur_margin = anchor_cur.get("net_margin") or anchor_cur.get("gaap_net_margin") or anchor_cur.get("net_margin_pct")
+    anchor_pri_margin = anchor_pri.get("net_margin") or anchor_pri.get("gaap_net_margin") or anchor_pri.get("net_margin_pct")
+    
+    nm_cur = safe_float(anchor_cur_margin)
+    nm_pri = safe_float(anchor_pri_margin)
     
     roa_pri = safe_float(anchor_pri.get("roa")) or nm_pri # Fallback to Net Margin proxy
     roa_cur_final = roa_cur if roa_cur is not None else nm_cur
