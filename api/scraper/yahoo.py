@@ -2811,6 +2811,8 @@ def get_analyst_data(stock, ticker_symbol, info, history_eps, history_rev, fx_ra
             if current_fy_num < (datetime.datetime.now().year - 1):
         except Exception as he:
             log(f"[Analyst] History mapping error: {he}")
+            # v141: Critical Stability Fallback
+            current_fy_num = now_dt.year + (1 if now_dt.month > fy_end_month else 0)
 
         # ── FINAL ASSEMBLY (6-Row Standard) ────────────────────────────────────
         current_year_str = str(current_fy_num)
