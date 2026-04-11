@@ -2264,7 +2264,7 @@ def get_market_averages():
         print(f"Error fetching SPY market average: {e}")
         return {"trailing_pe": 20.0, "forward_pe": 18.0}
 
-def get_analyst_data(stock, ticker_symbol, info, history_eps, history_rev, fx_rate, historical_data=None):
+def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, history_rev=None, fx_rate=None, historical_data=None, **kwargs):
     """
     Fetches analyst estimates data:
     - Price targets (low / average / high / current)
@@ -2274,10 +2274,28 @@ def get_analyst_data(stock, ticker_symbol, info, history_eps, history_rev, fx_ra
     - EPS history (actual vs estimate, last 4 quarters)
     """
     try:
-        stock = yf.Ticker(ticker_symbol)
-        info  = stock.info
-        fx_rate = get_fx_rate(info)
+        # v147 Robustness: Handle both Ticker objects and ticker strings
+        if isinstance(stock, str):
+            ticker_symbol = stock.upper()
+            stock = yf.Ticker(ticker_symbol)
+            
+        if not ticker_symbol and hasattr(stock, 'ticker'):
+            ticker_symbol = stock.ticker
+            
+        if info is None:
+            try: info = stock.info
+            except: info = {}
+            
+        if fx_rate is None:
+            fx_rate = get_fx_rate(info)
+            
         labels = get_period_labels(info)
+        
+        # Merge keyword-passed history if needed (v147 Sync)
+        if not history_eps and "q_history" in kwargs:
+            history_eps = kwargs["q_history"]
+        if not historical_data and "base_eps" in kwargs:
+            historical_data = {"eps": [kwargs["base_eps"]]}
         
         # Determine Fiscal Year Logic early (v146: Pure Detection)
         fy_end_month = 12
@@ -2691,18 +2709,6 @@ def get_analyst_data(stock, ticker_symbol, info, history_eps, history_rev, fx_ra
                         period_lbl = labels.get(p_code, p_code)
                         if existing:
                             if not existing.get('avg'): existing['avg'] = avg_val
-                            # v123: Consistent Adjusted Margin Calculation
-                            # Rule: If we have high-precision EPS (adjusted_history), use it to derive Adjusted Net Margin
-                            # Formula: (EPS * Shares) / Revenue
-                            shares_val = info.get('sharesOutstanding') or data.get('shares_outstanding') or 1
-                            for ey, eps_val in adjusted_history.items():
-                                if ey in result:
-                                    rev_val = result[ey].get("revenue", 0)
-                                    if rev_val > 0:
-                                        adj_ni = eps_val * shares_val
-                                        # Limit margin to 100% just in case of share count anomalies
-                                        result[ey]["net_margin"] = min(adj_ni / rev_val, 0.999)
-                                        log(f"DEBUG: v123 Adjusted Margin for {ey}: {result[ey]['net_margin']:.4f} (EPS: {eps_val})")
                             if existing.get('period') in ['Current Qtr', 'Next Qtr']: existing['period'] = period_lbl
                         else:
                             eps_estimates.append({"period": period_lbl, "period_code": p_code, "avg": avg_val, "growth": None, "status": "estimate"})
@@ -2784,6 +2790,7 @@ def get_analyst_data(stock, ticker_symbol, info, history_eps, history_rev, fx_ra
             current_fy_num = max_h + 1
             
             if current_fy_num < (datetime.datetime.now().year - 1):
+                current_fy_num = datetime.datetime.now().year
         except Exception as he:
             log(f"[Analyst] History mapping error: {he}")
             # v141: Critical Stability Fallback
