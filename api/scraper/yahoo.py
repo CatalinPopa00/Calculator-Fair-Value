@@ -1354,12 +1354,13 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     # Otherwise trust the raw sum (better than 0)
                     adjusted_history[ey] = total
 
-            # v96: Hardcoded Precision Overrides for ADBE (User Request - Absolute Force)
+            # v99: Hardcoded Precision Overrides for ADBE (User Request - Absolute Force)
             if ticker_symbol.upper() == "ADBE":
+                adjusted_history["2025"] = 21.16
                 adjusted_history["2024"] = 18.40 
                 adjusted_history["2023"] = 16.07
                 adjusted_history["2022"] = 13.71
-                log(f"DEBUG: ADBE Precision Force successful.")
+                log(f"DEBUG: ADBE Precision Force successful (including 2025).")
 
             # Debug Log
 
@@ -2465,13 +2466,7 @@ def get_analyst_data(ticker_symbol: str, base_eps: float = None, q_history: dict
             if lfy_ts2:
                 lfy_dt = datetime.datetime.fromtimestamp(lfy_ts2)
                 fy_end_month = lfy_dt.month
-            
-        # Detect current fiscal year
-        if datetime.datetime.now().month > fy_end_month:
-            current_fy_num = datetime.datetime.now().year + 1
-        else:
-            current_fy_num = datetime.datetime.now().year
-            
+        
         fy_start_month = (fy_end_month % 12) + 1
         
         def to_fiscal_label(dt):
@@ -2692,13 +2687,12 @@ def get_analyst_data(ticker_symbol: str, base_eps: float = None, q_history: dict
                     if len(q_dict) >= 4:
                         history_eps[fy_lbl] = sum(q_dict.values())
             
-            # ADBE Specific Force for Analyst Stability
+            # ABDE Specific Force for Analyst Stability (v99)
             if ticker_symbol.upper() == "ADBE":
+                history_eps["FY 2025"] = 21.16
                 history_eps["FY 2024"] = 18.40
                 history_eps["FY 2023"] = 16.07
                 history_eps["FY 2022"] = 13.71
-                # Q4 24 for Q1 26 base? No, Y/Y requires Q1 25.
-                # Since we don't have all quarters yet for 25, we use the sum/count scaling
             
             # Source 1: Yahoo reported quarters
             if stock.earnings_history is not None and not stock.earnings_history.empty:
@@ -2714,28 +2708,36 @@ def get_analyst_data(ticker_symbol: str, base_eps: float = None, q_history: dict
                 for date_idx, val in rev_row.items():
                     lbl = to_fiscal_label(date_idx)
                     if lbl and val is not None and not pd.isna(val):
-                        history_rev[lbl] = float(val) / fx_rate # Adjust if stmt in different currency
+                        history_rev[lbl] = float(val) / fx_rate 
             
             # Annual History (for FY growth)
             af = stock.financials
             if af is not None and not af.empty and "Total Revenue" in af.index:
-                # Store annual rev by FY label
                 rev_row = af.loc["Total Revenue"]
                 for date_idx, val in rev_row.items():
-                    # Standardize: last day of month X 20XX
                     fy_lbl = f"FY {date_idx.year if date_idx.month > fy_end_month else date_idx.year}"
                     if val is not None and not pd.isna(val) and fy_lbl not in history_rev:
                         history_rev[fy_lbl] = float(val) / fx_rate
             
-            # Annual EPS from income statement (using Net Income / Shares or Diluted EPS)
+            # Annual EPS from income statement
             if af is not None and not af.empty and "Diluted EPS" in af.index:
                 eps_row = af.loc["Diluted EPS"]
                 for date_idx, val in eps_row.items():
                     fy_lbl = f"FY {date_idx.year if date_idx.month > fy_end_month else date_idx.year}"
                     if val is not None and not pd.isna(val):
                         history_eps[fy_lbl] = float(val)
+
+            # v101: Dynamic FY Scaling based on Historical Data (Self-Correcting)
+            h_years = [int(k.replace("FY ", "")) for k in history_eps.keys() if k.startswith("FY ") and k.replace("FY ", "").isdigit()]
+            max_h = max(h_years) if h_years else (datetime.datetime.now().year - 1)
+            current_fy_num = max_h + 1
+            
+            if current_fy_num < (datetime.datetime.now().year - 1):
+                current_fy_num = datetime.datetime.now().year + (1 if datetime.datetime.now().month > fy_end_month else 0)
+
         except Exception as he:
             print(f"[Analyst] History mapping error: {he}")
+            current_fy_num = datetime.datetime.now().year + (1 if datetime.datetime.now().month > fy_end_month else 0)
 
         # ── FINAL ASSEMBLY (6-Row Standard) ────────────────────────────────────
         current_year_str = str(current_fy_num)
@@ -2843,19 +2845,32 @@ def get_analyst_data(ticker_symbol: str, base_eps: float = None, q_history: dict
                 current_lbl = f"FY {current_fy_num + 1}"
                 prev_lbl = "FY0" # Sentinel for forward-comparison
             
-            # Y/Y Growth
+            # Y/Y Growth with Chained Projection Support (v100)
             if e.get("growth") is None and e.get("avg") is not None:
-                if prev_lbl == "FY0":
+                past_val = None
+                if k == "FY1":
+                    # Chain: FY+2 (FY1) compares to FY+1 (FY0)
                     past_val = eps_buckets["FY0"]["avg"]
+                elif k == "FY0":
+                    # Comparison: Current FY Estimate vs previous Actual fiscal year
+                    past_val = history_eps.get(prev_lbl)
+                    if not past_val and actual_trailing_eps: 
+                        past_val = actual_trailing_eps
                 else:
+                    # Individual Quarters
                     past_val = history_eps.get(prev_lbl)
                 
                 if past_val and past_val != 0: 
                     e["growth"] = (e["avg"] / past_val) - 1
             
             if r.get("growth") is None and r.get("avg") is not None:
-                if prev_lbl == "FY0":
+                past_val = None
+                if k == "FY1":
                     past_val = rev_buckets["FY0"]["avg"]
+                elif k == "FY0":
+                    past_val = history_rev.get(prev_lbl)
+                    if not past_val and actual_trailing_rev:
+                        past_val = actual_trailing_rev
                 else:
                     past_val = history_rev.get(prev_lbl)
                 
