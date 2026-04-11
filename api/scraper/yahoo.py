@@ -1354,13 +1354,12 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     # Otherwise trust the raw sum (better than 0)
                     adjusted_history[ey] = total
 
-            # v103: Hardcoded Precision Overrides for ADBE (Master Non-GAAP Sync)
-            if ticker_symbol.upper() == "ADBE":
-                adjusted_history["2025"] = 19.14
-                adjusted_history["2024"] = 18.40 
-                adjusted_history["2023"] = 16.07
-                adjusted_history["2022"] = 13.71
-                log(f"DEBUG: ADBE v103 Precision Force successful.")
+            # v105: UNIVERSAL NON-GAAP PRECISION ENGINE (Dynamic Override)
+            # Rule: If Technology/Communication sector and we have higher aggregated quarters, prioritize them.
+            is_tech = any(x in str(info.get('sector', '')).lower() for x in ['tech', 'comm', 'software'])
+            
+            # Debug: Log the found history before processing
+            if is_tech: log(f"DEBUG: Tech Sector detected. Activating Universal Non-GAAP Priority Engine.")
 
             # Debug Log
 
@@ -2687,12 +2686,17 @@ def get_analyst_data(ticker_symbol: str, base_eps: float = None, q_history: dict
                     if len(q_dict) >= 4:
                         history_eps[fy_lbl] = sum(q_dict.values())
             
-            # ABDE Specific Force for Analyst Stability (v103 Master Sync)
-            if ticker_symbol.upper() == "ADBE":
-                history_eps["FY 2025"] = 19.14
-                history_eps["FY 2024"] = 18.40
-                history_eps["FY 2023"] = 16.07
-                history_eps["FY 2022"] = 13.71
+            # v105: Universal History Sync (Dynamic Override)
+            # Check if Step 1 already determined a Non-GAAP preference via adjusted_history logic
+            if q_history:
+                for yr_str, q_dict in q_history.items():
+                    fy_lbl = f"FY {yr_str}"
+                    for dt_key, eps_val in q_dict.items():
+                        dt_obj = datetime.datetime.strptime(dt_key, '%Y-%m-%d')
+                        q_lbl = to_fiscal_label(dt_obj)
+                        if q_lbl: history_eps[q_lbl] = float(eps_val)
+                    if len(q_dict) >= 4:
+                        history_eps[fy_lbl] = sum(q_dict.values())
             
             # Source 1: Yahoo reported quarters
             if stock.earnings_history is not None and not stock.earnings_history.empty:
@@ -2891,14 +2895,17 @@ def get_analyst_data(ticker_symbol: str, base_eps: float = None, q_history: dict
             
             e["period"] = current_lbl; r["period"] = current_lbl
             
-            # v103: FINAL ADBE ANALYST FORCE (Master Non-GAAP Sync)
-            if ticker_symbol.upper() == "ADBE":
-                if current_lbl == "Q1 2026": e["avg"] = 4.85
-                if current_lbl == "Q2 2026": e["avg"] = 5.00
-                if current_lbl == "Q3 2026": e["avg"] = 5.25
-                if current_lbl == "Q4 2026": e["avg"] = 5.93
-                if current_lbl == "FY 2026": e["avg"] = 21.03; e["growth"] = (21.03 / 19.14) - 1
-                if current_lbl == "FY 2027": e["avg"] = 23.85; e["growth"] = (23.85 / 21.03) - 1
+            e["period"] = current_lbl; r["period"] = current_lbl
+            
+            # v105: Universal Sanity Force (If FY annual is lower than QSum for tech, it's stale GAAP)
+            if any(x in str(info.get('sector', '')).lower() for x in ['tech', 'comm', 'software']):
+                if k.startswith("FY") and e.get("avg"):
+                     # Double check if any quarters were found that sum higher
+                     q_keys = ["Q1", "Q2", "Q3", "Q4"]
+                     q_sum = sum(eps_buckets[q]["avg"] for q in q_keys if eps_buckets[q].get("avg"))
+                     if q_sum > (e["avg"] * 1.05):
+                         log(f"DEBUG: Universal Sync - Overriding annual {e['avg']} with QSum {q_sum}")
+                         e["avg"] = q_sum
             
             unified_eps.append(e); unified_rev.append(r)
 
