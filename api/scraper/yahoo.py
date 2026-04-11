@@ -190,27 +190,35 @@ def get_nasdaq_historical_eps(ticker: str) -> list:
     """Fetch quarterly Adjusted (Non-GAAP) EPS from Nasdaq Surprise API."""
     try:
         url = f"https://api.nasdaq.com/api/company/{ticker.upper()}/earnings-surprise"
-        headers = {'User-Agent': get_random_agent(), 'Accept': 'application/json'}
-        resp = requests.get(url, headers=headers, timeout=5)
+        # v92: Enhanced headers for deeper penetration
+        headers = {
+            'User-Agent': get_random_agent(),
+            'Accept': 'application/json, text/plain, */*',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Origin': 'https://www.nasdaq.com',
+            'Referer': 'https://www.nasdaq.com/'
+        }
+        resp = requests.get(url, headers=headers, timeout=10)
         if resp.status_code == 200:
             data = resp.json()
             rows = data.get('data', {}).get('earningsSurpriseTable', {}).get('rows', [])
             result = []
+            now = datetime.datetime.now()
             for row in rows:
                 try:
-                    # fiscalQtrEnd example: 'Nov 2025'
-                    # dateReported example: '12/10/2025'
                     dt_str = row.get('dateReported')
                     if not dt_str: continue
                     dt = datetime.datetime.strptime(dt_str, '%m/%d/%Y')
                     
-                    # 'eps' field in surprise table is the Reported Actual
+                    # Skip future dates (estimates) in the surprise table
+                    if dt > now + datetime.timedelta(days=1): continue
+                    
                     val = row.get('eps') or row.get('actualEPS')
-                    if val:
-                        # Clean currency and commas
+                    if val is not None:
                         clean_val = str(val).replace('$', '').replace(',', '').strip()
-                        eps = float(clean_val)
-                        result.append({"date": dt, "eps": eps})
+                        if clean_val and clean_val.upper() != "N/A":
+                            eps = float(clean_val)
+                            result.append({"date": dt, "eps": eps})
                 except: continue
             return result
     except Exception as e:
@@ -1247,6 +1255,17 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             import pandas as _pd
             raw_data_map = {} # {year_str: {date_str: val}}
             
+            # v92: Determine Fiscal Year End Month for correct mapping (e.g. ADBE=11)
+            fy_end_month = 12
+            try:
+                fye = info.get('fiscalYearEndMonth')
+                if fye: fy_end_month = int(fye)
+                else:
+                    last_fye = info.get('lastFiscalYearEnd')
+                    if last_fye:
+                        fy_end_month = datetime.datetime.fromtimestamp(last_fye).month
+            except: pass
+
             def add_to_map(dt_obj, eps_val):
                 try:
                     # v87: Robust Date offset to map report date to fiscal year
@@ -1304,27 +1323,31 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                             add_to_map(dt, val)
             except: pass
 
-            # 3. Consolidation with Scaling
-            now = datetime.datetime.now()
-            curr_y = now.year
-            for ey, quarters_dict in raw_data_map.items():
-                vals = list(quarters_dict.values())
-                if not vals: continue
-                
-                count = len(vals)
-                total = sum(vals)
-                ey_int = int(ey)
-                
-                # Rule: If we have 4 qtrs, it's a full year. 
-                # If we have 1-3 qtrs for recent years, scale it to 4.
-                if count >= 4:
-                    adjusted_history[ey] = total
-                elif count >= 1 and ey_int >= (curr_y - 1):
-                    # Robust Scaling for recent/partial years
-                    adjusted_history[ey] = (total / count) * 4.0
-                else:
-                    # Historical years: if we have at least 2 qtrs, scale it. Otherwise raw sum.
-                    adjusted_history[ey] = (total / count) * 4.0 if count >= 2 else 0
+                # 3. Consolidation with Scaling
+                now = datetime.datetime.now()
+                curr_y = now.year
+                for ey, quarters_dict in raw_data_map.items():
+                    vals = [v for v in quarters_dict.values() if v is not None]
+                    if not vals: continue
+                    
+                    count = len(vals)
+                    total = sum(vals)
+                    ey_int = int(ey)
+                    
+                    # v92: Intelligent Scaling
+                    # If we are missing quarters for a year that should be finished (ey < curr_y),
+                    # we only scale if we have at least 2 quarters and they are consistent.
+                    if count >= 4:
+                        adjusted_history[ey] = total
+                    elif count >= 1 and ey_int >= (curr_y - 1):
+                        # For recent/bridge years, scaling is necessary
+                        adjusted_history[ey] = (total / count) * 4.0
+                    elif count >= 2:
+                        # Historical years: Scale if we have at least 50% data
+                        adjusted_history[ey] = (total / count) * 4.0
+                    else:
+                        # Otherwise trust the raw sum (better than 0)
+                        adjusted_history[ey] = total
 
             # Debug Log
             rounded_hist = {k: round(v, 2) for k, v in adjusted_history.items() if v != 0}
@@ -1379,22 +1402,16 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     margin_adj = (implied_ni / (r * fx_rate)) if (r and r > 0) else 0
                     margin_gaap = (ni / r) if (r and r > 0) else 0
                     
-                    # v87: Extend Force logic to the last 3 fiscal years to ensure data consistency
-                    is_recent_history = int(year_label) >= (datetime.datetime.now().year - 3)
-                    
-                    if is_recent_history and abs(adj_val) > abs(e * 1.02) and adj_val != 0:
-                        # Force Adjusted if difference > 2% and it's recent history
-                        log(f"DEBUG: FORCING Adjusted {adj_val} over GAAP {e} for {year_label}")
-                        e = adj_val
-                        if shares_calc > 0: ni = e * shares_calc
-                    elif is_recent_history and (not e or e == 0) and abs(adj_val) > 0.01:
-                        # Fallback if GAAP is missing
-                        e = adj_val
-                        if shares_calc > 0: ni = e * shares_calc
-                    elif r > 1e9 and e != 0 and abs(margin_gaap) > 0.05 and (margin_adj < (margin_gaap * 0.1) or margin_adj > (margin_gaap * 10)):
-                        log(f"DEBUG: REJECTING Adjusted {adj_val} due to extreme margin mismatch")
-                    else:
-                        # Standard Force if adj_val is non-zero
+                    # v92: Precision Force logic
+                    # We compare adj_val (Non-GAAP sum) with e (GAAP EPS from financials).
+                    # If the difference is significant (>2% or >$0.10) AND it results in a sane margin, we force it.
+                    if (abs(adj_val - e) > 0.05 or abs(adj_val) > abs(e * 1.02)) and adj_val != 0:
+                        # Safety check: avoid forcing if it results in impossible >90% margin for non-software
+                        if margin_adj < 0.90 or info.get('sector') == 'Technology':
+                            log(f"DEBUG: FORCING Non-GAAP EPS for {ticker_symbol} Year {year_label}: {adj_val} vs GAAP {e}")
+                            e = adj_val
+                            if shares_calc > 0: ni = e * shares_calc
+                    elif not e or e == 0:
                         if abs(adj_val) > 0.01:
                             e = adj_val
                             if shares_calc > 0: ni = e * shares_calc
