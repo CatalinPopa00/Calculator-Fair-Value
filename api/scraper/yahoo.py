@@ -1506,92 +1506,60 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     # Analysis tab uses Next Year for first estimate generally
                     fy_code = "0y" if i == 1 else "+1y"
                     
-                    # 1. Adjusted History Priority (Bridge Year)
-                    if str(proj_yr) in adjusted_history:
-                        eps_est = adjusted_history[str(proj_yr)]
+                    # v131: UNIVERSAL ANALYST AGGREGATOR (Multi-Source Validation)
+                    # We compare Nasdaq, Yahoo, and Projections to find the most 'Live' consensus
+                    source_estimates = []
                     
-                    # 2. Nasdaq Priority (v68: Improved Year Alignment)
-                    if eps_est is None:
-                        # Nasdaq sometimes returns Dec 2026 as the first row even when the bridge year is 2025.
-                        # We try to find the matching year in nq_yearly_eps.
-                        match = next((row for row in nq_yearly_eps if str(proj_yr) in str(row.get('fiscalEnd') or '')), None)
-                        if match:
-                            eps_est = safe_nasdaq_float(match.get('consensusEPSForecast'))
-                            if eps_est is not None: eps_est *= fx_rate # v69: Fixed scaling
-                        elif i <= len(nq_yearly_eps):
-                            eps_est = safe_nasdaq_float(nq_yearly_eps[i-1].get('consensusEPSForecast'))
-                            if eps_est is not None: eps_est *= fx_rate # v69: Fixed scaling
+                    # 1. Nasdaq Source
+                    if len(nq_yearly_eps) >= i:
+                        val = safe_nasdaq_float(nq_yearly_eps[i-1].get('consensusEPSForecast'))
+                        if val is not None: source_estimates.append(val * fx_rate)
                     
-                    # 3. Yahoo Fallback (Search by Code and then by Year string)
-                    if eps_est is None:
-                        # Try existing background data first
-                        if ee_data is not None and not ee_data.empty:
-                            if fy_code in ee_data.index:
-                                val = ee_data.loc[fy_code].get('avg')
-                                if val is not None and not pd.isna(val): eps_est = float(val) * fx_rate
-                            
-                            if eps_est is None: # Search for year string in index
-                                for idx_name in ee_data.index:
-                                    if str(proj_yr) in str(idx_name):
-                                        val = ee_data.loc[idx_name].get('avg')
-                                        if val is not None and not pd.isna(val):
-                                            eps_est = float(val) * fx_rate; break
-                            
-                            if eps_est is None and (i-1) < len(ee_data):
-                                val = ee_data.iloc[i-1].get('avg')
-                                if val is not None and not pd.isna(val): eps_est = float(val) * fx_rate
-                        
-                        # Direct synchronous fallback if still None
-                        if eps_est is None:
-                            try:
-                                e_est_sync = getattr(stock, 'earnings_estimate', None)
-                                if e_est_sync is not None and not e_est_sync.empty:
-                                    if fy_code in e_est_sync.index:
-                                        val = e_est_sync.loc[fy_code].get('avg')
-                                        if val is not None and not pd.isna(val): eps_est = float(val) * fx_rate
-                                    if eps_est is None:
-                                        for idx_name in e_est_sync.index:
-                                            if str(proj_yr) in str(idx_name):
-                                                val = e_est_sync.loc[idx_name].get('avg')
-                                                if val is not None and not pd.isna(val):
-                                                    eps_est = float(val) * fx_rate; break
-                            except: pass
+                    # 2. Yahoo Source
+                    y_est = None
+                    if ee_data is not None and not ee_data.empty:
+                        if fy_code in ee_data.index: y_est = float(ee_data.loc[fy_code].get('avg') or 0) * fx_rate
+                    if not y_est:
+                        try:
+                            sync_e = getattr(stock, 'earnings_estimate', None)
+                            if sync_e is not None and not sync_e.empty and fy_code in sync_e.index:
+                                y_est = float(sync_e.loc[fy_code].get('avg') or 0) * fx_rate
+                        except: pass
+                    if y_est: source_estimates.append(y_est)
                     
-                    # 4. Last Resort Fallback to historical (only if still None)
-                    if eps_est is None:
+                    # 3. Decision Logic (v131: Growth Bias for Tech/Software)
+                    if source_estimates:
+                        if any(x in str(info.get('sector', '')).lower() for x in ['tech', 'software', 'comm']):
+                            # For growth names, the high-end or most recent revision is often the truth
+                            eps_est = max(source_estimates)
+                        else:
+                            # For stable names, use the mean of available sources
+                            eps_est = sum(source_estimates) / len(source_estimates)
+                    else:
+                        # Fallback to historical trend
                         eps_est = historical_data["eps"][-1] if historical_data["eps"] else 0
-                    
-                    # --- Revenue Estimate ---
-                    rev_est = historical_data["revenue"][-1] # fallback
-                    
-                    # Nasdaq Priority (New)
+
+                    # --- Revenue Estimate (Unified) ---
+                    rev_est = historical_data["revenue"][-1]
+                    rev_sources = []
                     if len(nq_yearly_rev) >= i:
-                        raw_val = nq_yearly_rev[i-1].get('consensusRevenueForecast', 0)
-                        val = safe_nasdaq_float(raw_val)
-                        if val > 0:
-                            # Nasdaq revenue scaling check
-                            if (historical_data["revenue"][-1] or 0) > 1e6 and val < 10000: val *= 1e9
-                            elif (historical_data["revenue"][-1] or 0) > 1e6 and val < 10000000: val *= 1e6
-                            # CRITICAL: Nasdaq ADR forecasts are already in USD. Do NOT apply fx_rate.
-                            rev_est = val
-                    # Fallback to Yahoo
-                    elif rf_data is not None and not rf_data.empty:
-                        row = None
-                        if fy_code in rf_data.index: row = rf_data.loc[fy_code]
-                        elif (i-1) < len(rf_data): row = rf_data.iloc[i-1]
-                        
-                        if row is not None:
-                            val = row.get('avg') if hasattr(row, 'get') else row.get('Avg')
-                            if val is not None and not pd.isna(val):
-                                val = float(val)
-                                # SCALE CHECK: Yahoo analysis tab usually reports in Billions (e.g. 26.06)
-                                # while financials are absolute (e.g. 26,060,000,000).
-                                if rev_est > 1e6 and val < 10000: # Clearly in Billions
-                                    val *= 1e9
-                                elif rev_est > 1e6 and val < 10000000: # Likely in Millions
-                                    val *= 1e6
-                                rev_est = val * fx_rate
+                        rv = safe_nasdaq_float(nq_yearly_rev[i-1].get('consensusRevenueForecast'))
+                        if rv and rv > 0:
+                             if (historical_data["revenue"][-1] or 0) > 1e6 and rv < 10000: rv *= 1e9
+                             elif (historical_data["revenue"][-1] or 0) > 1e6 and rv < 10000000: rv *= 1e6
+                             rev_sources.append(rv)
                     
+                    if rf_data is not None and not rf_data.empty:
+                         r_row = rf_data.loc[fy_code] if fy_code in rf_data.index else rf_data.iloc[i-1] if (i-1) < len(rf_data) else None
+                         if r_row is not None:
+                             rv = float(r_row.get('avg') or 0)
+                             if rv > 0:
+                                 if (historical_data["revenue"][-1] or 0) > 1e6 and rv < 10000: rv *= 1e9
+                                 elif (historical_data["revenue"][-1] or 0) > 1e6 and rv < 10000000: rv *= 1e6
+                                 rev_sources.append(rv * fx_rate)
+                    
+                    if rev_sources: rev_est = max(rev_sources) if "tech" in str(info.get('sector','')).lower() else (sum(rev_sources)/len(rev_sources))
+
                     # FCF Estimate (Apply historical margin to rev estimate)
                     fcf_est = rev_est * avg_fcf_margin
                     
