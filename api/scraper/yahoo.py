@@ -2279,13 +2279,12 @@ def get_analyst_data(stock, ticker_symbol, info, history_eps, history_rev, fx_ra
         fx_rate = get_fx_rate(info)
         labels = get_period_labels(info)
         
-        # Determine Fiscal Year Logic early (v140)
+        # Determine Fiscal Year Logic early (v146: Pure Detection)
         fy_end_month = 12
         lfy_ts = info.get('lastFiscalYearEnd')
         if lfy_ts:
             try: fy_end_month = datetime.datetime.fromtimestamp(lfy_ts).month
             except: pass
-        elif ticker_symbol.upper() == "ADBE": fy_end_month = 11
         
         # FY+1 Target Calculation
         now_dt = datetime.datetime.now()
