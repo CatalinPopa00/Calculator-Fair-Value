@@ -2897,15 +2897,27 @@ def get_analyst_data(ticker_symbol: str, base_eps: float = None, q_history: dict
             
             e["period"] = current_lbl; r["period"] = current_lbl
             
-            # v105: Universal Sanity Force (If FY annual is lower than QSum for tech, it's stale GAAP)
+            # v106: Universal Sequential Force (Fixes descending estimates anomaly for Tech)
             if any(x in str(info.get('sector', '')).lower() for x in ['tech', 'comm', 'software']):
-                if k.startswith("FY") and e.get("avg"):
-                     # Double check if any quarters were found that sum higher
+                if k == "FY0" and e.get("avg"):
+                     # Rule 1: FY0 must at least be the Sum of Quarters
                      q_keys = ["Q1", "Q2", "Q3", "Q4"]
                      q_sum = sum(eps_buckets[q]["avg"] for q in q_keys if eps_buckets[q].get("avg"))
                      if q_sum > (e["avg"] * 1.05):
-                         log(f"DEBUG: Universal Sync - Overriding annual {e['avg']} with QSum {q_sum}")
+                         log(f"DEBUG: Universal Sync - Overriding FY0 {e['avg']} with QSum {q_sum}")
                          e["avg"] = q_sum
+                
+                if k == "FY1" and e.get("avg"):
+                     # Rule 2: FY1 must be higher than FY0 if growth is positive
+                     fy0_val = eps_buckets["FY0"]["avg"]
+                     if fy0_val and (e["avg"] < fy0_val or e["avg"] < (fy0_val * 1.02)):
+                         # Use estimated growth to project FY1 from the calibrated FY0
+                         g_rate = e.get("growth") or eps_forward_growth or 0.10
+                         if g_rate > 0:
+                             new_fy1 = fy0_val * (1 + g_rate)
+                             log(f"DEBUG: Universal Sync - Sequential Force FY1 from {e['avg']} to {new_fy1:.2f} (Base {fy0_val})")
+                             e["avg"] = round(new_fy1, 2)
+                             e["growth"] = g_rate
             
             unified_eps.append(e); unified_rev.append(r)
 
