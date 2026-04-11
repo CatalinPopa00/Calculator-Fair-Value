@@ -30,7 +30,7 @@ from .models.scoring import calculate_scoring_reform, calculate_piotroski_score
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v121"
+CACHE_VERSION = "v122"
 # 1. Initialize FastAPI App (Systemic Recovery Fix)
 app = FastAPI(title="Fair Value Calculator API")
 
@@ -364,9 +364,8 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 
                 if len(est_growths) >= 2:
                     consensus_growth = sum(est_growths[:2]) / 2.0
-                    log(f"DEBUG: Valuation v121 - Using 2-Year Mean Growth: {consensus_growth:.4f}")
             except Exception as e:
-                log(f"DEBUG: Valuation v121 Growth Mean Error: {str(e)}")
+                pass
 
         if consensus_growth is None:
             consensus_growth = data.get("eps_growth_nasdaq_3y")
