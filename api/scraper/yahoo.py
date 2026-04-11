@@ -2966,69 +2966,26 @@ def get_analyst_data(stock, ticker_symbol, info, history_eps, history_rev, fx_ra
             
             e["period"] = current_lbl; r["period"] = current_lbl
             
-            e["period"] = current_lbl; r["period"] = current_lbl
-            
-            # v130: LIVE PRECISION OVERRIDES FOR TECH LEADERS
-            if ticker_symbol.upper() == "PLTR":
-                if current_lbl == "FY 2026": e["avg"] = 1.32; e["growth"] = (1.32 / 1.05) - 1 # Adjusted base
-                if current_lbl == "FY 2027": e["avg"] = 1.86; e["growth"] = (1.86 / 1.32) - 1
-            
-            # v121: PERMANENT PRECISION OVERRIDE FOR ADBE (Matching Yahoo Analysis Avg)
-            elif ticker_symbol.upper() == "ADBE":
-                if current_lbl == "Q1 2026": e["avg"] = 5.45
-                if current_lbl == "Q2 2026": e["avg"] = 5.75
-                if current_lbl == "Q3 2026": e["avg"] = 5.95
-                if current_lbl == "Q4 2026": e["avg"] = 6.34
-                if current_lbl == "FY 2026": e["avg"] = 23.49; e["growth"] = (23.49 / 20.94) - 1
-                if current_lbl == "FY 2027": e["avg"] = 26.36; e["growth"] = (26.36 / 23.49) - 1
-                
-                # Revenue Sync to Analysis Tab (v121 Corrected)
-                if current_lbl == "FY 2026": r["avg"] = 26.08e9; r["growth"] = (26.08 / 23.77) - 1
-                if current_lbl == "FY 2027": r["avg"] = 28.44e9; r["growth"] = (28.44 / 26.08) - 1
-            
-            # v106: Universal Sequential Force (Fixes descending estimates anomaly for Tech)
-            elif any(x in str(info.get('sector', '')).lower() for x in ['tech', 'comm', 'software']):
-                if k == "FY0" and e.get("avg"):
-                     # Rule 1: FY0 must at least be the Sum of Quarters
-                     q_keys = ["Q1", "Q2", "Q3", "Q4"]
-                     q_sum = sum(eps_buckets[q]["avg"] for q in q_keys if eps_buckets[q].get("avg"))
-                     if q_sum > (e["avg"] * 1.05):
-                         log(f"DEBUG: Universal Sync - Overriding FY0 {e['avg']} with QSum {q_sum}")
-                         e["avg"] = q_sum
-                
-                if k == "FY1" and e.get("avg"):
-                     # Rule 2: FY1 must be higher than FY0 if growth is positive
-                     fy0_val = eps_buckets["FY0"]["avg"]
-                     if fy0_val and (e["avg"] < fy0_val or e["avg"] < (fy0_val * 1.02)):
-                         # Use estimated growth to project FY1 from the calibrated FY0
-                         g_rate = e.get("growth") or 0.10
-                         if g_rate > 0:
-                             new_fy1 = fy0_val * (1 + g_rate)
-                             log(f"DEBUG: Universal Sync - Sequential Force FY1 from {e['avg']} to {new_fy1:.2f} (Base {fy0_val})")
-                             e["avg"] = round(new_fy1, 2)
-                             e["growth"] = g_rate
-            
             unified_eps.append(e); unified_rev.append(r)
-
-        # v134: HARD FORCED GROWTH CHAIN (Universal Recalculation)
-        # Ensure that growth columns strictly match the (Avg / Prev_Avg) - 1 formula
+        # v143: FINAL UNIVERSAL FORENSIC FORCE (Cleaned & Stabilized)
         def force_formula(buckets, hist_data, key_prefix):
             fy0 = buckets.get("FY0")
             fy1 = buckets.get("FY1")
             
-            # FY0 vs Previous Year Actual
+            # FY0 vs Previous Year Actual (e.g. 2026 vs 2025)
             prev_fy_lbl = f"FY {current_fy_num - 1}"
-            past_val = history_eps.get(prev_fy_lbl) if key_prefix == "eps" else history_rev.get(prev_fy_lbl)
+            past_val = hist_data.get(prev_fy_lbl)
             if not past_val and key_prefix == "eps": past_val = actual_trailing_eps
             if not past_val and key_prefix == "rev": past_val = actual_trailing_rev
             
             if fy0 and fy0.get("avg") and past_val and past_val != 0:
                 fy0["growth"] = (fy0["avg"] / past_val) - 1
             
-            # FY1 vs FY0
+            # FY1 vs FY0 (e.g. 2027 vs 2026)
             if fy1 and fy1.get("avg") and fy0 and fy0.get("avg") and fy0["avg"] != 0:
                 fy1["growth"] = (fy1["avg"] / fy0["avg"]) - 1
 
+        # Execute for all companies (Force the Growth Columns)
         force_formula(eps_buckets, history_eps, "eps")
         force_formula(rev_buckets, history_rev, "rev")
 
