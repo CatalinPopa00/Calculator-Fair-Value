@@ -1323,31 +1323,31 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                             add_to_map(dt, val)
             except: pass
 
-                # 3. Consolidation with Scaling
-                now = datetime.datetime.now()
-                curr_y = now.year
-                for ey, quarters_dict in raw_data_map.items():
-                    vals = [v for v in quarters_dict.values() if v is not None]
-                    if not vals: continue
-                    
-                    count = len(vals)
-                    total = sum(vals)
-                    ey_int = int(ey)
-                    
-                    # v92: Intelligent Scaling
-                    # If we are missing quarters for a year that should be finished (ey < curr_y),
-                    # we only scale if we have at least 2 quarters and they are consistent.
-                    if count >= 4:
-                        adjusted_history[ey] = total
-                    elif count >= 1 and ey_int >= (curr_y - 1):
-                        # For recent/bridge years, scaling is necessary
-                        adjusted_history[ey] = (total / count) * 4.0
-                    elif count >= 2:
-                        # Historical years: Scale if we have at least 50% data
-                        adjusted_history[ey] = (total / count) * 4.0
-                    else:
-                        # Otherwise trust the raw sum (better than 0)
-                        adjusted_history[ey] = total
+            # 3. Consolidation with Scaling
+            now = datetime.datetime.now()
+            curr_y = now.year
+            for ey, quarters_dict in raw_data_map.items():
+                vals = [v for v in quarters_dict.values() if v is not None]
+                if not vals: continue
+                
+                count = len(vals)
+                total = sum(vals)
+                ey_int = int(ey)
+                
+                # v92: Intelligent Scaling
+                # If we are missing quarters for a year that should be finished (ey < curr_y),
+                # we only scale if we have at least 2 quarters and they are consistent.
+                if count >= 4:
+                    adjusted_history[ey] = total
+                elif count >= 1 and ey_int >= (curr_y - 1):
+                    # For recent/bridge years, scaling is necessary
+                    adjusted_history[ey] = (total / count) * 4.0
+                elif count >= 2:
+                    # Historical years: Scale if we have at least 50% data
+                    adjusted_history[ey] = (total / count) * 4.0
+                else:
+                    # Otherwise trust the raw sum (better than 0)
+                    adjusted_history[ey] = total
 
             # Debug Log
             rounded_hist = {k: round(v, 2) for k, v in adjusted_history.items() if v != 0}
