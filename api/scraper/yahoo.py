@@ -2494,15 +2494,16 @@ def get_analyst_data(stock, ticker_symbol, info, history_eps, history_rev, fx_ra
         reported_eps = []
         reported_rev = []
         
-        # Pre-compute fiscal year logic
-        fy_end_month = 12
-        if ticker_symbol.upper() == "ADBE":
-            fy_end_month = 11
-        else:
-            lfy_ts2 = info.get('lastFiscalYearEnd')
-            if lfy_ts2:
+        # Pre-compute fiscal year logic (v144: Pure Dynamic Detection)
+        lfy_ts2 = info.get('lastFiscalYearEnd')
+        if lfy_ts2:
+            try:
                 lfy_dt = datetime.datetime.fromtimestamp(lfy_ts2)
                 fy_end_month = lfy_dt.month
+            except:
+                fy_end_month = 12
+        else:
+            fy_end_month = 12
         
         fy_start_month = (fy_end_month % 12) + 1
         
@@ -2736,29 +2737,8 @@ def get_analyst_data(stock, ticker_symbol, info, history_eps, history_rev, fx_ra
                     if len(q_dict) >= 4:
                         history_eps[fy_lbl] = sum(q_dict.values())
             
-            # v120/v133: PERMANENT PRECISION OVERRIDE FOR ADBE (Absolute Forensic Force)
-            if ticker_symbol.upper() == "ADBE":
-                history_eps["FY 2025"] = 20.94
-                history_eps["FY 2024"] = 18.40
-                history_eps["FY 2023"] = 16.07
-                history_eps["FY 2022"] = 13.71
-                
-                # v133: Surgical YoY Anchors (Non-GAAP) to ensure 2026 projections calculate growth correctly
-                history_eps["Q1 2025"] = 4.48
-                history_eps["Q2 2025"] = 4.90
-                history_eps["Q3 2025"] = 5.14
-                history_eps["Q4 2025"] = 6.42 # Balances to 20.94
-                
-                for yr_str, q_dict in q_history.items():
-                    fy_lbl = f"FY {yr_str}"
-                    for dt_key, eps_val in q_dict.items():
-                        dt_obj = datetime.datetime.strptime(dt_key, '%Y-%m-%d')
-                        q_lbl = to_fiscal_label(dt_obj)
-                        # Only apply from q_history if not already hardcoded above
-                        if q_lbl and q_lbl not in history_eps: 
-                            history_eps[q_lbl] = float(eps_val)
-                    if len(q_dict) >= 4 and fy_lbl not in history_eps:
-                        history_eps[fy_lbl] = sum(q_dict.values())
+            # v144: Removed hard-coded historical overrides (Purge)
+            # System now relies exclusively on dynamic forensic anchors from historical_data
 
             if q_history:
                 for yr_str, q_dict in q_history.items():
