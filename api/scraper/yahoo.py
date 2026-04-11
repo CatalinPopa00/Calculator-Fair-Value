@@ -1414,26 +1414,35 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     if int(year_label) >= (datetime.datetime.now().year - 1):
                         adjusted_eps = adj_val
                     
+                    # v124: High-Precision Shares & Margin Logic
                     shares_calc = s or next((val for val in historical_data.get("shares", []) if val > 0), None) or \
-                                   info.get('shares_outstanding') or info.get('sharesOutstanding') or 2500000000
+                                   info.get('sharesOutstanding') or info.get('shares_outstanding') or 0
                     
-                    # Scaling shares check
                     if 1000000 < shares_calc < 10000000:
                          shares_calc *= 1000.0
                     
-                    implied_ni = adj_val * shares_calc
+                    implied_ni = adj_val * (shares_calc if shares_calc > 0 else 1)
+                    # Use accurate revenue for the specific year point
                     margin_adj = (implied_ni / (r * fx_rate)) if (r and r > 0) else 0
                     margin_gaap = (ni / r) if (r and r > 0) else 0
                     
-                    # v92: Precision Force logic
-                    # We compare adj_val (Non-GAAP sum) with e (GAAP EPS from financials).
-                    # If the difference is significant (>2% or >$0.10) AND it results in a sane margin, we force it.
-                    if (abs(adj_val - e) > 0.05 or abs(adj_val) > abs(e * 1.02)) and adj_val != 0:
-                        # Safety check: avoid forcing if it results in impossible >90% margin for non-software
-                        if margin_adj < 0.90 or info.get('sector') == 'Technology':
-                            log(f"DEBUG: FORCING Non-GAAP EPS for {ticker_symbol} Year {year_label}: {adj_val} vs GAAP {e}")
-                            e = adj_val
-                            if shares_calc > 0: ni = e * shares_calc
+                    # v125: Sector-Aware Precision Logic
+                    # Technology/Comm: Prioritize Non-GAAP (Industry Standard)
+                    # Others: Prioritize GAAP (Conservative/Fundamental Standard)
+                    is_tech = any(x in str(info.get('sector', '')).lower() for x in ['tech', 'comm', 'software'])
+                    
+                    significant_diff = (abs(adj_val - e) > 0.05 or abs(adj_val) > abs(e * 1.10)) and adj_val != 0
+                    
+                    if is_tech and significant_diff:
+                        # Tech stocks: Favor the analyst consensus (Non-GAAP)
+                        log(f"DEBUG: Tech Sector - Prioritizing Non-GAAP for {ticker_symbol} {year_label}")
+                        e = adj_val
+                        if shares_calc > 0: ni = e * shares_calc
+                    elif not is_tech and not e and adj_val:
+                        # Non-tech: Only use Adj if GAAP is missing
+                        e = adj_val
+                        if shares_calc > 0: ni = e * shares_calc
+                    # If not tech and we have GAAP, we KEEP GAAP (e) 
                     elif not e or e == 0:
                         if abs(adj_val) > 0.01:
                             e = adj_val
@@ -2666,6 +2675,18 @@ def get_analyst_data(ticker_symbol: str, base_eps: float = None, q_history: dict
                         period_lbl = labels.get(p_code, p_code)
                         if existing:
                             if not existing.get('avg'): existing['avg'] = avg_val
+                            # v123: Consistent Adjusted Margin Calculation
+                            # Rule: If we have high-precision EPS (adjusted_history), use it to derive Adjusted Net Margin
+                            # Formula: (EPS * Shares) / Revenue
+                            shares_val = info.get('sharesOutstanding') or data.get('shares_outstanding') or 1
+                            for ey, eps_val in adjusted_history.items():
+                                if ey in result:
+                                    rev_val = result[ey].get("revenue", 0)
+                                    if rev_val > 0:
+                                        adj_ni = eps_val * shares_val
+                                        # Limit margin to 100% just in case of share count anomalies
+                                        result[ey]["net_margin"] = min(adj_ni / rev_val, 0.999)
+                                        log(f"DEBUG: v123 Adjusted Margin for {ey}: {result[ey]['net_margin']:.4f} (EPS: {eps_val})")
                             if existing.get('period') in ['Current Qtr', 'Next Qtr']: existing['period'] = period_lbl
                         else:
                             eps_estimates.append({"period": period_lbl, "period_code": p_code, "avg": avg_val, "growth": None, "status": "estimate"})
