@@ -2282,6 +2282,18 @@ def get_analyst_data(stock, ticker_symbol, info, history_eps, history_rev, fx_ra
         info  = stock.info
         fx_rate = get_fx_rate(info)
         labels = get_period_labels(info)
+        
+        # Determine Fiscal Year Logic early (v140)
+        fy_end_month = 12
+        lfy_ts = info.get('lastFiscalYearEnd')
+        if lfy_ts:
+            try: fy_end_month = datetime.datetime.fromtimestamp(lfy_ts).month
+            except: pass
+        elif ticker_symbol.upper() == "ADBE": fy_end_month = 11
+        
+        # FY+1 Target Calculation
+        now_dt = datetime.datetime.now()
+        current_fy_num = now_dt.year + (1 if now_dt.month > fy_end_month else 0)
 
         # ── Price Target ─────────────────────────────────────────────────────────
         target_mean  = info.get('targetMeanPrice')
@@ -2797,11 +2809,8 @@ def get_analyst_data(stock, ticker_symbol, info, history_eps, history_rev, fx_ra
             current_fy_num = max_h + 1
             
             if current_fy_num < (datetime.datetime.now().year - 1):
-                current_fy_num = datetime.datetime.now().year + (1 if datetime.datetime.now().month > fy_end_month else 0)
-
         except Exception as he:
-            print(f"[Analyst] History mapping error: {he}")
-            current_fy_num = datetime.datetime.now().year + (1 if datetime.datetime.now().month > fy_end_month else 0)
+            log(f"[Analyst] History mapping error: {he}")
 
         # ── FINAL ASSEMBLY (6-Row Standard) ────────────────────────────────────
         current_year_str = str(current_fy_num)
