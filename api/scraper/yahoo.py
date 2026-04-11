@@ -1852,8 +1852,20 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             "red_flags": red_flags,
             "company_overview_synthesis": get_company_synthesis(ticker_symbol, info)
         }
+        
+        # v136: Correctly integrated Analyst fetch (Moving it here ensures it runs for every ticker)
+        analyst_data = get_analyst_data(stock, ticker_symbol, info, history_eps, history_rev, fx_rate, historical_data)
+        
+        # Merge analyst data into the final response packet
+        if analyst_data and "error" not in analyst_data:
+             data.update(analyst_data)
+             
+        return data
+
     except Exception as e:
-        print(f"Error in get_analyst_data for {ticker_symbol}: {e}")
+        import traceback
+        print(f"Error in get_company_data for {ticker_symbol}: {e}")
+        print(traceback.format_exc())
         return {"error": str(e)}
 
 # --- TICKER SEARCH ENGINE (v59) ---
@@ -2253,7 +2265,7 @@ def get_market_averages():
         print(f"Error fetching SPY market average: {e}")
         return {"trailing_pe": 20.0, "forward_pe": 18.0}
 
-def get_analyst_data(ticker_symbol: str, base_eps: float = None, q_history: dict = None) -> dict:
+def get_analyst_data(stock, ticker_symbol, info, history_eps, history_rev, fx_rate, historical_data=None):
     """
     Fetches analyst estimates data:
     - Price targets (low / average / high / current)
@@ -2877,12 +2889,13 @@ def get_analyst_data(ticker_symbol: str, base_eps: float = None, q_history: dict
         actual_trailing_eps = info.get('trailingEps')
         actual_trailing_rev = info.get('totalRevenue')
         
-        # v135: ABSOLUTE SYNC with Historical Data (Adjusted Baseline)
+        # v135/v136: ABSOLUTE SYNC with Historical Data (Adjusted Baseline)
         # Use the forensic results from Step 1 to populate the calculator's history
-        for i, yr in enumerate(historical_data["years"]):
-            lbl = f"FY {yr}"
-            history_eps[lbl] = historical_data["eps"][i]
-            history_rev[lbl] = historical_data["revenue"][i]
+        if historical_data and "years" in historical_data:
+            for i, yr in enumerate(historical_data["years"]):
+                lbl = f"FY {yr}"
+                history_eps[lbl] = historical_data["eps"][i]
+                history_rev[lbl] = historical_data["revenue"][i]
             # Also map quarters if they exist in historical_data (not default, but for ADBE)
             # v133 quarters are already in history_eps for ADBE
 
