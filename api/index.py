@@ -30,7 +30,7 @@ from .models.scoring import calculate_scoring_reform, calculate_piotroski_score
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v131"
+CACHE_VERSION = "v133"
 # 1. Initialize FastAPI App (Systemic Recovery Fix)
 app = FastAPI(title="Fair Value Calculator API")
 
@@ -349,23 +349,23 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         # v92 Fix: Define historical_anchors (missing variable causing 500)
         historical_anchors = data.get("historical_anchors", [])
         
-        # 3. Compute Valuations (v121: 2-Year Mean Consensus Growth)
-        # Rule: Use the arithmetic mean of the next 2 FY growth projections
+        # 3. Compute Valuations (v132: Direct 2-Year Mean from Projections)
         consensus_growth = None
-        historical_trends = data.get("historical_trends", [])
-        if historical_trends:
+        eps_ests = data.get("eps_estimates", [])
+        if eps_ests:
             try:
-                # Find (Est) years: 2026 (Est), 2027 (Est)
+                # Find FY 2026 and FY 2027 growths
                 est_growths = []
-                for h in historical_trends:
-                    if "(Est)" in str(h.get("year", "")):
-                        g = h.get("eps_growth") or h.get("growth")
+                for e in eps_ests:
+                    period = str(e.get("period", ""))
+                    if "FY" in period and ("2026" in period or "2027" in period or "Est" in period):
+                        g = e.get("growth")
                         if g is not None: est_growths.append(float(g))
                 
                 if len(est_growths) >= 2:
                     consensus_growth = sum(est_growths[:2]) / 2.0
-            except Exception as e:
-                pass
+                    print(f"DEBUG: Calculated 2Y Mean Growth: {consensus_growth:.4f} from {est_growths[:2]}")
+            except: pass
 
         if consensus_growth is None:
             consensus_growth = data.get("eps_growth_nasdaq_3y")
@@ -376,8 +376,9 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         # Use a safe growth baseline for labels
         eps_growth_estimated = consensus_growth
         
-        lynch_period_label = "2-Year Mean Avg" if any("(Est)" in str(h.get("year", "")) for h in historical_trends) else (
-            data.get("eps_growth_period") if data.get("eps_growth_nasdaq_3y") else (
+        # v132: Explicit labeling for the selected growth engine
+        lynch_period_label = "2Y Mean Analyst Proj" if (consensus_growth and consensus_growth != data.get("eps_growth_nasdaq_3y")) else (
+            "Nasdaq 3Y Avg" if data.get("eps_growth_nasdaq_3y") else (
             "Yahoo 5Y Cons." if data.get("eps_growth_5y_consensus") else (
             "3-Year Hist. Avg" if data.get("eps_growth_3y") else "Analyst Est."
         )))
