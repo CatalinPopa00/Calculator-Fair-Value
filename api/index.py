@@ -850,7 +850,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             "company_profile": {
                 "industry": data.get("industry") or "N/A",
                 "sector": data.get("sector") or "N/A",
-                "market_cap": sanitize(data.get("shares_outstanding", 0) * current_price if data.get("shares_outstanding") and current_price else 0.0),
+                "market_cap": sanitize((data.get("shares_outstanding") or 0) * (current_price or 0)),
                 "current_pe": sanitize(current_pe),
                 "trailing_pe": sanitize(current_pe), # Align with what app.js expects for comparison
                 "trailing_eps": sanitize(eps_for_valuation),
