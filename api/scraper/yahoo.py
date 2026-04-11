@@ -1787,7 +1787,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             print(f"Error fetching earnings: {e_earn}")
 
         # Final return object (Diagnostic-Rich v22)
-        return {
+        data = {
             "ticker": ticker_symbol.upper(),
             "name": name,
             "historical_anchors": historical_anchors,
@@ -1853,7 +1853,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             "company_overview_synthesis": get_company_synthesis(ticker_symbol, info)
         }
         
-        # v136: Correctly integrated Analyst fetch (Moving it here ensures it runs for every ticker)
+        # v137: Correctly integrated Analyst fetch (Moving it here ensures it runs for every ticker)
         analyst_data = get_analyst_data(stock, ticker_symbol, info, history_eps, history_rev, fx_rate, historical_data)
         
         # Merge analyst data into the final response packet
