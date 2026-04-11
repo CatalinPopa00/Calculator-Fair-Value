@@ -346,6 +346,9 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         # Watchlist skips expensive peer fetching to save 80% loading time while retaining sync
         market_data = get_market_averages()
         
+        # v92 Fix: Define historical_anchors (missing variable causing 500)
+        historical_anchors = data.get("historical_anchors", [])
+        
         # 3. Compute Valuations (v62: Unified Consensus Growth)
         consensus_growth = data.get("eps_growth_nasdaq_3y")
         if consensus_growth is None:

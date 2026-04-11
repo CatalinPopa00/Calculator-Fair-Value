@@ -330,12 +330,15 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             data["ticker"] = ticker.upper()
             data["current_price"] = 0.0
     
-        # Load overrides to merge "computed" values into response
         all_overrides = _load_overrides()
         ticker_overrides = all_overrides.get(ticker.upper())
         sector = data.get("sector")
         industry = data.get("industry")
         target_market_cap = data.get("market_cap") or 0.0
+
+        # v92 Fix: Define historical_anchors (missing variable causing 500)
+        historical_anchors = data.get("historical_anchors", [])
+
         # Watchlist skips expensive peer fetching to save 80% loading time while retaining sync
         market_data = get_market_averages()
         
