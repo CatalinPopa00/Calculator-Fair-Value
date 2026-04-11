@@ -886,7 +886,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 } for p in peers_data] if peers_data else []
             },
             "historical_trends": data.get("historical_trends"),
-            "historical_anchors": data.get("historical_anchors"),
+            "historical_anchors": historical_anchors,
             "company_overview_synthesis": data.get("company_overview_synthesis"),
             "health_score_total": health_score_total,
             "health_breakdown": health_breakdown,

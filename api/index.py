@@ -82,6 +82,7 @@ class ValuationResponse(BaseModel):
     historical_data: Optional[dict] = None
     algorithmic_insights: Optional[dict] = None
     debug_info: Optional[dict] = None
+    debug_version: str = "v92-ADBE-FIX"
     
     class Config:
         extra = "allow"
@@ -890,8 +891,9 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                     "earnings_growth": sanitize(p.get("earnings_growth"))
                 } for p in peers_data] if peers_data else []
             },
+            "debug_version": "v92-ADBE-FIX-ACTIVE",
             "historical_trends": data.get("historical_trends"),
-            "historical_anchors": data.get("historical_anchors"),
+            "historical_anchors": historical_anchors,
             "company_overview_synthesis": data.get("company_overview_synthesis"),
             "health_score_total": health_score_total,
             "health_breakdown": health_breakdown,
