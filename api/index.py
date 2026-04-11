@@ -30,7 +30,7 @@ from .models.scoring import calculate_scoring_reform, calculate_piotroski_score
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v120"
+CACHE_VERSION = "v121"
 # 1. Initialize FastAPI App (Systemic Recovery Fix)
 app = FastAPI(title="Fair Value Calculator API")
 
@@ -349,18 +349,39 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         # v92 Fix: Define historical_anchors (missing variable causing 500)
         historical_anchors = data.get("historical_anchors", [])
         
-        # 3. Compute Valuations (v62: Unified Consensus Growth)
-        consensus_growth = data.get("eps_growth_nasdaq_3y")
+        # 3. Compute Valuations (v121: 2-Year Mean Consensus Growth)
+        # Rule: Use the arithmetic mean of the next 2 FY growth projections
+        consensus_growth = None
+        historical_trends = data.get("historical_trends", [])
+        if historical_trends:
+            try:
+                # Find (Est) years: 2026 (Est), 2027 (Est)
+                est_growths = []
+                for h in historical_trends:
+                    if "(Est)" in str(h.get("year", "")):
+                        g = h.get("eps_growth") or h.get("growth")
+                        if g is not None: est_growths.append(float(g))
+                
+                if len(est_growths) >= 2:
+                    consensus_growth = sum(est_growths[:2]) / 2.0
+                    log(f"DEBUG: Valuation v121 - Using 2-Year Mean Growth: {consensus_growth:.4f}")
+            except Exception as e:
+                log(f"DEBUG: Valuation v121 Growth Mean Error: {str(e)}")
+
+        if consensus_growth is None:
+            consensus_growth = data.get("eps_growth_nasdaq_3y")
+        
         if consensus_growth is None:
             consensus_growth = data.get("eps_growth_5y_consensus") or data.get("eps_growth_3y") or data.get("eps_growth_5y") or data.get("eps_growth") or 0.05
         
         # Use a safe growth baseline for labels
         eps_growth_estimated = consensus_growth
         
-        lynch_period_label = data.get("eps_growth_period") if data.get("eps_growth_nasdaq_3y") else (
+        lynch_period_label = "2-Year Mean Avg" if any("(Est)" in str(h.get("year", "")) for h in historical_trends) else (
+            data.get("eps_growth_period") if data.get("eps_growth_nasdaq_3y") else (
             "Yahoo 5Y Cons." if data.get("eps_growth_5y_consensus") else (
             "3-Year Hist. Avg" if data.get("eps_growth_3y") else "Analyst Est."
-        ))
+        )))
         
         
         # Calculate Industry Median PE for Peter Lynch fallback

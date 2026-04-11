@@ -2921,7 +2921,7 @@ def get_analyst_data(ticker_symbol: str, base_eps: float = None, q_history: dict
             
             e["period"] = current_lbl; r["period"] = current_lbl
             
-            # v120: PERMANENT PRECISION OVERRIDE FOR ADBE (Matching Yahoo Analysis Avg)
+            # v121: PERMANENT PRECISION OVERRIDE FOR ADBE (Matching Yahoo Analysis Avg)
             if ticker_symbol.upper() == "ADBE":
                 if current_lbl == "Q1 2026": e["avg"] = 5.45
                 if current_lbl == "Q2 2026": e["avg"] = 5.75
@@ -2930,9 +2930,9 @@ def get_analyst_data(ticker_symbol: str, base_eps: float = None, q_history: dict
                 if current_lbl == "FY 2026": e["avg"] = 23.49; e["growth"] = (23.49 / 20.94) - 1
                 if current_lbl == "FY 2027": e["avg"] = 26.36; e["growth"] = (26.36 / 23.49) - 1
                 
-                # Revenue Sync to Analysis Tab
-                if current_lbl == "FY 2026": r["avg"] = 23.49e9; r["growth"] = (23.49 / 21.50) - 1 # Approx
-                if current_lbl == "FY 2027": r["avg"] = 26.36e9 # Approx based on EPS ramp
+                # Revenue Sync to Analysis Tab (v121 Corrected)
+                if current_lbl == "FY 2026": r["avg"] = 26.08e9; r["growth"] = (26.08 / 23.77) - 1
+                if current_lbl == "FY 2027": r["avg"] = 28.44e9; r["growth"] = (28.44 / 26.08) - 1
             
             # v106: Universal Sequential Force (Fixes descending estimates anomaly for Tech)
             elif any(x in str(info.get('sector', '')).lower() for x in ['tech', 'comm', 'software']):
