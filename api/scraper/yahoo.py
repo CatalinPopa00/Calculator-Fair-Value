@@ -2977,6 +2977,28 @@ def get_analyst_data(ticker_symbol: str, base_eps: float = None, q_history: dict
             
             unified_eps.append(e); unified_rev.append(r)
 
+        # v134: HARD FORCED GROWTH CHAIN (Universal Recalculation)
+        # Ensure that growth columns strictly match the (Avg / Prev_Avg) - 1 formula
+        def force_formula(buckets, hist_data, key_prefix):
+            fy0 = buckets.get("FY0")
+            fy1 = buckets.get("FY1")
+            
+            # FY0 vs Previous Year Actual
+            prev_fy_lbl = f"FY {current_fy_num - 1}"
+            past_val = history_eps.get(prev_fy_lbl) if key_prefix == "eps" else history_rev.get(prev_fy_lbl)
+            if not past_val and key_prefix == "eps": past_val = actual_trailing_eps
+            if not past_val and key_prefix == "rev": past_val = actual_trailing_rev
+            
+            if fy0 and fy0.get("avg") and past_val and past_val != 0:
+                fy0["growth"] = (fy0["avg"] / past_val) - 1
+            
+            # FY1 vs FY0
+            if fy1 and fy1.get("avg") and fy0 and fy0.get("avg") and fy0["avg"] != 0:
+                fy1["growth"] = (fy1["avg"] / fy0["avg"]) - 1
+
+        force_formula(eps_buckets, history_eps, "eps")
+        force_formula(rev_buckets, history_rev, "rev")
+
         # ── EPS growth from estimates ─────────────────────────────────────────────
         eps_forward_growth = info.get('earningsGrowth', 0.10)
         eps_growth_5y_consensus = None
