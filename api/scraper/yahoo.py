@@ -2877,15 +2877,14 @@ def get_analyst_data(ticker_symbol: str, base_eps: float = None, q_history: dict
         actual_trailing_eps = info.get('trailingEps')
         actual_trailing_rev = info.get('totalRevenue')
         
-        # Try to calculate FY-1 Actual by summing history (if all 4 qtrs present)
-        # Note: prev_fy_lbl for ADBE FY 2026 is FY 2025
-        prev_fy_lbl = f"FY {current_fy_num - 1}"
-        
-        # Revise history_eps[prev_fy_lbl] if trailingEps is better/available
-        if actual_trailing_eps and prev_fy_lbl not in history_eps:
-            history_eps[prev_fy_lbl] = actual_trailing_eps
-        if actual_trailing_rev and prev_fy_lbl not in history_rev:
-            history_rev[prev_fy_lbl] = actual_trailing_rev
+        # v135: ABSOLUTE SYNC with Historical Data (Adjusted Baseline)
+        # Use the forensic results from Step 1 to populate the calculator's history
+        for i, yr in enumerate(historical_data["years"]):
+            lbl = f"FY {yr}"
+            history_eps[lbl] = historical_data["eps"][i]
+            history_rev[lbl] = historical_data["revenue"][i]
+            # Also map quarters if they exist in historical_data (not default, but for ADBE)
+            # v133 quarters are already in history_eps for ADBE
 
         for k in ["Q1", "Q2", "Q3", "Q4", "FY0", "FY1"]:
             e = eps_buckets[k]; r = rev_buckets[k]
