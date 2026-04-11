@@ -1433,6 +1433,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     
                     significant_diff = (abs(adj_val - e) > 0.05 or abs(adj_val) > abs(e * 1.10)) and adj_val != 0
                     
+                    ni_gaap = ni  # v126: Store raw GAAP NI before force
                     if is_tech and significant_diff:
                         # Tech stocks: Favor the analyst consensus (Non-GAAP)
                         log(f"DEBUG: Tech Sector - Prioritizing Non-GAAP for {ticker_symbol} {year_label}")
@@ -1464,10 +1465,13 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 historical_data["shares"].append(s)
                 
                 margin = (ni / r) if (r > 0 and ni is not None) else None
+                gaap_margin = (ni_gaap / r) if (r > 0 and ni_gaap is not None) else margin # v126
+                
                 historical_trends.append({
                     "year": year_label,
                     "revenue": r,
                     "net_margin": margin,
+                    "gaap_net_margin": gaap_margin, # Forensic Truth
                     "fcf": f
                 })
         # 2. Add Projections (Next 2 FYs)
