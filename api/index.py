@@ -784,6 +784,8 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             data["ps_ratio"] = current_price / (rev_val / (shares or 1)) if rev_val > 0 and shares > 0 else 0
         
         ebitda_val = data.get("ebitda")
+        mkt_cap_val = (shares or 0) * (current_price or 0)
+        
         if ebitda_val and ebitda_val > 0:
             # Need dcf_debt/cash for EV
             debt_val = (data.get("total_debt") or 0)
@@ -819,9 +821,9 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         
         if all_breakdowns:
             # Strengths: items with max points
-            max_point_items = [b for b in all_breakdowns if b.get("points_awarded") == b.get("max_points") and b.get("max_points", 0) > 0]
+            max_point_items = [b for b in all_breakdowns if b.get("points_awarded") is not None and b.get("max_points") is not None and b.get("points_awarded") == b.get("max_points") and b.get("max_points", 0) > 0]
             # Sort by highest max_points just to show the most impactful ones first
-            max_point_items.sort(key=lambda x: x.get("max_points", 0), reverse=True)
+            max_point_items.sort(key=lambda x: x.get("max_points") or 0, reverse=True)
             top_strengths = max_point_items[:3]
             
             # Risks: items with 0 points
@@ -830,7 +832,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 risk_factors = zero_point_items[:3]
             else:
                 # Fallback: lowest partial points if no 0s
-                all_sorted = sorted(all_breakdowns, key=lambda x: x.get("points", 100))
+                all_sorted = sorted(all_breakdowns, key=lambda x: (x.get("points_awarded") or 0) / (x.get("max_points") or 1))
                 risk_factors = all_sorted[:2]
 
         response_data = {

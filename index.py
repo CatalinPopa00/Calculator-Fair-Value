@@ -777,6 +777,9 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             data["ps_ratio"] = current_price / (rev_val / (shares or 1)) if rev_val > 0 and shares > 0 else 0
         
         ebitda_val = data.get("ebitda")
+        # Fix: current_price and shares are authoritative from earlier derivation
+        mkt_cap_val = (shares or 0) * (current_price or 0)
+
         if ebitda_val and ebitda_val > 0:
             # Need dcf_debt/cash for EV
             debt_val = (data.get("total_debt") or 0)
