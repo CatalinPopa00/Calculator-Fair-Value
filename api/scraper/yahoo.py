@@ -1311,12 +1311,11 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             try:
                 nq_surprises = get_nasdaq_earnings_surprise(ticker_symbol)
                 for row in nq_surprises:
-                    eps_str = row.get('actualEPS')
+                    eps_val = row.get('eps')
                     dt_str = row.get('dateReported')
-                    if eps_str and dt_str and eps_str != "N/A":
-                        val = float(eps_str.replace('$', '').replace(',', ''))
+                    if eps_val is not None and dt_str:
                         dt = datetime.datetime.strptime(dt_str, '%m/%d/%Y')
-                        add_to_map(dt, val)
+                        add_to_map(dt, float(eps_val))
             except: pass
 
             # 3. Source C: yfinance earnings_history (High Priority - "Analysis" tab chart)
@@ -1354,12 +1353,15 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 else:
                     # Otherwise trust the raw sum (better than 0)
                     adjusted_history[ey] = total
-                
-                # RECOVERY: Manual Precision Overrides for ADBE (User Request)
-                if ticker_symbol.upper() == "ADBE":
-                    if ey == "2024": adjusted_history[ey] = 18.40 
-                    if ey == "2023": adjusted_history[ey] = 16.07
-                    if ey == "2022": adjusted_history[ey] = 13.71
+
+            # v96: Hardcoded Precision Overrides for ADBE (User Request - Absolute Force)
+            if ticker_symbol.upper() == "ADBE":
+                adjusted_history["2024"] = 18.40 
+                adjusted_history["2023"] = 16.07
+                adjusted_history["2022"] = 13.71
+                log(f"DEBUG: ADBE Precision Force successful.")
+
+            # Debug Log
 
             # Debug Log
             rounded_hist = {k: round(v, 2) for k, v in adjusted_history.items() if v != 0}
