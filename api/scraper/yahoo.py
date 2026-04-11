@@ -584,7 +584,6 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
     dividend_rate = None
     dividend_streak = 0
     dividend_cagr_5y = None
-    payout_ratio = None
     historic_eps_growth = None
     historic_fcf_growth = None
     historic_buyback_rate = None
@@ -593,6 +592,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
     historical_data = {
         "years": [], "revenue": [], "eps": [], "fcf": [], "shares": []
     }
+    history_eps = {}
+    history_rev = {}
     peg_ratio = None
 
     try:
@@ -1461,6 +1462,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 historical_data["years"].append(year_label)
                 historical_data["revenue"].append(r * fx_rate)
                 historical_data["eps"].append(e * fx_rate)
+                history_eps[f"FY {year_label}"] = e * fx_rate
+                history_rev[f"FY {year_label}"] = r * fx_rate
                 historical_data["fcf"].append(f * fx_rate)
                 # Shares are unscaled (count)
                 historical_data["shares"].append(s)
@@ -2297,12 +2300,19 @@ def get_analyst_data(stock, ticker_symbol, info, history_eps, history_rev, fx_ra
         eps_estimates = []
         rev_estimates = []
 
-        # ── EPS & Revenue Estimates ─────────────────────────────────────────
-        # Priority 1: Yahoo Finance (Usually contains Non-GAAP consensus)
+        # --- SYNC BASELINE (v139: Forensic Link to Historical Anchors) ---
+        base_eps = None
+        base_rev = None
+        
+        if historical_data and "eps" in historical_data and historical_data["eps"]:
+             # Use the most recent full year as the growth anchor
+             base_eps = historical_data["eps"][-1]
+             base_rev = historical_data["revenue"][-1] if "revenue" in historical_data else None
+
         try:
             # DEBUG LOG
             with open(r"c:\Users\Snoozie\Downloads\sync_debug.log", "a") as f_log:
-                f_log.write(f"--- Analyst Fetch: {ticker_symbol} (Base: {base_eps}) ---\n")
+                f_log.write(f"--- Analyst Fetch: {ticker_symbol} (Base EPS: {base_eps}) ---\n")
                 
             e_est = stock.earnings_estimate
             if e_est is not None and not e_est.empty:
