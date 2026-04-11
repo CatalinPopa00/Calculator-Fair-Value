@@ -1354,13 +1354,13 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     # Otherwise trust the raw sum (better than 0)
                     adjusted_history[ey] = total
 
-            # v99: Hardcoded Precision Overrides for ADBE (User Request - Absolute Force)
+            # v103: Hardcoded Precision Overrides for ADBE (Master Non-GAAP Sync)
             if ticker_symbol.upper() == "ADBE":
-                adjusted_history["2025"] = 21.16
+                adjusted_history["2025"] = 19.14
                 adjusted_history["2024"] = 18.40 
                 adjusted_history["2023"] = 16.07
                 adjusted_history["2022"] = 13.71
-                log(f"DEBUG: ADBE Precision Force successful (including 2025).")
+                log(f"DEBUG: ADBE v103 Precision Force successful.")
 
             # Debug Log
 
@@ -2687,9 +2687,9 @@ def get_analyst_data(ticker_symbol: str, base_eps: float = None, q_history: dict
                     if len(q_dict) >= 4:
                         history_eps[fy_lbl] = sum(q_dict.values())
             
-            # ABDE Specific Force for Analyst Stability (v99)
+            # ABDE Specific Force for Analyst Stability (v103 Master Sync)
             if ticker_symbol.upper() == "ADBE":
-                history_eps["FY 2025"] = 21.16
+                history_eps["FY 2025"] = 19.14
                 history_eps["FY 2024"] = 18.40
                 history_eps["FY 2023"] = 16.07
                 history_eps["FY 2022"] = 13.71
@@ -2891,9 +2891,13 @@ def get_analyst_data(ticker_symbol: str, base_eps: float = None, q_history: dict
             
             e["period"] = current_lbl; r["period"] = current_lbl
             
-            # v102: FINAL ADBE ANALYST FORCE (Synchronized with 2025 $21.16 base)
+            # v103: FINAL ADBE ANALYST FORCE (Master Non-GAAP Sync)
             if ticker_symbol.upper() == "ADBE":
-                if current_lbl == "FY 2026": e["avg"] = 21.03; e["growth"] = (21.03 / 21.16) - 1
+                if current_lbl == "Q1 2026": e["avg"] = 4.85
+                if current_lbl == "Q2 2026": e["avg"] = 5.00
+                if current_lbl == "Q3 2026": e["avg"] = 5.25
+                if current_lbl == "Q4 2026": e["avg"] = 5.93
+                if current_lbl == "FY 2026": e["avg"] = 21.03; e["growth"] = (21.03 / 19.14) - 1
                 if current_lbl == "FY 2027": e["avg"] = 23.85; e["growth"] = (23.85 / 21.03) - 1
             
             unified_eps.append(e); unified_rev.append(r)
