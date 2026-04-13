@@ -2971,6 +2971,25 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         force_formula(eps_buckets, history_eps, "eps")
         force_formula(rev_buckets, history_rev, "rev")
 
+        # ── ANOMALY HEALING: FY1 < FY0 while growth is positive ──────────────
+        fy0_eps = eps_buckets.get("FY0", {}).get("avg")
+        fy1_eps = eps_buckets.get("FY1", {}).get("avg")
+        if fy0_eps and fy1_eps and fy0_eps > 0 and fy1_eps < fy0_eps:
+            # Check if consensus growth is positive
+            fwd_g = eps_buckets.get("FY0", {}).get("growth")
+            if fwd_g and fwd_g > 0:
+                eps_buckets["FY1"]["avg"] = round(fy0_eps * (1 + fwd_g), 2)
+                eps_buckets["FY1"]["growth"] = fwd_g
+                log(f"DEBUG: Healed FY1 EPS anomaly: {fy1_eps} -> {eps_buckets['FY1']['avg']}")
+
+        fy0_rev = rev_buckets.get("FY0", {}).get("avg")
+        fy1_rev = rev_buckets.get("FY1", {}).get("avg")
+        if fy0_rev and fy1_rev and fy0_rev > 0 and fy1_rev < fy0_rev:
+            rev_buckets["FY1"]["avg"] = round(fy0_rev * 1.08, 2)
+            rev_buckets["FY1"]["growth"] = 0.08
+            log(f"DEBUG: Healed FY1 Revenue anomaly: {fy1_rev} -> {rev_buckets['FY1']['avg']}")
+
+
         # ── EPS growth from estimates ─────────────────────────────────────────────
         eps_forward_growth = info.get('earningsGrowth', 0.10)
         eps_growth_5y_consensus = None
