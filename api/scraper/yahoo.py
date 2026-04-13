@@ -1587,15 +1587,23 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     # FCF Estimate (Apply historical margin to rev estimate)
                     fcf_est = rev_est * avg_fcf_margin
                     
+                    historical_data["years"].append(label)
+                    historical_data["revenue"].append(rev_est)
                     historical_data["eps"].append(float(eps_est))
                     historical_data["fcf"].append(float(fcf_est))
                     historical_data["shares"].append(historical_data["shares"][-1])
+
+                    
+                    # Calculate growth relative to the previous entry in historical_data
+                    prev_eps = historical_data["eps"][-2] if len(historical_data["eps"]) >= 2 else 0
+                    current_growth = (eps_est / prev_eps - 1) if prev_eps and prev_eps > 0 else 0.10
                     
                     # v132: Inject into trends for valuation engine consumption
                     historical_trends.append({
                         "year": label,
                         "revenue": rev_est,
-                        "eps_growth": eps_est_growth, # Use the calculated growth rate
+                        "eps_growth": current_growth, # Use the calculated growth rate
+
                         "eps": eps_est,
                         "net_margin": eps_est * historical_data["shares"][-1] / rev_est if rev_est > 0 else 0,
                         "fcf": fcf_est
@@ -1872,7 +1880,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         }
         
         # v137: Correctly integrated Analyst fetch (Moving it here ensures it runs for every ticker)
-        analyst_data = get_analyst_data(stock, ticker_symbol, info, history_eps, history_rev, fx_rate, historical_data)
+        analyst_data = get_analyst_data(stock, ticker_symbol, info, history_eps, history_rev, fx_rate, historical_data, q_history=raw_data_map)
+
         
         # Merge analyst data into the final response packet
         if analyst_data and "error" not in analyst_data:
@@ -2311,8 +2320,11 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         labels = get_period_labels(info)
         
         # Merge keyword-passed history if needed (v147 Sync)
-        if not history_eps and "q_history" in kwargs:
-            history_eps = kwargs["q_history"]
+        q_history = kwargs.get("q_history")
+        if not history_eps and q_history:
+            # history_eps will be populated via the forensic loop from q_history below
+            pass
+
         if not historical_data and "base_eps" in kwargs:
             historical_data = {"eps": [kwargs["base_eps"]]}
         
@@ -2977,27 +2989,46 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             e["period"] = current_lbl; r["period"] = current_lbl
             
             unified_eps.append(e); unified_rev.append(r)
-        # v143: FINAL UNIVERSAL FORENSIC FORCE (Cleaned & Stabilized)
-        def force_formula(buckets, hist_data, key_prefix):
+        # v149: FINAL UNIVERSAL FORENSIC FORCE
+        # Use Yahoo's pre-computed growth rates (accurate, Non-GAAP) when available.
+        # Only fall back to history-based formula when Yahoo doesn't provide growth.
+        def force_formula(buckets, hist_data, key_prefix, yf_estimates_src):
             fy0 = buckets.get("FY0")
             fy1 = buckets.get("FY1")
             
-            # FY0 vs Previous Year Actual (e.g. 2026 vs 2025)
-            prev_fy_lbl = f"FY {current_fy_num - 1}"
-            past_val = hist_data.get(prev_fy_lbl)
-            if not past_val and key_prefix == "eps": past_val = actual_trailing_eps
-            if not past_val and key_prefix == "rev": past_val = actual_trailing_rev
+            # FY0: Try to use Yahoo's own 0y growth rate first (most accurate)
+            if fy0 and fy0.get("avg"):
+                yf_g = next((e.get('growth') for e in yf_estimates_src
+                             if str(e.get('period_code','')) == '0y' and e.get('growth') is not None), None)
+                if yf_g is not None:
+                    fy0["growth"] = float(yf_g)
+                else:
+                    # Fallback: compute from previous ACTUAL fiscal year
+                    prev_fy_lbl = f"FY {current_fy_num - 1}"
+                    past_val = hist_data.get(prev_fy_lbl)
+                    if not past_val and key_prefix == "eps": past_val = actual_trailing_eps
+                    if not past_val and key_prefix == "rev": past_val = actual_trailing_rev
+                    if past_val and past_val != 0:
+                        fy0["growth"] = (fy0["avg"] / past_val) - 1
             
-            if fy0 and fy0.get("avg") and past_val and past_val != 0:
-                fy0["growth"] = (fy0["avg"] / past_val) - 1
-            
-            # FY1 vs FY0 (e.g. 2027 vs 2026)
-            if fy1 and fy1.get("avg") and fy0 and fy0.get("avg") and fy0["avg"] != 0:
-                fy1["growth"] = (fy1["avg"] / fy0["avg"]) - 1
+            # FY1: Use Yahoo's +1y growth rate first
+            if fy1 and fy1.get("avg"):
+                yf_g1 = next((e.get('growth') for e in yf_estimates_src
+                              if str(e.get('period_code','')) == '+1y' and e.get('growth') is not None), None)
+                if yf_g1 is not None:
+                    fy1["growth"] = float(yf_g1)
+                elif fy0 and fy0.get("avg") and fy0["avg"] != 0:
+                    fy1["growth"] = (fy1["avg"] / fy0["avg"]) - 1
+
+        # Build a flat eps_estimates list with period_code for force_formula
+        # The second Yahoo block (lines 2628-2651) already added entries with period_code
+        eps_est_with_code = [e for e in eps_estimates if e.get('period_code')]
+        rev_est_with_code = [r for r in rev_estimates if r.get('period_code')]
 
         # Execute for all companies (Force the Growth Columns)
-        force_formula(eps_buckets, history_eps, "eps")
-        force_formula(rev_buckets, history_rev, "rev")
+        force_formula(eps_buckets, history_eps, "eps", eps_est_with_code)
+        force_formula(rev_buckets, history_rev, "rev", rev_est_with_code)
+
 
         # (Anomaly healing removed: with proper FY0/FY1 from Yahoo, no longer needed)
 
@@ -3047,8 +3078,10 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             "eps_5yr_growth": eps_growth_5y_consensus if eps_growth_5y_consensus is not None else eps_forward_growth,
             "eps_growth_5y_consensus": eps_growth_5y_consensus,
             "eps_estimates":  unified_eps,
-            "rev_estimates":  unified_rev
+            "rev_estimates":  unified_rev,
+            "eps_growth": eps_forward_growth
         }
+
 
     except Exception as e:
         import traceback
