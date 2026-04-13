@@ -2805,10 +2805,10 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             # ── v158: Nasdaq Yearly Forecasts (Non-GAAP Consensus) ──────────
             # Field in API is 'yearlyForecast', not 'annualForecast'
             y_forecasts = n_data.get('data', {}).get('yearlyForecast', {}).get('rows', [])
-            for yf in y_forecasts:
+            for y_forecast_row in y_forecasts:
                 # Key is 'fiscalYearEnd' (e.g. "Dec 2026")
-                fy_code = str(yf.get('fiscalYearEnd', ''))
-                avg = yf.get('consensusEPSForecast')
+                fy_code = str(y_forecast_row.get('fiscalYearEnd', ''))
+                avg = y_forecast_row.get('consensusEPSForecast')
                 if not avg or avg == "N/A": continue
                 try:
                     avg_val = float(str(avg).replace('$', '').replace(',', ''))
