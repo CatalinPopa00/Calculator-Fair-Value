@@ -225,6 +225,30 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         fair_value = (w_sum / w_total) if w_total > 0 else None
         overall_mos = ((fair_value - current_price) / current_price * 100) if fair_value and current_price > 0 else 0
 
+        # Process DCF into the exact structure app.js expects (v166 fix)
+        dcf_perp_data = dcf_res.get("dcf_perpetual", {}) if dcf_res else {}
+        dcf_exit_data = dcf_res.get("dcf_exit_multiple", {}) if dcf_res else {}
+        
+        # Sensitivity Matrix (calculate it if missing or just provide the base one)
+        sens_matrix = calculate_dcf_sensitivity(fcf, growth_5y, shares, data.get("total_cash", 0), data.get("total_debt", 0), 5, discount_rate, 0.02, rec_exit)
+
+        def map_dcf_obj(obj, is_perp=True):
+            if not obj: return None
+            return {
+                "fair_value_per_share": sanitize(obj.get("fair_value")),
+                "terminal_value": sanitize(obj.get("terminal_value")),
+                "present_value_terminal": sanitize(obj.get("pv_terminal_value")),
+                "present_value_fcf_sum": sanitize(dcf_res.get("total_pv_of_fcfs")),
+                "fcf_projections": [sanitize(v) for v in dcf_res.get("fcf_years", [])],
+                "discount_rate": sanitize(discount_rate),
+                "perpetual_growth_rate": sanitize(0.02) if is_perp else None,
+                "exit_multiple": sanitize(rec_exit) if not is_perp else None,
+                "sensitivity_matrix": sens_matrix if is_perp else []
+            }
+
+        dcf_perp_mapped = map_dcf_obj(dcf_perp_data, True)
+        dcf_exit_mapped = map_dcf_obj(dcf_exit_data, False)
+
         # Build Response (Full app.js Compatibility)
         resp_data = {
             "ticker": ticker_upper,
@@ -243,6 +267,11 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             "buy_breakdown": buy_breakdown,
             "piotroski_score": p_score,
             "piotroski_breakdown": p_breakdown,
+            "dcf_assumptions": {
+                "recommended_exit_multiple": rec_exit,
+                "wacc": discount_rate * 100,
+                "perpetual_growth": 2.0
+            },
             "company_profile": {
                 "sector": data.get("sector"),
                 "industry": data.get("industry"),
@@ -263,7 +292,14 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             "valuation": {
                 "peter_lynch": lynch,
                 "peg_fair_value": sanitize(peg_fv),
-                "dcf": dcf_res,
+                "dcf": {
+                    "eps_growth_applied": sanitize(growth_5y),
+                    "shares_outstanding": shares,
+                    "total_cash": data.get("total_cash", 0),
+                    "total_debt": data.get("total_debt", 0),
+                    "dcf_perpetual": dcf_perp_mapped,
+                    "dcf_exit_multiple": dcf_exit_mapped
+                },
                 "relative": sanitize(relative_val)
             },
             "scoring": {
@@ -292,19 +328,39 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                    "current_pe": sanitize(current_pe)
                },
                "dcf": {
-                   "intrinsic_value": sanitize(vals["dcf"]), 
-                   "discount_rate": discount_rate,
+                   "discount_rate_applied": sanitize(discount_rate * 100),
+                   "eps_growth_applied": sanitize(growth_5y),
+                   "shares_outstanding": shares,
+                   "total_cash": data.get("total_cash", 0),
+                   "total_debt": data.get("total_debt", 0),
+                   "fcf": fcf,
+                   "5yr": {
+                       "dcf_perpetual": dcf_perp_mapped,
+                       "dcf_exit_multiple": dcf_exit_mapped,
+                       "eps_growth_applied": sanitize(growth_5y)
+                   },
+                   "10yr": {
+                       "dcf_perpetual": dcf_perp_mapped, # Proxy for now
+                       "dcf_exit_multiple": dcf_exit_mapped,
+                       "eps_growth_applied": sanitize(growth_5y)
+                   },
                    "current_price": float(current_price),
                    "margin_of_safety": sanitize(((vals["dcf"] - current_price)/current_price*100) if vals["dcf"] and current_price>0 else 0)
                },
                "relative": {
                    "fair_value": sanitize(relative_val), 
                    "median_peer_pe": sanitize(sector_median_pe),
-                   "mean_peer_pe": sanitize(sector_median_pe), # Proxy
+                   "mean_peer_pe": sanitize(sector_median_pe), 
                    "company_eps": sanitize(eps_for_valuation),
                    "market_pe_trailing": sanitize(market_data.get("pe"))
                }
             },
+            "historical_anchors": data.get("historical_anchors", []),
+            "historical_trends": data.get("historical_trends", []),
+            "historical_data": data.get("historical_data", {}),
+            "red_flags": data.get("red_flags", []),
+            "debug_version": f"{CACHE_VERSION}-ULTRA-STABILITY-FIX",
+            "timestamp": datetime.datetime.now().isoformat()
             "historical_anchors": data.get("historical_anchors", []),
             "historical_trends": data.get("historical_trends", []),
             "historical_data": data.get("historical_data", {}),
