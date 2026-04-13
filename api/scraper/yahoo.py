@@ -763,15 +763,34 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         else:
             adjusted_eps = trailing_eps
 
-        # --- GROWTH SELECTION (USER REQUESTED PRIORITY: NASDAQ 3Y) ---
-        if nasdaq_growth_3y and nasdaq_growth_3y > 0:
-            eps_growth = nasdaq_growth_3y
-            eps_growth_period = "3Y Avg Growth (Nasdaq)"
-        
-        # 1. Fallback to YF growth_estimates (Analysis tab - Next 5 Years) if Nasdaq missing
-        if eps_growth is None and eps_growth_5y_consensus:
+        # --- GROWTH SELECTION (v148: Yahoo Forward Estimates Priority) ---
+        # Priority 1: Yahoo's own forward-year growth from earnings_estimate (Non-GAAP consensus)
+        # This directly uses the analyst consensus growth rates Yahoo computes.
+        yf_0y_growth = None
+        yf_1y_growth = None
+        try:
+            ee = stock.earnings_estimate
+            if ee is not None and not ee.empty:
+                for idx, row in ee.iterrows():
+                    g = row.get('growth')
+                    if g is not None and not pd.isna(g):
+                        if str(idx) == '0y': yf_0y_growth = float(g)
+                        elif str(idx) == '+1y': yf_1y_growth = float(g)
+        except: pass
+
+        # Select the best available growth rate
+        if yf_0y_growth is not None and yf_0y_growth > 0.02:
+            eps_growth = yf_0y_growth
+            eps_growth_period = "Current FY Growth (Yahoo Consensus)"
+        elif yf_1y_growth is not None and yf_1y_growth > 0:
+            eps_growth = yf_1y_growth
+            eps_growth_period = "Next FY Growth (Yahoo Consensus)"
+        elif eps_growth_5y_consensus and eps_growth_5y_consensus > 0:
             eps_growth = eps_growth_5y_consensus
             eps_growth_period = "Next 5 Years (Consensus)"
+        elif nasdaq_growth_3y and nasdaq_growth_3y > 0:
+            eps_growth = nasdaq_growth_3y
+            eps_growth_period = "3Y Avg Growth (Nasdaq)"
             
         # 3. Last resort: strictly use provided growth or 0
         if eps_growth is None:
@@ -2863,24 +2882,37 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         # v102: Mathematical Integrity Check (Sum of Quarters > Annual Estimate for Non-GAAP)
         def plug_missing_q(buckets):
             q_keys = ["Q1", "Q2", "Q3", "Q4"]
-            
-            # 1. Recalculate Annual if Quarters are present (Bypass Stale GAAP Annuals)
+            ann_val = buckets["FY0"].get("avg")
             has_all_q = all(buckets[q].get("avg") is not None for q in q_keys)
-            if has_all_q:
+            
+            # 1. If FY0 has a value from Yahoo (Non-GAAP consensus), TRUST IT.
+            #    Adjust estimated (non-reported) quarters to reconcile.
+            if has_all_q and ann_val:
                 q_sum = sum(buckets[q]["avg"] for q in q_keys)
-                ann_val = buckets["FY0"].get("avg")
-                if ann_val and abs(q_sum - ann_val) > 0.50:
-                    log(f"DEBUG: Overriding Annual {ann_val} with Sum of Quarters {q_sum}")
-                    buckets["FY0"]["avg"] = q_sum
+                if abs(q_sum - ann_val) > 0.50:
+                    reported = [q for q in q_keys if buckets[q].get("status") == "reported"]
+                    estimated = [q for q in q_keys if buckets[q].get("status") != "reported"]
+                    if estimated:
+                        reported_sum = sum(buckets[q]["avg"] for q in reported)
+                        needed = ann_val - reported_sum
+                        est_sum = sum(buckets[q]["avg"] for q in estimated)
+                        if est_sum > 0:
+                            scale = needed / est_sum
+                            for q in estimated:
+                                buckets[q]["avg"] = round(buckets[q]["avg"] * scale, 2)
+                            log(f"DEBUG: Scaled {len(estimated)} estimated quarters to match FY0 {ann_val} (was {q_sum})")
+            elif has_all_q and not ann_val:
+                # FY0 missing: compute from quarterly sum
+                buckets["FY0"]["avg"] = round(sum(buckets[q]["avg"] for q in q_keys), 2)
 
-            # 2. Existing Plug logic
+            # 2. Plug single missing quarter from FY0
             missing = [q for q in q_keys if buckets[q].get("avg") is None]
             if len(missing) == 1 and buckets["FY0"].get("avg") is not None:
                 m_key = missing[0]
                 total = buckets["FY0"]["avg"]
                 others = sum(buckets[q]["avg"] for q in q_keys if q != m_key and buckets[q].get("avg") is not None)
                 buckets[m_key]["avg"] = round(total - others, 2)
-                buckets[m_key]["status"] = "estimate" # It's a calculated estimate
+                buckets[m_key]["status"] = "estimate"
 
         plug_missing_q(eps_buckets)
         plug_missing_q(rev_buckets)
@@ -2971,23 +3003,7 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         force_formula(eps_buckets, history_eps, "eps")
         force_formula(rev_buckets, history_rev, "rev")
 
-        # ── ANOMALY HEALING: FY1 < FY0 while growth is positive ──────────────
-        fy0_eps = eps_buckets.get("FY0", {}).get("avg")
-        fy1_eps = eps_buckets.get("FY1", {}).get("avg")
-        if fy0_eps and fy1_eps and fy0_eps > 0 and fy1_eps < fy0_eps:
-            # Check if consensus growth is positive
-            fwd_g = eps_buckets.get("FY0", {}).get("growth")
-            if fwd_g and fwd_g > 0:
-                eps_buckets["FY1"]["avg"] = round(fy0_eps * (1 + fwd_g), 2)
-                eps_buckets["FY1"]["growth"] = fwd_g
-                log(f"DEBUG: Healed FY1 EPS anomaly: {fy1_eps} -> {eps_buckets['FY1']['avg']}")
-
-        fy0_rev = rev_buckets.get("FY0", {}).get("avg")
-        fy1_rev = rev_buckets.get("FY1", {}).get("avg")
-        if fy0_rev and fy1_rev and fy0_rev > 0 and fy1_rev < fy0_rev:
-            rev_buckets["FY1"]["avg"] = round(fy0_rev * 1.08, 2)
-            rev_buckets["FY1"]["growth"] = 0.08
-            log(f"DEBUG: Healed FY1 Revenue anomaly: {fy1_rev} -> {rev_buckets['FY1']['avg']}")
+        # (Anomaly healing removed: with proper FY0/FY1 from Yahoo, no longer needed)
 
 
         # ── EPS growth from estimates ─────────────────────────────────────────────
