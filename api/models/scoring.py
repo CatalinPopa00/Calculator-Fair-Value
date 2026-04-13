@@ -297,8 +297,9 @@ def calculate_piotroski_score(metrics):
     if roa_cur is not None and abs(roa_cur) > 1.5: roa_cur /= 100.0
 
     # F2 Metrics
-    cfo_cur = safe_float(metrics.get("operating_cash_flow"))
+    cfo_cur = safe_float(metrics.get("operating_cash_flow") or metrics.get("operating_cashflow"))
     fcf_cur = safe_float(metrics.get("fcf"))
+
     
     # F3 Metrics
     # Use Net Margin from anchors as ROA proxy if ROA missing for delta

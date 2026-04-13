@@ -2749,6 +2749,12 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
                 future_nasdaq = executor.submit(fetch_nasdaq)
                 n_data = future_nasdaq.result()
         
+        # v155: Force Nasdaq fetch for Tech and Communications (META, NVDA, etc)
+        is_priority = any(sector.lower() == s for s in ['technology', 'communication services', 'healthcare'])
+        if not n_data and is_priority:
+            n_data = fetch_nasdaq()
+
+        
         if n_data:
             # Nasdaq EPS Quarters
             q_forecasts = n_data.get('data', {}).get('quarterlyForecast', {}).get('rows', [])
@@ -2772,6 +2778,23 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             for i, rf in enumerate(r_forecasts[:4]):
                 p_code = "0q" if i == 0 else f"+{i}q"
                 existing = next((e for e in rev_estimates if e.get('period_code') == p_code), None)
+            
+            # ── v155: Nasdaq Annual Forecasts (Non-GAAP Consensus) ──────────
+            a_forecasts = n_data.get('data', {}).get('annualForecast', {}).get('rows', [])
+            for af in a_forecasts:
+                fy_code = af.get('fiscalYear', '')
+                avg = af.get('consensusEPSForecast')
+                if not avg or avg == "N/A": continue
+                try:
+                    avg_val = float(str(avg).replace('$', '').replace(',', ''))
+                    # Match by Year
+                    for est in eps_estimates:
+                        if fy_code in str(est.get('period', '')):
+                            # OVERRIDE with Nasdaq Normalized Consensus for Tech Consistency
+                            est['avg'] = avg_val
+                            break
+                except: pass
+
         # ── HISTORY MAPPING (for Y/Y Growth) ──────────────────────────────────
         history_eps = {}
         history_rev = {}
@@ -2808,8 +2831,9 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             if stock.earnings_history is not None and not stock.earnings_history.empty:
                 for date_idx, row in stock.earnings_history.iterrows():
                     lbl = to_fiscal_label(date_idx)
-                    if lbl and not pd.isna(row.get('epsActual')):
+                    if lbl and not pd.isna(row.get('epsActual')) and lbl not in history_eps:
                         history_eps[lbl] = float(row.get('epsActual'))
+
             
             # Revenue History (Quarterly)
             qf = stock.quarterly_financials
@@ -2834,8 +2858,10 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
                 eps_row = af.loc["Diluted EPS"]
                 for date_idx, val in eps_row.items():
                     fy_lbl = f"FY {date_idx.year if date_idx.month > fy_end_month else date_idx.year}"
-                    if val is not None and not pd.isna(val):
+                    # v155: PROTECT Non-GAAP Anchors from GAAP Overwrite
+                    if val is not None and not pd.isna(val) and fy_lbl not in history_eps:
                         history_eps[fy_lbl] = float(val)
+
 
             # (v154: Redundant scaling block removed to prevent de-synchronization)
             pass
@@ -3074,9 +3100,14 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             if est.get('period_code') == '0y': g_0y = est.get('growth')
             if est.get('period_code') == '+1y': g_1y = est.get('growth')
         
-        if g_0y is not None and g_0y > 0.02: eps_forward_growth = g_0y
-        elif g_1y is not None: eps_forward_growth = g_1y
-        elif g_0y is not None: eps_forward_growth = g_0y
+        # v156: Calculate Average Growth between FY0 and FY1 for a more stable valuation base
+        if g_0y is not None and g_1y is not None:
+            eps_forward_growth = (g_0y + g_1y) / 2
+        elif g_0y is not None:
+            eps_forward_growth = g_0y
+        elif g_1y is not None:
+            eps_forward_growth = g_1y
+
 
         return {
             "ticker": ticker_symbol.upper(),
