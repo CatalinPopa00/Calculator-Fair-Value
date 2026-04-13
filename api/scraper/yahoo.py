@@ -387,7 +387,7 @@ def calculate_historic_pe(stock, financials, fx_rate=1.0):
         print(f"Error calculating Historic PE: {e}")
         return None
 
-def get_period_labels(ticker_info: dict) -> dict:
+def get_period_labels(ticker_info: dict, historical_data: dict = None) -> dict:
     """
     Returns a mapping for relative period codes based on the company's fiscal year.
     Standardizes on 'FY 20XX' and relative quarters.
@@ -406,6 +406,17 @@ def get_period_labels(ticker_info: dict) -> dict:
                 current_fy = now.year + 1
             else:
                 current_fy = now.year
+        
+        # v152: Synchronize with history if available
+        if historical_data and "years" in historical_data:
+            try:
+                hist_years = [int(y) for y in historical_data["years"] if str(y).isdigit()]
+                if hist_years:
+                    max_hist = max(hist_years)
+                    if current_fy <= max_hist:
+                        current_fy = max_hist + 1
+            except: pass
+
 
         return {
             "0q": "Current Qtr",
@@ -2317,7 +2328,8 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         if fx_rate is None:
             fx_rate = get_fx_rate(info)
             
-        labels = get_period_labels(info)
+        labels = get_period_labels(info, historical_data=historical_data)
+
         
         # Merge keyword-passed history if needed (v147 Sync)
         q_history = kwargs.get("q_history")
@@ -2338,6 +2350,17 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         # FY+1 Target Calculation
         now_dt = datetime.datetime.now()
         current_fy_num = now_dt.year + (1 if now_dt.month > fy_end_month else 0)
+        
+        # v151: Synchronize with Historical Anchors to prevent 'Past Year Projections'
+        if historical_data and "years" in historical_data:
+            try:
+                hist_years = [int(y) for y in historical_data["years"] if str(y).isdigit()]
+                if hist_years:
+                    max_hist = max(hist_years)
+                    if current_fy_num <= max_hist:
+                        current_fy_num = max_hist + 1
+            except: pass
+
 
         # ── Price Target ─────────────────────────────────────────────────────────
         target_mean  = info.get('targetMeanPrice')
