@@ -9,6 +9,7 @@ import datetime
 import os
 import json
 import concurrent.futures
+import traceback
 from typing import List, Dict, Any, Optional
 
 from .scraper.yahoo import (
@@ -33,7 +34,7 @@ from .models.scoring import calculate_scoring_reform, calculate_piotroski_score
 # Cache Settings
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v165" # Bumped for stability
+CACHE_VERSION = "v165" 
 
 app = FastAPI(title="Fair Value Calculator API")
 
@@ -83,8 +84,12 @@ def get_recommended_exit_multiple(sector: str, industry: str) -> float:
     return 10.0
 
 def sanitize(val):
-    if val is None or (isinstance(val, float) and (math.isnan(val) or math.isinf(val))): return None
-    return round(float(val), 4)
+    if val is None: return None
+    try:
+        fval = float(val)
+        if math.isnan(fval) or math.isinf(fval): return None
+        return round(fval, 4)
+    except: return None
 
 def deep_clean_data(val):
     if isinstance(val, dict): return {k: deep_clean_data(v) for k, v in val.items()}
@@ -104,13 +109,18 @@ def search(query: str, response: Response):
 
 @app.get("/api/analyst/{ticker}")
 def get_analyst(ticker: str, response: Response):
+    """Refined analyst data endpoint (v165 fix for 404)"""
     if response: response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     ticker_upper = ticker.upper()
     cache_key = f"analyst_{ticker_upper}_{CACHE_VERSION}"
     if cache_key in valuation_cache: return valuation_cache[cache_key]
-    result = get_analyst_data(ticker_upper)
-    valuation_cache[cache_key] = result
-    return result
+    try:
+        result = get_analyst_data(ticker_upper)
+        valuation_cache[cache_key] = result
+        return result
+    except Exception as e:
+        print(f"Analyst API error for {ticker_upper}: {e}")
+        return {"ticker": ticker_upper, "error": str(e)}
 
 @app.get("/api/valuation/{ticker}")
 def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode: bool = False, skip_peers: bool = False):
@@ -140,12 +150,15 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 try: peers_data = peer_task.result(timeout=10) or []
                 except: peers_data = []
 
+        # Ensure minimal data safety
+        if not data.get("name"): data["name"] = ticker_upper; data["ticker"] = ticker_upper
+
         # Ticker Overrides
         all_overrides = _load_overrides()
         ovr = all_overrides.get(ticker_upper)
         if ovr:
-            data.update(ovr.get("inputs", {}))
-            data.update(ovr.get("computed", {}))
+            if "inputs" in ovr: data.update(ovr["inputs"])
+            if "computed" in ovr: data.update(ovr["computed"])
 
         # Core Metrics
         current_price = data.get("current_price") or 0.0
@@ -263,21 +276,40 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 "risk_factors": risk_factors
             },
             "formula_data": {
-               "peter_lynch": {"fair_value": sanitize(vals["lynch"]), "fwd_pe": sanitize(lynch.get("fwd_pe")), "status": lynch.get("status")},
-               "peg": {"fair_value": sanitize(peg_fv), "current_peg": sanitize(company_peg), "industry_peg": sanitize(sector_median_pe/15.0)},
+               "peter_lynch": {
+                   "fair_value": sanitize(vals["lynch"]), 
+                   "fwd_pe": sanitize(lynch.get("fwd_pe")), 
+                   "status": lynch.get("status"),
+                   "trailing_eps": sanitize(eps_for_valuation),
+                   "eps_growth_estimated": sanitize(growth_5y),
+                   "historic_pe": sanitize(pe_historic)
+               },
+               "peg": {
+                   "fair_value": sanitize(peg_fv), 
+                   "current_peg": sanitize(company_peg), 
+                   "industry_peg": sanitize(sector_median_pe/15.0),
+                   "eps_growth_estimated": sanitize(growth_5y),
+                   "current_pe": sanitize(current_pe)
+               },
                "dcf": {
                    "intrinsic_value": sanitize(vals["dcf"]), 
                    "discount_rate": discount_rate,
                    "current_price": float(current_price),
                    "margin_of_safety": sanitize(((vals["dcf"] - current_price)/current_price*100) if vals["dcf"] and current_price>0 else 0)
                },
-               "relative": {"fair_value": sanitize(relative_val), "median_peer_pe": sanitize(sector_median_pe)}
+               "relative": {
+                   "fair_value": sanitize(relative_val), 
+                   "median_peer_pe": sanitize(sector_median_pe),
+                   "mean_peer_pe": sanitize(sector_median_pe), # Proxy
+                   "company_eps": sanitize(eps_for_valuation),
+                   "market_pe_trailing": sanitize(market_data.get("pe"))
+               }
             },
             "historical_anchors": data.get("historical_anchors", []),
             "historical_trends": data.get("historical_trends", []),
             "historical_data": data.get("historical_data", {}),
             "red_flags": data.get("red_flags", []),
-            "debug_version": f"{CACHE_VERSION}-ULTRA-STABILITY",
+            "debug_version": f"{CACHE_VERSION}-ULTRA-STABILITY-FIX",
             "timestamp": datetime.datetime.now().isoformat()
         }
         
@@ -285,26 +317,44 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         return deep_clean_data(resp_data)
 
     except Exception as e:
-        import traceback
-        print(f"CRASH {ticker}: {str(e)}\n{traceback.format_exc()}")
+        print(f"VALUATION CRASH {ticker}: {str(e)}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/watchlist")
 def get_watchlist():
-    return list(set([t.upper() for t in (kv_get("watchlist") or [])]))
+    try:
+        data = kv_get("watchlist") or []
+        return list(set([t.upper() for t in data]))
+    except: return []
 
 @app.post("/api/watchlist")
 def save_watchlist(req: WatchlistRequest):
-    kv_set("watchlist", req.tickers); return {"status": "success"}
+    try:
+        kv_set("watchlist", req.tickers)
+        return {"status": "success"}
+    except: return {"status": "error"}
 
 @app.get("/api/overrides")
 def get_overrides(): return _load_overrides()
 
 @app.post("/api/overrides")
 def save_override(req: OverrideRequest):
-    all_ovr = _load_overrides()
-    all_ovr[req.ticker.upper()] = {"inputs": req.inputs, "toggles": req.toggles, "computed": req.computed, "weights": req.weights}
-    _save_overrides(all_ovr); return {"status": "success"}
+    try:
+        all_ovr = _load_overrides()
+        all_ovr[req.ticker.upper()] = {"inputs": req.inputs, "toggles": req.toggles, "computed": req.computed, "weights": req.weights}
+        _save_overrides(all_ovr)
+        return {"status": "success"}
+    except: return {"status": "error"}
+
+@app.delete("/api/overrides/{ticker}")
+def delete_override(ticker: str):
+    try:
+        all_ovr = _load_overrides()
+        if ticker.upper() in all_ovr:
+            del all_ovr[ticker.upper()]
+            _save_overrides(all_ovr)
+        return {"status": "success"}
+    except: return {"status": "error"}
 
 @app.post("/api/batch-valuation")
 def get_batch_valuation(req: WatchlistRequest):
