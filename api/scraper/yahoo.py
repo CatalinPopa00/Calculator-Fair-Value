@@ -863,7 +863,9 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                             break
                     except: pass
         if not shares_outstanding:
-            shares_outstanding = info.get('sharesOutstanding') or 0
+            # v157: Support for Dual-Class companies (META, GOOGL) - Use Implied Total
+            shares_outstanding = info.get('impliedSharesOutstanding') or info.get('sharesOutstanding') or 0
+
 
         # ── GAAP EPS RECALIBRATION (runs AFTER financials are resolved) ──
         # Now that we have the actual income statement, calculate GAAP EPS
@@ -1181,12 +1183,15 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             pass
         except Exception:
             pass
-        operating_cashflow = fcf # Default to FCF if OCF not specifically separated
+        operating_cashflow = fcf # Default to FCF
         try:
             if cashflow is not None and not cashflow.empty:
-                if 'Operating Cash Flow' in cashflow.index:
-                    operating_cashflow = float(cashflow.loc['Operating Cash Flow'].iloc[0])
+                ocf_idx = find_idx(cashflow, 'Operating Cash Flow')
+                if ocf_idx:
+                    # Get the most recent column (usually TTM or last FY)
+                    operating_cashflow = float(cashflow.loc[ocf_idx].iloc[0])
         except: pass
+
 
         # 1. Dividend Analysis (Streak & CAGR)
         dividend_streak = 0
@@ -2750,9 +2755,11 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
                 n_data = future_nasdaq.result()
         
         # v155: Force Nasdaq fetch for Tech and Communications (META, NVDA, etc)
-        is_priority = any(sector.lower() == s for s in ['technology', 'communication services', 'healthcare'])
+        sector_val = str(info.get('sector', '')).lower()
+        is_priority = any(s in sector_val for s in ['technology', 'communication services', 'healthcare'])
         if not n_data and is_priority:
             n_data = fetch_nasdaq()
+
 
         
         if n_data:
