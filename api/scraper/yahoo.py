@@ -1890,8 +1890,18 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             "company_overview_synthesis": get_company_synthesis(ticker_symbol, info)
         }
         
+        # Initialize mappings for analyst consensus synchronization
+        history_eps = {}
+        history_rev = {}
+        if historical_data and "years" in historical_data:
+            for i, yr in enumerate(historical_data["years"]):
+                if not str(yr).strip().endswith("(Est)"):
+                    history_eps[f"FY {yr}"] = historical_data["eps"][i]
+                    history_rev[f"FY {yr}"] = historical_data["revenue"][i]
+
         # v137: Correctly integrated Analyst fetch (Moving it here ensures it runs for every ticker)
         analyst_data = get_analyst_data(stock, ticker_symbol, info, history_eps, history_rev, fx_rate, historical_data, q_history=raw_data_map)
+
 
         
         # Merge analyst data into the final response packet
