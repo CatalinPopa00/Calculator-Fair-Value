@@ -925,20 +925,38 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             if fcf is None: fcf = info.get('operatingCashflow')
         # shares_outstanding already computed above
         
-        # --- STRICT MAPPING (v168: LEVERAGE & LIQUIDITY) ---
+        # --- STRICT MAPPING (v171: LEVERAGE & LIQUIDITY) ---
         # Rule: Total Debt = LT Debt + ST Debt (Interest Bearing Only). EXCLUDE Leases.
         def get_strict_debt(df):
             if df is None or df.empty: return 0
-            # v168: Use find_idx for robust case-insensitive matching
-            lt_idx = find_idx(df, 'Long Term Debt') or find_idx(df, 'Total Long Term Debt')
-            st_idx = find_idx(df, 'Current Debt') or find_idx(df, 'Short Term Debt') or find_idx(df, 'Short Long Term Debt') or find_idx(df, 'Commercial Paper')
             
-            lt = float(df.loc[lt_idx].iloc[0]) if lt_idx else 0
-            st = float(df.loc[st_idx].iloc[0]) if st_idx else 0
+            def get_latest_valid(row_names):
+                if not row_names: return 0
+                for name in row_names:
+                    idx = find_idx(df, name)
+                    if idx is not None:
+                        series = df.loc[idx]
+                        if isinstance(series, pd.Series):
+                            valid = series.dropna()
+                            if not valid.empty: return float(valid.iloc[0])
+                        else:
+                            if not pd.isna(series): return float(series)
+                return 0
+
+            # Rule: Sum interest-bearing components ONLY
+            lt = get_latest_valid(['Long Term Debt', 'Total Long Term Debt'])
+            st = get_latest_valid(['Current Debt', 'Short Term Debt', 'Short Long Term Debt', 'Commercial Paper'])
             return (lt + st)
             
         td_raw = get_strict_debt(q_bs) or get_strict_debt(bs)
-        total_debt = (td_raw * fx_rate) if td_raw > 0 else (info.get('totalDebt') or 0) * fx_rate
+        
+        # v171: Fallback only if strict mapping results in 0, but check against info['totalDebt']
+        # to ensure we aren't using a bloated figure that includes leases.
+        info_debt = (info.get('totalDebt') or 0) * fx_rate
+        if td_raw > 0:
+            total_debt = td_raw * fx_rate
+        else:
+            total_debt = info_debt
         
         # Sanity Check (v168): Debt cannot exceed Total Liabilities (Quantitative Guardrail)
         total_liab = (info.get('totalLiabilitiesNetMinorityInterest') or info.get('totalLiabilities') or 0)
@@ -1667,11 +1685,20 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
 
                     c_raw = get_bs_metric('Cash And Cash Equivalents', yr_col)
                     
-                    # --- STRICT MAPPING (v168: LEVERAGE & LIQUIDITY) ---
+                    # --- STRICT MAPPING (v171: LEVERAGE & LIQUIDITY) ---
                     # Rule 1: Total Debt = LT Debt + ST Debt (Interest Bearing ONLY)
-                    lt_debt = get_bs_metric('Long Term Debt', yr_col) or get_bs_metric('Total Long Term Debt', yr_col)
-                    st_debt = get_bs_metric('Current Debt', yr_col) or get_bs_metric('Short Term Debt', yr_col) or \
-                              get_bs_metric('Short Long Term Debt', yr_col) or get_bs_metric('Commercial Paper', yr_col)
+                    def get_hist_metric(fields, target_date):
+                        for field in fields:
+                            idx = find_idx(bs, field)
+                            if not idx: continue
+                            c_idx = find_nearest_col(bs, target_date)
+                            if not c_idx: continue
+                            val = bs.loc[idx, c_idx]
+                            if not pd.isna(val): return float(val)
+                        return 0
+
+                    lt_debt = get_hist_metric(['Long Term Debt', 'Total Long Term Debt'], yr_col)
+                    st_debt = get_hist_metric(['Current Debt', 'Short Term Debt', 'Short Long Term Debt', 'Commercial Paper'], yr_col)
                     d_raw = lt_debt + st_debt
                     
                     # Sanity Check (v168): Debt cannot exceed Total Liabilities (Quantitative Guardrail)
