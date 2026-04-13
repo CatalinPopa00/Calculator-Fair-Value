@@ -1,0 +1,111 @@
+{
+  "ticker": "ADBE",
+  "price_target": {
+    "current": 239.28,
+    "low": 220.0,
+    "avg": 331.63147,
+    "median": 317.255,
+    "high": 487.0,
+    "upside_pct": 38.595565864259434,
+    "num_analysts": 34
+  },
+  "recommendation": {
+    "key": "buy",
+    "mean": 2.41026,
+    "counts": {
+      "strongBuy": 3,
+      "buy": 14,
+      "hold": 18,
+      "sell": 4,
+      "strongSell": 0
+    }
+  },
+  "eps_5yr_growth": 0.1216,
+  "eps_growth_5y_consensus": null,
+  "eps_estimates": [
+    {
+      "period": "Q1 2026",
+      "avg": 6.06,
+      "status": "reported",
+      "surprise_pct": 0.0318
+    },
+    {
+      "period": "Q2 2026",
+      "period_code": "0q",
+      "avg": 6.201630223841939,
+      "growth": 0.1527,
+      "status": "estimate"
+    },
+    {
+      "period": "Q3 2026",
+      "period_code": "+1q",
+      "avg": 6.132017680035436,
+      "growth": 0.0861,
+      "status": "estimate"
+    },
+    {
+      "period": "Q4 2026",
+      "period_code": "+2q",
+      "avg": 5.0930820961226235,
+      "growth": null,
+      "status": "estimate"
+    },
+    {
+      "period": "FY 2026",
+      "period_code": "0y",
+      "avg": 23.48673,
+      "growth": 0.1216,
+      "status": "estimate"
+    },
+    {
+      "period": "FY 2027",
+      "period_code": "+1y",
+      "avg": 26.37004,
+      "growth": 0.1228,
+      "status": "estimate"
+    }
+  ],
+  "rev_estimates": [
+    {
+      "period": "Q1 2026",
+      "avg": 6398000000.0,
+      "status": "reported",
+      "surprise_pct": null
+    },
+    {
+      "period": "Q2 2026",
+      "period_code": "0q",
+      "avg": 6458248840.0,
+      "growth": 0.099700004,
+      "status": "estimate"
+    },
+    {
+      "period": "Q3 2026",
+      "period_code": "+1q",
+      "avg": 6515213020.0,
+      "growth": 0.088,
+      "status": "estimate"
+    },
+    {
+      "period": "Q4 2026",
+      "period_code": "+2q",
+      "avg": 6712135080.0,
+      "growth": null,
+      "status": "estimate"
+    },
+    {
+      "period": "FY 2026",
+      "period_code": "0y",
+      "avg": 26083596940.0,
+      "growth": 0.097399995,
+      "status": "estimate"
+    },
+    {
+      "period": "FY 2027",
+      "period_code": "+1y",
+      "avg": 28447591840.0,
+      "growth": 0.09060001,
+      "status": "estimate"
+    }
+  ]
+}

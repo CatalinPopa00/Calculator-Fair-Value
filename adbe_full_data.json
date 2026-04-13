@@ -1,0 +1,96 @@
+{
+  "ticker": "ADBE",
+  "name": "Adobe Inc.",
+  "current_price": 238.34,
+  "data_source": "yahoo_info",
+  "sector": "Technology",
+  "industry": "Software - Application",
+  "trailing_eps": 17.15,
+  "adjusted_eps": 17.769999999999996,
+  "peg_ratio": 1.1317081433224754,
+  "pe_ratio": 13.897376,
+  "forward_pe": 9.038287,
+  "ps_ratio": 3.9731808,
+  "eps_growth": 0.1228,
+  "fcf": 9852000000.0,
+  "market_cap": 97156186112,
+  "shares_outstanding": 404200000,
+  "total_cash": 6898999808.0,
+  "total_debt": 6670000128.0,
+  "debt_to_equity": 0.5834,
+  "revenue": 23769000000.0,
+  "operating_margin": 0.38762,
+  "net_margin": 0.29477,
+  "dividend_yield": 0.0,
+  "dividend_rate": 0.0,
+  "historical_data": {
+    "years": [
+      "2022",
+      "2023",
+      "2024",
+      "2025",
+      "2026 (Est)",
+      "2027 (Est)"
+    ],
+    "revenue": [
+      17606000000.0,
+      19409000000.0,
+      21505000000.0,
+      23769000000.0,
+      23769000000.0,
+      23769000000.0
+    ],
+    "eps": [
+      10.1,
+      11.82,
+      12.36,
+      16.7,
+      23.48673,
+      26.37004
+    ],
+    "fcf": [
+      7396000000.0,
+      6942000000.0,
+      7873000000.0,
+      9852000000.0,
+      9852000000.0,
+      9852000000.0
+    ],
+    "shares": [
+      470000000.0,
+      457000000.0,
+      447000000.0,
+      426000000.0,
+      426000000.0,
+      426000000.0
+    ]
+  },
+  "historical_trends": [
+    {
+      "year": 2025,
+      "revenue": 23769000000.0,
+      "net_margin": 0.2999705498758888,
+      "fcf": 9852000000.0
+    },
+    {
+      "year": 2024,
+      "revenue": 21505000000.0,
+      "net_margin": 0.25854452452917925,
+      "fcf": 7873000000.0
+    },
+    {
+      "year": 2023,
+      "revenue": 19409000000.0,
+      "net_margin": 0.2796640733680251,
+      "fcf": 6942000000.0
+    },
+    {
+      "year": 2022,
+      "revenue": 17606000000.0,
+      "net_margin": 0.27013518118823127,
+      "fcf": 7396000000.0
+    }
+  ],
+  "business_summary": "Adobe Inc. operates as a technology company worldwide. The Digital Media segment offers products and services that enable individuals, teams, and enterprises to create, publish, and promote content. T...",
+  "next_earnings_date": null
+}

@@ -1,0 +1,498 @@
+{
+  "ticker": "ADBE",
+  "name": "Adobe Inc.",
+  "current_price": 239.17,
+  "fair_value": 402.28,
+  "margin_of_safety": 40.55,
+  "dcf_value": 486.89,
+  "relative_value": 380.01,
+  "lynch_fwd_pe": 9.51,
+  "lynch_fair_value": 503.07,
+  "lynch_status": "Undervalued",
+  "peg_value": 239.17,
+  "company_profile": {
+    "industry": "Software - Application",
+    "sector": "Technology",
+    "market_cap": 96672514000.0,
+    "current_pe": 9.07,
+    "trailing_pe": 13.95,
+    "historic_pe": null,
+    "current_eps": null,
+    "trailing_eps": 17.15,
+    "adjusted_eps": 17.77,
+    "historic_eps_growth": null,
+    "historic_fcf_growth": null,
+    "status_flags": null,
+    "debt_to_equity": 0.58,
+    "shares_outstanding": 404200000,
+    "buyback_rate": null,
+    "dividend_yield": 0.0,
+    "operating_margin": 0.39,
+    "net_margin": 0.29,
+    "payout_ratio": null,
+    "revenue_growth": null,
+    "earnings_growth": null,
+    "insider_ownership": null,
+    "next_earnings_date": null,
+    "business_summary": "Adobe Inc. operates as a technology company worldwide. The Digital Media segment offers products and services that enable individuals, teams, and enterprises to create, publish, and promote content. T...",
+    "dividend_streak": null,
+    "dividend_cagr_5y": null,
+    "red_flags": null,
+    "sector_median_pe": 22.16,
+    "sector_median_peg": null,
+    "competitors": [
+      "CRM",
+      "PYPL",
+      "NOW"
+    ],
+    "competitor_metrics": [
+      {
+        "ticker": "CRM",
+        "name": "Salesforce, Inc.",
+        "price": 172.83,
+        "pe_ratio": 22.16,
+        "market_cap": 161943207936,
+        "eps": 7.8,
+        "operating_margin": 0.19,
+        "revenue_growth": 0.12,
+        "earnings_growth": 0.18
+      },
+      {
+        "ticker": "PYPL",
+        "name": "PayPal Holdings, Inc.",
+        "price": 47.39,
+        "pe_ratio": 8.76,
+        "market_cap": 43625779200,
+        "eps": 5.41,
+        "operating_margin": 0.17,
+        "revenue_growth": 0.04,
+        "earnings_growth": 0.39
+      },
+      {
+        "ticker": "NOW",
+        "name": "ServiceNow, Inc.",
+        "price": 88.77,
+        "pe_ratio": 53.15,
+        "market_cap": 92849029120,
+        "eps": 1.67,
+        "operating_margin": 0.17,
+        "revenue_growth": 0.21,
+        "earnings_growth": 0.03
+      }
+    ]
+  },
+  "historical_trends": [
+    {
+      "year": 2025,
+      "revenue": 23769000000.0,
+      "net_margin": 0.2999705498758888,
+      "fcf": 9852000000.0
+    },
+    {
+      "year": 2024,
+      "revenue": 21505000000.0,
+      "net_margin": 0.25854452452917925,
+      "fcf": 7873000000.0
+    },
+    {
+      "year": 2023,
+      "revenue": 19409000000.0,
+      "net_margin": 0.2796640733680251,
+      "fcf": 6942000000.0
+    },
+    {
+      "year": 2022,
+      "revenue": 17606000000.0,
+      "net_margin": 0.27013518118823127,
+      "fcf": 7396000000.0
+    }
+  ],
+  "formula_data": {
+    "peter_lynch": {
+      "current_price": 239.17,
+      "trailing_eps": 17.15,
+      "fwd_eps": 25.15,
+      "eps_growth_estimated": 0.12,
+      "eps_growth_period": "Analyst Est.",
+      "historic_pe": 13.95,
+      "fwd_pe": 9.51,
+      "fair_value": 350.78,
+      "fair_value_pe_20": 503.07,
+      "fair_value_sector_pe": 557.34,
+      "sector_pe": 22.16,
+      "status": "Undervalued",
+      "margin_of_safety": 31.82
+    },
+    "peg": {
+      "current_pe": 13.95,
+      "eps_growth_estimated": 0.12,
+      "eps_growth_period": "Analyst Est.",
+      "current_peg": 1.1,
+      "industry_peg": 1.1,
+      "fair_value": 239.17,
+      "margin_of_safety": 0.0
+    },
+    "dcf": {
+      "fcf": 9852000000.0,
+      "eps_growth_estimated": 0.12,
+      "eps_growth_period": "Next Year",
+      "discount_rate": 0.09807,
+      "perpetual_growth": 0.02,
+      "shares_outstanding": 404200000,
+      "historic_buyback_rate": null,
+      "5yr": {
+        "projected_fcfs": [
+          11061825600.0,
+          12420217783.68,
+          13945420527.52,
+          15657918168.29,
+          17580710519.36
+        ],
+        "pv_fcf_years": [
+          10073880171.57,
+          10300757380.35,
+          10532744166.27,
+          10769955603.82,
+          11012509359.12
+        ],
+        "total_pv_of_fcfs": 52689846681.15,
+        "discount_rate_applied": 9.81,
+        "dcf_perpetual": {
+          "terminal_value": 229695462146.13,
+          "pv_of_tv": 143880614145.08,
+          "fair_value_per_share": 486.89,
+          "margin_of_safety_pct": 103.57
+        },
+        "dcf_exit_multiple": {
+          "terminal_value": 263710657790.42,
+          "pv_of_tv": 165187640386.86,
+          "fair_value_per_share": 539.6,
+          "margin_of_safety_pct": 125.61
+        },
+        "sensitivity_matrix": [
+          {
+            "discount_rate": 0.09,
+            "values": [
+              {
+                "perpetual_growth": 0.01,
+                "fair_value": 530.79
+              },
+              {
+                "perpetual_growth": 0.02,
+                "fair_value": 561.98
+              },
+              {
+                "perpetual_growth": 0.03,
+                "fair_value": 598.12
+              }
+            ]
+          },
+          {
+            "discount_rate": 0.1,
+            "values": [
+              {
+                "perpetual_growth": 0.01,
+                "fair_value": 463.82
+              },
+              {
+                "perpetual_growth": 0.02,
+                "fair_value": 486.89
+              },
+              {
+                "perpetual_growth": 0.03,
+                "fair_value": 513.11
+              }
+            ]
+          },
+          {
+            "discount_rate": 0.11,
+            "values": [
+              {
+                "perpetual_growth": 0.01,
+                "fair_value": 426.2
+              },
+              {
+                "perpetual_growth": 0.02,
+                "fair_value": 445.27
+              },
+              {
+                "perpetual_growth": 0.03,
+                "fair_value": 466.72
+              }
+            ]
+          }
+        ],
+        "reverse_dcf_growth": -0.05
+      },
+      "10yr": {
+        "projected_fcfs": [
+          11061825600.0,
+          12420217783.68,
+          13945420527.52,
+          15657918168.29,
+          17580710519.36,
+          19739621771.14,
+          22163647324.63,
+          24885343216.1,
+          27941263363.04,
+          31372450504.02
+        ],
+        "pv_fcf_years": [
+          10073880171.57,
+          10300757380.35,
+          10532744166.27,
+          10769955603.82,
+          11012509359.12,
+          11260525748.29,
+          11514127797.12,
+          11773441302.11,
+          12038594892.86,
+          12309720095.9
+        ],
+        "total_pv_of_fcfs": 111586256517.42,
+        "discount_rate_applied": 9.81,
+        "dcf_perpetual": {
+          "terminal_value": 409887274421.65,
+          "pv_of_tv": 160828929138.17,
+          "fair_value_per_share": 674.53,
+          "margin_of_safety_pct": 182.03
+        },
+        "dcf_exit_multiple": {
+          "terminal_value": 470586757560.27,
+          "pv_of_tv": 184645801438.49,
+          "fair_value_per_share": 733.45,
+          "margin_of_safety_pct": 206.67
+        },
+        "sensitivity_matrix": [
+          {
+            "discount_rate": 0.09,
+            "values": [
+              {
+                "perpetual_growth": 0.01,
+                "fair_value": 755.03
+              },
+              {
+                "perpetual_growth": 0.02,
+                "fair_value": 791.53
+              },
+              {
+                "perpetual_growth": 0.03,
+                "fair_value": 833.82
+              }
+            ]
+          },
+          {
+            "discount_rate": 0.1,
+            "values": [
+              {
+                "perpetual_growth": 0.01,
+                "fair_value": 648.75
+              },
+              {
+                "perpetual_growth": 0.02,
+                "fair_value": 674.53
+              },
+              {
+                "perpetual_growth": 0.03,
+                "fair_value": 703.84
+              }
+            ]
+          },
+          {
+            "discount_rate": 0.11,
+            "values": [
+              {
+                "perpetual_growth": 0.01,
+                "fair_value": 589.5
+              },
+              {
+                "perpetual_growth": 0.02,
+                "fair_value": 610.15
+              },
+              {
+                "perpetual_growth": 0.03,
+                "fair_value": 633.39
+              }
+            ]
+          }
+        ],
+        "reverse_dcf_growth": -0.02
+      },
+      "intrinsic_value": 486.89,
+      "margin_of_safety": 50.88,
+      "current_price": 239.17
+    },
+    "relative": {
+      "fair_value": 380.01,
+      "margin_of_safety": 37.06,
+      "company_eps": 17.15,
+      "company_trailing_pe": 13.95,
+      "peers": [
+        "CRM",
+        "PYPL",
+        "NOW"
+      ],
+      "median_peer_pe": 22.16,
+      "median_peer_peg": null,
+      "mean_peer_pe": 28.02,
+      "market_pe_trailing": 27.05,
+      "market_pe_forward": 27.05
+    }
+  },
+  "health_score": 15,
+  "health_breakdown": [
+    {
+      "name": "Debt-to-Equity (Solvency)",
+      "value": "0.58x",
+      "points": 15,
+      "max_points": 20
+    },
+    {
+      "name": "FCF Trend (Quality)",
+      "value": "N/A",
+      "points": 0,
+      "max_points": 20
+    },
+    {
+      "name": "EBIT Margin (Profitability)",
+      "value": "N/A",
+      "points": 0,
+      "max_points": 15
+    },
+    {
+      "name": "Current Ratio (Liquidity)",
+      "value": "N/A",
+      "points": 0,
+      "max_points": 15
+    },
+    {
+      "name": "ROIC (Efficiency)",
+      "value": "N/A",
+      "points": 0,
+      "max_points": 15
+    },
+    {
+      "name": "Interest Coverage (Safety)",
+      "value": "N/A",
+      "points": 0,
+      "max_points": 15
+    }
+  ],
+  "buy_score": 60,
+  "buy_breakdown": [
+    {
+      "name": "Margin of Safety (Value)",
+      "value": "40.5%",
+      "points": 30,
+      "max_points": 30
+    },
+    {
+      "name": "PEG Ratio (Growth Value)",
+      "value": "1.14x",
+      "points": 10,
+      "max_points": 20
+    },
+    {
+      "name": "FWD P/S (Revenue Value)",
+      "value": "N/A",
+      "points": 0,
+      "max_points": 15
+    },
+    {
+      "name": "FCF Yield (Cash Return)",
+      "value": "10.1%",
+      "points": 15,
+      "max_points": 15
+    },
+    {
+      "name": "Next 3Y Rev Est (Growth)",
+      "value": "N/A",
+      "points": 0,
+      "max_points": 10
+    },
+    {
+      "name": "3-Yr FWD EPS Growth (Momentum)",
+      "value": "12.3%",
+      "points": 5,
+      "max_points": 10
+    }
+  ],
+  "historical_data": {
+    "years": [
+      "2022",
+      "2023",
+      "2024",
+      "2025",
+      "2026 (Est)",
+      "2027 (Est)"
+    ],
+    "revenue": [
+      17606000000.0,
+      19409000000.0,
+      21505000000.0,
+      23769000000.0,
+      23769000000.0,
+      23769000000.0
+    ],
+    "eps": [
+      10.1,
+      11.82,
+      12.36,
+      16.7,
+      23.48673,
+      26.37004
+    ],
+    "fcf": [
+      7396000000.0,
+      6942000000.0,
+      7873000000.0,
+      9852000000.0,
+      9852000000.0,
+      9852000000.0
+    ],
+    "shares": [
+      470000000.0,
+      457000000.0,
+      447000000.0,
+      426000000.0,
+      426000000.0,
+      426000000.0
+    ]
+  },
+  "algorithmic_insights": {
+    "top_strengths": [
+      {
+        "name": "Margin of Safety (Value)",
+        "value": "40.5%",
+        "points": 30,
+        "max_points": 30
+      },
+      {
+        "name": "FCF Yield (Cash Return)",
+        "value": "10.1%",
+        "points": 15,
+        "max_points": 15
+      }
+    ],
+    "risk_factors": [
+      {
+        "name": "FCF Trend (Quality)",
+        "value": "N/A",
+        "points": 0,
+        "max_points": 20
+      },
+      {
+        "name": "EBIT Margin (Profitability)",
+        "value": "N/A",
+        "points": 0,
+        "max_points": 15
+      },
+      {
+        "name": "Current Ratio (Liquidity)",
+        "value": "N/A",
+        "points": 0,
+        "max_points": 15
+      }
+    ]
+  }
+}
