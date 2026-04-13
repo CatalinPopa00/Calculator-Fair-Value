@@ -2738,10 +2738,17 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         def fetch_nasdaq():
             try:
                 nasdaq_url = f"https://api.nasdaq.com/api/analyst/{ticker_symbol}/earnings-forecast"
-                headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"}
+                headers = {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+                    "Accept": "application/json, text/plain, */*",
+                    "Accept-Language": "en-US,en;q=0.9",
+                    "Origin": "https://www.nasdaq.com",
+                    "Referer": "https://www.nasdaq.com/"
+                }
                 req = urllib.request.Request(nasdaq_url, headers=headers)
-                with urllib.request.urlopen(req, timeout=5) as resp:
+                with urllib.request.urlopen(req, timeout=8) as resp:
                     return json.loads(resp.read())
+
             except Exception as ne:
                 print(f"Nasdaq fallback fetch failed: {ne}")
                 return None
@@ -2786,21 +2793,25 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
                 p_code = "0q" if i == 0 else f"+{i}q"
                 existing = next((e for e in rev_estimates if e.get('period_code') == p_code), None)
             
-            # ── v155: Nasdaq Annual Forecasts (Non-GAAP Consensus) ──────────
-            a_forecasts = n_data.get('data', {}).get('annualForecast', {}).get('rows', [])
-            for af in a_forecasts:
-                fy_code = af.get('fiscalYear', '')
-                avg = af.get('consensusEPSForecast')
+            # ── v158: Nasdaq Yearly Forecasts (Non-GAAP Consensus) ──────────
+            # Field in API is 'yearlyForecast', not 'annualForecast'
+            y_forecasts = n_data.get('data', {}).get('yearlyForecast', {}).get('rows', [])
+            for yf in y_forecasts:
+                # Key is 'fiscalYearEnd' (e.g. "Dec 2026")
+                fy_code = str(yf.get('fiscalYearEnd', ''))
+                avg = yf.get('consensusEPSForecast')
                 if not avg or avg == "N/A": continue
                 try:
                     avg_val = float(str(avg).replace('$', '').replace(',', ''))
-                    # Match by Year
+                    # Match by Year (e.g. "2026" in "Dec 2026")
                     for est in eps_estimates:
-                        if fy_code in str(est.get('period', '')):
+                        if any(yr in str(est.get('period', '')) for yr in re.findall(r'\d{4}', fy_code)):
                             # OVERRIDE with Nasdaq Normalized Consensus for Tech Consistency
                             est['avg'] = avg_val
+                            # Growth will be recalculated in the final force_formula pass
                             break
                 except: pass
+
 
         # ── HISTORY MAPPING (for Y/Y Growth) ──────────────────────────────────
         history_eps = {}
@@ -3049,20 +3060,24 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             fy0 = buckets.get("FY0")
             fy1 = buckets.get("FY1")
             
-            # FY0: Try to use Yahoo's own 0y growth rate first (most accurate)
+            # FY0: Recalculate against our verified Adjusted base (v159)
             if fy0 and fy0.get("avg"):
-                yf_g = next((e.get('growth') for e in yf_estimates_src
-                             if str(e.get('period_code','')) == '0y' and e.get('growth') is not None), None)
-                if yf_g is not None:
-                    fy0["growth"] = float(yf_g)
+                prev_fy_lbl = f"FY {current_fy_num - 1}"
+                past_val = hist_data.get(prev_fy_lbl)
+                if not past_val and key_prefix == "eps": past_val = actual_trailing_eps
+                if not past_val and key_prefix == "rev": past_val = actual_trailing_rev
+
+                if past_val and past_val != 0:
+                    fy0["growth"] = (fy0["avg"] / past_val) - 1
                 else:
-                    # Fallback: compute from previous ACTUAL fiscal year
-                    prev_fy_lbl = f"FY {current_fy_num - 1}"
-                    past_val = hist_data.get(prev_fy_lbl)
-                    if not past_val and key_prefix == "eps": past_val = actual_trailing_eps
-                    if not past_val and key_prefix == "rev": past_val = actual_trailing_rev
-                    if past_val and past_val != 0:
-                        fy0["growth"] = (fy0["avg"] / past_val) - 1
+                    # v160: Safety check for yf_estimates_src (Fix for FISV/FI crash)
+                    yf_g = None
+                    if yf_estimates_src:
+                        yf_g = next((e.get('growth') for e in yf_estimates_src
+                                     if str(e.get('period_code','')) == '0y' and e.get('growth') is not None), None)
+                    if yf_g is not None: fy0["growth"] = float(yf_g)
+
+
             
             # FY1: Use Yahoo's +1y growth rate first
             if fy1 and fy1.get("avg"):

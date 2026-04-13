@@ -832,9 +832,15 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         buy_breakdown = scoring_results.get("buy_breakdown")
 
         # Piotroski F-Score (pass full data dict including historical_anchors)
-        piotroski_result = calculate_piotroski_score(data)
-        piotroski_score = piotroski_result.get("score")
-        piotroski_breakdown = piotroski_result.get("breakdown", [])
+        try:
+            piotroski_result = calculate_piotroski_score(data)
+            piotroski_score = piotroski_result.get("score")
+            piotroski_breakdown = piotroski_result.get("breakdown", [])
+        except Exception as pe:
+             print(f"Piotroski FAIL for {ticker}: {pe}")
+             piotroski_score = "N/A"
+             piotroski_breakdown = []
+
 
         # 7. Algorithmic Insights Generation
         all_breakdowns = health_breakdown + buy_breakdown
