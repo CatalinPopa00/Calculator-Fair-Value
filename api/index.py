@@ -195,15 +195,32 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         fair_value = (weighted_sum / total_w) if total_w > 0 else None
         mos = ((fair_value - current_price) / current_price * 100) if fair_value and current_price > 0 else 0
 
-        # Build Response
+        # Build Response (Full Schema for app.js Compatibility)
         resp_data = {
             "ticker": ticker_upper,
             "name": data.get("name", ticker_upper),
-            "price": current_price,
+            "current_price": float(current_price or 0.0),
             "fair_value": sanitize(fair_value),
             "margin_of_safety": sanitize(mos),
+            "dcf_value": sanitize(vals["dcf"]),
+            "relative_value": sanitize(vals["relative"]),
+            "peg_value": sanitize(vals["peg"]),
+            "lynch_fair_value": sanitize(vals["lynch"]),
+            "lynch_status": lynch.get("status"),
             "sector": data.get("sector"),
             "industry": data.get("industry"),
+            "company_profile": {
+                "sector": data.get("sector"),
+                "industry": data.get("industry"),
+                "business_summary": data.get("business_summary"),
+                "market_cap": sanitize((data.get("shares_outstanding") or 0) * current_price),
+                "trailing_pe": sanitize(current_pe),
+                "trailing_eps": sanitize(eps_for_valuation),
+                "dividend_yield": sanitize(data.get("dividend_yield")),
+                "revenue_growth": sanitize(data.get("revenue_growth")),
+                "earnings_growth": sanitize(growth_5y),
+                "sector_median_pe": sanitize(sector_median_pe)
+            },
             "metrics": data,
             "valuation": {
                 "peter_lynch": lynch,
@@ -219,11 +236,21 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 "piotroski_score": p_score,
                 "piotroski_breakdown": p_breakdown
             },
-            "insights": {"strengths": top_s, "risks": top_r, "synthesis": data.get("summary_ro")},
+            "insights": {
+                "top_strengths": top_s,
+                "risk_factors": top_r
+            },
+            "formula_data": {
+               "peter_lynch": {"fair_value": sanitize(vals["lynch"]), "fwd_pe": sanitize(lynch.get("fwd_pe")), "status": lynch.get("status")},
+               "peg": {"fair_value": sanitize(peg_fv), "current_peg": sanitize(company_peg)},
+               "dcf": {"intrinsic_value": sanitize(vals["dcf"]), "discount_rate": d_rate},
+               "relative": {"fair_value": sanitize(relative_fv), "median_peer_pe": sanitize(sector_median_pe)}
+            },
             "debug_version": f"{CACHE_VERSION}-RESET-FIX-ACTIVE",
             "historical_anchors": data.get("historical_anchors", []),
             "historical_trends": data.get("historical_trends", []),
             "historical_data": data.get("historical_data", {}),
+            "red_flags": data.get("red_flags", []),
             "timestamp": datetime.datetime.now().isoformat()
         }
         
