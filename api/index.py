@@ -115,14 +115,11 @@ def get_analyst(ticker: str, response: Response):
         response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     
     ticker_upper = ticker.upper()
-    cache_key = f"analyst_v2_{ticker_upper}_{CACHE_VERSION}"
+    cache_key = f"analyst_v3_{ticker_upper}_{CACHE_VERSION}"
     if cache_key in valuation_cache:
         return valuation_cache[cache_key]
-    # SYNC: Get company data (cached) to have the actual Non-GAAP base for growth calcs
-    c_data = get_company_data(ticker_upper, fast_mode=True)
-    base_eps = c_data.get('adjusted_eps')
-    q_map = c_data.get('raw_quarterly_history')
-    result = get_analyst_data(ticker_upper, base_eps=base_eps, q_history=q_map)
+    # Pass ticker as string — get_analyst_data handles string input via isinstance check
+    result = get_analyst_data(ticker_upper)
     valuation_cache[cache_key] = result
     return result
 
@@ -349,41 +346,37 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         # v92 Fix: Define historical_anchors (missing variable causing 500)
         historical_anchors = data.get("historical_anchors", [])
         
-        # 3. Compute Valuations (v132: Direct 2-Year Mean from Projections)
-        consensus_growth = None
-        eps_ests = data.get("eps_estimates", [])
-        if eps_ests:
-            try:
-                # Find FY 2026 and FY 2027 growths
-                est_growths = []
-                for e in eps_ests:
-                    period = str(e.get("period", ""))
-                    if "FY" in period and ("2026" in period or "2027" in period or "Est" in period):
-                        g = e.get("growth")
-                        if g is not None: est_growths.append(float(g))
-                
-                if len(est_growths) >= 2:
-                    consensus_growth = sum(est_growths[:2]) / 2.0
-                    print(f"DEBUG: Calculated 2Y Mean Growth: {consensus_growth:.4f} from {est_growths[:2]}")
-            except: pass
-
-        if consensus_growth is None:
-            consensus_growth = data.get("eps_growth_nasdaq_3y")
+        # v148: Use eps_growth directly from get_company_data (Yahoo consensus 0y growth, Non-GAAP).
+        # This is the most accurate source: 12.16% for ADBE vs old broken 7.21% Nasdaq GAAP path.
+        consensus_growth = data.get("eps_growth")
         
+        # Fallback chain if eps_growth is missing
+        if consensus_growth is None or consensus_growth == 0:
+            # Try to derive from analyst EPS estimates if available in data
+            eps_ests = data.get("eps_estimates", [])
+            if eps_ests:
+                try:
+                    est_growths = []
+                    for e in eps_ests:
+                        period = str(e.get("period", ""))
+                        if "FY" in period:
+                            g = e.get("growth")
+                            if g is not None: est_growths.append(float(g))
+                    if len(est_growths) >= 2:
+                        consensus_growth = sum(est_growths[:2]) / 2.0
+                except: pass
+
+        
+        
+        # Ensure fallback to a safe default
         if consensus_growth is None:
-            consensus_growth = data.get("eps_growth_5y_consensus") or data.get("eps_growth_3y") or data.get("eps_growth_5y") or data.get("eps_growth") or 0.05
+            consensus_growth = data.get("eps_growth_5y_consensus") or data.get("eps_growth_3y") or data.get("eps_growth_5y") or 0.05
         
         # Use a safe growth baseline for labels
         eps_growth_estimated = consensus_growth
-        
-        # v132: Explicit labeling for the selected growth engine
-        lynch_period_label = "2Y Mean Analyst Proj" if (consensus_growth and consensus_growth != data.get("eps_growth_nasdaq_3y")) else (
-            "Nasdaq 3Y Avg" if data.get("eps_growth_nasdaq_3y") else (
-            "Yahoo 5Y Cons." if data.get("eps_growth_5y_consensus") else (
-            "3-Year Hist. Avg" if data.get("eps_growth_3y") else "Analyst Est."
-        )))
-        
-        
+        eps_growth_period_src = data.get("eps_growth_period", "Yahoo Consensus")
+        lynch_period_label = eps_growth_period_src if eps_growth_period_src else "Yahoo Consensus"
+
         # Calculate Industry Median PE for Peter Lynch fallback
         valid_pes = []
         if peers_data:
