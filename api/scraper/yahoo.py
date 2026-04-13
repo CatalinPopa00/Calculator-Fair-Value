@@ -164,9 +164,10 @@ def get_nasdaq_comprehensive_estimates(ticker: str) -> dict:
             url = f'https://api.nasdaq.com/api/analyst/{t_sym}/{endpoint}'
             headers = {'User-Agent': get_random_agent()}
             req = urllib.request.Request(url, headers=headers)
-            with urllib.request.urlopen(req, timeout=7) as response:
+            with urllib.request.urlopen(req, timeout=5) as response:
                 return json.loads(response.read())
         except: return None
+
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
         future_eps = executor.submit(fetch_url, "eps", ticker)
@@ -294,8 +295,9 @@ def get_nasdaq_actual_eps(ticker: str) -> float:
     """
     try:
         url = f'https://api.nasdaq.com/api/company/{ticker.upper()}/earnings-surprise'
+        # v163: Reduced timeout to 4s to prevent Vercel 500 timeouts
         req = urllib.request.Request(url, headers={'User-Agent': get_random_agent()})
-        with urllib.request.urlopen(req, timeout=3) as response:
+        with urllib.request.urlopen(req, timeout=4) as response:
             raw_data = response.read()
             data = json.loads(raw_data)
             
@@ -320,6 +322,7 @@ def get_nasdaq_actual_eps(ticker: str) -> float:
     except Exception as e:
         print(f"Error fetching Nasdaq Actual EPS for {ticker}: {e}")
     return None
+
 
 def calculate_historic_pe(stock, financials, fx_rate=1.0):
     """Calculates a 5-year average P/E ratio by matching annual EPS with historical prices."""
@@ -614,9 +617,15 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         # Parallelize data fetching
         try:
             info = stock.info
+            # v163: Ticker transition recovery (FI -> FISV) - yfinance returns 404 for FI currently
+            if (not info or not info.get('symbol')) and ticker_symbol.upper() == 'FI':
+                stock = yf.Ticker('FISV')
+                info = stock.info
+            
             if not info: info = {}
         except Exception:
             info = {}
+
 
         # Identifying Info
         name = info.get('shortName', ticker_symbol)
