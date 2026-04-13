@@ -387,35 +387,35 @@ def calculate_historic_pe(stock, financials, fx_rate=1.0):
         print(f"Error calculating Historic PE: {e}")
         return None
 
-def get_period_labels(ticker_info: dict, historical_data: dict = None) -> dict:
+def get_period_labels(ticker_info: dict, historical_data: dict = None, current_fy: int = None) -> dict:
     """
     Returns a mapping for relative period codes based on the company's fiscal year.
     Standardizes on 'FY 20XX' and relative quarters.
     """
     try:
         now = datetime.datetime.now()
-        lfy_ts = ticker_info.get('lastFiscalYearEnd')
-        if not lfy_ts:
-            current_fy = now.year if now.month <= 12 else now.year + 1
-        else:
-            lfy_dt = datetime.datetime.fromtimestamp(lfy_ts)
-            fy_end_month = lfy_dt.month
-            # We are currently in the fiscal year that ends NEXT.
-            # If our current month is past the last fiscal end month, the next end is next year.
-            if now.month > fy_end_month:
-                current_fy = now.year + 1
+        if current_fy is None:
+            lfy_ts = ticker_info.get('lastFiscalYearEnd')
+            if not lfy_ts:
+                current_fy = now.year if now.month <= 12 else now.year + 1
             else:
-                current_fy = now.year
-        
-        # v152: Synchronize with history if available
-        if historical_data and "years" in historical_data:
-            try:
-                hist_years = [int(y) for y in historical_data["years"] if str(y).isdigit()]
-                if hist_years:
-                    max_hist = max(hist_years)
-                    if current_fy <= max_hist:
-                        current_fy = max_hist + 1
-            except: pass
+                lfy_dt = datetime.datetime.fromtimestamp(lfy_ts)
+                fy_end_month = lfy_dt.month
+                if now.month > fy_end_month:
+                    current_fy = now.year + 1
+                else:
+                    current_fy = now.year
+            
+            # v152: Synchronize with history if available
+            if historical_data and "years" in historical_data:
+                try:
+                    hist_years = [int(y) for y in historical_data["years"] if str(y).isdigit()]
+                    if hist_years:
+                        max_hist = max(hist_years)
+                        if current_fy <= max_hist:
+                            current_fy = max_hist + 1
+                except: pass
+
 
 
         return {
@@ -2315,15 +2315,9 @@ def get_market_averages():
 
 def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, history_rev=None, fx_rate=None, historical_data=None, **kwargs):
     """
-    Fetches analyst estimates data:
-    - Price targets (low / average / high / current)
-    - Recommendation (Strong Buy / Buy / Hold / Sell / Strong Sell + counts)
-    - EPS estimates (current year, next year, next 5yr CAGR)
-    - Revenue estimates (current year, next year)
-    - EPS history (actual vs estimate, last 4 quarters)
+    Fetches analyst estimates data.
     """
     try:
-        # v147 Robustness: Handle both Ticker objects and ticker strings
         if isinstance(stock, str):
             ticker_symbol = stock.upper()
             stock = yf.Ticker(ticker_symbol)
@@ -2337,31 +2331,18 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             
         if fx_rate is None:
             fx_rate = get_fx_rate(info)
-            
-        labels = get_period_labels(info, historical_data=historical_data)
 
-        
-        # Merge keyword-passed history if needed (v147 Sync)
-        q_history = kwargs.get("q_history")
-        if not history_eps and q_history:
-            # history_eps will be populated via the forensic loop from q_history below
-            pass
-
-        if not historical_data and "base_eps" in kwargs:
-            historical_data = {"eps": [kwargs["base_eps"]]}
-        
-        # Determine Fiscal Year Logic early (v146: Pure Detection)
+        # ── v154: UNIFIED FISCAL YEAR DETECTION (CRITICAL SYNC) ────────────────
+        now_dt = datetime.datetime.now()
         fy_end_month = 12
         lfy_ts = info.get('lastFiscalYearEnd')
         if lfy_ts:
             try: fy_end_month = datetime.datetime.fromtimestamp(lfy_ts).month
             except: pass
-        
-        # FY+1 Target Calculation
-        now_dt = datetime.datetime.now()
+            
         current_fy_num = now_dt.year + (1 if now_dt.month > fy_end_month else 0)
         
-        # v151: Synchronize with Historical Anchors to prevent 'Past Year Projections'
+        # Ensure parity with Historical Anchors
         if historical_data and "years" in historical_data:
             try:
                 hist_years = [int(y) for y in historical_data["years"] if str(y).isdigit()]
@@ -2370,6 +2351,18 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
                     if current_fy_num <= max_hist:
                         current_fy_num = max_hist + 1
             except: pass
+
+        # Now generate labels based on the SYNCHRONIZED current_fy_num
+        labels = get_period_labels(info, historical_data=historical_data, current_fy=current_fy_num)
+
+        # Merge keyword-passed history if needed (v147 Sync)
+        q_history = kwargs.get("q_history")
+        if not history_eps and q_history:
+            pass
+
+        if not historical_data and "base_eps" in kwargs:
+            historical_data = {"eps": [kwargs["base_eps"]]}
+
 
 
         # ── Price Target ─────────────────────────────────────────────────────────
@@ -2844,17 +2837,11 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
                     if val is not None and not pd.isna(val):
                         history_eps[fy_lbl] = float(val)
 
-            # v101: Dynamic FY Scaling based on Historical Data (Self-Correcting)
-            h_years = [int(k.replace("FY ", "")) for k in history_eps.keys() if k.startswith("FY ") and k.replace("FY ", "").isdigit()]
-            max_h = max(h_years) if h_years else (datetime.datetime.now().year - 1)
-            current_fy_num = max_h + 1
-            
-            if current_fy_num < (datetime.datetime.now().year - 1):
-                current_fy_num = datetime.datetime.now().year
+            # (v154: Redundant scaling block removed to prevent de-synchronization)
+            pass
         except Exception as he:
             log(f"[Analyst] History mapping error: {he}")
-            # v141: Critical Stability Fallback
-            current_fy_num = now_dt.year + (1 if now_dt.month > fy_end_month else 0)
+
 
         # ── FINAL ASSEMBLY (6-Row Standard) ────────────────────────────────────
         current_year_str = str(current_fy_num)
