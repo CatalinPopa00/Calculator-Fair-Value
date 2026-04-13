@@ -3081,12 +3081,15 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             
             # FY1: Use Yahoo's +1y growth rate first
             if fy1 and fy1.get("avg"):
-                yf_g1 = next((e.get('growth') for e in yf_estimates_src
-                              if str(e.get('period_code','')) == '+1y' and e.get('growth') is not None), None)
+                yf_g1 = None
+                if yf_estimates_src:
+                    yf_g1 = next((e.get('growth') for e in yf_estimates_src
+                                  if str(e.get('period_code','')) == '+1y' and e.get('growth') is not None), None)
                 if yf_g1 is not None:
                     fy1["growth"] = float(yf_g1)
                 elif fy0 and fy0.get("avg") and fy0["avg"] != 0:
                     fy1["growth"] = (fy1["avg"] / fy0["avg"]) - 1
+
 
         # Build a flat eps_estimates list with period_code for force_formula
         # The second Yahoo block (lines 2628-2651) already added entries with period_code

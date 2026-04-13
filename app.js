@@ -925,44 +925,52 @@ document.addEventListener('DOMContentLoaded', () => {
             const years = yearsVal === '10yr' ? 10 : 5;
             const dcfData = currentFormulaData.dcf[yearsVal] || currentFormulaData.dcf["5yr"];
             
-            const dcfInputs = document.getElementById('dcf-custom-inputs');
-            if (dcfInputs) dcfInputs.style.display = fcfSource === 'custom' ? 'flex' : 'none';
+                const dcfInputs = document.getElementById('dcf-custom-inputs');
+                if (dcfInputs) dcfInputs.style.display = fcfSource === 'custom' ? 'flex' : 'none';
 
-            const buybackEl = document.getElementById('dcf-buyback-source');
-            const buybackSrc = buybackEl ? buybackEl.value : 'none';
-            const buybackCustomInputs = document.getElementById('dcf-buyback-custom-inputs');
-            if (buybackCustomInputs) buybackCustomInputs.style.display = buybackSrc === 'custom' ? 'flex' : 'none';
+                const buybackEl = document.getElementById('dcf-buyback-source');
+                const buybackSrc = buybackEl ? buybackEl.value : 'none';
+                const buybackCustomInputs = document.getElementById('dcf-buyback-custom-inputs');
+                if (buybackCustomInputs) buybackCustomInputs.style.display = buybackSrc === 'custom' ? 'flex' : 'none';
 
-            let buybackRate = 0;
-            if (buybackSrc === 'historical') {
-                buybackRate = currentFormulaData.dcf.historic_buyback_rate || 0;
-            } else if (buybackSrc === 'custom') {
-                const rawVal = document.getElementById('dcf-custom-buyback').value;
-                buybackRate = (rawVal === '' || isNaN(parseFloat(rawVal))) ? 0 : parseFloat(rawVal) / 100;
-            }
-
-            const baseFcf = currentFormulaData.dcf.fcf;
-            const shares = prof.shares_outstanding;
-            
-            // Dynamic WACC and Perpetual Growth from backend
-            const w = currentFormulaData.dcf.discount_rate || 0.09;
-            const p = currentFormulaData.dcf.perpetual_growth || 0.02;
-
-            if (fcfSource === 'analyst') {
-                const waccInput = document.getElementById('dcf-custom-wacc');
-                const backendWacc = currentFormulaData.dcf.discount_rate_applied / 100;
-                const method = document.getElementById('dcf-method-selector')?.value || 'perpetual';
-                const branch = method === 'multiple' ? dcfData.dcf_exit_multiple : dcfData.dcf_perpetual;
-                
-                // SYNC v62: Use backend branch if no manual overrides affecting calc are present
-                if (buybackRate === 0 && (!waccInput || !waccInput.value) && fcfSource !== 'custom') {
-                    dcfVal = branch ? branch.fair_value_per_share : null;
-                } else {
-                    const g = currentFormulaData.dcf.eps_growth_applied || 0.10;
-                    const wAnalyst = (waccInput && waccInput.value) ? parseFloat(waccInput.value)/100 : w;
-                    const em = parseFloat(document.getElementById('input-exit-multiple')?.value) || (data.dcf_assumptions?.recommended_exit_multiple || 10.0);
-                    dcfVal = calcLocalDcf(baseFcf, g, wAnalyst, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
+                let buybackRate = 0;
+                if (buybackSrc === 'historical') {
+                    buybackRate = currentFormulaData.dcf.historic_buyback_rate || 0;
+                } else if (buybackSrc === 'custom') {
+                    const rawVal = document.getElementById('dcf-custom-buyback').value;
+                    buybackRate = (rawVal === '' || isNaN(parseFloat(rawVal))) ? 0 : parseFloat(rawVal) / 100;
                 }
+
+                const baseFcf = currentFormulaData.dcf.fcf;
+                const shares = prof.shares_outstanding;
+                
+                // Dynamic WACC and Perpetual Growth from backend
+                const w = currentFormulaData.dcf.discount_rate || 0.09;
+                const p = currentFormulaData.dcf.perpetual_growth || 0.02;
+
+                if (fcfSource === 'analyst') {
+                    const waccInput = document.getElementById('dcf-custom-wacc');
+                    const backendWacc = currentFormulaData.dcf.discount_rate_applied / 100;
+                    const method = document.getElementById('dcf-method-selector')?.value || 'perpetual';
+                    
+                    // v161: Robust null check for dcfData to prevent "Cannot read properties of null"
+                    if (dcfData) {
+                        const branch = method === 'multiple' ? dcfData.dcf_exit_multiple : dcfData.dcf_perpetual;
+                        
+                        // SYNC v62: Use backend branch if no manual overrides affecting calc are present
+                        if (buybackRate === 0 && (!waccInput || !waccInput.value) && fcfSource !== 'custom') {
+                            dcfVal = branch ? branch.fair_value_per_share : null;
+                        }
+                    }
+                    
+                    // Fallback to local calculation if backend branch failed or overrides are present
+                    if (dcfVal === null) {
+                        const g = currentFormulaData.dcf.eps_growth_applied || 0.10;
+                        const wAnalyst = (waccInput && waccInput.value) ? parseFloat(waccInput.value)/100 : w;
+                        const em = parseFloat(document.getElementById('input-exit-multiple')?.value) || (data.dcf_assumptions?.recommended_exit_multiple || 10.0);
+                        dcfVal = calcLocalDcf(baseFcf, g, wAnalyst, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
+                    }
+
             } else if (fcfSource === 'historical') {
                 const hg = prof.historic_fcf_growth != null ? prof.historic_fcf_growth : 0.05;
                 const em = parseFloat(document.getElementById('input-exit-multiple')?.value) || (data.dcf_assumptions?.recommended_exit_multiple || 10.0);
