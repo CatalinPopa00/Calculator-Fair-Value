@@ -2354,10 +2354,6 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
              base_rev = historical_data["revenue"][-1] if "revenue" in historical_data else None
 
         try:
-            # DEBUG LOG
-            with open(r"c:\Users\Snoozie\Downloads\sync_debug.log", "a") as f_log:
-                f_log.write(f"--- Analyst Fetch: {ticker_symbol} (Base EPS: {base_eps}) ---\n")
-                
             e_est = stock.earnings_estimate
             if e_est is not None and not e_est.empty:
                 for idx, row in e_est.iterrows():
