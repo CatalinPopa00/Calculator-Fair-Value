@@ -925,43 +925,28 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             if fcf is None: fcf = info.get('operatingCashflow')
         # shares_outstanding already computed above
         
-        # --- TOTAL CASH & DEBT ROBUST FALLBACKS ---
-        total_cash = (info.get('totalCash') or 0) * fx_rate
-        total_debt = (info.get('totalDebt') or 0) * fx_rate
-        
-        def get_val_from_dfs(dfs, keys):
-            for df in dfs:
-                if df is not None and not df.empty:
-                    for k in keys:
-                        idx = find_idx(df, k)
-                        if idx:
-                            try:
-                                val = float(df.loc[idx].iloc[0])
-                                if val != 0: return val
-                            except: pass
-            return 0
-
-            cash_keys = ['Cash And Cash Equivalents', 'Cash Cash Equivalents And Short Term Investments', 'Total Cash', 'Cash']
-            # Try Quarterly BS first (more recent), then Annual
-            tc_raw = get_val_from_dfs([q_bs, bs], cash_keys) 
-            if tc_raw != 0: total_cash = tc_raw * fx_rate
-
-        if total_debt == 0:
-            debt_keys = ['Total Debt', 'Net Debt'] 
-            td_raw = get_val_from_dfs([q_bs, bs], debt_keys)
-            if td_raw == 0:
-                # Try sum of Long Term + Short Term
-                def sum_debt(df):
-                    if df is None or df.empty: return 0
-                    lt_idx = find_idx(df, 'Long Term Debt')
-                    st_idx = find_idx(df, 'Current Debt') or find_idx(df, 'Short Long Term Debt')
-                    lt = float(df.loc[lt_idx].iloc[0]) if lt_idx else 0
-                    st = float(df.loc[st_idx].iloc[0]) if st_idx else 0
-                    return lt + st
-                
-                td_raw = sum_debt(q_bs) or sum_debt(bs)
+        # --- STRICT MAPPING (v168: LEVERAGE & LIQUIDITY) ---
+        # Rule: Total Debt = LT Debt + ST Debt (Interest Bearing Only). EXCLUDE Leases.
+        def get_strict_debt(df):
+            if df is None or df.empty: return 0
+            # v168: Use find_idx for robust case-insensitive matching
+            lt_idx = find_idx(df, 'Long Term Debt') or find_idx(df, 'Total Long Term Debt')
+            st_idx = find_idx(df, 'Current Debt') or find_idx(df, 'Short Term Debt') or find_idx(df, 'Short Long Term Debt') or find_idx(df, 'Commercial Paper')
             
-            if td_raw != 0: total_debt = td_raw * fx_rate
+            lt = float(df.loc[lt_idx].iloc[0]) if lt_idx else 0
+            st = float(df.loc[st_idx].iloc[0]) if st_idx else 0
+            return (lt + st)
+            
+        td_raw = get_strict_debt(q_bs) or get_strict_debt(bs)
+        total_debt = (td_raw * fx_rate) if td_raw > 0 else (info.get('totalDebt') or 0) * fx_rate
+        
+        # Sanity Check (v168): Debt cannot exceed Total Liabilities (Quantitative Guardrail)
+        total_liab = (info.get('totalLiabilitiesNetMinorityInterest') or info.get('totalLiabilities') or 0)
+        if (total_debt >= total_liab) and total_liab > 0:
+            print(f"CRITICAL DASHBOARD ERROR: Debt (${total_debt/1e9:.1f}B) >= Liabilities (${total_liab/1e9:.1f}B). Quantitative sanity check failed. Reverting to strict LT+ST mapping.")
+            total_debt = td_raw * fx_rate
+
+        total_cash = (info.get('totalCash') or 0) * fx_rate
 
         gross_margins = info.get('grossMargins') # Ratio
         profit_margins = info.get('profitMargins') # Ratio
@@ -1001,7 +986,18 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             except (ValueError, TypeError):
                 debt_to_equity = None
 
-        current_ratio = info.get('currentRatio')
+        # v168: Strict Current Ratio (Total Current Assets / Total Current Liabilities)
+        def get_cr(df):
+            if df is None or df.empty: return None
+            ca_idx = find_idx(df, 'Total Current Assets')
+            cl_idx = find_idx(df, 'Current Liabilities') or find_idx(df, 'Total Current Liabilities')
+            if ca_idx and cl_idx:
+                ca = float(df.loc[ca_idx].iloc[0])
+                cl = float(df.loc[cl_idx].iloc[0])
+                return (ca / cl) if cl > 0 else None
+            return None
+            
+        current_ratio = get_cr(q_bs) or get_cr(bs) or info.get('currentRatio')
         if current_ratio is None and info.get('sector') == 'Financial Services':
             current_ratio = 1.0
 
@@ -1671,33 +1667,33 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
 
                     c_raw = get_bs_metric('Cash And Cash Equivalents', yr_col)
                     
-                    # --- ROBUST DEBT DETECTION (v71) ---
-                    # User confirmed $83B is the correct Total Debt from their Balance Sheet view.
-                    # We will use the raw metric but keep components as fallbacks.
-                    d_raw = get_bs_metric('Total Debt', yr_col)
+                    # --- STRICT MAPPING (v168: LEVERAGE & LIQUIDITY) ---
+                    # Rule 1: Total Debt = LT Debt + ST Debt (Interest Bearing ONLY)
                     lt_debt = get_bs_metric('Long Term Debt', yr_col) or get_bs_metric('Total Long Term Debt', yr_col)
-                    st_debt = get_bs_metric('Short Long Term Debt', yr_col) or get_bs_metric('Current Debt', yr_col) or get_bs_metric('Commercial Paper', yr_col)
+                    st_debt = get_bs_metric('Current Debt', yr_col) or get_bs_metric('Short Term Debt', yr_col) or \
+                              get_bs_metric('Short Long Term Debt', yr_col) or get_bs_metric('Commercial Paper', yr_col)
+                    d_raw = lt_debt + st_debt
                     
-                    if d_raw == 0:
-                        d_raw = lt_debt + st_debt
+                    # Sanity Check (v168): Debt cannot exceed Total Liabilities (Quantitative Guardrail)
+                    total_liab = get_bs_metric('Total Liabilities', yr_col) or get_bs_metric('Total Liabilities Net Minority Interest', yr_col)
+                    if (d_raw >= total_liab) and total_liab > 0:
+                        print(f"CRITICAL MAPPING ERROR: {ticker_symbol} {yr_label} - Debt (${d_raw/1e9:.2f}B) >= Liabilities (${total_liab/1e9:.2f}B). Sanity check failed.")
 
                     assets = get_bs_metric('Total Assets', yr_col)
-                    liabs = get_bs_metric('Current Liabilities', yr_col)
+                    liabs = get_bs_metric('Current Liabilities', yr_col) or get_bs_metric('Total Current Liabilities', yr_col)
+                    current_assets = get_bs_metric('Total Current Assets', yr_col)
 
                     # Calculations
                     margin_v = (historical_trends[i]["net_margin"] * 100.0) if (i < len(historical_trends) and historical_trends[i]["net_margin"]) else None
                     
                     # --- PARTIAL YEAR SANITY CHECK ---
-                    # If margin in latest year drops > 60% vs previous year with similar revenue, it's likely a partial year.
                     if i > 0 and margin_v and i == (len(historical_data["years"]) - 1):
                         prev_m = (historical_trends[i-1]["net_margin"] * 100.0)
                         if prev_m > 5 and margin_v < (prev_m * 0.4):
-                             # Look at Revenue. If Revenue is also low, it's definitely partial.
-                             # If Revenue is high but margin low, it might be an unscaled Income Statement.
                              yr_label = f"{yr_label} (Partial)"
-                             print(f"DEBUG: Tagging {yr_label} as Partial due to margin drop ({margin_v:.1f}% vs {prev_m:.1f}%)")
 
-                    cr_v = (c_raw / liabs) if liabs > 0 else (get_bs_metric('Total Current Assets', yr_col) / liabs if liabs > 0 else None)
+                    # Rule 2: Symmetric Current Ratio (Total Current Assets / Current Liabs)
+                    cr_v = (current_assets / liabs) if liabs > 0 else 0
                     roic_v = (ni_raw / (assets - liabs) * 100.0) if (assets - liabs) > 0 else None
                     
                     gaap_v = (historical_trends[i]["gaap_net_margin"] * 100.0) if (i < len(historical_trends) and "gaap_net_margin" in historical_trends[i]) else margin_v
