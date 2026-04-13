@@ -361,12 +361,6 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             "red_flags": data.get("red_flags", []),
             "debug_version": f"{CACHE_VERSION}-ULTRA-STABILITY-FIX",
             "timestamp": datetime.datetime.now().isoformat()
-            "historical_anchors": data.get("historical_anchors", []),
-            "historical_trends": data.get("historical_trends", []),
-            "historical_data": data.get("historical_data", {}),
-            "red_flags": data.get("red_flags", []),
-            "debug_version": f"{CACHE_VERSION}-ULTRA-STABILITY-FIX",
-            "timestamp": datetime.datetime.now().isoformat()
         }
         
         valuation_cache[cache_key] = resp_data
