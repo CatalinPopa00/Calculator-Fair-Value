@@ -2461,36 +2461,38 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             print(f"[Analyst] Yahoo Revenue Estimates fail: {e}")
 
 
-        # Priority 2: Nasdaq Fallback/Supplement (if lists still empty)
-        if not eps_estimates:
-            try:
-                nq_est = get_nasdaq_comprehensive_estimates(ticker_symbol)
-                nq_yearly_eps = nq_est.get("yearly_eps", [])
-                
-                for i, y_row in enumerate(nq_yearly_eps[:3]):
-                     date_val = y_row.get('fiscalYearEnd') or y_row.get('fiscalEnd')
-                     label = f"FY {date_val}" if date_val else "N/A"
-                     avg_val = safe_nasdaq_float(y_row.get('consensusEPSForecast'))
-                     if avg_val is not None:
-                         avg_val = round(avg_val, 2)
-                         # SYNC: Recalculate growth rates against our actual Non-GAAP base
-                         growth_val = None
-                         target_base = base_eps
-                         if avg_val > 0 and target_base and target_base > 0:
-                             # Use moving base for consecutive years (2027 vs 2026)
-                             if "2027" in label or "+1y" in f"+{i}y":
-                                 prev = next((x for x in eps_estimates if "2026" in x['period']), None)
-                                 if prev: target_base = prev['avg']
-                             growth_val = (avg_val - target_base) / target_base
-                             
-                         eps_estimates.append({
-                             "period": label,
-                             "period_code": f"+{i}y",
-                             "avg": avg_val,
-                             "growth": growth_val,
-                             "status": "estimate"
-                         })
-            except: pass
+        # ── Annual EPS: Nasdaq Non-GAAP (PRIMARY source for FY estimates) ────────
+        # v184: Run unconditionally — this is the ONLY source for annual Non-GAAP FY projections.
+        # Yahoo's earnings_estimate is blocked from adding annual rows (GAAP) by the guard below.
+        try:
+            nq_est = get_nasdaq_comprehensive_estimates(ticker_symbol)
+            nq_yearly_eps = nq_est.get("yearly_eps", [])
+            
+            for i, y_row in enumerate(nq_yearly_eps[:3]):
+                 date_val = y_row.get('fiscalYearEnd') or y_row.get('fiscalEnd')
+                 label = f"FY {date_val}" if date_val else "N/A"
+                 avg_val = safe_nasdaq_float(y_row.get('consensusEPSForecast'))
+                 if avg_val is not None:
+                     avg_val = round(avg_val, 2)
+                     # SYNC: Recalculate growth rates against our actual Non-GAAP base
+                     growth_val = None
+                     target_base = base_eps
+                     if avg_val > 0 and target_base and target_base > 0:
+                         # Use moving base for consecutive years (2027 vs 2026)
+                         if "2027" in label or "+1y" in f"+{i}y":
+                             prev = next((x for x in eps_estimates if "2026" in x['period']), None)
+                             if prev: target_base = prev['avg']
+                         growth_val = (avg_val - target_base) / target_base
+                         
+                     eps_estimates.append({
+                         "period": label,
+                         "period_code": f"+{i}y",
+                         "avg": avg_val,
+                         "growth": growth_val,
+                         "status": "estimate"
+                     })
+        except: pass
+
 
         # ── BASE YEAR BACKFILL (Fix for FRSH 2025 issue) ─────────────────────
         try:
@@ -2704,14 +2706,27 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         except Exception as e:
             print(f"[Analyst] Reported history error: {e}")
 
-        # ── Yahoo EPS Estimates ──────────────────────────────────────────────────
-        # v183: Recalculate growth vs Non-GAAP base_eps (FY2025) instead of Yahoo's GAAP growth
+        # ── Yahoo EPS Estimates (QUARTERLY ONLY) ────────────────────────────────
+        # v184: Yahoo returns GAAP values for annual periods (FY 2026 GAAP ≠ Non-GAAP from Nasdaq).
+        # Strategy: Yahoo contributes ONLY quarterly rows (Q1/Q2/Q3/Q4 breakdown).
+        # Annual FY rows come exclusively from the Nasdaq Non-GAAP block above.
         try:
             import pandas as pd
             ef = stock.earnings_estimate
             if ef is not None and not ef.empty:
+                # Build a set of period labels already in eps_estimates (from Nasdaq Non-GAAP)
+                existing_annual_labels = {e.get('period', '') for e in eps_estimates}
+                
                 for period_idx, row in ef.iterrows():
                     p_key = str(period_idx)
+                    
+                    # --- ANNUAL PERIOD GUARD ---
+                    # Period codes "0y", "+1y", "1y", "-1y" are annual estimates from Yahoo (GAAP).
+                    # Skip them — Nasdaq Non-GAAP already covers annual FY rows.
+                    is_annual_code = any(p_key.lower() in [f"{n}y", f"+{n}y", f"-{n}y"] for n in range(4))
+                    if is_annual_code:
+                        continue
+                    
                     avg = row.get('avg') if hasattr(row, 'get') else row.get('Avg')
                     val_unscaled = float(avg) if avg is not None and not (isinstance(avg, float) and pd.isna(avg)) else None
                     try:
@@ -2719,18 +2734,16 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
                     except:
                         p_label = labels.get(p_key, p_key)
                     
+                    # Skip if this period label is already in eps_estimates (deduplication)
+                    if p_label in existing_annual_labels:
+                        continue
+                    
                     scaled_avg = val_unscaled * fx_rate if val_unscaled is not None else None
                     
-                    # v183: Recalculate growth vs Non-GAAP historical base (not Yahoo's GAAP growth)
+                    # Recalculate growth vs Non-GAAP historical base
                     recalc_growth = None
                     if scaled_avg and scaled_avg > 0 and base_eps and base_eps > 0:
-                        target_base = base_eps
-                        # Moving base: FY2027 growth vs FY2026 projection, not vs FY2025
-                        if any(yr in p_label for yr in ["2027", "2028", "+1Y", "+2Y"]):
-                            prev = next((x for x in eps_estimates if any(yr in str(x.get('period','')) for yr in ["2026", "0Y", "+0Y"])), None)
-                            if prev and prev.get('avg') and prev['avg'] > 0:
-                                target_base = prev['avg']
-                        recalc_growth = (scaled_avg - target_base) / target_base
+                        recalc_growth = (scaled_avg - base_eps) / base_eps
                     
                     eps_estimates.append({
                         "period": p_label, 
