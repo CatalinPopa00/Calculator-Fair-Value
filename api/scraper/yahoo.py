@@ -2346,15 +2346,26 @@ def get_market_averages():
     try:
         spy = yf.Ticker("SPY")
         info = spy.info
+        pe_t = info.get('trailingPE')
+        pe_f = info.get('forwardPE')
+        
+        # Fallback for SPY PE if one is missing
+        if not pe_t and pe_f: pe_t = pe_f
+        if not pe_f and pe_t: pe_f = pe_t
+        
+        # Absolute fallback if both are None (Yahoo bug)
+        if not pe_t: pe_t = 24.5  # Current realistic SPX PE
+        if not pe_f: pe_f = 21.0
+        
         data = {
-            "trailing_pe": info.get('trailingPE'),
-            "forward_pe": info.get('forwardPE') or info.get('trailingPE')
+            "trailing_pe": float(pe_t),
+            "forward_pe": float(pe_f)
         }
         _market_cache = {"data": data, "timestamp": now}
         return data
     except Exception as e:
         print(f"Error fetching SPY market average: {e}")
-        return {"trailing_pe": 20.0, "forward_pe": 18.0}
+        return {"trailing_pe": 24.5, "forward_pe": 21.0}
 
 def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, history_rev=None, fx_rate=None, historical_data=None, **kwargs):
     """
@@ -3102,13 +3113,24 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             if fy0 and fy0.get("avg"):
                 prev_fy_lbl = f"FY {current_fy_num - 1}"
                 past_val = hist_data.get(prev_fy_lbl)
+                
+                if not past_val:
+                    # Forensic Fallback (v175): search for the latest actual in the trends table
+                    try:
+                        valid_hist_keys = [k for k in hist_data.keys() if "FY" in k]
+                        if valid_hist_keys:
+                            # Sort by year numeric value to get the most recent actual
+                            target_key = max(valid_hist_keys, key=lambda x: int(''.join(filter(str.isdigit, x))))
+                            past_val = hist_data.get(target_key)
+                    except: pass
+
                 if not past_val and key_prefix == "eps": past_val = actual_trailing_eps
                 if not past_val and key_prefix == "rev": past_val = actual_trailing_rev
 
                 if past_val and past_val != 0:
                     fy0["growth"] = (fy0["avg"] / past_val) - 1
                 else:
-                    # v160: Safety check for yf_estimates_src (Fix for FISV/FI crash)
+                    # v176: Robustness for FISV/FI crash
                     yf_g = None
                     if yf_estimates_src:
                         yf_g = next((e.get('growth') for e in yf_estimates_src

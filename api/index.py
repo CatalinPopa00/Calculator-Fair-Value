@@ -262,6 +262,25 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         else:
             data["ev_to_ebitda"] = 0
 
+        # FCF Trend calculation (v173: Fix for 'Flat' trend scoring)
+        anchors = data.get("historical_anchors", [])
+        # v174: Robust trend detection - skip 'Est' values for health scoring
+        actual_fcf = [a.get("fcf_b") for a in anchors if a.get("fcf_b") is not None and "(Est)" not in str(a.get("year", ""))]
+        
+        if len(actual_fcf) >= 2:
+            # Anchors are reversed (newest first), so we should reverse back for trend analysis
+            actual_fcf_chrono = list(reversed(actual_fcf))
+            last_fcf = actual_fcf_chrono[-1]
+            prev_avg = sum(actual_fcf_chrono[:-1]) / len(actual_fcf_chrono[:-1]) if len(actual_fcf_chrono) > 1 else actual_fcf_chrono[0]
+            if last_fcf > prev_avg * 1.05:
+                data["fcf_trend"] = "Growing"
+            elif last_fcf < prev_avg * 0.85: # More leeway for decline
+                data["fcf_trend"] = "Declining"
+            else:
+                data["fcf_trend"] = "Flat"
+        else:
+            data["fcf_trend"] = "Flat"
+
         # Scoring
         scoring_results = calculate_scoring_reform({"mos": (lynch.get("margin_of_safety") if lynch else 0), "eps_growth": growth_5y*100, "pe": current_pe, "pe_historic": pe_historic, "peg_ratio": company_peg}, data)
 
