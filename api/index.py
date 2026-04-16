@@ -187,8 +187,9 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         norm_wacc = round(float(wacc), 2) if wacc is not None else "def"
         cache_key = f"val_{ticker_upper}_{fast_mode}_{skip_peers}_{CACHE_VERSION}_{norm_wacc}"
         
-        if cache_key in valuation_cache: 
-            return deep_clean_data(valuation_cache[cache_key])
+        # v177: Temporary cache-bust for validation
+        # if cache_key in valuation_cache: 
+        #     return deep_clean_data(valuation_cache[cache_key])
 
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
@@ -262,24 +263,30 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         else:
             data["ev_to_ebitda"] = 0
 
-        # FCF Trend calculation (v173: Fix for 'Flat' trend scoring)
+        # ── FCF Trend Calculation (v182: Enhanced for Accuracy) ────────────────
         anchors = data.get("historical_anchors", [])
-        # v174: Robust trend detection - skip 'Est' values for health scoring
+        # Extract FCF and filter for reported (actual) years
         actual_fcf = [a.get("fcf_b") for a in anchors if a.get("fcf_b") is not None and "(Est)" not in str(a.get("year", ""))]
         
         if len(actual_fcf) >= 2:
-            # Anchors are reversed (newest first), so we should reverse back for trend analysis
+            # Anchors are newest first
             actual_fcf_chrono = list(reversed(actual_fcf))
             last_fcf = actual_fcf_chrono[-1]
-            prev_avg = sum(actual_fcf_chrono[:-1]) / len(actual_fcf_chrono[:-1]) if len(actual_fcf_chrono) > 1 else actual_fcf_chrono[0]
-            if last_fcf > prev_avg * 1.05:
+            # Use average of all previous years as baseline if more than 2, else just the previous one
+            prev_avg = sum(actual_fcf_chrono[:-1]) / len(actual_fcf_chrono[:-1])
+            
+            # v182: Dynamic trend labeling
+            if last_fcf > prev_avg * 1.05 and last_fcf > 0:
                 data["fcf_trend"] = "Growing"
-            elif last_fcf < prev_avg * 0.85: # More leeway for decline
+            elif last_fcf < prev_avg * 0.95:
                 data["fcf_trend"] = "Declining"
             else:
                 data["fcf_trend"] = "Flat"
         else:
             data["fcf_trend"] = "Flat"
+        
+        # Add market_data to context for scoring
+        data["market_data"] = market_data
 
         # Scoring
         scoring_results = calculate_scoring_reform({"mos": (lynch.get("margin_of_safety") if lynch else 0), "eps_growth": growth_5y*100, "pe": current_pe, "pe_historic": pe_historic, "peg_ratio": company_peg}, data)
@@ -353,6 +360,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             "health_breakdown": health_breakdown,
             "good_to_buy_total": good_to_buy_total,
             "buy_breakdown": buy_breakdown,
+            "market_data": market_data, # v178: Fix for 'Platform cannot see S&P 500 PE'
             "piotroski_score": p_score,
             "piotroski_breakdown": p_breakdown,
             "dcf_assumptions": {

@@ -223,6 +223,11 @@ def calculate_scoring_reform(valuation_data, metrics):
             pts_rel = 10 if pe_diff_pct < -15 else (5 if abs(pe_diff_pct) <= 15 else 0)
         pts = pts_abs + pts_rel
         add_b("P/E Ratio", pe, pts, 20, True)
+        
+        # v182: S&P 500 Relative P/E Benchmark (added to Buy breakdown)
+        mkt_pe = metrics.get('market_data', {}).get('pe') or metrics.get('market_data', {}).get('trailing_pe') or 22.0
+        mkt_pts = 10 if (pe > 0 and pe < mkt_pe) else 0
+        add_b("P/E vs S&P 500", f"{pe:.1f} vs {mkt_pe:.1f}", mkt_pts, 10, "raw")
 
         ev_ebitda = clean_ratio(metrics.get('ev_to_ebitda'))
         pts = 10 if (ev_ebitda > 0 and ev_ebitda < 12.0) else (5 if (ev_ebitda > 0 and ev_ebitda <= 18.0) else 0)

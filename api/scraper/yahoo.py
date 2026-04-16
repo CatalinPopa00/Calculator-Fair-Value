@@ -3046,119 +3046,61 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         actual_trailing_rev = info.get('totalRevenue')
         
         # v135/v136: ABSOLUTE SYNC with Historical Data (Adjusted Baseline)
-        # Use the forensic results from Step 1 to populate the calculator's history
         if historical_data and "years" in historical_data:
             for i, yr in enumerate(historical_data["years"]):
-                lbl = f"FY {yr}"
-                history_eps[lbl] = historical_data["eps"][i]
-                history_rev[lbl] = historical_data["revenue"][i]
-            # Also map quarters if they exist in historical_data (not default, but for ADBE)
-            # v133 quarters are already in history_eps for ADBE
+                history_eps[f"FY {yr}"] = historical_data["eps"][i]
+                history_rev[f"FY {yr}"] = historical_data["revenue"][i]
 
-        for k in ["Q1", "Q2", "Q3", "Q4", "FY0", "FY1"]:
-            e = eps_buckets[k]; r = rev_buckets[k]
-            if k.startswith("Q"):
-                current_lbl = f"{k} {current_fy_num}"
-                prev_lbl = f"{k} {current_fy_num - 1}"
-            elif k == "FY0":
-                current_lbl = f"FY {current_fy_num}"
-                prev_lbl = f"FY {current_fy_num - 1}"
-            else: # FY1
-                current_lbl = f"FY {current_fy_num + 1}"
-                prev_lbl = "FY0" # Sentinel for forward-comparison
-            
-            # Y/Y Growth with Chained Projection Support (v100)
-            if e.get("growth") is None and e.get("avg") is not None:
-                past_val = None
-                if k == "FY1":
-                    # Chain: FY+2 (FY1) compares to FY+1 (FY0)
-                    past_val = eps_buckets["FY0"]["avg"]
-                elif k == "FY0":
-                    # Comparison: Current FY Estimate vs previous Actual fiscal year
-                    past_val = history_eps.get(prev_lbl)
-                    if not past_val and actual_trailing_eps: 
-                        past_val = actual_trailing_eps
-                else:
-                    # Individual Quarters
-                    past_val = history_eps.get(prev_lbl)
-                
-                if past_val and past_val != 0: 
-                    e["growth"] = (e["avg"] / past_val) - 1
-            
-            if r.get("growth") is None and r.get("avg") is not None:
-                past_val = None
-                if k == "FY1":
-                    past_val = rev_buckets["FY0"]["avg"]
-                elif k == "FY0":
-                    past_val = history_rev.get(prev_lbl)
-                    if not past_val and actual_trailing_rev:
-                        past_val = actual_trailing_rev
-                else:
-                    past_val = history_rev.get(prev_lbl)
-                
-                if past_val and past_val != 0: 
-                    r["growth"] = (r["avg"] / past_val) - 1
-            
-            e["period"] = current_lbl; r["period"] = current_lbl
-            
-            unified_eps.append(e); unified_rev.append(r)
-        # v149: FINAL UNIVERSAL FORENSIC FORCE
-        # Use Yahoo's pre-computed growth rates (accurate, Non-GAAP) when available.
-        # Only fall back to history-based formula when Yahoo doesn't provide growth.
+        # v149: FINAL UNIVERSAL FORENSIC FORCE (v181: Reliable labels)
         def force_formula(buckets, hist_data, key_prefix, yf_estimates_src):
             fy0 = buckets.get("FY0")
             fy1 = buckets.get("FY1")
             
-            # FY0: Recalculate against our verified Adjusted base (v159)
+            # FY0 vs Historical Actuals
             if fy0 and fy0.get("avg"):
                 prev_fy_lbl = f"FY {current_fy_num - 1}"
                 past_val = hist_data.get(prev_fy_lbl)
-                
                 if not past_val:
-                    # Forensic Fallback (v175): search for the latest actual in the trends table
                     try:
                         valid_hist_keys = [k for k in hist_data.keys() if "FY" in k]
                         if valid_hist_keys:
-                            # Sort by year numeric value to get the most recent actual
                             target_key = max(valid_hist_keys, key=lambda x: int(''.join(filter(str.isdigit, x))))
                             past_val = hist_data.get(target_key)
                     except: pass
-
                 if not past_val and key_prefix == "eps": past_val = actual_trailing_eps
                 if not past_val and key_prefix == "rev": past_val = actual_trailing_rev
-
+                
                 if past_val and past_val != 0:
-                    fy0["growth"] = (fy0["avg"] / past_val) - 1
-                else:
-                    # v176: Robustness for FISV/FI crash
-                    yf_g = None
-                    if yf_estimates_src:
-                        yf_g = next((e.get('growth') for e in yf_estimates_src
-                                     if str(e.get('period_code','')) == '0y' and e.get('growth') is not None), None)
-                    if yf_g is not None: fy0["growth"] = float(yf_g)
-
-
+                    fy0["growth"] = (fy0["avg"] / abs(past_val)) - 1
             
-            # FY1: Use Yahoo's +1y growth rate first
-            if fy1 and fy1.get("avg"):
-                yf_g1 = None
-                if yf_estimates_src:
-                    yf_g1 = next((e.get('growth') for e in yf_estimates_src
-                                  if str(e.get('period_code','')) == '+1y' and e.get('growth') is not None), None)
+            # FY1 vs FY0 (Standardizing universal formula: FY_N / FY_N-1 - 1)
+            # v182: Removed yf_g1 priority to ensure consistency with user requirements
+            if fy1 and fy1.get("avg") and fy0 and fy0.get("avg") and fy0["avg"] != 0:
+                fy1["growth"] = (fy1["avg"] / abs(fy0["avg"])) - 1
+            elif fy1 and fy1.get("avg") and yf_estimates_src:
+                # Fallback only if FY0 is missing
+                yf_g1 = next((e.get('growth') for e in yf_estimates_src
+                              if str(e.get('period_code','')) == '+1y' and e.get('growth') is not None), None)
                 if yf_g1 is not None:
                     fy1["growth"] = float(yf_g1)
-                elif fy0 and fy0.get("avg") and fy0["avg"] != 0:
-                    fy1["growth"] = (fy1["avg"] / fy0["avg"]) - 1
-
-
-        # Build a flat eps_estimates list with period_code for force_formula
-        # The second Yahoo block (lines 2628-2651) already added entries with period_code
-        eps_est_with_code = [e for e in eps_estimates if e.get('period_code')]
-        rev_est_with_code = [r for r in rev_estimates if r.get('period_code')]
 
         # Execute for all companies (Force the Growth Columns)
+        eps_est_with_code = [e for e in eps_estimates if e.get('period_code')]
+        rev_est_with_code = [r for r in rev_estimates if r.get('period_code')]
         force_formula(eps_buckets, history_eps, "eps", eps_est_with_code)
         force_formula(rev_buckets, history_rev, "rev", rev_est_with_code)
+
+        # Now populate result lists with period labels (v182: Fixed missing labels)
+        for k in ["Q1", "Q2", "Q3", "Q4", "FY0", "FY1"]:
+            e = eps_buckets[k]; r = rev_buckets[k]
+            if k.startswith("Q"):
+                lbl = f"{k} {current_fy_num}"
+            elif k == "FY0":
+                lbl = f"FY {current_fy_num}"
+            else:
+                lbl = f"FY {current_fy_num + 1}"
+            e["period"] = lbl; r["period"] = lbl
+            unified_eps.append(e); unified_rev.append(r)
 
 
         # (Anomaly healing removed: with proper FY0/FY1 from Yahoo, no longer needed)
@@ -3185,6 +3127,10 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             if est.get('period_code') == '0y': g_0y = est.get('growth')
             if est.get('period_code') == '+1y': g_1y = est.get('growth')
         
+        # v182: Unified Growth detection from bucketing
+        g_0y = eps_buckets["FY0"].get("growth")
+        g_1y = eps_buckets["FY1"].get("growth")
+        
         # v156: Calculate Average Growth between FY0 and FY1 for a more stable valuation base
         if g_0y is not None and g_1y is not None:
             eps_forward_growth = (g_0y + g_1y) / 2
@@ -3192,6 +3138,9 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             eps_forward_growth = g_0y
         elif g_1y is not None:
             eps_forward_growth = g_1y
+        else:
+            # Absolute fallback to info
+            eps_forward_growth = info.get('earningsGrowth', 0.10)
 
 
         return {
