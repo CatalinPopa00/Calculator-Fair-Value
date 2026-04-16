@@ -242,10 +242,12 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         def _peer_peg(p):
             pe = p.get('pe_ratio')
             eg = p.get('earnings_growth')  # decimal, e.g. 0.12 = 12%
-            if pe and pe > 0 and eg and eg > 0.01:
+            # Clamp: yfinance can return unreliably high growth (e.g. 2.5 = 250%) for recovering
+            # companies, which would deflate PEG to near-zero. Cap at 60% and floor at 1%.
+            if pe and pe > 0 and eg and 0.01 <= eg <= 0.60:
                 return pe / (eg * 100)
             return None
-        valid_peer_pegs = [x for x in [_peer_peg(p) for p in peers_data] if x is not None and 0.1 < x < 10]
+        valid_peer_pegs = [x for x in [_peer_peg(p) for p in peers_data] if x is not None and 0.2 < x < 8]
         
         # Sector-aware fallback when < 2 peers with valid PEG data
         sector_str = str(data.get('sector', '')).lower()

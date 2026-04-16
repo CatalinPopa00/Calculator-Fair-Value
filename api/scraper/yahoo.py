@@ -2462,10 +2462,16 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
 
 
         # ── Annual EPS: Nasdaq Non-GAAP (PRIMARY source for FY estimates) ────────
-        # v184: Run unconditionally — this is the ONLY source for annual Non-GAAP FY projections.
+        # v185: Wrapped in 4s timeout to prevent blocking the analyst response.
         # Yahoo's earnings_estimate is blocked from adding annual rows (GAAP) by the guard below.
         try:
-            nq_est = get_nasdaq_comprehensive_estimates(ticker_symbol)
+            import concurrent.futures as _cf
+            with _cf.ThreadPoolExecutor(max_workers=1) as _ex:
+                _fut = _ex.submit(get_nasdaq_comprehensive_estimates, ticker_symbol)
+                try:
+                    nq_est = _fut.result(timeout=4)
+                except _cf.TimeoutError:
+                    nq_est = {}
             nq_yearly_eps = nq_est.get("yearly_eps", [])
             
             for i, y_row in enumerate(nq_yearly_eps[:3]):
@@ -2474,16 +2480,13 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
                  avg_val = safe_nasdaq_float(y_row.get('consensusEPSForecast'))
                  if avg_val is not None:
                      avg_val = round(avg_val, 2)
-                     # SYNC: Recalculate growth rates against our actual Non-GAAP base
                      growth_val = None
                      target_base = base_eps
                      if avg_val > 0 and target_base and target_base > 0:
-                         # Use moving base for consecutive years (2027 vs 2026)
                          if "2027" in label or "+1y" in f"+{i}y":
                              prev = next((x for x in eps_estimates if "2026" in x['period']), None)
                              if prev: target_base = prev['avg']
                          growth_val = (avg_val - target_base) / target_base
-                         
                      eps_estimates.append({
                          "period": label,
                          "period_code": f"+{i}y",
@@ -2721,10 +2724,18 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
                     p_key = str(period_idx)
                     
                     # --- ANNUAL PERIOD GUARD ---
-                    # Period codes "0y", "+1y", "1y", "-1y" are annual estimates from Yahoo (GAAP).
-                    # Skip them — Nasdaq Non-GAAP already covers annual FY rows.
+                    # Yahoo annual estimates are GAAP — Nasdaq Non-GAAP block covers FY rows.
+                    # Guard 1: period_code based ("0y", "+1y", "1y", etc.)
                     is_annual_code = any(p_key.lower() in [f"{n}y", f"+{n}y", f"-{n}y"] for n in range(4))
                     if is_annual_code:
+                        continue
+                    # Guard 2: resolve p_label first, then check if it's an FY annual label
+                    # (handles date-indexed annual rows like Timestamp('2026-11-30') → 'FY 2026')
+                    try:
+                        _pre_label = to_fiscal_label(pd.to_datetime(period_idx)) if isinstance(period_idx, (pd.Timestamp, datetime.datetime, str)) and any(c in str(period_idx) for c in ['-', '/', '.', '20']) else labels.get(p_key, p_key)
+                    except:
+                        _pre_label = labels.get(p_key, p_key)
+                    if str(_pre_label).startswith('FY '):
                         continue
                     
                     avg = row.get('avg') if hasattr(row, 'get') else row.get('Avg')

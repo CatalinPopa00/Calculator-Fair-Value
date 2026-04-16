@@ -2648,7 +2648,7 @@ document.addEventListener('DOMContentLoaded', () => {
                      + row('Current PEG', g.current_peg ? g.current_peg.toFixed(2) + 'x' : 'N/A')
                      + row('Industry PEG', g.industry_peg ? g.industry_peg.toFixed(2) + 'x' : 'N/A')
                      + row('Fair Value', '$' + fmt(g.fair_value))
-                     + row('Margin of Safety', fmtPct(g.margin_of_safety / 100));
+                     + row('Margin of Safety', (() => { const cp = globalData.current_price; const fv = g.fair_value; if (fv != null && cp > 0) { const mos = (fv - cp) / cp; return fmtPct(mos); } return 'N/A'; })());
             } else {
                 title.textContent = 'Data Transparency';
                 html = '<p style="color:var(--text-muted);">No data available for this model.</p>';
