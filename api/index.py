@@ -1,4 +1,6 @@
 from fastapi import FastAPI, HTTPException, Response
+from fastapi.staticfiles import StaticFiles
+
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from cachetools import TTLCache
@@ -46,6 +48,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Serve Static Files (Frontend)
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+app.mount("/api_static", StaticFiles(directory=ROOT_DIR), name="api_static") # Backup mount
+# We'll use a safer approach for the root to avoid shadowing /api/
+@app.get("/")
+def read_index():
+    from fastapi.responses import FileResponse
+    return FileResponse(os.path.join(ROOT_DIR, "index.html"))
+
+# For other static files (app.js, style.css, etc.)
+@app.get("/{filename}")
+def read_static(filename: str):
+    from fastapi.responses import FileResponse
+    path = os.path.join(ROOT_DIR, filename)
+    if os.path.exists(path) and os.path.isfile(path):
+        return FileResponse(path)
+    raise HTTPException(status_code=404)
+
+
 WATCHLIST_FILE = "watchlist.json"
 OVERRIDES_FILE = "overrides.json"
 
@@ -92,11 +113,45 @@ def sanitize(val):
     except: return None
 
 def deep_clean_data(val):
-    if isinstance(val, dict): return {k: deep_clean_data(v) for k, v in val.items()}
-    if isinstance(val, list): return [deep_clean_data(v) for v in val]
-    if hasattr(val, "item"): return val.item()
-    if isinstance(val, (int, float, str, bool)) or val is None: return val
+    """Recursively santizies data for JSON compliance (handles NaN, Infinity, and non-serializable objects)."""
+    if isinstance(val, dict):
+        return {k: deep_clean_data(v) for k, v in val.items()}
+    if isinstance(val, (list, tuple, set)):
+        return [deep_clean_data(v) for v in val]
+    
+    # Handle common primitives first (Speed)
+    if val is None: return None
+    if isinstance(val, (str, bool)): return val
+    
+    # Check for basic Python float/int
+    if isinstance(val, (float, int)):
+        if math.isnan(val) or math.isinf(val): return None
+        return val
+        
+    # Handle scalar objects (like numpy.float64, pandas.NA, etc.)
+    # We use duck-typing to detect number-like objects
+    if hasattr(val, "item") and callable(val.item): 
+        try:
+            native = val.item()
+            if isinstance(native, float):
+                if math.isnan(native) or math.isinf(native): return None
+            return native
+        except: pass
+        
+    try:
+        # Final catch-all for anything that can be cast to float (like decimal.Decimal)
+        # But we must NOT convert strings or complex objects here
+        if hasattr(val, "__float__") and not isinstance(val, (str, list, dict)):
+            fval = float(val)
+            if math.isnan(fval) or math.isinf(fval): return None
+            # Return int if it's an exact integer representation
+            if fval.is_integer() and isinstance(val, (int, float)): return int(fval)
+            return fval
+    except: pass
+    
     return str(val)
+
+
 
 @app.get("/api/search/{query}")
 def search(query: str, response: Response):
@@ -132,7 +187,9 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         norm_wacc = round(float(wacc), 2) if wacc is not None else "def"
         cache_key = f"val_{ticker_upper}_{fast_mode}_{skip_peers}_{CACHE_VERSION}_{norm_wacc}"
         
-        if cache_key in valuation_cache: return valuation_cache[cache_key]
+        if cache_key in valuation_cache: 
+            return deep_clean_data(valuation_cache[cache_key])
+
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
             main_task = executor.submit(get_company_data, ticker_upper, fast_mode=fast_mode)
@@ -194,8 +251,20 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         # Relative
         relative_val = calculate_relative_valuation(ticker_upper, {"trailing_eps": eps_for_valuation}, peers_data)
 
+        # EV / EBITDA calculation (v172: fix for 0.00x)
+        ebitda_val = data.get("ebitda")
+        if ebitda_val and ebitda_val > 0:
+            mkt_cap = (data.get("shares_outstanding") or 0) * current_price
+            debt_val = (data.get("total_debt") or 0)
+            cash_val = (data.get("total_cash") or 0)
+            ev_val = mkt_cap + debt_val - cash_val
+            data["ev_to_ebitda"] = ev_val / ebitda_val
+        else:
+            data["ev_to_ebitda"] = 0
+
         # Scoring
-        scoring_results = calculate_scoring_reform({"mos": 0, "eps_growth": growth_5y*100, "pe": current_pe, "pe_historic": pe_historic, "peg_ratio": company_peg}, data)
+        scoring_results = calculate_scoring_reform({"mos": (lynch.get("margin_of_safety") if lynch else 0), "eps_growth": growth_5y*100, "pe": current_pe, "pe_historic": pe_historic, "peg_ratio": company_peg}, data)
+
         health_score_total = scoring_results.get("health_score_total")
         health_breakdown = scoring_results.get("health_breakdown")
         good_to_buy_total = scoring_results.get("good_to_buy_total")
@@ -286,7 +355,16 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 "revenue_growth": sanitize(data.get("revenue_growth")),
                 "earnings_growth": sanitize(growth_5y),
                 "next_earnings_date": data.get("next_earnings_date"),
-                "sector_median_pe": sanitize(sector_median_pe)
+                "sector_median_pe": sanitize(sector_median_pe),
+                "insider_ownership": sanitize(data.get("insider_ownership")),
+                "shares_outstanding": sanitize(data.get("shares_outstanding")),
+                "buyback_rate": sanitize(data.get("historic_buyback_rate")),
+                "dividend_yield": sanitize(data.get("dividend_yield")),
+                "payout_ratio": sanitize(data.get("payout_ratio")),
+                "dividend_streak": data.get("dividend_streak"),
+                "dividend_cagr_5y": sanitize(data.get("dividend_cagr_5y")),
+                "competitors": [p.get("ticker") for p in peers_data] if peers_data else [],
+                "competitor_metrics": peers_data or []
             },
             "metrics": data,
             "valuation": {

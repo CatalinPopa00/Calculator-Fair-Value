@@ -874,6 +874,12 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         if not shares_outstanding:
             # v157: Support for Dual-Class companies (META, GOOGL) - Use Implied Total
             shares_outstanding = info.get('impliedSharesOutstanding') or info.get('sharesOutstanding') or 0
+            if not shares_outstanding:
+                try: 
+                    cf_shares = stock.fast_info.get('shares_outstanding')
+                    if cf_shares: shares_outstanding = float(cf_shares)
+                except: pass
+
 
 
         # ── GAAP EPS RECALIBRATION (runs AFTER financials are resolved) ──
