@@ -2733,6 +2733,7 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             print(f"[Analyst] Reported history error: {e}")
 
         # ── Yahoo EPS Estimates ──────────────────────────────────────────────────
+        # v183: Recalculate growth vs Non-GAAP base_eps (FY2025) instead of Yahoo's GAAP growth
         try:
             import pandas as pd
             ef = stock.earnings_estimate
@@ -2740,18 +2741,30 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
                 for period_idx, row in ef.iterrows():
                     p_key = str(period_idx)
                     avg = row.get('avg') if hasattr(row, 'get') else row.get('Avg')
-                    growth = row.get('growth') if hasattr(row, 'get') else row.get('Growth')
                     val_unscaled = float(avg) if avg is not None and not (isinstance(avg, float) and pd.isna(avg)) else None
                     try:
                         p_label = to_fiscal_label(pd.to_datetime(period_idx)) if isinstance(period_idx, (pd.Timestamp, datetime.datetime, str)) and any(c in str(period_idx) for c in ['-', '/', '.', '20']) else labels.get(p_key, p_key)
                     except:
                         p_label = labels.get(p_key, p_key)
                     
+                    scaled_avg = val_unscaled * fx_rate if val_unscaled is not None else None
+                    
+                    # v183: Recalculate growth vs Non-GAAP historical base (not Yahoo's GAAP growth)
+                    recalc_growth = None
+                    if scaled_avg and scaled_avg > 0 and base_eps and base_eps > 0:
+                        target_base = base_eps
+                        # Moving base: FY2027 growth vs FY2026 projection, not vs FY2025
+                        if any(yr in p_label for yr in ["2027", "2028", "+1Y", "+2Y"]):
+                            prev = next((x for x in eps_estimates if any(yr in str(x.get('period','')) for yr in ["2026", "0Y", "+0Y"])), None)
+                            if prev and prev.get('avg') and prev['avg'] > 0:
+                                target_base = prev['avg']
+                        recalc_growth = (scaled_avg - target_base) / target_base
+                    
                     eps_estimates.append({
                         "period": p_label, 
                         "period_code": p_key,
-                        "avg": val_unscaled * fx_rate if val_unscaled is not None else None,
-                        "growth": float(growth) if growth is not None and not (isinstance(growth, float) and pd.isna(growth)) else None,
+                        "avg": scaled_avg,
+                        "growth": recalc_growth,
                         "status": "estimate"
                     })
         except Exception as e:

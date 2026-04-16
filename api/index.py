@@ -459,7 +459,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                    "median_peer_pe": sanitize(sector_median_pe),
                    "mean_peer_pe": sanitize(sector_median_pe), 
                    "company_eps": sanitize(eps_for_valuation),
-                   "market_pe_trailing": sanitize(market_data.get("pe"))
+                   "market_pe_trailing": sanitize(market_data.get("trailing_pe"))
                }
             },
             "historical_anchors": data.get("historical_anchors", []),
