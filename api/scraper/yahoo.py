@@ -149,12 +149,14 @@ def get_fx_rate(info: dict) -> float:
         
     return 1.0
 
-def get_nasdaq_comprehensive_estimates(ticker: str) -> dict:
+def get_nasdaq_comprehensive_estimates(ticker: str, force_refresh: bool = False) -> dict:
     """ Fetches yearly and quarterly EPS AND Revenue estimates from Nasdaq in parallel. """
     ticker = ticker.upper()
     cache_key = f"nq_comp_v2_{ticker}"
-    cached = kv_get(cache_key)
-    if cached: return cached
+    
+    if not force_refresh:
+        cached = kv_get(cache_key)
+        if cached: return cached
 
     results = {"yearly_eps": [], "quarterly_eps": [], "yearly_rev": [], "quarterly_rev": []}
     
@@ -2462,16 +2464,14 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
 
 
         # ── Annual EPS: Nasdaq Non-GAAP (PRIMARY source for FY estimates) ────────
-        # v185: Wrapped in 4s timeout to prevent blocking the analyst response.
         # Yahoo's earnings_estimate is blocked from adding annual rows (GAAP) by the guard below.
         try:
-            import concurrent.futures as _cf
-            with _cf.ThreadPoolExecutor(max_workers=1) as _ex:
-                _fut = _ex.submit(get_nasdaq_comprehensive_estimates, ticker_symbol)
-                try:
-                    nq_est = _fut.result(timeout=4)
-                except _cf.TimeoutError:
-                    nq_est = {}
+            nq_est = {}
+            try:
+                # v187: Pass force_refresh=True to bust stale 10-minute cache causing empty data
+                nq_est = get_nasdaq_comprehensive_estimates(ticker_symbol, force_refresh=True) or {}
+            except Exception as e:
+                print(f"[Analyst] PRIMARY Nasdaq FY fail: {e}")
             nq_yearly_eps = nq_est.get("yearly_eps", [])
             
             for i, y_row in enumerate(nq_yearly_eps[:3]):
@@ -2862,12 +2862,31 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
                 try:
                     avg_val = float(str(avg).replace('$', '').replace(',', ''))
                     # Match by Year (e.g. "2026" in "Dec 2026")
+                    found_existing = False
                     for est in eps_estimates:
                         if any(yr in str(est.get('period', '')) for yr in re.findall(r'\d{4}', fy_code)):
                             # OVERRIDE with Nasdaq Normalized Consensus for Tech Consistency
                             est['avg'] = avg_val
+                            found_existing = True
                             # Growth will be recalculated in the final force_formula pass
                             break
+                            
+                    # v186: If completely missing (primary and Yahoo failed/blocked to generate FY rows), add as new
+                    if not found_existing:
+                        # Append it natively
+                        new_lbl = f"FY {re.findall(r'[0-9]{4}', fy_code)[0]}" if re.findall(r'[0-9]{4}', fy_code) else f"FY {fy_code}"
+                        
+                        g_val = None
+                        if base_eps and base_eps > 0 and avg_val > 0:
+                            g_val = (avg_val - base_eps) / base_eps
+                            
+                        eps_estimates.append({
+                            "period": new_lbl,
+                            "period_code": fy_code, # Fallback code
+                            "avg": avg_val,
+                            "growth": g_val,
+                            "status": "estimate"
+                        })
                 except: pass
 
 
@@ -3169,7 +3188,9 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
                 "median_label": rec_median_label,
                 "counts": rec_counts
             },
-            "eps_5yr_growth": eps_growth_5y_consensus if eps_growth_5y_consensus is not None else eps_forward_growth,
+            # v188: Enforce arithmetic mean of FY1 & FY2 estimates (eps_forward_growth)
+            # over Yahoo's buggy LTG estimate.
+            "eps_5yr_growth": eps_forward_growth,
             "eps_growth_5y_consensus": eps_growth_5y_consensus,
             "eps_estimates":  unified_eps,
             "rev_estimates":  unified_rev,
