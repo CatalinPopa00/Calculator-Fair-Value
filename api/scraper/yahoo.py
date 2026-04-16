@@ -2446,35 +2446,6 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
              base_rev = historical_data["revenue"][-1] if "revenue" in historical_data else None
 
         try:
-            e_est = stock.earnings_estimate
-            if e_est is not None and not e_est.empty:
-                for idx, row in e_est.iterrows():
-                    lbl = str(idx)
-                    label = labels.get(lbl, lbl)
-                    avg_val = round(float(row.get('avg', 0)), 2)
-                    growth_val = float(row.get('growth', 0)) if row.get('growth') else None
-                    
-                    # SYNC: Recalculate growth rates against our actual Non-GAAP base
-                    # Track a running base for consecutive years (2027 vs 2026 etc.)
-                    is_year_label = any(x in label.upper() for x in ['FY', 'YEAR', '2024', '2025', '2026', '0Y', '1Y'])
-                    
-                    target_base = base_eps
-                    # If this is not the first year, we might want to use the previous projection as base
-                    
-                    if avg_val > 0 and target_base and target_base > 0:
-                        # Use moving base for consecutive years (2027 vs 2026)
-                        if "2027" in label or "+1Y" in label:
-                            prev = next((x for x in eps_estimates if "2026" in x['period'] or "0Y" in x['period']), None)
-                            if prev: target_base = prev['avg']
-                        growth_val = (avg_val - target_base) / target_base
-                    
-                    eps_estimates.append({
-                        "period": label,
-                        "avg": avg_val,
-                        "growth": growth_val,
-                        "status": "estimate"
-                    })
-            
             r_est = stock.revenue_estimate
             if r_est is not None and not r_est.empty:
                 for idx, row in r_est.iterrows():
@@ -2487,7 +2458,8 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
                         "status": "estimate"
                     })
         except Exception as e:
-            print(f"[Analyst] Yahoo Estimates fail: {e}")
+            print(f"[Analyst] Yahoo Revenue Estimates fail: {e}")
+
 
         # Priority 2: Nasdaq Fallback/Supplement (if lists still empty)
         if not eps_estimates:
