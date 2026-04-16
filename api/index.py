@@ -237,10 +237,36 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         sector_median_pe = statistics.median(valid_pes) if valid_pes else market_data.get("pe", 20.0)
         lynch = calculate_peter_lynch(current_price, eps_for_valuation, growth_5y, pe_historic, sector_median_pe)
         
+        # PEG Sector — compute actual median PEG from peer pe_ratio / (earnings_growth * 100)
+        # v183: Fix for hardcoded 15.0 divisor that distorted Software/Growth sector values
+        def _peer_peg(p):
+            pe = p.get('pe_ratio')
+            eg = p.get('earnings_growth')  # decimal, e.g. 0.12 = 12%
+            if pe and pe > 0 and eg and eg > 0.01:
+                return pe / (eg * 100)
+            return None
+        valid_peer_pegs = [x for x in [_peer_peg(p) for p in peers_data] if x is not None and 0.1 < x < 10]
+        
+        # Sector-aware fallback when < 2 peers with valid PEG data
+        sector_str = str(data.get('sector', '')).lower()
+        industry_str = str(data.get('industry', '')).lower()
+        if len(valid_peer_pegs) >= 2:
+            sector_peg = statistics.median(valid_peer_pegs)
+        elif any(x in sector_str for x in ['tech', 'comm', 'software']) or 'software' in industry_str:
+            sector_peg = 1.5   # Software/Tech sector historical median PEG
+        elif any(x in sector_str for x in ['health', 'bio']):
+            sector_peg = 1.8
+        elif any(x in sector_str for x in ['financial', 'bank']):
+            sector_peg = 1.0
+        elif any(x in sector_str for x in ['energy', 'material']):
+            sector_peg = 0.8
+        else:
+            sector_peg = 1.25  # Broad market default
+        
         # PEG
         current_pe = current_price / eps_for_valuation if eps_for_valuation > 0 else 0
         company_peg = current_pe / (growth_5y * 100) if growth_5y > 0 else 0
-        peg_fv = calculate_peg_fair_value(current_price, company_peg, sector_median_pe / 15.0)
+        peg_fv = calculate_peg_fair_value(current_price, company_peg, sector_peg)
         
         # DCF
         fcf = data.get("fcf") or 0
@@ -426,12 +452,12 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                    "historic_pe": sanitize(pe_historic)
                },
                "peg": {
-                   "fair_value": sanitize(peg_fv), 
-                   "current_peg": sanitize(company_peg), 
-                   "industry_peg": sanitize(sector_median_pe/15.0),
-                   "eps_growth_estimated": sanitize(growth_5y),
-                   "current_pe": sanitize(current_pe)
-               },
+                    "fair_value": sanitize(peg_fv), 
+                    "current_peg": sanitize(company_peg), 
+                    "industry_peg": sanitize(sector_peg),
+                    "eps_growth_estimated": sanitize(growth_5y),
+                    "current_pe": sanitize(current_pe)
+                },
                "dcf": {
                    "discount_rate_applied": sanitize(discount_rate * 100),
                    "eps_growth_applied": sanitize(growth_5y),
