@@ -453,19 +453,30 @@
                                             HISTORICAL STABILITY & ANALYST PROJECTIONS (ANNUAL)
                                         </h2>
                                     </div>
-                                    
-                                    <div class="charts-grid" id="historical-charts-grid">
+                                                              <div class="charts-flex-column" id="historical-charts-grid">
                                         <!-- Chart 1: Revenue & FCF -->
-                                        <div class="chart-container" style="min-height: 350px;">
-                                            <h4 style="font-size: 0.9rem; color: var(--text-muted); text-align: center; margin-bottom: 10px;">Revenue & Free Cash Flow (Billions)</h4>
-                                            <canvas id="chart-rev-fcf"></canvas>
+                                        <div class="chart-item-wrapper glass-card-nested">
+                                            <div class="chart-header-row">
+                                                <h4 class="chart-title">Revenue & Free Cash Flow ($B)</h4>
+                                                <div id="legend-rev-fcf" class="custom-legend"></div>
+                                            </div>
+                                            <div class="canvas-wrapper">
+                                                <canvas id="chart-rev-fcf"></canvas>
+                                            </div>
                                         </div>
+
                                         <!-- Chart 2: EPS & Shares Outstanding -->
-                                        <div class="chart-container" style="min-height: 350px;">
-                                            <h4 style="font-size: 0.9rem; color: var(--text-muted); text-align: center; margin-bottom: 10px;">EPS & Shares Outstanding (Dual Axis)</h4>
-                                            <canvas id="chart-eps-shares"></canvas>
+                                        <div class="chart-item-wrapper glass-card-nested">
+                                            <div class="chart-header-row">
+                                                <h4 class="chart-title">EPS ($) & Shares Outstanding (B)</h4>
+                                                <div id="legend-eps-shares" class="custom-legend"></div>
+                                            </div>
+                                            <div class="canvas-wrapper">
+                                                <canvas id="chart-eps-shares"></canvas>
+                                            </div>
                                         </div>
                                     </div>
+    </div>
 
                                     <!-- ANALYST ESTIMATES - SEPARATE ROW -->
                                     <div id="analyst-estimates-card" style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 2rem; width: 100%;">

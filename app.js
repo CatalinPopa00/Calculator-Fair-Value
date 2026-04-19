@@ -1835,6 +1835,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const ctxRevFcf = document.getElementById('chart-rev-fcf');
         if (ctxRevFcf) {
             if (chartRevFcf) chartRevFcf.destroy();
+            
+            // Build custom legend
+            const legendEl = document.getElementById('legend-rev-fcf');
+            if (legendEl) {
+                legendEl.innerHTML = `
+                    <div class="legend-item"><span class="legend-dot" style="background:#38bdf8"></span> Revenue</div>
+                    <div class="legend-item"><span class="legend-dot" style="background:#10b981"></span> FCF</div>
+                `;
+            }
+
             chartRevFcf = new Chart(ctxRevFcf, {
                 type: 'bar',
                 data: {
@@ -1864,10 +1874,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: { 
-                            position: window.innerWidth < 768 ? 'bottom' : 'top',
-                            labels: { color: '#94a3b8', font: { size: window.innerWidth < 768 ? 9 : 11 } } 
-                        },
+                        legend: { display: false },
                         tooltip: { mode: 'index', intersect: false }
                     },
                     scales: {
@@ -1897,8 +1904,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const epsData = hd.eps || [];
             const sharesData = (hd.shares || []).map(v => v ? +(v / 1e9).toFixed(3) : 0);
 
+            // Build custom legend
+            const legendEl = document.getElementById('legend-eps-shares');
+            if (legendEl) {
+                legendEl.innerHTML = `
+                    <div class="legend-item"><span class="legend-dot" style="background:#a855f7"></span> EPS</div>
+                    <div class="legend-item"><span class="legend-dot" style="background:#fbbf24"></span> Shares (B)</div>
+                `;
+            }
+
             chartEpsShares = new Chart(ctxEps, {
-                type: 'bar', // Base type remains bar for the background
+                type: 'bar', 
                 data: {
                     labels,
                     datasets: [
@@ -1937,10 +1953,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: { 
-                            position: window.innerWidth < 768 ? 'bottom' : 'top',
-                            labels: { color: '#94a3b8', font: { size: window.innerWidth < 768 ? 9 : 11 } } 
-                        },
+                        legend: { display: false },
                         tooltip: { mode: 'index', intersect: false }
                     },
                     scales: {
@@ -1957,13 +1970,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             position: 'left',  
                             ticks: { color: '#a855f7', font: { size: 10 }, callback: v => '$' + v }, 
                             grid: { color: 'rgba(148,163,184,0.1)' }, 
-                            title: { display: window.innerWidth > 768, text: 'EPS ($)', color: '#a855f7' } 
                         },
                         y1: { 
                             position: 'right', 
                             ticks: { color: '#fbbf24', font: { size: 10 }, callback: v => v + 'B' }, 
                             grid: { drawOnChartArea: false }, 
-                            title: { display: window.innerWidth > 768, text: 'Shares (B)', color: '#fbbf24' } 
                         }
                     }
                 }

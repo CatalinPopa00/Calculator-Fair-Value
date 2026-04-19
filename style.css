@@ -731,25 +731,81 @@ body {
     gap: 1.5rem;
 }
 
-.charts-grid {
-    display: grid; 
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); 
-    gap: 2.5rem; 
-    width: 100%; 
-    margin-bottom: 3rem;
+.charts-flex-column {
+    display: flex;
+    flex-direction: column;
+    gap: 2.5rem;
+    width: 100%;
 }
 
-.charts-grid canvas {
-    min-height: 280px;
-    max-height: 350px;
+.chart-item-wrapper {
+    background: rgba(15, 23, 42, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.chart-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.chart-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0;
+    letter-spacing: 0.5px;
+}
+
+.custom-legend {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+}
+
+.canvas-wrapper {
+    position: relative;
+    height: 380px;
 }
 
 @media (max-width: 768px) {
-    .charts-grid {
+    .charts-flex-column {
         gap: 1.5rem;
     }
-    .charts-grid canvas {
-        min-height: 240px;
+    .chart-item-wrapper {
+        padding: 1rem;
+    }
+    .chart-header-row {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .canvas-wrapper {
+        height: 300px;
+    }
+    .chart-title {
+        font-size: 0.85rem;
     }
 }
 
