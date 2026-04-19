@@ -734,9 +734,23 @@ body {
 .charts-grid {
     display: grid; 
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); 
-    gap: 2rem; 
+    gap: 2.5rem; 
     width: 100%; 
     margin-bottom: 3rem;
+}
+
+.charts-grid canvas {
+    min-height: 280px;
+    max-height: 350px;
+}
+
+@media (max-width: 768px) {
+    .charts-grid {
+        gap: 1.5rem;
+    }
+    .charts-grid canvas {
+        min-height: 240px;
+    }
 }
 
 .analyst-grid {
