@@ -36,8 +36,8 @@ from .models.scoring import calculate_scoring_reform, calculate_piotroski_score
 # Cache Settings
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-# v197: Fix for Revenue Growth units (ADBE) and Lynch FV discounting
-CACHE_VERSION = "v197"
+# v198: Fix for N/A in modals (missing keys in formula_data)
+CACHE_VERSION = "v198"
 
 app = FastAPI(title="Fair Value Calculator API")
 
@@ -462,14 +462,16 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 "risk_factors": risk_factors
             },
             "formula_data": {
-               "peter_lynch": {
-                   "fair_value": sanitize(vals["lynch"]), 
-                   "fwd_pe": sanitize(lynch.get("fwd_pe")), 
-                   "status": lynch.get("status"),
-                   "trailing_eps": sanitize(eps_for_valuation),
-                   "eps_growth_estimated": sanitize(growth_5y),
-                   "historic_pe": sanitize(pe_historic)
-               },
+                "peter_lynch": {
+                    "fair_value": sanitize(vals["lynch"]),
+                    "fair_value_pe_20": sanitize(lynch.get("fair_value_pe_20")),
+                    "fair_value_sector_pe": sanitize(lynch.get("fair_value_sector_pe")),
+                    "fwd_pe": sanitize(lynch.get("fwd_pe")),
+                    "status": lynch.get("status"),
+                    "trailing_eps": sanitize(eps_for_valuation),
+                    "eps_growth_estimated": sanitize(growth_5y),
+                    "historic_pe": sanitize(pe_historic)
+                },
                "peg": {
                     "fair_value": sanitize(peg_fv), 
                     "current_peg": sanitize(company_peg), 
@@ -499,19 +501,20 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                    "current_price": float(current_price),
                    "margin_of_safety": sanitize(((vals["dcf"] - current_price)/current_price*100) if vals["dcf"] and current_price>0 else 0)
                },
-               "relative": {
-                   "fair_value": sanitize(relative_val), 
-                   "median_peer_pe": sanitize(sector_median_pe),
-                   "mean_peer_pe": sanitize(sector_median_pe), 
-                   "company_eps": sanitize(eps_for_valuation),
-                   "market_pe_trailing": sanitize(market_data.get("trailing_pe"))
-               }
+                "relative": {
+                    "fair_value": sanitize(relative_val), 
+                    "median_peer_pe": sanitize(sector_median_pe),
+                    "mean_peer_pe": sanitize(sector_median_pe), 
+                    "company_eps": sanitize(eps_for_valuation),
+                    "market_pe_trailing": sanitize(market_data.get("trailing_pe")),
+                    "peers": [p.get("ticker") for p in peers_data] if peers_data else []
+                }
             },
             "historical_anchors": data.get("historical_anchors", []),
             "historical_trends": data.get("historical_trends", []),
             "historical_data": data.get("historical_data", {}),
             "red_flags": data.get("red_flags", []),
-            "debug_version": f"{CACHE_VERSION}-ULTRA-STABILITY-FIX",
+            "debug_version": f"{CACHE_VERSION}-ULTRA-STABILITY-FIX-V2",
             "timestamp": datetime.datetime.now().isoformat()
         }
         
