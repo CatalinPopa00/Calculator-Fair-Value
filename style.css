@@ -1461,6 +1461,160 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
+/* Unified Deep Research Styling */
+.deep-research-section {
+    width: 100%;
+    animation: fadeIn 0.4s ease;
+}
+
+.research-card {
+    padding: 1.5rem;
+    border-radius: 16px;
+    background: rgba(15, 23, 42, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.research-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 1.5rem;
+}
+
+.header-icon {
+    font-size: 1.4rem;
+    filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.4));
+}
+
+.research-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-main);
+    letter-spacing: 0.5px;
+}
+
+/* Analyst Tabs UI */
+.analyst-tabs-wrapper {
+    margin-bottom: 1.5rem;
+}
+
+.analyst-tabs-control {
+    display: flex;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 4px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+.analyst-tabs-control::-webkit-scrollbar { display: none; }
+
+.analyst-tab-btn {
+    flex: 1;
+    min-width: 100px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    font-family: 'Outfit', sans-serif;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.analyst-tab-btn.active {
+    background: var(--primary);
+    color: white;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+/* Dashboard Modules */
+.pt-module, .rec-module, .table-module {
+    text-align: center;
+    padding: 1rem 0;
+}
+
+.module-label {
+    display: block;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 0.75rem;
+}
+
+.pt-value {
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: var(--accent);
+    margin-bottom: 4px;
+}
+
+.pt-upside {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--accent);
+    opacity: 0.9;
+}
+
+.pt-range {
+    margin-top: 1.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    padding-top: 12px;
+}
+
+.range-line {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+.range-line b { color: white; margin-left: 4px; }
+
+.rec-value {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--accent);
+    text-transform: uppercase;
+}
+.rec-sub { font-size: 0.85rem; color: var(--text-muted); margin-top: 4px; }
+
+/* Mini Research Tables */
+.mini-research-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+.mini-research-table th {
+    color: var(--text-muted);
+    text-align: left;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.mini-research-table td {
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.research-footer {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-top: 1rem;
+    opacity: 0.7;
+    line-height: 1.4;
+    padding-left: 0.5rem;
+    border-left: 2px solid var(--card-border);
+}
+
+@media (max-width: 768px) {
+    .research-card { padding: 1.25rem; }
+    .pt-value { font-size: 1.8rem; }
+}
+
 .formula-section h4 {
     color: var(--accent);
     margin-bottom: 0.5rem;

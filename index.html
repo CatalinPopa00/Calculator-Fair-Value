@@ -477,65 +477,72 @@
                                         </div>
                                     </div>
 
-                                    <!-- ANALYST ESTIMATES - SEPARATE ROW -->
-                                    <div id="analyst-estimates-card" style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 2rem; width: 100%;">
-                                        <h3 style="margin-bottom: 2rem; color: var(--text-main); font-size: 1.3rem; text-align: center;">ANALYST ESTIMATES & CONSENSUS</h3>
-                                        
-                                        <div class="analyst-tabs-container">
-                                            <div class="analyst-tabs">
-                                                <button class="analyst-tab-btn active" data-tab="pt">Price Target</button>
-                                                <button class="analyst-tab-btn" data-tab="rec">Analyst Rating</button>
-                                                <button class="analyst-tab-btn" data-tab="eps">EPS Projections</button>
-                                                <button class="analyst-tab-btn" data-tab="rev">Revenue Projections</button>
+                        <!-- DEEP RESEARCH SECTION: Harmonized Unified Design -->
+                        <section class="deep-research-section" style="margin-top: 3rem;">
+                            
+                            <!-- 1. Analyst Consensus Segment -->
+                            <div class="research-card glass-card" id="analyst-estimates-card">
+                                <div class="research-header">
+                                    <div class="header-icon">📊</div>
+                                    <h3 class="research-title">Analyst Consensus & Projections</h3>
+                                </div>
+                                
+                                <div class="analyst-tabs-wrapper">
+                                    <div class="analyst-tabs-control">
+                                        <button class="analyst-tab-btn active" data-tab="pt">Price Target</button>
+                                        <button class="analyst-tab-btn" data-tab="rec">Ratings</button>
+                                        <button class="analyst-tab-btn" data-tab="eps">EPS Projections</button>
+                                        <button class="analyst-tab-btn" data-tab="rev">Revenue Projections</button>
+                                    </div>
+                                </div>
+
+                                <div class="analyst-content-area">
+                                    <div class="analyst-grid">
+                                        <!-- Col 1: Price Target -->
+                                        <div class="analyst-tab-content active" id="tab-pt">
+                                            <div class="pt-module">
+                                                <span class="module-label">AVG PRICE TARGET</span>
+                                                <div id="pt-avg" class="pt-value">--</div>
+                                                <div id="pt-upside" class="pt-upside">--</div>
+                                                <div class="pt-range">
+                                                    <div class="range-line">
+                                                        <span>Low <b id="pt-low">--</b></span>
+                                                        <span>High <b id="pt-high">--</b></span>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
 
-                                        <div class="analyst-grid">
-                                            <!-- Col 1: Price Target -->
-                                            <div class="analyst-tab-content active" id="tab-pt" style="border-right: 1px solid rgba(255,255,255,0.05); padding-right: 1rem; text-align: center;">
-                                                <h4 style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1rem; text-transform: uppercase;">Price Target</h4>
-                                                <div style="font-size: 0.75rem; color: var(--text-muted);">AVERAGE</div>
-                                                <div id="pt-avg" style="font-size: 1.8rem; font-weight: 800; color: var(--accent); margin: 0.5rem 0;">--</div>
-                                                <div id="pt-upside" style="font-weight: 600; font-size: 1rem;">--</div>
-                                                <div style="display: flex; justify-content: space-between; margin-top: 1.5rem; font-size: 0.8rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
-                                                    <span>Low: <span id="pt-low" style="color:white">--</span></span>
-                                                    <span>High: <span id="pt-high" style="color:white">--</span></span>
-                                                </div>
+                                        <!-- Col 2: Recommendation -->
+                                        <div class="analyst-tab-content" id="tab-rec">
+                                            <div class="rec-module">
+                                                <span class="module-label">ANALYST SENTIMENT</span>
+                                                <div id="rec-status" class="rec-value">--</div>
+                                                <div id="rec-mean" class="rec-sub">Score: --</div>
+                                                <div id="rec-bars" class="small-bars-stack"></div>
                                             </div>
+                                        </div>
 
-                                            <!-- Col 2: Recommendation -->
-                                            <div class="analyst-tab-content" id="tab-rec" style="border-right: 1px solid rgba(255,255,255,0.05); padding-right: 1rem; text-align: center;">
-                                                <h4 style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1rem; text-transform: uppercase;">Analyst Rating</h4>
-                                                <div id="rec-status" style="font-size: 1.3rem; font-weight: 800; color: var(--accent); text-transform: uppercase;">--</div>
-                                                <div id="rec-mean" style="font-size: 0.85rem; color: var(--text-muted); margin-top: 5px;">Score: --</div>
-                                                <div id="rec-bars" style="margin-top: 1rem; display: flex; flex-direction: column; gap: 6px; text-align: left;"></div>
-                                            </div>
-
-                                            <!-- Col 3: EPS Estimates -->
-                                            <div class="analyst-tab-content" id="tab-eps" style="border-right: 1px solid rgba(255,255,255,0.05); padding-right: 1rem;">
-                                                <h4 style="font-size: 0.9rem; color: var(--text-muted); text-align: center; margin-bottom: 1rem; text-transform: uppercase;">EPS Projections</h4>
-                                                <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;" id="eps-est-table">
+                                        <!-- Col 3: EPS Estimates -->
+                                        <div class="analyst-tab-content" id="tab-eps">
+                                            <div class="table-module">
+                                                <span class="module-label">EPS ESTIMATES</span>
+                                                <table id="eps-est-table" class="mini-research-table">
                                                     <thead>
-                                                        <tr style="color: var(--text-muted); text-align: right; border-bottom: 1px solid rgba(255,255,255,0.1);">
-                                                            <th style="text-align: left; padding-bottom: 8px;">Period</th>
-                                                            <th style="padding-bottom: 8px;">Avg</th>
-                                                            <th style="padding-bottom: 8px;">Growth</th>
-                                                        </tr>
+                                                        <tr><th>Period</th><th style="text-align:right">Avg</th><th style="text-align:right">Growth</th></tr>
                                                     </thead>
                                                     <tbody></tbody>
                                                 </table>
                                             </div>
+                                        </div>
 
-                                            <!-- Col 4: Revenue Estimates -->
-                                            <div class="analyst-tab-content" id="tab-rev">
-                                                <h4 style="font-size: 0.9rem; color: var(--text-muted); text-align: center; margin-bottom: 1rem; text-transform: uppercase;">Revenue Projections</h4>
-                                                <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;" id="rev-est-table">
+                                        <!-- Col 4: Revenue Estimates -->
+                                        <div class="analyst-tab-content" id="tab-rev">
+                                            <div class="table-module">
+                                                <span class="module-label">REVENUE ESTIMATES</span>
+                                                <table id="rev-est-table" class="mini-research-table">
                                                     <thead>
-                                                        <tr style="color: var(--text-muted); text-align: right; border-bottom: 1px solid rgba(255,255,255,0.1);">
-                                                            <th style="text-align: left; padding-bottom: 8px;">Period</th>
-                                                            <th style="padding-bottom: 8px;">Avg</th>
-                                                            <th style="padding-bottom: 8px;">Growth</th>
-                                                        </tr>
+                                                        <tr><th>Period</th><th style="text-align:right">Avg</th><th style="text-align:right">Growth</th></tr>
                                                     </thead>
                                                     <tbody></tbody>
                                                 </table>
@@ -543,24 +550,29 @@
                                         </div>
                                     </div>
                                 </div>
-                            </section>
+                            </div>
 
-                            <!-- Historical Anchors -->
-                            <section class="trends-section" style="margin-top: 2rem;">
-                                <div style="margin-bottom: 1.5rem;">
-                                    <h3 style="color: var(--text-main); font-size: 1.25rem; font-weight: 700; margin: 0;">Historical Anchors (Trends)</h3>
+                            <!-- 2. Historical Trends Segment -->
+                            <div class="research-card glass-card" style="margin-top: 1.5rem;">
+                                <div class="research-header">
+                                    <div class="header-icon">⏳</div>
+                                    <h3 class="research-title">Historical Anchors & Trends</h3>
                                 </div>
-                                <div id="trends-scroll-wrapper" class="table-responsive">
-                                    <table class="trends-table" id="trends-table" style="width: 100%; border-collapse: collapse;">
-                                        <tbody id="trends-body">
-                                            <tr><td style="text-align: center; padding: 2rem; color: var(--text-muted);"><div class="spinner" style="width: 20px; height: 20px; margin: 0 auto;"></div></td></tr>
-                                        </tbody>
-                                    </table>
+                                
+                                <div class="trends-scroll-area">
+                                    <div id="trends-scroll-wrapper" class="table-responsive">
+                                        <table class="trends-table" id="trends-table">
+                                            <tbody id="trends-body">
+                                                <tr><td colspan="5" style="text-align:center; padding:3rem;"><div class="spinner"></div></td></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
-                                <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.75rem; text-align: left; opacity: 0.8; line-height: 1.4; padding-left: 0.5rem; border-left: 2px solid var(--card-border);">
+                                <div class="research-footer">
                                     * EPS values represent Adjusted earnings to align historically with Wall Street Analyst Projections.
                                 </div>
-                            </section>
+                            </div>
+                        </section>
         </main>
 
         <!-- Loading State -->
