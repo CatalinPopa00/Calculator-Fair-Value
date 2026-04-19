@@ -220,26 +220,34 @@ document.addEventListener('DOMContentLoaded', () => {
                 const metric = item.metric || '';
                 let newPts = item.points_awarded;
 
+                // Sector detection (matches scoring.py logic)
+                const industry = (prof.industry || '').toLowerCase();
+                const sector = (prof.sector || '').toLowerCase();
+                const isFin = sector.includes('financial');
+                const isBank = (industry.includes('bank') || industry.includes('credit services') || industry.includes('savings'));
+                const isREIT = sector.includes('real estate') || sector.includes('reit');
+
                 if (metric === 'Margin of Safety') {
-                    newPts = (newMos >= 30) ? 30 : (newMos >= 15 ? 15 : (newMos >= 0 ? 7.5 : 0));
+                    // All templates use >20: 30, >=0: 15
+                    newPts = (newMos > 20) ? 30 : (newMos >= 0 ? 15 : 0);
                     item.value = formatPercent(newMos);
                 } else if (metric === 'P/E Ratio') {
-                    const isFin = prof.sector && prof.sector.toLowerCase().includes('financial');
                     let ptsAbs = 0, ptsRel = 0;
-                    if (isFin) {
+                    if (isFin && isBank) {
                         ptsAbs = (newPE > 0 && newPE < 10) ? 7.5 : ((newPE > 0 && newPE <= 15) ? 3.75 : 0);
                         if (newPE > 0 && pe5y > 0) {
                             const diff = ((newPE - pe5y) / pe5y) * 100;
                             ptsRel = diff < -15 ? 7.5 : (Math.abs(diff) <= 15 ? 3.75 : 0);
                         }
                     } else {
+                        // Default template uses 20 max pts for P/E
                         ptsAbs = (newPE > 0 && newPE < 15) ? 10 : ((newPE > 0 && newPE <= 25) ? 5 : 0);
                         if (newPE > 0 && pe5y > 0) {
                             const diff = ((newPE - pe5y) / pe5y) * 100;
                             ptsRel = diff < -15 ? 10 : (Math.abs(diff) <= 15 ? 5 : 0);
                         }
                     }
-                    newPts = Math.min(ptsAbs + ptsRel, item.max_points);
+                    newPts = ptsAbs + ptsRel;
                     item.value = newPE > 0 ? newPE.toFixed(2) + 'x' : '0.00x';
                 } else if (metric === 'P/S Ratio') {
                     newPts = (newPS > 0 && newPS < 4) ? 10 : ((newPS > 0 && newPS <= 8) ? 5 : 0);
@@ -247,18 +255,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (metric === 'EV / EBITDA') {
                     newPts = (newEvEbitda > 0 && newEvEbitda < 12) ? 10 : ((newEvEbitda > 0 && newEvEbitda <= 18) ? 5 : 0);
                     item.value = newEvEbitda > 0 ? newEvEbitda.toFixed(2) + 'x' : '0.00x';
-                } else if (metric === 'Price-to-Book') {
+                } else if (metric === 'Price-to-Book' || metric === 'P/B Ratio') {
                     newPts = (newPB > 0 && newPB < 1.2) ? 15 : ((newPB > 0 && newPB <= 2.0) ? 7.5 : 0);
                     item.value = newPB > 0 ? newPB.toFixed(2) + 'x' : '0.00x';
                 } else if (metric === 'Dividend Yield') {
                     const dyPct = newDivYield * 100;
-                    const isFin = prof.sector && prof.sector.toLowerCase().includes('financial');
-                    if (isFin) {
+                    if (isFin || isREIT) {
                         newPts = dyPct > 4 ? 15 : (dyPct >= 2 ? 7.5 : 0);
                     } else {
                         newPts = dyPct > 5 ? 15 : (dyPct >= 3 ? 7.5 : 0);
                     }
                     item.value = dyPct.toFixed(1) + '%';
+                } else if (metric === 'PEG Ratio') {
+                    // PEG is price dependent (P/E / Growth). 
+                    // We extract growth from the original value or prof
+                    const growth = prof.revenue_growth || 10; // Fallback
+                    const newPEG = (growth > 0) ? newPE / growth : 0;
+                    if (isFin) {
+                        newPts = (newPEG > 0 && newPEG < 1.0) ? 15 : ((newPEG > 0 && newPEG <= 1.5) ? 7.5 : 0);
+                    } else {
+                        newPts = (newPEG > 0 && newPEG < 1.2) ? 10 : ((newPEG > 0 && newPEG <= 2.0) ? 5 : 0);
+                    }
+                    item.value = newPEG > 0 ? newPEG.toFixed(2) + 'x' : '0.00x';
                 }
 
                 item.points_awarded = Math.min(newPts, item.max_points);
