@@ -223,12 +223,14 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         trailing_eps = data.get("trailing_eps") or 0.0
         adjusted_eps = data.get("adjusted_eps") or trailing_eps
         
+        # Use Adjusted EPS (Non-GAAP) as the anchor for all valuation models
         eps_estimates = data.get("eps_estimates", [])
         eps_0y = next((e.get("avg") for e in eps_estimates if e.get("period_code") == "0y"), None)
         
-        eps_for_valuation = adjusted_eps
-        if eps_for_valuation <= 0 and eps_0y: eps_for_valuation = eps_0y
+        # Priority: Scraped Adjusted EPS > Forecast FY0 Average > Trailing GAAP EPS
+        eps_for_valuation = data.get("adjusted_eps") or eps_0y or data.get("trailing_eps") or 0.0
         
+        # v185: Fallback security for growth - ensure it's derived from Non-GAAP consensus
         growth_5y = data.get("eps_5yr_growth") or 0.05
         pe_historic = data.get("pe_historic") or 20.0
         
@@ -270,12 +272,17 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         company_peg = current_pe / (growth_5y * 100) if growth_5y > 0 else 0
         peg_fv = calculate_peg_fair_value(current_price, company_peg, sector_peg)
         
-        # DCF
+        # DCF (v188: Direct Total Cash/Debt from scraper ensuring absolute units)
         fcf = data.get("fcf") or 0
         shares = data.get("shares_outstanding") or 1
         discount_rate = (wacc / 100.0) if wacc is not None else (rf_rate + 0.055)
         rec_exit = get_recommended_exit_multiple(data.get("sector"), data.get("industry"))
-        dcf_res = calculate_dcf(fcf, growth_5y, discount_rate, 0.02, shares, data.get("total_cash", 0), data.get("total_debt", 0), exit_multiple=rec_exit)
+        
+        # Synchronize Cash/Debt logic for ADBE and other techs
+        raw_cash = data.get("total_cash", 0)
+        raw_debt = data.get("total_debt", 0)
+        
+        dcf_res = calculate_dcf(fcf, growth_5y, discount_rate, 0.02, shares, raw_cash, raw_debt, exit_multiple=rec_exit)
         
         # Relative
         relative_val = calculate_relative_valuation(ticker_upper, {"trailing_eps": eps_for_valuation}, peers_data)
@@ -335,12 +342,15 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         top_strengths = sorted([b for b in all_breakdowns if b.get("points_awarded") == b.get("max_points") and b.get("max_points", 0) > 0], key=lambda x: x.get("max_points", 0), reverse=True)[:3]
         risk_factors = [b for b in all_breakdowns if b.get("points_awarded") == 0][:3]
 
-        # Weighted Fair Value
+        # Weighted Fair Value (v185: Methodology-Aware with Overrides)
+        method_pref = ovr.get("toggles", {}).get("dcf_method", "perpetual") if ovr else "perpetual"
+        dcf_val_selected = (dcf_res.get(f"dcf_{method_pref}", {}).get("fair_value") if dcf_res else None)
+        
         weights = {"lynch": 0.3, "peg": 0.2, "dcf": 0.3, "relative": 0.2}
         if data.get("sector") == "Financial Services":
             weights = {"lynch": 0.45, "relative": 0.45, "peg": 0.1, "dcf": 0}
         
-        vals = {"lynch": lynch.get("fair_value"), "peg": peg_fv, "dcf": (dcf_res["dcf_perpetual"]["fair_value"] if dcf_res else None), "relative": relative_val}
+        vals = {"lynch": lynch.get("fair_value"), "peg": peg_fv, "dcf": dcf_val_selected, "relative": relative_val}
         w_sum = 0; w_total = 0
         for k, v in vals.items():
             if v and v > 0:

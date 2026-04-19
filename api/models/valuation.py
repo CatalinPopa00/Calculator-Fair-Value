@@ -28,9 +28,9 @@ def calculate_peter_lynch(current_price: float, trailing_eps: float, eps_growth_
     
     # DISCOUNT TO PRESENT VALUE (3 Years)
     discount_factor = (1 + discount_rate) ** 3
-    fair_value = pt_historic / discount_factor
-    fair_value_pe_20 = pt_pe_20 / discount_factor
-    fair_value_sector_pe = pt_sector_pe / discount_factor
+    fair_value = pt_historic
+    fair_value_pe_20 = pt_pe_20
+    fair_value_sector_pe = pt_sector_pe
     
     status = "Overvalued" if fwd_pe > (safe_pe_historic * 0.8) else "Undervalued"
     

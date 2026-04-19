@@ -957,17 +957,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (dcfData) {
                         const branch = method === 'multiple' ? dcfData.dcf_exit_multiple : dcfData.dcf_perpetual;
                         
-                        // SYNC v62: Use backend branch if no manual overrides affecting calc are present
-                        if (buybackRate === 0 && (!waccInput || !waccInput.value) && fcfSource !== 'custom') {
-                            dcfVal = branch ? branch.fair_value_per_share : null;
-                        }
+                    // SYNC v62: Use backend branch if no manual overrides affecting calc are present
+                    if (buybackRate === 0 && (!waccInput || !waccInput.value) && fcfSource !== 'custom') {
+                        // Use the exact same branch selection as the modal to ensure sync
+                        dcfVal = branch ? branch.fair_value_per_share : null;
                     }
                     
-                    // Fallback to local calculation if backend branch failed or overrides are present
+                    // Fallback to local calculation only if backend branch failed or overrides are present
                     if (dcfVal === null) {
                         const g = currentFormulaData.dcf.eps_growth_applied || 0.10;
                         const wAnalyst = (waccInput && waccInput.value) ? parseFloat(waccInput.value)/100 : w;
-                        const em = parseFloat(document.getElementById('input-exit-multiple')?.value) || (data.dcf_assumptions?.recommended_exit_multiple || 10.0);
+                        const em = parseFloat(document.getElementById('input-exit-multiple')?.value) || (globalData.dcf_assumptions?.recommended_exit_multiple || 15.0);
                         dcfVal = calcLocalDcf(baseFcf, g, wAnalyst, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
                     }
 
@@ -1115,12 +1115,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (targetEps != null && targetEps > 0) {
                 lynchVal = targetEps * selectedMult;
-            }
-            
-            // Keep the global data updated with what we are currently viewing
-            // so Watchlist extraction pulls the currently viewed value instead of default
-            if(lynchVal != null) {
-                currentFormulaData.peter_lynch.fair_value_pe_20 = lynchVal; 
             }
         }
 
