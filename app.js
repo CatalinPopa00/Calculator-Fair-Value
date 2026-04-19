@@ -1115,6 +1115,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (targetEps != null && targetEps > 0) {
+                // v46: Simple Future Project (no discounting per user preference)
                 lynchVal = targetEps * selectedMult;
             }
         }
