@@ -169,7 +169,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!globalData || !globalData.company_profile) return;
         const prof = globalData.company_profile;
         const fairValue = globalData.fair_value;
-        const eps = prof.trailing_eps || 0;
+        // v60: Use derived anchors for stability (prevents drift between GAAP/Non-GAAP)
+        const eps = (window._simAnchors && window._simAnchors.eps > 0) ? window._simAnchors.eps : (prof.trailing_eps || 0);
+        const growthFromAnchor = (window._simAnchors && window._simAnchors.growth > 0) ? window._simAnchors.growth : (prof.revenue_growth || 10);
+        
         const shares = prof.shares_outstanding || 0;
         const revenue = prof.revenue || 0;
         const ebitda = prof.ebitda || 0;
@@ -268,9 +271,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     item.value = dyPct.toFixed(1) + '%';
                 } else if (metric === 'PEG Ratio') {
                     // PEG is price dependent (P/E / Growth). 
-                    // We extract growth from the original value or prof
-                    const growth = prof.revenue_growth || 10; // Fallback
-                    const newPEG = (growth > 0) ? newPE / growth : 0;
+                    // v60: Using anchored growth for 1:1 match with backend
+                    const newPEG = (growthFromAnchor > 0) ? newPE / growthFromAnchor : 0;
                     if (isFin) {
                         newPts = (newPEG > 0 && newPEG < 1.0) ? 15 : ((newPEG > 0 && newPEG <= 1.5) ? 7.5 : 0);
                     } else {
@@ -1318,6 +1320,16 @@ document.addEventListener('DOMContentLoaded', () => {
             customWeights = setSmartWeights(data.company_profile.sector);
             saveOverride(data.ticker); 
         }
+
+        // v60: Extract "Anchor Metrics" for Simulation Stability
+        // This ensures frontend simulation uses the EXACT same basis as the backend scoring
+        const anchorPEItem = data.buy_breakdown?.find(i => i.metric === 'P/E Ratio');
+        const anchorPEGItem = data.buy_breakdown?.find(i => i.metric === 'PEG Ratio');
+        
+        window._simAnchors = {
+            eps: (anchorPEItem && parseFloat(anchorPEItem.value) > 0) ? (data.current_price / parseFloat(anchorPEItem.value)) : (data.company_profile?.trailing_eps || 0),
+            growth: (anchorPEGItem && parseFloat(anchorPEGItem.value) > 0 && anchorPEItem) ? (parseFloat(anchorPEItem.value) / parseFloat(anchorPEGItem.value)) : (data.company_profile?.revenue_growth || 10)
+        };
 
         elements.name.textContent = data.name;
         elements.ticker.textContent = data.ticker;
