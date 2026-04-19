@@ -36,7 +36,8 @@ from .models.scoring import calculate_scoring_reform, calculate_piotroski_score
 # Cache Settings
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v196" 
+# v197: Fix for Revenue Growth units (ADBE) and Lynch FV discounting
+CACHE_VERSION = "v197"
 
 app = FastAPI(title="Fair Value Calculator API")
 
@@ -166,14 +167,14 @@ def search(query: str, response: Response):
 def get_analyst(ticker: str, response: Response):
     if response: response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     ticker_upper = ticker.upper()
-    cache_key = f"analyst_{ticker_upper}_v196"
+    cache_key = f"analyst_{ticker_upper}_{CACHE_VERSION}"
     if cache_key in valuation_cache: 
         res = valuation_cache[cache_key]
-        if isinstance(res, dict): res["_v"] = "v196"
+        if isinstance(res, dict): res["_v"] = CACHE_VERSION
         return res
     try:
         result = get_analyst_data(ticker_upper)
-        if isinstance(result, dict): result["_v"] = "v196"
+        if isinstance(result, dict): result["_v"] = CACHE_VERSION
         valuation_cache[cache_key] = result
         return result
     except Exception as e:
@@ -234,7 +235,10 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         eps_for_valuation = data.get("adjusted_eps") or eps_0y or data.get("trailing_eps") or 0.0
         
         # v185: Fallback security for growth - ensure it's derived from Non-GAAP consensus
-        growth_5y = data.get("eps_5yr_growth") or 0.05
+        # v197: Sync with corrected FY0 growth from analyst estimates (e.g. 12.2% for ADBE)
+        fy0_growth = next((e.get("growth") for e in eps_estimates if e.get("period_code") == "0y" and e.get("growth")), None)
+        growth_5y = fy0_growth if (fy0_growth is not None and fy0_growth > 0) else (data.get("eps_5yr_growth") or 0.05)
+        
         pe_historic = data.get("pe_historic") or 20.0
         
         # Peter Lynch
