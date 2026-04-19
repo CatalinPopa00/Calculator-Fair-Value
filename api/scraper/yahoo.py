@@ -837,27 +837,34 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         if not fast_mode:
             try:
                 if executor is not None:
-                    financials = future_fin.result(timeout=5)
-                else: financials = getattr(stock, 'financials', {})
-            except Exception:
-                financials = {}
-            if financials is None or (hasattr(financials, 'empty') and financials.empty):
-                financials = {}
-
-            try: cashflow = getattr(stock, 'cashflow', {})
-            except Exception: cashflow = {}
-            if cashflow is None or (hasattr(cashflow, 'empty') and cashflow.empty):
-                cashflow = {}
-
-            try: bs = getattr(stock, 'balance_sheet', {})
-            except Exception: bs = {}
-            if bs is None or (hasattr(bs, 'empty') and bs.empty):
-                bs = {}
+                    # Parallelize core financial fetches to stay under 5-10s
+                    future_fin = future_fin # already submitted
+                    future_cf = executor.submit(lambda: getattr(stock, 'cashflow', {}))
+                    future_bs = executor.submit(lambda: getattr(stock, 'balance_sheet', {}))
+                    future_qbs = executor.submit(lambda: getattr(stock, 'quarterly_balance_sheet', {}))
+                    future_div = executor.submit(lambda: getattr(stock, 'dividends', pd.Series()))
+                    
+                    financials = future_fin.result(timeout=10)
+                    cashflow = future_cf.result(timeout=10)
+                    bs = future_bs.result(timeout=10)
+                    q_bs = future_qbs.result(timeout=10)
+                    dividends_raw = future_div.result(timeout=10)
+                else:
+                    financials = getattr(stock, 'financials', {})
+                    cashflow = getattr(stock, 'cashflow', {})
+                    bs = getattr(stock, 'balance_sheet', {})
+                    q_bs = getattr(stock, 'quarterly_balance_sheet', {})
+                    dividends_raw = getattr(stock, 'dividends', pd.Series())
+            except Exception as e:
+                log(f"DEBUG: Financials fetch error: {e}")
+                financials = financials or {}
+                cashflow = cashflow or {}
+                bs = bs or {}
+                q_bs = q_bs or {}
+                dividends_raw = dividends_raw if not dividends_raw.empty else pd.Series()
             
             if executor is not None:
                 executor.shutdown(wait=False)
-
-            q_bs = stock.quarterly_balance_sheet
             
             # Massive speedups: No longer awaiting qfin, qcf, or heavy dividends histories.
 

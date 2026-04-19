@@ -1,11 +1,10 @@
-def calculate_peter_lynch(current_price: float, trailing_eps: float, eps_growth_estimated: float, pe_historic: float, sector_median_pe: float = 20.0):
+def calculate_peter_lynch(current_price: float, trailing_eps: float, eps_growth_estimated: float, pe_historic: float, sector_median_pe: float = 20.0, discount_rate: float = 0.09):
     """
-    Refined Peter Lynch Model:
+    Refined Peter Lynch Model (Forward Multiple):
     1. FWD EPS (3Y) = trailing_eps * ((1 + eps_growth_estimated) ** 3)
     2. FWD PE = current_price / FWD EPS (3Y)
-    3. Fair Value (Company) = FWD EPS * pe_historic
-    4. Fair Value (PE 20) = FWD EPS * 20
-    5. Fair Value (Sector) = FWD EPS * sector_median_pe
+    3. Price Target (3Y) = FWD EPS * pe_historic
+    4. Fair Value Today = Price Target / ((1 + discount_rate) ** 3)
     """
     if trailing_eps is None or trailing_eps <= 0 or eps_growth_estimated is None or current_price is None:
         return {"fwd_pe": None, "fair_value": None, "status": "N/A"}
@@ -14,17 +13,26 @@ def calculate_peter_lynch(current_price: float, trailing_eps: float, eps_growth_
     safe_pe_historic = pe_historic if pe_historic else 20.0
     safe_sector_pe = sector_median_pe if sector_median_pe else 20.0
     
+    # FWD EPS in 3 years
     fwd_eps = trailing_eps * ((1 + eps_growth_estimated) ** 3)
     
     if fwd_eps == 0:
         return {"fwd_pe": None, "fair_value": None, "status": "N/A"}
         
     fwd_pe = current_price / fwd_eps
-    fair_value = fwd_eps * safe_pe_historic
-    fair_value_pe_20 = fwd_eps * 20
-    fair_value_sector_pe = fwd_eps * safe_sector_pe
     
-    status = "Overvalued" if fwd_pe > 20 else "Undervalued"
+    # Price Targets in 3 years
+    pt_historic = fwd_eps * safe_pe_historic
+    pt_pe_20 = fwd_eps * 20
+    pt_sector_pe = fwd_eps * safe_sector_pe
+    
+    # DISCOUNT TO PRESENT VALUE (3 Years)
+    discount_factor = (1 + discount_rate) ** 3
+    fair_value = pt_historic / discount_factor
+    fair_value_pe_20 = pt_pe_20 / discount_factor
+    fair_value_sector_pe = pt_sector_pe / discount_factor
+    
+    status = "Overvalued" if fwd_pe > (safe_pe_historic * 0.8) else "Undervalued"
     
     return {
         "trailing_eps": trailing_eps,
@@ -34,7 +42,8 @@ def calculate_peter_lynch(current_price: float, trailing_eps: float, eps_growth_
         "fair_value": fair_value,
         "fair_value_pe_20": fair_value_pe_20,
         "fair_value_sector_pe": fair_value_sector_pe,
-        "status": status
+        "status": status,
+        "discount_rate_applied": discount_rate
     }
 
 def calculate_peg_fair_value(current_price: float, company_peg: float, industry_peg: float):
