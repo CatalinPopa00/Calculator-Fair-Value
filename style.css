@@ -188,40 +188,47 @@ body {
         flex-direction: column;
         align-items: center;
         text-align: center;
-        margin-bottom: 2rem;
-        gap: 0.5rem;
+        margin-bottom: 2.5rem;
+        gap: 1.25rem;
     }
 
     .logo {
         width: 100%;
-        margin-bottom: 0.25rem;
+        margin-bottom: 0.5rem;
     }
 
     .logo h1 {
-        font-size: 1.4rem;
+        font-size: 1.5rem;
         white-space: normal;
     }
 
     .search-container {
         width: 100%;
         gap: 0.5rem;
+        display: grid;
+        grid-template-columns: 1fr 100px;
     }
 
     #ticker-input {
-        flex: 1;
+        width: 100%;
         font-size: 0.9rem;
-        padding: 0.7rem 0.8rem;
+        padding: 0.8rem 1rem;
     }
 
     #search-btn {
-        padding: 0.7rem 1rem;
+        width: 100%;
+        padding: 0.8rem;
         font-size: 0.9rem;
     }
 
     #nav-watchlist-btn {
-        width: 100%;
-        margin-top: 0.5rem;
-        padding: 0.7rem;
+        width: auto;
+        min-width: 120px;
+        margin-top: 0;
+        padding: 0.5rem 1rem;
+        font-size: 0.8rem;
+        background: rgba(16, 185, 129, 0.05);
+        border: 1px solid rgba(16, 185, 129, 0.3);
     }
 }
 

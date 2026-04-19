@@ -476,7 +476,6 @@
                                             </div>
                                         </div>
                                     </div>
-    </div>
 
                                     <!-- ANALYST ESTIMATES - SEPARATE ROW -->
                                     <div id="analyst-estimates-card" style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 2rem; width: 100%;">
@@ -492,7 +491,6 @@
                                         </div>
 
                                         <div class="analyst-grid">
-                                            
                                             <!-- Col 1: Price Target -->
                                             <div class="analyst-tab-content active" id="tab-pt" style="border-right: 1px solid rgba(255,255,255,0.05); padding-right: 1rem; text-align: center;">
                                                 <h4 style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1rem; text-transform: uppercase;">Price Target</h4>
@@ -510,9 +508,7 @@
                                                 <h4 style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1rem; text-transform: uppercase;">Analyst Rating</h4>
                                                 <div id="rec-status" style="font-size: 1.3rem; font-weight: 800; color: var(--accent); text-transform: uppercase;">--</div>
                                                 <div id="rec-mean" style="font-size: 0.85rem; color: var(--text-muted); margin-top: 5px;">Score: --</div>
-                                                <div id="rec-bars" style="margin-top: 1rem; display: flex; flex-direction: column; gap: 6px; text-align: left;">
-                                                    <!-- Injected -->
-                                                </div>
+                                                <div id="rec-bars" style="margin-top: 1rem; display: flex; flex-direction: column; gap: 6px; text-align: left;"></div>
                                             </div>
 
                                             <!-- Col 3: EPS Estimates -->
@@ -544,7 +540,6 @@
                                                     <tbody></tbody>
                                                 </table>
                                             </div>
-
                                         </div>
                                     </div>
                                 </div>
@@ -555,14 +550,13 @@
                                 <div style="margin-bottom: 1.5rem;">
                                     <h3 style="color: var(--text-main); font-size: 1.25rem; font-weight: 700; margin: 0;">Historical Anchors (Trends)</h3>
                                 </div>
-                                    <div id="trends-scroll-wrapper" class="table-responsive">
-                                        <table class="trends-table" id="trends-table" style="width: 100%; border-collapse: collapse;">
-                                            <!-- Dynamic transposed content: Rows = Metrics, Columns = Years -->
-                                            <tbody id="trends-body">
-                                                <tr><td style="text-align: center; padding: 2rem; color: var(--text-muted);"><div class="spinner" style="width: 20px; height: 20px; margin: 0 auto;"></div></td></tr>
-                                            </tbody>
-                                        </table>
-                                    </div>
+                                <div id="trends-scroll-wrapper" class="table-responsive">
+                                    <table class="trends-table" id="trends-table" style="width: 100%; border-collapse: collapse;">
+                                        <tbody id="trends-body">
+                                            <tr><td style="text-align: center; padding: 2rem; color: var(--text-muted);"><div class="spinner" style="width: 20px; height: 20px; margin: 0 auto;"></div></td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
                                 <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.75rem; text-align: left; opacity: 0.8; line-height: 1.4; padding-left: 0.5rem; border-left: 2px solid var(--card-border);">
                                     * EPS values represent Adjusted earnings to align historically with Wall Street Analyst Projections.
                                 </div>
