@@ -544,26 +544,14 @@
                                 <div style="margin-bottom: 1.5rem;">
                                     <h3 style="color: var(--text-main); font-size: 1.25rem; font-weight: 700; margin: 0;">Historical Anchors (Trends)</h3>
                                 </div>
-                                <div class="trends-container glass-card" style="padding: 1rem; overflow-x: auto;">
-                                    <table class="trends-table" id="trends-table" style="width: 100%; border-collapse: collapse;">
-                                        <thead>
-                                            <tr>
-                                                <th>Year</th>
-                                                <th>Revenue (B)</th>
-                                                <th>EPS (Adj)*</th>
-                                                <th>FCF (B)</th>
-                                                <th>Net Margin</th>
-                                                <th>Cash (B)</th>
-                                                <th>Debt (B)</th>
-                                                <th>Shares (B)</th>
-                                                <th>ROIC</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="trends-body">
-                                            <tr><td colspan="9" style="text-align: center; padding: 2rem; color: var(--text-muted);"><div class="spinner" style="width: 20px; height: 20px; margin: 0 auto;"></div></td></tr>
-                                        </tbody>
-                                    </table>
-                                </div>
+                                    <div id="trends-scroll-wrapper" class="table-responsive">
+                                        <table class="trends-table" id="trends-table" style="width: 100%; border-collapse: collapse;">
+                                            <!-- Dynamic transposed content: Rows = Metrics, Columns = Years -->
+                                            <tbody id="trends-body">
+                                                <tr><td style="text-align: center; padding: 2rem; color: var(--text-muted);"><div class="spinner" style="width: 20px; height: 20px; margin: 0 auto;"></div></td></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.75rem; text-align: left; opacity: 0.8; line-height: 1.4; padding-left: 0.5rem; border-left: 2px solid var(--card-border);">
                                     * EPS values represent Adjusted earnings to align historically with Wall Street Analyst Projections.
                                 </div>

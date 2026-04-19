@@ -1511,29 +1511,61 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- ADDITIONAL SECTIONS ---
         renderAnalystEstimatesInline(data.ticker);
 
-        const trendsBody = document.getElementById('trends-body');
-        if (trendsBody) {
-            const anchors = data.historical_anchors || [];
-            if (anchors.length > 0) {
-                let html = '';
-                anchors.forEach(row => {
-                    html += `
-                        <tr>
-                            <td data-label="Year">${row.year}</td>
-                            <td data-label="Revenue (B)">${row.revenue_b !== 0 ? row.revenue_b.toFixed(2) : '0.00'} B</td>
-                            <td data-label="EPS (Adj)">${row.eps !== 0 ? '$' + row.eps.toFixed(2) : '$0.00'}</td>
-                            <td data-label="FCF (B)">${row.fcf_b !== 0 ? row.fcf_b.toFixed(2) : '0.00'} B</td>
-                            <td data-label="Net Margin">${row.net_margin_pct}</td>
-                            <td data-label="Cash (B)">${row.cash_b !== 0 ? row.cash_b.toFixed(2) : '0.00'} B</td>
-                            <td data-label="Debt (B)">${row.total_debt_b !== 0 ? row.total_debt_b.toFixed(2) : '0.00'} B</td>
-                            <td data-label="Shares (B)">${row.shares_out_b !== 0 ? row.shares_out_b.toFixed(2) : '0.00'} B</td>
-                            <td data-label="ROIC">${row.roic_pct}</td>
-                        </tr>
-                    `;
+                // v44: Transposed Table with Sparklines
+                const config = [
+                    { label: 'Year', key: 'year', isHeader: true },
+                    { label: 'Revenue (B)', key: 'revenue_b', formatter: v => v.toFixed(2) + ' B', sparkKey: 'revenue_b' },
+                    { label: 'EPS (Adj)', key: 'eps', formatter: v => '$' + v.toFixed(2), sparkKey: 'eps' },
+                    { label: 'FCF (B)', key: 'fcf_b', formatter: v => v.toFixed(2) + ' B', sparkKey: 'fcf_b' },
+                    { label: 'Net Margin', key: 'net_margin_pct', formatter: v => v, sparkKey: 'net_margin_pct' },
+                    { label: 'Cash (B)', key: 'cash_b', formatter: v => v.toFixed(2) + ' B', sparkKey: 'cash_b' },
+                    { label: 'Debt (B)', key: 'total_debt_b', formatter: v => v.toFixed(2) + ' B', sparkKey: 'total_debt_b' },
+                    { label: 'Shares (B)', key: 'shares_out_b', formatter: v => v.toFixed(2) + ' B', sparkKey: 'shares_out_b' },
+                    { label: 'ROIC', key: 'roic_pct', formatter: v => v, sparkKey: 'roic_pct' }
+                ];
+
+                const generateSparkline = (values) => {
+                    if (!values || values.length < 2) return '';
+                    const cleanValues = values.map(v => {
+                        if (typeof v === 'string') return parseFloat(v.replace(/[^0-9.-]/g, '')) || 0;
+                        return v || 0;
+                    });
+                    const min = Math.min(...cleanValues);
+                    const max = Math.max(...cleanValues);
+                    const range = (max - min) || 1;
+                    const w = 40, h = 15;
+                    const pts = cleanValues.map((v, i) => `${(i/(cleanValues.length-1))*w},${h - ((v-min)/range)*h}`).join(' ');
+                    const color = cleanValues[cleanValues.length-1] >= cleanValues[0] ? '#10b981' : '#ef4444';
+                    return `<svg width="${w}" height="${h}" style="vertical-align:middle;margin-left:auto;"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>`;
+                };
+
+                let tableHtml = '';
+                config.forEach(metric => {
+                    const isYear = metric.key === 'year';
+                    const sparkHtml = !isYear ? generateSparkline(anchors.map(a => a[metric.key])) : '';
+                    
+                    tableHtml += `<tr>`;
+                    tableHtml += `
+                        <td class="sticky-col" style="background: var(--card-bg); padding: 12px 16px; border-right: 1px solid rgba(255,255,255,0.05); min-width: 160px;">
+                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                                <span style="font-weight: 700; color: var(--text-muted); text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.5px;">${metric.label}</span>
+                                ${sparkHtml}
+                            </div>
+                        </td>`;
+                    
+                    anchors.forEach(yearData => {
+                        const val = yearData[metric.key];
+                        let displayVal = metric.formatter ? metric.formatter(val) : val;
+                        const cellStyle = isYear ? 'color: var(--primary); font-weight: 800; font-size: 0.95rem;' : 'color: white; font-weight: 600; font-size: 0.9rem;';
+                        tableHtml += `<td style="padding: 12px 20px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.03); min-width: 90px; ${cellStyle}">${displayVal}</td>`;
+                    });
+                    tableHtml += `</tr>`;
                 });
-                trendsBody.innerHTML = html;
+                
+                trendsBody.innerHTML = tableHtml;
+                document.getElementById('trends-scroll-wrapper').classList.add('transposed-view');
             } else {
-                trendsBody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 2rem;">No historical anchors available (Calculated from Quarterly Non-GAAP reports).</td></tr>';
+                trendsBody.innerHTML = '<tr><td style="text-align: center; color: var(--text-muted); padding: 2rem;">No historical anchors available.</td></tr>';
             }
         }
 
