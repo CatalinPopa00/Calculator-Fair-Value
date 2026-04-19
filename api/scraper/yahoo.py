@@ -2924,6 +2924,28 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
                     if len(q_dict) >= 4 and fy_lbl not in history_eps:
                         history_eps[fy_lbl] = sum(q_dict.values())
             
+            # v188: PROACTIVE Non-GAAP History Injection (Strict Baseline Sync)
+            try:
+                nasdaq_hist = get_nasdaq_historical_eps(ticker_symbol)
+                if nasdaq_hist:
+                    # Group by year to find the Adjusted "FY" anchor
+                    yr_map = {}
+                    for entry in nasdaq_hist:
+                        yr = entry['date'].year
+                        # Correct for fiscal year if needed, but Nasdaq date is usually report date
+                        # Simple rule: if reported in Q1/Q2 of Y+1, it's for Year Y
+                        # BUT many users just want the calendar year anchor.
+                        # For ADBE 2025 (latest), we want that value.
+                        if yr not in yr_map: yr_map[yr] = []
+                        yr_map[yr].append(entry['eps'])
+                    
+                    for yr, vals in yr_map.items():
+                        if len(vals) >= 4:
+                            history_eps[f"FY {yr}"] = sum(vals)
+                        elif yr == max(yr_map.keys()): # Fallback for latest year if partial
+                             history_eps[f"FY {yr}"] = (sum(vals)/len(vals)) * 4.0
+            except: pass
+
             # Source 1: Yahoo reported quarters
             if stock.earnings_history is not None and not stock.earnings_history.empty:
                 for date_idx, row in stock.earnings_history.iterrows():
@@ -3088,10 +3110,16 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             fy0 = buckets.get("FY0")
             fy1 = buckets.get("FY1")
             
-            # FY0 vs Historical Actuals
+            # FY0 vs Historical Actuals (v188: Strict Non-GAAP baseline sync)
             if fy0 and fy0.get("avg"):
+                # Use the latest historical Adjusted EPS as the baseline for FY0 growth
+                # (FY_Estimate / Last_Historical_ADJ_EPS - 1)
+                
+                # Check for the literal previous year (e.g. 2025 if current is 2026)
                 prev_fy_lbl = f"FY {current_fy_num - 1}"
                 past_val = hist_data.get(prev_fy_lbl)
+                
+                # Fallback: find the newest Year in history if -1 lookup fails
                 if not past_val:
                     try:
                         valid_hist_keys = [k for k in hist_data.keys() if "FY" in k]
@@ -3099,6 +3127,14 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
                             target_key = max(valid_hist_keys, key=lambda x: int(''.join(filter(str.isdigit, x))))
                             past_val = hist_data.get(target_key)
                     except: pass
+                
+                # Fallback: if hist_data is empty (standalone call), fetch Nasdaq Adjusted EPS
+                if not past_val and key_prefix == "eps" and ticker_symbol:
+                    try:
+                        nasdaq_adj = get_nasdaq_actual_eps(ticker_symbol)
+                        if nasdaq_adj: past_val = nasdaq_adj
+                    except: pass
+
                 if not past_val and key_prefix == "eps": past_val = actual_trailing_eps
                 if not past_val and key_prefix == "rev": past_val = actual_trailing_rev
                 
@@ -3106,7 +3142,6 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
                     fy0["growth"] = (fy0["avg"] / abs(past_val)) - 1
             
             # FY1 vs FY0 (Standardizing universal formula: FY_N / FY_N-1 - 1)
-            # v182: Removed yf_g1 priority to ensure consistency with user requirements
             if fy1 and fy1.get("avg") and fy0 and fy0.get("avg") and fy0["avg"] != 0:
                 fy1["growth"] = (fy1["avg"] / abs(fy0["avg"])) - 1
             elif fy1 and fy1.get("avg") and yf_estimates_src:

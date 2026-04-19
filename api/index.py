@@ -36,7 +36,7 @@ from .models.scoring import calculate_scoring_reform, calculate_piotroski_score
 # Cache Settings
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v186" 
+CACHE_VERSION = "v191" 
 
 app = FastAPI(title="Fair Value Calculator API")
 
