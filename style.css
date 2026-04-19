@@ -217,8 +217,17 @@ body {
 
     #search-btn {
         width: 100%;
-        padding: 0.8rem;
+        padding: 0.8rem 0.5rem; /* Reduced horizontal padding for long status text */
         font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+    }
+
+    /* Small adjustment to ensure "Analyzing..." fits beautifully */
+    .search-container {
+        grid-template-columns: 1fr 115px;
     }
 
     #nav-watchlist-btn {
