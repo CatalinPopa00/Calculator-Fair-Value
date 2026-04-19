@@ -207,59 +207,66 @@
                             </div>
                         </div>
                         <div class="card-inputs">
-                            <div class="valuation-input-group">
-                                <label class="premium-label">TV Method</label>
-                                <select id="dcf-method-selector" class="premium-select">
-                                    <option value="perpetual">Perpetual Growth</option>
-                                    <option value="multiple">Exit Multiple</option>
-                                </select>
+                            <!-- Core Assumptions Group -->
+                            <div class="valuation-method-section" style="margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                <h5 style="font-size: 0.65rem; color: rgba(255,255,255,0.3); text-transform: uppercase; margin-bottom: 8px; letter-spacing: 1px;">Modeling Logic</h5>
+                                <div class="valuation-input-group">
+                                    <label class="premium-label">TV Method</label>
+                                    <select id="dcf-method-selector" class="premium-select">
+                                        <option value="perpetual">Perpetual Growth</option>
+                                        <option value="multiple">Exit Multiple</option>
+                                    </select>
+                                </div>
+                                <div class="valuation-input-group">
+                                    <label class="premium-label">FCF Basis</label>
+                                    <select id="fcf-source" class="premium-select">
+                                        <option value="analyst">Analyst Est.</option>
+                                        <option value="eps_growth">Earnings Growth</option>
+                                        <option value="historical">Historical</option>
+                                        <option value="custom">Custom</option>
+                                    </select>
+                                </div>
+                                <div class="valuation-input-group">
+                                    <label class="premium-label">Projection</label>
+                                    <select id="dcf-years-source" class="premium-select">
+                                        <option value="5yr">5 Years</option>
+                                        <option value="10yr">10 Years</option>
+                                    </select>
+                                </div>
+                                <div class="valuation-input-group">
+                                    <label class="premium-label">Buybacks</label>
+                                    <select id="dcf-buyback-source" class="premium-select">
+                                        <option value="none">None</option>
+                                        <option value="historical">Historical</option>
+                                        <option value="custom">Custom</option>
+                                    </select>
+                                </div>
                             </div>
-                            <div class="valuation-input-group">
-                                <label class="premium-label">FCF Basis</label>
-                                <select id="fcf-source" class="premium-select">
-                                    <option value="analyst">Analyst Est.</option>
-                                    <option value="eps_growth">Earnings Growth</option>
-                                    <option value="historical">Historical</option>
-                                    <option value="custom">Custom</option>
-                                </select>
-                            </div>
-                            <div class="valuation-input-group">
-                                <label class="premium-label">Projection</label>
-                                <select id="dcf-years-source" class="premium-select">
-                                    <option value="5yr">5 Years</option>
-                                    <option value="10yr">10 Years</option>
-                                </select>
-                            </div>
-                            <div id="dcf-custom-inputs" style="display: none; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem;">
+
+                            <!-- Custom Parameters Group -->
+                            <div id="dcf-custom-inputs" style="display: none; flex-direction: column; gap: 0.5rem;">
+                                <h5 style="font-size: 0.65rem; color: rgba(255,255,255,0.3); text-transform: uppercase; margin-bottom: 8px; letter-spacing: 1px;">Numerical Drivers</h5>
                                 <div class="valuation-input-group">
                                     <label class="premium-label">Growth Rate (%)</label>
-                                    <input type="number" id="dcf-custom-growth" class="premium-input" style="width: 70px;">
+                                    <input type="number" id="dcf-custom-growth" class="premium-input" style="width: 80px;">
                                 </div>
                                 <div class="valuation-input-group">
                                     <label class="premium-label">WACC (%)</label>
-                                    <input type="number" id="dcf-custom-wacc" class="premium-input" style="width: 70px;">
+                                    <input type="number" id="dcf-custom-wacc" class="premium-input" style="width: 80px;">
                                 </div>
                                 <div id="row-input-perpetual" class="valuation-input-group">
-                                    <label class="premium-label">Perpetual Growth (%)</label>
-                                    <input type="number" id="dcf-custom-perp" class="premium-input" style="width: 70px;">
+                                    <label class="premium-label">Perp. Growth (%)</label>
+                                    <input type="number" id="dcf-custom-perp" class="premium-input" style="width: 80px;">
                                 </div>
                                 <div id="row-input-exit-multiple" class="valuation-input-group" style="display: none;">
                                     <label class="premium-label">Exit Multiple (x)</label>
-                                    <input type="number" id="input-exit-multiple" class="premium-input" style="width: 70px;">
+                                    <input type="number" id="input-exit-multiple" class="premium-input" style="width: 80px;">
                                 </div>
-                            </div>
-                            <div class="valuation-input-group" style="margin-top: 0.5rem;">
-                                <label class="premium-label">Buybacks</label>
-                                <select id="dcf-buyback-source" class="premium-select">
-                                    <option value="none">None</option>
-                                    <option value="historical">Historical</option>
-                                    <option value="custom">Custom</option>
-                                </select>
                             </div>
                             <div id="dcf-buyback-custom-inputs" style="display: none; margin-top: 0.5rem;">
                                 <div class="valuation-input-group">
-                                    <label class="premium-label">Rate (%/yr)</label>
-                                    <input type="number" id="dcf-custom-buyback" class="premium-input" style="width: 70px;">
+                                    <label class="premium-label">Buyback Rate (%)</label>
+                                    <input type="number" id="dcf-custom-buyback" class="premium-input" style="width: 80px;">
                                 </div>
                             </div>
                         </div>
@@ -283,15 +290,15 @@
                             <p class="method-desc" id="relative-card-mos" style="font-size: 0.85rem; color: var(--accent); margin-top: 0.2rem; display: none;">--</p>
                         </div>
                         <div class="card-inputs">
-                            <div class="valuation-input-group" style="flex-direction: column; align-items: stretch; gap: 0.5rem;">
-                                <label class="premium-label" style="text-align: center;">Compare vs.</label>
-                                <select id="relative-variant" class="premium-select" style="width: 100%;">
-                                    <option value="peers" selected>Sector Peers (Median)</option>
-                                    <option value="average">Sector Peers (Mean)</option>
-                                    <option value="sp500">S&amp;P 500 Index</option>
+                            <div class="valuation-input-group">
+                                <label class="premium-label">Compare vs.</label>
+                                <select id="relative-variant" class="premium-select" style="max-width: 150px;">
+                                    <option value="peers" selected>Sector Peers</option>
+                                    <option value="average">Avg. Peers</option>
+                                    <option value="sp500">S&amp;P 500</option>
                                 </select>
                             </div>
-                            <p class="method-desc" id="relative-market-compare" style="font-size: 0.8rem; color: var(--text-muted); text-align: center; margin-top: 0.75rem; min-height: 1.2em;">Peer Median P/E: --</p>
+                            <p class="method-desc" id="relative-market-compare" style="font-size: 0.8rem; color: var(--text-muted); text-align: center; margin-top: 1rem; min-height: 1.2em;">Peer Median P/E: --</p>
                         </div>
                         <div class="card-footer">
                             <button class="view-data-btn modal-trigger" data-method="relative">View Data</button>
@@ -315,17 +322,16 @@
                         <div class="card-inputs">
                             <div class="valuation-input-group">
                                 <label class="premium-label">Multiple</label>
-                                <select id="lynch-multiple" class="premium-select">
-                                    <option value="PE 15">PE 15</option>
-                                    <option value="PE 20" selected>PE 20</option>
-                                    <option value="PE 25">PE 25</option>
-                                    <option value="historic">Historic</option>
+                                <select id="lynch-multiple-source" class="premium-select">
+                                    <option value="pe15" selected>PE 15</option>
+                                    <option value="pe20">PE 20</option>
+                                    <option value="historical">Historical PE</option>
                                     <option value="custom">Custom</option>
                                 </select>
                             </div>
                             <div id="lynch-custom-multiple-inputs" class="valuation-input-group" style="display: none;">
                                 <label class="premium-label">Custom P/E</label>
-                                <input type="number" id="lynch-custom-mult" class="premium-input" style="width: 70px;">
+                                <input type="number" id="lynch-custom-mult" class="premium-input" style="width: 80px;">
                             </div>
                             <div class="valuation-input-group">
                                 <label class="premium-label">EPS Basis</label>
@@ -337,7 +343,7 @@
                             </div>
                             <div id="lynch-custom-inputs" class="valuation-input-group" style="display: none;">
                                 <label class="premium-label">Growth Rate (%)</label>
-                                <input type="number" id="lynch-custom-growth" class="premium-input" style="width: 70px;">
+                                <input type="number" id="lynch-custom-growth" class="premium-input" style="width: 80px;">
                             </div>
                         </div>
                         <div class="card-footer">
@@ -370,7 +376,7 @@
                             </div>
                             <div id="peg-custom-inputs" class="valuation-input-group" style="display: none;">
                                 <label class="premium-label">Growth (%)</label>
-                                <input type="number" id="peg-custom-growth" class="premium-input" style="width: 70px;">
+                                <input type="number" id="peg-custom-growth" class="premium-input" style="width: 80px;">
                             </div>
                         </div>
                         <div class="card-footer">

@@ -2440,7 +2440,7 @@ body {
 }
 
 /* --- ANALYST ESTIMATES TABS (Mobile) --- */
-.analyst-tabs-container {
+.analyst-tabs-wrapper {
     display: none; /* Hidden on desktop */
     margin-bottom: 1.5rem;
     width: 100%;
@@ -2454,7 +2454,7 @@ body {
 
 /* Mobile Layout Styles */
 @media (max-width: 768px) {
-    .analyst-tabs-container {
+    .analyst-tabs-wrapper {
         display: block;
     }
 
@@ -2478,7 +2478,7 @@ body {
         display: block !important;
     }
 
-    .analyst-tabs {
+    .analyst-tabs-control {
         display: flex;
         gap: 10px;
         overflow-x: auto;

@@ -1084,16 +1084,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 targetEps = (pl.trailing_eps || 0) * Math.pow(1 + usedGrowth, 3);
             }
 
-            const multEl = document.getElementById('lynch-multiple');
-            const multVal = multEl ? multEl.value : 'PE 20';
+            const multEl = document.getElementById('lynch-multiple-source');
+            const multVal = multEl ? multEl.value : 'pe20';
             const multCustomInputs = document.getElementById('lynch-custom-multiple-inputs');
             if (multCustomInputs) multCustomInputs.style.display = multVal === 'custom' ? 'flex' : 'none';
 
             let selectedMult = 20; 
-            if (multVal === 'PE 15') selectedMult = 15;
-            if (multVal === 'PE 20') selectedMult = 20;
-            if (multVal === 'PE 25') selectedMult = 25;
-            if (multVal === 'historic') selectedMult = pl.historic_pe || 20;
+            if (multVal === 'pe15') selectedMult = 15;
+            if (multVal === 'pe20') selectedMult = 20;
+            if (multVal === 'historical') selectedMult = pl.historic_pe || 20;
             if (multVal === 'custom') {
                 selectedMult = parseFloat(document.getElementById('lynch-custom-mult').value) || 18;
             }
@@ -1212,7 +1211,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const inputSelectors = [
         'fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple', 'dcf-custom-growth', 'dcf-custom-wacc', 'dcf-custom-perp',
         'dcf-buyback-source', 'dcf-custom-buyback', 'relative-variant',
-        'lynch-multiple', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth',
+        'lynch-multiple-source', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth',
         'peg-eps-source', 'peg-custom-growth'
     ];
     const updateAndSave = () => {
@@ -1600,7 +1599,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple',
         'dcf-custom-growth', 'dcf-custom-wacc', 'dcf-custom-perp',
         'dcf-buyback-source', 'dcf-custom-buyback', 'relative-variant',
-        'lynch-multiple', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth',
+        'lynch-multiple-source', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth',
         'peg-eps-source', 'peg-custom-growth'
     ];
     const overrideToggleIds = ['toggle-dcf', 'toggle-relative', 'toggle-peter_lynch', 'toggle-peg'];
@@ -1718,7 +1717,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const ci = document.getElementById('dcf-buyback-custom-inputs');
                     if (ci) ci.style.display = val === 'custom' ? 'flex' : 'none';
                 }
-                if (id === 'lynch-multiple') {
+                if (id === 'lynch-multiple-source') {
                     const ci = document.getElementById('lynch-custom-multiple-inputs');
                     if (ci) ci.style.display = val === 'custom' ? 'flex' : 'none';
                 }
