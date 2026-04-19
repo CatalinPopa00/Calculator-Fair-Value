@@ -2729,22 +2729,10 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
                 
                 for period_idx, row in ef.iterrows():
                     p_key = str(period_idx)
-                    
-                    # --- ANNUAL PERIOD GUARD ---
-                    # Yahoo annual estimates are GAAP — Nasdaq Non-GAAP block covers FY rows.
-                    # Guard 1: period_code based ("0y", "+1y", "1y", etc.)
-                    is_annual_code = any(p_key.lower() in [f"{n}y", f"+{n}y", f"-{n}y"] for n in range(4))
-                    if is_annual_code:
-                        continue
-                    # Guard 2: resolve p_label first, then check if it's an FY annual label
-                    # (handles date-indexed annual rows like Timestamp('2026-11-30') → 'FY 2026')
-                    try:
-                        _pre_label = to_fiscal_label(pd.to_datetime(period_idx)) if isinstance(period_idx, (pd.Timestamp, datetime.datetime, str)) and any(c in str(period_idx) for c in ['-', '/', '.', '20']) else labels.get(p_key, p_key)
-                    except:
-                        _pre_label = labels.get(p_key, p_key)
-                    if str(_pre_label).startswith('FY '):
-                        continue
-                    
+                    # --- ANNUAL PERIOD INTELLIGENT MERGE (v190 ADBE FIX) ---
+                    # Yahoo and Nasdaq often disagree on which provides GAAP vs Non-GAAP.
+                    # We accept both, and for collisions, we prioritize the higher estimate (Non-GAAP).
+
                     avg = row.get('avg') if hasattr(row, 'get') else row.get('Avg')
                     val_unscaled = float(avg) if avg is not None and not (isinstance(avg, float) and pd.isna(avg)) else None
                     try:
@@ -2752,16 +2740,23 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
                     except:
                         p_label = labels.get(p_key, p_key)
                     
-                    # Skip if this period label is already in eps_estimates (deduplication)
-                    if p_label in existing_annual_labels:
-                        continue
-                    
                     scaled_avg = val_unscaled * fx_rate if val_unscaled is not None else None
                     
                     # Recalculate growth vs Non-GAAP historical base
                     recalc_growth = None
                     if scaled_avg and scaled_avg > 0 and base_eps and base_eps > 0:
                         recalc_growth = (scaled_avg - base_eps) / base_eps
+                    
+                    # Intelligent Merge / Deduplication
+                    existing_entry = next((e for e in eps_estimates if e.get('period') == p_label), None)
+                    if existing_entry:
+                        # If Yahoo has a higher estimate (Non-GAAP), overwrite the Nasdaq (GAAP) one
+                        if scaled_avg is not None and existing_entry.get('avg') is not None:
+                            if scaled_avg > existing_entry['avg']:
+                                existing_entry['avg'] = scaled_avg
+                                existing_entry['growth'] = recalc_growth
+                                existing_entry['period_code'] = p_key
+                        continue
                     
                     eps_estimates.append({
                         "period": p_label, 
@@ -3014,9 +3009,11 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
                             if buckets[idx]["avg"] is None or item.get('status') == 'reported':
                                 buckets[idx].update({k: v for k, v in item.items() if v is not None})
                         elif is_fy:
-                            if buckets["FY0"]["avg"] is None: buckets["FY0"].update({k: v for k, v in item.items() if v is not None})
+                            if buckets["FY0"]["avg"] is None or (item.get('avg') is not None and buckets["FY0"]["avg"] is not None and item['avg'] > buckets["FY0"]["avg"]): 
+                                buckets["FY0"].update({k: v for k, v in item.items() if v is not None})
                     elif yr == target_fy + 1 and is_fy:
-                        if buckets["FY1"]["avg"] is None: buckets["FY1"].update({k: v for k, v in item.items() if v is not None})
+                        if buckets["FY1"]["avg"] is None or (item.get('avg') is not None and buckets["FY1"]["avg"] is not None and item['avg'] > buckets["FY1"]["avg"]): 
+                            buckets["FY1"].update({k: v for k, v in item.items() if v is not None})
 
         # Count reported items
         reported_eps_count = len([x for x in reported_eps if current_year_str in str(x.get('period'))])
