@@ -166,46 +166,29 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const recalcWithSimPrice = (simPrice) => {
-        if (!globalData) return;
+        if (!globalData || !globalData.company_profile) return;
         const prof = globalData.company_profile;
-        if (!prof) return;
-
-        // --- 1. Recalculate dependent metrics ---
+        const fairValue = globalData.fair_value;
         const eps = prof.trailing_eps || 0;
         const shares = prof.shares_outstanding || 0;
-        const fairValue = globalData.fair_value;
         const revenue = prof.revenue || 0;
-        const totalCash = prof.total_cash || 0;
-        const totalDebt = prof.total_debt || 0;
         const ebitda = prof.ebitda || 0;
         const pToB = prof.price_to_book || 0;
         const bookValuePerShare = (pToB > 0) ? (_originalPrice / pToB) : 0;
         const dividendRate = prof.dividend_rate || 0;
         const pe5y = prof.historic_pe || 0;
 
-        // Margin of Safety
+        // --- 1. Recalculated Scalars ---
         const newMos = fairValue ? ((fairValue - simPrice) / simPrice) * 100 : null;
-
-        // P/E Ratio (Trailing TTM)
         const newPE = (eps > 0) ? simPrice / eps : 0;
-
-        // P/S Ratio
         const newPS = (revenue > 0 && shares > 0) ? simPrice / (revenue / shares) : 0;
-
-        // Market Cap
         const newMktCap = simPrice * shares;
-
-        // EV / EBITDA
         const ev = newMktCap + (prof.total_debt || 0) - (prof.total_cash || 0);
         const newEvEbitda = (ebitda > 0) ? ev / ebitda : 0;
-
-        // Price-to-Book
         const newPB = (bookValuePerShare > 0) ? simPrice / bookValuePerShare : 0;
-
-        // Dividend Yield
         const newDivYield = (simPrice > 0 && dividendRate > 0) ? (dividendRate / simPrice) : 0;
 
-        // --- 2. Update Profile Table (reactive) ---
+        // --- 2. Update Profile Table Row Displays ---
         const pBody = document.getElementById('profile-body');
         if (pBody) {
             const rows = pBody.querySelectorAll('tr');
@@ -214,7 +197,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const val = row.querySelector('.profile-value');
                 if (!label || !val) return;
                 const txt = label.textContent.trim();
-                const simColor = '#fbbf24'; // Simulation Yellow
+                const simColor = '#fbbf24'; 
                 if (txt === 'P/E (Trailing TTM)') {
                     val.textContent = newPE > 0 ? newPE.toFixed(2) + 'x' : 'N/A';
                     val.style.color = _simulating ? simColor : '';
@@ -225,20 +208,19 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // --- 3. Update Price display ---
+        // --- 3. Update Current Price Header ---
         const priceEl = document.getElementById('current-price');
         if (priceEl && !_simulating) {
             priceEl.textContent = formatCurrency(simPrice);
         }
 
-        // --- 4. Recalculate Good to Buy scoring locally ---
+        // --- 4. Predictive Scoring Logic ---
         if (currentBuyBreakdown) {
             currentBuyBreakdown.forEach(item => {
                 const metric = item.metric || '';
                 let newPts = item.points_awarded;
 
                 if (metric === 'Margin of Safety') {
-                    // v48: Re-calculate MoS points reactive to Simulated Price
                     newPts = (newMos >= 30) ? 30 : (newMos >= 15 ? 15 : (newMos >= 0 ? 7.5 : 0));
                     item.value = formatPercent(newMos);
                 } else if (metric === 'P/E Ratio') {
@@ -282,39 +264,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 item.points_awarded = Math.min(newPts, item.max_points);
             });
         }
-    // Score UI updating and summation will be reliably handled by updateInsightsAndScores
-            // via the window.triggerRecalculate() call at the end of this function.
-        }
 
-        // Let window.triggerRecalculate() handle Fair Value and MoS display dynamically
-        if(window.triggerRecalculate) {
+        // --- 5. Global Visual Re-sync ---
+        if (window.triggerRecalculate) {
             window.triggerRecalculate();
         }
 
-        // --- 6. Update strengths/risks ---
+        // --- 6. Quick Strengths/Risks Update ---
         const allMetrics = [...(currentHealthBreakdown || []), ...(currentBuyBreakdown || [])];
-        const strengths = allMetrics.filter(m => m.points_awarded === m.max_points && m.max_points > 0);
-        strengths.sort((a, b) => b.max_points - a.max_points);
-        const risks = allMetrics.filter(m => m.points_awarded === 0 && m.max_points > 0);
-        risks.sort((a, b) => b.max_points - a.max_points);
+        const strengths = allMetrics.filter(m => m.points_awarded === m.max_points && m.max_points > 0).sort((a,b) => b.max_points - a.max_points);
+        const risks = allMetrics.filter(m => m.points_awarded === 0 && m.max_points > 0).sort((a,b) => b.max_points - a.max_points);
 
-        const strengthsList = document.getElementById('top-strengths-list');
-        if (strengthsList) {
-            strengthsList.innerHTML = '';
-            strengths.slice(0, 3).forEach(s => {
-                const li = document.createElement('li');
-                li.textContent = `${s.metric}: ${s.value}`;
-                strengthsList.appendChild(li);
-            });
+        const sList = document.getElementById('top-strengths-list');
+        if (sList) {
+            sList.innerHTML = strengths.slice(0, 3).map(s => `<li>${s.metric}: ${s.value}</li>`).join('');
         }
-        const risksList = document.getElementById('risk-factors-list');
-        if (risksList) {
-            risksList.innerHTML = '';
-            risks.slice(0, 3).forEach(r => {
-                const li = document.createElement('li');
-                li.textContent = `${r.metric}: ${r.value}`;
-                risksList.appendChild(li);
-            });
+        const rList = document.getElementById('risk-factors-list');
+        if (rList) {
+            rList.innerHTML = risks.slice(0, 3).map(r => `<li>${r.metric}: ${r.value}</li>`).join('');
         }
     };
 
@@ -1509,8 +1476,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // --- ADDITIONAL SECTIONS ---
-        renderAnalystEstimatesInline(data.ticker);
+        const trendsBody = document.getElementById('trends-body');
+        const anchors = data.historical_anchors;
 
+        if (trendsBody) {
+            if (anchors && anchors.length > 0) {
                 // v44: Transposed Table with Sparklines
                 const config = [
                     { label: 'Year', key: 'year', isHeader: true },
