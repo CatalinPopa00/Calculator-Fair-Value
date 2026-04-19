@@ -36,7 +36,7 @@ from .models.scoring import calculate_scoring_reform, calculate_piotroski_score
 # Cache Settings
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v171" 
+CACHE_VERSION = "v186" 
 
 app = FastAPI(title="Fair Value Calculator API")
 
@@ -323,8 +323,8 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         # Add market_data to context for scoring
         data["market_data"] = market_data
 
-        # Scoring
-        scoring_results = calculate_scoring_reform({"mos": (lynch.get("margin_of_safety") if lynch else 0), "eps_growth": growth_5y*100, "pe": current_pe, "pe_historic": pe_historic, "peg_ratio": company_peg}, data)
+        # Scoring (v185: Fix mapping and 100-point normalization)
+        scoring_results = calculate_scoring_reform({"margin_of_safety": (lynch.get("margin_of_safety") if lynch else 0), "eps_growth": growth_5y*100, "pe": current_pe, "pe_historic": pe_historic, "peg_ratio": company_peg}, data)
 
         health_score_total = scoring_results.get("health_score_total")
         health_breakdown = scoring_results.get("health_breakdown")

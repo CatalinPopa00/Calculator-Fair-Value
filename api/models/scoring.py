@@ -209,20 +209,20 @@ def calculate_scoring_reform(valuation_data, metrics):
         pts = 30 if mos > 20 else (15 if mos >= 0 else 0)
         add_b("Margin of Safety", mos, pts, 30, False)
 
-        pts = 20 if rev_g > 15 else (10 if rev_g >= 5 else 0)
-        add_b("Revenue Growth (Next 3Y)", rev_g, pts, 20, False)
+        pts = 15 if rev_g > 15 else (7.5 if rev_g >= 5 else 0)
+        add_b("Revenue Growth (Next 3Y)", rev_g, pts, 15, False)
 
-        # P/E Ratio (HYBRID BLENDED SCORE - 20 pct max)
+        # P/E Ratio (HYBRID BLENDED SCORE - 15 pct max)
         pe_5y = clean_ratio(metrics.get('pe_historic'))
-        # Part A: Absolute (10 pct)
-        pts_abs = 10 if (pe > 0 and pe < 15.0) else (5 if (pe > 0 and pe <= 25.0) else 0)
-        # Part B: Relative to 5Y Avg (10 pct)
+        # Part A: Absolute (7.5 pct)
+        pts_abs = 7.5 if (pe > 0 and pe < 15.0) else (3.75 if (pe > 0 and pe <= 25.0) else 0)
+        # Part B: Relative to 5Y Avg (7.5 pct)
         pts_rel = 0
         if pe > 0 and pe_5y > 0:
             pe_diff_pct = ((pe - pe_5y) / pe_5y) * 100
-            pts_rel = 10 if pe_diff_pct < -15 else (5 if abs(pe_diff_pct) <= 15 else 0)
+            pts_rel = 7.5 if pe_diff_pct < -15 else (3.75 if abs(pe_diff_pct) <= 15 else 0)
         pts = pts_abs + pts_rel
-        add_b("P/E Ratio", pe, pts, 20, True)
+        add_b("P/E Ratio", pe, pts, 15, True)
         
         # v182: S&P 500 Relative P/E Benchmark (added to Buy breakdown)
         mkt_pe = metrics.get('market_data', {}).get('pe') or metrics.get('market_data', {}).get('trailing_pe') or 22.0
