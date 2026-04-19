@@ -1512,7 +1512,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 let tableHtml = '';
                 config.forEach(metric => {
                     const isYear = metric.key === 'year';
-                    const sparkHtml = !isYear ? generateSparkline(anchors.map(a => a[metric.key])) : '';
+                    const sparkHtml = !isYear ? generateSparkline(anchors.map(a => a[metric.key]).reverse()) : '';
                     
                     tableHtml += `<tr>`;
                     tableHtml += `
