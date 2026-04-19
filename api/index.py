@@ -36,7 +36,7 @@ from .models.scoring import calculate_scoring_reform, calculate_piotroski_score
 # Cache Settings
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v191" 
+CACHE_VERSION = "v196" 
 
 app = FastAPI(title="Fair Value Calculator API")
 
@@ -164,13 +164,16 @@ def search(query: str, response: Response):
 
 @app.get("/api/analyst/{ticker}")
 def get_analyst(ticker: str, response: Response):
-    """Refined analyst data endpoint (v165 fix for 404)"""
     if response: response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     ticker_upper = ticker.upper()
-    cache_key = f"analyst_{ticker_upper}_{CACHE_VERSION}"
-    if cache_key in valuation_cache: return valuation_cache[cache_key]
+    cache_key = f"analyst_{ticker_upper}_v196"
+    if cache_key in valuation_cache: 
+        res = valuation_cache[cache_key]
+        if isinstance(res, dict): res["_v"] = "v196"
+        return res
     try:
         result = get_analyst_data(ticker_upper)
+        if isinstance(result, dict): result["_v"] = "v196"
         valuation_cache[cache_key] = result
         return result
     except Exception as e:
