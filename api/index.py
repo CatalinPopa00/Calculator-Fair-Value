@@ -435,6 +435,11 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 "payout_ratio": sanitize(data.get("payout_ratio")),
                 "dividend_streak": data.get("dividend_streak"),
                 "dividend_cagr_5y": sanitize(data.get("dividend_cagr_5y")),
+                "revenue": sanitize(data.get("revenue", 0)),
+                "ebitda": sanitize(data.get("ebitda", 0)),
+                "total_cash": sanitize(data.get("total_cash", 0)),
+                "total_debt": sanitize(data.get("total_debt", 0)),
+                "price_to_book": sanitize(data.get("price_to_book")),
                 "competitors": [p.get("ticker") for p in peers_data] if peers_data else [],
                 "competitor_metrics": peers_data or []
             },

@@ -178,7 +178,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const totalCash = prof.total_cash || 0;
         const totalDebt = prof.total_debt || 0;
         const ebitda = prof.ebitda || 0;
-        const bookValuePerShare = prof.price_to_book && _originalPrice ? (_originalPrice / prof.price_to_book) : 0;
+        const pToB = prof.price_to_book || 0;
+        const bookValuePerShare = (pToB > 0) ? (_originalPrice / pToB) : 0;
         const dividendRate = prof.dividend_rate || 0;
         const pe5y = prof.historic_pe || 0;
 
@@ -195,7 +196,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const newMktCap = simPrice * shares;
 
         // EV / EBITDA
-        const ev = newMktCap + totalDebt - totalCash;
+        const ev = newMktCap + (prof.total_debt || 0) - (prof.total_cash || 0);
         const newEvEbitda = (ebitda > 0) ? ev / ebitda : 0;
 
         // Price-to-Book
@@ -207,19 +208,19 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- 2. Update Profile Table (reactive) ---
         const pBody = document.getElementById('profile-body');
         if (pBody) {
-            // Update P/E (Trailing TTM) row
             const rows = pBody.querySelectorAll('tr');
             rows.forEach(row => {
                 const label = row.querySelector('.profile-label');
                 const val = row.querySelector('.profile-value');
                 if (!label || !val) return;
                 const txt = label.textContent.trim();
+                const simColor = '#fbbf24'; // Simulation Yellow
                 if (txt === 'P/E (Trailing TTM)') {
                     val.textContent = newPE > 0 ? newPE.toFixed(2) + 'x' : 'N/A';
-                    val.style.color = _simulating ? '#fbbf24' : '';
+                    val.style.color = _simulating ? simColor : '';
                 } else if (txt === 'Market Cap') {
                     val.textContent = formatBigNumber(newMktCap, '$');
-                    val.style.color = _simulating ? '#fbbf24' : '';
+                    val.style.color = _simulating ? simColor : '';
                 }
             });
         }
@@ -232,15 +233,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // --- 4. Recalculate Good to Buy scoring locally ---
         if (currentBuyBreakdown) {
-            let totalDelta = 0;
-
             currentBuyBreakdown.forEach(item => {
-                const oldPts = item.points_awarded || 0;
-                let newPts = oldPts; // default: keep
                 const metric = item.metric || '';
+                let newPts = item.points_awarded;
 
-                if (metric === 'P/E Ratio') {
-                    // Hybrid blended scoring (absolute + relative)
+                if (metric === 'Margin of Safety') {
+                    // v48: Re-calculate MoS points reactive to Simulated Price
+                    newPts = (newMos >= 30) ? 30 : (newMos >= 15 ? 15 : (newMos >= 0 ? 7.5 : 0));
+                    item.value = formatPercent(newMos);
+                } else if (metric === 'P/E Ratio') {
                     const isFin = prof.sector && prof.sector.toLowerCase().includes('financial');
                     let ptsAbs = 0, ptsRel = 0;
                     if (isFin) {
@@ -260,15 +261,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     item.value = newPE > 0 ? newPE.toFixed(2) + 'x' : '0.00x';
                 } else if (metric === 'P/S Ratio') {
                     newPts = (newPS > 0 && newPS < 4) ? 10 : ((newPS > 0 && newPS <= 8) ? 5 : 0);
-                    newPts = Math.min(newPts, item.max_points);
                     item.value = newPS > 0 ? newPS.toFixed(2) + 'x' : '0.00x';
                 } else if (metric === 'EV / EBITDA') {
                     newPts = (newEvEbitda > 0 && newEvEbitda < 12) ? 10 : ((newEvEbitda > 0 && newEvEbitda <= 18) ? 5 : 0);
-                    newPts = Math.min(newPts, item.max_points);
                     item.value = newEvEbitda > 0 ? newEvEbitda.toFixed(2) + 'x' : '0.00x';
                 } else if (metric === 'Price-to-Book') {
                     newPts = (newPB > 0 && newPB < 1.2) ? 15 : ((newPB > 0 && newPB <= 2.0) ? 7.5 : 0);
-                    newPts = Math.min(newPts, item.max_points);
                     item.value = newPB > 0 ? newPB.toFixed(2) + 'x' : '0.00x';
                 } else if (metric === 'Dividend Yield') {
                     const dyPct = newDivYield * 100;
@@ -276,16 +274,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (isFin) {
                         newPts = dyPct > 4 ? 15 : (dyPct >= 2 ? 7.5 : 0);
                     } else {
-                        // REITs or others with Dividend Yield in buy
                         newPts = dyPct > 5 ? 15 : (dyPct >= 3 ? 7.5 : 0);
                     }
-                    newPts = Math.min(newPts, item.max_points);
                     item.value = dyPct.toFixed(1) + '%';
                 }
 
-                item.points_awarded = newPts;
+                item.points_awarded = Math.min(newPts, item.max_points);
             });
-            // Score UI updating and summation will be reliably handled by updateInsightsAndScores
+        }
+    // Score UI updating and summation will be reliably handled by updateInsightsAndScores
             // via the window.triggerRecalculate() call at the end of this function.
         }
 
@@ -1199,6 +1196,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (totalWeight > 0) {
                 finalFv = weightedSum / totalWeight;
                 finalMos = ((finalFv - globalData.current_price) / globalData.current_price) * 100;
+                // v47: Sync for reactive simulations
+                globalData.fair_value = finalFv;
             }
         }
 
