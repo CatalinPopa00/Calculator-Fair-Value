@@ -190,7 +190,7 @@
                 <!-- Valuation Methods Breakdown -->
                 <section class="methods-grid">
                     <!-- DCF Card -->
-                    <div class="method-card glass-card" style="position: relative;">
+                    <div class="method-card glass-card">
                         <div class="method-toggle">
                             <input type="checkbox" id="toggle-dcf" class="valuation-toggle" data-method="dcf" checked>
                             <label for="toggle-dcf" title="Include in Fair Value Average"></label>
@@ -207,84 +207,59 @@
                             </div>
                         </div>
                         <div class="card-inputs">
-                            <div class="custom-fcf-container"
-                                style="display: flex; flex-direction: column; justify-content: center; gap: 0.5rem; margin-top: 1rem; margin-bottom: 0.5rem;">
-                                <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
-                                    <label for="dcf-method-selector" style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500; white-space: nowrap;">TV Method</label>
-                                    <select id="dcf-method-selector" style="background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--card-border); border-radius: 4px; padding: 0.3rem 0.5rem; font-family: 'Outfit', sans-serif; font-size: 0.85rem; outline: none; cursor: pointer;">
-                                        <option value="perpetual">Perpetual Growth</option>
-                                        <option value="multiple">Exit Multiple</option>
-                                    </select>
+                            <div class="valuation-input-group">
+                                <label class="premium-label">TV Method</label>
+                                <select id="dcf-method-selector" class="premium-select">
+                                    <option value="perpetual">Perpetual Growth</option>
+                                    <option value="multiple">Exit Multiple</option>
+                                </select>
+                            </div>
+                            <div class="valuation-input-group">
+                                <label class="premium-label">FCF Basis</label>
+                                <select id="fcf-source" class="premium-select">
+                                    <option value="analyst">Analyst Est.</option>
+                                    <option value="eps_growth">Earnings Growth</option>
+                                    <option value="historical">Historical</option>
+                                    <option value="custom">Custom</option>
+                                </select>
+                            </div>
+                            <div class="valuation-input-group">
+                                <label class="premium-label">Projection</label>
+                                <select id="dcf-years-source" class="premium-select">
+                                    <option value="5yr">5 Years</option>
+                                    <option value="10yr">10 Years</option>
+                                </select>
+                            </div>
+                            <div id="dcf-custom-inputs" style="display: none; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem;">
+                                <div class="valuation-input-group">
+                                    <label class="premium-label">Growth Rate (%)</label>
+                                    <input type="number" id="dcf-custom-growth" class="premium-input" style="width: 70px;">
                                 </div>
-                                <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
-                                    <label for="fcf-source"
-                                        style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">FCF
-                                        Based
-                                        on</label>
-                                    <select id="fcf-source"
-                                        style="background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--card-border); border-radius: 4px; padding: 0.3rem 0.5rem; font-family: 'Outfit', sans-serif; font-size: 0.85rem; outline: none; cursor: pointer;">
-                                        <option value="analyst">Analyst Est.</option>
-                                        <option value="eps_growth">Earnings Growth</option>
-                                        <option value="historical">Historical</option>
-                                        <option value="custom">Custom</option>
-                                    </select>
+                                <div class="valuation-input-group">
+                                    <label class="premium-label">WACC (%)</label>
+                                    <input type="number" id="dcf-custom-wacc" class="premium-input" style="width: 70px;">
                                 </div>
-                                <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-top: 0.5rem;">
-                                    <label for="dcf-years-source" style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500; white-space: nowrap;">Projection</label>
-                                    <select id="dcf-years-source" style="background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--card-border); border-radius: 4px; padding: 0.3rem 0.5rem; font-family: 'Outfit', sans-serif; font-size: 0.85rem; outline: none; cursor: pointer;">
-                                        <option value="5yr">5 Years</option>
-                                        <option value="10yr">10 Years</option>
-                                    </select>
+                                <div id="row-input-perpetual" class="valuation-input-group">
+                                    <label class="premium-label">Perpetual Growth (%)</label>
+                                    <input type="number" id="dcf-custom-perp" class="premium-input" style="width: 70px;">
                                 </div>
-                                <div id="dcf-custom-inputs"
-                                    style="display: none; flex-direction: column; gap: 0.4rem; margin-top: 0.5rem;">
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <label for="dcf-custom-growth"
-                                            style="font-size: 0.8rem; color: var(--text-muted);">Growth Rate (%)</label>
-                                        <input type="number" id="dcf-custom-growth" placeholder="15"
-                                            style="width: 60px; background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--card-border); border-radius: 4px; padding: 0.2rem; outline: none; text-align: right;">
-                                    </div>
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <label for="dcf-custom-wacc"
-                                            style="font-size: 0.8rem; color: var(--text-muted);">WACC (%)</label>
-                                        <input type="number" id="dcf-custom-wacc" placeholder="9"
-                                            style="width: 60px; background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--card-border); border-radius: 4px; padding: 0.2rem; outline: none; text-align: right;">
-                                    </div>
-                                    <div id="row-input-perpetual" style="display: flex; justify-content: space-between; align-items: center;">
-                                        <label for="dcf-custom-perp"
-                                            style="font-size: 0.8rem; color: var(--text-muted);">Perpetual Growth
-                                            (%)</label>
-                                        <input type="number" id="dcf-custom-perp" placeholder="2.5"
-                                            style="width: 60px; background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--card-border); border-radius: 4px; padding: 0.2rem; outline: none; text-align: right;">
-                                    </div>
-                                    <div id="row-input-exit-multiple" style="display: none; justify-content: space-between; align-items: center;">
-                                        <label for="input-exit-multiple"
-                                            style="font-size: 0.8rem; color: var(--text-muted);">Exit Multiple (x)</label>
-                                        <input type="number" id="input-exit-multiple" value="15"
-                                            style="width: 60px; background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--card-border); border-radius: 4px; padding: 0.2rem; outline: none; text-align: right;">
-                                    </div>
+                                <div id="row-input-exit-multiple" class="valuation-input-group" style="display: none;">
+                                    <label class="premium-label">Exit Multiple (x)</label>
+                                    <input type="number" id="input-exit-multiple" class="premium-input" style="width: 70px;">
                                 </div>
-                                <!-- Share Buybacks row -->
-                                <div
-                                    style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-top: 0.5rem;">
-                                    <label for="dcf-buyback-source"
-                                        style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500; white-space: nowrap;">Buybacks</label>
-                                    <select id="dcf-buyback-source"
-                                        style="background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--card-border); border-radius: 4px; padding: 0.3rem 0.5rem; font-family: 'Outfit', sans-serif; font-size: 0.85rem; outline: none; cursor: pointer;">
-                                        <option value="none">None</option>
-                                        <option value="historical">Historical</option>
-                                        <option value="custom">Custom</option>
-                                    </select>
-                                </div>
-                                <div id="dcf-buyback-custom-inputs"
-                                    style="display: none; flex-direction: column; gap: 0.4rem; margin-top: 0.3rem;">
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <label for="dcf-custom-buyback"
-                                            style="font-size: 0.8rem; color: var(--text-muted);">Buyback Rate
-                                            (%/yr)</label>
-                                        <input type="number" id="dcf-custom-buyback" placeholder="2"
-                                            style="width: 60px; background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--card-border); border-radius: 4px; padding: 0.2rem; outline: none; text-align: right;">
-                                    </div>
+                            </div>
+                            <div class="valuation-input-group" style="margin-top: 0.5rem;">
+                                <label class="premium-label">Buybacks</label>
+                                <select id="dcf-buyback-source" class="premium-select">
+                                    <option value="none">None</option>
+                                    <option value="historical">Historical</option>
+                                    <option value="custom">Custom</option>
+                                </select>
+                            </div>
+                            <div id="dcf-buyback-custom-inputs" style="display: none; margin-top: 0.5rem;">
+                                <div class="valuation-input-group">
+                                    <label class="premium-label">Rate (%/yr)</label>
+                                    <input type="number" id="dcf-custom-buyback" class="premium-input" style="width: 70px;">
                                 </div>
                             </div>
                         </div>
@@ -294,10 +269,9 @@
                     </div>
 
                     <!-- Relative Valuation Card -->
-                    <div class="method-card glass-card" style="position: relative;">
+                    <div class="method-card glass-card">
                         <div class="method-toggle">
-                            <input type="checkbox" id="toggle-relative" class="valuation-toggle" data-method="relative"
-                                checked>
+                            <input type="checkbox" id="toggle-relative" class="valuation-toggle" data-method="relative" checked>
                             <label for="toggle-relative" title="Include in Fair Value Average"></label>
                         </div>
                         <div class="card-header">
@@ -309,24 +283,15 @@
                             <p class="method-desc" id="relative-card-mos" style="font-size: 0.85rem; color: var(--accent); margin-top: 0.2rem; display: none;">--</p>
                         </div>
                         <div class="card-inputs">
-                            <div
-                                style="display: flex; flex-direction: column; gap: 0.8rem; margin-top: 1rem; margin-bottom: 0.5rem; align-items: center;">
-                                <div
-                                    style="display: flex; flex-direction: column; align-items: center; gap: 0.4rem; width: 100%;">
-                                    <label for="relative-variant"
-                                        style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">Compare
-                                        vs.</label>
-                                    <select id="relative-variant"
-                                        style="width: 90%; background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--card-border); border-radius: 4px; padding: 0.4rem 0.5rem; font-family: 'Outfit', sans-serif; font-size: 0.85rem; outline: none; cursor: pointer;">
-                                        <option value="peers" selected>Sector Peers (Median)</option>
-                                        <option value="average">Sector Peers (Mean)</option>
-                                        <option value="sp500">S&amp;P 500 Index</option>
-                                    </select>
-                                </div>
-                                <p class="method-desc" id="relative-market-compare"
-                                    style="font-size: 0.8rem; color: var(--text-muted); text-align: center; margin-top: 0.2rem; min-height: 1.2em;">
-                                    Peer Median P/E: --</p>
+                            <div class="valuation-input-group" style="flex-direction: column; align-items: stretch; gap: 0.5rem;">
+                                <label class="premium-label" style="text-align: center;">Compare vs.</label>
+                                <select id="relative-variant" class="premium-select" style="width: 100%;">
+                                    <option value="peers" selected>Sector Peers (Median)</option>
+                                    <option value="average">Sector Peers (Mean)</option>
+                                    <option value="sp500">S&amp;P 500 Index</option>
+                                </select>
                             </div>
+                            <p class="method-desc" id="relative-market-compare" style="font-size: 0.8rem; color: var(--text-muted); text-align: center; margin-top: 0.75rem; min-height: 1.2em;">Peer Median P/E: --</p>
                         </div>
                         <div class="card-footer">
                             <button class="view-data-btn modal-trigger" data-method="relative">View Data</button>
@@ -334,65 +299,45 @@
                     </div>
 
                     <!-- Forward Multiple Card -->
-                    <div class="method-card glass-card" style="position: relative;">
+                    <div class="method-card glass-card">
                         <div class="method-toggle">
-                            <input type="checkbox" id="toggle-peter_lynch" class="valuation-toggle"
-                                data-method="peter_lynch" checked>
+                            <input type="checkbox" id="toggle-peter_lynch" class="valuation-toggle" data-method="peter_lynch" checked>
                             <label for="toggle-peter_lynch" title="Include in Fair Value Average"></label>
                         </div>
                         <div class="card-header">
-                            <h4>Forward Multiple Valuation</h4>
+                            <h4>Forward Multiple</h4>
                         </div>
                         <div class="card-metrics">
                             <div class="method-val" id="lynch-fair-value" style="color: var(--accent);">--</div>
                             <p class="method-desc" id="lynch-status" style="font-weight: bold;">--</p>
                             <p class="method-desc" id="lynch-card-mos" style="font-size: 0.85rem; color: var(--accent); margin-top: 0.2rem; display: none;">--</p>
                         </div>
-
                         <div class="card-inputs">
-                            <div class="custom-lynch-container"
-                                style="display: flex; flex-direction: column; gap: 0.4rem; margin-top: 1rem; margin-bottom: 0.5rem;">
-                                <div
-                                    style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
-                                    <label for="lynch-multiple"
-                                        style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">Multiple</label>
-                                    <select id="lynch-multiple"
-                                        style="background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--card-border); border-radius: 4px; padding: 0.3rem 0.5rem; font-family: 'Outfit', sans-serif; font-size: 0.85rem; outline: none; cursor: pointer; min-width: 100px;">
-                                        <option value="PE 15">PE 15</option>
-                                        <option value="PE 20" selected>PE 20</option>
-                                        <option value="PE 25">PE 25</option>
-                                        <option value="historic">Historic</option>
-                                        <option value="custom">Custom</option>
-                                    </select>
-                                </div>
-                                <div id="lynch-custom-multiple-inputs"
-                                    style="display: none; justify-content: space-between; align-items: center;">
-                                    <label for="lynch-custom-mult"
-                                        style="font-size: 0.8rem; color: var(--text-muted);">Custom P/E</label>
-                                    <input type="number" id="lynch-custom-mult" placeholder="18"
-                                        style="width: 60px; background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--card-border); border-radius: 4px; padding: 0.2rem; outline: none; text-align: right;">
-                                </div>
-                                <div
-                                    style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
-                                    <label for="lynch-eps-source"
-                                        style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">EPS
-                                        Based
-                                        on</label>
-                                    <select id="lynch-eps-source"
-                                        style="background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--card-border); border-radius: 4px; padding: 0.3rem 0.5rem; font-family: 'Outfit', sans-serif; font-size: 0.85rem; outline: none; cursor: pointer; min-width: 100px;">
-                                        <option value="analyst" selected>Analyst Est.</option>
-                                        <option value="historical">Historical</option>
-                                        <option value="custom">Custom</option>
-                                    </select>
-                                </div>
-                                <div id="lynch-custom-inputs"
-                                    style="display: none; justify-content: space-between; align-items: center;">
-                                    <label for="lynch-custom-growth"
-                                        style="font-size: 0.8rem; color: var(--text-muted);">3Y Est. Growth Rate</label>
-                                    <input type="number" id="lynch-custom-growth" placeholder="20"
-                                        style="width: 60px; background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--card-border); border-radius: 4px; padding: 0.2rem; outline: none; text-align: right;">
-                                </div>
-
+                            <div class="valuation-input-group">
+                                <label class="premium-label">Multiple</label>
+                                <select id="lynch-multiple" class="premium-select">
+                                    <option value="PE 15">PE 15</option>
+                                    <option value="PE 20" selected>PE 20</option>
+                                    <option value="PE 25">PE 25</option>
+                                    <option value="historic">Historic</option>
+                                    <option value="custom">Custom</option>
+                                </select>
+                            </div>
+                            <div id="lynch-custom-multiple-inputs" class="valuation-input-group" style="display: none;">
+                                <label class="premium-label">Custom P/E</label>
+                                <input type="number" id="lynch-custom-mult" class="premium-input" style="width: 70px;">
+                            </div>
+                            <div class="valuation-input-group">
+                                <label class="premium-label">EPS Basis</label>
+                                <select id="lynch-eps-source" class="premium-select">
+                                    <option value="analyst" selected>Analyst Est.</option>
+                                    <option value="historical">Historical</option>
+                                    <option value="custom">Custom</option>
+                                </select>
+                            </div>
+                            <div id="lynch-custom-inputs" class="valuation-input-group" style="display: none;">
+                                <label class="premium-label">Growth Rate (%)</label>
+                                <input type="number" id="lynch-custom-growth" class="premium-input" style="width: 70px;">
                             </div>
                         </div>
                         <div class="card-footer">
@@ -416,27 +361,16 @@
                             <p class="method-desc" id="peg-compare" style="font-size: 0.85rem; color: var(--text-muted); text-align: center; margin-top: 0.2rem;">--</p>
                         </div>
                         <div class="card-inputs">
-                            <div class="custom-fcf-container"
-                                style="display: flex; flex-direction: column; gap: 0.4rem; margin-top: 1rem; margin-bottom: 0.5rem;">
-                                <div
-                                    style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
-                                    <label for="peg-eps-source"
-                                        style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">EPS
-                                        Based
-                                        on</label>
-                                    <select id="peg-eps-source"
-                                        style="background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--card-border); border-radius: 4px; padding: 0.3rem 0.5rem; font-family: 'Outfit', sans-serif; font-size: 0.85rem; outline: none; cursor: pointer; min-width: 100px;">
-                                        <option value="analyst">Analyst Est.</option>
-                                        <option value="custom">Custom</option>
-                                    </select>
-                                </div>
-                                <div id="peg-custom-inputs"
-                                    style="display: none; justify-content: space-between; align-items: center;">
-                                    <label for="peg-custom-growth"
-                                        style="font-size: 0.8rem; color: var(--text-muted);">EPS Growth (%)</label>
-                                    <input type="number" id="peg-custom-growth" placeholder="20"
-                                        style="width: 60px; background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--card-border); border-radius: 4px; padding: 0.2rem; outline: none; text-align: right;">
-                                </div>
+                            <div class="valuation-input-group">
+                                <label class="premium-label">EPS Basis</label>
+                                <select id="peg-eps-source" class="premium-select">
+                                    <option value="analyst">Analyst Est.</option>
+                                    <option value="custom">Custom</option>
+                                </select>
+                            </div>
+                            <div id="peg-custom-inputs" class="valuation-input-group" style="display: none;">
+                                <label class="premium-label">Growth (%)</label>
+                                <input type="number" id="peg-custom-growth" class="premium-input" style="width: 70px;">
                             </div>
                         </div>
                         <div class="card-footer">

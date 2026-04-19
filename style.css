@@ -1549,6 +1549,147 @@ body {
     }
 }
 
+.analyst-tab-btn.active {
+    background: var(--primary);
+    color: white;
+    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+}
+
+/* Premium Valuation Card Styles */
+.method-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 1.5rem;
+    min-height: 400px;
+}
+
+.card-metrics {
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.method-val {
+    font-size: 1.75rem;
+    font-weight: 800;
+    font-family: 'Outfit', sans-serif;
+    margin-bottom: 0.25rem;
+}
+
+.method-desc {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.card-inputs {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
+    padding: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.valuation-input-group {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.valuation-input-group:last-child {
+    margin-bottom: 0;
+}
+
+.premium-label {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.6);
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.premium-select, .premium-input {
+    background: rgba(15, 23, 42, 0.6);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.85rem;
+    outline: none;
+    transition: all 0.2s;
+}
+
+.premium-select:focus, .premium-input:focus {
+    border-color: var(--primary);
+    background: rgba(15, 23, 42, 0.8);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.view-data-btn {
+    width: 100%;
+    margin-top: 1rem;
+    padding: 10px;
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    color: var(--primary);
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.85rem;
+}
+
+.view-data-btn:hover {
+    background: var(--primary);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+}
+
+/* Toggle Stylization */
+.method-toggle {
+    position: absolute;
+    top: 1.2rem;
+    right: 1.2rem;
+    z-index: 5;
+}
+
+.valuation-toggle {
+    display: none;
+}
+
+.valuation-toggle + label {
+    display: block;
+    width: 40px;
+    height: 22px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    position: relative;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.valuation-toggle + label::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 16px;
+    height: 16px;
+    background: white;
+    border-radius: 50%;
+    transition: all 0.3s;
+}
+
+.valuation-toggle:checked + label {
+    background: #10b981;
+}
+
+.valuation-toggle:checked + label::after {
+    left: 21px;
+}
+
 .analyst-tab-btn:hover {
     color: white;
     background: rgba(255, 255, 255, 0.05);
@@ -2439,3 +2580,13 @@ body {
     margin-top: 4px;
     animation: fadeIn 0.3s ease;
 }
+.profile-table-wrapper table { width: 100%; border-collapse: separate; border-spacing: 0 0; }
+.profile-row { transition: background 0.2s ease; }
+.profile-row:hover { background: rgba(255, 255, 255, 0.03); }
+.profile-label { padding: 12px 0; color: rgba(255, 255, 255, 0.4); font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+.profile-value { padding: 12px 0; color: white; font-size: 0.9rem; font-weight: 700; text-align: right; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+.peer-btn { margin-left: 8px; background: rgba(56, 189, 248, 0.1); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.2); padding: 3px 8px; border-radius: 6px; font-size: 0.65rem; cursor: pointer; transition: all 0.2s; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
+.peer-btn:hover { background: #38bdf8; color: white; box-shadow: 0 0 12px rgba(56, 189, 248, 0.4); }
+#company-desc-card { background: rgba(15, 23, 42, 0.3) !important; border: 1px solid rgba(255, 255, 255, 0.05) !important; box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.2); border-left: 4px solid #38bdf8 !important; }
+#company-desc-text::-webkit-scrollbar { width: 4px; }
+#company-desc-text::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }

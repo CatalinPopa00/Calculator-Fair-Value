@@ -1382,12 +1382,12 @@ document.addEventListener('DOMContentLoaded', () => {
             let descCard = document.getElementById('company-desc-card');
             if (!descCard) {
                 fvContainer.insertAdjacentHTML('afterend', `
-                    <div id="company-desc-card" class="glass-card" style="margin-top: 15px; padding: 20px;">
+                    <div id="company-desc-card" class="glass-card" style="margin-top: 15px; padding: 20px; border-left: 4px solid #38bdf8;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                            <h3 style="font-size: 0.85rem; color: var(--text-muted); margin: 0; text-transform: uppercase; letter-spacing: 1px;">Company Overview</h3>
-                            <div id="ai-synthesis-badge" style="display: none; background: linear-gradient(135deg, #38bdf8, #818cf8); color: white; font-size: 0.65rem; padding: 4px 10px; border-radius: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">✨ A.I. Sinteză</div>
+                            <h3 style="font-size: 0.75rem; color: rgba(255,255,255,0.4); margin: 0; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 800;">Corporate Brief</h3>
+                            <div id="ai-synthesis-badge" style="display: none; background: linear-gradient(135deg, #38bdf8, #818cf8); color: white; font-size: 0.6rem; padding: 3px 8px; border-radius: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">✨ A.I. Sinteză</div>
                         </div>
-                        <div id="company-desc-text" style="font-size: 0.95rem; line-height: 1.7; color: white; max-height: 250px; overflow-y: auto; text-align: justify; padding-right: 8px;"></div>
+                        <div id="company-desc-text" style="font-size: 0.9rem; line-height: 1.6; color: rgba(255,255,255,0.8); max-height: 250px; overflow-y: auto; text-align: justify; padding-right: 8px; font-family: 'Outfit', sans-serif;"></div>
                     </div>`);
                 descCard = document.getElementById('company-desc-card');
             }
@@ -1480,24 +1480,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // UPDATED: Replaced bad *100 formatting with safe formatSafePct
             pBody.innerHTML = `
-                <tr><td class="profile-label">Next Earnings</td><td class="profile-value" style="color: var(--accent); font-weight: bold;">${prof.next_earnings_date || 'N/A'}</td></tr>
-                <tr><td class="profile-label">Industry</td><td class="profile-value">${prof.industry}<br><span style="font-size: 0.85em; font-weight: normal; color: var(--text-muted);">${prof.sector}</span></td></tr>
-                <tr><td class="profile-label">Market Cap</td><td class="profile-value">${formatBigNumber(prof.market_cap, '$')}</td></tr>
-                <tr><td class="profile-label">Operating Margin</td><td class="profile-value">${formatSafePct(prof.operating_margin)}</td></tr>
-                <tr><td class="profile-label">P/E (Trailing TTM)</td><td class="profile-value">${(data.current_price && prof.trailing_eps) ? (data.current_price / prof.trailing_eps).toFixed(2) + 'x' : 'N/A'}</td></tr>
-                <tr><td class="profile-label">P/E (5Y Avg)</td><td class="profile-value">${prof.historic_pe ? prof.historic_pe.toFixed(2) + 'x' : 'N/A'}</td></tr>
-                <tr><td class="profile-label">EPS (Trailing TTM)</td><td class="profile-value">${prof.trailing_eps ? '$' + prof.trailing_eps.toFixed(2) : 'N/A'}</td></tr>
+                <tr class="profile-row"><td class="profile-label">Next Earnings</td><td class="profile-value" style="color: var(--accent);">${prof.next_earnings_date || 'N/A'}</td></tr>
+                <tr class="profile-row"><td class="profile-label">Industry</td><td class="profile-value">${prof.industry}<br><span style="font-size: 0.85em; font-weight: normal; color: rgba(255,255,255,0.4);">${prof.sector}</span></td></tr>
+                <tr class="profile-row"><td class="profile-label">Market Cap</td><td class="profile-value">${formatBigNumber(prof.market_cap, '$')}</td></tr>
+                <tr class="profile-row"><td class="profile-label">Operating Margin</td><td class="profile-value">${formatSafePct(prof.operating_margin)}</td></tr>
+                <tr class="profile-row"><td class="profile-label">P/E (Trailing TTM)</td><td class="profile-value">${(data.current_price && prof.trailing_eps) ? (data.current_price / prof.trailing_eps).toFixed(2) + 'x' : 'N/A'}</td></tr>
+                <tr class="profile-row"><td class="profile-label">P/E (5Y Avg)</td><td class="profile-value">${prof.historic_pe ? prof.historic_pe.toFixed(2) + 'x' : 'N/A'}</td></tr>
+                <tr class="profile-row"><td class="profile-label">EPS (Trailing TTM)</td><td class="profile-value">${prof.trailing_eps ? '$' + prof.trailing_eps.toFixed(2) : 'N/A'}</td></tr>
                 ${(prof.adjusted_eps && Math.abs(prof.adjusted_eps - prof.trailing_eps) > 0.1) ? 
-                    `<tr><td class="profile-label" style="color:var(--accent);">EPS (Adjusted TTM)</td><td class="profile-value" style="color:var(--accent); font-weight:bold;">$${prof.adjusted_eps.toFixed(2)}</td></tr>` : ''}
-                <tr><td class="profile-label">Debt-to-Equity</td><td class="profile-value">${prof.debt_to_equity != null ? prof.debt_to_equity.toFixed(2) + 'x' : 'N/A'}</td></tr>
-                <tr><td class="profile-label">Insider Ownership</td><td class="profile-value">${formatSafePct(prof.insider_ownership)}</td></tr>
-                <tr><td class="profile-label">Shares Out.</td><td class="profile-value">${formatBigNumber(prof.shares_outstanding, '')}</td></tr>
-                <tr><td class="profile-label">${prof.buyback_rate < 0 ? 'Dilution rate' : 'Buyback rate'}</td><td class="profile-value" style="color: ${prof.buyback_rate < 0 ? '#ef4444' : 'inherit'}">${prof.buyback_rate != null ? (prof.buyback_rate > 0 ? '+' : '') + formatSafePct(prof.buyback_rate) : 'N/A'}</td></tr>
-                <tr><td class="profile-label">Dividend Yield</td><td class="profile-value">${formatSafePct(prof.dividend_yield)}</td></tr>
-                <tr><td class="profile-label">Payout Ratio</td><td class="profile-value">${prof.payout_ratio > 0.80 ? `<span style="color:var(--danger); font-weight:bold;">${formatSafePct(prof.payout_ratio)}</span>` : formatSafePct(prof.payout_ratio)}</td></tr>
-                <tr><td class="profile-label">Dividend Streak</td><td class="profile-value">${prof.dividend_streak != null ? prof.dividend_streak + ' Years' : 'N/A'}</td></tr>
-                <tr><td class="profile-label">5Y Div Growth (CAGR)</td><td class="profile-value">${formatSafePct(prof.dividend_cagr_5y)}</td></tr>
-                <tr><td class="profile-label" style="white-space: nowrap;">Competitors ${prof.competitor_metrics && prof.competitor_metrics.length > 0 ? `<button id="compare-peers-btn" style="margin-left: 8px; background: rgba(56, 189, 248, 0.1); color: #38bdf8; border: 1px solid #38bdf8; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; cursor: pointer; transition: 0.2s; font-weight: bold;">📊 Compare Peers</button>` : ''}</td><td class="profile-value" style="word-wrap: break-word;">${prof.competitors && prof.competitors.length ? prof.competitors.join(', ') : 'None'}</td></tr>
+                    `<tr class="profile-row"><td class="profile-label" style="color:var(--accent);">EPS (Adjusted TTM)</td><td class="profile-value" style="color:var(--accent);">${prof.adjusted_eps.toFixed(2)}</td></tr>` : ''}
+                <tr class="profile-row"><td class="profile-label">Debt-to-Equity</td><td class="profile-value">${prof.debt_to_equity != null ? prof.debt_to_equity.toFixed(2) + 'x' : 'N/A'}</td></tr>
+                <tr class="profile-row"><td class="profile-label">Ownership</td><td class="profile-value">${formatSafePct(prof.insider_ownership)} Insider</td></tr>
+                <tr class="profile-row"><td class="profile-label">Shares Out.</td><td class="profile-value">${formatBigNumber(prof.shares_outstanding, '')}</td></tr>
+                <tr class="profile-row"><td class="profile-label">${prof.buyback_rate < 0 ? 'Dilution Rate' : 'Buyback Rate'}</td><td class="profile-value" style="color: ${prof.buyback_rate < 0 ? '#ef4444' : 'inherit'}">${prof.buyback_rate != null ? (prof.buyback_rate > 0 ? '+' : '') + formatSafePct(prof.buyback_rate) : 'N/A'}</td></tr>
+                <tr class="profile-row"><td class="profile-label">Dividend Yield</td><td class="profile-value">${formatSafePct(prof.dividend_yield)}</td></tr>
+                <tr class="profile-row"><td class="profile-label">Payout Ratio</td><td class="profile-value">${prof.payout_ratio > 0.80 ? `<span style="color:var(--danger); font-weight:bold;">${formatSafePct(prof.payout_ratio)}</span>` : formatSafePct(prof.payout_ratio)}</td></tr>
+                <tr class="profile-row"><td class="profile-label">Div. Streak</td><td class="profile-value">${prof.dividend_streak != null ? prof.dividend_streak + ' Years' : 'N/A'}</td></tr>
+                <tr class="profile-row"><td class="profile-label">5Y Div Growth</td><td class="profile-value">${formatSafePct(prof.dividend_cagr_5y)}</td></tr>
+                <tr class="profile-row"><td class="profile-label" style="white-space: nowrap;">Competitors ${prof.competitor_metrics && prof.competitor_metrics.length > 0 ? `<button id="compare-peers-btn" class="peer-btn">📊 Peers</button>` : ''}</td><td class="profile-value" style="word-wrap: break-word;">${prof.competitors && prof.competitors.length ? prof.competitors.join(', ') : 'None'}</td></tr>
             `;
 
             if(document.getElementById('compare-peers-btn')) {
