@@ -30,7 +30,7 @@ from .models.scoring import calculate_scoring_reform, calculate_piotroski_score
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v146"
+CACHE_VERSION = "v147"
 # 1. Initialize FastAPI App (Systemic Recovery Fix)
 app = FastAPI(title="Fair Value Calculator API")
 
@@ -117,6 +117,9 @@ def get_analyst(ticker: str, response: Response):
     if cache_key in valuation_cache:
         return valuation_cache[cache_key]
     result = get_analyst_data(ticker_upper)
+    # v147 Visible Marker for Diagnostic
+    if result and "price_target" in result:
+        result["price_target"]["avg"] = str(result["price_target"].get("avg", "")) + " (v147)"
     valuation_cache[cache_key] = result
     return result
 

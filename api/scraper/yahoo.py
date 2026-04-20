@@ -2547,6 +2547,7 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
     """
     Fetches analyst estimates data.
     """
+    log(f"DEBUG: [Analyst] v204 - Running from {os.path.abspath(__file__)}")
     try:
         if isinstance(stock, str):
             ticker_symbol = stock.upper()
