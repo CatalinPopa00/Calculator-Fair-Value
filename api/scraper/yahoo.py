@@ -64,30 +64,39 @@ def find_idx(df, target):
         if str(idx).lower().strip() == target_lower: return idx
     return None
 
-def find_nearest_col(df, target_date, max_days=7):
+def find_nearest_col(df, target_date, max_days=10):
     """Finds the column index in df that most closely matches target_date within max_days."""
     if df is None or df.empty or target_date is None:
         return None
-    # Try exact match
-    if target_date in df.columns:
-        return target_date
-    # Normalize target_date to Timestamp if it is a string
-    if isinstance(target_date, str):
-        try: target_date = pd.to_datetime(target_date)
-        except: return None
     
+    # Normalize target_date to a date-only object for robust comparison
+    try:
+        if isinstance(target_date, str):
+            target_dt = pd.to_datetime(target_date).date()
+        elif hasattr(target_date, 'date'):
+            target_dt = target_date.date()
+        else:
+            target_dt = pd.to_datetime(target_date).date()
+    except:
+        return None
+        
     best_col = None
-    min_delta = None
+    min_delta = 9999
     
     for col in df.columns:
         try:
-            col_ts = pd.to_datetime(col)
-            delta = abs((col_ts - target_date).days)
-            if delta <= max_days:
-                if min_delta is None or delta < min_delta:
-                    min_delta = delta
-                    best_col = col
+            # Handle Datetime, Timestamp, or Strings
+            if hasattr(col, 'date'):
+                col_dt = col.date()
+            else:
+                col_dt = pd.to_datetime(col).date()
+                
+            delta = abs((col_dt - target_dt).days)
+            if delta < min_delta and delta <= max_days:
+                min_delta = delta
+                best_col = col
         except: continue
+    
     return best_col
 
 def get_random_agent():
@@ -192,26 +201,34 @@ def get_nasdaq_comprehensive_estimates(ticker: str, force_refresh: bool = False)
 def get_yahoo_eps_trend(ticker: str) -> dict:
     """Fetches EPS Trend data (Current, 7 Days Ago, etc.) from Yahoo Finance."""
     try:
-        url = f"https://query2.finance.yahoo.com/v10/finance/quoteSummary/{ticker}?modules=earningsTrend"
-        headers = {'User-Agent': get_random_agent()}
-        resp = requests.get(url, headers=headers, timeout=5)
-        if resp.status_code == 200:
-            data = resp.json()
-            trends = data.get('quoteSummary', {}).get('result', [{}])[0].get('earningsTrend', {}).get('trend', [])
+        url = f"https://query1.finance.yahoo.com/v10/finance/quoteSummary/{ticker}?modules=earningsTrend"
+        headers = {
+            'User-Agent': get_random_agent(),
+            'Accept': 'application/json',
+            'Referer': 'https://finance.yahoo.com/'
+        }
+        resp = requests.get(url, headers=headers, timeout=10)
+        if resp.status_code != 200:
+             print(f"DEBUG: Yahoo EPS Trend Fetch failed for {ticker} ({resp.status_code})")
+             return {}
+        data = resp.json()
+        trends = data.get('quoteSummary', {}).get('result', [{}])[0].get('earningsTrend', {}).get('trend', [])
             
-            result = {}
-            for t in trends:
-                period = t.get('period') # e.g. "0q", "+1q", "0y", "+1y"
-                if not period: continue
-                
-                result[period] = {
-                    "current": t.get('current', {}).get('raw'),
-                    "7daysAgo": t.get('7daysAgo', {}).get('raw'),
-                    "30daysAgo": t.get('30daysAgo', {}).get('raw'),
-                    "60daysAgo": t.get('60daysAgo', {}).get('raw'),
-                    "90daysAgo": t.get('90daysAgo', {}).get('raw')
-                }
-            return result
+        result = {}
+        for t in trends:
+            period = t.get('period') # e.g. "0q", "+1q", "0y", "+1y"
+            if not period: continue
+            
+            result[period] = {
+                "current": t.get('current', {}).get('raw'),
+                "7daysAgo": t.get('7daysAgo', {}).get('raw'),
+                "30daysAgo": t.get('30daysAgo', {}).get('raw'),
+                "60daysAgo": t.get('60daysAgo', {}).get('raw'),
+                "90daysAgo": t.get('90daysAgo', {}).get('raw'),
+                "yearAgoEps": t.get('yearAgoEps', {}).get('raw'), # Normalized Actual (v202: HIMS 1.1 fix)
+                "actual": t.get('earningsEstimate', {}).get('actual', {}).get('raw')
+            }
+        return result
     except Exception as e:
         print(f"Error fetching Yahoo EPS Trend for {ticker}: {e}")
     return {}
@@ -895,8 +912,11 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             
             # Massive speedups: No longer awaiting qfin, qcf, or heavy dividends histories.
 
-        # ── TRUE SHARES OUTSTANDING (Fix for Dual-Class) ──
+        # v201: Baseline adjusted_eps (will be refined later)
+        adjusted_eps = trailing_eps
         shares_outstanding = None
+        latest_adj_yr = 0
+
         if financials is not None and not financials.empty:
             for k in ['Diluted Average Shares', 'Basic Average Shares']:
                 idx = find_idx(financials, k)
@@ -1450,17 +1470,33 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
 
                         ni_val = _quick_m(financials, 'Net Income', yr_col)
                         sbc_val = _quick_m(cashflow, 'Stock Based Compensation', yr_col)
-                        sh_val = _quick_m(financials, 'Diluted Average Shares', yr_col) or _quick_m(financials, 'Basic Average Shares', yr_col)
                         
-                        if sh_val and sh_val > 0:
-                            # Analytic Normalized EPS = (Net Income + SBC) / Shares
-                            # v200: Full add-back of SBC to match Analyst 'Normalized' world
-                            norm_eps = (ni_val + sbc_val) / sh_val
-                            
-                            is_growth = any(x in str(info.get('sector', '')).lower() for x in ['tech', 'comm', 'health', 'consumer'])
-                            if is_growth:
-                                if y_str not in adjusted_history or norm_eps > adjusted_history.get(y_str, 0):
-                                    adjusted_history[y_str] = norm_eps
+                        # v202: Share-Agnostic Reconstruction for Growth Sectors
+                        # We use the reported trailing_eps and NI to derive the 'Analytic Shares' used by the market
+                        is_g = any(x in str(info.get('sector', '')).lower() for x in ['tech', 'soft', 'comm', 'health', 'consumer'])
+                        
+                        if is_g and trailing_eps and trailing_eps > 0 and ni_val and ni_val > 0:
+                             est_sh = ni_val / trailing_eps
+                             norm_eps = (ni_val + sbc_val) / est_sh
+                             log(f"DEBUG: Share-Agnostic Reconstruction for {ticker_symbol} {y_str}: {norm_eps:.2f}")
+                        else:
+                             sh_val = _quick_m(financials, 'Diluted Average Shares', yr_col) or _quick_m(financials, 'Basic Average Shares', yr_col)
+                             norm_eps = (ni_val + sbc_val) / sh_val if sh_val else 0
+                             log(f"DEBUG: Standard SBC Reconstruction for {ticker_symbol} {y_str}: {norm_eps:.2f}")
+                        
+                        if norm_eps > 0:
+                             should_override = False
+                             if y_str not in adjusted_history:
+                                 should_override = True
+                             elif is_g and norm_eps > (adjusted_history.get(y_str, 0) * 1.1):
+                                 # Significant discrepancy found (likely GAAP vs Non-GAAP actuals)
+                                 should_override = True
+                             elif ni_val < 0:
+                                 should_override = True
+                                 
+                             if should_override:
+                                 adjusted_history[y_str] = norm_eps
+                                 log(f"DEBUG: SBC Reconstruction prioritized for {ticker_symbol} {y_str}: {norm_eps:.2f}")
 
             # 3. Consolidation with Scaling
             now = datetime.datetime.now()
@@ -1477,14 +1513,59 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 if count >= 4:
                     adjusted_history[ey] = total
                 elif count >= 1 and ey_int >= (curr_y - 1):
-                    # For recent/bridge years, scaling is necessary
                     adjusted_history[ey] = (total / count) * 4.0
                 elif count >= 2:
-                    # Historical years: Scale if we have at least 50% data
                     adjusted_history[ey] = (total / count) * 4.0
                 else:
-                    # Otherwise trust the raw sum (better than 0)
                     adjusted_history[ey] = total
+
+            # 6. Source J: SUPER-NORMALIZED QUARTERLY RECONSTRUCTION (v202: HIMS 1.1 Fix)
+            # This is now the HIGHEST PRIORITY for growth stocks.
+            # We reconstruct the TTM by summing the last 4 quarters of GAAP actuals AND adding back the Quarterly SBC.
+            is_growth_e = any(x in str(info.get('sector', '')).lower() for x in ['tech', 'soft', 'comm', 'health', 'consumer'])
+            if not fast_mode and is_growth_e:
+                try:
+                    q_eh = stock.earnings_history
+                    q_cf = stock.quarterly_cashflow
+                    q_fin = stock.quarterly_financials
+                    
+                    if q_eh is not None and not q_eh.empty and q_cf is not None and not q_cf.empty:
+                        sbc_q_idx = find_idx(q_cf, 'Stock Based Compensation')
+                        sh_q_idx = find_idx(q_fin, 'Basic Average Shares') or find_idx(q_fin, 'Diluted Average Shares')
+                        
+                        if sbc_q_idx:
+                            sorted_q = q_eh.sort_index(ascending=False).head(4)
+                            super_norm_ttm = 0.0
+                            found_qs = 0
+                            for q_date, q_row in sorted_q.iterrows():
+                                gaap_q = q_row.get('epsActual')
+                                if gaap_q is not None and not pd.isna(gaap_q):
+                                    q_sbc_idx = find_nearest_col(q_cf, q_date, max_days=45)
+                                    q_sh_idx = find_nearest_col(q_fin, q_date, max_days=45)
+                                    sbc_q_val = q_cf.loc[sbc_q_idx, q_sbc_idx] if q_sbc_idx else 0
+                                    sh_q_val = q_fin.loc[sh_q_idx, q_sh_idx] if (sh_q_idx and q_sh_idx) else (shares_outstanding or 1)
+                                    sbc_per_sh = (float(sbc_q_val) / float(sh_q_val)) if sh_q_val and sh_q_val > 0 else 0
+                                    super_norm_ttm += (float(gaap_q) + sbc_per_sh)
+                                    found_qs += 1
+                            
+                            if found_qs >= 1:
+                                scaled_ttm = super_norm_ttm * (4.0 / found_qs)
+                                target_y = str(datetime.datetime.now().year - 1)
+                                adjusted_history[target_y] = scaled_ttm
+                                log(f"DEBUG: Success - Super-Normalized Anchor for {ticker_symbol} {target_y}: {scaled_ttm:.2f}")
+                except: pass
+
+            # 5. Source E: DIRECT NORMALIZED ACTUAL FROM YAHOO TRENDS (v202: HIMS 1.1 Fix)
+            try:
+                y_trend_data = get_yahoo_eps_trend(ticker_symbol)
+                if is_growth_e:
+                    y_adj_val = y_trend_data.get('0y', {}).get('yearAgoEps')
+                    if y_adj_val is not None:
+                        calc_fy = now.year + (1 if now.month > 12 else 0) # Simplified
+                        target_y = str(calc_fy - 1)
+                        adjusted_history[target_y] = y_adj_val
+                        log(f"DEBUG: Phase 5 - Direct Yahoo Trend Actual for {ticker_symbol} {target_y}: {y_adj_val}")
+            except: pass
 
             # v120: PERMANENT PRECISION OVERRIDE FOR ADBE (Absolute Force)
             if ticker_symbol.upper() == "ADBE":
@@ -1545,8 +1626,11 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     adj_val = adjusted_history[year_label]
                     
                     # Update the main adjusted_eps if we found a more recent year (e.g. current year - 1)
+                    # Update the main adjusted_eps if we found a more recent year (v202: Ensuring HIMS 1.1 sync)
                     if int(year_label) >= (datetime.datetime.now().year - 1):
-                        adjusted_eps = adj_val
+                        if adjusted_eps is None or int(year_label) >= latest_adj_yr:
+                            adjusted_eps = adj_val
+                            latest_adj_yr = int(year_label)
                     
                     # v124: High-Precision Shares & Margin Logic
                     shares_calc = s or next((val for val in historical_data.get("shares", []) if val > 0), None) or \
@@ -1646,9 +1730,14 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     source_estimates = []
                     
                     # 1. Nasdaq Source
-                    if len(nq_yearly_eps) >= i:
-                        val = safe_nasdaq_float(nq_yearly_eps[i-1].get('consensusEPSForecast'))
-                        if val is not None: source_estimates.append(val * fx_rate)
+                    # v201: Robust Year-Matching (Prevents off-by-one errors in projection mapping)
+                    nq_val = None
+                    for nq_row in nq_yearly_eps:
+                        nq_yr = nq_row.get('fiscalYearEnd') or nq_row.get('fiscalEnd')
+                        if nq_yr and str(proj_yr) in str(nq_yr):
+                            nq_val = safe_nasdaq_float(nq_row.get('consensusEPSForecast'))
+                            break
+                    if nq_val is not None: source_estimates.append(nq_val * fx_rate)
                     
                     # 2. Yahoo Source
                     y_est = None
@@ -1661,11 +1750,20 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                                 y_est = float(sync_e.loc[fy_code].get('avg') or 0) * fx_rate
                         except: pass
                     if y_est: source_estimates.append(y_est)
+
+                    # 3. Yahoo Info Tags (v201: Normalized Consensus Prioritization)
+                    # For growth stocks, these tags often represent the 'Normalized' world analysts live in
+                    is_growth = any(x in str(info.get('sector', '')).lower() for x in ['tech', 'software', 'comm', 'health', 'consumer'])
+                    if is_growth:
+                        tag_val = info.get('epsCurrentYear') if fy_code == "0y" else (info.get('forwardEps') or info.get('epsForward'))
+                        if tag_val is not None:
+                            source_estimates.append(tag_val * fx_rate)
+                            log(f"DEBUG: Prioritizing Yahoo Normalized Tag {tag_val} for {ticker_symbol} {proj_yr}")
                     
-                    # 3. Decision Logic (v131: Growth Bias for Tech/Software)
+                    # 3. Decision Logic (v201: Growth Bias for Tech/Software/Health/Consumer)
                     if source_estimates:
-                        if any(x in str(info.get('sector', '')).lower() for x in ['tech', 'software', 'comm']):
-                            # For growth names, the high-end or most recent revision is often the truth
+                        # For growth sectors, the highest estimate often reflects the 'Normalized' (Non-GAAP) consensus
+                        if any(x in str(info.get('sector', '')).lower() for x in ['tech', 'software', 'comm', 'health', 'consumer']):
                             eps_est = max(source_estimates)
                         else:
                             # For stable names, use the mean of available sources
@@ -1677,12 +1775,17 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     # --- Revenue Estimate (Unified) ---
                     rev_est = historical_data["revenue"][-1]
                     rev_sources = []
-                    if len(nq_yearly_rev) >= i:
-                        rv = safe_nasdaq_float(nq_yearly_rev[i-1].get('consensusRevenueForecast'))
-                        if rv and rv > 0:
-                             if (historical_data["revenue"][-1] or 0) > 1e6 and rv < 10000: rv *= 1e9
-                             elif (historical_data["revenue"][-1] or 0) > 1e6 and rv < 10000000: rv *= 1e6
-                             rev_sources.append(rv)
+                    # v201: Robust Year-Matching for Revenue
+                    nq_rev = None
+                    for nq_row in nq_yearly_rev:
+                        nq_yr = nq_row.get('fiscalYearEnd') or nq_row.get('fiscalEnd')
+                        if nq_yr and str(proj_yr) in str(nq_yr):
+                            nq_rev = safe_nasdaq_float(nq_row.get('consensusRevenueForecast'))
+                            break
+                    if nq_rev and nq_rev > 0:
+                         if (historical_data["revenue"][-1] or 0) > 1e6 and nq_rev < 10000: nq_rev *= 1e9
+                         elif (historical_data["revenue"][-1] or 0) > 1e6 and nq_rev < 10000000: nq_rev *= 1e6
+                         rev_sources.append(nq_rev)
                     
                     if rf_data is not None and not rf_data.empty:
                          r_row = rf_data.loc[fy_code] if fy_code in rf_data.index else rf_data.iloc[i-1] if (i-1) < len(rf_data) else None
@@ -1693,7 +1796,9 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                                  elif (historical_data["revenue"][-1] or 0) > 1e6 and rv < 10000000: rv *= 1e6
                                  rev_sources.append(rv * fx_rate)
                     
-                    if rev_sources: rev_est = max(rev_sources) if "tech" in str(info.get('sector','')).lower() else (sum(rev_sources)/len(rev_sources))
+                    if rev_sources:
+                        is_growth_rev = any(x in str(info.get('sector','')).lower() for x in ['tech', 'soft', 'comm', 'health', 'consumer'])
+                        rev_est = max(rev_sources) if is_growth_rev else (sum(rev_sources)/len(rev_sources))
 
                     # FCF Estimate (Apply historical margin to rev estimate)
                     fcf_est = rev_est * avg_fcf_margin
@@ -2387,14 +2492,23 @@ def get_lightweight_company_data(ticker_symbol: str):
 
 def get_nasdaq_earnings_surprise(ticker_symbol: str) -> list:
     """Fetches historical reported Non-GAAP EPS quarters from Nasdaq."""
+    # v201: Using enhanced headers and consistent logic
     try:
-        url = f"https://api.nasdaq.com/api/company/{ticker_symbol}/earnings-surprise"
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"}
+        url = f"https://api.nasdaq.com/api/company/{ticker_symbol.upper()}/earnings-surprise"
+        headers = {
+            'User-Agent': get_random_agent(),
+            'Accept': 'application/json, text/plain, */*',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Origin': 'https://www.nasdaq.com',
+            'Referer': 'https://www.nasdaq.com/'
+        }
         req = urllib.request.Request(url, headers=headers)
-        with urllib.request.urlopen(req, timeout=5) as resp:
+        with urllib.request.urlopen(req, timeout=8) as resp:
             data = json.loads(resp.read())
-            return data.get('data', {}).get('earningsSurpriseTable', {}).get('rows', [])
-    except:
+            rows = data.get('data', {}).get('earningsSurpriseTable', {}).get('rows', [])
+            return rows
+    except Exception as e:
+        print(f"DEBUG: Nasdaq Surprise fetch fail for {ticker_symbol}: {e}")
         return []
 
 def get_market_averages():
@@ -2595,15 +2709,26 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
                     actual_eps = 0.0
                     found_q = 0
                     
-                    # Sort chronological to get the last 4 quarters
-                    import pandas as _pd
-                    sorted_eh = eh.sort_index(ascending=False)
-                    for idx, row in sorted_eh.iterrows():
-                        val = row.get('epsActual')
-                        if val is not None and not _pd.isna(val):
-                            actual_eps += float(val)
-                            found_q += 1
-                        if found_q >= 4: break
+                    # v202: Prioritize Direct Normalized Actual from Yahoo Trends (Matches 1.1 for HIMS)
+                    # For growth stocks, Yahoo's yearAgoEps in the Current Year trend is the definitive 'Normalized TTM'
+                    y_trend = get_yahoo_eps_trend(ticker_symbol)
+                    y_adj_ttm = y_trend.get('0y', {}).get('yearAgoEps')
+                    is_growth = any(x in str(info.get('sector', '')).lower() for x in ['tech', 'software', 'comm', 'health', 'consumer'])
+                    
+                    if is_growth and y_adj_ttm is not None:
+                        actual_eps = y_adj_ttm
+                        found_q = 4 # Force it as a full-year anchor
+                        log(f"DEBUG: Using Yahoo Normalized Actual (1.1 Baseline) for {ticker_symbol}: {actual_eps}")
+                    else:
+                        # Sort chronological to get the last 4 quarters (GAAP fallback)
+                        import pandas as _pd
+                        sorted_eh = eh.sort_index(ascending=False)
+                        for idx, row in sorted_eh.iterrows():
+                            val = row.get('epsActual')
+                            if val is not None and not _pd.isna(val):
+                                actual_eps += float(val)
+                                found_q += 1
+                            if found_q >= 4: break
                     
                     if found_q >= 1: # We have some actuals
                         eps_estimates.insert(0, {
@@ -2611,6 +2736,8 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
                             "avg": round(actual_eps, 2),
                             "status": "reported"
                         })
+                        # v139: Update base_eps with the most live 'Actual'
+                        base_eps = actual_eps
         except Exception as e:
             print(f"[Analyst] Base year backfill fail: {e}")
 

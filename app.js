@@ -1513,14 +1513,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 // v44: Transposed Table with Sparklines
                 const config = [
                     { label: 'Year', key: 'year', isHeader: true },
-                    { label: 'Revenue (B)', key: 'revenue_b', formatter: v => v.toFixed(2) + ' B', sparkKey: 'revenue_b' },
-                    { label: 'EPS (Adj)', key: 'eps', formatter: v => '$' + v.toFixed(2), sparkKey: 'eps' },
-                    { label: 'FCF (B)', key: 'fcf_b', formatter: v => v.toFixed(2) + ' B', sparkKey: 'fcf_b' },
-                    { label: 'Net Margin', key: 'net_margin_pct', formatter: v => v, sparkKey: 'net_margin_pct' },
-                    { label: 'Cash (B)', key: 'cash_b', formatter: v => v.toFixed(2) + ' B', sparkKey: 'cash_b' },
-                    { label: 'Debt (B)', key: 'total_debt_b', formatter: v => v.toFixed(2) + ' B', sparkKey: 'total_debt_b' },
-                    { label: 'Shares (B)', key: 'shares_out_b', formatter: v => v.toFixed(2) + ' B', sparkKey: 'shares_out_b' },
-                    { label: 'ROIC', key: 'roic_pct', formatter: v => v, sparkKey: 'roic_pct' }
+                    { label: 'Revenue (B)', key: 'revenue_b', formatter: v => (v != null) ? v.toFixed(2) + ' B' : 'N/A', sparkKey: 'revenue_b' },
+                    { label: 'EPS (Adj)', key: 'eps', formatter: v => (v != null) ? '$' + v.toFixed(2) : 'N/A', sparkKey: 'eps' },
+                    { label: 'FCF (B)', key: 'fcf_b', formatter: v => (v != null) ? v.toFixed(2) + ' B' : 'N/A', sparkKey: 'fcf_b' },
+                    { label: 'Net Margin', key: 'net_margin_pct', formatter: v => (v != null) ? v : 'N/A', sparkKey: 'net_margin_pct' },
+                    { label: 'Cash (B)', key: 'cash_b', formatter: v => (v != null) ? v.toFixed(2) + ' B' : 'N/A', sparkKey: 'cash_b' },
+                    { label: 'Debt (B)', key: 'total_debt_b', formatter: v => (v != null) ? v.toFixed(2) + ' B' : 'N/A', sparkKey: 'total_debt_b' },
+                    { label: 'Shares (B)', key: 'shares_out_b', formatter: v => (v != null) ? v.toFixed(2) + ' B' : 'N/A', sparkKey: 'shares_out_b' },
+                    { label: 'ROIC', key: 'roic_pct', formatter: v => (v != null) ? v : 'N/A', sparkKey: 'roic_pct' }
                 ];
 
                 const generateSparkline = (values) => {
