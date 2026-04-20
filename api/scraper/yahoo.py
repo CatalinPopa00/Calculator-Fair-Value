@@ -3404,6 +3404,17 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
                     if (yr - 1) < now_dt.year:
                         hist_src = history_eps if key_prefix == "eps" else history_rev
                         baseline = hist_src.get(prev_yr_lbl)
+                        
+                        # v202: EMERGENCY FALLBACK (Direct Array Lookup)
+                        # If the dictionary mapping is missing/overwritten, find the exact Year in the historical_data arrays.
+                        if not baseline and historical_data and "years" in historical_data:
+                            try:
+                                h_years = historical_data.get("years", [])
+                                if str(yr - 1) in h_years:
+                                    h_idx = h_years.index(str(yr - 1))
+                                    baseline = historical_data.get(key_prefix, [])[h_idx]
+                            except: pass
+
                         if baseline and baseline != 0:
                             b["growth"] = (b["avg"] / abs(baseline)) - 1
                             log(f"DEBUG: Forensic Sync - {key_prefix.upper()} {yr} growth anchored to {prev_yr_lbl} ({baseline}): {b['growth']:.4f}")
