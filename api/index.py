@@ -36,9 +36,8 @@ from .models.scoring import calculate_scoring_reform, calculate_piotroski_score
 # Cache Settings
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-# v198: Fix for N/A in modals (missing keys in formula_data)
-# v199: Forensic Anchor Sync & Cache Reset
-CACHE_VERSION = "v199"
+# v209: Forensic Truth Hierarchy & Systemic Anchor Sync
+CACHE_VERSION = "v209"
 
 app = FastAPI(title="Fair Value Calculator API")
 
