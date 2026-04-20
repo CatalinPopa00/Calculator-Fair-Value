@@ -37,7 +37,8 @@ from .models.scoring import calculate_scoring_reform, calculate_piotroski_score
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
 # v198: Fix for N/A in modals (missing keys in formula_data)
-CACHE_VERSION = "v198"
+# v199: Forensic Anchor Sync & Cache Reset
+CACHE_VERSION = "v199"
 
 app = FastAPI(title="Fair Value Calculator API")
 
@@ -177,7 +178,10 @@ def get_analyst(ticker: str, response: Response):
         company_data = get_company_data(ticker_upper, fast_mode=True)
         result = get_analyst_data(ticker_upper, historical_data=company_data.get('historical_data'))
         
-        if isinstance(result, dict): result["_v"] = CACHE_VERSION
+        if isinstance(result, dict): 
+            result["_v"] = CACHE_VERSION
+            if "price_target" in result:
+                result["price_target"]["avg"] = str(result["price_target"].get("avg", "")) + " (v199)"
         valuation_cache[cache_key] = result
         return result
     except Exception as e:
