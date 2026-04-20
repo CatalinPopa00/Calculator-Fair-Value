@@ -189,6 +189,33 @@ def get_nasdaq_comprehensive_estimates(ticker: str, force_refresh: bool = False)
         kv_set(cache_key, results, ex=600) # 10 mins cache
     return results
 
+def get_yahoo_eps_trend(ticker: str) -> dict:
+    """Fetches EPS Trend data (Current, 7 Days Ago, etc.) from Yahoo Finance."""
+    try:
+        url = f"https://query2.finance.yahoo.com/v10/finance/quoteSummary/{ticker}?modules=earningsTrend"
+        headers = {'User-Agent': get_random_agent()}
+        resp = requests.get(url, headers=headers, timeout=5)
+        if resp.status_code == 200:
+            data = resp.json()
+            trends = data.get('quoteSummary', {}).get('result', [{}])[0].get('earningsTrend', {}).get('trend', [])
+            
+            result = {}
+            for t in trends:
+                period = t.get('period') # e.g. "0q", "+1q", "0y", "+1y"
+                if not period: continue
+                
+                result[period] = {
+                    "current": t.get('current', {}).get('raw'),
+                    "7daysAgo": t.get('7daysAgo', {}).get('raw'),
+                    "30daysAgo": t.get('30daysAgo', {}).get('raw'),
+                    "60daysAgo": t.get('60daysAgo', {}).get('raw'),
+                    "90daysAgo": t.get('90daysAgo', {}).get('raw')
+                }
+            return result
+    except Exception as e:
+        print(f"Error fetching Yahoo EPS Trend for {ticker}: {e}")
+    return {}
+
 def get_nasdaq_historical_eps(ticker: str) -> list:
     """Fetch quarterly Adjusted (Non-GAAP) EPS from Nasdaq Surprise API."""
     try:
@@ -1404,6 +1431,37 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                             add_to_map(dt, val)
             except: pass
 
+            # 4. Source D: ANALYST-SENSITIVE NORMALIZED RECOVERY (SBC Add-back)
+            # v200: Critical for HIMS. Reconstruction by adding back SBC.
+            if not fast_mode and cashflow is not None and not cashflow.empty and financials is not None:
+                sbc_idx = find_idx(cashflow, 'Stock Based Compensation')
+                if sbc_idx:
+                    for yr_col in financials.columns:
+                        if str(yr_col).upper() == "TTM": continue
+                        y_str = str(yr_col.year) if hasattr(yr_col, 'year') else str(yr_col)[:4]
+                        
+                        def _quick_m(df, field, date):
+                            idx = find_idx(df, field)
+                            if not idx: return 0
+                            c_idx = find_nearest_col(df, date)
+                            if not c_idx: return 0
+                            val = df.loc[idx, c_idx]
+                            return float(val) if not (val is None or (isinstance(val, float) and pd.isna(val))) else 0
+
+                        ni_val = _quick_m(financials, 'Net Income', yr_col)
+                        sbc_val = _quick_m(cashflow, 'Stock Based Compensation', yr_col)
+                        sh_val = _quick_m(financials, 'Diluted Average Shares', yr_col) or _quick_m(financials, 'Basic Average Shares', yr_col)
+                        
+                        if sh_val and sh_val > 0:
+                            # Analytic Normalized EPS = (Net Income + SBC) / Shares
+                            # v200: Full add-back of SBC to match Analyst 'Normalized' world
+                            norm_eps = (ni_val + sbc_val) / sh_val
+                            
+                            is_growth = any(x in str(info.get('sector', '')).lower() for x in ['tech', 'comm', 'health', 'consumer'])
+                            if is_growth:
+                                if y_str not in adjusted_history or norm_eps > adjusted_history.get(y_str, 0):
+                                    adjusted_history[y_str] = norm_eps
+
             # 3. Consolidation with Scaling
             now = datetime.datetime.now()
             curr_y = now.year
@@ -1502,16 +1560,15 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     margin_adj = (implied_ni / (r * fx_rate)) if (r and r > 0) else 0
                     margin_gaap = (ni / r) if (r and r > 0) else 0
                     
-                    # v125: Sector-Aware Precision Logic
-                    # Technology/Comm: Prioritize Non-GAAP (Industry Standard)
-                    # Others: Prioritize GAAP (Conservative/Fundamental Standard)
-                    is_tech = any(x in str(info.get('sector', '')).lower() for x in ['tech', 'comm', 'software'])
+                    # v125: Sector-Aware Precision Logic (v200: Expanded to Health)
+                    # Growth Sectors: Prioritize Non-GAAP/Normalized (Industry Standard)
+                    is_growth_sector = any(x in str(info.get('sector', '')).lower() for x in ['tech', 'comm', 'soft', 'health'])
                     
-                    significant_diff = (abs(adj_val - e) > 0.05 or abs(adj_val) > abs(e * 1.10)) and adj_val != 0
+                    significant_diff = (abs(adj_val - e) > 0.02 or abs(adj_val) > abs(e * 1.05)) and adj_val != 0
                     
-                    if is_tech and significant_diff:
-                        # Tech stocks: Favor the analyst consensus (Non-GAAP)
-                        log(f"DEBUG: Tech Sector - Prioritizing Non-GAAP for {ticker_symbol} {year_label}")
+                    if is_growth_sector and significant_diff:
+                        # Growth stocks: Favor the Normalized/Consensus view (HIMS Fix)
+                        log(f"DEBUG: Growth Sector - Prioritizing Non-GAAP for {ticker_symbol} {year_label}: {adj_val}")
                         e = adj_val
                         if shares_calc > 0: ni = e * shares_calc
                     elif not is_tech and not e and adj_val:
@@ -2395,6 +2452,9 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         if fx_rate is None:
             fx_rate = get_fx_rate(info)
 
+        # v199: Fetch detailed EPS Trend data (Current vs 7D, 30D, 90D Ago)
+        eps_trend = get_yahoo_eps_trend(ticker_symbol)
+
         # ── v154: UNIFIED FISCAL YEAR DETECTION (CRITICAL SYNC) ────────────────
         now_dt = datetime.datetime.now()
         fy_end_month = 12
@@ -2485,6 +2545,21 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
                  date_val = y_row.get('fiscalYearEnd') or y_row.get('fiscalEnd')
                  label = f"FY {date_val}" if date_val else "N/A"
                  avg_val = safe_nasdaq_float(y_row.get('consensusEPSForecast'))
+                 
+                 # v200: UNIVERSAL NORMALIZED OVERRIDE (HIMS Fix)
+                 # Prioritize Yahoo info tags for current/next year if they represent Normalized Consensus.
+                 yahoo_norm_0y = info.get('epsCurrentYear')
+                 yahoo_norm_1y = info.get('forwardEps') or info.get('epsForward')
+                 period_code = f"+{i}y"
+                 
+                 if period_code == "+0y" and yahoo_norm_0y:
+                     # Use higher value as it likely represents the Adjusted/Normalized consensus (Fix for HIMS)
+                     if avg_val is None or yahoo_norm_0y > (avg_val * 1.05):
+                         avg_val = yahoo_norm_0y
+                 elif period_code == "+1y" and yahoo_norm_1y:
+                     if avg_val is None or yahoo_norm_1y > (avg_val * 1.05):
+                         avg_val = yahoo_norm_1y
+
                  if avg_val is not None:
                      avg_val = round(avg_val, 2)
                      growth_val = None
@@ -2496,7 +2571,7 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
                          growth_val = (avg_val - target_base) / target_base
                      eps_estimates.append({
                          "period": label,
-                         "period_code": f"+{i}y",
+                         "period_code": period_code,
                          "avg": avg_val,
                          "growth": growth_val,
                          "status": "estimate"
@@ -3254,7 +3329,8 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             "eps_growth_5y_consensus": eps_growth_5y_consensus,
             "eps_estimates":  unified_eps,
             "rev_estimates":  unified_rev,
-            "eps_growth": eps_forward_growth
+            "eps_growth": eps_forward_growth,
+            "eps_trend": eps_trend
         }
 
 

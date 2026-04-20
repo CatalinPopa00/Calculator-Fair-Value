@@ -173,7 +173,10 @@ def get_analyst(ticker: str, response: Response):
         if isinstance(res, dict): res["_v"] = CACHE_VERSION
         return res
     try:
-        result = get_analyst_data(ticker_upper)
+        # v198: Ensure baseline synchronization by passing historical anchors
+        company_data = get_company_data(ticker_upper, fast_mode=True)
+        result = get_analyst_data(ticker_upper, historical_data=company_data.get('historical_data'))
+        
         if isinstance(result, dict): result["_v"] = CACHE_VERSION
         valuation_cache[cache_key] = result
         return result
