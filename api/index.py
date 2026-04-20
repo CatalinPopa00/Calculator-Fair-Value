@@ -180,8 +180,7 @@ def get_analyst(ticker: str, response: Response):
         
         if isinstance(result, dict): 
             result["_v"] = CACHE_VERSION
-            if "price_target" in result:
-                result["price_target"]["avg"] = str(result["price_target"].get("avg", "")) + " (v199)"
+            result["ticker"] = f"{ticker_upper} ({CACHE_VERSION})"
         valuation_cache[cache_key] = result
         return result
     except Exception as e:
