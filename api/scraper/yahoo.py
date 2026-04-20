@@ -1590,12 +1590,36 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             log(f"DEBUG: Consolidated Non-GAAP History for {ticker_symbol}: {rounded_hist}")
             
         except Exception as e:
-            print(f"DEBUG: Non-GAAP Aggregation fail: {e}")
+            log(f"DEBUG: Non-GAAP Aggregation notice: {e}")
 
+        # 1. Historical Trends & Base Chart Data (Descending order)
+        # v202: UNIVERSAL TIMELINE (Symmetrically synchronize Financials with Adjusted Anchors)
+        now_dt = datetime.datetime.now()
+        
+        # FINAL PURGE of future/placeholder entries in Adjusted History (Ensures no data leakage)
+        adjusted_history = {y: v for y, v in adjusted_history.items() if (int(y) if str(y).isdigit() else 0) < now_dt.year}
+        
         if financials is not None and not financials.empty:
-            # We use income stmt as main source of dates (excluding TTM)
             is_cols = [c for c in financials.columns if str(c).upper() != "TTM"]
-            for yr_col in sorted(is_cols)[-4:]:
+            all_known_years = {c.year if hasattr(c, 'year') else int(str(c)[:4]) for c in is_cols}
+            all_known_years.update({int(y) for y in adjusted_history.keys() if str(y).isdigit()})
+            
+            # Select the most recent 4 years (HISTORICAL ONLY) to keep the dashboard precise.
+            # v202: Ensure we don't include the current year (which is still in progress) in the baseline.
+            timeline = sorted([y for y in all_known_years if y < now_dt.year])[-4:]
+            
+            net_margin_calc = None # Initialize
+            latest_adj_yr = 0
+
+            for yr_val in timeline:
+                # Find the best match col if it exists
+                yr_col = next((c for c in is_cols if (c.year if hasattr(c, 'year') else int(str(c)[:4])) == yr_val), None)
+                if not yr_col:
+                    # Synthesize a date for lookup fallback
+                    yr_col = datetime.datetime(yr_val, fy_end_month, 28)
+                
+                year_label = str(yr_val)
+
                 # Helper for fuzzy extraction within this scope
                 def get_metric(df, field, target_date):
                     f_idx = find_idx(df, field)
@@ -1605,93 +1629,65 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     val = df.loc[f_idx, c_idx]
                     return float(val) if not (val is None or (isinstance(val, float) and pd.isna(val))) else 0
 
-                year_label = str(yr_col.year) if hasattr(yr_col, 'year') else str(yr_col)[:4]
-                
                 r = get_metric(financials, 'Total Revenue', yr_col)
                 ni = get_metric(financials, 'Net Income', yr_col)
                 
                 diluted_eps_idx = find_idx(financials, 'Diluted EPS')
                 e = get_metric(financials, diluted_eps_idx, yr_col) if diluted_eps_idx else get_metric(financials, 'Basic EPS', yr_col)
-                
                 f = get_metric(cashflow, 'Free Cash Flow', yr_col)
-                
                 s = get_metric(financials, 'Basic Average Shares', yr_col) or \
                     get_metric(financials, 'Diluted Average Shares', yr_col) or \
                     get_metric(bs, 'Ordinary Shares Number', yr_col)
                 
-                ni_gaap = ni # v128: Initialize for all tickers to avoid UnboundLocalError
+                ni_gaap = ni
                 
-                # --- NON-GAAP OVERLAY (v87: Universal Force for Recent History) ---
+                # Apply Non-GAAP Overlay
                 if year_label in adjusted_history:
                     adj_val = adjusted_history[year_label]
+                    if int(year_label) >= latest_adj_yr:
+                        adjusted_eps = adj_val
+                        latest_adj_yr = int(year_label)
+                        net_margin_calc = (adj_val * s) / (r * fx_rate) if (r and s) else None
                     
-                    # Update the main adjusted_eps if we found a more recent year (e.g. current year - 1)
-                    # Update the main adjusted_eps if we found a more recent year (v202: Ensuring HIMS 1.1 sync)
-                    if int(year_label) >= (datetime.datetime.now().year - 1):
-                        if adjusted_eps is None or int(year_label) >= latest_adj_yr:
-                            adjusted_eps = adj_val
-                            latest_adj_yr = int(year_label)
-                    
-                    # v124: High-Precision Shares & Margin Logic
-                    shares_calc = s or next((val for val in historical_data.get("shares", []) if val > 0), None) or \
-                                   info.get('sharesOutstanding') or info.get('shares_outstanding') or 0
-                    
-                    if 1000000 < shares_calc < 10000000:
-                         shares_calc *= 1000.0
-                    
-                    implied_ni = adj_val * (shares_calc if shares_calc > 0 else 1)
-                    # Use accurate revenue for the specific year point
-                    margin_adj = (implied_ni / (r * fx_rate)) if (r and r > 0) else 0
-                    margin_gaap = (ni / r) if (r and r > 0) else 0
-                    
-                    # v125: Sector-Aware Precision Logic (v200: Expanded to Health)
-                    # Growth Sectors: Prioritize Non-GAAP/Normalized (Industry Standard)
-                    is_growth_sector = any(x in str(info.get('sector', '')).lower() for x in ['tech', 'comm', 'soft', 'health'])
-                    
-                    significant_diff = (abs(adj_val - e) > 0.02 or abs(adj_val) > abs(e * 1.05)) and adj_val != 0
-                    
-                    if is_growth_sector and significant_diff:
-                        # Growth stocks: Favor the Normalized/Consensus view (HIMS Fix)
-                        log(f"DEBUG: Growth Sector - Prioritizing Non-GAAP for {ticker_symbol} {year_label}: {adj_val}")
-                        e = adj_val
-                        if shares_calc > 0: ni = e * shares_calc
-                    elif not is_tech and not e and adj_val:
-                        # Non-tech: Only use Adj if GAAP is missing
-                        e = adj_val
-                        if shares_calc > 0: ni = e * shares_calc
-                    # If not tech and we have GAAP, we KEEP GAAP (e) 
-                    elif not e or e == 0:
-                        if abs(adj_val) > 0.01:
-                            e = adj_val
-                            if shares_calc > 0: ni = e * shares_calc
-                # REPAIR Logic (v63) Fallback
-                elif (not e or e == 0) and ni != 0:
-                    s_calc = get_metric(financials, 'Basic Average Shares', yr_col) or \
-                             get_metric(financials, 'Diluted Average Shares', yr_col) or \
-                             get_metric(bs, 'Ordinary Shares Number', yr_col)
-                    if s_calc and s_calc > 0:
-                        e = ni / s_calc
-                        print(f"DEBUG: Repaired missing EPS for {year_label} using NetIncome/Shares: {e}")
+                    e = adj_val
+                    # Recalculate margins based on normalized numbers
+                    if s and s > 0: ni = e * s
                 
+                # Push to history
                 historical_data["years"].append(year_label)
                 historical_data["revenue"].append(r * fx_rate)
                 historical_data["eps"].append(e * fx_rate)
-                history_eps[f"FY {year_label}"] = e * fx_rate
-                history_rev[f"FY {year_label}"] = r * fx_rate
                 historical_data["fcf"].append(f * fx_rate)
-                # Shares are unscaled (count)
                 historical_data["shares"].append(s)
                 
-                margin = (ni / r) if (r > 0 and ni is not None) else None
-                gaap_margin = (ni_gaap / r) if (r > 0 and ni_gaap is not None) else margin # v126
-                
+                margin = (ni / (r * fx_rate)) if (r and r > 0) else 0
+                gaap_margin = (ni_gaap / (r * fx_rate)) if (r and r > 0) else 0
+
                 historical_trends.append({
                     "year": year_label,
                     "revenue": r,
+                    "eps": e,
+                    "fcf": f,
                     "net_margin": margin,
-                    "gaap_net_margin": gaap_margin, # Forensic Truth
-                    "fcf": f
+                    "gaap_net_margin": gaap_margin
                 })
+        
+        # v202: Anchor Bridge - Final verification for extremely recent anchors not yet in timeline
+        try:
+            if adjusted_history:
+                valid_adj_years = [int(y) for y in adjusted_history.keys() if str(y).isdigit()]
+                if valid_adj_years:
+                    max_adj = max(valid_adj_years)
+                    if str(max_adj) not in historical_data["years"]:
+                        historical_data["years"].append(str(max_adj))
+                        historical_data["eps"].append(adjusted_history[str(max_adj)])
+                        if historical_data["revenue"]: historical_data["revenue"].append(historical_data["revenue"][-1])
+                        else: historical_data["revenue"].append(0)
+                        if historical_data["fcf"]: historical_data["fcf"].append(historical_data["fcf"][-1])
+                        else: historical_data["fcf"].append(0)
+        except Exception as e_bridge:
+            log(f"DEBUG: Anchor Bridge failed: {e_bridge}")
+
         # 2. Add Projections (Next 2 FYs)
         try:
             if not fast_mode and historical_data["years"] and historical_data["revenue"]:
@@ -3097,6 +3093,18 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         # ── HISTORY MAPPING (for Y/Y Growth) ──────────────────────────────────
         history_eps = {}
         history_rev = {}
+        
+        # v202: HIGH-FIDELITY ANCHOR SYNC (Critical for Growth stocks like HIMS)
+        # We ingest the verified 'Adjusted' anchors from get_company_data to ensure
+        # that FY0 growth is calculated against the correct Non-GAAP baseline (e.g. 1.11 vs 0.51).
+        if historical_data and "years" in historical_data:
+            for i, y_val in enumerate(historical_data.get("years", [])):
+                y_str = str(y_val)
+                h_eps = historical_data.get("eps", [])[i] if i < len(historical_data.get("eps", [])) else None
+                h_rev = historical_data.get("revenue", [])[i] if i < len(historical_data.get("revenue", [])) else None
+                if h_eps is not None: history_eps[f"FY {y_str}"] = h_eps
+                if h_rev is not None: history_rev[f"FY {y_str}"] = h_rev
+        
         try:
             # 0. Source 0: Integrated Non-GAAP History (v98 Override)
             if q_history:
@@ -3150,10 +3158,11 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
                         yr_map[yr].append(entry['eps'])
                     
                     for yr, vals in yr_map.items():
-                        if len(vals) >= 4:
-                            history_eps[f"FY {yr}"] = sum(vals)
-                        elif yr == max(yr_map.keys()): # Fallback for latest year if partial
-                             history_eps[f"FY {yr}"] = (sum(vals)/len(vals)) * 4.0
+                        fy_k = f"FY {yr}"
+                        if len(vals) >= 4 and fy_k not in history_eps:
+                            history_eps[fy_k] = sum(vals)
+                        elif yr == max(yr_map.keys()) and fy_k not in history_eps: # Fallback
+                             history_eps[fy_k] = (sum(vals)/len(vals)) * 4.0
             except: pass
 
             # Source 1: Yahoo reported quarters
@@ -3363,6 +3372,7 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
                     
                     if past_val and past_val != 0:
                         fy0["growth"] = (fy0["avg"] / abs(past_val)) - 1
+                        log(f"DEBUG: Calculated FY0 Growth for {ticker_symbol} using baseline {past_val}: {fy0['growth']:.2f}")
             
             # FY1 vs FY0 (Standardizing universal formula: FY_N / FY_N-1 - 1)
             if fy1 and fy1.get("avg") and fy0 and fy0.get("avg") and fy0["avg"] != 0:
