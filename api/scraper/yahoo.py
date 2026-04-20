@@ -3118,7 +3118,7 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
                     
                     # If we have a sum for this year in adjusted_history logic elsewhere, it would be passed here
                     # But if not, we can sum these quarters now
-                    if len(q_dict) >= 4:
+                    if len(q_dict) >= 4 and fy_lbl not in history_eps:
                         history_eps[fy_lbl] = sum(q_dict.values())
             
             # v144: Removed hard-coded historical overrides (Purge)
@@ -3389,6 +3389,24 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         rev_est_with_code = [r for r in rev_estimates if r.get('period_code')]
         force_formula(eps_buckets, history_eps, "eps", eps_est_with_code)
         force_formula(rev_buckets, history_rev, "rev", rev_est_with_code)
+
+        # v202: UNIVERSAL ANCHOR SYNCHRONIZATION (Forensic Truth Pass)
+        # We ensure the FIRST estimate bucket (FY0) is strictly anchored to its literal previous year if that year exists in history.
+        # This prevents "Drift" caused by GAAP/Non-GAAP mismatches in the terminal baseline year.
+        for bucket_key, buckets_set, key_prefix in [("FY0", eps_buckets, "eps"), ("FY0", rev_buckets, "rev")]:
+            b = buckets_set.get(bucket_key)
+            if b and b.get("avg") and b.get("avg") != 0:
+                m = re.search(r'(\d{4})', str(b.get("period", "")))
+                if m:
+                    yr = int(m.group(1))
+                    prev_yr_lbl = f"FY {yr - 1}"
+                    # v202: ONLY anchor vs Historical Years (< now) to prevent estimate-to-estimate drift
+                    if (yr - 1) < now_dt.year:
+                        hist_src = history_eps if key_prefix == "eps" else history_rev
+                        baseline = hist_src.get(prev_yr_lbl)
+                        if baseline and baseline != 0:
+                            b["growth"] = (b["avg"] / abs(baseline)) - 1
+                            log(f"DEBUG: Forensic Sync - {key_prefix.upper()} {yr} growth anchored to {prev_yr_lbl} ({baseline}): {b['growth']:.4f}")
 
         # Now populate result lists with period labels (v182: Fixed missing labels)
         for k in ["Q1", "Q2", "Q3", "Q4", "FY0", "FY1"]:
