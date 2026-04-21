@@ -1514,19 +1514,15 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                              norm_eps = (ni_val + sbc_val) / sh_val if sh_val else 0
                              log(f"DEBUG: Standard SBC Reconstruction for {ticker_symbol} {y_str}: {norm_eps:.2f}")
                         
-                        if norm_eps > 0:
-                             should_override = False
-                             if y_str not in adjusted_history:
-                                 should_override = True
-                             elif is_g and norm_eps > (adjusted_history.get(y_str, 0) * 1.1):
-                                 # Significant discrepancy found (likely GAAP vs Non-GAAP actuals)
-                                 should_override = True
-                             elif ni_val < 0:
-                                 should_override = True
-                                 
-                             if should_override:
-                                 adjusted_history[y_str] = norm_eps
-                                 log(f"DEBUG: SBC Reconstruction prioritized for {ticker_symbol} {y_str}: {norm_eps:.2f}")
+                              # v206: DISABLE SBC Reconstruction for established large-caps where Yahoo/Nasdaq is forensic.
+                              # This prevents inflation drifts (e.g. AAPL 8.30 vs 6.13).
+                              is_large_cap = (market_cap > 50e9) 
+                              if is_large_cap:
+                                  should_override = False
+
+                              if should_override:
+                                  adjusted_history[y_str] = norm_eps
+                                  log(f"DEBUG: SBC Reconstruction prioritized for {ticker_symbol} {y_str}: {norm_eps:.2f}")
 
             # 3. Consolidation with Scaling
             now = datetime.datetime.now()
@@ -1589,24 +1585,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                                     log(f"DEBUG: Success - Super-Normalized Anchor for {ticker_symbol} {target_y}: {scaled_ttm:.2f}")
                 except: pass
 
-            # 5. Source E: DIRECT NORMALIZED ACTUAL FROM YAHOO TRENDS (v206: Forensic Precision)
-            try:
-                y_trend_data = get_yahoo_eps_trend(ticker_symbol)
-                # '0y' is Current Year. 'yearAgoEps' for it is the Last Reported FY.
-                y_adj_val = y_trend_data.get('0y', {}).get('yearAgoEps')
-                if y_adj_val is not None:
-                    # Detect year of '0y'.
-                    # For AAPL in 2026, 0y likely refers to the upcoming FY (2026 or 2025).
-                    # We map yearAgoEps to the last FULL reported fiscal year column.
-                    is_cols = [c for c in financials.columns if str(c).upper() != "TTM"]
-                    if is_cols:
-                         # Sort years and pick the most recent one that IS NOT an estimate/future.
-                         reported_years = sorted([c.year if hasattr(c, 'year') else int(str(c)[:4]) for c in is_cols])
-                         last_full_yr = reported_years[-1]
-                         target_y = str(last_full_yr)
-                         adjusted_history[target_y] = y_adj_val
-                         log(f"DEBUG: forensic match - Direct Yahoo Trend Actual for {ticker_symbol} {target_y}: {y_adj_val}")
-            except: pass
+
 
             # Universal Tech Prioritizer (v120)
             is_tech = any(x in str(info.get('sector', '')).lower() for x in ['tech', 'comm', 'software'])
@@ -1617,6 +1596,30 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             if is_tech: log(f"DEBUG: Tech Sector detected. Activating Universal Non-GAAP Priority Engine.")
 
             # Debug Log
+
+            # 5. Source E: DIRECT NORMALIZED ACTUAL FROM YAHOO TRENDS (v206: FINAL OVERRIDE)
+            try:
+                y_trend_data = get_yahoo_eps_trend(ticker_symbol)
+                y_adj_val = y_trend_data.get('0y', {}).get('yearAgoEps')
+                if y_adj_val is not None:
+                    is_cols = [c for c in financials.columns if str(c).upper() != "TTM"]
+                    if is_cols:
+                         # Forensic Mapping: yearAgoEps corresponds to the last FULL reported year.
+                         reported_years = sorted([c.year if hasattr(c, 'year') else int(str(c)[:4]) for c in is_cols])
+                         last_full_yr = reported_years[-1]
+                         
+                         # Apple Fix: If financials already has 2025 but 2025 isn't finished, 
+                         # Yahoo's yearAgoEps for 2025 (Current) is 2024.
+                         now_dt = datetime.datetime.now()
+                         target_y = str(last_full_yr)
+                         # Simple logic: If the most recent column is current year or future, 
+                         # the yearAgoEps refers to the one before it.
+                         if last_full_yr >= now_dt.year:
+                              target_y = str(last_full_yr - 1)
+                              
+                         adjusted_history[target_y] = y_adj_val
+                         log(f"DEBUG: FINAL forensic match - Direct Yahoo Trend Actual for {ticker_symbol} {target_y}: {y_adj_val}")
+            except: pass
 
             # Debug Log
             rounded_hist = {k: round(v, 2) for k, v in adjusted_history.items() if v != 0}
