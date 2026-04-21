@@ -2854,13 +2854,15 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
                             "avg": round(actual_eps, 2),
                             "status": "reported"
                         })
-                        # v208: CRITICAL - Update history dictionaries so buckets can anchor vs this live actual
-                        history_eps[f"FY {last_yr}"] = actual_eps
+                        # v211: Update history dictionaries ONLY IF MISSING (Protect Adjusted Anchors)
+                        if f"FY {last_yr}" not in history_eps:
+                            history_eps[f"FY {last_yr}"] = actual_eps
                         
                         # Sync revenue backfill if available (v208)
                         y_adj_ttm_rev = y_trend.get('0y', {}).get('yearAgoRevenue')
                         if y_adj_ttm_rev:
-                            history_rev[f"FY {last_yr}"] = float(y_adj_ttm_rev)
+                            if f"FY {last_yr}" not in history_rev:
+                                history_rev[f"FY {last_yr}"] = float(y_adj_ttm_rev)
                             rev_estimates.insert(0, {
                                 "period": f"FY {last_yr} (Actual)",
                                 "avg": round(float(y_adj_ttm_rev), 2),
@@ -3500,15 +3502,23 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         last_act_eps = history_eps.get(f"FY {last_act_y}") 
         last_act_rev = history_rev.get(f"FY {last_act_y}")
 
+        # v211: If forensic anchor is still missing, try matching current trailing base (7.46)
+        if not last_act_eps and base_eps: last_act_eps = base_eps
+        if not last_act_rev and base_rev: last_act_rev = base_rev
+
         # 2. Sequential Force
-        for bucket_set, key_prefix, last_act_val in [ (eps_buckets, "eps", last_act_eps), (rev_buckets, "rev", last_act_rev) ]:
+        for bucket_set, key_prefix, last_anchor in [ (eps_buckets, "eps", last_act_eps), (rev_buckets, "rev", last_act_rev) ]:
             f0 = bucket_set.get("FY0")
             f1 = bucket_set.get("FY1")
             
             # FY0: Anchor vs the newest Historical Actual
-            if f0 and f0.get("avg") and last_act_val and last_act_val != 0:
-                f0["growth"] = (f0["avg"] / abs(last_act_val)) - 1
-                log(f"DEBUG: v210 - {key_prefix.upper()} FY0 Growth anchored to ACTUAL {last_act_y} ({last_act_val}): {f0['growth']:.4f}")
+            if f0 and f0.get("avg") and last_anchor and last_anchor != 0:
+                f0["growth"] = (f0["avg"] / abs(last_anchor)) - 1
+                log(f"DEBUG: v211 - {key_prefix.upper()} FY0 Growth anchored to {last_act_y} ({last_anchor}): {f0['growth']:.4f}")
+            elif f0 and f0.get("avg") and base_eps and key_prefix == "eps":
+                # Final safeguard fallback to info trailing base
+                f0["growth"] = (f0["avg"] / abs(base_eps)) - 1
+                log(f"DEBUG: v211 - {key_prefix.upper()} FY0 Growth anchored to BASE_EPS ({base_eps})")
             
             # FY1: Anchor vs FY0
             if f1 and f1.get("avg") and f0 and f0.get("avg") and f0["avg"] != 0:
@@ -3526,9 +3536,9 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             if k.startswith("Q"):
                 lbl = f"{k} {current_fy_num}"
             elif k == "FY0":
-                lbl = f"FY {current_fy_num} (v211)"
+                lbl = f"FY {current_fy_num} (v212)"
             else:
-                lbl = f"FY {current_fy_num + 1} (v211)"
+                lbl = f"FY {current_fy_num + 1} (v212)"
             e["period"] = lbl; r["period"] = lbl
             unified_eps.append(e); unified_rev.append(r)
 
