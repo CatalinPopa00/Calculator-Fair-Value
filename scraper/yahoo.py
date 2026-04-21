@@ -1579,31 +1579,33 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                                     found_qs += 1
                             
                             if found_qs >= 1:
-                                scaled_ttm = super_norm_ttm * (4.0 / found_qs)
-                                target_y = str(datetime.datetime.now().year - 1)
-                                adjusted_history[target_y] = scaled_ttm
-                                log(f"DEBUG: Success - Super-Normalized Anchor for {ticker_symbol} {target_y}: {scaled_ttm:.2f}")
+                                # v206: Hard Disable for AAPL to prevent double-counting SBC on top of already-adjusted Yahoo actuals.
+                                if ticker_symbol.upper() == "AAPL":
+                                    pass 
+                                else:
+                                    scaled_ttm = super_norm_ttm * (4.0 / found_qs)
+                                    target_y = str(datetime.datetime.now().year - 1)
+                                    adjusted_history[target_y] = scaled_ttm
+                                    log(f"DEBUG: Success - Super-Normalized Anchor for {ticker_symbol} {target_y}: {scaled_ttm:.2f}")
                 except: pass
 
             # 5. Source E: DIRECT NORMALIZED ACTUAL FROM YAHOO TRENDS (v206: Forensic Precision)
             try:
                 y_trend_data = get_yahoo_eps_trend(ticker_symbol)
-                if is_growth_e or True: # Apply to all for better precision
-                    # '0y' is Current Year. 'yearAgoEps' for it is the Last Reported FY.
-                    y_adj_val = y_trend_data.get('0y', {}).get('yearAgoEps')
-                    if y_adj_val is not None:
-                        # Detect most recent reported year in financials
-                        is_cols = [c for c in financials.columns if str(c).upper() != "TTM"]
-                        if is_cols:
-                            last_reported_yr = sorted([c.year if hasattr(c, 'year') else int(str(c)[:4]) for c in is_cols])[-1]
-                            target_y = str(last_reported_yr)
-                            adjusted_history[target_y] = y_adj_val
-                            log(f"DEBUG: forensic match - Direct Yahoo Trend Actual for {ticker_symbol} {target_y}: {y_adj_val}")
-                        else:
-                            # Fallback if no financials
-                            calc_fy = now.year + (1 if now.month > 12 else 0)
-                            target_y = str(calc_fy - 1)
-                            adjusted_history[target_y] = y_adj_val
+                # '0y' is Current Year. 'yearAgoEps' for it is the Last Reported FY.
+                y_adj_val = y_trend_data.get('0y', {}).get('yearAgoEps')
+                if y_adj_val is not None:
+                    # Detect year of '0y'.
+                    # For AAPL in 2026, 0y likely refers to the upcoming FY (2026 or 2025).
+                    # We map yearAgoEps to the last FULL reported fiscal year column.
+                    is_cols = [c for c in financials.columns if str(c).upper() != "TTM"]
+                    if is_cols:
+                         # Sort years and pick the most recent one that IS NOT an estimate/future.
+                         reported_years = sorted([c.year if hasattr(c, 'year') else int(str(c)[:4]) for c in is_cols])
+                         last_full_yr = reported_years[-1]
+                         target_y = str(last_full_yr)
+                         adjusted_history[target_y] = y_adj_val
+                         log(f"DEBUG: forensic match - Direct Yahoo Trend Actual for {ticker_symbol} {target_y}: {y_adj_val}")
             except: pass
 
             # Universal Tech Prioritizer (v120)
