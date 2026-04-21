@@ -3476,7 +3476,8 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         
         # Merge with any backfilled years added to history_eps
         hist_years.extend([int(k.split()[-1]) for k in history_eps.keys() if "FY" in k])
-        hist_years = sorted(list(set(hist_years)))
+        # v210.2: PREVENT SELF-ANCHORING (Only consider years strictly before the current estimate cycle)
+        hist_years = sorted(list(set([y for y in hist_years if y < current_fy_num])))
         
         last_act_y = hist_years[-1] if hist_years else (current_fy_num - 1)
         last_act_eps = history_eps.get(f"FY {last_act_y}") 
