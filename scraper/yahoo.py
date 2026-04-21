@@ -3526,9 +3526,9 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             if k.startswith("Q"):
                 lbl = f"{k} {current_fy_num}"
             elif k == "FY0":
-                lbl = f"FY {current_fy_num}"
+                lbl = f"FY {current_fy_num} (v211)"
             else:
-                lbl = f"FY {current_fy_num + 1}"
+                lbl = f"FY {current_fy_num + 1} (v211)"
             e["period"] = lbl; r["period"] = lbl
             unified_eps.append(e); unified_rev.append(r)
 
