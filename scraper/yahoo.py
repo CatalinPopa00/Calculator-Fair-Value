@@ -1518,16 +1518,21 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                              log(f"DEBUG: Standard SBC Reconstruction for {ticker_symbol} {y_str}: {norm_eps:.2f}")
                         if norm_eps > 0:
                             should_override = False
+                            # Only attempt reconstruction if we don't already have a forensic match
                             if y_str not in adjusted_history:
                                 should_override = True
-                            elif is_g and norm_eps > (adjusted_history.get(y_str, 0) * 1.1):
+                            elif is_g and norm_eps > (adjusted_history.get(y_str, 0) * 1.05) and (adjusted_history.get(y_str, 0) < ni_val / (sh_val or 1) * 1.01):
+                                # If the current history value is basically GAAP, and we are a growth company, 
+                                # override with the SBC-adjusted version.
                                 should_override = True
-                            elif ni_val < 0:
-                                should_override = True
-
-                            # v206: DISABLE SBC Reconstruction for established large-caps
+                            
+                            # Safety Cap for Large Caps (v207)
+                            # If the reconstruction is > 40% higher than GAAP, it's likely double-counted or distorted.
+                            gaap_ref = (ni_val / sh_val) if sh_val else trailing_eps
                             if market_cap and market_cap > 50e9:
-                                should_override = False
+                                if norm_eps > (gaap_ref * 1.4):
+                                    log(f"DEBUG: SBC Reconstruction REJECTED for Large-Cap {ticker_symbol} {y_str} (Too high: {norm_eps:.2f} vs GAAP {gaap_ref:.2f})")
+                                    should_override = False
 
                             if should_override:
                                 adjusted_history[y_str] = norm_eps
@@ -1614,21 +1619,23 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     y_adj_val = float(y_adj_val_raw)
                     is_cols = [c for c in financials.columns if str(c).upper() != "TTM"]
                     if is_cols:
-                         # Forensic Mapping: yearAgoEps corresponds to the last FULL reported year.
+                         # Forensic Mapping: Find the current estimate year anchor (0y)
                          reported_years = sorted([c.year if hasattr(c, 'year') else int(str(c)[:4]) for c in is_cols])
-                         last_full_yr = reported_years[-1]
+                         last_reported_yr = reported_years[-1]
                          
-                         # Apple Fix: If financials already has 2025 but 2025 isn't finished, 
-                         # Yahoo's yearAgoEps for 2025 (Current) is 2024.
+                         # If we just reported 2024, then 'Current Year' (0y) is 2025.
+                         # Thus yearAgoEps for 2025 is the actual for 2024.
+                         # We map y_adj_val to 2024.
+                         target_prev_y = str(last_reported_yr)
+                         
+                         # Apple Fix: If financials already has 2025 but 2025 isn't finished (TTM vs Full), 
+                         # we use the date comparison logic from before to be 100% sure.
                          now_dt = datetime.datetime.now()
-                         target_y = str(last_full_yr)
-                         # Simple logic: If the most recent column is current year or future, 
-                         # the yearAgoEps refers to the one before it.
-                         if last_full_yr >= now_dt.year:
-                              target_y = str(last_full_yr - 1)
-                              
-                         adjusted_history[target_y] = y_adj_val
-                         log(f"DEBUG: FINAL forensic match - Direct Yahoo Trend Actual for {ticker_symbol} {target_y}: {y_adj_val}")
+                         if last_reported_yr >= now_dt.year:
+                             target_prev_y = str(last_reported_yr - 1)
+
+                         adjusted_history[target_prev_y] = y_adj_val
+                         log(f"DEBUG: FINAL forensic match - Direct Yahoo Trend Actual for {ticker_symbol} {target_prev_y}: {y_adj_val}")
             except: pass
 
             # Debug Log
