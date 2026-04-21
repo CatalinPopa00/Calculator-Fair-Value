@@ -947,10 +947,10 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
 
         # v201: Baseline adjusted_eps (will be refined later)
         adjusted_eps = trailing_eps
-        shares_outstanding = None
-        latest_adj_yr = 0
-
-        if financials is not None and not financials.empty:
+        # v206: Prioritize Live/Refined Shares (Significant for massive buyback companies like AAPL)
+        shares_outstanding = info.get('impliedSharesOutstanding') or info.get('sharesOutstanding') or 0
+        
+        if not shares_outstanding and financials is not None and not financials.empty:
             for k in ['Diluted Average Shares', 'Basic Average Shares']:
                 idx = find_idx(financials, k)
                 if idx:
@@ -960,9 +960,6 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                             shares_outstanding = val
                             break
                     except: pass
-        if not shares_outstanding:
-            # v157: Support for Dual-Class companies (META, GOOGL) - Use Implied Total
-            shares_outstanding = info.get('impliedSharesOutstanding') or info.get('sharesOutstanding') or 0
             if not shares_outstanding:
                 try: 
                     cf_shares = stock.fast_info.get('shares_outstanding')
@@ -1355,11 +1352,12 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                         for i in range(len(div_years) - 1):
                             curr_yr = div_years[i]
                             prev_yr = div_years[i+1]
-                            if div_annual[curr_yr] >= div_annual[prev_yr] * 0.98: 
+                            # v206: Strict Consecutive Year Check (Prevents skipping breaks like AAPL 1995-2012)
+                            if curr_yr - 1 == prev_yr and div_annual[curr_yr] >= div_annual[prev_yr] * 0.98: 
                                 current_streak += 1
                             else:
                                 break
-                    dividend_streak = current_streak
+                    dividend_streak = current_streak + (1 if current_streak > 0 else 0) # Add anchor year
                     
                     # 5Y CAGR
                     if len(div_annual) >= 6:
@@ -2127,7 +2125,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             "earnings_growth": earnings_growth_val,
             "next_3y_rev_est": next_3y_rev_est,
             "ebitda": info.get('ebitda') or (float(financials.loc[find_idx(financials, 'EBITDA')].iloc[0]) if financials is not None and find_idx(financials, 'EBITDA') else None),
-            "operating_margin": ebit_margin or info.get('operatingMargins'),
+            "operating_margin": info.get('operatingMargins') or ebit_margin,
             "ebit_margin": ebit_margin,
             "net_margin": net_margin_calc or info.get('profitMargins'),
             "dividend_yield": dividend_yield,
