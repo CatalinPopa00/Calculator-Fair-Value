@@ -200,38 +200,68 @@ def get_nasdaq_comprehensive_estimates(ticker: str, force_refresh: bool = False)
 
 def get_yahoo_eps_trend(ticker: str) -> dict:
     """Fetches EPS Trend data (Current, 7 Days Ago, etc.) from Yahoo Finance."""
+    # v206: Try yfinance High-Fidelity Fallback first for Estimates/Trends
     try:
-        url = f"https://query1.finance.yahoo.com/v10/finance/quoteSummary/{ticker}?modules=earningsTrend"
+        stock = yf.Ticker(ticker)
+        ee = getattr(stock, 'earnings_estimate', None)
+        if ee is not None and not ee.empty:
+            mapping = {}
+            for period in ['0y', '+1y', '+2y', '0q', '+1q']:
+                if period in ee.index:
+                    row = ee.loc[period]
+                    mapping[period] = {
+                        'avg': row.get('avg'),
+                        'low': row.get('low'),
+                        'high': row.get('high'),
+                        'yearAgoEps': row.get('yearAgoEps'),
+                        'numberOfAnalysts': row.get('numberOfAnalysts'),
+                        'growth': row.get('growth'),
+                        # compatibility fields for older code paths
+                        'current': row.get('avg')
+                    }
+            if mapping:
+                return mapping
+    except: pass
+
+    try:
+        # Use query2 which is often more reliable
+        url = f"https://query2.finance.yahoo.com/v10/finance/quoteSummary/{ticker}?modules=earningsTrend"
         headers = {
             'User-Agent': get_random_agent(),
             'Accept': 'application/json',
-            'Referer': 'https://finance.yahoo.com/'
+            'Referer': 'https://finance.yahoo.com/quote/' + ticker
         }
         resp = requests.get(url, headers=headers, timeout=10)
         if resp.status_code != 200:
+             # Fallback to query1
+             url = url.replace('query2', 'query1')
+             resp = requests.get(url, headers=headers, timeout=10)
+        
+        if resp.status_code != 200:
              print(f"DEBUG: Yahoo EPS Trend Fetch failed for {ticker} ({resp.status_code})")
              return {}
+
         data = resp.json()
         trends = data.get('quoteSummary', {}).get('result', [{}])[0].get('earningsTrend', {}).get('trend', [])
-            
-        result = {}
+        
+        mapping = {}
         for t in trends:
-            period = t.get('period') # e.g. "0q", "+1q", "0y", "+1y"
-            if not period: continue
-            
-            result[period] = {
-                "current": t.get('current', {}).get('raw'),
-                "7daysAgo": t.get('7daysAgo', {}).get('raw'),
-                "30daysAgo": t.get('30daysAgo', {}).get('raw'),
-                "60daysAgo": t.get('60daysAgo', {}).get('raw'),
-                "90daysAgo": t.get('90daysAgo', {}).get('raw'),
-                "yearAgoEps": t.get('yearAgoEps', {}).get('raw'), # Normalized Actual (v202: HIMS 1.1 fix)
-                "actual": t.get('earningsEstimate', {}).get('actual', {}).get('raw')
-            }
-        return result
+            p = t.get('period') # e.g. "0y", "+1y", "0q"
+            if p:
+                mapping[p] = {
+                    'avg': t.get('earningsEstimate', {}).get('avg', {}).get('raw'),
+                    'low': t.get('earningsEstimate', {}).get('low', {}).get('raw'),
+                    'high': t.get('earningsEstimate', {}).get('high', {}).get('raw'),
+                    'yearAgoEps': t.get('earningsEstimate', {}).get('yearAgoEps', {}).get('raw'),
+                    'numberOfAnalysts': t.get('earningsEstimate', {}).get('numberOfAnalysts', {}).get('raw'),
+                    'growth': t.get('earningsEstimate', {}).get('growth', {}).get('raw'),
+                    # compatibility fields
+                    'current': t.get('current', {}).get('raw')
+                }
+        return mapping
     except Exception as e:
-        print(f"Error fetching Yahoo EPS Trend for {ticker}: {e}")
-    return {}
+        print(f"ERROR: get_yahoo_eps_trend for {ticker}: {e}")
+        return {}
 
 def get_nasdaq_historical_eps(ticker: str) -> list:
     """Fetch quarterly Adjusted (Non-GAAP) EPS from Nasdaq Surprise API."""
@@ -1531,7 +1561,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     
                     if q_eh is not None and not q_eh.empty and q_cf is not None and not q_cf.empty:
                         sbc_q_idx = find_idx(q_cf, 'Stock Based Compensation')
-                        sh_q_idx = find_idx(q_fin, 'Basic Average Shares') or find_idx(q_fin, 'Diluted Average Shares')
+                        sh_q_idx = find_idx(q_fin, 'Diluted Average Shares') or find_idx(q_fin, 'Basic Average Shares')
                         
                         if sbc_q_idx:
                             sorted_q = q_eh.sort_index(ascending=False).head(4)
@@ -1555,26 +1585,27 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                                 log(f"DEBUG: Success - Super-Normalized Anchor for {ticker_symbol} {target_y}: {scaled_ttm:.2f}")
                 except: pass
 
-            # 5. Source E: DIRECT NORMALIZED ACTUAL FROM YAHOO TRENDS (v202: HIMS 1.1 Fix)
+            # 5. Source E: DIRECT NORMALIZED ACTUAL FROM YAHOO TRENDS (v206: Forensic Precision)
             try:
                 y_trend_data = get_yahoo_eps_trend(ticker_symbol)
-                if is_growth_e:
+                if is_growth_e or True: # Apply to all for better precision
+                    # '0y' is Current Year. 'yearAgoEps' for it is the Last Reported FY.
                     y_adj_val = y_trend_data.get('0y', {}).get('yearAgoEps')
                     if y_adj_val is not None:
-                        calc_fy = now.year + (1 if now.month > 12 else 0) # Simplified
-                        target_y = str(calc_fy - 1)
-                        adjusted_history[target_y] = y_adj_val
-                        log(f"DEBUG: Phase 5 - Direct Yahoo Trend Actual for {ticker_symbol} {target_y}: {y_adj_val}")
+                        # Detect most recent reported year in financials
+                        is_cols = [c for c in financials.columns if str(c).upper() != "TTM"]
+                        if is_cols:
+                            last_reported_yr = sorted([c.year if hasattr(c, 'year') else int(str(c)[:4]) for c in is_cols])[-1]
+                            target_y = str(last_reported_yr)
+                            adjusted_history[target_y] = y_adj_val
+                            log(f"DEBUG: forensic match - Direct Yahoo Trend Actual for {ticker_symbol} {target_y}: {y_adj_val}")
+                        else:
+                            # Fallback if no financials
+                            calc_fy = now.year + (1 if now.month > 12 else 0)
+                            target_y = str(calc_fy - 1)
+                            adjusted_history[target_y] = y_adj_val
             except: pass
 
-            # v120: PERMANENT PRECISION OVERRIDE FOR ADBE (Absolute Force)
-            if ticker_symbol.upper() == "ADBE":
-                adjusted_history["2025"] = 20.94
-                adjusted_history["2024"] = 18.40 
-                adjusted_history["2023"] = 16.07
-                adjusted_history["2022"] = 13.71
-                log(f"DEBUG: ADBE v120 RECOVERY SUCCESSFUL.")
-            
             # Universal Tech Prioritizer (v120)
             is_tech = any(x in str(info.get('sector', '')).lower() for x in ['tech', 'comm', 'software'])
             # Logic: Step 1 (Historical) already integrates Nasdaq/Surprise data into adjusted_history.
@@ -1635,8 +1666,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 diluted_eps_idx = find_idx(financials, 'Diluted EPS')
                 e = get_metric(financials, diluted_eps_idx, yr_col) if diluted_eps_idx else get_metric(financials, 'Basic EPS', yr_col)
                 f = get_metric(cashflow, 'Free Cash Flow', yr_col)
-                s = get_metric(financials, 'Basic Average Shares', yr_col) or \
-                    get_metric(financials, 'Diluted Average Shares', yr_col) or \
+                s = get_metric(financials, 'Diluted Average Shares', yr_col) or \
+                    get_metric(financials, 'Basic Average Shares', yr_col) or \
                     get_metric(bs, 'Ordinary Shares Number', yr_col)
                 
                 ni_gaap = ni
@@ -2657,19 +2688,19 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
                  label = f"FY {date_val}" if date_val else "N/A"
                  avg_val = safe_nasdaq_float(y_row.get('consensusEPSForecast'))
                  
-                 # v200: UNIVERSAL NORMALIZED OVERRIDE (HIMS Fix)
-                 # Prioritize Yahoo info tags for current/next year if they represent Normalized Consensus.
+                 # v206: FORCE YAHOO INFO TAGS (Matches 'Analysis' tab exactly)
+                 # These tags (epsCurrentYear, forwardEps) are the gold standard for normalized consensus.
                  yahoo_norm_0y = info.get('epsCurrentYear')
                  yahoo_norm_1y = info.get('forwardEps') or info.get('epsForward')
-                 period_code = f"+{i}y"
+
+                 # Try earnings_estimate mapping if available for extreme precision
+                 y_map = get_yahoo_eps_trend(ticker_symbol)
                  
-                 if period_code == "+0y" and yahoo_norm_0y:
-                     # Use higher value as it likely represents the Adjusted/Normalized consensus (Fix for HIMS)
-                     if avg_val is None or yahoo_norm_0y > (avg_val * 1.05):
-                         avg_val = yahoo_norm_0y
-                 elif period_code == "+1y" and yahoo_norm_1y:
-                     if avg_val is None or yahoo_norm_1y > (avg_val * 1.05):
-                         avg_val = yahoo_norm_1y
+                 period_code = f"+{i}y"
+                 if period_code == "+0y":
+                      avg_val = y_map.get('0y', {}).get('avg') or yahoo_norm_0y or avg_val
+                 elif period_code == "+1y":
+                      avg_val = y_map.get('+1y', {}).get('avg') or yahoo_norm_1y or avg_val
 
                  if avg_val is not None:
                      avg_val = round(avg_val, 2)
