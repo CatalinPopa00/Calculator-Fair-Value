@@ -66,7 +66,12 @@ def calculate_scoring_reform(valuation_data, metrics):
         except: return 0.0
 
     # USER-DRIVEN DATA MAPPING: TRAILING PE ONLY (FORBIDDEN FORWARD PE)
-    pe = clean_ratio(metrics.get('trailing_pe') or metrics.get('pe_ratio'))
+    # Prefer the Normalized P/E passed from valuation logic over the raw scraped P/E
+    pe = valuation_data.get('pe')
+    if not pe:
+        pe = clean_ratio(metrics.get('trailing_pe') or metrics.get('pe_ratio'))
+    else:
+        pe = clean_ratio(pe)
 
     if is_financial and is_bank:
         # --- ȘABLONUL 2: FINANCIALS ---
@@ -227,7 +232,7 @@ def calculate_scoring_reform(valuation_data, metrics):
         pts = 10 if (ev_ebitda > 0 and ev_ebitda < 12.0) else (5 if (ev_ebitda > 0 and ev_ebitda <= 18.0) else 0)
         add_b("EV / EBITDA", ev_ebitda, pts, 10, True)
 
-        ps = clean_ratio(metrics.get('price_to_sales'))
+        ps = clean_ratio(metrics.get('ps_ratio') or metrics.get('price_to_sales'))
         pts = 10 if (ps > 0 and ps < 2.0) else (5 if (ps > 0 and ps <= 4.0) else 0)
         add_b("P/S Ratio", ps, pts, 10, True)
 

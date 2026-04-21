@@ -1509,24 +1509,12 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
 
                         ni_val = _quick_m(financials, 'Net Income', yr_col)
                         sbc_val = _quick_m(cashflow, 'Stock Based Compensation', yr_col)
+                        sh_val = _quick_m(financials, 'Diluted Average Shares', yr_col) or _quick_m(financials, 'Basic Average Shares', yr_col)
                         
-                        # v202: Share-Agnostic Reconstruction for Growth Sectors
-                        # We use the reported trailing_eps and NI to derive the 'Analytic Shares' used by the market
-                        is_g = any(x in str(info.get('sector', '')).lower() for x in ['tech', 'soft', 'comm', 'health', 'consumer'])
-                        
-                        sh_val_raw = _quick_m(financials, 'Diluted Average Shares', yr_col) or _quick_m(financials, 'Basic Average Shares', yr_col)
-                        sh_val = sh_val_raw
-
-                        if is_g and trailing_eps and trailing_eps > 0 and ni_val and ni_val > 0:
-                             est_sh = ni_val / trailing_eps
-                             norm_eps = (ni_val + sbc_val) / est_sh
-                             # When using estimated shares, we should still pass est_sh to sh_val for downstream logic
-                             sh_val = est_sh
-                             log(f"DEBUG: Share-Agnostic Reconstruction for {ticker_symbol} {y_str}: {norm_eps:.2f}")
-                        else:
-                             norm_eps = (ni_val + sbc_val) / sh_val if sh_val else 0
-                             log(f"DEBUG: Standard SBC Reconstruction for {ticker_symbol} {y_str}: {norm_eps:.2f}")
+                        norm_eps = (ni_val + sbc_val) / sh_val if sh_val else 0
+                        log(f"DEBUG: Standard SBC Reconstruction for {ticker_symbol} {y_str}: {norm_eps:.2f}")
                         if norm_eps > 0:
+                            is_g = any(x in str(info.get('sector', '')).lower() for x in ['tech', 'soft', 'comm', 'health', 'consumer'])
                             should_override = False
                             # Only attempt reconstruction if we don't already have a forensic match
                             if y_str not in adjusted_history:
@@ -2068,8 +2056,6 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                             market_cap = float(current_price * shares_outstanding)
                             if rev_val and rev_val > 0:
                                  ps_ratio = market_cap / rev_val
-                            if ni_val and ni_val > 0:
-                                 pe_ratio = market_cap / ni_val
                             print(f"DEBUG: Hyper-Sync Market Cap: {market_cap/1e9:.2f}B using {shares_outstanding/1e6:.1f}M shares")
                             
                 except Exception as e_audit:

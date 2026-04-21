@@ -66,7 +66,12 @@ def calculate_scoring_reform(valuation_data, metrics):
         except: return 0.0
 
     # USER-DRIVEN DATA MAPPING: TRAILING PE ONLY (FORBIDDEN FORWARD PE)
-    pe = clean_ratio(metrics.get('trailing_pe') or metrics.get('pe_ratio'))
+    # Prefer the Normalized P/E passed from valuation logic over the raw scraped P/E
+    pe = valuation_data.get('pe')
+    if not pe:
+        pe = clean_ratio(metrics.get('trailing_pe') or metrics.get('pe_ratio'))
+    else:
+        pe = clean_ratio(pe)
 
     if is_financial and is_bank:
         # --- ȘABLONUL 2: FINANCIALS ---
@@ -208,7 +213,6 @@ def calculate_scoring_reform(valuation_data, metrics):
         # BUY (100 pct)
         pts = 30 if mos > 20 else (15 if mos >= 0 else 0)
         add_b("Margin of Safety", mos, pts, 30, False)
-
         pts = 20 if rev_g > 15 else (10 if rev_g >= 5 else 0)
         add_b("Revenue Growth (Next 3Y)", rev_g, pts, 20, False)
 
@@ -228,12 +232,12 @@ def calculate_scoring_reform(valuation_data, metrics):
         pts = 10 if (ev_ebitda > 0 and ev_ebitda < 12.0) else (5 if (ev_ebitda > 0 and ev_ebitda <= 18.0) else 0)
         add_b("EV / EBITDA", ev_ebitda, pts, 10, True)
 
-        ps = clean_ratio(metrics.get('ps_ratio'))
-        pts = 10 if (ps > 0 and ps < 4.0) else (5 if (ps > 0 and ps <= 8.0) else 0)
+        ps = clean_ratio(metrics.get('ps_ratio') or metrics.get('price_to_sales'))
+        pts = 10 if (ps > 0 and ps < 2.0) else (5 if (ps > 0 and ps <= 4.0) else 0)
         add_b("P/S Ratio", ps, pts, 10, True)
 
         f_peg = clean_ratio(metrics.get('peg_ratio'))
-        pts = 10 if (f_peg > 0 and f_peg < 1.2) else (5 if (f_peg > 0 and f_peg <= 2.0) else 0)
+        pts = 10 if (f_peg > 0 and f_peg < 1.0) else (5 if (f_peg > 0 and f_peg <= 1.5) else 0)
         add_b("PEG Ratio", f_peg, pts, 10, True)
 
     return {
@@ -297,19 +301,13 @@ def calculate_piotroski_score(metrics):
     if roa_cur is not None and abs(roa_cur) > 1.5: roa_cur /= 100.0
 
     # F2 Metrics
-    cfo_cur = safe_float(metrics.get("operating_cash_flow") or metrics.get("operating_cashflow"))
+    cfo_cur = safe_float(metrics.get("operating_cash_flow"))
     fcf_cur = safe_float(metrics.get("fcf"))
-
     
     # F3 Metrics
     # Use Net Margin from anchors as ROA proxy if ROA missing for delta
-    # v127: Robust extraction of both Adjusted and Forensic GAAP margins
-    anchor_cur_margin = anchor_cur.get("net_margin") or anchor_cur.get("gaap_net_margin") or anchor_cur.get("net_margin_pct")
-    anchor_pri_margin = anchor_pri.get("net_margin") or anchor_pri.get("gaap_net_margin") or anchor_pri.get("net_margin_pct")
-    
-    nm_cur = safe_float(anchor_cur_margin)
-    nm_pri = safe_float(anchor_pri_margin)
-    
+    nm_cur = pct_from_str(anchor_cur.get("net_margin_pct"))
+    nm_pri = pct_from_str(anchor_pri.get("net_margin_pct"))
     roa_pri = safe_float(anchor_pri.get("roa")) or nm_pri # Fallback to Net Margin proxy
     roa_cur_final = roa_cur if roa_cur is not None else nm_cur
     
