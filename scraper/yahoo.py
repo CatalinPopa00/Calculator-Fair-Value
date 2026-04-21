@@ -2671,6 +2671,9 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             ticker_symbol = stock.upper()
             stock = yf.Ticker(ticker_symbol)
             
+        if history_eps is None: history_eps = {}
+        if history_rev is None: history_rev = {}
+            
         if not ticker_symbol and hasattr(stock, 'ticker'):
             ticker_symbol = stock.ticker
             
@@ -3072,9 +3075,17 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
                     
                     scaled_avg = val_unscaled * fx_rate if val_unscaled is not None else None
                     
-                    # Recalculate growth vs Non-GAAP historical base
-                    recalc_growth = None
-                    if scaled_avg and scaled_avg > 0 and base_eps and base_eps > 0:
+                    native_growth = row.get('growth') if hasattr(row, 'get') else None
+                    if native_growth is not None and not pd.isna(native_growth):
+                        try:
+                            recalc_growth = float(native_growth)
+                        except:
+                            recalc_growth = None
+                    else:
+                        recalc_growth = None
+                    
+                    # Recalculate vs Non-GAAP historical base ONLY for annual periods
+                    if 'y' in p_key and scaled_avg and scaled_avg > 0 and base_eps and base_eps > 0:
                         recalc_growth = (scaled_avg - base_eps) / base_eps
                     
                     # Intelligent Merge / Deduplication
