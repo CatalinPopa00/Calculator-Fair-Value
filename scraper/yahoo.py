@@ -615,13 +615,23 @@ def fetch_latest_news_v2(ticker_symbol: str) -> list:
         if news and len(news) > 0:
             results = []
             for item in news[:4]:  # Top 4 news items
-                title = item.get('title', 'N/A')
-                publisher = item.get('publisher', 'N/A')
+                # yfinance news uses a nested 'content' structure
+                content = item.get('content', item) if isinstance(item, dict) else {}
+                title = content.get('title', 'N/A')
+                provider = content.get('provider', {})
+                publisher = provider.get('displayName', 'N/A') if isinstance(provider, dict) else str(provider)
+                
+                # Fallback to older yfinance schema if needed
+                if title == 'N/A' and item.get('title'):
+                    title = item.get('title', 'N/A')
+                    publisher = item.get('publisher', 'N/A')
+                    
                 results.append(f"{title} (Source: {publisher})")
             return results
     except Exception as e:
         print(f"Error fetching news for {ticker_symbol}: {e}")
     return ["No significant recent news available (last 24-48h)."]
+
 
 def get_company_synthesis(ticker: str, info: dict) -> str:
     """

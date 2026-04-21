@@ -1,0 +1,773 @@
+[
+  {
+    "id": "916c1ece-c099-48a1-a977-9935eceaebfe",
+    "content": {
+      "id": "916c1ece-c099-48a1-a977-9935eceaebfe",
+      "contentType": "STORY",
+      "title": "Apple CEO Tim Cook steps down: 7 big challenges for new CEO John Ternus",
+      "description": "",
+      "summary": "Apple's incoming new CEO John Ternus has a long list of to-dos early on.",
+      "pubDate": "2026-04-20T23:37:30Z",
+      "displayTime": "2026-04-21T08:36:41Z",
+      "isHosted": true,
+      "bypassModal": false,
+      "previewUrl": null,
+      "thumbnail": {
+        "originalUrl": "https://s.yimg.com/os/creatr-uploaded-images/2026-04/9459def0-3d03-11f1-bfff-954e8ad27b6e",
+        "originalWidth": 4181,
+        "originalHeight": 3064,
+        "caption": "",
+        "resolutions": [
+          {
+            "url": "https://s.yimg.com/uu/api/res/1.2/N5VFvVZMkAHKcp1_nVcP8Q--~B/aD0zMDY0O3c9NDE4MTthcHBpZD15dGFjaHlvbg--/https://s.yimg.com/os/creatr-uploaded-images/2026-04/9459def0-3d03-11f1-bfff-954e8ad27b6e",
+            "width": 4181,
+            "height": 3064,
+            "tag": "original"
+          },
+          {
+            "url": "https://s.yimg.com/uu/api/res/1.2/o3Hlhc0B52Stab9AWy.wHQ--~B/Zmk9c3RyaW07aD0xMjg7dz0xNzA7YXBwaWQ9eXRhY2h5b24-/https://s.yimg.com/os/creatr-uploaded-images/2026-04/9459def0-3d03-11f1-bfff-954e8ad27b6e",
+            "width": 170,
+            "height": 128,
+            "tag": "170x128"
+          }
+        ]
+      },
+      "provider": {
+        "displayName": "Yahoo Finance",
+        "url": "http://finance.yahoo.com/",
+        "sourceId": "yahoofinance.com"
+      },
+      "canonicalUrl": {
+        "url": "https://finance.yahoo.com/news/apple-ceo-tim-cook-steps-down-7-big-challenges-for-new-ceo-john-ternus-233730971.html",
+        "site": "finance",
+        "region": "US",
+        "lang": "en-US"
+      },
+      "clickThroughUrl": {
+        "url": "https://finance.yahoo.com/news/apple-ceo-tim-cook-steps-down-7-big-challenges-for-new-ceo-john-ternus-233730971.html",
+        "site": "finance",
+        "region": "US",
+        "lang": "en-US"
+      },
+      "metadata": {
+        "editorsPick": true
+      },
+      "finance": {
+        "premiumFinance": {
+          "isPremiumNews": false,
+          "isPremiumFreeNews": false
+        }
+      },
+      "storyline": {
+        "storylineItems": [
+          {
+            "content": {
+              "id": "308f44af-33c1-48ea-b12c-c9572cd19d50",
+              "contentType": "STORY",
+              "isHosted": true,
+              "title": "Tech stocks today: Apple stock slips after CEO Tim Cook announces he will step down",
+              "thumbnail": {
+                "originalUrl": "https://s.yimg.com/os/creatr-uploaded-images/2026-02/6e988e60-1327-11f1-bfff-079b15344ad1",
+                "originalWidth": 6000,
+                "originalHeight": 4000,
+                "caption": "",
+                "resolutions": null
+              },
+              "provider": {
+                "displayName": "Yahoo Finance",
+                "sourceId": "yahoofinance.com"
+              },
+              "previewUrl": null,
+              "providerContentUrl": "",
+              "canonicalUrl": {
+                "url": "https://finance.yahoo.com/sectors/technology/live/tech-stocks-today-apple-stock-slips-after-ceo-tim-cook-announces-he-will-step-down-144220058.html"
+              },
+              "clickThroughUrl": {
+                "url": "https://finance.yahoo.com/sectors/technology/live/tech-stocks-today-apple-stock-slips-after-ceo-tim-cook-announces-he-will-step-down-144220058.html"
+              }
+            }
+          },
+          {
+            "content": {
+              "id": "e3ea0a39-72f6-4f56-a849-3da882b4c2f2",
+              "contentType": "STORY",
+              "isHosted": true,
+              "title": "Everything we know about Apple's new CEO John Ternus",
+              "thumbnail": {
+                "originalUrl": "https://s.yimg.com/os/creatr-uploaded-images/2025-10/b42416c0-a423-11f0-979b-b9994ea8fc95",
+                "originalWidth": 3408,
+                "originalHeight": 2232,
+                "caption": "",
+                "resolutions": null
+              },
+              "provider": {
+                "displayName": "Yahoo Finance",
+                "sourceId": "yahoofinance.com"
+              },
+              "previewUrl": null,
+              "providerContentUrl": "",
+              "canonicalUrl": {
+                "url": "https://finance.yahoo.com/markets/stocks/article/everything-we-know-about-apples-new-ceo-john-ternus-000314167.html"
+              },
+              "clickThroughUrl": {
+                "url": "https://finance.yahoo.com/markets/stocks/article/everything-we-know-about-apples-new-ceo-john-ternus-000314167.html"
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "5f2f7e97-1e55-43cc-946a-4d3825814099",
+    "content": {
+      "id": "5f2f7e97-1e55-43cc-946a-4d3825814099",
+      "contentType": "STORY",
+      "title": "Tim Cook is stepping down as Apple's CEO. Investors are $4 trillion richer because of him.",
+      "description": "",
+      "summary": "Tim Cook turned Apple into a $4 trillion behemoth during its 15 years as CEO.",
+      "pubDate": "2026-04-20T23:03:25Z",
+      "displayTime": "2026-04-20T23:03:25Z",
+      "isHosted": true,
+      "bypassModal": false,
+      "previewUrl": null,
+      "thumbnail": {
+        "originalUrl": "https://s.yimg.com/uu/api/res/1.2/c.RebIZ96Vin_0Wa21TgGg--~B/aD0zMzA2O3c9NDk1OTthcHBpZD15dGFjaHlvbg--/https://d29szjachogqwa.cloudfront.net/images/2026-04/9379ea09-0861-4dfb-be70-2f197b10972d",
+        "originalWidth": 4959,
+        "originalHeight": 3306,
+        "caption": "",
+        "resolutions": [
+          {
+            "url": "https://s.yimg.com/uu/api/res/1.2/c.RebIZ96Vin_0Wa21TgGg--~B/aD0zMzA2O3c9NDk1OTthcHBpZD15dGFjaHlvbg--/https://d29szjachogqwa.cloudfront.net/images/2026-04/9379ea09-0861-4dfb-be70-2f197b10972d",
+            "width": 4959,
+            "height": 3306,
+            "tag": "original"
+          },
+          {
+            "url": "https://s.yimg.com/uu/api/res/1.2/IKf_Mq558HIcc9lCIhnHnA--~B/Zmk9c3RyaW07aD0xMjg7dz0xNzA7YXBwaWQ9eXRhY2h5b24-/https://d29szjachogqwa.cloudfront.net/images/2026-04/9379ea09-0861-4dfb-be70-2f197b10972d",
+            "width": 170,
+            "height": 128,
+            "tag": "170x128"
+          }
+        ]
+      },
+      "provider": {
+        "displayName": "Yahoo Finance",
+        "url": "http://finance.yahoo.com/",
+        "sourceId": "yahoofinance.com"
+      },
+      "canonicalUrl": {
+        "url": "https://finance.yahoo.com/markets/stocks/article/tim-cook-is-stepping-down-as-apples-ceo-investors-are-4-trillion-richer-because-of-him-230325543.html",
+        "site": "finance",
+        "region": "US",
+        "lang": "en-US"
+      },
+      "clickThroughUrl": {
+        "url": "https://finance.yahoo.com/markets/stocks/article/tim-cook-is-stepping-down-as-apples-ceo-investors-are-4-trillion-richer-because-of-him-230325543.html",
+        "site": "finance",
+        "region": "US",
+        "lang": "en-US"
+      },
+      "metadata": {
+        "editorsPick": true
+      },
+      "finance": {
+        "premiumFinance": {
+          "isPremiumNews": false,
+          "isPremiumFreeNews": false
+        }
+      },
+      "storyline": {
+        "storylineItems": [
+          {
+            "content": {
+              "id": "1930cf34-cc89-4476-acb1-1ef4def47fa0",
+              "contentType": "STORY",
+              "isHosted": true,
+              "title": "Apple CEO Tim Cook stepping down, to be succeeded by John Ternus",
+              "thumbnail": {
+                "originalUrl": "https://s.yimg.com/os/creatr-uploaded-images/2025-09/d033dbf0-8dd7-11f0-9bef-725073505e74",
+                "originalWidth": 3469,
+                "originalHeight": 2421,
+                "caption": "",
+                "resolutions": null
+              },
+              "provider": {
+                "displayName": "Yahoo Finance",
+                "sourceId": "yahoofinance.com"
+              },
+              "previewUrl": null,
+              "providerContentUrl": "",
+              "canonicalUrl": {
+                "url": "https://finance.yahoo.com/markets/stocks/article/apple-ceo-tim-cook-stepping-down-to-be-succeeded-by-john-ternus-204237479.html"
+              },
+              "clickThroughUrl": {
+                "url": "https://finance.yahoo.com/markets/stocks/article/apple-ceo-tim-cook-stepping-down-to-be-succeeded-by-john-ternus-204237479.html"
+              }
+            }
+          },
+          {
+            "content": {
+              "id": "20d2a6e3-1cd7-4b0a-9c61-864ba7566bac",
+              "contentType": "VIDEO",
+              "isHosted": true,
+              "title": "John Ternus to become the next CEO of Apple",
+              "thumbnail": {
+                "originalUrl": "https://s.yimg.com/uu/api/res/1.2/xLRanqKCxAtsyloSUQYCmg--~B/aD0xMDgwO3c9MTkyMDthcHBpZD15dGFjaHlvbg--/https://d29szjachogqwa.cloudfront.net/images/user-uploaded/ternus_8379.png",
+                "originalWidth": 1920,
+                "originalHeight": 1080,
+                "caption": "",
+                "resolutions": null
+              },
+              "provider": {
+                "displayName": "Yahoo Finance Video",
+                "sourceId": "video.yahoofinance.com"
+              },
+              "previewUrl": null,
+              "providerContentUrl": "",
+              "canonicalUrl": {
+                "url": "https://finance.yahoo.com/video/john-ternus-to-become-the-next-ceo-of-apple-212806865.html"
+              },
+              "clickThroughUrl": {
+                "url": "https://finance.yahoo.com/video/john-ternus-to-become-the-next-ceo-of-apple-212806865.html"
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "1e16d51d-2987-45b0-9f53-fa4f84d67514",
+    "content": {
+      "id": "1e16d51d-2987-45b0-9f53-fa4f84d67514",
+      "contentType": "VIDEO",
+      "title": "Apple CEO Tim Cook to step down, John Ternus named successor",
+      "description": "<p>Ross Gerber, Gerber Kawasaki Wealth & Investment Management comments on Tim Cook stepping down as Apple CEO on September 1, 2026, to become Executive Chairman, passing the torch to Hardware VP John Ternus to lead the company's next era of AI and innovation. </p>",
+      "summary": "Ross Gerber, Gerber Kawasaki Wealth & Investment Management comments on Tim Cook stepping down as Apple CEO on September 1, 2026, to become Executive Chairman, passing the torch to Hardware VP John Ternus to lead the company's next era of AI and innovation.",
+      "pubDate": "2026-04-20T21:07:05Z",
+      "displayTime": "",
+      "isHosted": true,
+      "bypassModal": false,
+      "previewUrl": null,
+      "thumbnail": {
+        "originalUrl": "https://s.yimg.com/uu/api/res/1.2/IFjR5PFmnwWTVliLsi9rpQ--~B/aD0xMDgwO3c9MTkyMDthcHBpZD15dGFjaHlvbg--/https://d29szjachogqwa.cloudfront.net/images/user-uploaded/cookternus_6904.png",
+        "originalWidth": 1920,
+        "originalHeight": 1080,
+        "caption": "",
+        "resolutions": [
+          {
+            "url": "https://s.yimg.com/uu/api/res/1.2/IFjR5PFmnwWTVliLsi9rpQ--~B/aD0xMDgwO3c9MTkyMDthcHBpZD15dGFjaHlvbg--/https://d29szjachogqwa.cloudfront.net/images/user-uploaded/cookternus_6904.png",
+            "width": 1920,
+            "height": 1080,
+            "tag": "original"
+          },
+          {
+            "url": "https://s.yimg.com/uu/api/res/1.2/off0Yb.m4jP1ND4EeQN7fg--~B/Zmk9c3RyaW07aD0xMjg7dz0xNzA7YXBwaWQ9eXRhY2h5b24-/https://d29szjachogqwa.cloudfront.net/images/user-uploaded/cookternus_6904.png",
+            "width": 170,
+            "height": 128,
+            "tag": "170x128"
+          }
+        ]
+      },
+      "provider": {
+        "displayName": "Yahoo Finance Video",
+        "url": "https://finance.yahoo.com/",
+        "sourceId": "video.yahoofinance.com"
+      },
+      "canonicalUrl": {
+        "url": "https://finance.yahoo.com/video/apple-ceo-tim-cook-to-step-down-john-ternus-named-successor-210705923.html",
+        "site": "finance",
+        "region": "US",
+        "lang": "en-US"
+      },
+      "clickThroughUrl": {
+        "url": "https://finance.yahoo.com/video/apple-ceo-tim-cook-to-step-down-john-ternus-named-successor-210705923.html",
+        "site": "finance",
+        "region": "US",
+        "lang": "en-US"
+      },
+      "metadata": {
+        "editorsPick": true
+      },
+      "finance": {
+        "premiumFinance": {
+          "isPremiumNews": false,
+          "isPremiumFreeNews": false
+        }
+      },
+      "storyline": {
+        "storylineItems": [
+          {
+            "content": {
+              "id": "6ca166d7-69a4-415e-8b0b-dca0e17a6a1b",
+              "contentType": "STORY",
+              "isHosted": true,
+              "title": "Tesla is last in the 'Magnificent 7' rally \u2014 and the first tech giant to report earnings: Chart of the Day",
+              "thumbnail": {
+                "originalUrl": "https://s.yimg.com/uu/api/res/1.2/KAZBn6nKccmxC1CoHbZp3g--~B/aD0yNjY2O3c9NDAwMDthcHBpZD15dGFjaHlvbg--/https://d29szjachogqwa.cloudfront.net/images/2026-04/01d4b167-8a2f-43ca-a211-7e8f0fbac292",
+                "originalWidth": 4000,
+                "originalHeight": 2666,
+                "caption": "",
+                "resolutions": null
+              },
+              "provider": {
+                "displayName": "Yahoo Finance",
+                "sourceId": "yahoofinance.com"
+              },
+              "previewUrl": null,
+              "providerContentUrl": "",
+              "canonicalUrl": {
+                "url": "https://finance.yahoo.com/markets/article/tesla-is-last-in-the-magnificent-7-rally--and-the-first-tech-giant-to-report-earnings-chart-of-the-day-173248863.html"
+              },
+              "clickThroughUrl": {
+                "url": "https://finance.yahoo.com/markets/article/tesla-is-last-in-the-magnificent-7-rally--and-the-first-tech-giant-to-report-earnings-chart-of-the-day-173248863.html"
+              }
+            }
+          },
+          {
+            "content": {
+              "id": "a6412659-4d41-447c-a5c6-9baa2354916d",
+              "contentType": "STORY",
+              "isHosted": true,
+              "title": "2 charts show why Magnificent 7 stocks are being loved again",
+              "thumbnail": {
+                "originalUrl": "https://s.yimg.com/os/creatr-uploaded-images/2026-04/134c9320-3cc7-11f1-bfd7-d34848931aa2",
+                "originalWidth": 4906,
+                "originalHeight": 3270,
+                "caption": "",
+                "resolutions": null
+              },
+              "provider": {
+                "displayName": "Yahoo Finance",
+                "sourceId": "yahoofinance.com"
+              },
+              "previewUrl": null,
+              "providerContentUrl": "",
+              "canonicalUrl": {
+                "url": "https://finance.yahoo.com/news/2-charts-show-why-magnificent-7-stocks-are-being-loved-again-151105348.html"
+              },
+              "clickThroughUrl": {
+                "url": "https://finance.yahoo.com/news/2-charts-show-why-magnificent-7-stocks-are-being-loved-again-151105348.html"
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "9efdc5ae-331e-3cb1-9882-aa2be3982d22",
+    "content": {
+      "id": "9efdc5ae-331e-3cb1-9882-aa2be3982d22",
+      "contentType": "STORY",
+      "title": "Stocks to Watch: Apple, Amazon, SJ Semiconductor, UnitedHealth",
+      "description": "",
+      "summary": "\u2198\ufe0f Apple (AAPL): The stock fell almost 1% in premarket trading after the company said CEO Tim Cook would step down and named John Ternus, the head of its hardware division, as his successor. \u2197\ufe0f Amazon (AMZN): Amazon said it would invest another $5 billion in Anthropic, and that its total investment could reach as high as $25 billion.",
+      "pubDate": "2026-04-21T09:36:54Z",
+      "displayTime": "2026-04-21T09:36:54Z",
+      "isHosted": false,
+      "bypassModal": false,
+      "previewUrl": "https://finance.yahoo.com/m/9efdc5ae-331e-3cb1-9882-aa2be3982d22/stocks-to-watch-apple-.html",
+      "thumbnail": {
+        "originalUrl": "https://media.zenfs.com/en/wsj.com/7b2c285183be07ca3c4e8242b25a59a8",
+        "originalWidth": 1200,
+        "originalHeight": 630,
+        "caption": "",
+        "resolutions": [
+          {
+            "url": "https://s.yimg.com/uu/api/res/1.2/Fwf5HL4GsEGPbDfR3MJBPg--~B/aD02MzA7dz0xMjAwO2FwcGlkPXl0YWNoeW9u/https://media.zenfs.com/en/wsj.com/7b2c285183be07ca3c4e8242b25a59a8",
+            "width": 1200,
+            "height": 630,
+            "tag": "original"
+          },
+          {
+            "url": "https://s.yimg.com/uu/api/res/1.2/c34MZxHLZOfDYN2BBjM9ww--~B/Zmk9c3RyaW07aD0xMjg7dz0xNzA7YXBwaWQ9eXRhY2h5b24-/https://media.zenfs.com/en/wsj.com/7b2c285183be07ca3c4e8242b25a59a8",
+            "width": 170,
+            "height": 128,
+            "tag": "170x128"
+          }
+        ]
+      },
+      "provider": {
+        "displayName": "The Wall Street Journal",
+        "url": "http://www.wsj.com/",
+        "sourceId": "wsj.com"
+      },
+      "canonicalUrl": {
+        "url": "https://www.wsj.com/livecoverage/kevin-warsh-fed-hearing-stock-market/card/stocks-to-watch-apple-amazon-sj-semiconductor-unitedhealth-ZnaADQfo4xAb7K8W41QB?siteid=yhoof2&yptr=yahoo",
+        "site": "finance",
+        "region": "US",
+        "lang": "en-US"
+      },
+      "clickThroughUrl": null,
+      "metadata": {
+        "editorsPick": false
+      },
+      "finance": {
+        "premiumFinance": {
+          "isPremiumNews": false,
+          "isPremiumFreeNews": false
+        }
+      },
+      "storyline": null
+    }
+  },
+  {
+    "id": "ddd9d94f-13f3-3bcc-b952-70af722984b8",
+    "content": {
+      "id": "ddd9d94f-13f3-3bcc-b952-70af722984b8",
+      "contentType": "VIDEO",
+      "title": "Apple CEO Tim Cook on What Advice He\u2019d Give His Successor",
+      "description": "During an interview with the Wall Street Journal in March for Apple's 50th anniversary, CEO Tim Cook said the company's next leader will need to 'keep a firm north star.'",
+      "summary": "During an interview with the Wall Street Journal in March for Apple's 50th anniversary, CEO Tim Cook said the company's next leader will need to 'keep a firm north star.'",
+      "pubDate": "2026-04-21T09:30:00Z",
+      "displayTime": "",
+      "isHosted": true,
+      "bypassModal": false,
+      "previewUrl": null,
+      "thumbnail": {
+        "originalUrl": "https://media.zenfs.com/en/wall_street_journal_733/f6a1603ddf0d3d344da5c5cc150223dd",
+        "originalWidth": 1280,
+        "originalHeight": 720,
+        "caption": "",
+        "resolutions": [
+          {
+            "url": "https://s.yimg.com/uu/api/res/1.2/xHgepB9at19DnAExAG_IOw--~B/aD03MjA7dz0xMjgwO2FwcGlkPXl0YWNoeW9u/https://media.zenfs.com/en/wall_street_journal_733/f6a1603ddf0d3d344da5c5cc150223dd",
+            "width": 1280,
+            "height": 720,
+            "tag": "original"
+          },
+          {
+            "url": "https://s.yimg.com/uu/api/res/1.2/u6z0cpMCw5vfuHFLj0wwuw--~B/Zmk9c3RyaW07aD0xMjg7dz0xNzA7YXBwaWQ9eXRhY2h5b24-/https://media.zenfs.com/en/wall_street_journal_733/f6a1603ddf0d3d344da5c5cc150223dd",
+            "width": 170,
+            "height": 128,
+            "tag": "170x128"
+          }
+        ]
+      },
+      "provider": {
+        "displayName": "WSJ",
+        "url": "https://www.wsj.com/",
+        "sourceId": "wall_street_journal_733"
+      },
+      "canonicalUrl": {
+        "url": "https://finance.yahoo.com/video/apple-ceo-tim-cook-advice-093000860.html",
+        "site": "finance",
+        "region": "US",
+        "lang": "en-US"
+      },
+      "clickThroughUrl": {
+        "url": "https://finance.yahoo.com/video/apple-ceo-tim-cook-advice-093000860.html",
+        "site": "finance",
+        "region": "US",
+        "lang": "en-US"
+      },
+      "metadata": {
+        "editorsPick": false
+      },
+      "finance": {
+        "premiumFinance": {
+          "isPremiumNews": false,
+          "isPremiumFreeNews": false
+        }
+      },
+      "storyline": null
+    }
+  },
+  {
+    "id": "2bb59e85-ad8c-36fb-9ff0-c9e9e7483c48",
+    "content": {
+      "id": "2bb59e85-ad8c-36fb-9ff0-c9e9e7483c48",
+      "contentType": "STORY",
+      "title": "How Apple Stock Has Fared Under Tim Cook",
+      "description": "",
+      "summary": "Apple stock has been an all-star performer during Tim Cook's career as CEO, but it hasn't been the MVP.  Shares of the tech giant have risen more than 1,900% since Cook was named chief executive on Aug. 24, 2011, according to Dow Jones Market Data.  Apple announced yesterday that John Ternus would succeed Cook as CEO, effective Sept. 1, with Cook becoming executive chairman.",
+      "pubDate": "2026-04-21T08:59:21Z",
+      "displayTime": "2026-04-21T08:59:21Z",
+      "isHosted": false,
+      "bypassModal": false,
+      "previewUrl": "https://finance.yahoo.com/m/2bb59e85-ad8c-36fb-9ff0-c9e9e7483c48/how-apple-stock-has-fared.html",
+      "thumbnail": {
+        "originalUrl": "https://media.zenfs.com/en/wsj.com/7b2c285183be07ca3c4e8242b25a59a8",
+        "originalWidth": 1200,
+        "originalHeight": 630,
+        "caption": "",
+        "resolutions": [
+          {
+            "url": "https://s.yimg.com/uu/api/res/1.2/Fwf5HL4GsEGPbDfR3MJBPg--~B/aD02MzA7dz0xMjAwO2FwcGlkPXl0YWNoeW9u/https://media.zenfs.com/en/wsj.com/7b2c285183be07ca3c4e8242b25a59a8",
+            "width": 1200,
+            "height": 630,
+            "tag": "original"
+          },
+          {
+            "url": "https://s.yimg.com/uu/api/res/1.2/c34MZxHLZOfDYN2BBjM9ww--~B/Zmk9c3RyaW07aD0xMjg7dz0xNzA7YXBwaWQ9eXRhY2h5b24-/https://media.zenfs.com/en/wsj.com/7b2c285183be07ca3c4e8242b25a59a8",
+            "width": 170,
+            "height": 128,
+            "tag": "170x128"
+          }
+        ]
+      },
+      "provider": {
+        "displayName": "The Wall Street Journal",
+        "url": "http://www.wsj.com/",
+        "sourceId": "wsj.com"
+      },
+      "canonicalUrl": {
+        "url": "https://www.wsj.com/livecoverage/kevin-warsh-fed-hearing-stock-market/card/how-apple-stock-has-fared-under-tim-cook-YtgsumgIsKg5CCGhStLf?siteid=yhoof2&yptr=yahoo",
+        "site": "finance",
+        "region": "US",
+        "lang": "en-US"
+      },
+      "clickThroughUrl": null,
+      "metadata": {
+        "editorsPick": false
+      },
+      "finance": {
+        "premiumFinance": {
+          "isPremiumNews": false,
+          "isPremiumFreeNews": false
+        }
+      },
+      "storyline": null
+    }
+  },
+  {
+    "id": "f0bb1a0a-ac0e-3d2d-8e50-8afa2c3e8a29",
+    "content": {
+      "id": "f0bb1a0a-ac0e-3d2d-8e50-8afa2c3e8a29",
+      "contentType": "STORY",
+      "title": "Apple's Tim Cook to step down as CEO after 15-year run",
+      "description": "",
+      "summary": "Apple's Tim Cook will step down as the California tech giant's chief executive this year,\u00a0handing the top job to a company veteran as it navigates a technology landscape being upended by AI.\nThe 65-year-old Cook, who ran Apple for 15 years after taking the reins from its visionary co-founder Steve Jobs, will be succeeded by John Ternus, a senior vice president of hardware engineering.While Cook has guided Apple into new categories like watches and AirPods, he is not known for the kind of \"big th",
+      "pubDate": "2026-04-21T08:53:57Z",
+      "displayTime": "2026-04-21T08:53:57Z",
+      "isHosted": true,
+      "bypassModal": false,
+      "previewUrl": null,
+      "thumbnail": {
+        "originalUrl": "https://media.zenfs.com/en/afp.com/ab2290e2a683af28ee4e32ee08c8cf2c",
+        "originalWidth": 768,
+        "originalHeight": 511,
+        "caption": "Tim Cook, left, says leading Apple has been 'the greatest privilege of my life' (Theo Wargo)",
+        "resolutions": [
+          {
+            "url": "https://s.yimg.com/uu/api/res/1.2/8RFAboKAPBb8fUopfuFwuA--~B/aD01MTE7dz03Njg7YXBwaWQ9eXRhY2h5b24-/https://media.zenfs.com/en/afp.com/ab2290e2a683af28ee4e32ee08c8cf2c",
+            "width": 768,
+            "height": 511,
+            "tag": "original"
+          },
+          {
+            "url": "https://s.yimg.com/uu/api/res/1.2/OphfH.TZq3zxzQ8890f0ag--~B/Zmk9c3RyaW07aD0xMjg7dz0xNzA7YXBwaWQ9eXRhY2h5b24-/https://media.zenfs.com/en/afp.com/ab2290e2a683af28ee4e32ee08c8cf2c",
+            "width": 170,
+            "height": 128,
+            "tag": "170x128"
+          }
+        ]
+      },
+      "provider": {
+        "displayName": "AFP",
+        "url": "http://www.afp.com/",
+        "sourceId": "afp.com"
+      },
+      "canonicalUrl": {
+        "url": "https://finance.yahoo.com/markets/stocks/articles/apples-tim-cook-step-down-215542752.html",
+        "site": "finance",
+        "region": "US",
+        "lang": "en-US"
+      },
+      "clickThroughUrl": {
+        "url": "https://finance.yahoo.com/markets/stocks/articles/apples-tim-cook-step-down-215542752.html",
+        "site": "finance",
+        "region": "US",
+        "lang": "en-US"
+      },
+      "metadata": {
+        "editorsPick": false
+      },
+      "finance": {
+        "premiumFinance": {
+          "isPremiumNews": false,
+          "isPremiumFreeNews": false
+        }
+      },
+      "storyline": null
+    }
+  },
+  {
+    "id": "f12c7d2e-52dd-3d86-a590-531c4c24786d",
+    "content": {
+      "id": "f12c7d2e-52dd-3d86-a590-531c4c24786d",
+      "contentType": "STORY",
+      "title": "Apple\u2019s Tim Cook Is Stepping Down as CEO",
+      "description": "",
+      "summary": "Apple  announced on Monday night that Tim Cook will be stepping down as CEO.  The company said in a news release that Cook will be exiting his position as chief executive officer of the tech giant effective Sept. 1.  Cook, 65, will become executive chairman of  Apple\u2019s  board of directors and John Ternus, currently Apple\u2019s senior vice president of hardware engineering, will become the new CEO.",
+      "pubDate": "2026-04-21T08:14:00Z",
+      "displayTime": "2026-04-21T08:14:00Z",
+      "isHosted": false,
+      "bypassModal": false,
+      "previewUrl": "https://finance.yahoo.com/m/f12c7d2e-52dd-3d86-a590-531c4c24786d/apple%E2%80%99s-tim-cook-is-stepping.html",
+      "thumbnail": {
+        "originalUrl": "https://media.zenfs.com/en/Barrons.com/4a799face9575b7b92d064ac258f4514",
+        "originalWidth": 1280,
+        "originalHeight": 640,
+        "caption": "",
+        "resolutions": [
+          {
+            "url": "https://s.yimg.com/uu/api/res/1.2/Q7a5CRMJDTphetW0wy4p2Q--~B/aD02NDA7dz0xMjgwO2FwcGlkPXl0YWNoeW9u/https://media.zenfs.com/en/Barrons.com/4a799face9575b7b92d064ac258f4514",
+            "width": 1280,
+            "height": 640,
+            "tag": "original"
+          },
+          {
+            "url": "https://s.yimg.com/uu/api/res/1.2/aDN0Sa.2pCIFKkc6mxHQRw--~B/Zmk9c3RyaW07aD0xMjg7dz0xNzA7YXBwaWQ9eXRhY2h5b24-/https://media.zenfs.com/en/Barrons.com/4a799face9575b7b92d064ac258f4514",
+            "width": 170,
+            "height": 128,
+            "tag": "170x128"
+          }
+        ]
+      },
+      "provider": {
+        "displayName": "Barrons.com",
+        "url": "http://www.barrons.com/",
+        "sourceId": "Barrons.com"
+      },
+      "canonicalUrl": {
+        "url": "https://www.barrons.com/articles/apple-tim-cook-ceo-john-ternus-b7ce2a89?siteid=yhoof2&yptr=yahoo",
+        "site": "finance",
+        "region": "US",
+        "lang": "en-US"
+      },
+      "clickThroughUrl": null,
+      "metadata": {
+        "editorsPick": false
+      },
+      "finance": {
+        "premiumFinance": {
+          "isPremiumNews": false,
+          "isPremiumFreeNews": false
+        }
+      },
+      "storyline": null
+    }
+  },
+  {
+    "id": "824dab60-7f66-3b8d-ab94-6ff025290dd4",
+    "content": {
+      "id": "824dab60-7f66-3b8d-ab94-6ff025290dd4",
+      "contentType": "STORY",
+      "title": "Apple CEO Cook Plans His Departure. The Tech Giant He Leaves Behind Won\u2019t Be the Same.",
+      "description": "",
+      "summary": "Apple was worth around $300 million when he became CEO. It\u2019s worth more than $4 trillion today, thanks to the consumer tech ecosystem Cook established, and the recurring revenues from the iPhone.",
+      "pubDate": "2026-04-21T08:13:00Z",
+      "displayTime": "2026-04-21T08:13:00Z",
+      "isHosted": false,
+      "bypassModal": false,
+      "previewUrl": "https://finance.yahoo.com/m/824dab60-7f66-3b8d-ab94-6ff025290dd4/apple-ceo-cook-plans-his.html",
+      "thumbnail": {
+        "originalUrl": "https://media.zenfs.com/en/Barrons.com/7c946666443d98ef333962599897f36d",
+        "originalWidth": 1280,
+        "originalHeight": 640,
+        "caption": "",
+        "resolutions": [
+          {
+            "url": "https://s.yimg.com/uu/api/res/1.2/N8gmlm4tMv8_.0v3dx9MSw--~B/aD02NDA7dz0xMjgwO2FwcGlkPXl0YWNoeW9u/https://media.zenfs.com/en/Barrons.com/7c946666443d98ef333962599897f36d",
+            "width": 1280,
+            "height": 640,
+            "tag": "original"
+          },
+          {
+            "url": "https://s.yimg.com/uu/api/res/1.2/WErs2g6LJmtuOyQuDrHDyg--~B/Zmk9c3RyaW07aD0xMjg7dz0xNzA7YXBwaWQ9eXRhY2h5b24-/https://media.zenfs.com/en/Barrons.com/7c946666443d98ef333962599897f36d",
+            "width": 170,
+            "height": 128,
+            "tag": "170x128"
+          }
+        ]
+      },
+      "provider": {
+        "displayName": "Barrons.com",
+        "url": "http://www.barrons.com/",
+        "sourceId": "Barrons.com"
+      },
+      "canonicalUrl": {
+        "url": "https://www.barrons.com/articles/apple-ceo-cook-ternus-ai-47be50fe?siteid=yhoof2&yptr=yahoo",
+        "site": "finance",
+        "region": "US",
+        "lang": "en-US"
+      },
+      "clickThroughUrl": null,
+      "metadata": {
+        "editorsPick": false
+      },
+      "finance": {
+        "premiumFinance": {
+          "isPremiumNews": false,
+          "isPremiumFreeNews": false
+        }
+      },
+      "storyline": null
+    }
+  },
+  {
+    "id": "179aaa5c-4fa1-3081-ab88-7645b0825153",
+    "content": {
+      "id": "179aaa5c-4fa1-3081-ab88-7645b0825153",
+      "contentType": "STORY",
+      "title": "Apple CEO Tim Cook\u2019s 15-Year Legacy by the Numbers",
+      "description": "",
+      "summary": "(Bloomberg) -- Fifteen years after succeeding Steve Jobs, Tim Cook is handing over the top leadership position at Apple Inc. to hardware specialist John Ternus. The outgoing chief executive officer, who\u2019ll stay on as executive chairman, built up an unprecedented record of success over his tenure. Here are some of the numerical highlights.Most Read from BloombergKuwait Declares Further Force Majeure on Oil ShipmentsTrump Aims to Seal Iran Deal, Says Truce Extension UnlikelyCruise Ships Seized Bri",
+      "pubDate": "2026-04-21T07:44:04Z",
+      "displayTime": "2026-04-21T07:44:04Z",
+      "isHosted": true,
+      "bypassModal": false,
+      "previewUrl": null,
+      "thumbnail": {
+        "originalUrl": "https://media.zenfs.com/en/bloomberg_holding_pen_162/92541c4236d4155ff13caa2b10e5ecdf",
+        "originalWidth": 2010,
+        "originalHeight": 1392,
+        "caption": "",
+        "resolutions": [
+          {
+            "url": "https://s.yimg.com/uu/api/res/1.2/CUOSGk_IrKa3ckYjn3bS2A--~B/aD0xMzkyO3c9MjAxMDthcHBpZD15dGFjaHlvbg--/https://media.zenfs.com/en/bloomberg_holding_pen_162/92541c4236d4155ff13caa2b10e5ecdf",
+            "width": 2010,
+            "height": 1392,
+            "tag": "original"
+          },
+          {
+            "url": "https://s.yimg.com/uu/api/res/1.2/eTRDToEP3_6bM2It9t7wPQ--~B/Zmk9c3RyaW07aD0xMjg7dz0xNzA7YXBwaWQ9eXRhY2h5b24-/https://media.zenfs.com/en/bloomberg_holding_pen_162/92541c4236d4155ff13caa2b10e5ecdf",
+            "width": 170,
+            "height": 128,
+            "tag": "170x128"
+          }
+        ]
+      },
+      "provider": {
+        "displayName": "Bloomberg",
+        "url": "https://www.bloomberg.com/company",
+        "sourceId": "bloomberg_holding_pen_162"
+      },
+      "canonicalUrl": {
+        "url": "https://finance.yahoo.com/markets/stocks/articles/apple-ceo-tim-cook-15-074404912.html",
+        "site": "finance",
+        "region": "US",
+        "lang": "en-US"
+      },
+      "clickThroughUrl": {
+        "url": "https://finance.yahoo.com/markets/stocks/articles/apple-ceo-tim-cook-15-074404912.html",
+        "site": "finance",
+        "region": "US",
+        "lang": "en-US"
+      },
+      "metadata": {
+        "editorsPick": false
+      },
+      "finance": {
+        "premiumFinance": {
+          "isPremiumNews": false,
+          "isPremiumFreeNews": false
+        }
+      },
+      "storyline": null
+    }
+  }
+]
