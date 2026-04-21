@@ -1633,6 +1633,8 @@ body {
     outline: none;
     transition: all 0.2s;
     width: 100%;
+    max-width: 120px;
+    text-align: right;
 }
 
 .premium-select:focus, .premium-input:focus {

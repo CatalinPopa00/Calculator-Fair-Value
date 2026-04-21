@@ -1384,7 +1384,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div id="company-desc-card" class="glass-card" style="margin-top: 15px; padding: 20px; border-left: 4px solid #38bdf8;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                             <h3 style="font-size: 0.75rem; color: rgba(255,255,255,0.4); margin: 0; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 800;">Corporate Brief</h3>
-                            <div id="ai-synthesis-badge" style="display: none; background: linear-gradient(135deg, #38bdf8, #818cf8); color: white; font-size: 0.6rem; padding: 3px 8px; border-radius: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">✨ A.I. Sinteză</div>
+                            <div id="ai-synthesis-badge" style="display: none; background: linear-gradient(135deg, #38bdf8, #818cf8); color: white; font-size: 0.6rem; padding: 3px 8px; border-radius: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">✨ AI INSIGHTS</div>
                         </div>
                         <div id="company-desc-text" style="font-size: 0.9rem; line-height: 1.6; color: rgba(255,255,255,0.8); max-height: 250px; overflow-y: auto; text-align: justify; padding-right: 8px; font-family: 'Outfit', sans-serif;"></div>
                     </div>`);
