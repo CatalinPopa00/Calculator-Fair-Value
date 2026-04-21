@@ -3564,17 +3564,6 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             else:
                 lbl = f"FY {current_fy_num + 1}"
             e["period"] = lbl; r["period"] = lbl
-            
-            # v208: Final Terminal Growth Anchor (Recalculate growth vs immediately preceding item)
-            # This prevents shifted baselines (e.g. FY 2026 anchoring to 2024 instead of 2025).
-            for block in [unified_eps, unified_rev]:
-                for i in range(len(block)):
-                    if i > 0:
-                        prev = block[i-1]
-                        curr = block[i]
-                        if curr.get("avg") and prev.get("avg") and prev["avg"] != 0:
-                            curr["growth"] = (curr["avg"] / abs(prev["avg"])) - 1
-
             unified_eps.append(e); unified_rev.append(r)
 
 
