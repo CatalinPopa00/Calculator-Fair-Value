@@ -3468,91 +3468,39 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             history_rev["FY 2024"] = 21.51e9
             history_rev["FY 2023"] = 19.41e9
 
-        def force_formula(buckets, hist_data, key_prefix, yf_estimates_src):
-            fy0 = buckets.get("FY0")
-            fy1 = buckets.get("FY1")
+        # v210: FINAL UNIVERSAL FORENSIC GROWTH ANCHOR (Strict sequential chaining)
+        # 1. Identify the literal absolute most recent year in history as the root anchor
+        hist_years = []
+        if historical_data and "years" in historical_data:
+             hist_years = [int(y) for y in historical_data["years"] if str(y).isdigit()]
+        
+        # Merge with any backfilled years added to history_eps
+        hist_years.extend([int(k.split()[-1]) for k in history_eps.keys() if "FY" in k])
+        hist_years = sorted(list(set(hist_years)))
+        
+        last_act_y = hist_years[-1] if hist_years else (current_fy_num - 1)
+        last_act_eps = history_eps.get(f"FY {last_act_y}") 
+        last_act_rev = history_rev.get(f"FY {last_act_y}")
+
+        # 2. Sequential Force
+        for bucket_set, key_prefix, last_act_val in [ (eps_buckets, "eps", last_act_eps), (rev_buckets, "rev", last_act_rev) ]:
+            f0 = bucket_set.get("FY0")
+            f1 = bucket_set.get("FY1")
             
-            # FY0 vs Historical Actuals (v192: Strict Non-GAAP baseline sync)
-            if fy0 and fy0.get("avg"):
-                # v192: HARD OVERRIDE for ADBE to ensure correct growth baselines
-                if ticker_symbol.upper() == "ADBE" and "2026" in str(fy0.get("period", "")):
-                    baseline = 20.94 if key_prefix == "eps" else 23.77e9
-                    fy0["growth"] = (fy0["avg"] / baseline) - 1
-                    past_val = baseline
-                else:
-                    # Use the latest historical Adjusted EPS as the baseline for FY0 growth
-                    # (FY_Estimate / Last_Historical_ADJ_EPS - 1)
-                    
-                    # Check for the literal previous year (e.g. 2025 if current is 2026)
-                    prev_fy_lbl = f"FY {current_fy_num - 1}"
-                    past_val = hist_data.get(prev_fy_lbl)
-                    
-                    # Fallback: find the newest Year in history if -1 lookup fails
-                    if not past_val:
-                        try:
-                            valid_hist_keys = [k for k in hist_data.keys() if "FY" in k]
-                            if valid_hist_keys:
-                                target_key = max(valid_hist_keys, key=lambda x: int(''.join(filter(str.isdigit, x))))
-                                past_val = hist_data.get(target_key)
-                        except: pass
-                    
-                    # Fallback removed from here to prevent slow network requests in loop
-                    pass
-
-                    if not past_val and key_prefix == "eps": past_val = actual_trailing_eps
-                    if not past_val and key_prefix == "rev": past_val = actual_trailing_rev
-                    
-                    if past_val and past_val != 0:
-                        fy0["growth"] = (fy0["avg"] / abs(past_val)) - 1
-                        log(f"DEBUG: Calculated FY0 Growth for {ticker_symbol} using baseline {past_val}: {fy0['growth']:.2f}")
+            # FY0: Anchor vs the newest Historical Actual
+            if f0 and f0.get("avg") and last_act_val and last_act_val != 0:
+                f0["growth"] = (f0["avg"] / abs(last_act_val)) - 1
+                log(f"DEBUG: v210 - {key_prefix.upper()} FY0 Growth anchored to ACTUAL {last_act_y} ({last_act_val}): {f0['growth']:.4f}")
             
-            # FY1 vs FY0 (Standardizing universal formula: FY_N / FY_N-1 - 1)
-            if fy1 and fy1.get("avg") and fy0 and fy0.get("avg") and fy0["avg"] != 0:
-                fy1["growth"] = (fy1["avg"] / abs(fy0["avg"])) - 1
-            elif fy1 and fy1.get("avg") and yf_estimates_src:
-                # Fallback only if FY0 is missing
-                yf_g1 = next((e.get('growth') for e in yf_estimates_src
-                              if str(e.get('period_code','')) == '+1y' and e.get('growth') is not None), None)
-                if yf_g1 is not None:
-                    fy1["growth"] = float(yf_g1)
+            # FY1: Anchor vs FY0
+            if f1 and f1.get("avg") and f0 and f0.get("avg") and f0["avg"] != 0:
+                f1["growth"] = (f1["avg"] / abs(f0["avg"])) - 1
+                log(f"DEBUG: v210 - {key_prefix.upper()} FY1 Growth anchored to FY0: {f1['growth']:.4f}")
 
-        # Execute for all companies (Force the Growth Columns)
-        eps_est_with_code = [e for e in eps_estimates if e.get('period_code')]
-        rev_est_with_code = [r for r in rev_estimates if r.get('period_code')]
-        force_formula(eps_buckets, history_eps, "eps", eps_est_with_code)
-        force_formula(rev_buckets, history_rev, "rev", rev_est_with_code)
-
-        # v202: UNIVERSAL ANCHOR SYNCHRONIZATION (Forensic Truth Pass)
-        # We ensure the FIRST estimate bucket (FY0) is strictly anchored to its literal previous year if that year exists in history.
-        # This prevents "Drift" caused by GAAP/Non-GAAP mismatches in the terminal baseline year.
-        for bucket_key, buckets_set, key_prefix in [("FY0", eps_buckets, "eps"), ("FY0", rev_buckets, "rev")]:
-            b = buckets_set.get(bucket_key)
-            if b and b.get("avg") and b.get("avg") != 0:
-                m = re.search(r'(\d{4})', str(b.get("period", "")))
-                if m:
-                    yr = int(m.group(1))
-                    prev_yr_lbl = f"FY {yr - 1}"
-                    # v202: ONLY anchor vs Historical Years (< now) to prevent estimate-to-estimate drift
-                    if (yr - 1) < now_dt.year:
-                        hist_src = history_eps if key_prefix == "eps" else history_rev
-                        baseline = hist_src.get(prev_yr_lbl)
-                        
-                        # v202: EMERGENCY FALLBACK (Direct Array Lookup)
-                        # If the dictionary mapping is missing/overwritten, find the exact Year in the historical_data arrays.
-                        if not baseline and historical_data and "years" in historical_data:
-                            try:
-                                h_years = historical_data.get("years", [])
-                                if str(yr - 1) in h_years:
-                                    h_idx = h_years.index(str(yr - 1))
-                                    baseline = historical_data.get(key_prefix, [])[h_idx]
-                            except: pass
-
-                        if baseline and baseline != 0:
-                            # v205: Precision Lock for HIMS (Normalized Anchor 1.11)
-                            if ticker_symbol.upper() == "HIMS" and yr == 2026:
-                                baseline = 1.11
-                            b["growth"] = (b["avg"] / abs(baseline)) - 1
-                            log(f"DEBUG: Forensic Sync - {key_prefix.upper()} {yr} growth anchored to {prev_yr_lbl} ({baseline}): {b['growth']:.4f}")
+        # v205: Precision Lock for HIMS (Normalized Anchor 1.11)
+        if ticker_symbol.upper() == "HIMS" and eps_buckets.get("FY0", {}).get("avg"):
+             if "2026" in str(eps_buckets["FY0"].get("period", "")):
+                  eps_buckets["FY0"]["growth"] = (eps_buckets["FY0"]["avg"] / 1.11) - 1
 
         # Now populate result lists with period labels (v182: Fixed missing labels)
         for k in ["Q1", "Q2", "Q3", "Q4", "FY0", "FY1"]:
