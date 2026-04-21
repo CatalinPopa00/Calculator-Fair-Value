@@ -2195,7 +2195,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             "historic_eps_growth": normalize_growth(historic_eps_growth),
             "historic_fcf_growth": normalize_growth(historic_fcf_growth),
             "historic_buyback_rate": normalize_growth(historic_buyback_rate),
-            "pe_historic": info.get('trailingPE'),
+            "pe_historic": historic_pe_val or info.get('trailingPE'),
             "historical_data": historical_data,
             "historical_trends": historical_trends,
             "raw_quarterly_history": raw_data_map,
