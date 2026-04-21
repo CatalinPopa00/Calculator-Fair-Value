@@ -38,7 +38,8 @@ search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
 # v198: Fix for N/A in modals (missing keys in formula_data)
 # v199: Forensic Anchor Sync & Cache Reset
-CACHE_VERSION = "v199"
+# v201: English Professional Synthesis
+CACHE_VERSION = "v201"
 
 app = FastAPI(title="Fair Value Calculator API")
 
