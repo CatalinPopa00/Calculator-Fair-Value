@@ -1395,7 +1395,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const aiBadge = document.getElementById('ai-synthesis-badge');
             
             if (data.company_overview_synthesis) {
-                descText.textContent = data.company_overview_synthesis;
+                // v202: Format markdown-style bolding and newlines for the structured synthesis
+                const formatted = data.company_overview_synthesis
+                    .replace(/\*\*(.*?)\*\*/g, '<strong style="color: #38bdf8; display: block; margin-top: 12px; margin-bottom: 6px; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px;">$1</strong>')
+                    .replace(/\n/g, '<br>');
+                descText.innerHTML = formatted;
                 aiBadge.style.display = 'block';
                 descCard.style.borderLeft = '4px solid #38bdf8';
             } else {
