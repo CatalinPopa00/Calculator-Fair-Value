@@ -607,25 +607,26 @@ def search_companies(query: str) -> list:
         print(f"Search failed on all hosts. Last error: {last_error}")
     return []
 
-def fetch_latest_news_v2(ticker_symbol: str) -> str:
-    """Fetches the title of the most recent news article for the ticker."""
+def fetch_latest_news_v2(ticker_symbol: str) -> list:
+    """Fetches several recent news headlines for the ticker."""
     try:
-        # v202: Silent fail if news is unavailable
         stock = yf.Ticker(ticker_symbol)
         news = stock.news
         if news and len(news) > 0:
-            latest = news[0]
-            title = latest.get('title', 'N/A')
-            publisher = latest.get('publisher', 'N/A')
-            return f"{title} (Sursă: {publisher})"
-    except:
-        pass
-    return "Nicio informație nouă semnificativă în ultimele 24 de ore."
+            results = []
+            for item in news[:4]:  # Top 4 news items
+                title = item.get('title', 'N/A')
+                publisher = item.get('publisher', 'N/A')
+                results.append(f"{title} (Source: {publisher})")
+            return results
+    except Exception as e:
+        print(f"Error fetching news for {ticker_symbol}: {e}")
+    return ["No significant recent news available (last 24-48h)."]
 
 def get_company_synthesis(ticker: str, info: dict) -> str:
     """
-    Returns a structured, analytical synthesis of the company in Romanian.
-    Includes: Presentation, activity, strengths, weaknesses and latest news.
+    Returns a professional, structured analytical synthesis of the company in English.
+    Focuses on business model, competitive advantages, and risk profile.
     """
     ticker_upper = ticker.upper()
     name = info.get('longName') or ticker_upper
@@ -633,55 +634,62 @@ def get_company_synthesis(ticker: str, info: dict) -> str:
     industry = info.get('industry', 'N/A')
     summary = info.get('longBusinessSummary', '')
 
-    # 1. Presentation & Activity (Scurtă prezentare)
-    presentation = f"{name} este o companie proeminentă activă în sectorul {sector}, specializată în {industry}."
+    # 1. Executive Summary & Core Activity
+    presentation = f"{name} is a leading enterprise operating within the {sector} sector, with a primary focus on {industry}."
     if summary:
-        # Extract first 2 sentences for a short activity description
+        # Extract first 2-3 sentences for a professional description
         sentences = re.split(r'(?<=[.!?])\s+', summary)
-        activity = " ".join(sentences[:2])
+        activity = " ".join(sentences[:3])
     else:
-        activity = f"Compania operează la nivel global furnizând soluții integrate în industria {industry}."
+        activity = f"The company operates a global industrial footprint, providing specialized solutions and integrated services within the {industry} domain."
 
-    # 2. Derive Strengths and Weaknesses (Puncte forte/slabe)
+    # 2. Strategic Strengths & Competitive Moats
     strengths = []
     weaknesses = []
 
-    # Growth indicators
+    # Financial Performance & Growth
     rev_growth = info.get('revenueGrowth')
-    eps_growth = info.get('earningsGrowth')
-    if rev_growth and rev_growth > 0.15: strengths.append("Creștere robustă a veniturilor (>15%)")
-    elif rev_growth and rev_growth < 0: weaknesses.append("Contractarea veniturilor în ultimul an")
+    if rev_growth and rev_growth > 0.15: 
+        strengths.append(f"Robust revenue expansion (YoY: {rev_growth*100:.1f}%) indicating strong market demand.")
+    elif rev_growth and rev_growth < 0: 
+        weaknesses.append("Observed revenue contraction suggesting cyclical headwinds or market share pressure.")
 
-    # Profitability
-    roic = info.get('returnOnAssets') # Proxy for ROIC if not calculated elsewhere yet
+    # Profitability & Efficiency
     margin = info.get('profitMargins')
-    if margin and margin > 0.15: strengths.append(f"Profitabilitate ridicată (Marjă netă: {margin*100:.1f}%)")
-    elif margin and margin < 0.03: weaknesses.append("Marje de profit reduse sau presiune pe costuri")
+    if margin and margin > 0.20: 
+        strengths.append(f"High-margin operations (Net Margin: {margin*100:.1f}%), reflecting pricing power or operational scale.")
+    elif margin and margin < 0.05: 
+        weaknesses.append("Lean profit margins, potentially susceptible to input cost volatility.")
 
-    # Health
+    # Capital Structure
     debt_equity = info.get('debtToEquity')
-    if debt_equity and debt_equity < 50: strengths.append("Structură de capital solidă, grad scăzut de îndatorare")
-    elif debt_equity and debt_equity > 150: weaknesses.append("Nivel ridicat de îndatorare raportat la capitalul propriu")
+    if debt_equity and debt_equity < 40: 
+        strengths.append("Conservative capital structure with low leverage, providing significant financial flexibility.")
+    elif debt_equity and debt_equity > 150: 
+        weaknesses.append("Elevated debt-to-equity ratio, increasing sensitivity to interest rate fluctuations.")
 
-    # Valuation
+    # Market Valuation Context
     pe = info.get('trailingPE')
-    if pe and pe < 15: strengths.append(f"Evaluare atractivă (P/E sub 15x)")
-    elif pe and pe > 40: weaknesses.append(f"Multiplu P/E ridicat ({pe:.1f}x), risc de supraevaluare")
+    if pe and pe < 18: 
+        strengths.append(f"Attractive valuation relative to historical norms (P/E: {pe:.1f}x).")
+    elif pe and pe > 45: 
+        weaknesses.append(f"Premium valuation (P/E: {pe:.1f}x), necessitating aggressive growth to justify current levels.")
 
-    # Default if list empty
-    if not strengths: strengths.append("Poziție stabilă în piață și bază de clienți diversificată")
-    if not weaknesses: weaknesses.append("Expunere la volatilitatea macroeconomică generală")
+    # Defaults for completeness
+    if not strengths: strengths.append("Established market presence with diversified revenue streams.")
+    if not weaknesses: weaknesses.append("Exposure to broader macroeconomic cycles and regulatory shifts.")
 
-    # 3. Get Latest News
-    news = fetch_latest_news_v2(ticker_upper)
-
+    # 3. Market Intelligence & Recent Developments
+    news_items = fetch_latest_news_v2(ticker_upper)
+    
     # 4. Construct Structured Output
-    output = f"**PREZENTARE ȘI ACTIVITATE**\n{presentation}\n\n{activity}\n\n"
-    output += f"**PUNCTE FORTE**\n" + "\n".join([f"• {s}" for s in strengths[:3]]) + "\n\n"
-    output += f"**PUNCTE SLABE**\n" + "\n".join([f"• {w}" for w in weaknesses[:3]]) + "\n\n"
-    output += f"**ULTIMA INFORMAȚIE RELEVANTĂ**\n• {news}"
+    output = f"**EXECUTIVE SUMMARY**\n{presentation}\n\n{activity}\n\n"
+    output += f"**STRATEGIC STRENGTHS**\n" + "\n".join([f"• {s}" for s in strengths[:3]]) + "\n\n"
+    output += f"**VULNERABILITIES & RISKS**\n" + "\n".join([f"• {w}" for w in weaknesses[:3]]) + "\n\n"
+    output += f"**LATEST MARKET INTELLIGENCE**\n" + "\n".join([f"• {n}" for n in news_items])
 
     return output
+
 
 def get_company_data(ticker_symbol: str, fast_mode: bool = False):
     """
