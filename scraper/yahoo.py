@@ -2851,6 +2851,19 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
                             "avg": round(actual_eps, 2),
                             "status": "reported"
                         })
+                        # v208: CRITICAL - Update history dictionaries so buckets can anchor vs this live actual
+                        history_eps[f"FY {last_yr}"] = actual_eps
+                        
+                        # Sync revenue backfill if available (v208)
+                        y_adj_ttm_rev = y_trend.get('0y', {}).get('yearAgoRevenue')
+                        if y_adj_ttm_rev:
+                            history_rev[f"FY {last_yr}"] = float(y_adj_ttm_rev)
+                            rev_estimates.insert(0, {
+                                "period": f"FY {last_yr} (Actual)",
+                                "avg": round(float(y_adj_ttm_rev), 2),
+                                "status": "reported"
+                            })
+
                         # v139: Update base_eps with the most live 'Actual'
                         base_eps = actual_eps
         except Exception as e:
@@ -3551,6 +3564,17 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             else:
                 lbl = f"FY {current_fy_num + 1}"
             e["period"] = lbl; r["period"] = lbl
+            
+            # v208: Final Terminal Growth Anchor (Recalculate growth vs immediately preceding item)
+            # This prevents shifted baselines (e.g. FY 2026 anchoring to 2024 instead of 2025).
+            for block in [unified_eps, unified_rev]:
+                for i in range(len(block)):
+                    if i > 0:
+                        prev = block[i-1]
+                        curr = block[i]
+                        if curr.get("avg") and prev.get("avg") and prev["avg"] != 0:
+                            curr["growth"] = (curr["avg"] / abs(prev["avg"])) - 1
+
             unified_eps.append(e); unified_rev.append(r)
 
 
