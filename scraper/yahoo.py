@@ -1600,8 +1600,9 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             # 5. Source E: DIRECT NORMALIZED ACTUAL FROM YAHOO TRENDS (v206: FINAL OVERRIDE)
             try:
                 y_trend_data = get_yahoo_eps_trend(ticker_symbol)
-                y_adj_val = y_trend_data.get('0y', {}).get('yearAgoEps')
-                if y_adj_val is not None:
+                y_adj_val_raw = y_trend_data.get('0y', {}).get('yearAgoEps')
+                if y_adj_val_raw is not None and financials is not None:
+                    y_adj_val = float(y_adj_val_raw)
                     is_cols = [c for c in financials.columns if str(c).upper() != "TTM"]
                     if is_cols:
                          # Forensic Mapping: yearAgoEps corresponds to the last FULL reported year.
@@ -1622,7 +1623,12 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             except: pass
 
             # Debug Log
-            rounded_hist = {k: round(v, 2) for k, v in adjusted_history.items() if v != 0}
+            rounded_hist = {}
+            for k, v in adjusted_history.items():
+                if v and isinstance(v, (int, float)):
+                    rounded_hist[k] = round(v, 2)
+                elif v and hasattr(v, 'item'): # numpy/pandas scalar
+                    rounded_hist[k] = round(float(v), 2)
             log(f"DEBUG: Consolidated Non-GAAP History for {ticker_symbol}: {rounded_hist}")
             
         except Exception as e:
