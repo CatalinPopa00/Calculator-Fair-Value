@@ -11,13 +11,16 @@ import requests
 import pandas as pd
 import re
 try:
-    from ..utils.kv import kv_get, kv_set
+    from utils.kv import kv_get, kv_set
 except ImportError:
     try:
-        from api.utils.kv import kv_get, kv_set
+        from ..utils.kv import kv_get, kv_set
     except ImportError:
-        def kv_get(k): return None
-        def kv_set(k, v, ex=None): return False
+        try:
+            from api.utils.kv import kv_get, kv_set
+        except ImportError:
+            def kv_get(k): return None
+            def kv_set(k, v, ex=None): return False
 
 def log(*args, **kwargs):
     print(*args, **kwargs)
@@ -1513,16 +1516,22 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                              sh_val = _quick_m(financials, 'Diluted Average Shares', yr_col) or _quick_m(financials, 'Basic Average Shares', yr_col)
                              norm_eps = (ni_val + sbc_val) / sh_val if sh_val else 0
                              log(f"DEBUG: Standard SBC Reconstruction for {ticker_symbol} {y_str}: {norm_eps:.2f}")
-                        
-                              # v206: DISABLE SBC Reconstruction for established large-caps where Yahoo/Nasdaq is forensic.
-                              # This prevents inflation drifts (e.g. AAPL 8.30 vs 6.13).
-                              is_large_cap = (market_cap > 50e9) 
-                              if is_large_cap:
-                                  should_override = False
+                        if norm_eps > 0:
+                            should_override = False
+                            if y_str not in adjusted_history:
+                                should_override = True
+                            elif is_g and norm_eps > (adjusted_history.get(y_str, 0) * 1.1):
+                                should_override = True
+                            elif ni_val < 0:
+                                should_override = True
 
-                              if should_override:
-                                  adjusted_history[y_str] = norm_eps
-                                  log(f"DEBUG: SBC Reconstruction prioritized for {ticker_symbol} {y_str}: {norm_eps:.2f}")
+                            # v206: DISABLE SBC Reconstruction for established large-caps
+                            if market_cap and market_cap > 50e9:
+                                should_override = False
+
+                            if should_override:
+                                adjusted_history[y_str] = norm_eps
+                                log(f"DEBUG: SBC Reconstruction prioritized for {ticker_symbol} {y_str}: {norm_eps:.2f}")
 
             # 3. Consolidation with Scaling
             now = datetime.datetime.now()
