@@ -1123,6 +1123,12 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         dividend_rate = info.get('dividendRate') or info.get('trailingAnnualDividendRate')
         dividend_yield = info.get('trailingAnnualDividendYield')
         # Fallbacks for extreme yfinance bugs (e.g. GOOGL returning 0.31 instead of 0.0031)
+        try:
+            if dividend_yield is not None:
+                dividend_yield = float(dividend_yield)
+        except:
+            dividend_yield = None
+            
         if dividend_yield is None or dividend_yield > 0.15:
             if dividend_rate and current_price and current_price > 0:
                 dividend_yield = dividend_rate / current_price
@@ -1508,12 +1514,16 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                         # We use the reported trailing_eps and NI to derive the 'Analytic Shares' used by the market
                         is_g = any(x in str(info.get('sector', '')).lower() for x in ['tech', 'soft', 'comm', 'health', 'consumer'])
                         
+                        sh_val_raw = _quick_m(financials, 'Diluted Average Shares', yr_col) or _quick_m(financials, 'Basic Average Shares', yr_col)
+                        sh_val = sh_val_raw
+
                         if is_g and trailing_eps and trailing_eps > 0 and ni_val and ni_val > 0:
                              est_sh = ni_val / trailing_eps
                              norm_eps = (ni_val + sbc_val) / est_sh
+                             # When using estimated shares, we should still pass est_sh to sh_val for downstream logic
+                             sh_val = est_sh
                              log(f"DEBUG: Share-Agnostic Reconstruction for {ticker_symbol} {y_str}: {norm_eps:.2f}")
                         else:
-                             sh_val = _quick_m(financials, 'Diluted Average Shares', yr_col) or _quick_m(financials, 'Basic Average Shares', yr_col)
                              norm_eps = (ni_val + sbc_val) / sh_val if sh_val else 0
                              log(f"DEBUG: Standard SBC Reconstruction for {ticker_symbol} {y_str}: {norm_eps:.2f}")
                         if norm_eps > 0:
