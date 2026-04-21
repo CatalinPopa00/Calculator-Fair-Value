@@ -524,8 +524,9 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             "historical_anchors": data.get("historical_anchors", []),
             "historical_trends": data.get("historical_trends", []),
             "historical_data": data.get("historical_data", {}),
+            "company_overview_synthesis": data.get("company_overview_synthesis"),
             "red_flags": data.get("red_flags", []),
-            "debug_version": f"{CACHE_VERSION}-ULTRA-STABILITY-FIX-V2",
+            "debug_version": f"{CACHE_VERSION}-ULTRA-STABILITY-FIX-V3",
             "timestamp": datetime.datetime.now().isoformat()
         }
         
