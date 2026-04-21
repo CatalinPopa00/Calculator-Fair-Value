@@ -11,13 +11,16 @@ import requests
 import pandas as pd
 import re
 try:
-    from ..utils.kv import kv_get, kv_set
+    from utils.kv import kv_get, kv_set
 except ImportError:
     try:
-        from api.utils.kv import kv_get, kv_set
+        from ..utils.kv import kv_get, kv_set
     except ImportError:
-        def kv_get(k): return None
-        def kv_set(k, v, ex=None): return False
+        try:
+            from api.utils.kv import kv_get, kv_set
+        except ImportError:
+            def kv_get(k): return None
+            def kv_set(k, v, ex=None): return False
 
 def log(*args, **kwargs):
     print(*args, **kwargs)

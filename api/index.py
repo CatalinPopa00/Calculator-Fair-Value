@@ -14,7 +14,7 @@ import concurrent.futures
 import traceback
 from typing import List, Dict, Any, Optional
 
-from .scraper.yahoo import (
+from scraper.yahoo import (
     get_company_data, 
     get_competitors_data, 
     get_market_averages, 
@@ -22,8 +22,8 @@ from .scraper.yahoo import (
     get_analyst_data, 
     get_risk_free_rate
 )
-from .utils.kv import kv_get, kv_set
-from .models.valuation import (
+from utils.kv import kv_get, kv_set
+from models.valuation import (
     calculate_peter_lynch, 
     calculate_peg_fair_value, 
     calculate_dcf, 
@@ -31,7 +31,7 @@ from .models.valuation import (
     calculate_dcf_sensitivity,
     calculate_reverse_dcf
 )
-from .models.scoring import calculate_scoring_reform, calculate_piotroski_score
+from models.scoring import calculate_scoring_reform, calculate_piotroski_score
 
 # Cache Settings
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)

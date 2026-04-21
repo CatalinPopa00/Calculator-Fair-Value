@@ -14,9 +14,9 @@ import os
 import requests
 import concurrent.futures
 
-from .scraper.yahoo import get_company_data, get_competitors_data, get_market_averages, search_companies, get_analyst_data, get_risk_free_rate
+from scraper.yahoo import get_company_data, get_competitors_data, get_market_averages, search_companies, get_analyst_data, get_risk_free_rate
 from api.utils.kv import kv_get, kv_set
-from .models.valuation import (
+from models.valuation import (
     calculate_peter_lynch, 
     calculate_peg_fair_value, 
     calculate_dcf, 
