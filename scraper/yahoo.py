@@ -2867,8 +2867,10 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
                                 "status": "reported"
                             })
 
-                        # v139: Update base_eps with the most live 'Actual'
-                        base_eps = actual_eps
+                        # v211: Update base_eps only if it's currently missing or near zero
+                        # Prefer info-provided Normalized baseline (7.46) over GAAP sum (6.75)
+                        if not base_eps or abs(base_eps) < 0.1:
+                            base_eps = actual_eps
         except Exception as e:
             print(f"[Analyst] Base year backfill fail: {e}")
 
@@ -3485,8 +3487,12 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         if historical_data and "years" in historical_data:
              hist_years = [int(y) for y in historical_data["years"] if str(y).isdigit()]
         
-        # Merge with any backfilled years added to history_eps
-        hist_years.extend([int(k.split()[-1]) for k in history_eps.keys() if "FY" in k])
+        # Merge with any backfilled years added to history_eps (v211: Robust extraction)
+        for k in history_eps.keys():
+            if "FY" in k:
+                digits = re.findall(r'\d{4}', k)
+                if digits: hist_years.append(int(digits[-1]))
+        
         # v210.2: PREVENT SELF-ANCHORING (Only consider years strictly before the current estimate cycle)
         hist_years = sorted(list(set([y for y in hist_years if y < current_fy_num])))
         
