@@ -1795,6 +1795,19 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             except Exception as e_tax:
                 log(f"DEBUG: Anchor processing error: {e_tax}")
         
+        # v237: HOLY GRAIL TIMELINE SYNC
+        # Use Yahoo's earnings_estimate module as the primary anchor for the last reported year
+        y_ee = None
+        try:
+            y_ee = stock.earnings_estimate
+        except: pass
+        
+        y_anchor_2025 = None
+        if y_ee is not None and not (hasattr(y_ee, 'empty') and y_ee.empty):
+            if '0y' in y_ee.index:
+                # This is the 29.68 for Meta (Year Ago EPS)
+                y_anchor_2025 = float(y_ee.loc['0y'].get('yearAgoEps') or 0)
+        
         # v233: REALITY TIMELINE (Include 2025 as it is reported by Feb 2026)
         if financials is not None and not financials.empty:
             is_cols = [c for c in financials.columns if str(c).upper() != "TTM"]
@@ -1952,9 +1965,6 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     except: pass
 
                     # 2. Yahoo Source (v220: Strict Year Mapping)
-                    y_est = None
-                    # Decide if we need to shift (if 2025 is already historical, '0y' might still be 2025)
-                    # We'll use +1y for the first projection if 0y is already in history
                     target_fy_code = fy_code
                     if i == 1 and str(last_yr) in str(historical_data["years"]):
                         # Check if Yahoo's '0y' value is effectively our last anchor. 
@@ -1970,36 +1980,27 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                             target_fy_code = "+1y" if i == 1 else "+2y"
                             log(f"DEBUG: v220 Shifting Yahoo Index for {ticker_symbol} {proj_yr}: {fy_code} -> {target_fy_code}")
 
+                    # v237: HOLY GRAIL PRIORITY (Absolute Yahoo Sync)
+                    # Use Yahoo earnings_estimate for this projection year BEFORE any other source
+                    y_est = None
                     if ee_data is not None and not ee_data.empty:
-                        if target_fy_code in ee_data.index: y_est = float(ee_data.loc[target_fy_code].get('avg') or 0) * fx_rate
-                    if not y_est:
-                        try:
-                            sync_e = getattr(stock, 'earnings_estimate', None)
-                            if sync_e is not None and not sync_e.empty and target_fy_code in sync_e.index:
-                                y_est = float(sync_e.loc[target_fy_code].get('avg') or 0) * fx_rate
-                        except: pass
-                    if y_est: source_estimates.append(y_est)
-
-                    # 3. Yahoo Info Tags (v201: Normalized Consensus Prioritization)
-                    # For growth stocks, these tags often represent the 'Normalized' world analysts live in
-                    is_growth = any(x in str(info.get('sector', '')).lower() for x in ['tech', 'software', 'comm', 'health', 'consumer'])
-                    if is_growth:
-                        tag_val = info.get('epsCurrentYear') if fy_code == "0y" else (info.get('forwardEps') or info.get('epsForward'))
-                        if tag_val is not None:
-                            source_estimates.append(tag_val * fx_rate)
-                            log(f"DEBUG: Prioritizing Yahoo Normalized Tag {tag_val} for {ticker_symbol} {proj_yr}")
+                        if target_fy_code in ee_data.index: 
+                            vals_row = ee_data.loc[target_fy_code]
+                            y_est = float(vals_row.get('avg') or 0) * fx_rate
                     
-                    # 3. Decision Logic (v201: Growth Bias for Tech/Software/Health/Consumer)
-                    if source_estimates:
-                        # For growth sectors, the highest estimate often reflects the 'Normalized' (Non-GAAP) consensus
-                        if any(x in str(info.get('sector', '')).lower() for x in ['tech', 'software', 'comm', 'health', 'consumer']):
-                            eps_est = max(source_estimates)
-                        else:
-                            # For stable names, use the mean of available sources
-                            eps_est = sum(source_estimates) / len(source_estimates)
+                    if y_est and y_est > 0:
+                        eps_est = y_est
+                        log(f"DEBUG: v237 Holy Grail Yahoo Sync {proj_yr}: {eps_est:.2f}")
                     else:
-                        # Fallback to historical trend
-                        eps_est = historical_data["eps"][-1] if historical_data["eps"] else 0
+                        # Fallback to secondary sources only if Yahoo PRIMARY is missing
+                        if nq_val: source_estimates.append(nq_val * fx_rate)
+                        tag_val = info.get('epsCurrentYear') if fy_code == "0y" else (info.get('forwardEps') or info.get('epsForward'))
+                        if tag_val: source_estimates.append(tag_val * fx_rate)
+                        
+                        if source_estimates:
+                             eps_est = max(source_estimates)
+                        else:
+                             eps_est = historical_data["eps"][-1] if historical_data["eps"] else 0
 
                     # --- Revenue Estimate (Unified) ---
                     rev_est = historical_data["revenue"][-1]
@@ -2087,28 +2088,18 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             y_trend = get_yahoo_eps_trend(ticker_symbol)
             y_prev_anchor = y_trend.get('0y', {}).get('yearAgoEps')
             
-            # v236: Robust SYSTEMIC ANCHOR SYNC
-            # Match Yahoo Analyst 'Year Ago EPS' to the correct historical year row dynamically
-            y_trend = get_yahoo_eps_trend(ticker_symbol)
-            y_prev_anchor = y_trend.get('0y', {}).get('yearAgoEps')
-            
-            if y_prev_anchor:
-                # Automate: Find the year that matches the 'current_year - 1' logic
+            # v237: HOLY GRAIL ANCHOR SYNC
+            # Match y_anchor_2025 to the 2025 row in history to ensure NO deviation.
+            if y_anchor_2025:
                 target_anc_yr = str(now_dt.year - 1)
-                
-                # Update both historical_data and historical_trends for UI consistency
                 if target_anc_yr in historical_data["years"]:
                     h_idx = historical_data["years"].index(target_anc_yr)
-                    historical_data["eps"][h_idx] = y_prev_anchor
-                    log(f"DEBUG: v236 Systemic Anchor Applied to {ticker_symbol} {target_anc_yr}: {y_prev_anchor}")
+                    historical_data["eps"][h_idx] = y_anchor_2025
+                    log(f"DEBUG: v237 Holy Grail Anchor Sync for {ticker_symbol} {target_anc_yr}: {y_anchor_2025}")
                     
-                    # Also update the trend table row (Margin/Net Income)
                     for t_row in historical_trends:
                         if t_row.get("year") == target_anc_yr:
-                            t_row["eps"] = y_prev_anchor
-                            # Recalculate margin for table precision
-                            if t_row.get("revenue") and s:
-                                t_row["net_margin"] = (y_prev_anchor * s) / (t_row["revenue"] * fx_rate)
+                            t_row["eps"] = y_anchor_2025
                             break
 
             # Source A: Projections from trend table (Avg Estimates)
