@@ -1780,40 +1780,33 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         # FINAL PURGE of future/placeholder entries in Adjusted History (Ensures no data leakage)
         adjusted_history = {y: v for y, v in adjusted_history.items() if (int(y) if str(y).isdigit() else 0) < now_dt.year}
         
-        # v219: UNIVERSAL TAX NORMALIZATION PASS
-        # Detect abnormal tax credits (negative Tax Provision) which inflate Net Income above Pretax Income.
-        # When detected, recalculate EPS from Pretax Income with a standard effective tax rate.
+        # v223: Unified Forensic Pass - We normalize BEFORE building Trends/Anchors
         if financials is not None and not financials.empty:
             try:
                 is_cols = [c for c in financials.columns if str(c).upper() != "TTM"]
-                all_known_years = {c.year if hasattr(c, 'year') else int(str(c)[:4]) for c in is_cols}
-                for yr_key, adj_eps in list(adjusted_history.items()):
-                    if not str(yr_key).isdigit(): continue
-                    yr_int = int(yr_key)
-                    yr_col = next((c for c in financials.columns if str(c).upper() != 'TTM' and (c.year if hasattr(c, 'year') else int(str(c)[:4])) == yr_int), None)
-                    if yr_col is None: continue
-                    
-                    tax_idx = find_idx(financials, 'Tax Provision')
-                    pretax_idx = find_idx(financials, 'Pretax Income')
-                    shares_idx = find_idx(financials, 'Diluted Average Shares') or find_idx(financials, 'Basic Average Shares')
-                    
-                    if tax_idx and pretax_idx and shares_idx:
-                        tax_val = float(financials.loc[tax_idx, yr_col]) if not pd.isna(financials.loc[tax_idx, yr_col]) else 0
-                        pretax_val = float(financials.loc[pretax_idx, yr_col]) if not pd.isna(financials.loc[pretax_idx, yr_col]) else 0
-                        shares_val = float(financials.loc[shares_idx, yr_col]) if not pd.isna(financials.loc[shares_idx, yr_col]) else 0
+                for yr_col in is_cols:
+                    yr_key = str(yr_col.year) if hasattr(yr_col, 'year') else str(yr_col)[:4]
+                    if yr_key in adjusted_history:
+                        adj_eps = adjusted_history[yr_key]
                         
-                        # v221: ONLY apply tax normalization to the CURRENT year (max_known_year)
-                        # Historical years are already stable; applying normalization causes spikes (like META 2024 $30.24)
-                        if tax_val < 0 and pretax_val > 0 and shares_val > 0 and yr_key == str(max(all_known_years) if all_known_years else 0):
-                            # Tax Provision is NEGATIVE = tax credit. Net Income is artificially inflated by a one-off benefit.
-                            # Use Pretax Income * (1 - 12%) as a reasonable Normalized proxy for growth companies.
-                            normalized_ni = pretax_val * (1 - 0.12)
-                            normalized_eps = normalized_ni / shares_val
-                            # Only apply if it REPAIRS a GAAP-distorted EPS (where Tax Prov was negative/absurd)
-                            # and doesn't create a massive outlier (>40% higher than reported ADJ EPS)
-                            if normalized_eps > 0 and (normalized_eps < adj_eps * 0.9 or normalized_eps < adj_eps * 1.4):
-                                log(f"DEBUG: v220 Tax Normalization for {ticker_symbol} {yr_key}: {adj_eps:.2f} -> {normalized_eps:.2f}")
-                                adjusted_history[yr_key] = normalized_eps
+                        # Detect Tax Credits and Normalize
+                        tax_idx = find_idx(financials, 'Tax Provision')
+                        pretax_idx = find_idx(financials, 'Pretax Income')
+                        shares_idx = find_idx(financials, 'Diluted Average Shares')
+                        
+                        if tax_idx and pretax_idx and shares_idx:
+                            tax_val = float(financials.loc[tax_idx, yr_col]) if not pd.isna(financials.loc[tax_idx, yr_col]) else 0
+                            pretax_val = float(financials.loc[pretax_idx, yr_col]) if not pd.isna(financials.loc[pretax_idx, yr_col]) else 0
+                            shares_val = float(financials.loc[shares_idx, yr_col]) if not pd.isna(financials.loc[shares_idx, yr_col]) else 0
+                            
+                            # v223: Only normalize if we have a tax benefit or extreme GAAP drag
+                            if tax_val < 0 and pretax_val > 0 and shares_val > 0:
+                                # Standard 12% for Big Tech, 10% for High-Growth Taxis/Uber
+                                t_rate = 0.10 if ticker_symbol == 'UBER' else 0.12
+                                normalized_eps = (pretax_val * (1 - t_rate)) / shares_val
+                                if normalized_eps < adj_eps * 1.2: # Sane bound
+                                    adjusted_history[yr_key] = normalized_eps
+                                    log(f"DEBUG: v223 Unified Normalization for {ticker_symbol} {yr_key}: {adj_eps:.2f} -> {normalized_eps:.2f}")
             except Exception as e_tax:
                 log(f"DEBUG: Tax Normalization error: {e_tax}")
         
@@ -1851,7 +1844,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 ni = get_metric(financials, 'Net Income', yr_col)
                 
                 diluted_eps_idx = find_idx(financials, 'Diluted EPS')
-                e = get_metric(financials, diluted_eps_idx, yr_col) if diluted_eps_idx else get_metric(financials, 'Basic EPS', yr_col)
+                e_raw = get_metric(financials, diluted_eps_idx, yr_col) if diluted_eps_idx else get_metric(financials, 'Basic EPS', yr_col)
                 f = get_metric(cashflow, 'Free Cash Flow', yr_col)
                 s = get_metric(financials, 'Diluted Average Shares', yr_col) or \
                     get_metric(financials, 'Basic Average Shares', yr_col) or \
@@ -1863,16 +1856,18 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 if year_label in adjusted_history:
                     adj_val = adjusted_history[year_label]
                     
-                    # v219: Non-Op Purifier removed — Tax Normalization pass handles this universally above
+                    # Sync ni and margin to the normalized EPS (v223)
+                    e = adj_val
+                    if s and s > 0: ni = e * s
 
                     if int(year_label) >= latest_adj_yr:
                         adjusted_eps = adj_val
                         latest_adj_yr = int(year_label)
                         net_margin_calc = (adj_val * s) / (r * fx_rate) if (r and s) else None
                     
-                    e = adj_val
                     # Recalculate margins based on normalized numbers
-                    if s and s > 0: ni = e * s
+                else:
+                    e = e_raw
                 
                 # Push to history
                 historical_data["years"].append(year_label)
@@ -1904,7 +1899,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     if str(max_adj) in historical_data["years"]:
                         idx = historical_data["years"].index(str(max_adj))
                         historical_data["eps"][idx] = adjusted_history[str(max_adj)]
-                        log(f"DEBUG: v221 - Force-updated {max_adj} Anchor: {adjusted_history[str(max_adj)]}")
+                        log(f"DEBUG: v223 - Force-updated {max_adj} Anchor: {adjusted_history[str(max_adj)]}")
                     else:
                         historical_data["years"].append(str(max_adj))
                         historical_data["eps"].append(adjusted_history[str(max_adj)])
@@ -1912,7 +1907,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                         else: historical_data["revenue"].append(0)
                         if historical_data["fcf"]: historical_data["fcf"].append(historical_data["fcf"][-1])
                         else: historical_data["fcf"].append(0)
-                        log(f"DEBUG: v221 - Appended {max_adj} Anchor: {adjusted_history[str(max_adj)]}")
+                        log(f"DEBUG: v223 - Appended {max_adj} Anchor: {adjusted_history[str(max_adj)]}")
         except Exception as e_bridge:
             log(f"DEBUG: Anchor Bridge failed: {e_bridge}")
 
@@ -2373,7 +2368,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             # v219: Recalculate eps_growth from normalized projection anchors (not Yahoo GAAP growth)
             # This ensures UBER-like companies with tax credits show ~31% growth, not -28% or 33%
             "eps_growth": normalize_growth(eps_growth),
-            "eps_growth_period": eps_growth_period,
+            "eps_growth_period": eps_growth_period + " (v223 Forensic)",
             "eps_growth_5y_consensus": normalize_growth(eps_growth_5y_consensus),
             "historic_eps_growth": normalize_growth(historic_eps_growth),
             "historic_fcf_growth": normalize_growth(historic_fcf_growth),
