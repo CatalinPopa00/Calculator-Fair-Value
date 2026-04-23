@@ -3,7 +3,8 @@ import os
 # Correct path for Vercel deployment to find root modules
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from fastapi import FastAPI, HTTPException, Response, JSONResponse
+from fastapi import FastAPI, HTTPException, Response
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from cachetools import TTLCache
