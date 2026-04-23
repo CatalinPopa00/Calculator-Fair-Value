@@ -1789,35 +1789,11 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     if yr_key in adjusted_history:
                         adj_eps = adjusted_history[yr_key]
                         
-                        # Detect Tax Credits and Normalize
-                        tax_idx = find_idx(financials, 'Tax Provision')
-                        pretax_idx = find_idx(financials, 'Pretax Income')
-                        shares_idx = find_idx(financials, 'Diluted Average Shares')
-                        
-                        if tax_idx and pretax_idx and shares_idx:
-                            tax_val = float(financials.loc[tax_idx, yr_col]) if not pd.isna(financials.loc[tax_idx, yr_col]) else 0
-                            pretax_val = float(financials.loc[pretax_idx, yr_col]) if not pd.isna(financials.loc[pretax_idx, yr_col]) else 0
-                            shares_val = float(financials.loc[shares_idx, yr_col]) if not pd.isna(financials.loc[shares_idx, yr_col]) else 0
-                            
-                            # v229: ABSOLUTE HARD-LOCK for META/UBER (Prioritize over any calculated/GAAP noise)
-                            if ticker_symbol == 'META':
-                                adjusted_history['2024'] = 21.13
-                                adjusted_history['2025'] = 23.49
-                            if ticker_symbol == 'UBER' and yr_key == '2025':
-                                adjusted_history[yr_key] = 2.45
-                            
-                            # v223: Only normalize other companies if we have a tax benefit (tax_val < 0)
-                            if tax_val < 0 and pretax_val > 0 and shares_val > 0 and yr_key not in ['2024','2025']:
-                                t_rate = 0.10 if ticker_symbol == 'UBER' else 0.12
-                                normalized_eps = (pretax_val * (1 - t_rate)) / shares_val
-                                if normalized_eps < adj_eps * 1.5:
-                                    adjusted_history[yr_key] = normalized_eps
-                                    log(f"DEBUG: v229 Normalization for {ticker_symbol} {yr_key}: {adj_eps:.2f} -> {normalized_eps:.2f}")
-                            
-                            if yr_key in adjusted_history: 
-                                log(f"DEBUG: v229 Anchor Locked {ticker_symbol} {yr_key} -> {adjusted_history[yr_key]}")
+                        # v231: STRICT SYNC TO YAHOO NON-GAAP (No custom normalization)
+                        adjusted_history[yr_key] = adj_eps
+                        log(f"DEBUG: v231 Using Yahoo Base for {ticker_symbol} {yr_key}: {adj_eps:.2f}")
             except Exception as e_tax:
-                log(f"DEBUG: Tax Normalization error: {e_tax}")
+                log(f"DEBUG: Anchor processing error: {e_tax}")
         
         if financials is not None and not financials.empty:
             is_cols = [c for c in financials.columns if str(c).upper() != "TTM"]
@@ -2094,22 +2070,29 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             print(f"Error adding projections: {e_proj}")
         
         # v219: RECALCULATE eps_growth from Normalized projection anchors
-        # The FY projection growth rates (calculated from adjusted_history) are more accurate
-        # than Yahoo's earnings_estimate.growth which uses GAAP denominators.
-        try:
-            # Source A: Projections from trend table (if historical_trends was populated)
-            proj_growths = [t.get("eps_growth") for t in historical_trends if "Est" in str(t.get("year", "")) and t.get("eps_growth") is not None]
+            # v231: SYNC Projections to Yahoo Analyst Table exactly (Avg Estimate)
+            # Use Yahoo's 'yearAgoEps' from the current year trend as the primary anchor for 2025 if available.
+            y_trend = get_yahoo_eps_trend(ticker_symbol)
+            y_prev_anchor = y_trend.get('0y', {}).get('yearAgoEps')
+            if y_prev_anchor:
+                # Force-overwrite 2025 anchor in historical arrays to match screenshot's 'Year Ago'
+                last_yr_str = str(int(now_dt.year) - 1)
+                if last_yr_str in historical_data["years"]:
+                    idx_anc = historical_data["years"].index(last_yr_str)
+                    historical_data["eps"][idx_anc] = y_prev_anchor
+                    log(f"DEBUG: v231 Force-Synced 2025 Anchor from Yahoo Trend: {y_prev_anchor}")
 
-            # v226: Pure Arithmetic Mean of FIRST TWO table rows (FY1, FY2)
-            # This is the only way to match the user's visual expectation from the table.
+            # Source A: Projections from trend table (Avg Estimates)
+            proj_growths = [t.get("eps_growth") for t in historical_trends if "Est" in str(t.get("year", "")) and t.get("eps_growth") is not None]
+            
             if len(proj_growths) >= 2:
                 eps_growth = (proj_growths[0] + proj_growths[1]) / 2
-                eps_growth_period = "2Y EPS CAGR (Table Arithmetic Mean)"
+                eps_growth_period = "2Y EPS CAGR (Yahoo Truth Sync)"
             elif len(proj_growths) == 1:
                 eps_growth = proj_growths[0]
-                eps_growth_period = "FY1 Growth (Forensic Anchor)"
+                eps_growth_period = "FY1 Growth (Yahoo Truth Sync)"
                 
-            log(f"DEBUG: v226 - Final eps_growth for {ticker_symbol}: {eps_growth:.4f} ({eps_growth_period})")
+            log(f"DEBUG: v231 - Final eps_growth for {ticker_symbol}: {eps_growth:.4f} ({eps_growth_period})")
         except Exception as e_norm_g:
             log(f"DEBUG: v219 Growth Recalc failed: {e_norm_g}")
         # 3. Historical Anchors (Last 4 reported fiscal years - Robust Selection)
@@ -2933,62 +2916,49 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         except Exception as e:
             print(f"[Analyst] Yahoo Revenue Estimates fail: {e}")
 
-
-        # ── Annual EPS: Nasdaq Non-GAAP (PRIMARY source for FY estimates) ────────
-        # Yahoo's earnings_estimate is blocked from adding annual rows (GAAP) by the guard below.
+        # ── Annual EPS: YAHOO PRIMARY (Absolute Screenshot Sync) ─────────────────
+        # v230: Direct extraction from Yahoo's earnings_estimate avg to match user UI
         try:
-            nq_est = {}
-            try:
-                # v187: Pass force_refresh=True to bust stale 10-minute cache causing empty data
-                nq_est = get_nasdaq_comprehensive_estimates(ticker_symbol, force_refresh=True) or {}
-            except Exception as e:
-                print(f"[Analyst] PRIMARY Nasdaq FY fail: {e}")
-            nq_yearly_eps = nq_est.get("yearly_eps", [])
-            
-            for i, y_row in enumerate(nq_yearly_eps[:3]):
-                 date_val = y_row.get('fiscalYearEnd') or y_row.get('fiscalEnd')
-                 label = f"FY {date_val}" if date_val else "N/A"
-                 avg_val = safe_nasdaq_float(y_row.get('consensusEPSForecast'))
-                 
-                 # v206: FORCE YAHOO INFO TAGS (Matches 'Analysis' tab exactly)
-                 # These tags (epsCurrentYear, forwardEps) are the gold standard for normalized consensus.
-                 yahoo_norm_0y = info.get('epsCurrentYear')
-                 yahoo_norm_1y = info.get('forwardEps') or info.get('epsForward')
-
-                 # Try earnings_estimate mapping if available for extreme precision
-                 y_map = get_yahoo_eps_trend(ticker_symbol)
-                 
-                 period_code = f"+{i}y"
-                 if period_code == "+0y":
-                      avg_val = y_map.get('0y', {}).get('avg') or yahoo_norm_0y or avg_val
-                 elif period_code == "+1y":
-                      avg_val = y_map.get('+1y', {}).get('avg') or yahoo_norm_1y or avg_val
-
-                 if avg_val is not None:
-                     avg_val = round(avg_val, 2)
-                     growth_val = None
-                     target_base = base_eps
-                     if avg_val > 0 and target_base and target_base > 0:
-                         if "2027" in label or "+1y" in f"+{i}y":
-                             prev = next((x for x in eps_estimates if "2026" in x['period']), None)
-                             if prev: target_base = prev['avg']
-                         growth_val = (avg_val - target_base) / target_base
-                     eps_estimates.append({
-                         "period": label,
-                         "period_code": period_code,
-                         "avg": avg_val,
-                         "growth": growth_val,
-                         "status": "estimate"
-                     })
-        except: pass
-
+            ee = stock.earnings_estimate
+            if ee is not None and not (hasattr(ee, 'empty') and ee.empty):
+                for period in ['0y', '+1y']:
+                    if period in ee.index:
+                        row = ee.loc[period]
+                        avg_val = row.get('avg')
+                        if avg_val is None: continue
+                        
+                        # Dynamic Year Label
+                        target_fy = current_fy_num if period == '0y' else current_fy_num + 1
+                        label = f"FY {target_fy}"
+                        
+                        # Forensic Growth: Always anchored to FY0 Non-GAAP (base_eps)
+                        growth_val = None
+                        if period == "0y" and base_eps and base_eps > 0:
+                            growth_val = (avg_val / base_eps) - 1
+                        elif period == "+1y":
+                             # Compare FY1 to FY0 estimate for YoY growth
+                             p0_avg = ee.loc['0y'].get('avg') if '0y' in ee.index else None
+                             if p0_avg: growth_val = (avg_val / p0_avg) - 1
+                        
+                        eps_estimates.append({
+                            "period": label,
+                            "avg": round(float(avg_val), 2),
+                            "low": round(float(row.get('low', 0)), 2),
+                            "high": round(float(row.get('high', 0)), 2),
+                            "numberOfAnalysts": int(row.get('numberOfAnalysts', 0)) if row.get('numberOfAnalysts') else None,
+                            "growth": growth_val,
+                            "status": "estimate"
+                        })
+                        log(f"DEBUG: v230 Yahoo FY {target_fy} Avg: {avg_val}, Growth: {growth_val}")
+        except Exception as e:
+            log(f"[Analyst] PRIMARY Yahoo FY fail: {e}")
 
         # ── BASE YEAR BACKFILL (Fix for FRSH 2025 issue) ─────────────────────
         try:
             current_yr = datetime.datetime.now().year
             last_yr = current_yr - 1
             
-            # Check if 2025 (or current - 1) is already in the list
+            # Check if last_yr is already in the list
             has_last_yr = any(str(last_yr) in str(e.get('period')) for e in eps_estimates)
             
             if not has_last_yr:
