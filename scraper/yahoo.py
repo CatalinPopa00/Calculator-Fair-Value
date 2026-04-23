@@ -1829,10 +1829,6 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 r_idx = find_idx(financials, 'Total Revenue')
                 r = get_metric(financials, r_idx, yr_col) if r_idx else 0
                 
-                # Meta 2025 Revenue Hard-Lock (confirmed reported)
-                if ticker_symbol == 'META' and str(yr_val) == '2025':
-                    r = 200.97e9
-                
                 ni_idx = find_idx(financials, 'Net Income')
                 ni = get_metric(financials, ni_idx, yr_col) if ni_idx else 0
                 
@@ -2077,22 +2073,22 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             print(f"Error adding projections: {e_proj}")
         
         # v219: RECALCULATE eps_growth from Normalized projection anchors
-            # v233: Sync Meta 2025 Anchor to Official Yahoo Non-GAAP ($29.68)
+            # v234: SYSTEMIC ANCHOR SYNC (No hardcoding)
+            # Sync the most recent reported anchor (last_yr) to Yahoo's Analyst 'Year Ago' baseline
+            # This ensures that for all tickers, the anchor matches the screenshot visual.
             y_trend = get_yahoo_eps_trend(ticker_symbol)
             y_prev_anchor = y_trend.get('0y', {}).get('yearAgoEps')
             
-            if ticker_symbol == 'META':
-                # Force official 2025 anchor for growth consistency
-                if "2025" in historical_data["years"]:
-                    idx_2025 = historical_data["years"].index("2025")
-                    historical_data["eps"][idx_2025] = 29.68
-                    log(f"DEBUG: v233 Meta 2025 EPS set to Official Non-GAAP: 29.68")
-            elif y_prev_anchor:
-                # Standard sync for other tickers
-                last_yr_str = str(int(now_dt.year) - 1)
-                if last_yr_str in historical_data["years"]:
-                    idx_anc = historical_data["years"].index(last_yr_str)
-                    historical_data["eps"][idx_anc] = y_prev_anchor
+            if y_prev_anchor:
+                # Automate: Find the latest historical year in the list and sync it
+                last_reported_yr_idx = -1
+                for idx_h, h_yr in enumerate(historical_data["years"]):
+                    if "Est" not in str(h_yr):
+                        last_reported_yr_idx = idx_h
+                
+                if last_reported_yr_idx >= 0:
+                    historical_data["eps"][last_reported_yr_idx] = y_prev_anchor
+                    log(f"DEBUG: v234 Systemic Anchor Sync for {ticker_symbol} {historical_data['years'][last_reported_yr_idx]}: {y_prev_anchor}")
             
             # Source A: Projections from trend table (Avg Estimates)
             proj_growths = [t.get("eps_growth") for t in historical_trends if "Est" in str(t.get("year", "")) and t.get("eps_growth") is not None]
