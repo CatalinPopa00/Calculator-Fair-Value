@@ -1785,6 +1785,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         # When detected, recalculate EPS from Pretax Income with a standard effective tax rate.
         if financials is not None and not financials.empty:
             try:
+                is_cols = [c for c in financials.columns if str(c).upper() != "TTM"]
+                all_known_years = {c.year if hasattr(c, 'year') else int(str(c)[:4]) for c in is_cols}
                 for yr_key, adj_eps in list(adjusted_history.items()):
                     if not str(yr_key).isdigit(): continue
                     yr_int = int(yr_key)
@@ -1800,12 +1802,12 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                         pretax_val = float(financials.loc[pretax_idx, yr_col]) if not pd.isna(financials.loc[pretax_idx, yr_col]) else 0
                         shares_val = float(financials.loc[shares_idx, yr_col]) if not pd.isna(financials.loc[shares_idx, yr_col]) else 0
                         
-                        if tax_val < 0 and pretax_val > 0 and shares_val > 0:
-                            # Tax Provision is NEGATIVE = tax credit. Net Income is artificially inflated.
-                            # Use Pretax Income * (1 - 12%) as a reasonable Normalized proxy.
-                            # 12% is a conservative international effective rate for tech/growth companies.
-                            # Use Pretax Income * (1 - 21% default corp rate) as a reasonable Normalized proxy for historical accuracy.
-                            normalized_ni = pretax_val * (1 - 0.21)
+                        # v221: ONLY apply tax normalization to the CURRENT year (max_known_year)
+                        # Historical years are already stable; applying normalization causes spikes (like META 2024 $30.24)
+                        if tax_val < 0 and pretax_val > 0 and shares_val > 0 and yr_key == str(max(all_known_years) if all_known_years else 0):
+                            # Tax Provision is NEGATIVE = tax credit. Net Income is artificially inflated by a one-off benefit.
+                            # Use Pretax Income * (1 - 12%) as a reasonable Normalized proxy for growth companies.
+                            normalized_ni = pretax_val * (1 - 0.12)
                             normalized_eps = normalized_ni / shares_val
                             # Only apply if it REPAIRS a GAAP-distorted EPS (where Tax Prov was negative/absurd)
                             # and doesn't create a massive outlier (>40% higher than reported ADJ EPS)
@@ -1891,19 +1893,26 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     "gaap_net_margin": gaap_margin
                 })
         
-        # v202: Anchor Bridge - Final verification for extremely recent anchors not yet in timeline
+        # v221: Anchor Bridge - Final verification for extremely recent anchors not yet in timeline
+        # We FORCE overwrite the most recent year if we have a normalized anchor (adjusted_history)
         try:
             if adjusted_history:
                 valid_adj_years = [int(y) for y in adjusted_history.keys() if str(y).isdigit()]
                 if valid_adj_years:
                     max_adj = max(valid_adj_years)
-                    if str(max_adj) not in historical_data["years"]:
+                    # Force update or append
+                    if str(max_adj) in historical_data["years"]:
+                        idx = historical_data["years"].index(str(max_adj))
+                        historical_data["eps"][idx] = adjusted_history[str(max_adj)]
+                        log(f"DEBUG: v221 - Force-updated {max_adj} Anchor: {adjusted_history[str(max_adj)]}")
+                    else:
                         historical_data["years"].append(str(max_adj))
                         historical_data["eps"].append(adjusted_history[str(max_adj)])
                         if historical_data["revenue"]: historical_data["revenue"].append(historical_data["revenue"][-1])
                         else: historical_data["revenue"].append(0)
                         if historical_data["fcf"]: historical_data["fcf"].append(historical_data["fcf"][-1])
                         else: historical_data["fcf"].append(0)
+                        log(f"DEBUG: v221 - Appended {max_adj} Anchor: {adjusted_history[str(max_adj)]}")
         except Exception as e_bridge:
             log(f"DEBUG: Anchor Bridge failed: {e_bridge}")
 
@@ -2053,7 +2062,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
 
                     
                     # Calculate growth relative to the precise previous anchor in the unified timeline
-                    # v220: Ensure the first projection year (i=1) always uses the last historical anchor for growth.
+                    # v221: Ensure we use the exact Normalized Anchor (historical_data["eps"][-2]) which was just force-updated.
                     prev_eps = historical_data["eps"][-(i+1)] if len(historical_data["eps"]) > i else (historical_data["eps"][-2] if len(historical_data["eps"]) >= 2 else 0)
                     current_growth = (eps_est / prev_eps - 1) if prev_eps and prev_eps > 0 else 0.10
                     
