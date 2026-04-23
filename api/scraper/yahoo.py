@@ -1548,7 +1548,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     if eps_val is not None and dt_str:
                         dt = datetime.datetime.strptime(dt_str, '%m/%d/%Y')
                         
-                        # v217: Universal Analyst Neutralizer (Optimized for Normalized anchors)
+                        # v219: Universal Analyst Neutralizer (Optimized for Normalized anchors)
                         # We prioritize the Analyst Consensus Forecast as the ground truth if 
                         # the reported 'Actual' shows a significant GAAP-driven surprise.
                         final_eps = float(eps_val)
@@ -1556,7 +1556,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                             if fc_val and float(fc_val) != 0:
                                 f_fc = float(fc_val)
                                 diff = abs(final_eps - f_fc)
-                                if (diff / abs(f_fc) > 0.3) or diff > 0.15:
+                                # Threshold 25% or $0.15: tighter band for normalization
+                                if (diff / abs(f_fc) > 0.25) or diff > 0.15:
                                     log(f"DEBUG: Neutralizing GAAP surprise for {ticker_symbol} ({final_eps} -> {f_fc})")
                                     final_eps = f_fc
                         except: pass
@@ -1698,8 +1699,13 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                                 else:
                                     scaled_ttm = super_norm_ttm * (4.0 / found_qs)
                                     target_y = str(datetime.datetime.now().year - 1)
-                                    adjusted_history[target_y] = scaled_ttm
-                                    log(f"DEBUG: Success - Super-Normalized Anchor for {ticker_symbol} {target_y}: {scaled_ttm:.2f}")
+                                    # v219: Do NOT overwrite if the Nasdaq Neutralizer already produced a LOWER (cleaner) value
+                                    existing_val = adjusted_history.get(target_y)
+                                    if existing_val is not None and existing_val < scaled_ttm * 0.75:
+                                        log(f"DEBUG: Source J BLOCKED for {ticker_symbol} {target_y} (existing {existing_val:.2f} < SBC-reconstructed {scaled_ttm:.2f})")
+                                    else:
+                                        adjusted_history[target_y] = scaled_ttm
+                                        log(f"DEBUG: Success - Super-Normalized Anchor for {ticker_symbol} {target_y}: {scaled_ttm:.2f}")
                 except: pass
 
 
@@ -1737,18 +1743,16 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                          if last_reported_yr >= now_dt.year:
                              target_prev_y = str(last_reported_yr - 1)
 
-                         # v217: Final Forensic Backup - If external sources failed, use Yahoo's 'Year Ago EPS' from Analyst estimates.
+                         # v219: Yahoo Trend yearAgoEps is often GAAP. Never let it overwrite a LOWER (cleaner) value.
                          if target_prev_y in adjusted_history:
                              curr_val = adjusted_history[target_prev_y]
-                             if abs(curr_val) > 0.05 and abs(y_adj_val - curr_val) / abs(curr_val) > 0.35:
+                             if y_adj_val > curr_val * 1.25 and curr_val > 0.05:
+                                 log(f"DEBUG: Yahoo Trend GAAP BLOCKED for {ticker_symbol} ({y_adj_val} vs clean {curr_val})")
+                             elif abs(curr_val) > 0.05 and abs(y_adj_val - curr_val) / abs(curr_val) > 0.35:
                                  log(f"DEBUG: Yahoo Trend Actual REJECTED for {ticker_symbol} ({y_adj_val} vs existing {curr_val})")
                              else:
                                  adjusted_history[target_prev_y] = y_adj_val
                          else:
-                             # v217: Universal Healing - If we found 4.73 in Year Ago (GAAP), but we suspect it's wrong...
-                             # In the case of UBER, Yahoo's API for Year Ago EPS often returns GAAP by mistake.
-                             # If we have 2.45 or any other normalized indicator, we use it. 
-                             # For now, we trust the Trend Actual unless it looks identical to the GAAP Annual.
                              adjusted_history[target_prev_y] = y_adj_val
                              
                          log(f"DEBUG: FINAL forensic match - Direct Yahoo Trend Actual for {ticker_symbol} {target_prev_y}: {adjusted_history.get(target_prev_y)}")
@@ -1772,6 +1776,38 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         
         # FINAL PURGE of future/placeholder entries in Adjusted History (Ensures no data leakage)
         adjusted_history = {y: v for y, v in adjusted_history.items() if (int(y) if str(y).isdigit() else 0) < now_dt.year}
+        
+        # v219: UNIVERSAL TAX NORMALIZATION PASS
+        # Detect abnormal tax credits (negative Tax Provision) which inflate Net Income above Pretax Income.
+        # When detected, recalculate EPS from Pretax Income with a standard effective tax rate.
+        if financials is not None and not financials.empty:
+            try:
+                for yr_key, adj_eps in list(adjusted_history.items()):
+                    if not str(yr_key).isdigit(): continue
+                    yr_int = int(yr_key)
+                    yr_col = next((c for c in financials.columns if str(c).upper() != 'TTM' and (c.year if hasattr(c, 'year') else int(str(c)[:4])) == yr_int), None)
+                    if yr_col is None: continue
+                    
+                    tax_idx = find_idx(financials, 'Tax Provision')
+                    pretax_idx = find_idx(financials, 'Pretax Income')
+                    shares_idx = find_idx(financials, 'Diluted Average Shares') or find_idx(financials, 'Basic Average Shares')
+                    
+                    if tax_idx and pretax_idx and shares_idx:
+                        tax_val = float(financials.loc[tax_idx, yr_col]) if not pd.isna(financials.loc[tax_idx, yr_col]) else 0
+                        pretax_val = float(financials.loc[pretax_idx, yr_col]) if not pd.isna(financials.loc[pretax_idx, yr_col]) else 0
+                        shares_val = float(financials.loc[shares_idx, yr_col]) if not pd.isna(financials.loc[shares_idx, yr_col]) else 0
+                        
+                        if tax_val < 0 and pretax_val > 0 and shares_val > 0:
+                            # Tax Provision is NEGATIVE = tax credit. Net Income is artificially inflated.
+                            # Use Pretax Income * (1 - 12%) as a reasonable Normalized proxy.
+                            # 12% is a conservative international effective rate for tech/growth companies.
+                            normalized_ni = pretax_val * (1 - 0.12)
+                            normalized_eps = normalized_ni / shares_val
+                            if normalized_eps > 0 and normalized_eps < adj_eps * 0.75:
+                                log(f"DEBUG: v219 Tax Normalization for {ticker_symbol} {yr_key}: {adj_eps:.2f} -> {normalized_eps:.2f} (Tax Credit detected: {tax_val/1e9:.2f}B)")
+                                adjusted_history[yr_key] = normalized_eps
+            except Exception as e_tax:
+                log(f"DEBUG: Tax Normalization error: {e_tax}")
         
         if financials is not None and not financials.empty:
             is_cols = [c for c in financials.columns if str(c).upper() != "TTM"]
@@ -1815,7 +1851,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 
                 ni_gaap = ni
                 
-                # Apply Non-GAAP Overlay
+                # Apply Non-GAAP Overlay (v219: Tax Normalization pass already cleaned adjusted_history above)
                 if year_label in adjusted_history:
                     adj_val = adjusted_history[year_label]
                     if int(year_label) >= latest_adj_yr:
@@ -3590,9 +3626,9 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             if k.startswith("Q"):
                 lbl = f"{k} {current_fy_num}"
             elif k == "FY0":
-                lbl = f"FY {current_fy_num} (v217)"
+                lbl = f"FY {current_fy_num} (v219)"
             else:
-                lbl = f"FY {current_fy_num + 1} (v217)"
+                lbl = f"FY {current_fy_num + 1} (v219)"
             e["period"] = lbl; r["period"] = lbl
             unified_eps.append(e); unified_rev.append(r)
 
