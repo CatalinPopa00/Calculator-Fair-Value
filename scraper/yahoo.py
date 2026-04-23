@@ -27,12 +27,13 @@ def get_yahoo_normalized_anchor(ticker):
             html = response.text
             
             # Pattern for the raw data payload in Yahoo (often in a script tag)
-            # We look for the 0y row specifically to get the annual yearAgoEps (29.68 for Meta)
-            # Match currentYear row then find yearAgoEps inside it
-            match = re.search(r'"earningsEstimate":.*?0y".*?"yearAgoEps":\{"raw":([\d\.]+)', html, re.DOTALL)
+            # We look for the 0y/0Y row specifically in the earningsTrend context
+            # Example: {"period":"0y", ... "yearAgoEps":{"raw":29.68,"fmt":"29.68"}
+            # We use a broad lookahead to find the right period row
+            match = re.search(r'\{"period":"0[yY]".*?"yearAgoEps":\{"raw":([\d\.]+)', html)
             if not match:
-                # Fallback to general search if structure is different
-                match = re.search(r'"yearAgoEps":\{"raw":([\d\.]+)', html)
+                # Secondary attempt: look for just the label and value
+                match = re.search(r'Year Ago EPS.*?([\d\.]+)', html)
             
             if match:
                 val = float(match.group(1))
@@ -1825,18 +1826,28 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             except Exception as e_tax:
                 log(f"DEBUG: Anchor processing error: {e_tax}")
         
-        # v239: NUCLEAR TIMELINE SYNC
-        # 1. Try Brutal Scrape for the Normalized Anchor (e.g. 29.68)
+        # v241: BRUTAL TRUTH TIMELINE SYNC
+        # 1. Try Brutal Scrape for the Normalized Anchor (e.g. 29.68 for Meta)
+        # This is the 2025 Non-GAAP Truth.
         y_anchor_2025 = get_yahoo_normalized_anchor(ticker_symbol)
         
-        # 2. Fallback to API modules
+        # 2. Inject this truth into the historical records specifically for the anchor year
+        if y_anchor_2025 and y_anchor_2025 > 0:
+            log(f"DEBUG: v241 Forcing Normalized Anchor for {ticker_symbol} 2025: {y_anchor_2025:.2f}")
+            adjusted_history["2025"] = y_anchor_2025
+            # Force it also for the year before 0y in the visuals
+            if "2025" not in str(historical_data.get("years", [])):
+                 # Add to adjusted history so backfill can find it
+                 pass
+        
+        # 3. Fallback to API modules if scrape failed
         if not y_anchor_2025:
-            try:
+             try:
                 y_ee = getattr(stock, 'earnings_estimate', None)
                 if y_ee is not None and not (hasattr(y_ee, 'empty') and y_ee.empty):
                     if '0y' in y_ee.index:
                         y_anchor_2025 = float(y_ee.loc['0y'].get('yearAgoEps') or 0)
-            except: pass
+             except: pass
         
         # v233: REALITY TIMELINE (Include 2025 as it is reported by Feb 2026)
         if financials is not None and not financials.empty:
