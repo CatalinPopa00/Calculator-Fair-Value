@@ -2043,15 +2043,35 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         # The FY projection growth rates (calculated from adjusted_history) are more accurate
         # than Yahoo's earnings_estimate.growth which uses GAAP denominators.
         try:
+            # Source A: Projections from trend table (if historical_trends was populated)
             proj_growths = [t.get("eps_growth") for t in historical_trends if "Est" in str(t.get("year", "")) and t.get("eps_growth") is not None]
-            if len(proj_growths) >= 2:
+            
+            # Source B: Direct from Normalized Anchors (FY0, FY1) - Works even in fast_mode
+            if not proj_growths:
+                y_norm_0y = info.get('epsCurrentYear')
+                y_norm_1y = info.get('forwardEps') or info.get('epsForward')
+                y_ref_eps = adjusted_history.get(str(last_yr)) or data.get('trailing_eps')
+                
+                if y_norm_0y and y_ref_eps and y_ref_eps > 0:
+                    g0 = (y_norm_0y / y_ref_eps) - 1
+                    if y_norm_1y:
+                        g1 = (y_norm_1y / y_norm_0y) - 1
+                        eps_growth = (g0 + g1) / 2
+                        eps_growth_period = "2Y EPS CAGR (Normalized Anchors - Direct)"
+                    else:
+                        eps_growth = g0
+                        eps_growth_period = "FY0 Growth (Normalized Anchor - Direct)"
+            
+            elif len(proj_growths) >= 2:
                 eps_growth = (proj_growths[0] + proj_growths[1]) / 2
-                eps_growth_period = "Avg FY0+FY1 (Normalized Anchors)"
-                log(f"DEBUG: v219 - Recalculated eps_growth from projections: {eps_growth:.4f} ({proj_growths})")
+                eps_growth_period = "2Y EPS CAGR (Avg FY0+FY1)"
             elif len(proj_growths) == 1:
                 eps_growth = proj_growths[0]
-                eps_growth_period = "FY0 (Normalized Anchor)"
-        except: pass
+                eps_growth_period = "FY0 Growth (Normalized Anchor)"
+                
+            log(f"DEBUG: v219 - Final eps_growth for {ticker_symbol}: {eps_growth:.4f} ({eps_growth_period})")
+        except Exception as e_norm_g:
+            log(f"DEBUG: v219 Growth Recalc failed: {e_norm_g}")
         # 3. Historical Anchors (Last 4 reported fiscal years - Robust Selection)
         historical_anchors = []
         try:
