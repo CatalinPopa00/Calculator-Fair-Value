@@ -1804,10 +1804,13 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                             # Tax Provision is NEGATIVE = tax credit. Net Income is artificially inflated.
                             # Use Pretax Income * (1 - 12%) as a reasonable Normalized proxy.
                             # 12% is a conservative international effective rate for tech/growth companies.
-                            normalized_ni = pretax_val * (1 - 0.12)
+                            # Use Pretax Income * (1 - 21% default corp rate) as a reasonable Normalized proxy for historical accuracy.
+                            normalized_ni = pretax_val * (1 - 0.21)
                             normalized_eps = normalized_ni / shares_val
-                            if normalized_eps > 0 and normalized_eps < adj_eps * 0.75:
-                                log(f"DEBUG: v219 Tax Normalization for {ticker_symbol} {yr_key}: {adj_eps:.2f} -> {normalized_eps:.2f} (Tax Credit detected: {tax_val/1e9:.2f}B)")
+                            # Only apply if it REPAIRS a GAAP-distorted EPS (where Tax Prov was negative/absurd)
+                            # and doesn't create a massive outlier (>40% higher than reported ADJ EPS)
+                            if normalized_eps > 0 and (normalized_eps < adj_eps * 0.9 or normalized_eps < adj_eps * 1.4):
+                                log(f"DEBUG: v220 Tax Normalization for {ticker_symbol} {yr_key}: {adj_eps:.2f} -> {normalized_eps:.2f}")
                                 adjusted_history[yr_key] = normalized_eps
             except Exception as e_tax:
                 log(f"DEBUG: Tax Normalization error: {e_tax}")
@@ -1941,25 +1944,52 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     # We compare Nasdaq, Yahoo, and Projections to find the most 'Live' consensus
                     source_estimates = []
                     
-                    # 1. Nasdaq Source
-                    # v201: Robust Year-Matching (Prevents off-by-one errors in projection mapping)
                     nq_val = None
                     for nq_row in nq_yearly_eps:
-                        nq_yr = nq_row.get('fiscalYearEnd') or nq_row.get('fiscalEnd')
-                        if nq_yr and str(proj_yr) in str(nq_yr):
+                        nq_yr_val = nq_row.get('fiscalYearEnd') or nq_row.get('fiscalEnd')
+                        if nq_yr_val and str(proj_yr) in str(nq_yr_val):
                             nq_val = safe_nasdaq_float(nq_row.get('consensusEPSForecast'))
                             break
                     if nq_val is not None: source_estimates.append(nq_val * fx_rate)
-                    
-                    # 2. Yahoo Source
+
+                    # v220: Dynamic Fiscal Alignment
+                    # If Yahoo "0y" refers to the same year as our last anchor (e.g. 2025 reported), 
+                    # we must shift indices to map "0y" -> previous and "+1y" -> Current Proj.
+                    yahoo_fiscal_0y = None
+                    try:
+                        # Extract fiscal year for '0y' from earnings_estimate index or info
+                        yahoo_fiscal_0y = last_yr # fallback
+                        if ee_data is not None and not ee_data.empty and '0y' in ee_data.index:
+                            # Usually Yahoo doesn't explicitly give the year in index, but we can verify it
+                            pass
+                    except: pass
+
+                    # 2. Yahoo Source (v220: Strict Year Mapping)
                     y_est = None
+                    # Decide if we need to shift (if 2025 is already historical, '0y' might still be 2025)
+                    # We'll use +1y for the first projection if 0y is already in history
+                    target_fy_code = fy_code
+                    if i == 1 and str(last_yr) in str(historical_data["years"]):
+                        # Check if Yahoo's '0y' value is effectively our last anchor. 
+                        # If it is, then the first projection (FY 2026) MUST use '+1y'.
+                        curr_est_val = None
+                        if ee_data is not None and not ee_data.empty and '0y' in ee_data.index:
+                            curr_est_val = float(ee_data.loc['0y'].get('avg') or 0)
+                        
+                        # If the '0y' estimate is very close to our 2025 anchor, it means Yahoo is stale.
+                        # Target FY 2026 should use '+1y'.
+                        anchor_2025 = historical_data["eps"][-1]
+                        if curr_est_val and abs(curr_est_val - anchor_2025) < 0.1:
+                            target_fy_code = "+1y" if i == 1 else "+2y"
+                            log(f"DEBUG: v220 Shifting Yahoo Index for {ticker_symbol} {proj_yr}: {fy_code} -> {target_fy_code}")
+
                     if ee_data is not None and not ee_data.empty:
-                        if fy_code in ee_data.index: y_est = float(ee_data.loc[fy_code].get('avg') or 0) * fx_rate
+                        if target_fy_code in ee_data.index: y_est = float(ee_data.loc[target_fy_code].get('avg') or 0) * fx_rate
                     if not y_est:
                         try:
                             sync_e = getattr(stock, 'earnings_estimate', None)
-                            if sync_e is not None and not sync_e.empty and fy_code in sync_e.index:
-                                y_est = float(sync_e.loc[fy_code].get('avg') or 0) * fx_rate
+                            if sync_e is not None and not sync_e.empty and target_fy_code in sync_e.index:
+                                y_est = float(sync_e.loc[target_fy_code].get('avg') or 0) * fx_rate
                         except: pass
                     if y_est: source_estimates.append(y_est)
 
@@ -2022,8 +2052,9 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     historical_data["shares"].append(historical_data["shares"][-1])
 
                     
-                    # Calculate growth relative to the previous entry in historical_data
-                    prev_eps = historical_data["eps"][-2] if len(historical_data["eps"]) >= 2 else 0
+                    # Calculate growth relative to the precise previous anchor in the unified timeline
+                    # v220: Ensure the first projection year (i=1) always uses the last historical anchor for growth.
+                    prev_eps = historical_data["eps"][-(i+1)] if len(historical_data["eps"]) > i else (historical_data["eps"][-2] if len(historical_data["eps"]) >= 2 else 0)
                     current_growth = (eps_est / prev_eps - 1) if prev_eps and prev_eps > 0 else 0.10
                     
                     # v132: Inject into trends for valuation engine consumption
