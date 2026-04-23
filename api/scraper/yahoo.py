@@ -1838,6 +1838,14 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 s = get_metric(financials, 'Diluted Average Shares', yr_col) or \
                     get_metric(financials, 'Basic Average Shares', yr_col)
                 
+                # v236: Shares Fallback (Fix for missing columns in reported years like Meta 2025)
+                if (not s or s < 1000) and info:
+                    # Try to get live shares from info module if historical row is empty
+                    s = info.get('sharesOutstanding') or info.get('impliedSharesOutstanding') or s
+                if (not s or s < 1000) and historical_data["shares"]:
+                    # Fallback to last known historical shares to keep graph consistency
+                    s = historical_data["shares"][-1]
+                
                 ni_gaap = ni
                 
                 # Apply Non-GAAP Overlay
@@ -2079,17 +2087,30 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             y_trend = get_yahoo_eps_trend(ticker_symbol)
             y_prev_anchor = y_trend.get('0y', {}).get('yearAgoEps')
             
-            if y_prev_anchor:
-                # Automate: Find the latest historical year in the list and sync it
-                last_reported_yr_idx = -1
-                for idx_h, h_yr in enumerate(historical_data["years"]):
-                    if "Est" not in str(h_yr):
-                        last_reported_yr_idx = idx_h
-                
-                if last_reported_yr_idx >= 0:
-                    historical_data["eps"][last_reported_yr_idx] = y_prev_anchor
-                    log(f"DEBUG: v234 Systemic Anchor Sync for {ticker_symbol} {historical_data['years'][last_reported_yr_idx]}: {y_prev_anchor}")
+            # v236: Robust SYSTEMIC ANCHOR SYNC
+            # Match Yahoo Analyst 'Year Ago EPS' to the correct historical year row dynamically
+            y_trend = get_yahoo_eps_trend(ticker_symbol)
+            y_prev_anchor = y_trend.get('0y', {}).get('yearAgoEps')
             
+            if y_prev_anchor:
+                # Automate: Find the year that matches the 'current_year - 1' logic
+                target_anc_yr = str(now_dt.year - 1)
+                
+                # Update both historical_data and historical_trends for UI consistency
+                if target_anc_yr in historical_data["years"]:
+                    h_idx = historical_data["years"].index(target_anc_yr)
+                    historical_data["eps"][h_idx] = y_prev_anchor
+                    log(f"DEBUG: v236 Systemic Anchor Applied to {ticker_symbol} {target_anc_yr}: {y_prev_anchor}")
+                    
+                    # Also update the trend table row (Margin/Net Income)
+                    for t_row in historical_trends:
+                        if t_row.get("year") == target_anc_yr:
+                            t_row["eps"] = y_prev_anchor
+                            # Recalculate margin for table precision
+                            if t_row.get("revenue") and s:
+                                t_row["net_margin"] = (y_prev_anchor * s) / (t_row["revenue"] * fx_rate)
+                            break
+
             # Source A: Projections from trend table (Avg Estimates)
             proj_growths = [t.get("eps_growth") for t in historical_trends if "Est" in str(t.get("year", "")) and t.get("eps_growth") is not None]
             
