@@ -27,13 +27,15 @@ def get_yahoo_normalized_anchor(ticker):
             html = response.text
             
             # Pattern for the raw data payload in Yahoo (often in a script tag)
-            # We look for "yearAgoEps":{"raw":29.68
-            match = re.search(r'"yearAgoEps":\{"raw":([\d\.]+)', html)
+            # We look for the 0y row specifically to get the annual yearAgoEps (29.68 for Meta)
+            # Match currentYear row then find yearAgoEps inside it
+            match = re.search(r'"earningsEstimate":.*?0y".*?"yearAgoEps":\{"raw":([\d\.]+)', html, re.DOTALL)
+            if not match:
+                # Fallback to general search if structure is different
+                match = re.search(r'"yearAgoEps":\{"raw":([\d\.]+)', html)
+            
             if match:
                 val = float(match.group(1))
-                # If there are multiple, we usually want the one for the current year row
-                # Analysis page often has multiple tables (Earnings, Revenue). 
-                # Earnings is usually first.
                 return val
     except Exception as e:
         print(f"DEBUG: Normalized Scrape fail: {e}")
@@ -2972,42 +2974,46 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         except Exception as e:
             print(f"[Analyst] Yahoo Revenue Estimates fail: {e}")
 
-        # ── Annual EPS: YAHOO PRIMARY (Absolute Screenshot Sync) ─────────────────
-        # v230: Direct extraction from Yahoo's earnings_estimate avg to match user UI
+        # ── Annual EPS: YAHOO NUCLEAR (v240: Exact UI Parity) ─────────────────
         try:
-            ee = stock.earnings_estimate
-            if ee is not None and not (hasattr(ee, 'empty') and ee.empty):
-                for period in ['0y', '+1y']:
-                    if period in ee.index:
-                        row = ee.loc[period]
-                        avg_val = row.get('avg')
-                        if avg_val is None: continue
-                        
-                        # Dynamic Year Label
-                        target_fy = current_fy_num if period == '0y' else current_fy_num + 1
-                        label = f"FY {target_fy}"
-                        
-                        # Forensic Growth: Always anchored to FY0 Non-GAAP (base_eps)
-                        growth_val = None
-                        if period == "0y" and base_eps and base_eps > 0:
-                            growth_val = (avg_val / base_eps) - 1
-                        elif period == "+1y":
-                             # Compare FY1 to FY0 estimate for YoY growth
-                             p0_avg = ee.loc['0y'].get('avg') if '0y' in ee.index else None
-                             if p0_avg: growth_val = (avg_val / p0_avg) - 1
-                        
-                        eps_estimates.append({
-                            "period": label,
-                            "avg": round(float(avg_val), 2),
-                            "low": round(float(row.get('low', 0)), 2),
-                            "high": round(float(row.get('high', 0)), 2),
-                            "numberOfAnalysts": int(row.get('numberOfAnalysts', 0)) if row.get('numberOfAnalysts') else None,
-                            "growth": growth_val,
-                            "status": "estimate"
-                        })
-                        log(f"DEBUG: v230 Yahoo FY {target_fy} Avg: {avg_val}, Growth: {growth_val}")
+            # v240: Priority 1 - Use info tags (Normalized Truth: 30.12/35.86)
+            y_fy0 = info.get('epsCurrentYear')
+            y_fy1 = info.get('forwardEps') or info.get('epsForward')
+            
+            if y_fy0:
+                eps_estimates.append({
+                    "period": f"FY {current_fy_num}",
+                    "avg": round(float(y_fy0), 2),
+                    "status": "estimate",
+                    "growth": (y_fy0 / base_eps) - 1 if base_eps else None
+                })
+            
+            if y_fy1:
+                eps_estimates.append({
+                    "period": f"FY {current_fy_num + 1}",
+                    "avg": round(float(y_fy1), 2),
+                    "status": "estimate",
+                    "growth": (y_fy1 / y_fy0) - 1 if y_fy0 else None
+                })
+                
+            # Fallback to estimate table only if tags are missing
+            if not y_fy0:
+                ee = stock.earnings_estimate
+                if ee is not None and not (hasattr(ee, 'empty') and ee.empty):
+                    for period in ['0y', '+1y']:
+                        if period in ee.index:
+                            row = ee.loc[period]
+                            avg_val = row.get('avg')
+                            if avg_val is None: continue
+                            target_fy = current_fy_num if period == '0y' else current_fy_num + 1
+                            eps_estimates.append({
+                                "period": f"FY {target_fy}",
+                                "avg": round(float(avg_val), 2),
+                                "status": "estimate",
+                                "growth": None # Calculated later
+                            })
         except Exception as e:
-            log(f"[Analyst] PRIMARY Yahoo FY fail: {e}")
+            log(f"[Analyst] NUCLEAR Yahoo FY fail: {e}")
 
         # ── BASE YEAR BACKFILL (Fix for FRSH 2025 issue) ─────────────────────
         try:
