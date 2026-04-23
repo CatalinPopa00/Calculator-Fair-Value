@@ -345,18 +345,15 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         # Watchlist skips expensive peer fetching to save 80% loading time while retaining sync
         market_data = get_market_averages()
         
-        # 3. Compute Valuations (v62: Unified Consensus Growth)
-        consensus_growth = data.get("eps_growth_nasdaq_3y")
-        if consensus_growth is None:
-            consensus_growth = data.get("eps_growth_5y_consensus") or data.get("eps_growth_3y") or data.get("eps_growth_5y") or data.get("eps_growth") or 0.05
+        # 3. Compute Valuations (v219: Use recalculated eps_growth = Avg FY0+FY1 from Normalized Anchors)
+        consensus_growth = data.get("eps_growth")
+        if consensus_growth is None or consensus_growth <= 0:
+            consensus_growth = data.get("eps_growth_5y_consensus") or data.get("eps_growth_3y") or data.get("eps_growth_5y") or 0.05
         
         # Use a safe growth baseline for labels
         eps_growth_estimated = consensus_growth
         
-        lynch_period_label = data.get("eps_growth_period") if data.get("eps_growth_nasdaq_3y") else (
-            "Yahoo 5Y Cons." if data.get("eps_growth_5y_consensus") else (
-            "3-Year Hist. Avg" if data.get("eps_growth_3y") else "Analyst Est."
-        ))
+        lynch_period_label = data.get("eps_growth_period") or "2Y EPS CAGR"
         
         
         # Calculate Industry Median PE for Peter Lynch fallback
@@ -404,10 +401,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         # Fallback logic handled by consensus_growth
         eps_growth_rate_peg = consensus_growth
         
-        peg_period_label = data.get("eps_growth_period") if data.get("eps_growth_nasdaq_3y") else (
-            "Yahoo 5Y Cons." if data.get("eps_growth_5y_consensus") else (
-            "3-Year Hist. Avg" if data.get("eps_growth_3y") else "Analyst Est."
-        ))
+        peg_period_label = data.get("eps_growth_period") or "2Y EPS CAGR"
         company_peg = current_pe / (eps_growth_rate_peg * 100) if eps_growth_rate_peg > 0 else 0
         
         # Calculate Industry PEG from peers + Target Company

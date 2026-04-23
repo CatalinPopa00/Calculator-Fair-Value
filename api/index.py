@@ -241,10 +241,11 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         # Priority: Scraped Adjusted EPS > Forecast FY0 Average > Trailing GAAP EPS
         eps_for_valuation = data.get("adjusted_eps") or eps_0y or data.get("trailing_eps") or 0.0
         
-        # v185: Fallback security for growth - ensure it's derived from Non-GAAP consensus
-        # v197: Sync with corrected FY0 growth from analyst estimates (e.g. 12.2% for ADBE)
-        fy0_growth = next((e.get("growth") for e in eps_estimates if e.get("period_code") == "0y" and e.get("growth")), None)
-        growth_5y = fy0_growth if (fy0_growth is not None and fy0_growth > 0) else (data.get("eps_5yr_growth") or 0.05)
+        # v219: Use recalculated eps_growth = Avg FY0+FY1 from Normalized Anchors
+        growth_5y = data.get("eps_growth")
+        if growth_5y is None or growth_5y <= 0:
+            fy0_growth = next((e.get("growth") for e in eps_estimates if e.get("period_code") == "0y" and e.get("growth")), None)
+            growth_5y = fy0_growth if (fy0_growth is not None and fy0_growth > 0) else (data.get("eps_5yr_growth") or 0.05)
         
         pe_historic = data.get("pe_historic") or 20.0
         

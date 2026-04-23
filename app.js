@@ -2710,17 +2710,17 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (model === 'peter_lynch' && currentFormulaData.peter_lynch) {
                 const p = currentFormulaData.peter_lynch;
                 title.textContent = '📊 Forward Multiple — Data Transparency';
-                const periodLabel = p.eps_growth_period || 'Est.';
+                const periodLabel = p.eps_growth_period || '2Y EPS CAGR';
                 html = row('Trailing EPS', '$' + fmt(p.trailing_eps))
-                     + row(`EPS Growth (${periodLabel})`, fmtPct(p.eps_growth_estimated))
+                     + row('2Y EPS CAGR', fmtPct(p.eps_growth_estimated))
                      + row('Historic P/E (5Y Avg)', p.historic_pe ? p.historic_pe.toFixed(2) + 'x' : 'N/A')
                      + row('Fair Value (PE 20)', '$' + fmt(p.fair_value_pe_20));
             } else if (model === 'peg' && currentFormulaData.peg) {
                 const g = currentFormulaData.peg;
                 title.textContent = '📊 PEG Valuation — Data Transparency';
-                const periodLabel = g.eps_growth_period || 'Est.';
+                const periodLabel = g.eps_growth_period || '2Y EPS CAGR';
                 html = row('Current P/E', g.current_pe ? g.current_pe.toFixed(2) + 'x' : 'N/A')
-                     + row(`EPS Growth (${periodLabel})`, fmtPct(g.eps_growth_estimated))
+                     + row('2Y EPS CAGR', fmtPct(g.eps_growth_estimated))
                      + row('Current PEG', g.current_peg ? g.current_peg.toFixed(2) + 'x' : 'N/A')
                      + row('Industry PEG', g.industry_peg ? g.industry_peg.toFixed(2) + 'x' : 'N/A')
                      + row('Fair Value', '$' + fmt(g.fair_value))
