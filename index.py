@@ -24,13 +24,13 @@ from models.valuation import (
     calculate_dcf_sensitivity,
     calculate_reverse_dcf
 )
-from .models.scoring import calculate_scoring_reform, calculate_piotroski_score
+from models.scoring import calculate_scoring_reform, calculate_piotroski_score
 
 # Cache for search results (30 mins TTL)
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v246"
+CACHE_VERSION = "v247"
 # 1. Initialize FastAPI App (Systemic Recovery Fix)
 app = FastAPI(title="Fair Value Calculator API")
 
