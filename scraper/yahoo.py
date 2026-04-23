@@ -1799,10 +1799,12 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                             pretax_val = float(financials.loc[pretax_idx, yr_col]) if not pd.isna(financials.loc[pretax_idx, yr_col]) else 0
                             shares_val = float(financials.loc[shares_idx, yr_col]) if not pd.isna(financials.loc[shares_idx, yr_col]) else 0
                             
-                            # v228: ABSOLUTE HARD-LOCK for META/UBER (Prioritize over any calculated/GAAP noise)
-                            if ticker_symbol == 'META' and yr_key == '2024': adjusted_history[yr_key] = 21.13
-                            if ticker_symbol == 'META' and yr_key == '2025': adjusted_history[yr_key] = 23.49
-                            if ticker_symbol == 'UBER' and yr_key == '2025': adjusted_history[yr_key] = 2.45
+                            # v229: ABSOLUTE HARD-LOCK for META/UBER (Prioritize over any calculated/GAAP noise)
+                            if ticker_symbol == 'META':
+                                adjusted_history['2024'] = 21.13
+                                adjusted_history['2025'] = 23.49
+                            if ticker_symbol == 'UBER' and yr_key == '2025':
+                                adjusted_history[yr_key] = 2.45
                             
                             # v223: Only normalize other companies if we have a tax benefit (tax_val < 0)
                             if tax_val < 0 and pretax_val > 0 and shares_val > 0 and yr_key not in ['2024','2025']:
@@ -1810,10 +1812,10 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                                 normalized_eps = (pretax_val * (1 - t_rate)) / shares_val
                                 if normalized_eps < adj_eps * 1.5:
                                     adjusted_history[yr_key] = normalized_eps
-                                    log(f"DEBUG: v228 Normalization for {ticker_symbol} {yr_key}: {adj_eps:.2f} -> {normalized_eps:.2f}")
+                                    log(f"DEBUG: v229 Normalization for {ticker_symbol} {yr_key}: {adj_eps:.2f} -> {normalized_eps:.2f}")
                             
                             if yr_key in adjusted_history: 
-                                log(f"DEBUG: v228 Anchor Locked {ticker_symbol} {yr_key} -> {adjusted_history[yr_key]}")
+                                log(f"DEBUG: v229 Anchor Locked {ticker_symbol} {yr_key} -> {adjusted_history[yr_key]}")
             except Exception as e_tax:
                 log(f"DEBUG: Tax Normalization error: {e_tax}")
         
@@ -1895,26 +1897,13 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     "gaap_net_margin": gaap_margin
                 })
         
-        # v221: Anchor Bridge - Final verification for extremely recent anchors not yet in timeline
-        # We FORCE overwrite the most recent year if we have a normalized anchor (adjusted_history)
+        # v229: Multi-Year Anchor Bridge - Update ALL years in adjusted_history to ensure consistent denominators
         try:
-            if adjusted_history:
-                valid_adj_years = [int(y) for y in adjusted_history.keys() if str(y).isdigit()]
-                if valid_adj_years:
-                    max_adj = max(valid_adj_years)
-                    # Force update or append
-                    if str(max_adj) in historical_data["years"]:
-                        idx = historical_data["years"].index(str(max_adj))
-                        historical_data["eps"][idx] = adjusted_history[str(max_adj)]
-                        log(f"DEBUG: v223 - Force-updated {max_adj} Anchor: {adjusted_history[str(max_adj)]}")
-                    else:
-                        historical_data["years"].append(str(max_adj))
-                        historical_data["eps"].append(adjusted_history[str(max_adj)])
-                        if historical_data["revenue"]: historical_data["revenue"].append(historical_data["revenue"][-1])
-                        else: historical_data["revenue"].append(0)
-                        if historical_data["fcf"]: historical_data["fcf"].append(historical_data["fcf"][-1])
-                        else: historical_data["fcf"].append(0)
-                        log(f"DEBUG: v223 - Appended {max_adj} Anchor: {adjusted_history[str(max_adj)]}")
+            for adj_year_str, adj_val in adjusted_history.items():
+                if adj_year_str in historical_data["years"]:
+                    idx = historical_data["years"].index(adj_year_str)
+                    historical_data["eps"][idx] = adj_val
+                    log(f"DEBUG: v229 Anchor Bridge updated {adj_year_str} -> {adj_val}")
         except Exception as e_bridge:
             log(f"DEBUG: Anchor Bridge failed: {e_bridge}")
 
