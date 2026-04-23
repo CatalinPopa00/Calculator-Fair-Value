@@ -35,7 +35,7 @@ from models.scoring import calculate_scoring_reform, calculate_piotroski_score
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v250"
+CACHE_VERSION = "v251"
 # 1. Initialize FastAPI App (Systemic Recovery Fix)
 app = FastAPI(title="Fair Value Calculator API")
 
@@ -335,8 +335,9 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         current_price = data.get("current_price") or 0.0
         if not data.get("name"):
             data["name"] = ticker.upper()
-            data["ticker"] = ticker.upper()
-            data["current_price"] = 0.0
+        
+        # v251: Ensure ticker is strictly ticker, don't allow doubling
+        data["ticker"] = ticker.upper()
     
         all_overrides = _load_overrides()
         ticker_overrides = all_overrides.get(ticker.upper())
@@ -572,7 +573,9 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             
         # Add bounds handling to avoid infinite or NaN
         def sanitize(val):
-            if val is None or math.isnan(val) or math.isinf(val):
+            if val is None or not isinstance(val, (int, float)):
+                return val
+            if not math.isfinite(val):
                 return None
             return round(val, 4)
             
