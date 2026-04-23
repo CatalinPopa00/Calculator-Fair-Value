@@ -1,3 +1,8 @@
+import sys
+import os
+# Correct path for Vercel deployment to find root modules
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
 from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -15,7 +20,7 @@ import requests
 import concurrent.futures
 
 from scraper.yahoo import get_company_data, get_competitors_data, get_market_averages, search_companies, get_analyst_data, get_risk_free_rate
-from api.utils.kv import kv_get, kv_set
+from utils.kv import kv_get, kv_set
 from models.valuation import (
     calculate_peter_lynch, 
     calculate_peg_fair_value, 
@@ -30,7 +35,7 @@ from models.scoring import calculate_scoring_reform, calculate_piotroski_score
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v247"
+CACHE_VERSION = "v249"
 # 1. Initialize FastAPI App (Systemic Recovery Fix)
 app = FastAPI(title="Fair Value Calculator API")
 
