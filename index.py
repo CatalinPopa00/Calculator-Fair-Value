@@ -30,7 +30,7 @@ from .models.scoring import calculate_scoring_reform, calculate_piotroski_score
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v227"
+CACHE_VERSION = "v228"
 # 1. Initialize FastAPI App (Systemic Recovery Fix)
 app = FastAPI(title="Fair Value Calculator API")
 
@@ -826,7 +826,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 risk_factors = zero_point_items[:3]
             else:
                 # Fallback: lowest partial points if no 0s
-                all_sorted = sorted(all_breakdowns, key=lambda x: x.get("points", 100))
+                all_sorted = sorted(all_breakdowns, key=lambda x: x.get("points_awarded", 100))
                 risk_factors = all_sorted[:2]
 
         response_data = {
