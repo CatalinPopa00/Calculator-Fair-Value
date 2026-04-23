@@ -3,7 +3,7 @@ import os
 # Correct path for Vercel deployment to find root modules
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from fastapi import FastAPI, HTTPException, Response
+from fastapi import FastAPI, HTTPException, Response, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from cachetools import TTLCache
@@ -35,7 +35,7 @@ from models.scoring import calculate_scoring_reform, calculate_piotroski_score
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v252"
+CACHE_VERSION = "v253"
 # 1. Initialize FastAPI App (Systemic Recovery Fix)
 app = FastAPI(title="Fair Value Calculator API")
 
@@ -920,9 +920,13 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         }
     except Exception as e:
         import traceback
-        print(f"VALUATION CRASH for {ticker}: {str(e)}")
+        error_msg = f"VALUATION CRASH for {ticker}: {str(e)}"
+        print(error_msg)
         print(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=f"Backend Error for {ticker}: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": True, "detail": error_msg, "traceback": traceback.format_exc()}
+        )
 
     # 3. Save to memory cache (v38: Fix for slowness and desync)
     valuation_cache[cache_key] = response_data
