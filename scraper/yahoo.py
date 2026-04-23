@@ -10,6 +10,34 @@ import random
 import requests
 import pandas as pd
 import re
+import requests
+
+def get_yahoo_normalized_anchor(ticker):
+    """
+    v239: Brutal Scraping Fallback for the Normalized Anchor (e.g. 29.68 for Meta)
+    Standard APIs usually return GAAP (23.49). We seek the truth in the HTML.
+    """
+    try:
+        url = f"https://finance.yahoo.com/quote/{ticker}/analysis"
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        response = requests.get(url, headers=headers, timeout=10)
+        if response.status_code == 200:
+            # Look for values near "Year Ago EPS" in the Normalized context
+            # We look for the FIRST value following the Year Ago EPS label in the JSON blob or table
+            html = response.text
+            
+            # Pattern for the raw data payload in Yahoo (often in a script tag)
+            # We look for "yearAgoEps":{"raw":29.68
+            match = re.search(r'"yearAgoEps":\{"raw":([\d\.]+)', html)
+            if match:
+                val = float(match.group(1))
+                # If there are multiple, we usually want the one for the current year row
+                # Analysis page often has multiple tables (Earnings, Revenue). 
+                # Earnings is usually first.
+                return val
+    except Exception as e:
+        print(f"DEBUG: Normalized Scrape fail: {e}")
+    return None
 try:
     from utils.kv import kv_get, kv_set
 except ImportError:
@@ -1795,18 +1823,18 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             except Exception as e_tax:
                 log(f"DEBUG: Anchor processing error: {e_tax}")
         
-        # v237: HOLY GRAIL TIMELINE SYNC
-        # Use Yahoo's earnings_estimate module as the primary anchor for the last reported year
-        y_ee = None
-        try:
-            y_ee = stock.earnings_estimate
-        except: pass
+        # v239: NUCLEAR TIMELINE SYNC
+        # 1. Try Brutal Scrape for the Normalized Anchor (e.g. 29.68)
+        y_anchor_2025 = get_yahoo_normalized_anchor(ticker_symbol)
         
-        y_anchor_2025 = None
-        if y_ee is not None and not (hasattr(y_ee, 'empty') and y_ee.empty):
-            if '0y' in y_ee.index:
-                # This is the 29.68 for Meta (Year Ago EPS)
-                y_anchor_2025 = float(y_ee.loc['0y'].get('yearAgoEps') or 0)
+        # 2. Fallback to API modules
+        if not y_anchor_2025:
+            try:
+                y_ee = getattr(stock, 'earnings_estimate', None)
+                if y_ee is not None and not (hasattr(y_ee, 'empty') and y_ee.empty):
+                    if '0y' in y_ee.index:
+                        y_anchor_2025 = float(y_ee.loc['0y'].get('yearAgoEps') or 0)
+            except: pass
         
         # v233: REALITY TIMELINE (Include 2025 as it is reported by Feb 2026)
         if financials is not None and not financials.empty:
@@ -1980,23 +2008,31 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                             target_fy_code = "+1y" if i == 1 else "+2y"
                             log(f"DEBUG: v220 Shifting Yahoo Index for {ticker_symbol} {proj_yr}: {fy_code} -> {target_fy_code}")
 
-                    # v237: HOLY GRAIL PRIORITY (Absolute Yahoo Sync)
-                    # Use Yahoo earnings_estimate for this projection year BEFORE any other source
+                    # v239: NUCLEAR PRIORITY (Normalized Truth)
+                    # We discovered that info['epsCurrentYear'] is 30.12 (Correct) 
+                    # while earnings_estimate['0y'] is 29.59 (Wrong/GAAP).
                     y_est = None
-                    if ee_data is not None and not ee_data.empty:
+                    if fy_code == "0y" and info.get('epsCurrentYear'):
+                        y_est = float(info.get('epsCurrentYear')) * fx_rate
+                    elif fy_code == "+1y" and (info.get('forwardEps') or info.get('epsForward')):
+                        y_est = float(info.get('forwardEps') or info.get('epsForward')) * fx_rate
+                    
+                    # Secondary fallback to the estimate table if info tags are missing
+                    if not y_est and ee_data is not None and not ee_data.empty:
+                        target_fy_code = fy_code
+                        if i == 1 and str(last_yr) in str(historical_data["years"]):
+                            target_fy_code = "+1y" if i == 1 else "+2y"
+                        
                         if target_fy_code in ee_data.index: 
                             vals_row = ee_data.loc[target_fy_code]
                             y_est = float(vals_row.get('avg') or 0) * fx_rate
                     
                     if y_est and y_est > 0:
                         eps_est = y_est
-                        log(f"DEBUG: v237 Holy Grail Yahoo Sync {proj_yr}: {eps_est:.2f}")
+                        log(f"DEBUG: v239 Nuclear Sync {proj_yr}: {eps_est:.2f}")
                     else:
                         # Fallback to secondary sources only if Yahoo PRIMARY is missing
                         if nq_val: source_estimates.append(nq_val * fx_rate)
-                        tag_val = info.get('epsCurrentYear') if fy_code == "0y" else (info.get('forwardEps') or info.get('epsForward'))
-                        if tag_val: source_estimates.append(tag_val * fx_rate)
-                        
                         if source_estimates:
                              eps_est = max(source_estimates)
                         else:
