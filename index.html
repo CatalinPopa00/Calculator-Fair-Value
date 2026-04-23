@@ -21,12 +21,31 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Inter:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css?v=17">
+    <style>
+        #version-badge {
+            position: fixed;
+            bottom: 15px;
+            left: 15px;
+            background: #00f2fe;
+            color: black;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.65rem;
+            font-weight: 800;
+            z-index: 9999;
+            box-shadow: 0 0 10px rgba(0,242,254,0.4);
+            font-family: 'Outfit', sans-serif;
+            pointer-events: none;
+            letter-spacing: 0.5px;
+        }
+    </style>
     <!-- Chart.js for Historical Analysis -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js" onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js';"></script>
 
 </head>
 
 <body>
+    <div id="version-badge">ENGINE: v224 (NUCLEAR)</div>
     <div class="app-container">
         <!-- Header / Search Section -->
         <header class="header">
@@ -580,7 +599,7 @@
 
     </div>
 
-    <script src="app.js?v=223"></script>
+    <script src="app.js?v=224"></script>
 </body>
 
 </html>
