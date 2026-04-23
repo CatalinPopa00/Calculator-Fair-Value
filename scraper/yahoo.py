@@ -1548,16 +1548,15 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     if eps_val is not None and dt_str:
                         dt = datetime.datetime.strptime(dt_str, '%m/%d/%Y')
                         
-                        # v214: Forensic GAAP Healing (e.g. UBER Investment Gains)
-                        # If Actual is > 300% surprise and difference > $0.50, it's almost certainly a GAAP one-off.
-                        # We use the consensus forecast as the proxy for 'Normalized' in this case.
+                        # v216: Forensic GAAP Neutralizer (Matches 'Normalized' analyst anchors)
+                        # Large surprises (>30% or >$0.15) are treated as GAAP artifacts and neutralized to Forecast.
                         final_eps = float(eps_val)
                         try:
                             if fc_val and float(fc_val) != 0:
                                 f_fc = float(fc_val)
-                                surprise = (final_eps - f_fc) / abs(f_fc)
-                                if abs(surprise) > 3.0 and abs(final_eps - f_fc) > 0.50:
-                                    log(f"DEBUG: Forensic GAAP Outlier healed for {ticker_symbol} ({final_eps} -> {f_fc})")
+                                diff = abs(final_eps - f_fc)
+                                if (diff / abs(f_fc) > 0.3) or diff > 0.15:
+                                    log(f"DEBUG: Neutralizing GAAP surprise for {ticker_symbol} ({final_eps} -> {f_fc})")
                                     final_eps = f_fc
                         except: pass
                         
@@ -3587,9 +3586,9 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             if k.startswith("Q"):
                 lbl = f"{k} {current_fy_num}"
             elif k == "FY0":
-                lbl = f"FY {current_fy_num} (v215)"
+                lbl = f"FY {current_fy_num} (v216)"
             else:
-                lbl = f"FY {current_fy_num + 1} (v215)"
+                lbl = f"FY {current_fy_num + 1} (v216)"
             e["period"] = lbl; r["period"] = lbl
             unified_eps.append(e); unified_rev.append(r)
 
