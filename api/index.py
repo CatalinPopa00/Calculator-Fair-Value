@@ -1,28 +1,21 @@
 from fastapi import FastAPI, HTTPException, Response
-from fastapi.staticfiles import StaticFiles
-
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from cachetools import TTLCache
 import uvicorn
 import math
 import statistics
-import datetime
-import os
-import json
-import concurrent.futures
-import traceback
 from typing import List, Dict, Any, Optional
 
-from scraper.yahoo import (
-    get_company_data, 
-    get_competitors_data, 
-    get_market_averages, 
-    search_companies, 
-    get_analyst_data, 
-    get_risk_free_rate
-)
-from utils.kv import kv_get, kv_set
+import urllib.request
+import urllib.parse
+import json
+import os
+import requests
+import concurrent.futures
+
+from scraper.yahoo import get_company_data, get_competitors_data, get_market_averages, search_companies, get_analyst_data, get_risk_free_rate
+from api.utils.kv import kv_get, kv_set
 from models.valuation import (
     calculate_peter_lynch, 
     calculate_peg_fair_value, 
@@ -31,16 +24,14 @@ from models.valuation import (
     calculate_dcf_sensitivity,
     calculate_reverse_dcf
 )
-from models.scoring import calculate_scoring_reform, calculate_piotroski_score
+from .models.scoring import calculate_scoring_reform, calculate_piotroski_score
 
-# Cache Settings
+# Cache for search results (30 mins TTL)
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
+# Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-# v198: Fix for N/A in modals (missing keys in formula_data)
-# v199: Forensic Anchor Sync & Cache Reset
-# v201: English Professional Synthesis
-CACHE_VERSION = "v238"
-
+CACHE_VERSION = "v246"
+# 1. Initialize FastAPI App (Systemic Recovery Fix)
 app = FastAPI(title="Fair Value Calculator API")
 
 app.add_middleware(
@@ -50,25 +41,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Serve Static Files (Frontend)
-ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-app.mount("/api_static", StaticFiles(directory=ROOT_DIR), name="api_static") # Backup mount
-# We'll use a safer approach for the root to avoid shadowing /api/
-@app.get("/")
-def read_index():
-    from fastapi.responses import FileResponse
-    return FileResponse(os.path.join(ROOT_DIR, "index.html"))
-
-# For other static files (app.js, style.css, etc.)
-@app.get("/{filename}")
-def read_static(filename: str):
-    from fastapi.responses import FileResponse
-    path = os.path.join(ROOT_DIR, filename)
-    if os.path.exists(path) and os.path.isfile(path):
-        return FileResponse(path)
-    raise HTTPException(status_code=404)
-
 
 WATCHLIST_FILE = "watchlist.json"
 OVERRIDES_FILE = "overrides.json"
@@ -83,359 +55,813 @@ class OverrideRequest(BaseModel):
     computed: dict = {}
     weights: dict = {}
 
-def _load_overrides() -> dict:
-    data = kv_get("overrides")
-    if data is not None: return data
-    if os.path.exists(OVERRIDES_FILE):
-        try:
-            with open(OVERRIDES_FILE, "r") as f: return json.load(f)
-        except: return {}
-    return {}
-
-def _save_overrides(data: dict):
-    kv_set("overrides", data)
-    try:
-        with open(OVERRIDES_FILE, "w") as f: json.dump(data, f)
-    except: pass
-
-def get_recommended_exit_multiple(sector: str, industry: str) -> float:
-    s = str(sector).lower()
-    ind = str(industry).lower()
-    if any(x in s for x in ["tech", "soft", "health", "communication"]): return 15.0
-    if any(x in s for x in ["defensive", "utilities", "staple"]): return 12.0
-    if any(x in s for x in ["energy", "oil", "gas", "material", "industrial", "manufacturing"]) or "auto" in ind: return 8.0
-    if any(x in s for x in ["financial", "bank", "insurance", "real estate", "reit"]): return 10.0
-    return 10.0
-
-def sanitize(val):
-    if val is None: return None
-    try:
-        fval = float(val)
-        if math.isnan(fval) or math.isinf(fval): return None
-        return round(fval, 4)
-    except: return None
-
-def deep_clean_data(val):
-    """Recursively santizies data for JSON compliance (handles NaN, Infinity, and non-serializable objects)."""
-    if isinstance(val, dict):
-        return {k: deep_clean_data(v) for k, v in val.items()}
-    if isinstance(val, (list, tuple, set)):
-        return [deep_clean_data(v) for v in val]
+class ValuationResponse(BaseModel):
+    ticker: str
+    name: str = "Unknown"
+    current_price: float = 0.0
+    fair_value: Optional[float] = None
+    margin_of_safety: Optional[float] = None
+    dcf_value: Optional[float] = None
+    relative_value: Optional[float] = None
+    lynch_fwd_pe: Optional[float] = None
+    lynch_fair_value: Optional[float] = None
+    lynch_status: Optional[str] = None
+    peg_value: Optional[float] = None
+    recommended_exit_multiple: Optional[float] = None
+    company_profile: Optional[dict] = None
+    historical_trends: Optional[list] = None
+    historical_anchors: Optional[list] = None
+    company_overview_synthesis: Optional[str] = None
+    formula_data: Dict[str, Any] = {}
+    health_score_total: Optional[Any] = None
+    health_breakdown: Optional[list] = None
+    good_to_buy_total: Optional[Any] = None
+    buy_breakdown: Optional[list] = None
+    piotroski_score: Optional[Any] = None
+    piotroski_breakdown: Optional[list] = None
+    historical_data: Optional[dict] = None
+    algorithmic_insights: Optional[dict] = None
+    red_flags: Optional[list] = None
+    overrides: Optional[dict] = None
+    competitor_metrics: Optional[list] = None
     
-    # Handle common primitives first (Speed)
-    if val is None: return None
-    if isinstance(val, (str, bool)): return val
-    
-    # Check for basic Python float/int
-    if isinstance(val, (float, int)):
-        if math.isnan(val) or math.isinf(val): return None
-        return val
-        
-    # Handle scalar objects (like numpy.float64, pandas.NA, etc.)
-    # We use duck-typing to detect number-like objects
-    if hasattr(val, "item") and callable(val.item): 
-        try:
-            native = val.item()
-            if isinstance(native, float):
-                if math.isnan(native) or math.isinf(native): return None
-            return native
-        except: pass
-        
-    try:
-        # Final catch-all for anything that can be cast to float (like decimal.Decimal)
-        # But we must NOT convert strings or complex objects here
-        if hasattr(val, "__float__") and not isinstance(val, (str, list, dict)):
-            fval = float(val)
-            if math.isnan(fval) or math.isinf(fval): return None
-            # Return int if it's an exact integer representation
-            if fval.is_integer() and isinstance(val, (int, float)): return int(fval)
-            return fval
-    except: pass
-    
-    return str(val)
+    class Config:
+        extra = "allow"
 
 
 
 @app.get("/api/search/{query}")
 def search(query: str, response: Response):
-    if response: response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    # Agresiv cache for search (24h edge, 7d background revalidate)
+    response.headers["Cache-Control"] = "public, s-maxage=86400, stale-while-revalidate=604800"
+    
     q_key = query.lower().strip()
-    if q_key in search_cache: return search_cache[q_key]
+    if q_key in search_cache:
+        return search_cache[q_key]
+        
     result = search_companies(query)
-    if result or len(q_key) <= 2: search_cache[q_key] = result
+    
+    # Only cache if we got results, or if the query is very short (likely no results anyway)
+    if result or len(q_key) <= 2:
+        search_cache[q_key] = result
+        
     return result
 
 @app.get("/api/analyst/{ticker}")
 def get_analyst(ticker: str, response: Response):
-    if response: response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    # Cache analyst data for 1 hour on Edge, background refresh up to 24h
+    response.headers["Cache-Control"] = "public, s-maxage=3600, stale-while-revalidate=86400"
+    
     ticker_upper = ticker.upper()
-    cache_key = f"analyst_{ticker_upper}_{CACHE_VERSION}"
-    if cache_key in valuation_cache: 
-        res = valuation_cache[cache_key]
-        if isinstance(res, dict): res["_v"] = CACHE_VERSION
-        return res
+    cache_key = f"analyst_v2_{ticker_upper}_{CACHE_VERSION}"
+    if cache_key in valuation_cache:
+        return valuation_cache[cache_key]
+    result = get_analyst_data(ticker_upper)
+    # v147 Visible Marker for Diagnostic
+    if result and "price_target" in result:
+        result["price_target"]["avg"] = str(result["price_target"].get("avg", "")) + " (v147)"
+    valuation_cache[cache_key] = result
+    return result
+
+# KV functions moved to .utils.kv
+
+@app.get("/api/watchlist")
+def get_watchlist():
     try:
-        # v198: Ensure baseline synchronization by passing historical anchors
-        company_data = get_company_data(ticker_upper, fast_mode=True)
-        result = get_analyst_data(ticker_upper, historical_data=company_data.get('historical_data'))
+        data = kv_get("watchlist") or []
+        # Robust Recovery: Merge any tickers found in overrides
+        all_overrides = _load_overrides()
+        if all_overrides:
+            override_tickers = [t.upper() for t in all_overrides.keys()]
+            data = list(set(data + override_tickers))
         
-        if isinstance(result, dict): 
-            result["_v"] = CACHE_VERSION
-            result["ticker"] = f"{ticker_upper} ({CACHE_VERSION})"
-        valuation_cache[cache_key] = result
-        return result
+        if not data and os.path.exists(WATCHLIST_FILE):
+            try:
+                with open(WATCHLIST_FILE, "r") as f:
+                    data = json.load(f)
+            except:
+                pass
+        return list(set([t.upper() for t in data]))
     except Exception as e:
-        print(f"Analyst API error for {ticker_upper}: {e}")
-        return {"ticker": ticker_upper, "error": str(e)}
+        # v37 Fix: If database errors, do NOT return []. Return 500.
+        raise HTTPException(status_code=500, detail=f"Database unreachable: {str(e)}")
+
+@app.post("/api/watchlist")
+def save_watchlist(req: WatchlistRequest):
+    try:
+        kv_set("watchlist", req.tickers)
+        try:
+            with open(WATCHLIST_FILE, "w") as f:
+                json.dump(req.tickers, f)
+        except:
+            pass
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# --- Overrides API (cross-device sync) ---
+def _load_overrides() -> dict:
+    data = kv_get("overrides")
+    if data is not None:
+        return data
+
+    if os.path.exists(OVERRIDES_FILE):
+        try:
+            with open(OVERRIDES_FILE, "r") as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
+
+def _save_overrides(data: dict):
+    kv_set("overrides", data)
+    try:
+        with open(OVERRIDES_FILE, "w") as f:
+            json.dump(data, f)
+    except:
+        pass
+
+@app.get("/api/overrides")
+def get_overrides():
+    return _load_overrides()
+
+@app.post("/api/overrides")
+def save_override(req: OverrideRequest):
+    try:
+        all_overrides = _load_overrides()
+        all_overrides[req.ticker.upper()] = {
+            "inputs": req.inputs,
+            "toggles": req.toggles,
+            "computed": req.computed,
+            "weights": req.weights
+        }
+        _save_overrides(all_overrides)
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/overrides/{ticker}")
+def delete_override(ticker: str):
+    try:
+        all_overrides = _load_overrides()
+        ticker_upper = ticker.upper()
+        if ticker_upper in all_overrides:
+            del all_overrides[ticker_upper]
+            _save_overrides(all_overrides)
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+def get_recommended_exit_multiple(sector: str, industry: str) -> float:
+    """Assigns recommended exit multiple based on sector/industry (User Strict Rule Refinement)."""
+    s = str(sector).lower()
+    ind = str(industry).lower()
+    
+    # 1. Premium: Technology, Software, Healthcare, Communication Services
+    if any(x in s for x in ["tech", "soft", "health", "communication"]):
+        return 15.0
+    
+    # 2. Defensive: Consumer Defensive, Utilities, Consumer Staples
+    if any(x in s for x in ["defensive", "utilities", "staple"]):
+        return 12.0
+    
+    # 3. Cyclical / Heavy: Energy, Oil & Gas, Basic Materials, Industrials, Auto, Manufacturing
+    if any(x in s for x in ["energy", "oil", "gas", "material", "industrial", "manufacturing"]) or "auto" in ind:
+        return 8.0
+        
+    # 4. Financials / REITs: Financials, Banks, Insurance, Real Estate, REITs
+    if any(x in s for x in ["financial", "bank", "insurance", "real estate", "reit"]):
+        return 10.0
+        
+    return 10.0
+
+def deep_clean_data(val):
+    if isinstance(val, dict):
+        return {k: deep_clean_data(v) for k, v in val.items()}
+    if isinstance(val, list):
+        return [deep_clean_data(v) for v in val]
+    if hasattr(val, "item"): # Handle numpy scalars
+        return val.item()
+    if isinstance(val, (int, float, str, bool)) or val is None:
+        return val
+    return str(val)
 
 @app.get("/api/valuation/{ticker}")
 def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode: bool = False, skip_peers: bool = False):
-    if response: response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    # Set Vercel Edge Cache headers for pseudo-ISR (Cache 1hr, stale up to 24hr)
+    response.headers["Cache-Control"] = "public, s-maxage=3600, stale-while-revalidate=86400"
+    
+    # GOD MODE: Pre-initialize all possible response keys to Safe Defaults (v55)
     ticker_upper = ticker.upper()
-    ticker_upper = ticker_upper.replace(".O", "").replace(".OQ", "").replace(".N", "")
+    current_price = 0.0
+    fair_value = None
+    margin_of_safety = None
+    dcf_value = None
+    relative_value = None
+    lynch_fwd_pe = None
+    lynch_fair_value = None
+    lynch_status = "N/A"
+    peg_value = None
+    recommended_exit_multiple = 15.0
+    formula_data = {}
+    health_score_total = "N/A"
+    health_breakdown = []
+    good_to_buy_total = "N/A"
+    buy_breakdown = []
+    piotroski_score = "N/A"
+    piotroski_breakdown = []
+    top_strengths = []
+    risk_factors = []
+    red_flags = []
+    peers_data = []
+    median_peer_pe = 20.0
+    median_peer_peg = 1.0
+    eps_for_valuation = 0.0
+    current_pe = 0.0
+    rec_exit_mult = 15.0
+    dcf_val_final = None
+    fair_value_total = None
     
     try:
+        # Ensure wacc is normalized for the key
         norm_wacc = round(float(wacc), 2) if wacc is not None else "def"
-        cache_key = f"val_{ticker_upper}_{fast_mode}_{skip_peers}_{CACHE_VERSION}_{norm_wacc}"
+        # Synchronized v38: Always include skip_peers to prevent cache collision
+        cache_key = f"valuation_{ticker.upper()}_{fast_mode}_{skip_peers}_{CACHE_VERSION}_{norm_wacc}"
         
-        # v177: Temporary cache-bust for validation
-        # if cache_key in valuation_cache: 
-        #     return deep_clean_data(valuation_cache[cache_key])
+        # 0. Cache Elevation: If we are in any limited mode (Watchlist/SkipPeers), 
+        # Always check if we have a full_mode cache (Complete Data) in memory first.
+        if fast_mode or skip_peers:
+            full_mode_key = f"valuation_{ticker.upper()}_False_False_{CACHE_VERSION}_{norm_wacc}"
+            if full_mode_key in valuation_cache:
+                return valuation_cache[full_mode_key]
 
+        # 2. Local Memory Cache check for the specific requested mode
+        if cache_key in valuation_cache:
+            return valuation_cache[cache_key]
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-            main_task = executor.submit(get_company_data, ticker_upper, fast_mode=fast_mode)
-            risk_free_task = executor.submit(get_risk_free_rate)
-            market_task = executor.submit(get_market_averages)
-            peer_task = None
-            if not skip_peers:
-                peer_task = executor.submit(get_competitors_data, ticker_upper, None, None, limit=3)
-            
-            data = main_task.result() or {}
-            rf_rate = risk_free_task.result() or 0.042
-            market_data = market_task.result() or {"pe": 20.0, "yield": 0.015}
-            peers_data = []
-            if peer_task:
-                try: peers_data = peer_task.result(timeout=10) or []
-                except: peers_data = []
+        # v41: THE PARALLEL BLITZ
+        # Run main scraping and peer fetching simultaneously to cut wait time in half.
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=2)
+        # 1. Start main scraper
+        main_task = executor.submit(get_company_data, ticker, fast_mode=fast_mode)
+        
+        # 2. Start peer scraper (pass None for strings, yahoo.py handles ticker-based resolution)
+        peer_task = None
+        if not skip_peers:
+            peer_task = executor.submit(get_competitors_data, ticker, None, None, limit=3)
+        
+        # Wait for main data first
+        data = main_task.result() or {}
+        
+        # Get peer data
+        peers_data = []
+        if peer_task:
+            try:
+                # v63: Increased timeout to 10s to handle slow Yahoo parallel fetches
+                peers_data = peer_task.result(timeout=10) or []
+            except Exception as e:
+                print(f"DEBUG: Parallel peer fetch failed: {e}")
+                peers_data = []
+                
+        executor.shutdown(wait=False)
 
-        # Ensure minimal data safety
-        if not data.get("name"): data["name"] = ticker_upper; data["ticker"] = ticker_upper
-
-        # Ticker Overrides
-        all_overrides = _load_overrides()
-        ovr = all_overrides.get(ticker_upper)
-        if ovr:
-            if "inputs" in ovr: data.update(ovr["inputs"])
-            if "computed" in ovr: data.update(ovr["computed"])
-
-        # Core Metrics
+        # FINAL STRIKE: Graceful recovery if Yahoo is blocked or null
         current_price = data.get("current_price") or 0.0
-        trailing_eps = data.get("trailing_eps") or 0.0
-        adjusted_eps = data.get("adjusted_eps") or trailing_eps
-        
-        # Use Adjusted EPS (Non-GAAP) as the anchor for all valuation models
-        eps_estimates = data.get("eps_estimates", [])
-        eps_0y = next((e.get("avg") for e in eps_estimates if e.get("period_code") == "0y"), None)
-        
-        # Priority: Scraped Adjusted EPS > Forecast FY0 Average > Trailing GAAP EPS
-        eps_for_valuation = data.get("adjusted_eps") or eps_0y or data.get("trailing_eps") or 0.0
-        
-        # v219: Use recalculated eps_growth = Avg FY0+FY1 from Normalized Anchors
-        growth_5y = data.get("eps_growth")
-        if growth_5y is None or growth_5y <= 0:
-            fy0_growth = next((e.get("growth") for e in eps_estimates if e.get("period_code") == "0y" and e.get("growth")), None)
-            growth_5y = fy0_growth if (fy0_growth is not None and fy0_growth > 0) else (data.get("eps_5yr_growth") or 0.05)
-        
-        pe_historic = data.get("pe_historic") or 20.0
-        
-        # Peter Lynch
-        valid_pes = [p.get('pe_ratio') for p in peers_data if p.get('pe_ratio') and p.get('pe_ratio') > 0]
-        sector_median_pe = statistics.median(valid_pes) if valid_pes else market_data.get("pe", 20.0)
-        lynch = calculate_peter_lynch(current_price, eps_for_valuation, growth_5y, pe_historic, sector_median_pe)
-        
-        # PEG Sector — compute actual median PEG from peer pe_ratio / (earnings_growth * 100)
-        # v183: Fix for hardcoded 15.0 divisor that distorted Software/Growth sector values
-        def _peer_peg(p):
-            pe = p.get('pe_ratio')
-            eg = p.get('earnings_growth')  # decimal, e.g. 0.12 = 12%
-            # Clamp: yfinance can return unreliably high growth (e.g. 2.5 = 250%) for recovering
-            # companies, which would deflate PEG to near-zero. Cap at 60% and floor at 1%.
-            if pe and pe > 0 and eg and 0.01 <= eg <= 0.60:
-                return pe / (eg * 100)
-            return None
-        valid_peer_pegs = [x for x in [_peer_peg(p) for p in peers_data] if x is not None and 0.2 < x < 8]
-        
-        # Sector-aware fallback when < 2 peers with valid PEG data
-        sector_str = str(data.get('sector', '')).lower()
-        industry_str = str(data.get('industry', '')).lower()
-        if len(valid_peer_pegs) >= 2:
-            sector_peg = statistics.median(valid_peer_pegs)
-        elif any(x in sector_str for x in ['tech', 'comm', 'software']) or 'software' in industry_str:
-            sector_peg = 1.5   # Software/Tech sector historical median PEG
-        elif any(x in sector_str for x in ['health', 'bio']):
-            sector_peg = 1.8
-        elif any(x in sector_str for x in ['financial', 'bank']):
-            sector_peg = 1.0
-        elif any(x in sector_str for x in ['energy', 'material']):
-            sector_peg = 0.8
-        else:
-            sector_peg = 1.25  # Broad market default
-        
-        # PEG
-        current_pe = current_price / eps_for_valuation if eps_for_valuation > 0 else 0
-        company_peg = current_pe / (growth_5y * 100) if growth_5y > 0 else 0
-        peg_fv = calculate_peg_fair_value(current_price, company_peg, sector_peg)
-        
-        # DCF (v188: Direct Total Cash/Debt from scraper ensuring absolute units)
-        fcf = data.get("fcf") or 0
-        shares = data.get("shares_outstanding") or 1
-        discount_rate = (wacc / 100.0) if wacc is not None else (rf_rate + 0.055)
-        rec_exit = get_recommended_exit_multiple(data.get("sector"), data.get("industry"))
-        
-        # Synchronize Cash/Debt logic for ADBE and other techs
-        raw_cash = data.get("total_cash", 0)
-        raw_debt = data.get("total_debt", 0)
-        
-        dcf_res = calculate_dcf(fcf, growth_5y, discount_rate, 0.02, shares, raw_cash, raw_debt, exit_multiple=rec_exit)
-        
-        # Relative
-        relative_val = calculate_relative_valuation(ticker_upper, {"trailing_eps": eps_for_valuation}, peers_data)
+        if not data.get("name"):
+            data["name"] = ticker.upper()
+            data["ticker"] = ticker.upper()
+            data["current_price"] = 0.0
+    
+        all_overrides = _load_overrides()
+        ticker_overrides = all_overrides.get(ticker.upper())
+        sector = data.get("sector")
+        industry = data.get("industry")
+        target_market_cap = data.get("market_cap") or 0.0
 
-        # EV / EBITDA calculation (v172: fix for 0.00x)
-        ebitda_val = data.get("ebitda")
-        if ebitda_val and ebitda_val > 0:
-            mkt_cap = (data.get("shares_outstanding") or 0) * current_price
-            debt_val = (data.get("total_debt") or 0)
-            cash_val = (data.get("total_cash") or 0)
-            ev_val = mkt_cap + debt_val - cash_val
-            data["ev_to_ebitda"] = ev_val / ebitda_val
-        else:
-            data["ev_to_ebitda"] = 0
+        # v92 Fix: Define historical_anchors (missing variable causing 500)
+        historical_anchors = data.get("historical_anchors", [])
 
-        # ── FCF Trend Calculation (v182: Enhanced for Accuracy) ────────────────
-        anchors = data.get("historical_anchors", [])
-        # Extract FCF and filter for reported (actual) years
-        actual_fcf = [a.get("fcf_b") for a in anchors if a.get("fcf_b") is not None and "(Est)" not in str(a.get("year", ""))]
+        # Watchlist skips expensive peer fetching to save 80% loading time while retaining sync
+        market_data = get_market_averages()
         
-        if len(actual_fcf) >= 2:
-            # Anchors are newest first
-            actual_fcf_chrono = list(reversed(actual_fcf))
-            last_fcf = actual_fcf_chrono[-1]
-            # Use average of all previous years as baseline if more than 2, else just the previous one
-            prev_avg = sum(actual_fcf_chrono[:-1]) / len(actual_fcf_chrono[:-1])
+        # 3. Compute Valuations (v219: Use recalculated eps_growth = Avg FY0+FY1 from Normalized Anchors)
+        consensus_growth = data.get("eps_growth")
+        if consensus_growth is None or consensus_growth <= 0:
+            consensus_growth = data.get("eps_growth_5y_consensus") or data.get("eps_growth_3y") or data.get("eps_growth_5y") or 0.05
+        
+        # Use a safe growth baseline for labels
+        eps_growth_estimated = consensus_growth
+        
+        lynch_period_label = data.get("eps_growth_period") or "2Y EPS CAGR"
+        
+        
+        # Calculate Industry Median PE for Peter Lynch fallback
+        valid_pes = []
+        if peers_data:
+            for p in peers_data:
+                v = p.get('pe_ratio')
+                if v and isinstance(v, (int, float)) and v > 0:
+                    valid_pes.append(v)
+        # Include current company PE if available
+        if data.get("pe_ratio") and data.get("pe_ratio") > 0:
+            valid_pes.append(data.get("pe_ratio"))
             
-            # v182: Dynamic trend labeling
-            if last_fcf > prev_avg * 1.05 and last_fcf > 0:
-                data["fcf_trend"] = "Growing"
-            elif last_fcf < prev_avg * 0.95:
-                data["fcf_trend"] = "Declining"
-            else:
-                data["fcf_trend"] = "Flat"
+        sector_median_pe = statistics.median(valid_pes) if valid_pes else 20.0
+        median_peer_pe = sector_median_pe
+
+        pe_historic = data.get("pe_historic") or data.get("pe_ratio")
+        
+        # STRICT DATA MAPPING: Prioritize Adjusted (Non-GAAP) EPS for valuation models (v70)
+        # Trailing TTM EPS fallback only if Adjusted is missing.
+        eps_for_valuation = data.get("adjusted_eps") or data.get("trailing_eps", 0) 
+        
+        # Peter Lynch - Conservative Guardrails for Negative Growth
+        # Standard Lynch PE is 20, but for shrinking companies (<0% growth), we cap it at 12x (Risk Adjusted)
+        effective_lynch_pe = sector_median_pe
+        if consensus_growth < 0:
+            effective_lynch_pe = min(sector_median_pe, 12.0)
+            
+        lynch_result = calculate_peter_lynch(current_price, eps_for_valuation, consensus_growth, pe_historic, effective_lynch_pe)
+        lynch_fwd_pe = lynch_result.get("fwd_pe")
+        lynch_fair_value = lynch_result.get("fair_value")
+        lynch_status = lynch_result.get("status")
+
+        # Additional Benchmarks for Data Transparency
+        res_pe20 = calculate_peter_lynch(current_price, eps_for_valuation, consensus_growth, pe_historic, 20.0)
+        lynch_pe20_val = res_pe20.get("fair_value")
+        
+        res_sector = calculate_peter_lynch(current_price, eps_for_valuation, consensus_growth, pe_historic, sector_median_pe)
+        fair_value_sector_pe = res_sector.get("fair_value")
+        
+        # PEG Valuation (Sector-based)
+        eps_base = eps_for_valuation or 0
+        current_pe = current_price / eps_base if eps_base > 0 else 0
+        
+        # Fallback logic handled by consensus_growth
+        eps_growth_rate_peg = consensus_growth
+        
+        peg_period_label = data.get("eps_growth_period") or "2Y EPS CAGR"
+        company_peg = current_pe / (eps_growth_rate_peg * 100) if eps_growth_rate_peg > 0 else 0
+        
+        # Calculate Industry PEG from peers + Target Company
+        valid_pegs = []
+        if company_peg > 0:
+            valid_pegs.append(float(company_peg))
+        
+        if peers_data:
+            for p in peers_data:
+                v = p.get('peg_ratio')
+                if v is not None and isinstance(v, (int, float)) and math.isfinite(v) and v > 0:
+                    valid_pegs.append(float(v))
+        
+        # v61: Improved industry PEG fallback to 1.25 if no peer data is available
+        industry_peg = statistics.median(valid_pegs) if valid_pegs else 1.25
+        peg_value = calculate_peg_fair_value(current_price, company_peg, industry_peg)
+        
+        # Relative Valuation (P/E Based currently)
+        relative_value = calculate_relative_valuation(ticker, data, peers_data)
+        
+        # DCF Exit Multiple Mapping
+        recommended_exit_multiple = get_recommended_exit_multiple(sector, industry)
+        
+        # DCF
+        # For DCF, we need FCF, Growth, WACC (discount_rate), terminal growth
+        fcf = data.get("fcf")
+        shares = data.get("shares_outstanding")
+        # We will use simple defaults if missing
+        # For DCF, we strictly use the consensus_growth (v62 fix for growing FCF in negative scenarios)
+        eps_growth = consensus_growth
+        
+        dcf_value = None
+        dcf_5yr = None
+        dcf_10yr = None
+    
+        # Dynamic WACC (CAPM)
+        risk_free_rate = get_risk_free_rate()
+        erp = 0.055 # Equity Risk Premium fallback
+        beta = data.get("beta")
+        if beta is None:
+            beta = 1.0 # Default beta
+            
+        dynamic_wacc = risk_free_rate + (beta * erp)
+        
+        # Use custom WACC if provided by frontend, else dynamic_wacc
+        discount_rate = (wacc / 100.0) if wacc is not None else dynamic_wacc
+        perpetual_growth = 0.02 # 2% GDP growth standard
+        
+        # Initialize variables before conditional assignment to avoid UnboundLocalError
+        dcf_cash = data.get("total_cash") or 0
+        dcf_debt = data.get("total_debt") or 0
+        
+        # EXIT MULTIPLE CAP: If growth is negative, cap exit multiple to 12.0 for prudence
+        if eps_growth < 0:
+            recommended_exit_multiple = min(recommended_exit_multiple or 15.0, 12.0)
+
+        if fcf and shares and fcf > 0:
+            # Standard DCF EV = PV(FCF) + Cash - Debt is highly misleading because Cash often includes customer money.
+            # For these, we use PV(FCF) as a proxy for Equity Value directly.
+            # v63: Only apply to actual Banks/Insurance, not Data/FinTech providers like FDS or MSCI.
+            is_bank_or_insurance = any(x in str(industry).lower() for x in ["bank", "insurance", "savings", "credit"])
+            if sector == "Financial Services" and is_bank_or_insurance:
+                dcf_cash = 0
+                dcf_debt = 0
+                
+        # 5 Year Calculation (Default for Dashboard)
+        res_5 = calculate_dcf(fcf, eps_growth, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, years=5, exit_multiple=recommended_exit_multiple)
+        sens_5 = calculate_dcf_sensitivity(fcf, eps_growth, shares, dcf_cash, dcf_debt, 5, discount_rate, perpetual_growth, exit_multiple=recommended_exit_multiple)
+        rev_5 = calculate_reverse_dcf(current_price, fcf, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, 5, exit_multiple=recommended_exit_multiple)
+        
+        if res_5:
+            # Use Perpetual as baseline for weighted average
+            dcf_value = res_5["dcf_perpetual"]["fair_value"]
+            # Apply WACC cap globally to the response
+            discount_rate = res_5["discount_rate_applied"]
+            
+            dcf_5yr = {
+                "result": res_5,
+                "sensitivity": sens_5,
+                "reverse_dcf": rev_5
+            }
+            
+        # 10 Year Calculation 
+        res_10 = calculate_dcf(fcf, eps_growth, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, years=10, exit_multiple=recommended_exit_multiple)
+        sens_10 = calculate_dcf_sensitivity(fcf, eps_growth, shares, dcf_cash, dcf_debt, 10, discount_rate, perpetual_growth, exit_multiple=recommended_exit_multiple)
+        rev_10 = calculate_reverse_dcf(current_price, fcf, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, 10, exit_multiple=recommended_exit_multiple)
+        
+        if res_10:
+            dcf_10yr = {
+                "result": res_10,
+                "sensitivity": sens_10,
+                "reverse_dcf": rev_10
+            }
+        # historical trends
+        historical_trends = data.get("historical_trends", [])
+
+        # v63: Stabilize Revenue Growth for Comparison (Avoid buggy TTM/quarterly picks)
+        stable_rev_growth = data.get("revenue_growth")
+        if historical_trends and len(historical_trends) >= 2:
+            try:
+                # trends might be [2022, 2023, 2024, 2025] or reversed. 
+                # We extract the year number to sort correctly even with "(Est)" labels.
+                def get_yr_num(h):
+                    y_str = str(h.get("year", "0"))
+                    nums = "".join(filter(str.isdigit, y_str))
+                    return int(nums) if nums else 0
+                
+                # Sort descending: [2027 (Est), 2026 (Est), 2025, 2024...]
+                sorted_trends = sorted(historical_trends, key=get_yr_num, reverse=True)
+                
+                # We only want REPORTED years for the 'historical' growth comparison (e.g. 2025 vs 2024)
+                reported_revs = [h.get("revenue") for h in sorted_trends if h.get("revenue") and "(Est)" not in str(h.get("year"))]
+                
+                if len(reported_revs) >= 2:
+                    curr_r = reported_revs[0]
+                    prev_r = reported_revs[1]
+                    if curr_r and prev_r and prev_r > 0:
+                        stable_rev_growth = (curr_r - prev_r) / prev_r
+            except:
+                pass
+        
+        # Propagate stable revenue growth to both the profile and the scoring engine (v63 fix)
+        data["revenue_growth"] = stable_rev_growth
+        data["next_3y_rev_growth"] = stable_rev_growth
+            
+        # Stabilize Fair Value with Sector-Aware Weighting
+        # Define base sector weights using the pre-assigned sector variable
+        if sector == "Financial Services":
+            base_weights = {"lynch": 0.45, "relative": 0.45, "peg": 0.10, "dcf": 0.0}
+        elif sector == "Real Estate":
+            base_weights = {"lynch": 0.30, "relative": 0.40, "peg": 0.10, "dcf": 0.20}
         else:
-            data["fcf_trend"] = "Flat"
-        
-        # Add market_data to context for scoring
-        data["market_data"] = market_data
-
-        # Scoring (v185: Fix mapping and 100-point normalization)
-        scoring_results = calculate_scoring_reform({"margin_of_safety": (lynch.get("margin_of_safety") if lynch else 0), "eps_growth": growth_5y*100, "pe": current_pe, "pe_historic": pe_historic, "peg_ratio": company_peg}, data)
-
-        health_score_total = scoring_results.get("health_score_total")
-        health_breakdown = scoring_results.get("health_breakdown")
-        good_to_buy_total = scoring_results.get("good_to_buy_total")
-        buy_breakdown = scoring_results.get("buy_breakdown")
-        
-        try:
-            p_res = calculate_piotroski_score(data)
-            p_score = p_res.get("score")
-            p_breakdown = p_res.get("breakdown", [])
-        except:
-            p_score = "N/A"; p_breakdown = []
-
-        all_breakdowns = (health_breakdown or []) + (buy_breakdown or [])
-        top_strengths = sorted([b for b in all_breakdowns if b.get("points_awarded") == b.get("max_points") and b.get("max_points", 0) > 0], key=lambda x: x.get("max_points", 0), reverse=True)[:3]
-        risk_factors = [b for b in all_breakdowns if b.get("points_awarded") == 0][:3]
-
-        # Weighted Fair Value (v185: Methodology-Aware with Overrides)
-        method_pref = ovr.get("toggles", {}).get("dcf_method", "perpetual") if ovr else "perpetual"
-        dcf_val_selected = (dcf_res.get(f"dcf_{method_pref}", {}).get("fair_value") if dcf_res else None)
-        
-        weights = {"lynch": 0.3, "peg": 0.2, "dcf": 0.3, "relative": 0.2}
-        if data.get("sector") == "Financial Services":
-            weights = {"lynch": 0.45, "relative": 0.45, "peg": 0.1, "dcf": 0}
-        
-        vals = {"lynch": lynch.get("fair_value"), "peg": peg_fv, "dcf": dcf_val_selected, "relative": relative_val}
-        w_sum = 0; w_total = 0
-        for k, v in vals.items():
-            if v and v > 0:
-                w_sum += v * weights[k]; w_total += weights[k]
-        fair_value = (w_sum / w_total) if w_total > 0 else None
-        overall_mos = ((fair_value - current_price) / current_price * 100) if fair_value and current_price > 0 else 0
-
-        # Process DCF into the exact structure app.js expects (v166 fix)
-        dcf_perp_data = dcf_res.get("dcf_perpetual", {}) if dcf_res else {}
-        dcf_exit_data = dcf_res.get("dcf_exit_multiple", {}) if dcf_res else {}
-        
-        # Sensitivity Matrix (calculate it if missing or just provide the base one)
-        sens_matrix = calculate_dcf_sensitivity(fcf, growth_5y, shares, data.get("total_cash", 0), data.get("total_debt", 0), 5, discount_rate, 0.02, rec_exit)
-
-        def map_dcf_obj(obj, is_perp=True):
-            if not obj: return None
-            return {
-                "fair_value_per_share": sanitize(obj.get("fair_value")),
-                "terminal_value": sanitize(obj.get("terminal_value")),
-                "present_value_terminal": sanitize(obj.get("pv_terminal_value")),
-                "present_value_fcf_sum": sanitize(dcf_res.get("total_pv_of_fcfs")),
-                "fcf_projections": [sanitize(v) for v in dcf_res.get("fcf_years", [])],
-                "discount_rate": sanitize(discount_rate),
-                "perpetual_growth_rate": sanitize(0.02) if is_perp else None,
-                "exit_multiple": sanitize(rec_exit) if not is_perp else None,
-                "sensitivity_matrix": sens_matrix if is_perp else []
+            base_weights = {"lynch": 0.25, "relative": 0.25, "peg": 0.25, "dcf": 0.25}
+ 
+        # Map methods to weight keys
+        lynch_pe20_val = lynch_result.get("fair_value_pe_20")
+        method_map = {
+            "lynch": lynch_pe20_val,
+            "peg": peg_value,
+            "relative": relative_value,
+            "dcf": dcf_value
+        }
+ 
+        # Calculate weighted average based on AVAILABLE methods
+        total_weight = 0
+        weighted_sum = 0
+        for key, val in method_map.items():
+            if val is not None and val > 0:
+                w = base_weights.get(key, 0)
+                weighted_sum += val * w
+                total_weight += w
+ 
+        if total_weight > 0:
+            fair_value = weighted_sum / total_weight
+            # Margin of Safety relative to PRICE is the standard for buy scores
+            if current_price > 0:
+                margin_of_safety = ((fair_value - current_price) / current_price) * 100
+            else:
+                margin_of_safety = 0
+        else:
+            fair_value = None
+            margin_of_safety = None
+            
+        # Add bounds handling to avoid infinite or NaN
+        def sanitize(val):
+            if val is None or math.isnan(val) or math.isinf(val):
+                return None
+            return round(val, 4)
+            
+        # Calculate Peer PE stats safely
+        median_peer_pe = None
+        mean_peer_pe = None
+        median_peer_peg = None
+        if peers_data:
+            valid_pes = []
+            for p in peers_data:
+                val = p.get('pe_ratio')
+                if val is not None and isinstance(val, (int, float)) and math.isfinite(val) and val > 0:
+                    valid_pes.append(float(val))
+            
+            if valid_pes:
+                median_peer_pe = statistics.median(valid_pes)
+                mean_peer_pe = sum(valid_pes) / len(valid_pes)
+                
+            valid_pegs = []
+            for p in peers_data:
+                val = p.get('peg_ratio')
+                if val is not None and isinstance(val, (int, float)) and math.isfinite(val):
+                    valid_pegs.append(float(val))
+            
+            if valid_pegs:
+                median_peer_peg = statistics.median(valid_pegs)
+ 
+        # Calculate Current PE for PEG transparency
+        current_pe = current_price / data.get("trailing_eps") if data.get("trailing_eps") and data.get("trailing_eps") > 0 else None
+ 
+        # 5. Build Formula Data for Transparency
+        fair_value_sector_pe = None
+        if lynch_result.get("fwd_eps") and median_peer_pe:
+            fair_value_sector_pe = lynch_result.get("fwd_eps") * median_peer_pe
+ 
+        def _format_dcf_payload(dcf_dict, exit_multiple_applied):
+            if not dcf_dict or not dcf_dict.get("result"):
+                return None
+            res = dcf_dict["result"]
+            sens = dcf_dict["sensitivity"]
+            rev = dcf_dict["reverse_dcf"]
+            
+            # Shared fields across branches
+            shared = {
+                "fcf_projections": [sanitize(x) for x in res.get("fcf_years", [])],
+                "pv_fcf_years": [sanitize(x) for x in res.get("pv_fcf_years", [])],
+                "present_value_fcf_sum": sanitize(res.get("total_pv_of_fcfs")),
+                "discount_rate": sanitize(res.get("discount_rate_applied")),
+                "perpetual_growth_rate": perpetual_growth,
+                "exit_multiple": exit_multiple_applied,
+                "total_cash": sanitize(dcf_cash),
+                "total_debt": sanitize(dcf_debt),
+                "shares_outstanding": sanitize(shares)
             }
 
-        dcf_perp_mapped = map_dcf_obj(dcf_perp_data, True)
-        dcf_exit_mapped = map_dcf_obj(dcf_exit_data, False)
+            def _fmt_branch(branch):
+                if not branch: return None
+                return {
+                    "terminal_value": sanitize(branch.get("terminal_value")),
+                    "present_value_terminal": sanitize(branch.get("pv_terminal_value")),
+                    "fair_value_per_share": sanitize(branch.get("fair_value")),
+                    "margin_of_safety_pct": sanitize(((branch.get("fair_value") - current_price) / current_price * 100)) if branch.get("fair_value") and current_price > 0 else 0,
+                    **shared
+                }
 
-        # Build Response (Full app.js Compatibility)
-        resp_data = {
-            "ticker": ticker_upper,
-            "name": data.get("name", ticker_upper),
-            "current_price": float(current_price),
-            "fair_value": sanitize(fair_value),
-            "margin_of_safety": sanitize(overall_mos),
-            "dcf_value": sanitize(vals["dcf"]),
-            "relative_value": sanitize(vals["relative"]),
-            "peg_value": sanitize(vals["peg"]),
-            "lynch_fair_value": sanitize(vals["lynch"]),
-            "lynch_status": lynch.get("status"),
-            "health_score_total": health_score_total,
-            "health_breakdown": health_breakdown,
-            "good_to_buy_total": good_to_buy_total,
-            "buy_breakdown": buy_breakdown,
-            "market_data": market_data, # v178: Fix for 'Platform cannot see S&P 500 PE'
-            "piotroski_score": p_score,
-            "piotroski_breakdown": p_breakdown,
-            "dcf_assumptions": {
-                "recommended_exit_multiple": rec_exit,
-                "wacc": discount_rate * 100,
-                "perpetual_growth": 2.0
+            per_branch = _fmt_branch(res.get("dcf_perpetual"))
+            ext_branch = _fmt_branch(res.get("dcf_exit_multiple"))
+
+            return {
+                **shared,
+                "dcf_perpetual": per_branch,
+                "dcf_exit_multiple": ext_branch,
+                "sensitivity_matrix": [
+                    {
+                        "discount_rate": sanitize(row["discount_rate"]),
+                        "values": [{"perpetual_growth": sanitize(v["perpetual_growth"]), "fair_value": sanitize(v["fair_value"])} for v in row["values"]]
+                    } for row in sens
+                ] if sens else [],
+                "reverse_dcf_growth": sanitize(rev) if rev is not None else None
+            }
+
+        formula_data = {
+            "peter_lynch": {
+                "current_price": sanitize(current_price),
+                "trailing_eps": sanitize(data.get("trailing_eps")),
+                "fwd_eps": sanitize(lynch_result.get("fwd_eps")),
+                "eps_growth_estimated": sanitize(eps_growth_estimated),
+                "eps_growth_period": lynch_period_label,
+                "historic_pe": sanitize(pe_historic),
+                "fwd_pe": sanitize(lynch_fwd_pe),
+                "fair_value": sanitize(lynch_fair_value),
+                "fair_value_pe_20": sanitize(lynch_pe20_val),
+                "fair_value_sector_pe": sanitize(fair_value_sector_pe),
+                "sector_pe": sanitize(median_peer_pe),
+                "status": lynch_status,
+                "margin_of_safety": sanitize(((lynch_fair_value - current_price) / lynch_fair_value * 100)) if lynch_fair_value and lynch_fair_value > 0 else None
             },
+            "peg": {
+                "current_pe": sanitize(current_pe),
+                "eps_growth_estimated": sanitize(eps_growth_rate_peg),
+                "eps_growth_period": peg_period_label,
+                "current_peg": sanitize(company_peg) if company_peg > 0 else None,
+                "industry_peg": sanitize(industry_peg) if industry_peg else 1.25,
+                "fair_value": sanitize(peg_value),
+                "margin_of_safety": sanitize(((peg_value - current_price) / peg_value * 100)) if peg_value and peg_value > 0 else None
+            },
+            "dcf": {
+                "fcf": sanitize(fcf),
+                "eps_growth_applied": sanitize(eps_growth),
+                "eps_growth_period": peg_period_label,
+                "discount_rate": discount_rate,
+                "perpetual_growth": perpetual_growth,
+                "shares_outstanding": shares,
+                "historic_buyback_rate": sanitize(data.get("historic_buyback_rate")),
+                "intrinsic_value": sanitize(dcf_value),
+                "margin_of_safety": sanitize(((dcf_value - current_price) / current_price * 100)) if dcf_value is not None and current_price > 0 else None,
+                "current_price": sanitize(current_price),
+                # Metadata for the modal (Flattened for compatibility)
+                **( _format_dcf_payload(dcf_5yr or dcf_10yr, recommended_exit_multiple) or {} ),
+                "5yr": _format_dcf_payload(dcf_5yr, recommended_exit_multiple) if dcf_5yr else None,
+                "10yr": _format_dcf_payload(dcf_10yr, recommended_exit_multiple) if dcf_10yr else None
+            },
+            "relative": {
+                "fair_value": sanitize(relative_value),
+                "margin_of_safety": sanitize(((relative_value - current_price) / current_price * 100)) if relative_value is not None and current_price > 0 else None,
+                "company_eps": sanitize(data.get("trailing_eps")),
+                "company_trailing_pe": sanitize(pe_historic),
+                "peers": [p.get("ticker", p) if isinstance(p, dict) else p for p in peers_data] if peers_data else [],
+                "median_peer_pe": sanitize(median_peer_pe),
+                "median_peer_peg": sanitize(median_peer_peg),
+                "mean_peer_pe": sanitize(mean_peer_pe),
+                "market_pe_trailing": sanitize(market_data.get("trailing_pe")),
+                "market_pe_forward": sanitize(market_data.get("forward_pe"))
+            }
+    }
+
+        # USER-DRIVEN DATA MAPPING: TRAILING PE ONLY (FORBIDDEN FORWARD PE)
+        # Ensure we prioritize actual TTM multiple
+        ttm_pe = data.get("pe_ratio")
+        if not ttm_pe or ttm_pe <= 0:
+            if current_price and data.get("trailing_eps") and data.get("trailing_eps") > 0:
+                ttm_pe = current_price / data.get("trailing_eps")
+            else:
+                ttm_pe = 0
+        
+        data["trailing_pe"] = ttm_pe
+
+        # FCF Trend Logic (Growing, Improving, Flat, Decreasing)
+        fcf_vals = data.get("historical_data", {}).get("fcf", []) or [t.get("fcf") for t in data.get("historical_trends", []) if t.get("fcf") is not None]
+        fcf_trend = "Flat"
+        if len(fcf_vals) >= 2:
+            # Newest is first if reversed by anchors. Let's stabilize it.
+            # If anchors are newest-first, fcf_vals might be too. 
+            # In SMCI diagnostic, it looked like oldest-first [..., 1.53B].
+            current = fcf_vals[-1]
+            prev = fcf_vals[-2]
+            
+            # RECOVERY LOGIC: Negative to Positive is a strong Growth signal
+            if current > 0 and prev < 0:
+                fcf_trend = "Growing" # Significant recovery
+            elif current > prev * 1.05:
+                fcf_trend = "Growing"
+            elif current < prev * 0.95:
+                fcf_trend = "Decreasing"
+        elif data.get("historic_fcf_growth") is not None:
+            g = data.get("historic_fcf_growth")
+            if g > 0.02: fcf_trend = "Growing"
+            elif g < -0.02: fcf_trend = "Decreasing"
+        
+        data["fcf_trend"] = fcf_trend
+
+        # Financials placeholders (mapping from authoritative scraper data)
+        data["nim"] = data.get("netInterestMargin") or 0
+        data["cet1_ratio"] = data.get("cet1_ratio") or 0
+        
+        # PRIORITIZE CALCULATED RATIOS (ADBE/SMCI FIX)
+        data["roe"] = data.get("roe") or 0
+        data["roa"] = data.get("roa") or 0
+        data["ebit_margin"] = (data.get("operating_margin") or data.get("ebit_margin") or 0) * 100
+        data["net_margin"] = (data.get("net_margin") or 0) * 100
+        
+        data["bvps_growth"] = data.get("historic_bvps_growth") or 0
+        data["next_3y_rev_growth"] = data.get("revenue_growth") or 0
+
+        # Real Estate / REITs (mapping from scraper if available)
+        # AFFO is often FCF for REITs if specific AFFO not parsed
+        rev_val = data.get("revenue") or 0
+        data["affo_margin"] = data.get("affo_margin") or (fcf/rev_val*100 if fcf and rev_val > 0 else 0)
+        data["affo_growth"] = data.get("historic_fcf_growth") or 0
+        
+        # Defensive Price to AFFO (avoid /0)
+        p_affo = 0
+        if fcf and shares and shares > 0 and (fcf/shares) != 0:
+            p_affo = current_price / (fcf/shares)
+        data["price_to_affo"] = p_affo
+        
+        # Defensive FCF Yield (avoid /0)
+        mkt_cap_val = (current_price * shares) if (current_price and shares) else 0
+        data["fcf_yield"] = (fcf / mkt_cap_val * 100) if (fcf and mkt_cap_val > 0) else 0
+
+        # RESTORE: Standard indicators for DEFAULT template (Respect Scraper Values)
+        if not data.get("ebit_margin") or data["ebit_margin"] == 0:
+            data["ebit_margin"] = (data.get("ebit", 0) / (rev_val or 1)) * 100
+        
+        # Only overwrite ps_ratio if scraper provided 0
+        if not data.get("ps_ratio") or data["ps_ratio"] == 0:
+            data["ps_ratio"] = current_price / (rev_val / (shares or 1)) if rev_val > 0 and shares > 0 else 0
+        
+        ebitda_val = data.get("ebitda")
+        # Fix: current_price and shares are authoritative from earlier derivation
+        mkt_cap_val = (shares or 0) * (current_price or 0)
+
+        if ebitda_val and ebitda_val > 0:
+            # Need dcf_debt/cash for EV
+            debt_val = (data.get("total_debt") or 0)
+            cash_val = (data.get("total_cash") or 0)
+            ev_val = mkt_cap_val + debt_val - cash_val
+            data["ev_to_ebitda"] = ev_val / ebitda_val
+            data["debt_to_ebitda"] = debt_val / ebitda_val
+        else:
+            data["ev_to_ebitda"] = 0
+            data["debt_to_ebitda"] = 0
+
+        # Pass safety values to scoring
+        safe_mos = margin_of_safety if margin_of_safety is not None else 0
+        safe_median_peg = median_peer_peg if median_peer_peg is not None else 0
+        
+        scoring_results = calculate_scoring_reform({"margin_of_safety": safe_mos, "sector_median_peg": safe_median_peg}, data)
+        
+        health_score_total = scoring_results.get("health_score_total")
+        health_breakdown = scoring_results.get("health_breakdown")
+        
+        good_to_buy_total = scoring_results.get("good_to_buy_total")
+        buy_breakdown = scoring_results.get("buy_breakdown")
+
+        # Piotroski F-Score (pass full data dict including historical_anchors)
+        piotroski_result = calculate_piotroski_score(data)
+        piotroski_score = piotroski_result.get("score")
+        piotroski_breakdown = piotroski_result.get("breakdown", [])
+
+        # 7. Algorithmic Insights Generation
+        all_breakdowns = health_breakdown + buy_breakdown
+        top_strengths = []
+        risk_factors = []
+        
+        if all_breakdowns:
+            # Strengths: items with max points
+            max_point_items = [b for b in all_breakdowns if b.get("points_awarded") == b.get("max_points") and b.get("max_points", 0) > 0]
+            # Sort by highest max_points just to show the most impactful ones first
+            max_point_items.sort(key=lambda x: x.get("max_points", 0), reverse=True)
+            top_strengths = max_point_items[:3]
+            
+            # Risks: items with 0 points
+            zero_point_items = [b for b in all_breakdowns if b.get("points_awarded") == 0]
+            if zero_point_items:
+                risk_factors = zero_point_items[:3]
+            else:
+                # Fallback: lowest partial points if no 0s
+                all_sorted = sorted(all_breakdowns, key=lambda x: x.get("points_awarded", 100))
+                risk_factors = all_sorted[:2]
+
+        response_data = {
+            "ticker": ticker_upper,
+            "name": data.get("name", "Unknown"),
+            "current_price": float(current_price or 0.0),
+            "fair_value": sanitize(fair_value),
+            "margin_of_safety": sanitize(margin_of_safety),
+            "dcf_value": sanitize(dcf_value),
+            "relative_value": sanitize(relative_value),
+            "lynch_fwd_pe": sanitize(lynch_fwd_pe),
+            "lynch_fair_value": sanitize(lynch_fair_value),
+            "lynch_status": lynch_status,
+            "peg_value": sanitize(peg_value),
+            "recommended_exit_multiple": sanitize(recommended_exit_multiple),
             "company_profile": {
-                "sector": data.get("sector"),
-                "industry": data.get("industry"),
-                "business_summary": data.get("business_summary"),
-                "market_cap": sanitize((data.get("shares_outstanding") or 0) * current_price),
-                "trailing_pe": sanitize(current_pe),
+                "industry": data.get("industry") or "N/A",
+                "sector": data.get("sector") or "N/A",
+                "market_cap": sanitize(data.get("shares_outstanding", 0) * current_price if data.get("shares_outstanding") and current_price else 0.0),
+                "current_pe": sanitize(current_pe),
+                "trailing_pe": sanitize(current_pe), # Align with what app.js expects for comparison
                 "trailing_eps": sanitize(eps_for_valuation),
-                "adjusted_eps": sanitize(adjusted_eps),
-                "historic_pe": sanitize(data.get("pe_historic")),
+                "historic_eps_growth": sanitize(data.get("historic_eps_growth")),
+                "historic_fcf_growth": sanitize(data.get("historic_fcf_growth")),
                 "debt_to_equity": sanitize(data.get("debt_to_equity")),
                 "operating_margin": sanitize(data.get("operating_margin")),
-                "revenue_growth": sanitize(data.get("revenue_growth")),
-                "earnings_growth": sanitize(growth_5y),
-                "next_earnings_date": data.get("next_earnings_date"),
-                "sector_median_pe": sanitize(sector_median_pe),
+                "net_margin": sanitize(data.get("net_margin")),
+                "revenue_growth": sanitize(stable_rev_growth), # Use calculated 1Y historical growth for stability
+                "earnings_growth": sanitize(consensus_growth), # Use Consensus/Nasdaq CAGRs for comparison instead of buggy Yahoo TTM
+                "business_summary": data.get("business_summary"),
+                "sector_median_pe": sanitize(median_peer_pe),
+                "sector_median_peg": sanitize(median_peer_peg),
+                # Newly added fields (v59 Fix)
+                "next_earnings_date": data.get("next_earnings_date") or "N/A",
+                "historic_pe": sanitize(data.get("pe_historic")),
                 "insider_ownership": sanitize(data.get("insider_ownership")),
                 "shares_outstanding": sanitize(data.get("shares_outstanding")),
                 "buyback_rate": sanitize(data.get("historic_buyback_rate")),
@@ -443,148 +869,81 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 "payout_ratio": sanitize(data.get("payout_ratio")),
                 "dividend_streak": data.get("dividend_streak"),
                 "dividend_cagr_5y": sanitize(data.get("dividend_cagr_5y")),
-                "revenue": sanitize(data.get("revenue", 0)),
-                "ebitda": sanitize(data.get("ebitda", 0)),
-                "total_cash": sanitize(data.get("total_cash", 0)),
-                "total_debt": sanitize(data.get("total_debt", 0)),
+                "revenue": sanitize(data.get("revenue")),
+                "ebitda": sanitize(data.get("ebitda")),
+                "total_cash": sanitize(data.get("total_cash")),
+                "total_debt": sanitize(data.get("total_debt")),
                 "price_to_book": sanitize(data.get("price_to_book")),
+                "dividend_rate": sanitize(data.get("dividend_rate")),
                 "competitors": [p.get("ticker") for p in peers_data] if peers_data else [],
-                "competitor_metrics": peers_data or []
+                "competitor_metrics": [{
+                    "ticker": p.get("ticker"),
+                    "name": p.get("name"),
+                    "price": sanitize(p.get("price")),
+                    "pe_ratio": sanitize(p.get("pe_ratio")),
+                    "market_cap": sanitize(p.get("market_cap")),
+                    "eps": sanitize(p.get("eps")),
+                    "operating_margin": sanitize(p.get("operating_margin")),
+                    "revenue_growth": sanitize(p.get("revenue_growth")),
+                    "earnings_growth": sanitize(p.get("earnings_growth"))
+                } for p in peers_data] if peers_data else []
             },
-            "metrics": data,
-            "valuation": {
-                "peter_lynch": lynch,
-                "peg_fair_value": sanitize(peg_fv),
-                "dcf": {
-                    "eps_growth_applied": sanitize(growth_5y),
-                    "shares_outstanding": shares,
-                    "total_cash": data.get("total_cash", 0),
-                    "total_debt": data.get("total_debt", 0),
-                    "dcf_perpetual": dcf_perp_mapped,
-                    "dcf_exit_multiple": dcf_exit_mapped
-                },
-                "relative": sanitize(relative_val)
+            "historical_trends": data.get("historical_trends"),
+            "historical_anchors": historical_anchors,
+            "company_overview_synthesis": data.get("company_overview_synthesis"),
+            "health_score_total": health_score_total,
+            "health_breakdown": health_breakdown,
+            "good_to_buy_total": good_to_buy_total,
+            "buy_breakdown": buy_breakdown,
+            "piotroski_score": piotroski_score,
+            "piotroski_breakdown": piotroski_breakdown,
+            "formula_data": formula_data,
+            "recommended_exit_multiple": recommended_exit_multiple,
+            "dcf_assumptions": {
+                "recommended_exit_multiple": recommended_exit_multiple
             },
-            "scoring": {
-                "health_score": health_score_total,
-                "buy_score": good_to_buy_total,
-                "piotroski_score": p_score
-            },
+            "historical_data": data.get("historical_data"),
             "algorithmic_insights": {
                 "top_strengths": top_strengths,
                 "risk_factors": risk_factors
             },
-            "formula_data": {
-                "peter_lynch": {
-                    "fair_value": sanitize(vals["lynch"]),
-                    "fair_value_pe_20": sanitize(lynch.get("fair_value_pe_20")),
-                    "fair_value_sector_pe": sanitize(lynch.get("fair_value_sector_pe")),
-                    "fwd_pe": sanitize(lynch.get("fwd_pe")),
-                    "status": lynch.get("status"),
-                    "trailing_eps": sanitize(eps_for_valuation),
-                    "eps_growth_estimated": sanitize(growth_5y),
-                    "historic_pe": sanitize(pe_historic)
-                },
-               "peg": {
-                    "fair_value": sanitize(peg_fv), 
-                    "current_peg": sanitize(company_peg), 
-                    "industry_peg": sanitize(sector_peg),
-                    "eps_growth_estimated": sanitize(growth_5y),
-                    "current_pe": sanitize(current_pe)
-                },
-               "dcf": {
-                   "discount_rate_applied": sanitize(discount_rate * 100),
-                   "eps_growth_applied": sanitize(growth_5y),
-                   "shares_outstanding": shares,
-                   "total_cash": data.get("total_cash", 0),
-                   "total_debt": data.get("total_debt", 0),
-                   "fcf": fcf,
-                   "dcf_perpetual": dcf_perp_mapped,
-                   "dcf_exit_multiple": dcf_exit_mapped,
-                   "5yr": {
-                       "dcf_perpetual": dcf_perp_mapped,
-                       "dcf_exit_multiple": dcf_exit_mapped,
-                       "eps_growth_applied": sanitize(growth_5y)
-                   },
-                   "10yr": {
-                       "dcf_perpetual": dcf_perp_mapped, # Proxy for now
-                       "dcf_exit_multiple": dcf_exit_mapped,
-                       "eps_growth_applied": sanitize(growth_5y)
-                   },
-                   "current_price": float(current_price),
-                   "margin_of_safety": sanitize(((vals["dcf"] - current_price)/current_price*100) if vals["dcf"] and current_price>0 else 0)
-               },
-                "relative": {
-                    "fair_value": sanitize(relative_val), 
-                    "median_peer_pe": sanitize(sector_median_pe),
-                    "mean_peer_pe": sanitize(sector_median_pe), 
-                    "company_eps": sanitize(eps_for_valuation),
-                    "market_pe_trailing": sanitize(market_data.get("trailing_pe")),
-                    "peers": [p.get("ticker") for p in peers_data] if peers_data else []
-                }
-            },
-            "historical_anchors": data.get("historical_anchors", []),
-            "historical_trends": data.get("historical_trends", []),
-            "historical_data": data.get("historical_data", {}),
-            "company_overview_synthesis": data.get("company_overview_synthesis"),
             "red_flags": data.get("red_flags", []),
-            "debug_version": f"{CACHE_VERSION}-ULTRA-STABILITY-FIX-V3",
-            "timestamp": datetime.datetime.now().isoformat()
+            "overrides": ticker_overrides
         }
-        
-        valuation_cache[cache_key] = resp_data
-        return deep_clean_data(resp_data)
-
     except Exception as e:
-        print(f"VALUATION CRASH {ticker}: {str(e)}\n{traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=str(e))
+        import traceback
+        print(f"VALUATION CRASH for {ticker}: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Backend Error for {ticker}: {str(e)}")
 
-@app.get("/api/watchlist")
-def get_watchlist():
-    try:
-        data = kv_get("watchlist") or []
-        return list(set([t.upper() for t in data]))
-    except: return []
+    # 3. Save to memory cache (v38: Fix for slowness and desync)
+    valuation_cache[cache_key] = response_data
 
-@app.post("/api/watchlist")
-def save_watchlist(req: WatchlistRequest):
-    try:
-        kv_set("watchlist", req.tickers)
-        return {"status": "success"}
-    except: return {"status": "error"}
+    # LIQUID DEFENSE: Deep clean before sending
+    return deep_clean_data(response_data)
 
-@app.get("/api/overrides")
-def get_overrides(): return _load_overrides()
-
-@app.post("/api/overrides")
-def save_override(req: OverrideRequest):
-    try:
-        all_ovr = _load_overrides()
-        all_ovr[req.ticker.upper()] = {"inputs": req.inputs, "toggles": req.toggles, "computed": req.computed, "weights": req.weights}
-        _save_overrides(all_ovr)
-        return {"status": "success"}
-    except: return {"status": "error"}
-
-@app.delete("/api/overrides/{ticker}")
-def delete_override(ticker: str):
-    try:
-        all_ovr = _load_overrides()
-        if ticker.upper() in all_ovr:
-            del all_ovr[ticker.upper()]
-            _save_overrides(all_ovr)
-        return {"status": "success"}
-    except: return {"status": "error"}
+from concurrent.futures import ThreadPoolExecutor
 
 @app.post("/api/batch-valuation")
 def get_batch_valuation(req: WatchlistRequest):
+    tickers = req.tickers
     results = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-        futures = {executor.submit(get_valuation, t.upper(), None, None, False, False): t for t in req.tickers}
-        for f in concurrent.futures.as_completed(futures):
+    
+    with ThreadPoolExecutor(max_workers=15) as executor:
+        # User requested reliable data: We must use fast_mode=False for the watchlist. 
+        # Skipping DataFrames completely destroys the Health and Buy scores (e.g. Health 92 -> 62)
+        # because metrics like buyback_rate and historic_eps_growth become None.
+        # Likewise, skipping peers breaks the Fair Value and Buy Score algorithms by removing the relative valuation anchors.
+        futures = {executor.submit(get_valuation, t.upper(), None, False, False): t for t in tickers}
+        for future in futures:
             try:
-                res = f.result()
-                if res and not res.get("error"): results.append(res)
-            except: pass
+                res = future.result()
+                if res and not res.get("error"):
+                    results.append(res)
+            except Exception as e:
+                ticker = futures[future]
+                print(f"Batch Error for {ticker}: {e}")
+                
     return results
 
 if __name__ == "__main__":
