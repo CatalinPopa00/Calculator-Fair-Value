@@ -1538,15 +1538,30 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                                 add_to_map(dt, val, priority=1) # Calendar is lowest priority (often GAAP)
             except: pass
 
-            # 2. Source B: Nasdaq Earnings Surprise (Reports Actual Non-GAAP)
+            # 2. Source B: Nasdaq Earnings Surprise (Reports Actual Non-GAAP / Forensic Healing)
             try:
                 nq_surprises = get_nasdaq_earnings_surprise(ticker_symbol)
                 for row in nq_surprises:
                     eps_val = row.get('eps')
+                    fc_val = row.get('consensusForecast')
                     dt_str = row.get('dateReported')
                     if eps_val is not None and dt_str:
                         dt = datetime.datetime.strptime(dt_str, '%m/%d/%Y')
-                        add_to_map(dt, float(eps_val), priority=3) # Nasdaq is highest priority (Direct Non-GAAP)
+                        
+                        # v214: Forensic GAAP Healing (e.g. UBER Investment Gains)
+                        # If Actual is > 300% surprise and difference > $0.50, it's almost certainly a GAAP one-off.
+                        # We use the consensus forecast as the proxy for 'Normalized' in this case.
+                        final_eps = float(eps_val)
+                        try:
+                            if fc_val and float(fc_val) != 0:
+                                f_fc = float(fc_val)
+                                surprise = (final_eps - f_fc) / abs(f_fc)
+                                if abs(surprise) > 3.0 and abs(final_eps - f_fc) > 0.50:
+                                    log(f"DEBUG: Forensic GAAP Outlier healed for {ticker_symbol} ({final_eps} -> {f_fc})")
+                                    final_eps = f_fc
+                        except: pass
+                        
+                        add_to_map(dt, final_eps, priority=3) # Nasdaq is highest priority (Direct Non-GAAP)
             except: pass
 
             # 3. Source C: yfinance earnings_history (High Priority - "Analysis" tab chart)
@@ -3543,9 +3558,9 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             if k.startswith("Q"):
                 lbl = f"{k} {current_fy_num}"
             elif k == "FY0":
-                lbl = f"FY {current_fy_num} (v213)"
+                lbl = f"FY {current_fy_num} (v214)"
             else:
-                lbl = f"FY {current_fy_num + 1} (v213)"
+                lbl = f"FY {current_fy_num + 1} (v214)"
             e["period"] = lbl; r["period"] = lbl
             unified_eps.append(e); unified_rev.append(r)
 
