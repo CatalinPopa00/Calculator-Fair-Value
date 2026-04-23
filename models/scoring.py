@@ -114,7 +114,7 @@ def calculate_scoring_reform(valuation_data, metrics):
         pts_abs = 7.5 if (pe > 0 and pe < 10.0) else (3.75 if (pe > 0 and pe <= 15.0) else 0)
         # Part B: Relative to 5Y Avg (7.5 pct)
         pts_rel = 0
-        if pe > 0 and pe_5y > 0:
+        if pe > 0 and pe_5y and pe_5y > 0.001:
             pe_diff_pct = ((pe - pe_5y) / pe_5y) * 100
             pts_rel = 7.5 if pe_diff_pct < -15 else (3.75 if abs(pe_diff_pct) <= 15 else 0)
         pts = pts_abs + pts_rel
@@ -222,7 +222,7 @@ def calculate_scoring_reform(valuation_data, metrics):
         pts_abs = 10 if (pe > 0 and pe < 15.0) else (5 if (pe > 0 and pe <= 25.0) else 0)
         # Part B: Relative to 5Y Avg (10 pct)
         pts_rel = 0
-        if pe > 0 and pe_5y > 0:
+        if pe > 0 and pe_5y and pe_5y > 0.001:
             pe_diff_pct = ((pe - pe_5y) / pe_5y) * 100
             pts_rel = 10 if pe_diff_pct < -15 else (5 if abs(pe_diff_pct) <= 15 else 0)
         pts = pts_abs + pts_rel
@@ -380,14 +380,14 @@ def calculate_piotroski_score(metrics):
     f1_passed = (roa_cur_final > 0) if roa_cur_final is not None else (net_income_cur > 0 if net_income_cur is not None else None)
     add_point("Profitability", "F1", "ROA / Net Profit", 
               "Company has positive Net Income or ROA",
-              f"{roa_cur_final*100:.2f}%" if roa_cur_final is not None else "Positive" if f1_passed else "Negative",
+              f"{roa_cur_final*100:.2f}%" if roa_cur_final is not None else ("Positive" if f1_passed else "Negative"),
               f1_passed)
 
     # F2: Cash Flow > 0
     f2_passed = (cash_flow_for_f4 > 0) if cash_flow_for_f4 is not None else None
     add_point("Profitability", "F2", "Cash Flow Positive", 
               "Operating Cash Flow (CFO) is positive",
-              f"${cash_flow_for_f4/1e9:.2f}B" if f2_passed is not None else "N/A",
+              f"${cash_flow_for_f4/1e9:.2f}B" if (f2_passed is not None and cash_flow_for_f4) else "N/A",
               f2_passed)
 
     # F3: Delta ROA
