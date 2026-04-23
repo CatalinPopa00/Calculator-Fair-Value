@@ -2063,21 +2063,20 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
 
                     
                     # Calculate growth relative to the precise previous anchor in the unified timeline
-                    # v226: FORCE calculation against the normalized anchor for the FIRST projection year.
-                    # This ensures the % shown in the table matches the anchor values.
-                    if i == 1:
-                        prev_eps = historical_data["eps"][-2] if len(historical_data["eps"]) >= 2 else eps_est
-                    else:
-                        prev_eps = historical_data["eps"][-(i+1)] if len(historical_data["eps"]) > i else (historical_data["eps"][-2] if len(historical_data["eps"]) >= 2 else 0)
+                    # v227: Dynamic Year Anchoring for both EPS and Revenue
+                    # We compare against the absolute LAST entry in our timeline (which is either the anchor or previous projection)
+                    prev_eps = historical_data["eps"][-1] if historical_data["eps"] else eps_est
+                    prev_rev = historical_data["revenue"][-1] if historical_data["revenue"] else rev_est
                     
                     current_growth = (eps_est / prev_eps - 1) if prev_eps and prev_eps > 0 else 0.10
+                    rev_growth = (rev_est / prev_rev - 1) if prev_rev and prev_rev > 0 else 0.08
                     
                     # v132: Inject into trends for valuation engine consumption
                     historical_trends.append({
                         "year": label,
                         "revenue": rev_est,
-                        "eps_growth": current_growth, # Use the calculated growth rate
-
+                        "revenue_growth": rev_growth, # v227
+                        "eps_growth": current_growth, # v227 - Use the calculated growth rate
                         "eps": eps_est,
                         "net_margin": eps_est * historical_data["shares"][-1] / rev_est if rev_est > 0 else 0,
                         "fcf": fcf_est
