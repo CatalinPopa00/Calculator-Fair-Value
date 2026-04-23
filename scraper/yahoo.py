@@ -944,7 +944,11 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         except: pass
 
         # Select the best available growth rate
-        if yf_0y_growth is not None and yf_0y_growth > 0.02:
+        # v219: Always use the arithmetic mean of FY0 + FY1 growth for a balanced estimate
+        if yf_0y_growth is not None and yf_1y_growth is not None:
+            eps_growth = (yf_0y_growth + yf_1y_growth) / 2
+            eps_growth_period = "Avg FY0+FY1 Growth (Yahoo Consensus)"
+        elif yf_0y_growth is not None and yf_0y_growth > 0.02:
             eps_growth = yf_0y_growth
             eps_growth_period = "Current FY Growth (Yahoo Consensus)"
         elif yf_1y_growth is not None and yf_1y_growth > 0:
@@ -1548,7 +1552,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     if eps_val is not None and dt_str:
                         dt = datetime.datetime.strptime(dt_str, '%m/%d/%Y')
                         
-                        # v218: Universal Analyst Neutralizer (Optimized for Normalized anchors)
+                        # v219: Universal Analyst Neutralizer (Optimized for Normalized anchors)
                         # We prioritize the Analyst Consensus Forecast as the ground truth if 
                         # the reported 'Actual' shows a significant GAAP-driven surprise.
                         final_eps = float(eps_val)
@@ -2034,6 +2038,20 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     })
         except Exception as e_proj:
             print(f"Error adding projections: {e_proj}")
+        
+        # v219: RECALCULATE eps_growth from Normalized projection anchors
+        # The FY projection growth rates (calculated from adjusted_history) are more accurate
+        # than Yahoo's earnings_estimate.growth which uses GAAP denominators.
+        try:
+            proj_growths = [t.get("eps_growth") for t in historical_trends if "Est" in str(t.get("year", "")) and t.get("eps_growth") is not None]
+            if len(proj_growths) >= 2:
+                eps_growth = (proj_growths[0] + proj_growths[1]) / 2
+                eps_growth_period = "Avg FY0+FY1 (Normalized Anchors)"
+                log(f"DEBUG: v219 - Recalculated eps_growth from projections: {eps_growth:.4f} ({proj_growths})")
+            elif len(proj_growths) == 1:
+                eps_growth = proj_growths[0]
+                eps_growth_period = "FY0 (Normalized Anchor)"
+        except: pass
         # 3. Historical Anchors (Last 4 reported fiscal years - Robust Selection)
         historical_anchors = []
         try:
@@ -2292,6 +2310,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             "dividend_cagr_5y": dividend_cagr_5y,
             "payout_ratio": payout_ratio,
             "insider_ownership": info.get('heldPercentInsiders'),
+            # v219: Recalculate eps_growth from normalized projection anchors (not Yahoo GAAP growth)
+            # This ensures UBER-like companies with tax credits show ~31% growth, not -28% or 33%
             "eps_growth": normalize_growth(eps_growth),
             "eps_growth_period": eps_growth_period,
             "eps_growth_5y_consensus": normalize_growth(eps_growth_5y_consensus),
@@ -3628,9 +3648,9 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             if k.startswith("Q"):
                 lbl = f"{k} {current_fy_num}"
             elif k == "FY0":
-                lbl = f"FY {current_fy_num} (v218)"
+                lbl = f"FY {current_fy_num}"
             else:
-                lbl = f"FY {current_fy_num + 1} (v218)"
+                lbl = f"FY {current_fy_num + 1}"
             e["period"] = lbl; r["period"] = lbl
             unified_eps.append(e); unified_rev.append(r)
 
