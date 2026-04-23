@@ -1493,7 +1493,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                             fy_end_month = datetime.datetime.fromtimestamp(last_fye).month
                 except: pass
 
-            def add_to_map(dt_obj, eps_val):
+            def add_to_map(dt_obj, eps_val, priority=1):
                 try:
                     # v87: Robust Date offset to map report date to fiscal year
                     adj_dt = dt_obj - datetime.timedelta(days=65)
@@ -1502,20 +1502,27 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     
                     if yr_key not in raw_data_map: raw_data_map[yr_key] = {}
                     
-                    # Deduplication logic: If a record exists within 45 days (safe bridge for qtr-end vs report-date), it's the same quarter
+                    # Deduplication logic: If a record exists within 45 days, it's the same quarter
+                    # v213: Prioritize Source Type (Nasdaq/History) over Magnitude (Prevents GAAP-over-Normalized distortion)
                     found_duplicate = False
-                    for existing_dt_str in raw_data_map[yr_key].keys():
+                    # raw_data_map stores (value, priority)
+                    for existing_dt_str in list(raw_data_map[yr_key].keys()):
                         existing_dt = datetime.datetime.strptime(existing_dt_str, '%Y-%m-%d')
                         if abs((dt_obj - existing_dt).days) <= 45:
-                            # Keep the one with larger absolute value
-                            if abs(eps_val) > abs(raw_data_map[yr_key][existing_dt_str]):
-                                raw_data_map[yr_key][existing_dt_str] = float(eps_val)
+                            existing_val, existing_prio = raw_data_map[yr_key][existing_dt_str]
+                            if priority > existing_prio:
+                                # New source is more trustworthy for Non-GAAP (e.g. Nasdaq over Calendar)
+                                raw_data_map[yr_key][existing_dt_str] = (float(eps_val), priority)
+                            elif priority == existing_prio:
+                                # Same priority source: Keep the more 'Adjusted' one (usually larger absolute)
+                                if abs(eps_val) > abs(existing_val):
+                                    raw_data_map[yr_key][existing_dt_str] = (float(eps_val), priority)
                             found_duplicate = True
                             break
                     
                     if not found_duplicate:
                         dt_key = dt_obj.strftime('%Y-%m-%d')
-                        raw_data_map[yr_key][dt_key] = float(eps_val)
+                        raw_data_map[yr_key][dt_key] = (float(eps_val), priority)
                 except: pass
 
             # 1. Source A: Yfinance Earnings Dates
@@ -1528,7 +1535,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                         for idx, val in ed[col_name].items():
                             if val is not None and not _pd.isna(val):
                                 dt = _pd.to_datetime(idx).tz_localize(None)
-                                add_to_map(dt, val)
+                                add_to_map(dt, val, priority=1) # Calendar is lowest priority (often GAAP)
             except: pass
 
             # 2. Source B: Nasdaq Earnings Surprise (Reports Actual Non-GAAP)
@@ -1539,7 +1546,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     dt_str = row.get('dateReported')
                     if eps_val is not None and dt_str:
                         dt = datetime.datetime.strptime(dt_str, '%m/%d/%Y')
-                        add_to_map(dt, float(eps_val))
+                        add_to_map(dt, float(eps_val), priority=3) # Nasdaq is highest priority (Direct Non-GAAP)
             except: pass
 
             # 3. Source C: yfinance earnings_history (High Priority - "Analysis" tab chart)
@@ -1551,7 +1558,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                         if val is not None and not _pd.isna(val):
                             # The index 'quarter' might be datetime or string
                             dt = _pd.to_datetime(idx).tz_localize(None)
-                            add_to_map(dt, val)
+                            add_to_map(dt, val, priority=2) # History is high priority (Analyst Consensus)
             except: pass
 
             # 4. Source D: ANALYST-SENSITIVE NORMALIZED RECOVERY (SBC Add-back)
@@ -1604,7 +1611,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             now = datetime.datetime.now()
             curr_y = now.year
             for ey, quarters_dict in raw_data_map.items():
-                vals = [v for v in quarters_dict.values() if v is not None]
+                vals = [v[0] for v in quarters_dict.values() if v is not None]
                 if not vals: continue
                 
                 count = len(vals)
@@ -3536,9 +3543,9 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             if k.startswith("Q"):
                 lbl = f"{k} {current_fy_num}"
             elif k == "FY0":
-                lbl = f"FY {current_fy_num} (v212)"
+                lbl = f"FY {current_fy_num} (v213)"
             else:
-                lbl = f"FY {current_fy_num + 1} (v212)"
+                lbl = f"FY {current_fy_num + 1} (v213)"
             e["period"] = lbl; r["period"] = lbl
             unified_eps.append(e); unified_rev.append(r)
 
