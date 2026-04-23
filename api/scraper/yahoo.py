@@ -1629,6 +1629,25 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 vals = [v[0] for v in quarters_dict.values() if v is not None]
                 if not vals: continue
                 
+                # v215: Systemic Outlier Scrubbing (Prevents one-off GAAP spikes from ruining Non-GAAP history)
+                # If we have 3-4 quarters and one is a massive outlier (>3x the median of others), scrub it.
+                if len(vals) >= 3:
+                    try:
+                        sorted_vals = sorted(vals)
+                        # Find median of the 'normal' quarters
+                        med = sorted_vals[len(vals)//2]
+                        if abs(med) > 0.05:
+                            refined_vals = []
+                            for v in vals:
+                                # Threshold 3.0x handles things like UBER 3.11 vs 0.60
+                                if abs(v) > abs(med) * 3.0:
+                                    log(f"DEBUG: Systemic GAAP Outlier scrubbed for {ticker_symbol} in {ey} ({v} -> {med})")
+                                    refined_vals.append(med)
+                                else:
+                                    refined_vals.append(v)
+                            vals = refined_vals
+                    except: pass
+
                 count = len(vals)
                 total = sum(vals)
                 ey_int = int(ey)
@@ -1718,8 +1737,18 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                          if last_reported_yr >= now_dt.year:
                              target_prev_y = str(last_reported_yr - 1)
 
-                         adjusted_history[target_prev_y] = y_adj_val
-                         log(f"DEBUG: FINAL forensic match - Direct Yahoo Trend Actual for {ticker_symbol} {target_prev_y}: {y_adj_val}")
+                         # v215: Safety check for Yahoo Trend Override (Protects against GAAP-poisoning)
+                         # If we already have a forensic anchor (e.g. from Nasdaq) and it's > 40% different, ignore Yahoo.
+                         if target_prev_y in adjusted_history:
+                             curr_val = adjusted_history[target_prev_y]
+                             if abs(curr_val) > 0.05 and abs(y_adj_val - curr_val) / abs(curr_val) > 0.4:
+                                 log(f"DEBUG: Yahoo Trend Actual REJECTED for {ticker_symbol} ({y_adj_val} vs existing {curr_val})")
+                             else:
+                                 adjusted_history[target_prev_y] = y_adj_val
+                         else:
+                             adjusted_history[target_prev_y] = y_adj_val
+                             
+                         log(f"DEBUG: FINAL forensic match - Direct Yahoo Trend Actual for {ticker_symbol} {target_prev_y}: {adjusted_history.get(target_prev_y)}")
             except: pass
 
             # Debug Log
@@ -3558,9 +3587,9 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             if k.startswith("Q"):
                 lbl = f"{k} {current_fy_num}"
             elif k == "FY0":
-                lbl = f"FY {current_fy_num} (v214)"
+                lbl = f"FY {current_fy_num} (v215)"
             else:
-                lbl = f"FY {current_fy_num + 1} (v214)"
+                lbl = f"FY {current_fy_num + 1} (v215)"
             e["period"] = lbl; r["period"] = lbl
             unified_eps.append(e); unified_rev.append(r)
 
