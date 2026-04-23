@@ -12,34 +12,59 @@ import pandas as pd
 import re
 import requests
 
-def get_yahoo_normalized_anchor(ticker):
+def get_yahoo_analysis_normalized(ticker, info=None):
     """
-    v239: Brutal Scraping Fallback for the Normalized Anchor (e.g. 29.68 for Meta)
-    Standard APIs usually return GAAP (23.49). We seek the truth in the HTML.
+    v254: Deep Analysis Scraper (The "Forensic Truth Pass").
+    Combines:
+    1. Yahoo Info Tags (epsCurrentYear, forwardEps)
+    2. Nasdaq Adjusted Actuals (get_nasdaq_actual_eps)
+    3. Brutal HTML Scraping (Fallback)
     """
+    res = {}
     try:
-        url = f"https://finance.yahoo.com/quote/{ticker}/analysis"
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        response = requests.get(url, headers=headers, timeout=10)
-        if response.status_code == 200:
-            # Look for values near "Year Ago EPS" in the Normalized context
-            # We look for the FIRST value following the Year Ago EPS label in the JSON blob or table
-            html = response.text
-            
-            # Pattern for the raw data payload in Yahoo (often in a script tag)
-            # We look for the 0y/0Y row specifically in the earningsTrend context
-            # Example: {"period":"0y", ... "yearAgoEps":{"raw":29.68,"fmt":"29.68"}
-            # We use a broad lookahead to find the right period row
-            match = re.search(r'\{"period":"0[yY]".*?"yearAgoEps":\{"raw":([\d\.]+)', html)
-            if not match:
-                # Secondary attempt: look for just the label and value
-                match = re.search(r'Year Ago EPS.*?([\d\.]+)', html)
-            
-            if match:
-                val = float(match.group(1))
-                return val
+        # 1. Projections from Info Tags (High Reliability)
+        if info:
+            if info.get('epsCurrentYear'):
+                res['0y'] = res.get('0y', {})
+                res['0y']['avg'] = float(info.get('epsCurrentYear'))
+            if info.get('forwardEps') or info.get('epsForward'):
+                res['+1y'] = res.get('+1y', {})
+                res['+1y']['avg'] = float(info.get('forwardEps') or info.get('epsForward'))
+
+        # 2. Anchor (Year Ago) from Nasdaq Adjusted Actuals (Nuclear Truth)
+        # Sum of last 4 reported quarters is the gold standard for 'Normalized Actual'
+        nasdaq_anchor = get_nasdaq_actual_eps(ticker)
+        if nasdaq_anchor and nasdaq_anchor > 0:
+            res['0y'] = res.get('0y', {})
+            res['0y']['yearAgo'] = nasdaq_anchor
+            log(f"DEBUG: v254 Nasdaq Truth Anchor for {ticker}: {nasdaq_anchor:.2f}")
+
+        # 3. Brutal Scraping Fallback (If any field is still missing)
+        if not res.get('0y', {}).get('avg') or not res.get('0y', {}).get('yearAgo') or not res.get('+1y', {}).get('avg'):
+            url = f"https://finance.yahoo.com/quote/{ticker.upper()}/analysis"
+            headers = {'User-Agent': get_random_agent()}
+            response = requests.get(url, headers=headers, timeout=10)
+            if response.status_code == 200:
+                html = response.text
+                
+                # Regex for 0y block
+                if not res.get('0y', {}).get('avg') or not res.get('0y', {}).get('yearAgo'):
+                    match_0y = re.search(r'\{"period":"0[yY]".*?"earningsEstimate":\{"avg":\{"raw":([\d\.\-]+).*?"yearAgoEps":\{"raw":([\d\.\-]+)', html)
+                    if match_0y:
+                        res['0y'] = res.get('0y', {})
+                        if not res['0y'].get('avg'): res['0y']['avg'] = float(match_0y.group(1))
+                        if not res['0y'].get('yearAgo'): res['0y']['yearAgo'] = float(match_0y.group(2))
+                
+                # Regex for +1y block
+                if not res.get('+1y', {}).get('avg'):
+                    match_1y = re.search(r'\{"period":"\+1[yY]".*?"earningsEstimate":\{"avg":\{"raw":([\d\.\-]+)', html)
+                    if match_1y:
+                        res['+1y'] = res.get('+1y', {})
+                        res['+1y']['avg'] = float(match_1y.group(1))
+        
+        return res if res else None
     except Exception as e:
-        print(f"DEBUG: Normalized Scrape fail: {e}")
+        print(f"DEBUG: Yahoo Analysis Deep Scrape fail for {ticker}: {e}")
     return None
 try:
     from utils.kv import kv_get, kv_set
@@ -1829,7 +1854,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         # v241: BRUTAL TRUTH TIMELINE SYNC
         # 1. Try Brutal Scrape for the Normalized Anchor (e.g. 29.68 for Meta)
         # This is the 2025 Non-GAAP Truth.
-        y_anchor_2025 = get_yahoo_normalized_anchor(ticker_symbol)
+        y_analysis_truth = get_yahoo_analysis_normalized(ticker_symbol, info)
+        y_anchor_2025 = y_analysis_truth.get('0y', {}).get('yearAgo') if y_analysis_truth else None
         
         # 2. Inject this truth into the historical records specifically for the anchor year
         if y_anchor_2025 and y_anchor_2025 > 0:
@@ -1999,12 +2025,33 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 # We want the next 2 years (e.g., 2026, 2027 if last was 2025)
                 # v132: Use local growth trackers
                 eps_est_growth = 0.10
+                
+                # v254: Deep Normalized Truth Pass
+                # Fetching from Analysis tab ensures we use the "Normalized" data 
+                # (e.g. 29.68 Year Ago / 30.12 Current / 35.62 Next) as requested.
+                # We reuse the y_analysis_truth fetched earlier at line 1846
+                analysis_truth = y_analysis_truth
+                
                 for i in range(1, 3):
                     eps_est = None
                     proj_yr = last_yr + i
                     label = f"{proj_yr} (Est)"
                     # Analysis tab uses Next Year for first estimate generally
                     fy_code = "0y" if i == 1 else "+1y"
+                    
+                    y_truth_est = None
+                    if analysis_truth:
+                        if fy_code in analysis_truth:
+                            y_truth_est = analysis_truth[fy_code].get('avg')
+                        
+                        # Special Case: Year Ago Truth Sync
+                        # If we have analysis_truth['0y']['yearAgo'], it replaces our last anchor
+                        # to ensure the timeline starts from the "Truth".
+                        if i == 1 and '0y' in analysis_truth and analysis_truth['0y'].get('yearAgo'):
+                            y_anchor_truth = analysis_truth['0y']['yearAgo']
+                            if historical_data["eps"]:
+                                historical_data["eps"][-1] = y_anchor_truth
+                                log(f"DEBUG: v254 Truth Anchor Sync: {y_anchor_truth:.2f}")
                     
                     # v131: UNIVERSAL ANALYST AGGREGATOR (Multi-Source Validation)
                     # We compare Nasdaq, Yahoo, and Projections to find the most 'Live' consensus
@@ -2049,11 +2096,13 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     # v239: NUCLEAR PRIORITY (Normalized Truth)
                     # We discovered that info['epsCurrentYear'] is 30.12 (Correct) 
                     # while earnings_estimate['0y'] is 29.59 (Wrong/GAAP).
-                    y_est = None
-                    if fy_code == "0y" and info.get('epsCurrentYear'):
-                        y_est = float(info.get('epsCurrentYear')) * fx_rate
-                    elif fy_code == "+1y" and (info.get('forwardEps') or info.get('epsForward')):
-                        y_est = float(info.get('forwardEps') or info.get('epsForward')) * fx_rate
+                    y_est = y_truth_est # Use our v254 Truth first
+                    
+                    if not y_est:
+                        if fy_code == "0y" and info.get('epsCurrentYear'):
+                            y_est = float(info.get('epsCurrentYear')) * fx_rate
+                        elif fy_code == "+1y" and (info.get('forwardEps') or info.get('epsForward')):
+                            y_est = float(info.get('forwardEps') or info.get('epsForward')) * fx_rate
                     
                     # Secondary fallback to the estimate table if info tags are missing
                     if not y_est and ee_data is not None and not ee_data.empty:
