@@ -44,7 +44,12 @@ def get_yahoo_analysis_normalized(ticker, info=None):
                 res['eps']['0y']['avg'] = float(match_0y.group(1))
                 res['eps']['0y']['yearAgo'] = float(match_0y.group(2))
                 
-            match_1y = re.search(r'\{"period":"\+1[yY]".*?"earningsEstimate":\{"avg":\{"raw":([\d\.\-]+)', html)
+            # v261: More specific lookahead to ensure we are in the earningsEstimate block, not revenueEstimate
+            match_1y = re.search(r'"earningsEstimate":\{"avg":\{"raw":([\d\.\-]+).*?"period":"\+1[yY]"', html)
+            if not match_1y:
+                # Try alternative ordering
+                match_1y = re.search(r'\{"period":"\+1[yY]"[^\}]*?"earningsEstimate":\{"avg":\{"raw":([\d\.\-]+)', html)
+            
             if match_1y:
                 if '+1y' not in res['eps']: res['eps']['+1y'] = {}
                 res['eps']['+1y']['avg'] = float(match_1y.group(1))

@@ -1039,7 +1039,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const targetPeg = pegMode === 'industry' ? (industryPeg || 1.25) : 1.0;
 
             if (pegVal != null && currentPegToDisplay != null) {
-                pegCompareElem.textContent = `PEG = ${currentPegToDisplay.toFixed(2)} vs PEG ${pegMode === 'industry' ? 'Sector' : 'Std'} = ${targetPeg.toFixed(2)}`;
+                const displayCurrent = currentPegToDisplay;
+                const displayTarget = targetPeg;
+                pegCompareElem.textContent = `PEG = ${displayCurrent.toFixed(2)} vs PEG ${pegMode === 'industry' ? 'Sector' : 'Std'} = ${displayTarget.toFixed(2)}`;
                 
                 if (pegMos != null) {
                     const mosText = `${pegMos > 0 ? '+' : ''}${pegMos.toFixed(2)}% Margin of Safety`;

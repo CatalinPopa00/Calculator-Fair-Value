@@ -2729,29 +2729,36 @@ body {
     .analyst-grid {
         grid-template-columns: 1fr !important;
     }
-
     .valuation-input-group {
         display: flex !important;
         flex-direction: row !important;
         justify-content: space-between !important;
         align-items: center !important;
-        gap: 0.5rem;
+        gap: 0.5rem !important;
         margin-bottom: 0.75rem;
+        width: 100% !important;
     }
 
     .premium-label {
         margin-bottom: 0 !important;
         text-align: left;
         font-size: 0.85rem !important;
-        flex: 1;
+        flex: 1 !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     .premium-input, .premium-select {
-        width: auto !important;
-        min-width: 110px !important;
+        width: 140px !important;
+        min-width: 140px !important;
         max-width: 140px !important;
-        text-align: right;
+        text-align: right !important;
         font-size: 0.85rem !important;
         padding: 0.4rem 0.6rem !important;
+        box-sizing: border-box !important;
+        border-radius: 8px !important;
+        background: rgba(30, 41, 59, 0.5) !important;
+        flex-shrink: 0 !important;
     }
 }
