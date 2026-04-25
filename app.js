@@ -1050,12 +1050,47 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
 
-                if (globalData.current_price < pegVal) {
-                    pegStatusElem.textContent = `Undervalued`;
-                    pegStatusElem.style.color = 'var(--accent)';
+                // ── SECTOR-SPECIFIC PEG THRESHOLDS (v260) ──
+                const sector = globalData.company_profile.sector || "";
+                const industry = globalData.company_profile.industry || "";
+                const isTelecom = industry.toLowerCase().includes("telecom");
+                const peg = currentPegToDisplay;
+                
+                let statusText = "";
+                let statusColor = "var(--text-muted)";
+                let subText = "";
+
+                if (sector === "Technology" || (sector === "Communication Services" && !isTelecom)) {
+                    if (peg < 1.5) { statusText = "Subevaluat"; statusColor = "var(--accent)"; }
+                    else if (peg <= 2.5) { statusText = "Fair Value"; statusColor = "#fbbf24"; }
+                    else { statusText = "Supraevaluat"; statusColor = "var(--danger)"; }
+                } else if (sector === "Utilities" || isTelecom) {
+                    if (peg < 1.0) { statusText = "Subevaluat / Fair Value"; statusColor = "var(--accent)"; }
+                    else { statusText = "Supraevaluat"; statusColor = "var(--danger)"; }
+                    subText = "Notă: PEGY este mai precis pentru acest sector.";
+                } else if (sector === "Consumer Defensive") {
+                    if (peg < 1.5) { statusText = "Subevaluat"; statusColor = "var(--accent)"; }
+                    else if (peg <= 2.0) { statusText = "Fair Value"; statusColor = "#fbbf24"; }
+                    else { statusText = "Supraevaluat"; statusColor = "var(--danger)"; }
+                } else if (sector === "Financial Services") {
+                    if (peg < 0.8) { statusText = "Subevaluat"; statusColor = "var(--accent)"; }
+                    else if (peg <= 1.2) { statusText = "Fair Value"; statusColor = "#fbbf24"; }
+                    else { statusText = "Supraevaluat"; statusColor = "var(--danger)"; }
+                } else if (["Industrials", "Energy", "Basic Materials"].includes(sector)) {
+                    statusText = "Verdict Ciclic";
+                    statusColor = "#a855f7"; 
+                    subText = "Compară cu media industriei (Sector Ciclic).";
                 } else {
-                    pegStatusElem.textContent = `Overvalued`;
-                    pegStatusElem.style.color = 'var(--danger)';
+                    // Default Fallback
+                    if (peg < 1.0) { statusText = "Subevaluat"; statusColor = "var(--accent)"; }
+                    else if (peg <= 1.5) { statusText = "Fair Value"; statusColor = "#fbbf24"; }
+                    else { statusText = "Supraevaluat"; statusColor = "var(--danger)"; }
+                }
+
+                pegStatusElem.textContent = statusText;
+                pegStatusElem.style.color = statusColor;
+                if (subText) {
+                    pegCompareElem.innerHTML += `<br><span style="font-size:0.75rem; color:var(--text-muted); font-style:italic;">${subText}</span>`;
                 }
             } else {
                 pegStatusElem.textContent = "N/A";
