@@ -14,58 +14,63 @@ import requests
 
 def get_yahoo_analysis_normalized(ticker, info=None):
     """
-    v254: Deep Analysis Scraper (The "Forensic Truth Pass").
-    Combines:
-    1. Yahoo Info Tags (epsCurrentYear, forwardEps)
-    2. Nasdaq Adjusted Actuals (get_nasdaq_actual_eps)
-    3. Brutal HTML Scraping (Fallback)
+    High-fidelity scraper for the Yahoo Finance 'Analysis' tab.
+    Extracts Normalized (Non-GAAP) Estimates and Year-Ago Anchors for EPS and Revenue.
+    v258: Reformed to support the FY0, FY1, FY2 analyst dashboard.
     """
-    res = {}
+    res = {'eps': {}, 'rev': {}}
+    t_upper = ticker.upper() if isinstance(ticker, str) else str(ticker).upper()
     try:
-        # 1. Projections from Info Tags (High Reliability)
+        # 1. Preliminary fetch from info (Fastest)
         if info:
-            if info.get('epsCurrentYear'):
-                res['0y'] = res.get('0y', {})
-                res['0y']['avg'] = float(info.get('epsCurrentYear'))
-            if info.get('forwardEps') or info.get('epsForward'):
-                res['+1y'] = res.get('+1y', {})
-                res['+1y']['avg'] = float(info.get('forwardEps') or info.get('epsForward'))
+            try:
+                res['eps']['0y'] = {'avg': float(info.get('epsCurrentYear', 0))}
+                res['eps']['+1y'] = {'avg': float(info.get('forwardEps') or info.get('epsForward') or 0)}
+            except: pass
 
-        # 2. Anchor (Year Ago) from Nasdaq Adjusted Actuals (Nuclear Truth)
-        # Sum of last 4 reported quarters is the gold standard for 'Normalized Actual'
-        nasdaq_anchor = get_nasdaq_actual_eps(ticker)
-        if nasdaq_anchor and nasdaq_anchor > 0:
-            res['0y'] = res.get('0y', {})
-            res['0y']['yearAgo'] = nasdaq_anchor
-            log(f"DEBUG: v254 Nasdaq Truth Anchor for {ticker}: {nasdaq_anchor:.2f}")
-
-        # 3. Brutal Scraping Fallback (If any field is still missing)
-        if not res.get('0y', {}).get('avg') or not res.get('0y', {}).get('yearAgo') or not res.get('+1y', {}).get('avg'):
-            url = f"https://finance.yahoo.com/quote/{ticker.upper()}/analysis"
-            headers = {'User-Agent': get_random_agent()}
-            response = requests.get(url, headers=headers, timeout=10)
-            if response.status_code == 200:
-                html = response.text
-                
-                # Regex for 0y block
-                if not res.get('0y', {}).get('avg') or not res.get('0y', {}).get('yearAgo'):
-                    match_0y = re.search(r'\{"period":"0[yY]".*?"earningsEstimate":\{"avg":\{"raw":([\d\.\-]+).*?"yearAgoEps":\{"raw":([\d\.\-]+)', html)
-                    if match_0y:
-                        res['0y'] = res.get('0y', {})
-                        if not res['0y'].get('avg'): res['0y']['avg'] = float(match_0y.group(1))
-                        if not res['0y'].get('yearAgo'): res['0y']['yearAgo'] = float(match_0y.group(2))
-                
-                # Regex for +1y block
-                if not res.get('+1y', {}).get('avg'):
-                    match_1y = re.search(r'\{"period":"\+1[yY]".*?"earningsEstimate":\{"avg":\{"raw":([\d\.\-]+)', html)
-                    if match_1y:
-                        res['+1y'] = res.get('+1y', {})
-                        res['+1y']['avg'] = float(match_1y.group(1))
+        # 2. Forensic Scrape for the full Truth Table
+        url = f"https://finance.yahoo.com/quote/{t_upper}/analysis"
+        headers = {'User-Agent': get_random_agent()}
         
-        return res if res else None
+        response = requests.get(url, headers=headers, timeout=5)
+        if response.status_code == 200:
+            html = response.text
+
+            # EPS Scraping
+            match_0y = re.search(r'\{"period":"0[yY]".*?"earningsEstimate":\{"avg":\{"raw":([\d\.\-]+).*?"yearAgoEps":\{"raw":([\d\.\-]+)', html)
+            if match_0y:
+                if '0y' not in res['eps']: res['eps']['0y'] = {}
+                res['eps']['0y']['avg'] = float(match_0y.group(1))
+                res['eps']['0y']['yearAgo'] = float(match_0y.group(2))
+                
+            match_1y = re.search(r'\{"period":"\+1[yY]".*?"earningsEstimate":\{"avg":\{"raw":([\d\.\-]+)', html)
+            if match_1y:
+                if '+1y' not in res['eps']: res['eps']['+1y'] = {}
+                res['eps']['+1y']['avg'] = float(match_1y.group(1))
+
+            # Revenue Scraping
+            match_rev_0y = re.search(r'\{"period":"0[yY]".*?"revenueEstimate":\{"avg":\{"raw":([\d\.\-eE]+).*?"yearAgoRevenue":\{"raw":([\d\.\-eE]+)', html)
+            if match_rev_0y:
+                res['rev']['0y'] = {
+                    'avg': float(match_rev_0y.group(1)),
+                    'yearAgo': float(match_rev_0y.group(2))
+                }
+            
+            match_rev_1y = re.search(r'\{"period":"\+1[yY]".*?"revenueEstimate":\{"avg":\{"raw":([\d\.\-eE]+)', html)
+            if match_rev_1y:
+                res['rev']['+1y'] = {'avg': float(match_rev_1y.group(1))}
+
+        # Nasdaq Fallback for EPS Anchor (Highest Priority Truth for 2025)
+        nasdaq_anchor = get_nasdaq_actual_eps(t_upper)
+        if nasdaq_anchor:
+            if '0y' not in res['eps']: res['eps']['0y'] = {}
+            res['eps']['0y']['yearAgo'] = nasdaq_anchor
+            log(f"DEBUG: v258 Nasdaq Truth injected into Analysis Anchor for {t_upper}: {nasdaq_anchor}")
+
     except Exception as e:
-        print(f"DEBUG: Yahoo Analysis Deep Scrape fail for {ticker}: {e}")
-    return None
+        print(f"Error scraping Yahoo Analysis for {t_upper}: {e}")
+    
+    return res
 try:
     from utils.kv import kv_get, kv_set
 except ImportError:
@@ -1901,7 +1906,9 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         # 1. Try Brutal Scrape for the Normalized Anchor (e.g. 29.68 for Meta)
         # This is the 2025 Non-GAAP Truth.
         y_analysis_truth = get_yahoo_analysis_normalized(ticker_symbol, info)
-        y_anchor_2025 = y_analysis_truth.get('0y', {}).get('yearAgo') if y_analysis_truth else None
+        y_anchor_2025 = None
+        if y_analysis_truth and 'eps' in y_analysis_truth:
+             y_anchor_2025 = y_analysis_truth['eps'].get('0y', {}).get('yearAgo')
         
         # 2. Inject this truth into the historical records specifically for the anchor year
         if y_anchor_2025 and y_anchor_2025 > 0:
@@ -3865,17 +3872,57 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
              if "2026" in str(eps_buckets["FY0"].get("period", "")):
                   eps_buckets["FY0"]["growth"] = (eps_buckets["FY0"]["avg"] / 1.11) - 1
 
-        # Now populate result lists with period labels (v182: Fixed missing labels)
-        for k in ["Q1", "Q2", "Q3", "Q4", "FY0", "FY1"]:
-            e = eps_buckets[k]; r = rev_buckets[k]
-            if k.startswith("Q"):
-                lbl = f"{k} {current_fy_num}"
-            elif k == "FY0":
-                lbl = f"FY {current_fy_num}"
-            else:
-                lbl = f"FY {current_fy_num + 1}"
-            e["period"] = lbl; r["period"] = lbl
-            unified_eps.append(e); unified_rev.append(r)
+        # v258: ANALYST REFORMATION (FY0, FY1, FY2 ONLY)
+        # Fetch the High-Fidelity Truth from our new scraper
+        analysis_data = get_yahoo_analysis_normalized(ticker_symbol, info)
+        
+        # Determine Years
+        fy0_yr = hist_years[-1] if hist_years else (current_fy_num - 1)
+        fy1_yr = current_fy_num
+        fy2_yr = current_fy_num + 1
+        
+        # FY 0 Data (Actuals)
+        fy0_eps = analysis_data.get('eps', {}).get('0y', {}).get('yearAgo')
+        if not fy0_eps: fy0_eps = last_act_eps
+        
+        fy0_rev = analysis_data.get('rev', {}).get('0y', {}).get('yearAgo')
+        if not fy0_rev: fy0_rev = last_act_rev
+        
+        # FY 1 Data (Current Year Avg)
+        fy1_eps = analysis_data.get('eps', {}).get('0y', {}).get('avg')
+        if not fy1_eps: fy1_eps = eps_buckets["FY0"].get("avg")
+        
+        fy1_rev = analysis_data.get('rev', {}).get('0y', {}).get('avg')
+        if not fy1_rev: fy1_rev = rev_buckets["FY0"].get("avg")
+        
+        # FY 2 Data (Next Year Avg)
+        fy2_eps = analysis_data.get('eps', {}).get('+1y', {}).get('avg')
+        if not fy2_eps: fy2_eps = eps_buckets["FY1"].get("avg")
+        
+        fy2_rev = analysis_data.get('rev', {}).get('+1y', {}).get('avg')
+        if not fy2_rev: fy2_rev = rev_buckets["FY1"].get("avg")
+        
+        # Build Final Lists
+        unified_eps = []
+        unified_rev = []
+        
+        # FY 0 (Actual)
+        unified_eps.append({"period": f"FY {fy0_yr} (Actual)", "avg": fy0_eps, "growth": None, "status": "reported"})
+        unified_rev.append({"period": f"FY {fy0_yr} (Actual)", "avg": fy0_rev, "growth": None, "status": "reported"})
+        
+        # FY 1 (Current Year)
+        g1 = (fy1_eps / abs(fy0_eps) - 1) if fy0_eps and fy0_eps != 0 else None
+        unified_eps.append({"period": f"FY {fy1_yr}", "avg": fy1_eps, "growth": g1, "status": "estimate"})
+        
+        g1r = (fy1_rev / abs(fy0_rev) - 1) if fy0_rev and fy0_rev != 0 else None
+        unified_rev.append({"period": f"FY {fy1_yr}", "avg": fy1_rev, "growth": g1r, "status": "estimate"})
+        
+        # FY 2 (Next Year)
+        g2 = (fy2_eps / abs(fy1_eps) - 1) if fy1_eps and fy1_eps != 0 else None
+        unified_eps.append({"period": f"FY {fy2_yr}", "avg": fy2_eps, "growth": g2, "status": "estimate"})
+        
+        g2r = (fy2_rev / abs(fy1_rev) - 1) if fy1_rev and fy1_rev != 0 else None
+        unified_rev.append({"period": f"FY {fy2_yr}", "avg": fy2_rev, "growth": g2r, "status": "estimate"})
 
 
         # (Anomaly healing removed: with proper FY0/FY1 from Yahoo, no longer needed)
@@ -3897,25 +3944,14 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
                     eps_growth_5y_consensus = float(val)
         except: pass
 
-        g_0y = None; g_1y = None
-        for est in eps_estimates:
-            if est.get('period_code') == '0y': g_0y = est.get('growth')
-            if est.get('period_code') == '+1y': g_1y = est.get('growth')
-        
-        # v182: Unified Growth detection from bucketing
-        g_0y = eps_buckets["FY0"].get("growth")
-        g_1y = eps_buckets["FY1"].get("growth")
-        
-        # v156: Calculate Average Growth between FY0 and FY1 for a more stable valuation base
-        if g_0y is not None and g_1y is not None:
-            eps_forward_growth = (g_0y + g_1y) / 2
-        elif g_0y is not None:
-            eps_forward_growth = g_0y
-        elif g_1y is not None:
-            eps_forward_growth = g_1y
-        else:
-            # Absolute fallback to info
-            eps_forward_growth = info.get('earningsGrowth', 0.10)
+        # v258: Unified Growth detection from Reformed Table
+        eps_forward_growth = info.get('earningsGrowth', 0.10)
+        if g1 is not None and g2 is not None:
+            eps_forward_growth = (g1 + g2) / 2
+        elif g1 is not None:
+            eps_forward_growth = g1
+        elif g2 is not None:
+            eps_forward_growth = g2
 
 
         return {
