@@ -460,34 +460,34 @@ def get_nasdaq_actual_eps(ticker: str) -> float:
         if data and data.get('data'):
             rows = data['data'].get('earningsSurpriseTable', {}).get('rows', [])
             if rows:
-            total_eps = 0.0
-            # Sum the last 4 reported quarters
-            count = 0
-            for row in rows[:4]:
-                # 'eps' is the actual reported EPS in the surprise table
-                val_str = row.get('eps') or row.get('actualEPS')
-                fc_str = row.get('consensusForecast')
-                if val_str:
-                    try:
-                        val = float(val_str)
-                        
-                        # Forensic Neutralization: If Actual differs significantly from Consensus, 
-                        # it's often a GAAP-driven distortion (e.g. UBER tax benefit).
-                        if fc_str:
-                            try:
-                                f_fc = float(fc_str)
-                                if f_fc != 0:
-                                    diff = abs(val - f_fc)
-                                    # Threshold 25% or $0.15 matches the logic in get_company_data
-                                    if (diff / abs(f_fc) > 0.25) or diff > 0.15:
-                                        log(f"DEBUG: v255 Nasdaq Forensic Neutralizer for {ticker} ({val} -> {f_fc})")
-                                        val = f_fc
-                            except: pass
-                        
-                        total_eps += val
-                        count += 1
-                    except ValueError:
-                        continue
+                total_eps = 0.0
+                # Sum the last 4 reported quarters
+                count = 0
+                for row in rows[:4]:
+                    # 'eps' is the actual reported EPS in the surprise table
+                    val_str = row.get('eps') or row.get('actualEPS')
+                    fc_str = row.get('consensusForecast')
+                    if val_str:
+                        try:
+                            val = float(val_str)
+                            
+                            # Forensic Neutralization: If Actual differs significantly from Consensus, 
+                            # it's often a GAAP-driven distortion (e.g. UBER tax benefit).
+                            if fc_str:
+                                try:
+                                    f_fc = float(fc_str)
+                                    if f_fc != 0:
+                                        diff = abs(val - f_fc)
+                                        # Threshold 25% or $0.15 matches the logic in get_company_data
+                                        if (diff / abs(f_fc) > 0.25) or diff > 0.15:
+                                            log(f"DEBUG: v255 Nasdaq Forensic Neutralizer for {ticker} ({val} -> {f_fc})")
+                                            val = f_fc
+                                except: pass
+                            
+                            total_eps += val
+                            count += 1
+                        except ValueError:
+                            continue
             
             if count >= 3: # Require at least 3 quarters for a valid sum
                 # v70: Scale to full year (4 quarters) if one is missing
