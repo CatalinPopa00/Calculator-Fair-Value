@@ -878,6 +878,8 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 "payout_ratio": sanitize(data.get("payout_ratio")),
                 "dividend_streak": data.get("dividend_streak"),
                 "dividend_cagr_5y": sanitize(data.get("dividend_cagr_5y")),
+                "fwd_pe": sanitize(data.get("fwd_pe"))
+            },
                 "revenue": sanitize(data.get("revenue")),
                 "ebitda": sanitize(data.get("ebitda")),
                 "total_cash": sanitize(data.get("total_cash")),

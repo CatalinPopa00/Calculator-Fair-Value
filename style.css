@@ -2731,12 +2731,27 @@ body {
     }
 
     .valuation-input-group {
-        flex-direction: column;
-        align-items: flex-start;
+        display: flex !important;
+        flex-direction: row !important;
+        justify-content: space-between !important;
+        align-items: center !important;
         gap: 0.5rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .premium-label {
+        margin-bottom: 0 !important;
+        text-align: left;
+        font-size: 0.85rem !important;
+        flex: 1;
     }
 
     .premium-input, .premium-select {
-        width: 100%;
+        width: auto !important;
+        min-width: 110px !important;
+        max-width: 140px !important;
+        text-align: right;
+        font-size: 0.85rem !important;
+        padding: 0.4rem 0.6rem !important;
     }
 }

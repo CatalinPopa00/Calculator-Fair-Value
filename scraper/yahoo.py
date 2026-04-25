@@ -457,8 +457,9 @@ def get_nasdaq_actual_eps(ticker: str) -> float:
             raw_data = response.read()
             data = json.loads(raw_data)
             
-        rows = data.get('data', {}).get('earningsSurpriseTable', {}).get('rows', [])
-        if rows:
+        if data and data.get('data'):
+            rows = data['data'].get('earningsSurpriseTable', {}).get('rows', [])
+            if rows:
             total_eps = 0.0
             # Sum the last 4 reported quarters
             count = 0
@@ -3162,8 +3163,14 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             if 'eps' in analysis_data:
                 scraped_0y = analysis_data['eps'].get('0y', {}).get('avg')
                 scraped_1y = analysis_data['eps'].get('+1y', {}).get('avg')
-                if scraped_0y: y_fy0 = scraped_0y
-                if scraped_1y: y_fy1 = scraped_1y
+                
+                # Robust conversion (Handle cases where scraper might return tuple or None)
+                if scraped_0y is not None:
+                    try: y_fy0 = float(scraped_0y[0]) if isinstance(scraped_0y, (list, tuple)) else float(scraped_0y)
+                    except: pass
+                if scraped_1y is not None:
+                    try: y_fy1 = float(scraped_1y[0]) if isinstance(scraped_1y, (list, tuple)) else float(scraped_1y)
+                    except: pass
 
             if y_fy0:
                 eps_estimates.append({
@@ -3556,9 +3563,9 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
 
 
         
-        if n_data:
+        if n_data and isinstance(n_data, dict) and n_data.get('data'):
             # Nasdaq EPS Quarters
-            q_forecasts = n_data.get('data', {}).get('quarterlyForecast', {}).get('rows', [])
+            q_forecasts = n_data['data'].get('quarterlyForecast', {}).get('rows', [])
             for i, qf in enumerate(q_forecasts[:4]):
                 p_code = "0q" if i == 0 else f"+{i}q"
                 existing = next((e for e in eps_estimates if e.get('period_code') == p_code), None)
@@ -3575,14 +3582,14 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
                     except: pass
             
             # Nasdaq Revenue Quarters
-            r_forecasts = n_data.get('data', {}).get('revenueForecast', {}).get('rows', [])
+            r_forecasts = n_data['data'].get('revenueForecast', {}).get('rows', [])
             for i, rf in enumerate(r_forecasts[:4]):
                 p_code = "0q" if i == 0 else f"+{i}q"
                 existing = next((e for e in rev_estimates if e.get('period_code') == p_code), None)
             
             # ── v158: Nasdaq Yearly Forecasts (Non-GAAP Consensus) ──────────
             # Field in API is 'yearlyForecast', not 'annualForecast'
-            y_forecasts = n_data.get('data', {}).get('yearlyForecast', {}).get('rows', [])
+            y_forecasts = n_data['data'].get('yearlyForecast', {}).get('rows', [])
             for y_forecast_row in y_forecasts:
                 # Key is 'fiscalYearEnd' (e.g. "Dec 2026")
                 fy_code = str(y_forecast_row.get('fiscalYearEnd', ''))

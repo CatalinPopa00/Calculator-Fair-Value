@@ -1532,13 +1532,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 <tr class="profile-row"><td class="profile-label">Market Cap</td><td class="profile-value">${formatBigNumber(prof.market_cap, '$')}</td></tr>
                 <tr class="profile-row"><td class="profile-label">Operating Margin</td><td class="profile-value">${formatSafePct(prof.operating_margin)}</td></tr>
                 <tr class="profile-row"><td class="profile-label">P/E (Trailing TTM)</td><td class="profile-value">${prof.trailing_pe ? prof.trailing_pe.toFixed(2) + 'x' : 'N/A'}</td></tr>
-                <tr class="profile-row"><td class="profile-label">P/E (Forward)</td><td class="profile-value">${data.fwd_pe ? data.fwd_pe.toFixed(2) + 'x' : 'N/A'}</td></tr>
+                <tr class="profile-row"><td class="profile-label">P/E (Forward)</td><td class="profile-value">${prof.fwd_pe ? prof.fwd_pe.toFixed(2) + 'x' : 'N/A'}</td></tr>
                 <tr class="profile-row"><td class="profile-label">P/E (5Y Avg)</td><td class="profile-value">${prof.historic_pe ? prof.historic_pe.toFixed(2) + 'x' : 'N/A'}</td></tr>
                 <tr class="profile-row"><td class="profile-label">EPS (Trailing TTM)</td><td class="profile-value">${prof.trailing_eps ? '$' + prof.trailing_eps.toFixed(2) : 'N/A'}</td></tr>
                 ${(prof.adjusted_eps && Math.abs(prof.adjusted_eps - prof.trailing_eps) > 0.1) ? 
                     `<tr class="profile-row"><td class="profile-label" style="color:var(--accent);">EPS (Adjusted TTM)</td><td class="profile-value" style="color:var(--accent);">${prof.adjusted_eps.toFixed(2)}</td></tr>` : ''}
-                <tr class="profile-row"><td class="profile-label">Operating CF (CFO)</td><td class="profile-value">${formatBigNumber(data.operating_cashflow, '$')}</td></tr>
-                <tr class="profile-row"><td class="profile-label">Free Cash Flow (FCF)</td><td class="profile-value">${formatBigNumber(data.fcf, '$')}</td></tr>
                 <tr class="profile-row">
                     <td class="profile-label">Rule of 40 (SaaS)</td>
                     <td class="profile-value" style="color: ${data.rule_of_40?.passed ? 'var(--accent)' : (data.rule_of_40?.total > 30 ? '#fbbf24' : 'var(--danger)')}">
