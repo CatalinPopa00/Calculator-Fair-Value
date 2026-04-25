@@ -37,22 +37,31 @@ def get_yahoo_analysis_normalized(ticker, info=None):
         if response.status_code == 200:
             html = response.text
 
-            # EPS Scraping
-            match_0y = re.search(r'\{"period":"0[yY]".*?"earningsEstimate":\{"avg":\{"raw":([\d\.\-]+).*?"yearAgoEps":\{"raw":([\d\.\-]+)', html)
-            if match_0y:
-                if '0y' not in res['eps']: res['eps']['0y'] = {}
-                res['eps']['0y']['avg'] = float(match_0y.group(1))
-                res['eps']['0y']['yearAgo'] = float(match_0y.group(2))
-                
-            # v261: More specific lookahead to ensure we are in the earningsEstimate block, not revenueEstimate
-            match_1y = re.search(r'"earningsEstimate":\{"avg":\{"raw":([\d\.\-]+).*?"period":"\+1[yY]"', html)
-            if not match_1y:
-                # Try alternative ordering
-                match_1y = re.search(r'\{"period":"\+1[yY]"[^\}]*?"earningsEstimate":\{"avg":\{"raw":([\d\.\-]+)', html)
+            # EPS Scraping (v262: Robust block-based extraction)
+            # Find the 0y and +1y trends specifically
+            trends = re.findall(r'\{"period":"([\+0]y)".*?\}', html)
             
-            if match_1y:
+            # Use a more flexible search that doesn't depend on key order
+            # 0y: Current Year
+            match_0y_avg = re.search(r'\{"period":"0[yY]".*?"earningsEstimate":\{"avg":\{"raw":([\d\.\-]+)', html)
+            match_0y_ya = re.search(r'\{"period":"0[yY]".*?"yearAgoEps":\{"raw":([\d\.\-]+)', html)
+            
+            if match_0y_avg:
+                if '0y' not in res['eps']: res['eps']['0y'] = {}
+                res['eps']['0y']['avg'] = float(match_0y_avg.group(1))
+            if match_0y_ya:
+                if '0y' not in res['eps']: res['eps']['0y'] = {}
+                res['eps']['0y']['yearAgo'] = float(match_0y_ya.group(1))
+
+            # +1y: Next Year
+            match_1y_avg = re.search(r'\{"period":"\+1[yY]".*?"earningsEstimate":\{"avg":\{"raw":([\d\.\-]+)', html)
+            if not match_1y_avg:
+                 # Alternative order
+                 match_1y_avg = re.search(r'"earningsEstimate":\{"avg":\{"raw":([\d\.\-]+).*?"period":"\+1[yY]"', html)
+            
+            if match_1y_avg:
                 if '+1y' not in res['eps']: res['eps']['+1y'] = {}
-                res['eps']['+1y']['avg'] = float(match_1y.group(1))
+                res['eps']['+1y']['avg'] = float(match_1y_avg.group(1))
 
             # Revenue Scraping
             match_rev_0y = re.search(r'\{"period":"0[yY]".*?"revenueEstimate":\{"avg":\{"raw":([\d\.\-eE]+).*?"yearAgoRevenue":\{"raw":([\d\.\-eE]+)', html)
@@ -3148,34 +3157,37 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         except Exception as e:
             print(f"[Analyst] Yahoo Revenue Estimates fail: {e}")
 
-        # ── Annual EPS: YAHOO NUCLEAR (v240: Exact UI Parity) ─────────────────
+        # ── Annual EPS: YAHOO NUCLEAR (v262: Strict Normalized Priority) ─────────────────
         try:
-            ya_eps = analysis_data.get('eps', {}).get('0y', {}).get('yearAgo')
-            if ya_eps:
-                 base_eps = float(ya_eps) # Update anchor for growth calculations
-                 eps_estimates.append({
-                     "period": f"FY {current_fy_num - 1}",
-                     "avg": round(float(ya_eps), 2),
-                     "status": "reported",
-                     "growth": None
-                 })
+            # 1. Scraping Truths
+            scraped_ya = analysis_data.get('eps', {}).get('0y', {}).get('yearAgo')
+            scraped_0y = analysis_data.get('eps', {}).get('0y', {}).get('avg')
+            scraped_1y = analysis_data.get('eps', {}).get('+1y', {}).get('avg')
 
-            # v240: Priority 1 - Use info tags (Normalized Truth: 30.12/35.86)
+            # 2. info Tags (Fallbacks)
             y_fy0 = info.get('epsCurrentYear')
             y_fy1 = info.get('forwardEps') or info.get('epsForward')
+
+            # ENFORCE SCRAPED TRUTH
+            if scraped_ya is not None:
+                base_eps = float(scraped_ya[0]) if isinstance(scraped_ya, (list, tuple)) else float(scraped_ya)
+                eps_estimates.append({
+                    "period": f"FY {current_fy_num - 1}",
+                    "avg": round(base_eps, 2),
+                    "status": "reported",
+                    "growth": None
+                })
             
-            # v260: If y_fy0/y_fy1 differ from analysis_data, prioritize analysis_data (Scraped Truth)
-            if 'eps' in analysis_data:
-                scraped_0y = analysis_data['eps'].get('0y', {}).get('avg')
-                scraped_1y = analysis_data['eps'].get('+1y', {}).get('avg')
-                
-                # Robust conversion (Handle cases where scraper might return tuple or None)
-                if scraped_0y is not None:
-                    try: y_fy0 = float(scraped_0y[0]) if isinstance(scraped_0y, (list, tuple)) else float(scraped_0y)
-                    except: pass
-                if scraped_1y is not None:
-                    try: y_fy1 = float(scraped_1y[0]) if isinstance(scraped_1y, (list, tuple)) else float(scraped_1y)
-                    except: pass
+            # Prioritize Scraped 0y (Normalized) over info (GAAP)
+            if scraped_0y is not None:
+                try: 
+                    y_fy0 = float(scraped_0y[0]) if isinstance(scraped_0y, (list, tuple)) else float(scraped_0y)
+                    log(f"DEBUG: v262 Using Normalized FY0 for {ticker_symbol}: {y_fy0}")
+                except: pass
+            
+            if scraped_1y is not None:
+                try: y_fy1 = float(scraped_1y[0]) if isinstance(scraped_1y, (list, tuple)) else float(scraped_1y)
+                except: pass
 
             if y_fy0:
                 eps_estimates.append({
