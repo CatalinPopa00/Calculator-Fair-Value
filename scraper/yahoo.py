@@ -86,6 +86,52 @@ def get_yahoo_analysis_normalized(ticker, info=None):
                             if '0y' not in res['rev']: res['rev']['0y'] = {}
                             res['rev']['0y']['yearAgo'] = ya_val
 
+            # v275: Robust Permissive JSON Truth Pass (PRIORITY)
+            for trend_key in ["earningsTrendNonGaap", "earningsTrend", "revenueTrend"]:
+                parts = html.split(f'"{trend_key}"')
+                if len(parts) < 2: parts = html.split(f'\\"{trend_key}\\"')
+                if len(parts) < 2: continue
+                
+                # Use the chunk after the key
+                chunk = parts[1][:150000]
+                
+                for p in ['0y', '+1y']:
+                    p_target = f'"{p}"'
+                    if p_target not in chunk: p_target = f'\\"{p}\\"'
+                    if p_target not in chunk: continue
+                    
+                    p_idx = chunk.find(p_target)
+                    # Take a large sub-chunk to ensure we capture the whole period object (v275 fix)
+                    sub_chunk = chunk[p_idx:p_idx+3000] 
+                    
+                    # EPS extraction: Permissive search for raw value
+                    eps_avg_m = re.search(r'earningsEstimate.*?avg.*?raw.*?([\d\.\-]+)', sub_chunk)
+                    eps_ya_m = re.search(r'yearAgoEps.*?raw.*?([\d\.\-]+)', sub_chunk)
+                    
+                    if eps_avg_m: 
+                        if p not in res['eps']: res['eps'][p] = {}
+                        if 'avg' not in res['eps'][p]:
+                            res['eps'][p]['avg'] = float(eps_avg_m.group(1))
+                    if eps_ya_m:
+                        if p not in res['eps']: res['eps'][p] = {}
+                        new_val = float(eps_ya_m.group(1))
+                        # PRIORITY: NonGaap > Everything. Otherwise, only set if missing.
+                        if 'yearAgo' not in res['eps'][p] or trend_key == "earningsTrendNonGaap":
+                            res['eps'][p]['yearAgo'] = new_val
+
+                    # Revenue extraction
+                    rev_avg_m = re.search(r'revenueEstimate.*?avg.*?raw.*?([\d\.\-]+)', sub_chunk)
+                    rev_ya_m = re.search(r'yearAgoSales.*?raw.*?([\d\.\-]+)', sub_chunk)
+                    
+                    if rev_avg_m:
+                        if p not in res['rev']: res['rev'][p] = {}
+                        if 'avg' not in res['rev'][p]:
+                            res['rev'][p]['avg'] = float(rev_avg_m.group(1))
+                    if rev_ya_m:
+                        if p not in res['rev']: res['rev'][p] = {}
+                        if 'yearAgo' not in res['rev'][p]:
+                            res['rev'][p]['yearAgo'] = float(rev_ya_m.group(1))
+
             # v260: Price Target Scraping
             match_pt = re.search(r'"targetMeanPrice":\{"raw":([\d\.\-]+)', html)
             if match_pt: res['target_mean'] = float(match_pt.group(1))
