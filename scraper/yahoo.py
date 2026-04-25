@@ -427,6 +427,7 @@ def get_nasdaq_actual_eps(ticker: str) -> float:
     """
     Fetches the actual Adjusted (Non-GAAP) EPS for the last 4 quarters from Nasdaq.
     Sums them to provide a more accurate 'Trailing EPS' for companies with large GAAP vs Non-GAAP gaps.
+    v255: Added Forensic Neutralizer (Comparing Actual vs Consensus to scrub GAAP outliers).
     """
     try:
         url = f'https://api.nasdaq.com/api/company/{ticker.upper()}/earnings-surprise'
@@ -444,9 +445,25 @@ def get_nasdaq_actual_eps(ticker: str) -> float:
             for row in rows[:4]:
                 # 'eps' is the actual reported EPS in the surprise table
                 val_str = row.get('eps') or row.get('actualEPS')
+                fc_str = row.get('consensusForecast')
                 if val_str:
                     try:
-                        total_eps += float(val_str)
+                        val = float(val_str)
+                        
+                        # Forensic Neutralization: If Actual differs significantly from Consensus, 
+                        # it's often a GAAP-driven distortion (e.g. UBER tax benefit).
+                        if fc_str:
+                            try:
+                                f_fc = float(fc_str)
+                                if f_fc != 0:
+                                    diff = abs(val - f_fc)
+                                    # Threshold 25% or $0.15 matches the logic in get_company_data
+                                    if (diff / abs(f_fc) > 0.25) or diff > 0.15:
+                                        log(f"DEBUG: v255 Nasdaq Forensic Neutralizer for {ticker} ({val} -> {f_fc})")
+                                        val = f_fc
+                            except: pass
+                        
+                        total_eps += val
                         count += 1
                     except ValueError:
                         continue
