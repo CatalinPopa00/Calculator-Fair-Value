@@ -1581,12 +1581,12 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             fy_end_month = 12
             try:
                 fye = info.get('fiscalYearEndMonth')
-                    if fye: fy_end_month = int(fye)
-                    else:
-                        last_fye = info.get('lastFiscalYearEnd')
-                        if last_fye:
-                            fy_end_month = datetime.datetime.fromtimestamp(last_fye).month
-                except: pass
+                if fye: fy_end_month = int(fye)
+                else:
+                    last_fye = info.get('lastFiscalYearEnd')
+                    if last_fye:
+                        fy_end_month = datetime.datetime.fromtimestamp(last_fye).month
+            except: pass
 
             def add_to_map(dt_obj, eps_val, priority=1):
                 try:

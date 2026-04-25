@@ -1231,6 +1231,79 @@ body {
     justify-content: flex-end;
 }
 
+/* MOBILE WATCHLIST RESPONSIVENESS */
+@media (max-width: 1100px) {
+    .watchlist-metrics {
+        gap: 1.5rem;
+    }
+    .col-fv, .col-mos {
+        width: 130px;
+        padding-left: 1rem;
+    }
+}
+
+@media (max-width: 900px) {
+    .watchlist-header-row {
+        display: none; /* Hide header labels on mobile */
+    }
+    .watchlist-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+    .watchlist-left {
+        width: 100%;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+        padding-bottom: 0.5rem;
+    }
+    .watchlist-metrics {
+        width: 100%;
+        justify-content: space-between;
+        gap: 0.5rem;
+    }
+    .watchlist-metric {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+    .col-price, .col-fv, .col-mos {
+        width: auto;
+        border: none;
+        padding: 0;
+        flex: 1;
+    }
+    .watchlist-scores-container {
+        width: 100%;
+        margin-left: 0;
+        padding: 1rem 0;
+        border-left: none;
+        border-top: 1px solid rgba(255,255,255,0.05);
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+    .watchlist-score-item {
+        width: 48%;
+    }
+    .watchlist-actions {
+        margin-left: 0;
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .watchlist-score-item {
+        width: 100%;
+    }
+    .watchlist-metric .value {
+        font-size: 0.95rem;
+    }
+    .watchlist-ticker {
+        font-size: 1.1rem;
+    }
+}
+
 .sort-btn {
     background: none;
     border: none;
@@ -1442,13 +1515,27 @@ body {
 
 .modal-content {
     background: var(--card-bg);
-    width: 90%;
+    width: 95%;
     max-width: 600px;
-    max-height: 80vh;
+    max-height: 90vh;
     overflow-y: auto;
     overflow-x: hidden;
     box-sizing: border-box;
     position: relative;
+    border-radius: 16px;
+    padding: 2rem 1.5rem;
+}
+
+@media (max-width: 640px) {
+    .modal-content {
+        padding: 1.5rem 1rem;
+    }
+    .score-breakdown-row {
+        grid-template-columns: 1fr auto;
+    }
+    .score-row-name {
+        font-size: 0.8rem;
+    }
 }
 
 .modal-content h3 {
@@ -2607,3 +2694,49 @@ body {
 #company-desc-card { background: rgba(15, 23, 42, 0.3) !important; border: 1px solid rgba(255, 255, 255, 0.05) !important; box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.2); border-left: 4px solid #38bdf8 !important; }
 #company-desc-text::-webkit-scrollbar { width: 4px; }
 #company-desc-text::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+/* FINAL GLOBAL RESPONSIVENESS POLISH */
+@media (max-width: 640px) {
+    .app-container {
+        padding: 1rem 0.75rem;
+    }
+    
+    .glass-card {
+        padding: 1.25rem 1rem;
+    }
+
+    .hero-layout, .row-2-grid, .methods-grid {
+        gap: 1rem;
+    }
+
+    .company-overview h2 {
+        font-size: 1.8rem;
+    }
+
+    .accent-card .value {
+        font-size: 2.5rem;
+    }
+
+    .price-display .value {
+        font-size: 1.8rem;
+    }
+
+    /* Make tables horizontally scrollable on tiny screens */
+    .table-container, .profile-table-wrapper {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .analyst-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    .valuation-input-group {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+
+    .premium-input, .premium-select {
+        width: 100%;
+    }
+}
