@@ -708,7 +708,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); background: rgba(56, 189, 248, 0.03);">
                     <td style="padding:12px; color:var(--accent); font-weight:bold;">Piotroski F-Score</td>
                     ${all.map((c, i) => {
-                        const val = i === 0 ? (globalData ? globalData.piotroski_score : 'N/A') : (c.piotroski_score || '—');
+                        const pScore = i === 0 ? (globalData && globalData.piotroski ? globalData.piotroski.score : null) : (c.piotroski ? c.piotroski.score : null);
+                        const val = pScore != null ? pScore : '—';
                         let color = 'var(--text-muted)';
                         if (val !== 'N/A' && val !== '—') {
                             color = val >= 7 ? 'var(--accent)' : (val >= 4 ? '#fbbf24' : 'var(--danger)');
@@ -1006,11 +1007,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const eps = globalData.company_profile.trailing_eps || 0;
             const currentPe = (eps > 0) ? (globalData.current_price / eps) : (currentFormulaData.peg.current_pe || (parseFloat(globalData.company_profile.trailing_pe) || 0));
             // v61: Default to 1.25 if industry_peg is missing (e.g. no peers found)
-            const industryPeg = currentFormulaData.peg.industry_peg || 1.25;
+            const pegMode = document.getElementById('peg-mode')?.value || 'standard';
+            const industryPegRaw = currentFormulaData.peg.industry_peg;
+            const targetPeg = pegMode === 'industry' ? (industryPegRaw || 1.25) : 1.0;
 
-            if (usedGrowth > 0 && currentPe > 0 && industryPeg > 0) {
+            if (usedGrowth > 0 && currentPe > 0 && targetPeg > 0) {
                 currentPegToDisplay = currentPe / (usedGrowth * 100);
-                pegVal = globalData.current_price * (industryPeg / currentPegToDisplay);
+                pegVal = globalData.current_price * (targetPeg / currentPegToDisplay);
                 pegMos = ((pegVal - globalData.current_price) / globalData.current_price) * 100;
             } else if (pegSrc === 'analyst') {
                 pegVal = currentFormulaData.peg.fair_value;
@@ -1031,11 +1034,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const pegCompareElem = document.getElementById('peg-compare');
         
         if (pegStatusElem && pegCompareElem) {
+            const pegMode = document.getElementById('peg-mode')?.value || 'standard';
             const industryPeg = currentFormulaData.peg ? currentFormulaData.peg.industry_peg : null;
+            const targetPeg = pegMode === 'industry' ? (industryPeg || 1.25) : 1.0;
 
-            if (pegVal != null && industryPeg != null && currentPegToDisplay != null) {
-                const sectorPegDisplay = industryPeg.toFixed(2);
-                pegCompareElem.textContent = `PEG = ${currentPegToDisplay.toFixed(2)} vs PEG Sector = ${sectorPegDisplay}`;
+            if (pegVal != null && currentPegToDisplay != null) {
+                pegCompareElem.textContent = `PEG = ${currentPegToDisplay.toFixed(2)} vs PEG ${pegMode === 'industry' ? 'Sector' : 'Std'} = ${targetPeg.toFixed(2)}`;
                 
                 if (pegMos != null) {
                     const mosText = `${pegMos > 0 ? '+' : ''}${pegMos.toFixed(2)}% Margin of Safety`;
@@ -1060,7 +1064,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 let statusColor = "var(--text-muted)";
                 let subText = "";
 
-                if (sector === "Technology" || (sector === "Communication Services" && !isTelecom)) {
+                if (pegMode === 'industry' && industryPeg) {
+                    if (peg < industryPeg * 0.8) { statusText = "Subevaluat (vs Sector)"; statusColor = "var(--accent)"; }
+                    else if (peg <= industryPeg * 1.2) { statusText = "Fair Value (vs Sector)"; statusColor = "#fbbf24"; }
+                    else { statusText = "Supraevaluat (vs Sector)"; statusColor = "var(--danger)"; }
+                    subText = `Sector Median PEG: ${industryPeg.toFixed(2)}`;
+                } else if (sector === "Technology" || (sector === "Communication Services" && !isTelecom)) {
                     if (peg < 1.5) { statusText = "Subevaluat"; statusColor = "var(--accent)"; }
                     else if (peg <= 2.5) { statusText = "Fair Value"; statusColor = "#fbbf24"; }
                     else { statusText = "Supraevaluat"; statusColor = "var(--danger)"; }
@@ -1081,7 +1090,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     statusColor = "#a855f7"; 
                     subText = "Compară cu media industriei (Sector Ciclic).";
                 } else {
-                    // Default Fallback
+                    // Default Fallback (Standard PEG 1.0 logic)
                     if (peg < 1.0) { statusText = "Subevaluat"; statusColor = "var(--accent)"; }
                     else if (peg <= 1.5) { statusText = "Fair Value"; statusColor = "#fbbf24"; }
                     else { statusText = "Supraevaluat"; statusColor = "var(--danger)"; }
@@ -1492,13 +1501,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Piotroski F-Score UI
-        currentPiotroskiBreakdown = data.piotroski_breakdown;
-        updatePiotroskiUI(data.piotroski_score);
+        currentPiotroskiBreakdown = data.piotroski ? data.piotroski.breakdown : [];
+        updatePiotroskiUI(data.piotroski ? data.piotroski.score : null);
         const piotroskiRow = document.getElementById('piotroski-score-row');
         if (piotroskiRow) {
             piotroskiRow.style.cursor = 'pointer';
             piotroskiRow.onclick = function() {
-                renderPiotroskiBreakdown(data.piotroski_score, currentPiotroskiBreakdown);
+                renderPiotroskiBreakdown(data.piotroski ? data.piotroski.score : null, currentPiotroskiBreakdown);
             };
         }
 
@@ -1528,6 +1537,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 <tr class="profile-row"><td class="profile-label">EPS (Trailing TTM)</td><td class="profile-value">${prof.trailing_eps ? '$' + prof.trailing_eps.toFixed(2) : 'N/A'}</td></tr>
                 ${(prof.adjusted_eps && Math.abs(prof.adjusted_eps - prof.trailing_eps) > 0.1) ? 
                     `<tr class="profile-row"><td class="profile-label" style="color:var(--accent);">EPS (Adjusted TTM)</td><td class="profile-value" style="color:var(--accent);">${prof.adjusted_eps.toFixed(2)}</td></tr>` : ''}
+                <tr class="profile-row"><td class="profile-label">Operating CF (CFO)</td><td class="profile-value">${formatBigNumber(data.operating_cashflow, '$')}</td></tr>
+                <tr class="profile-row"><td class="profile-label">Free Cash Flow (FCF)</td><td class="profile-value">${formatBigNumber(data.fcf, '$')}</td></tr>
+                <tr class="profile-row">
+                    <td class="profile-label">Rule of 40 (SaaS)</td>
+                    <td class="profile-value" style="color: ${data.rule_of_40?.passed ? 'var(--accent)' : (data.rule_of_40?.total > 30 ? '#fbbf24' : 'var(--danger)')}">
+                        ${data.rule_of_40 ? `${data.rule_of_40.total.toFixed(1)}% (${data.rule_of_40.label})` : 'N/A'}
+                    </td>
+                </tr>
                 <tr class="profile-row"><td class="profile-label">Debt-to-Equity</td><td class="profile-value">${prof.debt_to_equity != null ? prof.debt_to_equity.toFixed(2) + 'x' : 'N/A'}</td></tr>
                 <tr class="profile-row"><td class="profile-label">Ownership</td><td class="profile-value">${formatSafePct(prof.insider_ownership)} Insider</td></tr>
                 <tr class="profile-row"><td class="profile-label">Shares Out.</td><td class="profile-value">${formatBigNumber(prof.shares_outstanding, '')}</td></tr>
@@ -1640,7 +1657,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'dcf-custom-growth', 'dcf-custom-wacc', 'dcf-custom-perp',
         'dcf-buyback-source', 'dcf-custom-buyback', 'relative-variant',
         'lynch-multiple-source', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth',
-        'peg-eps-source', 'peg-custom-growth'
+        'peg-eps-source', 'peg-custom-growth', 'peg-mode'
     ];
     const overrideToggleIds = ['toggle-dcf', 'toggle-relative', 'toggle-peter_lynch', 'toggle-peg'];
 
@@ -2400,8 +2417,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <span>Buy: ${displayBuy || 'N/A'}</span>
                             </div>
                             <div class="wl-score-pill" title="Piotroski F-Score">
-                                <span style="font-size: 0.75rem; font-weight: 800; margin-right: 4px; color: ${data.piotroski_score >= 7 ? 'var(--accent)' : (data.piotroski_score >= 4 ? '#fbbf24' : (data.piotroski_score == null ? 'var(--text-muted)' : 'var(--danger)'))}">
-                                    ${data.piotroski_score != null ? data.piotroski_score : '--'}
+                                <span style="font-size: 0.75rem; font-weight: 800; margin-right: 4px; color: ${(data.piotroski?.score >= 7) ? 'var(--accent)' : (data.piotroski?.score >= 4 ? '#fbbf24' : (data.piotroski?.score == null ? 'var(--text-muted)' : 'var(--danger)'))}">
+                                    ${data.piotroski?.score != null ? data.piotroski.score : '--'}
                                 </span>
                                 <span style="font-size: 0.7rem; color: var(--text-muted);">Piotroski</span>
                             </div>

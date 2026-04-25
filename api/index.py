@@ -812,10 +812,10 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         good_to_buy_total = scoring_results.get("good_to_buy_total")
         buy_breakdown = scoring_results.get("buy_breakdown")
 
-        # Piotroski F-Score (pass full data dict including historical_anchors)
+        # Piotroski F-Score & Rule of 40
+        from models.scoring import calculate_piotroski_score, calculate_rule_of_40
         piotroski_result = calculate_piotroski_score(data)
-        piotroski_score = piotroski_result.get("score")
-        piotroski_breakdown = piotroski_result.get("breakdown", [])
+        rule_of_40_result = calculate_rule_of_40(data)
 
         # 7. Algorithmic Insights Generation
         all_breakdowns = health_breakdown + buy_breakdown
@@ -904,8 +904,8 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             "health_breakdown": health_breakdown,
             "good_to_buy_total": good_to_buy_total,
             "buy_breakdown": buy_breakdown,
-            "piotroski_score": piotroski_score,
-            "piotroski_breakdown": piotroski_breakdown,
+            "piotroski": piotroski_result,
+            "rule_of_40": rule_of_40_result,
             "formula_data": formula_data,
             "recommended_exit_multiple": recommended_exit_multiple,
             "dcf_assumptions": {

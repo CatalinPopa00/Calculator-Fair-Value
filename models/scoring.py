@@ -301,7 +301,7 @@ def calculate_piotroski_score(metrics):
     if roa_cur is not None and abs(roa_cur) > 1.5: roa_cur /= 100.0
 
     # F2 Metrics
-    cfo_cur = safe_float(metrics.get("operating_cash_flow"))
+    cfo_cur = safe_float(metrics.get("operating_cashflow"))
     fcf_cur = safe_float(metrics.get("fcf"))
     
     # F3 Metrics
@@ -458,5 +458,33 @@ def calculate_piotroski_score(metrics):
         "max_possible": total_possible,
         "label": label,
         "breakdown": breakdown
+    }
+
+def calculate_rule_of_40(metrics):
+    """
+    SaaS Rule of 40: Revenue Growth + FCF Margin >= 40%
+    """
+    def safe_float(val, default=0.0):
+        if val is None: return default
+        try: return float(val)
+        except: return default
+
+    # v260: Sync with clean_percent logic to ensure 18.2% instead of 0.18
+    rev_growth_raw = safe_float(metrics.get('revenue_growth'))
+    # If growth is already scaled (e.g. 18.2), keep it. If decimal (0.18), scale it.
+    rev_growth = rev_growth_raw * 100.0 if (0 < abs(rev_growth_raw) < 1.0) else rev_growth_raw
+    
+    fcf = safe_float(metrics.get('fcf'))
+    rev = safe_float(metrics.get('revenue'))
+    fcf_margin = (fcf / rev * 100.0) if (fcf and rev and rev > 0) else 0.0
+    
+    total = rev_growth + fcf_margin
+    
+    return {
+        "revenue_growth": round(rev_growth, 2),
+        "fcf_margin": round(fcf_margin, 2),
+        "total": round(total, 2),
+        "passed": total >= 40,
+        "label": "Strong" if total >= 40 else ("Healthy" if total >= 30 else "Weak")
     }
 

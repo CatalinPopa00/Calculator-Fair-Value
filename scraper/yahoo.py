@@ -74,12 +74,13 @@ def get_yahoo_analysis_normalized(ticker, info=None):
             match_pt_median = re.search(r'"targetMedianPrice":\{"raw":([\d\.\-]+)', html)
             if match_pt_median: res['target_median'] = float(match_pt_median.group(1))
 
-        # Nasdaq Fallback for EPS Anchor (Highest Priority Truth for 2025)
-        nasdaq_anchor = get_nasdaq_actual_eps(t_upper)
-        if nasdaq_anchor:
-            if '0y' not in res['eps']: res['eps']['0y'] = {}
-            res['eps']['0y']['yearAgo'] = nasdaq_anchor
-            log(f"DEBUG: v258 Nasdaq Truth injected into Analysis Anchor for {t_upper}: {nasdaq_anchor}")
+        # Nasdaq Fallback for EPS Anchor (Only if Yahoo Truth is missing)
+        if 'yearAgo' not in res['eps'].get('0y', {}):
+            nasdaq_anchor = get_nasdaq_actual_eps(t_upper)
+            if nasdaq_anchor:
+                if '0y' not in res['eps']: res['eps']['0y'] = {}
+                res['eps']['0y']['yearAgo'] = nasdaq_anchor
+                log(f"DEBUG: v258 Nasdaq Truth injected into Analysis Anchor for {t_upper}: {nasdaq_anchor}")
 
     except Exception as e:
         print(f"Error scraping Yahoo Analysis for {t_upper}: {e}")
@@ -1576,13 +1577,10 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             import pandas as _pd
             raw_data_map = {} # {year_str: {date_str: val}}
             
-            # v95: Determine Fiscal Year End Month for correct mapping (e.g. ADBE=11)
+            # v95: Determine Fiscal Year End Month for correct mapping
             fy_end_month = 12
-            if ticker_symbol.upper() == "ADBE":
-                fy_end_month = 11
-            else:
-                try:
-                    fye = info.get('fiscalYearEndMonth')
+            try:
+                fye = info.get('fiscalYearEndMonth')
                     if fye: fy_end_month = int(fye)
                     else:
                         last_fye = info.get('lastFiscalYearEnd')
@@ -1926,12 +1924,15 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
              y_anchor_2025 = y_analysis_truth['eps'].get('0y', {}).get('yearAgo')
         
         # 2. Inject this truth into the historical records specifically for the anchor year
+        # Determine the target anchor year dynamically (Current Year - 1)
+        current_year_now = datetime.datetime.now().year
+        target_anchor_year = str(current_year_now - 1)
+        
         if y_anchor_2025 and y_anchor_2025 > 0:
-            log(f"DEBUG: v241 Forcing Normalized Anchor for {ticker_symbol} 2025: {y_anchor_2025:.2f}")
-            adjusted_history["2025"] = y_anchor_2025
-            # Force it also for the year before 0y in the visuals
-            if "2025" not in str(historical_data.get("years", [])):
-                 # Add to adjusted history so backfill can find it
+            log(f"DEBUG: v241 Forcing Normalized Anchor for {ticker_symbol} {target_anchor_year}: {y_anchor_2025:.2f}")
+            adjusted_history[target_anchor_year] = y_anchor_2025
+            # Force it also for the visuals
+            if target_anchor_year not in [str(y) for y in historical_data.get("years", [])]:
                  pass
         
         # 3. Fallback to API modules if scrape failed
@@ -3143,10 +3144,27 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
 
         # ── Annual EPS: YAHOO NUCLEAR (v240: Exact UI Parity) ─────────────────
         try:
+            ya_eps = analysis_data.get('eps', {}).get('0y', {}).get('yearAgo')
+            if ya_eps:
+                 base_eps = float(ya_eps) # Update anchor for growth calculations
+                 eps_estimates.append({
+                     "period": f"FY {current_fy_num - 1}",
+                     "avg": round(float(ya_eps), 2),
+                     "status": "reported",
+                     "growth": None
+                 })
+
             # v240: Priority 1 - Use info tags (Normalized Truth: 30.12/35.86)
             y_fy0 = info.get('epsCurrentYear')
             y_fy1 = info.get('forwardEps') or info.get('epsForward')
             
+            # v260: If y_fy0/y_fy1 differ from analysis_data, prioritize analysis_data (Scraped Truth)
+            if 'eps' in analysis_data:
+                scraped_0y = analysis_data['eps'].get('0y', {}).get('avg')
+                scraped_1y = analysis_data['eps'].get('+1y', {}).get('avg')
+                if scraped_0y: y_fy0 = scraped_0y
+                if scraped_1y: y_fy1 = scraped_1y
+
             if y_fy0:
                 eps_estimates.append({
                     "period": f"FY {current_fy_num}",
@@ -3645,13 +3663,6 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
                     if len(q_dict) >= 4 and fy_lbl not in history_eps:
                         history_eps[fy_lbl] = sum(q_dict.values())
             
-            # v192: PERMANENT PRECISION OVERRIDE FOR ADBE (Standalone Sync)
-            if ticker_symbol.upper() == "ADBE":
-                history_eps["FY 2025"] = 20.94
-                history_eps["FY 2024"] = 18.40 
-                history_eps["FY 2023"] = 16.07
-                history_eps["FY 2022"] = 13.71
-                log(f"DEBUG: ADBE v192 Standalone Recovery Success.")
             
             # v188: PROACTIVE Non-GAAP History Injection (Strict Baseline Sync)
             try:
@@ -3835,17 +3846,6 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
                 history_eps[f"FY {yr}"] = historical_data["eps"][i]
                 history_rev[f"FY {yr}"] = historical_data["revenue"][i]
 
-        # v149: FINAL UNIVERSAL FORENSIC FORCE (v181: Reliable labels)
-        # v196: ABSOLUTE CORE SYNC (Final Priority Force)
-        if ticker_symbol.upper() == "ADBE":
-            history_eps["FY 2025"] = 20.94
-            history_eps["FY 2024"] = 18.40 
-            history_eps["FY 2023"] = 16.07
-            history_eps["FY 2022"] = 13.71
-            # Hard-coded Revenue anchors in absolute units to match scraper
-            history_rev["FY 2025"] = 23.77e9
-            history_rev["FY 2024"] = 21.51e9
-            history_rev["FY 2023"] = 19.41e9
 
         # v210: FINAL UNIVERSAL FORENSIC GROWTH ANCHOR (Strict sequential chaining)
         # 1. Identify the literal absolute most recent year in history as the root anchor
