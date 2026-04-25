@@ -1487,7 +1487,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <tr class="profile-row"><td class="profile-label">Industry</td><td class="profile-value">${prof.industry}<br><span style="font-size: 0.85em; font-weight: normal; color: rgba(255,255,255,0.4);">${prof.sector}</span></td></tr>
                 <tr class="profile-row"><td class="profile-label">Market Cap</td><td class="profile-value">${formatBigNumber(prof.market_cap, '$')}</td></tr>
                 <tr class="profile-row"><td class="profile-label">Operating Margin</td><td class="profile-value">${formatSafePct(prof.operating_margin)}</td></tr>
-                <tr class="profile-row"><td class="profile-label">P/E (Trailing TTM)</td><td class="profile-value">${(data.current_price && prof.trailing_eps) ? (data.current_price / prof.trailing_eps).toFixed(2) + 'x' : 'N/A'}</td></tr>
+                <tr class="profile-row"><td class="profile-label">P/E (Trailing TTM)</td><td class="profile-value">${prof.trailing_pe ? prof.trailing_pe.toFixed(2) + 'x' : 'N/A'}</td></tr>
+                <tr class="profile-row"><td class="profile-label">P/E (Forward)</td><td class="profile-value">${data.fwd_pe ? data.fwd_pe.toFixed(2) + 'x' : 'N/A'}</td></tr>
                 <tr class="profile-row"><td class="profile-label">P/E (5Y Avg)</td><td class="profile-value">${prof.historic_pe ? prof.historic_pe.toFixed(2) + 'x' : 'N/A'}</td></tr>
                 <tr class="profile-row"><td class="profile-label">EPS (Trailing TTM)</td><td class="profile-value">${prof.trailing_eps ? '$' + prof.trailing_eps.toFixed(2) : 'N/A'}</td></tr>
                 ${(prof.adjusted_eps && Math.abs(prof.adjusted_eps - prof.trailing_eps) > 0.1) ? 
@@ -2034,7 +2035,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (data.error) throw new Error(data.error);
 
             const pt = data.price_target || {};
-            if (document.getElementById('pt-avg')) document.getElementById('pt-avg').textContent = (pt.avg && typeof pt.avg === 'number') ? `$${pt.avg.toFixed(2)}` : '--';
+            if (document.getElementById('pt-avg')) document.getElementById('pt-avg').textContent = (pt.avg != null) ? `$${parseFloat(pt.avg).toFixed(2)}` : '--';
             if (document.getElementById('pt-upside')) {
                 const ups = pt.upside_pct;
                 document.getElementById('pt-upside').textContent = (ups && typeof ups === 'number') ? `${ups > 0 ? '+' : ''}${ups.toFixed(1)}%` : '--';
@@ -2104,33 +2105,47 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             const eItems = data.eps_estimates || [];
-            eItems.slice(0, 8).forEach(item => {
+            eItems.forEach((item, idx) => {
                 if (!item) return;
                 const pLabel = item.period || '--';
+                const isAnchor = pLabel.includes('2025');
                 const aVal = (item.avg != null) ? '$' + parseFloat(item.avg).toFixed(2) : '--';
-                let gVal = '--';
+                let gVal = isAnchor ? '' : '--';
                 
-                if (item.status === 'reported' && item.surprise_pct != null) {
-                    gVal = (parseFloat(item.surprise_pct) * 100).toFixed(1) + '%';
-                } else if (item.growth != null) {
-                    gVal = (parseFloat(item.growth) * 100).toFixed(1) + '%';
+                if (!isAnchor) {
+                    if (item.status === 'reported' && item.surprise_pct != null) {
+                        gVal = (parseFloat(item.surprise_pct) * 100).toFixed(1) + '%';
+                    } else if (item.growth != null) {
+                        gVal = (parseFloat(item.growth) * 100).toFixed(1) + '%';
+                    }
                 }
                 
-                const sColor = getColor(item);
+                const sColor = isAnchor ? 'white' : getColor(item);
                 const weight = item.status === 'reported' ? 'bold' : 'normal';
-                if (eBody) eBody.innerHTML += `<tr><td style="padding:4px 0;${item.status === 'reported' ? 'color:#4ade80;' : ''}">${pLabel}</td><td style="text-align:right;">${aVal}</td><td style="text-align:right;color:${sColor};font-weight:${weight};">${gVal}</td></tr>`;
+                const labelColor = isAnchor ? 'white' : (item.status === 'reported' ? '#4ade80' : 'inherit');
+                const valColor = isAnchor ? 'white' : 'inherit';
+                
+                if (eBody) eBody.innerHTML += `<tr><td style="padding:4px 0;color:${labelColor};">${pLabel}</td><td style="text-align:right;color:${valColor};">${aVal}</td><td style="text-align:right;color:${sColor};font-weight:${weight};">${gVal}</td></tr>`;
             });
 
             const rItems = data.rev_estimates || [];
-            rItems.slice(0, 8).forEach(item => {
+            rItems.forEach((item, idx) => {
                 if (!item) return;
                 const pLabel = item.period || '--';
+                const isAnchor = pLabel.includes('2025');
                 const aVal = (item.avg != null) ? (parseFloat(item.avg) / 1e9).toFixed(2) + 'B' : '--';
-                const gVal = (item.growth != null) ? (parseFloat(item.growth) * 100).toFixed(1) + '%' : '--';
+                let gVal = isAnchor ? '' : '--';
                 
-                const sColor = getColor(item);
+                if (!isAnchor && item.growth != null) {
+                    gVal = (parseFloat(item.growth) * 100).toFixed(1) + '%';
+                }
+                
+                const sColor = isAnchor ? 'white' : getColor(item);
                 const weight = item.status === 'reported' ? 'bold' : 'normal';
-                if (rBody) rBody.innerHTML += `<tr><td style="padding:4px 0;${item.status === 'reported' ? 'color:#4ade80;' : ''}">${pLabel}</td><td style="text-align:right;">${aVal}</td><td style="text-align:right;color:${sColor};font-weight:${weight};">${gVal}</td></tr>`;
+                const labelColor = isAnchor ? 'white' : (item.status === 'reported' ? '#4ade80' : 'inherit');
+                const valColor = isAnchor ? 'white' : 'inherit';
+                
+                if (rBody) rBody.innerHTML += `<tr><td style="padding:4px 0;color:${labelColor};">${pLabel}</td><td style="text-align:right;color:${valColor};">${aVal}</td><td style="text-align:right;color:${sColor};font-weight:${weight};">${gVal}</td></tr>`;
             });
 
             // v70: Reactive Chart Updates - Link Analyst Projections to the main Stability Chart

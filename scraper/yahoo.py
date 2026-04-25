@@ -60,6 +60,19 @@ def get_yahoo_analysis_normalized(ticker, info=None):
             if match_rev_1y:
                 res['rev']['+1y'] = {'avg': float(match_rev_1y.group(1))}
 
+            # v260: Price Target Scraping (Fallback for yfinance failures)
+            match_pt = re.search(r'"targetMeanPrice":\{"raw":([\d\.\-]+)', html)
+            if match_pt: res['target_mean'] = float(match_pt.group(1))
+            
+            match_pt_low = re.search(r'"targetLowPrice":\{"raw":([\d\.\-]+)', html)
+            if match_pt_low: res['target_low'] = float(match_pt_low.group(1))
+            
+            match_pt_high = re.search(r'"targetHighPrice":\{"raw":([\d\.\-]+)', html)
+            if match_pt_high: res['target_high'] = float(match_pt_high.group(1))
+            
+            match_pt_median = re.search(r'"targetMedianPrice":\{"raw":([\d\.\-]+)', html)
+            if match_pt_median: res['target_median'] = float(match_pt_median.group(1))
+
         # Nasdaq Fallback for EPS Anchor (Highest Priority Truth for 2025)
         nasdaq_anchor = get_nasdaq_actual_eps(t_upper)
         if nasdaq_anchor:
@@ -2002,6 +2015,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 historical_data["years"].append(year_label)
                 historical_data["revenue"].append(r * fx_rate)
                 historical_data["eps"].append(e * fx_rate)
+                historical_data["diluted_eps"].append(e_raw * fx_rate) # v260: Track reported Diluted EPS
                 historical_data["fcf"].append(f * fx_rate)
                 historical_data["shares"].append(s)
                 
@@ -2312,7 +2326,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     if not yr_col: continue
 
                     r_raw = historical_data["revenue"][i]
-                    e_raw = historical_data["eps"][i]
+                    e_raw = historical_data["diluted_eps"][i] if "diluted_eps" in historical_data else historical_data["eps"][i]
                     f_raw = historical_data["fcf"][i]
                     s_raw = historical_data["shares"][i]
                     ni_raw = (r_raw * historical_trends[i]["net_margin"]) if (i < len(historical_trends) and historical_trends[i]["net_margin"]) else 0
@@ -3077,6 +3091,19 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         target_high  = info.get('targetHighPrice')
         target_median = info.get('targetMedianPrice')
         current_price = info.get('currentPrice') or info.get('regularMarketPrice')
+        
+        # v260: Price Target Fallback (Scrape from HTML if info is missing)
+        analysis_data = get_yahoo_analysis_normalized(ticker_symbol)
+        
+        if not target_mean or pd.isna(target_mean):
+             target_mean = analysis_data.get('target_mean')
+        if not target_low or pd.isna(target_low):
+             target_low = analysis_data.get('target_low')
+        if not target_high or pd.isna(target_high):
+             target_high = analysis_data.get('target_high')
+        if not target_median or pd.isna(target_median):
+             target_median = analysis_data.get('target_median')
+             
         upside = ((target_mean - current_price) / current_price * 100) if (target_mean and current_price) else None
         num_analysts = info.get('numberOfAnalystOpinions')
 
@@ -3906,9 +3933,9 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         unified_eps = []
         unified_rev = []
         
-        # FY 0 (Actual)
-        unified_eps.append({"period": f"FY {fy0_yr} (Actual)", "avg": fy0_eps, "growth": None, "status": "reported"})
-        unified_rev.append({"period": f"FY {fy0_yr} (Actual)", "avg": fy0_rev, "growth": None, "status": "reported"})
+        # FY 0 (v260: Remove "(Actual)")
+        unified_eps.append({"period": f"FY {fy0_yr}", "avg": fy0_eps, "growth": None, "status": "reported"})
+        unified_rev.append({"period": f"FY {fy0_yr}", "avg": fy0_rev, "growth": None, "status": "reported"})
         
         # FY 1 (Current Year)
         g1 = (fy1_eps / abs(fy0_eps) - 1) if fy0_eps and fy0_eps != 0 else None
@@ -3978,6 +4005,7 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             "eps_estimates":  unified_eps,
             "rev_estimates":  unified_rev,
             "eps_growth": eps_forward_growth,
+            "fwd_pe": (current_price / fy1_eps) if (current_price and fy1_eps and fy1_eps > 0) else None, # v260
             "eps_trend": eps_trend
         }
 
