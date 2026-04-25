@@ -9,6 +9,7 @@ import time
 import random
 import requests
 import pandas as pd
+_pd = pd
 import re
 import requests
 
@@ -840,7 +841,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
     red_flags = []
     historical_trends = []
     historical_data = {
-        "years": [], "revenue": [], "eps": [], "fcf": [], "shares": []
+        "years": [], "revenue": [], "eps": [], "diluted_eps": [], "fcf": [], "shares": []
     }
     history_eps = {}
     history_rev = {}
@@ -1563,6 +1564,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             "years": [],
             "revenue": [],
             "eps": [],
+            "diluted_eps": [],
             "fcf": [],
             "shares": []
         }
@@ -3208,7 +3210,6 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
                         log(f"DEBUG: Using Yahoo Normalized Actual (1.1 Baseline) for {ticker_symbol}: {actual_eps}")
                     else:
                         # Sort chronological to get the last 4 quarters (GAAP fallback)
-                        import pandas as _pd
                         sorted_eh = eh.sort_index(ascending=False)
                         for idx, row in sorted_eh.iterrows():
                             val = row.get('epsActual')
@@ -3319,7 +3320,6 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         
         def to_fiscal_label(dt):
             """Convert a date to standard fiscal label like 'Q1 2026'."""
-            import pandas as _pd
             if not isinstance(dt, (_pd.Timestamp, datetime.datetime)):
                 return str(dt)
             
@@ -3337,7 +3337,6 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         
         try:
             # EPS History
-            import pandas as _pd
             eh = stock.earnings_history
             if eh is not None and not eh.empty:
                 for idx, row in eh.tail(4).iterrows(): # take up to last 4 reported
@@ -3360,7 +3359,6 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             
             # Revenue History - compute Y/Y growth and compare with estimates
             istmt = stock.quarterly_income_stmt
-            import pandas as _pd
             if istmt is not None and not istmt.empty and 'Total Revenue' in istmt.index:
                 rev_row = istmt.loc['Total Revenue']
                 valid_cols = [c for c in rev_row.index if not _pd.isna(rev_row[c])]
@@ -3378,7 +3376,6 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
                     
                     date_str = "--"
                     rev_growth = None
-                    import pandas as _pd
                     if isinstance(col_date, (_pd.Timestamp, datetime.datetime)):
                         date_str = to_fiscal_label(col_date)
                         
@@ -3427,7 +3424,6 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         # Strategy: Yahoo contributes ONLY quarterly rows (Q1/Q2/Q3/Q4 breakdown).
         # Annual FY rows come exclusively from the Nasdaq Non-GAAP block above.
         try:
-            import pandas as pd
             ef = stock.earnings_estimate
             if ef is not None and not ef.empty:
                 # Build a set of period labels already in eps_estimates (from Nasdaq Non-GAAP)
@@ -3484,7 +3480,6 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
 
         # ── Yahoo Revenue Estimates ─────────────────────────────────────────────
         try:
-            import pandas as pd
             rf = stock.revenue_estimate
             if rf is not None and not rf.empty:
                 for period_idx, row in rf.iterrows():
