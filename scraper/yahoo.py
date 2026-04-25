@@ -1602,17 +1602,33 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                         raw_data_map[yr_key][dt_key] = (float(eps_val), priority)
                 except: pass
 
-            # 1. Source A: Yfinance Earnings Dates
+            # 1. Source A: Yfinance Earnings Dates (Deep History Forensic Pass)
             try:
                 ed = stock.get_earnings_dates(limit=32)
                 if ed is not None and not ed.empty:
-                    c_opts = [c for c in ed.columns if any(x in c for x in ['Reported', 'Actual', 'EPS', 'Earnings'])]
-                    col_name = c_opts[0] if c_opts else 'Reported EPS'
-                    if col_name in ed.columns:
-                        for idx, val in ed[col_name].items():
-                            if val is not None and not _pd.isna(val):
-                                dt = _pd.to_datetime(idx).tz_localize(None)
-                                add_to_map(dt, val, priority=1) # Calendar is lowest priority (often GAAP)
+                    # Detect columns dynamically (Estimate vs Reported)
+                    est_col = next((c for c in ed.columns if 'Estimate' in c), None)
+                    act_col = next((c for c in ed.columns if any(x in c for x in ['Reported', 'Actual', 'EPS', 'Earnings'])), None)
+                    
+                    for idx, row in ed.iterrows():
+                        val = row.get(act_col)
+                        fc_val = row.get(est_col)
+                        if val is not None and not _pd.isna(val):
+                            dt = _pd.to_datetime(idx).tz_localize(None)
+                            
+                            # v257: Forensic Neutralizer for Deep History (Crucial for UBER 2023-2024)
+                            final_eps = float(val)
+                            try:
+                                if fc_val is not None and not _pd.isna(fc_val) and float(fc_val) != 0:
+                                    f_fc = float(fc_val)
+                                    diff = abs(final_eps - f_fc)
+                                    # Threshold 25% or $0.15 identifies GAAP outliers
+                                    if (diff / abs(f_fc) > 0.25) or diff > 0.15:
+                                        log(f"DEBUG: v257 Neutralizing GAAP in deep history for {ticker_symbol} ({final_eps} -> {f_fc})")
+                                        final_eps = f_fc
+                            except: pass
+                            
+                            add_to_map(dt, final_eps, priority=2) # Elevated priority for consensus-backed actuals
             except: pass
 
             # 2. Source B: Nasdaq Earnings Surprise (Reports Actual Non-GAAP / Forensic Healing)
@@ -1647,10 +1663,23 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 if eh is not None and not eh.empty:
                     for idx, row in eh.iterrows():
                         val = row.get('epsActual')
+                        fc_val = row.get('epsEstimate')
                         if val is not None and not _pd.isna(val):
                             # The index 'quarter' might be datetime or string
                             dt = _pd.to_datetime(idx).tz_localize(None)
-                            add_to_map(dt, val, priority=2) # History is high priority (Analyst Consensus)
+                            
+                            # v256: Apply Forensic Neutralizer to yfinance history too (Crucial for UBER past years)
+                            final_eps = float(val)
+                            try:
+                                if fc_val is not None and not _pd.isna(fc_val) and float(fc_val) != 0:
+                                    f_fc = float(fc_val)
+                                    diff = abs(final_eps - f_fc)
+                                    if (diff / abs(f_fc) > 0.25) or diff > 0.15:
+                                        log(f"DEBUG: v256 Neutralizing GAAP surprise in yfinance history for {ticker_symbol} ({final_eps} -> {f_fc})")
+                                        final_eps = f_fc
+                            except: pass
+                            
+                            add_to_map(dt, final_eps, priority=2) # History is high priority (Analyst Consensus)
             except: pass
 
             # 4. Source D: ANALYST-SENSITIVE NORMALIZED RECOVERY (SBC Add-back)
@@ -2014,7 +2043,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 if y_str in truth_map:
                     tr["eps"] = truth_map[y_str]
                     
-            log(f"DEBUG: v246 ULTIMATE TRUTH Meta injection complete for {ticker_symbol}")
+            log(f"DEBUG: v246 ULTIMATE TRUTH {ticker_symbol} injection complete")
 
         # 2. Add Projections (Next 2 FYs)
         try:
