@@ -249,7 +249,10 @@ def deep_clean_data(val):
         return [deep_clean_data(v) for v in val]
     if hasattr(val, "item"): # Handle numpy scalars
         return val.item()
-    if isinstance(val, (int, float, str, bool)) or val is None:
+    if isinstance(val, (int, float)):
+        if not math.isfinite(val): return None
+        return val
+    if isinstance(val, (str, bool)) or val is None:
         return val
     return str(val)
 

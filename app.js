@@ -904,7 +904,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let dcfVal = null;
         if (currentFormulaData.dcf) {
             const fcfSourceEl = document.getElementById('fcf-source');
-            const fcfSource = fcfSourceEl ? fcfSourceEl.value : 'analyst';
+            const fcfSource = fcfSourceEl ? fcfSourceEl.value : 'eps_growth';
             const yearsSourceEl = document.getElementById('dcf-years-source');
             const yearsVal = yearsSourceEl ? yearsSourceEl.value : '5yr';
             const years = yearsVal === '10yr' ? 10 : 5;
@@ -933,7 +933,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const w = currentFormulaData.dcf.discount_rate || 0.09;
                 const p = currentFormulaData.dcf.perpetual_growth || 0.02;
 
-                if (fcfSource === 'analyst') {
+                if (fcfSource === 'eps_growth') {
+                    // Logic formerly under analyst fallback now default here
                     const waccInput = document.getElementById('dcf-custom-wacc');
                     const backendWacc = currentFormulaData.dcf.discount_rate_applied / 100;
                     const method = document.getElementById('dcf-method-selector')?.value || 'perpetual';
@@ -1138,6 +1139,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let selectedMult = 20; 
             if (multVal === 'pe15') selectedMult = 15;
             if (multVal === 'pe20') selectedMult = 20;
+            if (multVal === 'pe25') selectedMult = 25;
             if (multVal === 'historical') selectedMult = pl.historic_pe || 20;
             if (multVal === 'custom') {
                 selectedMult = parseFloat(document.getElementById('lynch-custom-mult').value) || 18;
@@ -1323,10 +1325,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Reset inputs to clean state...
-        ['fcf-source', 'lynch-eps-source', 'peg-eps-source'].forEach(id => {
+        ['lynch-eps-source', 'peg-eps-source'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.value = 'analyst';
         });
+        const fcfSourceEl = document.getElementById('fcf-source');
+        if (fcfSourceEl) fcfSourceEl.value = 'eps_growth';
 
         try {
             const response = await fetch(`/api/valuation/${encodeURIComponent(query)}?t=${Date.now()}`);
