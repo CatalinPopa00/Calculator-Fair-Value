@@ -1991,7 +1991,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if (ctxEps) {
             if (chartEpsShares) chartEpsShares.destroy();
 
-            const epsData = hd.eps || [];
+            // v279: Link graph to Historical Anchors table (strictly GAAP Diluted EPS for history)
+            const anchors = data.historical_anchors || [];
+            const gaapMap = {};
+            anchors.forEach(a => {
+                if (a.year) gaapMap[String(a.year)] = a.eps;
+            });
+
+            const epsDataRaw = hd.eps || [];
+            const epsData = labels.map((l, i) => {
+                const yearStr = String(l).replace(' (Est)', '');
+                if (gaapMap[yearStr] !== undefined) return gaapMap[yearStr];
+                return epsDataRaw[i] || 0;
+            });
+            
             const sharesData = (hd.shares || []).map(v => v ? +(v / 1e9).toFixed(3) : 0);
 
             // Build custom legend
@@ -2124,8 +2137,21 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (statusElem) {
-                const medianRating = rec.median_label || 'N/A';
-                statusElem.textContent = medianRating;
+                const medianRating = rec.median_label;
+                let ratingLabel = 'N/A';
+                
+                // v279: Convert numerical rating to descriptive label (1.0 = Strong Buy, 5.0 = Strong Sell)
+                if (typeof medianRating === 'number') {
+                    if (medianRating <= 1.5) ratingLabel = 'Strong Buy';
+                    else if (medianRating <= 2.5) ratingLabel = 'Buy';
+                    else if (medianRating <= 3.5) ratingLabel = 'Hold';
+                    else if (medianRating <= 4.5) ratingLabel = 'Sell';
+                    else ratingLabel = 'Strong Sell';
+                } else {
+                    ratingLabel = medianRating || 'N/A';
+                }
+                
+                statusElem.textContent = ratingLabel;
                 
                 // Color based on sentiment score (0-100)
                 const sent = rec.sentiment || 0;
