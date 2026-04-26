@@ -2543,7 +2543,20 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                              yr_label = f"{yr_label} (Partial)"
 
                     # Rule 2: Symmetric Current Ratio (Total Current Assets / Current Liabs)
-                    cr_v = (current_assets / liabs) if (current_assets is not None and liabs and liabs > 0) else None
+                    assets_list = ['Total Current Assets', 'Current Assets']
+                    liabs_list = ['Total Current Liabilities', 'Current Liabilities']
+                    
+                    ca_hist = None
+                    for a_f in assets_list:
+                        ca_hist = get_bs_metric(a_f, yr_col)
+                        if ca_hist: break
+                        
+                    cl_hist = None
+                    for l_f in liabs_list:
+                        cl_hist = get_bs_metric(l_f, yr_col)
+                        if cl_hist: break
+
+                    cr_v = (ca_hist / cl_hist) if (ca_hist and cl_hist and cl_hist > 0) else None
                     roic_v = (ni_raw / (assets - liabs) * 100.0) if (assets is not None and liabs is not None and (assets - liabs) > 0) else None
                     
                     gaap_v = (historical_trends[i]["gaap_net_margin"] * 100.0) if (i < len(historical_trends) and "gaap_net_margin" in historical_trends[i]) else margin_v

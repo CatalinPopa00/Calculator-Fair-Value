@@ -318,15 +318,16 @@ def calculate_piotroski_score(metrics):
     cash_flow_for_f4 = cfo_cur if cfo_cur is not None else fcf_cur
 
     # F5 Metrics (Leverage)
-    total_debt_cur = safe_float(metrics.get("total_debt"))
+    # v281: Prioritize anchor-to-anchor comparison for UI consistency. 
+    # Added 1% tolerance for minor debt fluctuations.
+    debt_b_cur = safe_float(anchor_cur.get("total_debt_b"))
     debt_b_pri = safe_float(anchor_pri.get("total_debt_b"))
+    
+    total_debt_cur = (debt_b_cur * 1e9) if debt_b_cur is not None else safe_float(metrics.get("total_debt"))
     total_debt_pri = (debt_b_pri * 1e9) if debt_b_pri is not None else None
-    # If scraper total_debt is 0 but we have debt_b_pri, prioritize scraper for current
     
     # F6 Metrics (Liquidity)
-    cr_cur = safe_float(metrics.get("current_ratio"))
-    # Scraper usually doesn't have prior Current Ratio in anchors, 
-    # check if anchor has it explicitly or use a proxy
+    cr_cur = safe_float(anchor_cur.get("current_ratio")) or safe_float(metrics.get("current_ratio"))
     cr_pri = safe_float(anchor_pri.get("current_ratio"))
 
     # F7 Metrics (No Dilution)
@@ -408,11 +409,11 @@ def calculate_piotroski_score(metrics):
     # LEVERAGE & LIQUIDITY
     # ════════════════════════════════════════════════════════════
 
-    # F5: Delta Leverage
-    f5_passed = (total_debt_cur <= total_debt_pri) if (total_debt_cur is not None and total_debt_pri is not None) else None
+    # F5: Delta Leverage (v281: Added 1% tolerance)
+    f5_passed = (total_debt_cur <= (total_debt_pri * 1.01)) if (total_debt_cur is not None and total_debt_pri is not None) else None
     add_point("Leverage & Liquidity", "F5", "Delta Leverage", 
-              "Total Debt decreased or stayed the same",
-              f"${total_debt_cur/1e9:.1f}B vs ${total_debt_pri/1e9:.1f}B" if f5_passed is not None else "N/A",
+              "Total Debt decreased or stayed the same (1% margin)",
+              f"${total_debt_cur/1e9:.2f}B vs ${total_debt_pri/1e9:.2f}B" if f5_passed is not None else "N/A",
               f5_passed)
 
     # F6: Delta Liquidity
