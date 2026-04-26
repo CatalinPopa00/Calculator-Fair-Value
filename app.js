@@ -1575,7 +1575,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const config = [
                     { label: 'Year', key: 'year', isHeader: true },
                     { label: 'Revenue (B)', key: 'revenue_b', formatter: v => (v != null) ? v.toFixed(2) + ' B' : 'N/A', sparkKey: 'revenue_b' },
-                    { label: 'EPS (Adj)', key: 'eps', formatter: v => (v != null) ? '$' + v.toFixed(2) : 'N/A', sparkKey: 'eps' },
+                    { label: 'EPS (GAAP)', key: 'eps', formatter: v => (v != null) ? '$' + v.toFixed(2) : 'N/A', sparkKey: 'eps' },
                     { label: 'FCF (B)', key: 'fcf_b', formatter: v => (v != null) ? v.toFixed(2) + ' B' : 'N/A', sparkKey: 'fcf_b' },
                     { label: 'Net Margin', key: 'net_margin_pct', formatter: v => (v != null) ? v : 'N/A', sparkKey: 'net_margin_pct' },
                     { label: 'Cash (B)', key: 'cash_b', formatter: v => (v != null) ? v.toFixed(2) + ' B' : 'N/A', sparkKey: 'cash_b' },
@@ -2164,7 +2164,7 @@ document.addEventListener('DOMContentLoaded', () => {
             eItems.forEach((item, idx) => {
                 if (!item) return;
                 const pLabel = item.period || '--';
-                const isAnchor = pLabel.includes('2025');
+                const isAnchor = item.status === 'reported';
                 const aVal = (item.avg != null) ? '$' + parseFloat(item.avg).toFixed(2) : '--';
                 let gVal = isAnchor ? '' : '--';
                 
@@ -2188,7 +2188,7 @@ document.addEventListener('DOMContentLoaded', () => {
             rItems.forEach((item, idx) => {
                 if (!item) return;
                 const pLabel = item.period || '--';
-                const isAnchor = pLabel.includes('2025');
+                const isAnchor = item.status === 'reported';
                 const aVal = (item.avg != null) ? (parseFloat(item.avg) / 1e9).toFixed(2) + 'B' : '--';
                 let gVal = isAnchor ? '' : '--';
                 

@@ -86,38 +86,38 @@ def get_yahoo_analysis_normalized(ticker, info=None):
                             if '0y' not in res['rev']: res['rev']['0y'] = {}
                             res['rev']['0y']['yearAgo'] = ya_val
 
-            # v275: Robust Permissive JSON Truth Pass (PRIORITY)
-            for trend_key in ["earningsTrendNonGaap", "earningsTrend", "revenueTrend"]:
+            # v276: Priority Truth Pass (Non-GAAP takes precedence)
+            for trend_key in ["revenueTrend", "earningsTrend", "earningsTrendNonGaap"]:
                 parts = html.split(f'"{trend_key}"')
                 if len(parts) < 2: parts = html.split(f'\\"{trend_key}\\"')
                 if len(parts) < 2: continue
                 
-                # Use the chunk after the key
                 chunk = parts[1][:150000]
+                is_nongaap = (trend_key == "earningsTrendNonGaap")
                 
                 for p in ['0y', '+1y']:
                     p_target = f'"{p}"'
                     if p_target not in chunk: p_target = f'\\"{p}\\"'
-                    if p_target not in chunk: continue
+                    if p_target not in chunk: continue 
                     
                     p_idx = chunk.find(p_target)
-                    # Take a large sub-chunk to ensure we capture the whole period object (v275 fix)
                     sub_chunk = chunk[p_idx:p_idx+3000] 
                     
-                    # EPS extraction: Permissive search for raw value
                     eps_avg_m = re.search(r'earningsEstimate.*?avg.*?raw.*?([\d\.\-]+)', sub_chunk)
                     eps_ya_m = re.search(r'yearAgoEps.*?raw.*?([\d\.\-]+)', sub_chunk)
                     
-                    if eps_avg_m: 
+                    if eps_avg_m:
+                        val = float(eps_avg_m.group(1))
                         if p not in res['eps']: res['eps'][p] = {}
-                        if 'avg' not in res['eps'][p]:
-                            res['eps'][p]['avg'] = float(eps_avg_m.group(1))
+                        # v276: NonGaap overwrites anything. Others only fill gaps.
+                        if is_nongaap or 'avg' not in res['eps'][p]:
+                            res['eps'][p]['avg'] = val
+                    
                     if eps_ya_m:
+                        val = float(eps_ya_m.group(1))
                         if p not in res['eps']: res['eps'][p] = {}
-                        new_val = float(eps_ya_m.group(1))
-                        # PRIORITY: NonGaap > Everything. Otherwise, only set if missing.
-                        if 'yearAgo' not in res['eps'][p] or trend_key == "earningsTrendNonGaap":
-                            res['eps'][p]['yearAgo'] = new_val
+                        if is_nongaap or 'yearAgo' not in res['eps'][p]:
+                            res['eps'][p]['yearAgo'] = val
 
                     # Revenue extraction
                     rev_avg_m = re.search(r'revenueEstimate.*?avg.*?raw.*?([\d\.\-]+)', sub_chunk)
@@ -1188,7 +1188,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 idx = find_idx(financials, k)
                 if idx:
                     try:
-                        val = float(financials.loc[idx].iloc[0])
+                        val_obj = financials.loc[idx]
+                        val = float(val_obj.iloc[0]) if hasattr(val_obj, 'iloc') else float(val_obj)
                         if val > 0:
                             shares_outstanding = val
                             break
@@ -1211,7 +1212,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     if not ni_idx: ni_idx = find_idx(financials, 'Net Income')
                     
                     if ni_idx and shares_outstanding and shares_outstanding > 0:
-                        net_inc = float(financials.loc[ni_idx].iloc[0])
+                        ni_obj = financials.loc[ni_idx]
+                        net_inc = float(ni_obj.iloc[0]) if hasattr(ni_obj, 'iloc') else float(ni_obj)
                         # Recalibrate GAAP EPS using fx_rate since financials are now raw (local currency)
                         gaap_eps = (net_inc * fx_rate) / shares_outstanding
                         
@@ -1238,11 +1240,13 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             if cashflow is not None and not cashflow.empty:
                 fcf_idx = find_idx(cashflow, 'Free Cash Flow')
                 if fcf_idx:
-                    fcf = float(cashflow.loc[fcf_idx].iloc[0])
+                    fcf_obj = cashflow.loc[fcf_idx]
+                    fcf = float(fcf_obj.iloc[0]) if hasattr(fcf_obj, 'iloc') else float(fcf_obj)
                 else:
                     ocf_idx = find_idx(cashflow, 'Operating Cash Flow')
                     if ocf_idx:
-                        fcf = float(cashflow.loc[ocf_idx].iloc[0])
+                        ocf_obj = cashflow.loc[ocf_idx]
+                        fcf = float(ocf_obj.iloc[0]) if hasattr(ocf_obj, 'iloc') else float(ocf_obj)
         except: pass
         
         if fcf is None:
@@ -1299,7 +1303,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             if financials is not None and not financials.empty:
                 rev_idx = find_idx(financials, 'Total Revenue')
                 if rev_idx:
-                    revenue = float(financials.loc[rev_idx].iloc[0])
+                    rev_obj = financials.loc[rev_idx]
+                    revenue = float(rev_obj.iloc[0]) if hasattr(rev_obj, 'iloc') else float(rev_obj)
         except: pass
         
         if revenue is None:
@@ -1335,8 +1340,10 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             ca_idx = find_idx(df, 'Total Current Assets')
             cl_idx = find_idx(df, 'Current Liabilities') or find_idx(df, 'Total Current Liabilities')
             if ca_idx and cl_idx:
-                ca = float(df.loc[ca_idx].iloc[0])
-                cl = float(df.loc[cl_idx].iloc[0])
+                ca_obj = df.loc[ca_idx]
+                ca = float(ca_obj.iloc[0]) if hasattr(ca_obj, 'iloc') else float(ca_obj)
+                cl_obj = df.loc[cl_idx]
+                cl = float(cl_obj.iloc[0]) if hasattr(cl_obj, 'iloc') else float(cl_obj)
                 return (ca / cl) if cl > 0 else None
             return None
             
@@ -1375,11 +1382,13 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 fcf_y = []
                 fcf_idx = find_idx(cashflow, 'Free Cash Flow')
                 if fcf_idx:
-                    fcf_y = cashflow.loc[fcf_idx].dropna().head(5).tolist()
+                    fcf_obj = cashflow.loc[fcf_idx]
+                    fcf_y = fcf_obj.dropna().head(5).tolist() if hasattr(fcf_obj, 'dropna') else [fcf_obj]
                 else:
                     ocf_idx = find_idx(cashflow, 'Operating Cash Flow')
                     if ocf_idx:
-                        fcf_y = cashflow.loc[ocf_idx].dropna().head(5).tolist()
+                        ocf_obj = cashflow.loc[ocf_idx]
+                        fcf_y = ocf_obj.dropna().head(5).tolist() if hasattr(ocf_obj, 'dropna') else [ocf_obj]
                 
                 if fcf_y:
                     fcf_history = fcf_y[:3]
@@ -1543,7 +1552,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 ocf_idx = find_idx(cashflow, 'Operating Cash Flow')
                 if ocf_idx:
                     # Get the most recent column (usually TTM or last FY)
-                    operating_cashflow = float(cashflow.loc[ocf_idx].iloc[0])
+                    ocf_obj = cashflow.loc[ocf_idx]
+                    operating_cashflow = float(ocf_obj.iloc[0]) if hasattr(ocf_obj, 'iloc') else float(ocf_obj)
         except: pass
 
 
@@ -2042,6 +2052,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     c_idx = find_nearest_col(df, target_date)
                     if not c_idx: return 0
                     val = df.loc[f_idx, c_idx]
+                    # Handle multiple matches (Series)
+                    if hasattr(val, 'iloc'): val = val.iloc[0]
                     return float(val) if not (val is None or (isinstance(val, float) and pd.isna(val))) else 0
 
                 # v233: Accurate Mapping
@@ -3181,8 +3193,21 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         num_analysts = info.get('numberOfAnalystOpinions')
 
         # ── Analyst Recommendation ───────────────────────────────────────────────
-        rec_key = info.get('recommendationKey', '')       # e.g. "buy", "strong_buy"
-        rec_mean = info.get('recommendationMean')          # 1=Strong Buy … 5=Strong Sell
+        rec_key = info.get('recommendationKey', 'N/A')
+        rec_mean = info.get('recommendationMean')
+        rec_median_label = info.get('recommendationMean', 'N/A')
+        
+        # Sentiment score (0-100)
+        rec_sentiment = 0
+        try:
+            mean = float(info.get('recommendationMean', 3.0))
+            rec_sentiment = ((5.0 - mean) / 4.0) * 100.0
+        except: pass
+        
+        rec_counts = {
+            "strongBuy": info.get('numberOfAnalystOpinions', 0),
+            "buy": 0, "hold": 0, "sell": 0, "strongSell": 0
+        }
 
         # ── INITIALIZE LISTS ──────────────────────────────────────────────────
         eps_estimates = []
@@ -3197,829 +3222,54 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
              base_eps = historical_data["eps"][-1]
              base_rev = historical_data["revenue"][-1] if "revenue" in historical_data else None
 
-        try:
-            r_est = stock.revenue_estimate
-            if r_est is not None and not r_est.empty:
-                for idx, row in r_est.iterrows():
-                    lbl = str(idx)
-                    label = labels.get(lbl, lbl)
-                    rev_estimates.append({
-                        "period": label,
-                        "avg": round(float(row.get('avg', 0)), 2),
-                        "growth": float(row.get('growth', 0)) if row.get('growth') else None,
-                        "status": "estimate"
-                    })
-        except Exception as e:
-            print(f"[Analyst] Yahoo Revenue Estimates fail: {e}")
-
-        # ── Annual EPS: YAHOO NUCLEAR (v262: Strict Normalized Priority) ─────────────────
-        try:
-            # 1. Scraping Truths
-            scraped_ya = analysis_data.get('eps', {}).get('0y', {}).get('yearAgo')
-            scraped_0y = analysis_data.get('eps', {}).get('0y', {}).get('avg')
-            scraped_1y = analysis_data.get('eps', {}).get('+1y', {}).get('avg')
-
-            # 2. info Tags (Fallbacks)
-            y_fy0 = info.get('epsCurrentYear')
-            y_fy1 = info.get('forwardEps') or info.get('epsForward')
-
-            # ENFORCE SCRAPED TRUTH
-            if scraped_ya is not None:
-                base_eps = float(scraped_ya[0]) if isinstance(scraped_ya, (list, tuple)) else float(scraped_ya)
-                eps_estimates.append({
-                    "period": f"FY {current_fy_num - 1}",
-                    "avg": round(base_eps, 2),
-                    "status": "reported",
-                    "growth": None
-                })
-            
-            # Prioritize Scraped 0y (Normalized) over info (GAAP)
-            if scraped_0y is not None:
-                try: 
-                    y_fy0 = float(scraped_0y[0]) if isinstance(scraped_0y, (list, tuple)) else float(scraped_0y)
-                    log(f"DEBUG: v262 Using Normalized FY0 for {ticker_symbol}: {y_fy0}")
-                except: pass
-            
-            if scraped_1y is not None:
-                try: y_fy1 = float(scraped_1y[0]) if isinstance(scraped_1y, (list, tuple)) else float(scraped_1y)
-                except: pass
-
-            if y_fy0:
-                eps_estimates.append({
-                    "period": f"FY {current_fy_num}",
-                    "avg": round(float(y_fy0), 2),
-                    "status": "estimate",
-                    "growth": (y_fy0 / base_eps) - 1 if base_eps else None
-                })
-            
-            if y_fy1:
-                eps_estimates.append({
-                    "period": f"FY {current_fy_num + 1}",
-                    "avg": round(float(y_fy1), 2),
-                    "status": "estimate",
-                    "growth": (y_fy1 / y_fy0) - 1 if y_fy0 else None
-                })
-                
-            # Fallback to estimate table only if tags are missing
-            if not y_fy0:
-                ee = stock.earnings_estimate
-                if ee is not None and not (hasattr(ee, 'empty') and ee.empty):
-                    for period in ['0y', '+1y']:
-                        if period in ee.index:
-                            row = ee.loc[period]
-                            avg_val = row.get('avg')
-                            if avg_val is None: continue
-                            target_fy = current_fy_num if period == '0y' else current_fy_num + 1
-                            eps_estimates.append({
-                                "period": f"FY {target_fy}",
-                                "avg": round(float(avg_val), 2),
-                                "status": "estimate",
-                                "growth": None # Calculated later
-                            })
-        except Exception as e:
-            log(f"[Analyst] NUCLEAR Yahoo FY fail: {e}")
-
-        # ── BASE YEAR BACKFILL (Fix for FRSH 2025 issue) ─────────────────────
-        try:
-            current_yr = datetime.datetime.now().year
-            last_yr = current_yr - 1
-            
-            # Check if last_yr is already in the list
-            has_last_yr = any(str(last_yr) in str(e.get('period')) for e in eps_estimates)
-            
-            if not has_last_yr:
-                eh = stock.earnings_history
-                if eh is not None and not eh.empty:
-                    # Filter for rows where the index (date) is in the last fiscal year
-                    # For FRSH, Dec 2025 is the target.
-                    actual_eps = 0.0
-                    found_q = 0
-                    
-                    # v202: Prioritize Direct Normalized Actual from Yahoo Trends (Matches 1.1 for HIMS)
-                    # For growth stocks, Yahoo's yearAgoEps in the Current Year trend is the definitive 'Normalized TTM'
-                    y_trend = get_yahoo_eps_trend(ticker_symbol)
-                    y_adj_ttm = y_trend.get('0y', {}).get('yearAgoEps')
-                    is_growth = any(x in str(info.get('sector', '')).lower() for x in ['tech', 'software', 'comm', 'health', 'consumer'])
-                    
-                    if is_growth and y_adj_ttm is not None:
-                        actual_eps = y_adj_ttm
-                        found_q = 4 # Force it as a full-year anchor
-                        log(f"DEBUG: Using Yahoo Normalized Actual (1.1 Baseline) for {ticker_symbol}: {actual_eps}")
-                    else:
-                        # Sort chronological to get the last 4 quarters (GAAP fallback)
-                        sorted_eh = eh.sort_index(ascending=False)
-                        for idx, row in sorted_eh.iterrows():
-                            val = row.get('epsActual')
-                            if val is not None and not _pd.isna(val):
-                                actual_eps += float(val)
-                                found_q += 1
-                            if found_q >= 4: break
-                    
-                    if found_q >= 1: # We have some actuals
-                        eps_estimates.insert(0, {
-                            "period": f"FY {last_yr} (Actual)",
-                            "avg": round(actual_eps, 2),
-                            "status": "reported"
-                        })
-                        # v211: Update history dictionaries ONLY IF MISSING (Protect Adjusted Anchors)
-                        if f"FY {last_yr}" not in history_eps:
-                            history_eps[f"FY {last_yr}"] = actual_eps
-                        
-                        # Sync revenue backfill if available (v208)
-                        y_adj_ttm_rev = y_trend.get('0y', {}).get('yearAgoRevenue')
-                        if y_adj_ttm_rev:
-                            if f"FY {last_yr}" not in history_rev:
-                                history_rev[f"FY {last_yr}"] = float(y_adj_ttm_rev)
-                            rev_estimates.insert(0, {
-                                "period": f"FY {last_yr} (Actual)",
-                                "avg": round(float(y_adj_ttm_rev), 2),
-                                "status": "reported"
-                            })
-
-                        # v211: Update base_eps only if it's currently missing or near zero
-                        # Prefer info-provided Normalized baseline (7.46) over GAAP sum (6.75)
-                        if not base_eps or abs(base_eps) < 0.1:
-                            base_eps = actual_eps
-        except Exception as e:
-            print(f"[Analyst] Base year backfill fail: {e}")
-
-        # ── Recommendation Counts Fix ──────────────────────────────────────────
-        rec_counts = {"strongBuy": 0, "buy": 0, "hold": 0, "sell": 0, "strongSell": 0}
-        try:
-            rec_df = stock.recommendations_summary
-            if rec_df is not None and not rec_df.empty:
-                latest = rec_df.iloc[0]
-                rec_counts["strongBuy"] = int(latest.get('strongBuy', 0))
-                rec_counts["buy"] = int(latest.get('buy', 0))
-                rec_counts["hold"] = int(latest.get('hold', 0))
-                rec_counts["sell"] = int(latest.get('sell', 0))
-                rec_counts["strongSell"] = int(latest.get('strongSell', 0))
-                
-                # Fallback for rec_mean if yfinance info is missing it
-                if not rec_mean:
-                    total_votes = sum(rec_counts.values())
-                    if total_votes > 0:
-                        weighted_sum = (
-                            rec_counts["strongBuy"] * 1 +
-                            rec_counts["buy"] * 2 +
-                            rec_counts["hold"] * 3 +
-                            rec_counts["sell"] * 4 +
-                            rec_counts["strongSell"] * 5
-                        )
-                        rec_mean = weighted_sum / total_votes
-        except Exception:
-            pass
-
-        # ── Intuitive Sentiment & Median Calculation ──────────────────────────
-        total_rec = sum(rec_counts.values())
-        rec_sentiment = 0
-        rec_median_label = "N/A"
-        if total_rec > 0:
-            # Score 0-100: SB=100, B=75, H=50, S=25, SS=0
-            p = (rec_counts["strongBuy"] * 100) + (rec_counts["buy"] * 75) + \
-                (rec_counts["hold"] * 50) + (rec_counts["sell"] * 25) + (rec_counts["strongSell"] * 0)
-            rec_sentiment = round(p / total_rec, 2)
-            
-            # Median Analyst
-            mid = total_rec / 2
-            running = 0
-            for k, label in [("strongBuy", "STRONG BUY"), ("buy", "BUY"), ("hold", "HOLD"), ("sell", "SELL"), ("strongSell", "STRONG SELL")]:
-                running += rec_counts[k]
-                if running >= mid:
-                    rec_median_label = label
-                    break
-        elif rec_mean:
-            # Fallback to inverse 1-5 mean if counts are missing
-            rec_sentiment = round((5.0 - rec_mean) / 4.0 * 100, 2)
-            # Rough label fallback
-            if rec_mean <= 1.5: rec_median_label = "STRONG BUY"
-            elif rec_mean <= 2.5: rec_median_label = "BUY"
-            elif rec_mean <= 3.5: rec_median_label = "HOLD"
-            elif rec_mean <= 4.5: rec_median_label = "SELL"
-            else: rec_median_label = "STRONG SELL"
-
-        # ── Historical Reported Data (EPS and Revenue) ───────────────────────────
-        reported_eps = []
-        reported_rev = []
-        
-        # Pre-compute fiscal year logic (v144: Pure Dynamic Detection)
-        lfy_ts2 = info.get('lastFiscalYearEnd')
-        if lfy_ts2:
-            try:
-                lfy_dt = datetime.datetime.fromtimestamp(lfy_ts2)
-                fy_end_month = lfy_dt.month
-            except:
-                fy_end_month = 12
-        else:
-            fy_end_month = 12
-        
-        fy_start_month = (fy_end_month % 12) + 1
-        
-        def to_fiscal_label(dt):
-            """Convert a date to standard fiscal label like 'Q1 2026'."""
-            if not isinstance(dt, (_pd.Timestamp, datetime.datetime)):
-                return str(dt)
-            
-            # Determine fiscal year
-            if dt.month <= fy_end_month:
-                fy = dt.year
-            else:
-                fy = dt.year + 1
-            
-            # Determine quarter
-            # 0-indexed months from start of fiscal year
-            months_since_start = (dt.month - fy_start_month) % 12
-            fq = (months_since_start // 3) + 1
-            return f"Q{fq} {fy}"
-        
-        try:
-            # EPS History
-            eh = stock.earnings_history
-            if eh is not None and not eh.empty:
-                for idx, row in eh.tail(4).iterrows(): # take up to last 4 reported
-                    eps_act = row.get('epsActual') if hasattr(row, 'get') else None
-                    eps_est = row.get('epsEstimate') if hasattr(row, 'get') else None
-                    surprise_pct = row.get('surprisePercent') if hasattr(row, 'get') else None
-                    
-                    date_str = "--"
-                    if isinstance(idx, (_pd.Timestamp, datetime.datetime)):
-                        date_str = to_fiscal_label(idx)
-                    elif idx:
-                        date_str = str(idx)
-
-                    val = float(eps_act) if eps_act is not None and not (isinstance(eps_act, float) and _pd.isna(eps_act)) else None
-                    if val is not None:
-                        reported_eps.append({
-                            "period": date_str, "period_code": "reported", "avg": val * fx_rate, "status": "reported",
-                            "surprise_pct": float(surprise_pct) if surprise_pct is not None and not _pd.isna(surprise_pct) else None
-                        })
-            
-            # Revenue History - compute Y/Y growth and compare with estimates
-            istmt = stock.quarterly_income_stmt
-            if istmt is not None and not istmt.empty and 'Total Revenue' in istmt.index:
-                rev_row = istmt.loc['Total Revenue']
-                valid_cols = [c for c in rev_row.index if not _pd.isna(rev_row[c])]
-                
-                # Build a lookup: (fiscal_q, fiscal_year) -> revenue value
-                rev_by_fq = {}
-                for col_date in valid_cols:
-                    if isinstance(col_date, (_pd.Timestamp, datetime.datetime)):
-                        label = to_fiscal_label(col_date)
-                        rev_by_fq[label] = float(rev_row[col_date])
-                
-                # Take latest 4 reported quarters (newest first in valid_cols, reverse for chronological)
-                for col_date in list(valid_cols)[:4][::-1]: 
-                    rev_act = float(rev_row[col_date])
-                    
-                    date_str = "--"
-                    rev_growth = None
-                    if isinstance(col_date, (_pd.Timestamp, datetime.datetime)):
-                        date_str = to_fiscal_label(col_date)
-                        
-                        # Compute Y/Y growth: find same fiscal quarter last year
-                        # Parse the fiscal label we generated
-                        parts = date_str.split()
-                        if len(parts) == 2:
-                            prev_label = f"{parts[0]} {int(parts[1]) - 1}"
-                            prev_rev = rev_by_fq.get(prev_label)
-                            if prev_rev and prev_rev > 0:
-                                rev_growth = (rev_act - prev_rev) / prev_rev
-                    
-                    reported_rev.append({
-                        "period": date_str, "period_code": "reported", "avg": rev_act * fx_rate, "status": "reported",
-                        "growth": rev_growth,
-                        "surprise_pct": None  # will be computed below if estimate data available
-                    })
-            
-            # Try to compute revenue surprise for reported quarters
-            # We compare actual revenue with the yearAgoRevenue * (1 + estimatedGrowth)
-            # from the revenue_estimate data for each period
-            try:
-                rf_est = stock.revenue_estimate
-                if rf_est is not None and not rf_est.empty:
-                    for rr in reported_rev:
-                        period_label = rr.get('period', '')
-                        # Check if this reported Q matches a period in revenue estimates
-                        # by comparing with yearAgoRevenue data
-                        for est_idx, est_row in rf_est.iterrows():
-                            est_label = labels.get(str(est_idx), str(est_idx))
-                            if est_label == period_label:
-                                # This estimate matches a reported Q - compute surprise
-                                est_avg = est_row.get('avg')
-                                if est_avg and not pd.isna(est_avg) and est_avg > 0:
-                                    actual_rev = rr['avg'] / fx_rate if fx_rate != 1.0 else rr['avg']
-                                    rr['surprise_pct'] = (actual_rev - float(est_avg)) / float(est_avg)
-                                break
-            except Exception as e_surp:
-                print(f"[Analyst] Revenue surprise calc error: {e_surp}")
-                
-        except Exception as e:
-            print(f"[Analyst] Reported history error: {e}")
-
-        # ── Yahoo EPS Estimates (QUARTERLY ONLY) ────────────────────────────────
-        # v184: Yahoo returns GAAP values for annual periods (FY 2026 GAAP ≠ Non-GAAP from Nasdaq).
-        # Strategy: Yahoo contributes ONLY quarterly rows (Q1/Q2/Q3/Q4 breakdown).
-        # Annual FY rows come exclusively from the Nasdaq Non-GAAP block above.
-        try:
-            ef = stock.earnings_estimate
-            if ef is not None and not ef.empty:
-                # Build a set of period labels already in eps_estimates (from Nasdaq Non-GAAP)
-                existing_annual_labels = {e.get('period', '') for e in eps_estimates}
-                
-                for period_idx, row in ef.iterrows():
-                    p_key = str(period_idx)
-                    # --- ANNUAL PERIOD INTELLIGENT MERGE (v190 ADBE FIX) ---
-                    # Yahoo and Nasdaq often disagree on which provides GAAP vs Non-GAAP.
-                    # We accept both, and for collisions, we prioritize the higher estimate (Non-GAAP).
-
-                    avg = row.get('avg') if hasattr(row, 'get') else row.get('Avg')
-                    val_unscaled = float(avg) if avg is not None and not (isinstance(avg, float) and pd.isna(avg)) else None
-                    try:
-                        p_label = to_fiscal_label(pd.to_datetime(period_idx)) if isinstance(period_idx, (pd.Timestamp, datetime.datetime, str)) and any(c in str(period_idx) for c in ['-', '/', '.', '20']) else labels.get(p_key, p_key)
-                    except:
-                        p_label = labels.get(p_key, p_key)
-                    
-                    scaled_avg = val_unscaled * fx_rate if val_unscaled is not None else None
-                    
-                    native_growth = row.get('growth') if hasattr(row, 'get') else None
-                    if native_growth is not None and not pd.isna(native_growth):
-                        try:
-                            recalc_growth = float(native_growth)
-                        except:
-                            recalc_growth = None
-                    else:
-                        recalc_growth = None
-                    
-                    # Recalculate vs Non-GAAP historical base ONLY for annual periods
-                    if 'y' in p_key and scaled_avg and scaled_avg > 0 and base_eps and base_eps > 0:
-                        recalc_growth = (scaled_avg - base_eps) / base_eps
-                    
-                    # Intelligent Merge / Deduplication
-                    existing_entry = next((e for e in eps_estimates if e.get('period') == p_label), None)
-                    if existing_entry:
-                        # If Yahoo has a higher estimate (Non-GAAP), overwrite the Nasdaq (GAAP) one
-                        if scaled_avg is not None and existing_entry.get('avg') is not None:
-                            if scaled_avg > existing_entry['avg']:
-                                existing_entry['avg'] = scaled_avg
-                                existing_entry['growth'] = recalc_growth
-                                existing_entry['period_code'] = p_key
-                        continue
-                    
-                    eps_estimates.append({
-                        "period": p_label, 
-                        "period_code": p_key,
-                        "avg": scaled_avg,
-                        "growth": recalc_growth,
-                        "status": "estimate"
-                    })
-        except Exception as e:
-            print(f"[Analyst] Yahoo EPS error: {e}")
-
-        # ── Yahoo Revenue Estimates ─────────────────────────────────────────────
-        try:
-            rf = stock.revenue_estimate
-            if rf is not None and not rf.empty:
-                for period_idx, row in rf.iterrows():
-                    p_key = str(period_idx)
-                    avg = row.get('avg') if hasattr(row, 'get') else None
-                    growth = row.get('growth') if hasattr(row, 'get') else None
-                    val_unscaled = float(avg) if avg is not None and not (isinstance(avg, float) and pd.isna(avg)) else None
-                    try:
-                        p_label = to_fiscal_label(pd.to_datetime(period_idx)) if isinstance(period_idx, (pd.Timestamp, datetime.datetime, str)) and any(c in str(period_idx) for c in ['-', '/', '.', '20']) else labels.get(p_key, p_key)
-                    except:
-                        p_label = labels.get(p_key, p_key)
-                    
-                    rev_estimates.append({
-                        "period": p_label, 
-                        "period_code": p_key,
-                        "avg": val_unscaled * fx_rate if val_unscaled is not None else None,
-                        "growth": float(growth) if growth is not None and not (isinstance(growth, float) and pd.isna(growth)) else None,
-                        "status": "estimate"
-                    })
-        except Exception as e:
-            print(f"[Analyst] Yahoo Revenue error: {e}")
-
-        # ── FALLBACK: Nasdaq (fetch missing quarters) ──────────────────────────
-        n_data = None
-        def fetch_nasdaq():
-            try:
-                nasdaq_url = f"https://api.nasdaq.com/api/analyst/{ticker_symbol}/earnings-forecast"
-                headers = {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-                    "Accept": "application/json, text/plain, */*",
-                    "Accept-Language": "en-US,en;q=0.9",
-                    "Origin": "https://www.nasdaq.com",
-                    "Referer": "https://www.nasdaq.com/"
-                }
-                req = urllib.request.Request(nasdaq_url, headers=headers)
-                with urllib.request.urlopen(req, timeout=8) as resp:
-                    return json.loads(resp.read())
-
-            except Exception as ne:
-                print(f"Nasdaq fallback fetch failed: {ne}")
-                return None
-
-        # Determine if we even need the fallback.
-        needs_nasdaq = len([e for e in eps_estimates if 'q' in e.get('period_code', '')]) < 4 or len([r for r in rev_estimates if 'q' in r.get('period_code', '')]) < 4
-        if needs_nasdaq:
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future_nasdaq = executor.submit(fetch_nasdaq)
-                n_data = future_nasdaq.result()
-        
-        # v155: Force Nasdaq fetch for Tech and Communications (META, NVDA, etc)
-        sector_val = str(info.get('sector', '')).lower()
-        is_priority = any(s in sector_val for s in ['technology', 'communication services', 'healthcare'])
-        if not n_data and is_priority:
-            n_data = fetch_nasdaq()
-
-
-        
-        if n_data and isinstance(n_data, dict) and n_data.get('data'):
-            # Nasdaq EPS Quarters
-            q_forecasts = n_data['data'].get('quarterlyForecast', {}).get('rows', [])
-            for i, qf in enumerate(q_forecasts[:4]):
-                p_code = "0q" if i == 0 else f"+{i}q"
-                existing = next((e for e in eps_estimates if e.get('period_code') == p_code), None)
-                avg = qf.get('consensusEPSForecast')
-                if avg and avg != "N/A":
-                    try:
-                        avg_val = float(str(avg).replace('$', '').replace(',', ''))
-                        period_lbl = labels.get(p_code, p_code)
-                        if existing:
-                            if not existing.get('avg'): existing['avg'] = avg_val
-                            if existing.get('period') in ['Current Qtr', 'Next Qtr']: existing['period'] = period_lbl
-                        else:
-                            eps_estimates.append({"period": period_lbl, "period_code": p_code, "avg": avg_val, "growth": None, "status": "estimate"})
-                    except: pass
-            
-            # Nasdaq Revenue Quarters
-            r_forecasts = n_data['data'].get('revenueForecast', {}).get('rows', [])
-            for i, rf in enumerate(r_forecasts[:4]):
-                p_code = "0q" if i == 0 else f"+{i}q"
-                existing = next((e for e in rev_estimates if e.get('period_code') == p_code), None)
-            
-            # ── v158: Nasdaq Yearly Forecasts (Non-GAAP Consensus) ──────────
-            # Field in API is 'yearlyForecast', not 'annualForecast'
-            y_forecasts = n_data['data'].get('yearlyForecast', {}).get('rows', [])
-            for y_forecast_row in y_forecasts:
-                # Key is 'fiscalYearEnd' (e.g. "Dec 2026")
-                fy_code = str(y_forecast_row.get('fiscalYearEnd', ''))
-                avg = y_forecast_row.get('consensusEPSForecast')
-                if not avg or avg == "N/A": continue
-                try:
-                    avg_val = float(str(avg).replace('$', '').replace(',', ''))
-                    # Match by Year (e.g. "2026" in "Dec 2026")
-                    found_existing = False
-                    for est in eps_estimates:
-                        if any(yr in str(est.get('period', '')) for yr in re.findall(r'\d{4}', fy_code)):
-                            # OVERRIDE with Nasdaq Normalized Consensus for Tech Consistency
-                            est['avg'] = avg_val
-                            found_existing = True
-                            # Growth will be recalculated in the final force_formula pass
-                            break
-                            
-                    # v186: If completely missing (primary and Yahoo failed/blocked to generate FY rows), add as new
-                    if not found_existing:
-                        # Append it natively
-                        new_lbl = f"FY {re.findall(r'[0-9]{4}', fy_code)[0]}" if re.findall(r'[0-9]{4}', fy_code) else f"FY {fy_code}"
-                        
-                        g_val = None
-                        if base_eps and base_eps > 0 and avg_val > 0:
-                            g_val = (avg_val - base_eps) / base_eps
-                            
-                        eps_estimates.append({
-                            "period": new_lbl,
-                            "period_code": fy_code, # Fallback code
-                            "avg": avg_val,
-                            "growth": g_val,
-                            "status": "estimate"
-                        })
-                except: pass
-
-
-        # ── HISTORY MAPPING (for Y/Y Growth) ──────────────────────────────────
-        history_eps = {}
-        history_rev = {}
-        
-        # v202: HIGH-FIDELITY ANCHOR SYNC (Critical for Growth stocks like HIMS)
-        # We ingest the verified 'Adjusted' anchors from get_company_data to ensure
-        # that FY0 growth is calculated against the correct Non-GAAP baseline (e.g. 1.11 vs 0.51).
-        if historical_data and "years" in historical_data:
-            for i, y_val in enumerate(historical_data.get("years", [])):
-                y_str = str(y_val)
-                h_eps = historical_data.get("eps", [])[i] if i < len(historical_data.get("eps", [])) else None
-                h_rev = historical_data.get("revenue", [])[i] if i < len(historical_data.get("revenue", [])) else None
-                if h_eps is not None: history_eps[f"FY {y_str}"] = h_eps
-                if h_rev is not None: history_rev[f"FY {y_str}"] = h_rev
-        
-        try:
-            # 0. Source 0: Integrated Non-GAAP History (v98 Override)
-            if q_history:
-                for yr_str, q_dict in q_history.items():
-                    fy_lbl = f"FY {yr_str}"
-                    # Individual quarters if q_dict available
-                    for dt_key, eps_val in q_dict.items():
-                        dt_obj = datetime.datetime.strptime(dt_key, '%Y-%m-%d')
-                        q_lbl = to_fiscal_label(dt_obj)
-                        if q_lbl: history_eps[q_lbl] = float(eps_val)
-                    
-                    # If we have a sum for this year in adjusted_history logic elsewhere, it would be passed here
-                    # But if not, we can sum these quarters now
-                    if len(q_dict) >= 4 and fy_lbl not in history_eps:
-                        history_eps[fy_lbl] = sum(q_dict.values())
-            
-            # v144: Removed hard-coded historical overrides (Purge)
-            # System now relies exclusively on dynamic forensic anchors from historical_data
-
-            if q_history:
-                for yr_str, q_dict in q_history.items():
-                    fy_lbl = f"FY {yr_str}"
-                    for dt_key, eps_val in q_dict.items():
-                        dt_obj = datetime.datetime.strptime(dt_key, '%Y-%m-%d')
-                        q_lbl = to_fiscal_label(dt_obj)
-                        if q_lbl: history_eps[q_lbl] = float(eps_val)
-                    if len(q_dict) >= 4 and fy_lbl not in history_eps:
-                        history_eps[fy_lbl] = sum(q_dict.values())
-            
-            
-            # v188: PROACTIVE Non-GAAP History Injection (Strict Baseline Sync)
-            try:
-                nasdaq_hist = get_nasdaq_historical_eps(ticker_symbol)
-                if nasdaq_hist:
-                    # Group by year to find the Adjusted "FY" anchor
-                    yr_map = {}
-                    for entry in nasdaq_hist:
-                        yr = entry['date'].year
-                        # Correct for fiscal year if needed, but Nasdaq date is usually report date
-                        # Simple rule: if reported in Q1/Q2 of Y+1, it's for Year Y
-                        # BUT many users just want the calendar year anchor.
-                        # For ADBE 2025 (latest), we want that value.
-                        if yr not in yr_map: yr_map[yr] = []
-                        yr_map[yr].append(entry['eps'])
-                    
-                    for yr, vals in yr_map.items():
-                        fy_k = f"FY {yr}"
-                        if len(vals) >= 4 and fy_k not in history_eps:
-                            history_eps[fy_k] = sum(vals)
-                        elif yr == max(yr_map.keys()) and fy_k not in history_eps: # Fallback
-                             history_eps[fy_k] = (sum(vals)/len(vals)) * 4.0
-            except: pass
-
-            # Source 1: Yahoo reported quarters
-            if stock.earnings_history is not None and not stock.earnings_history.empty:
-                for date_idx, row in stock.earnings_history.iterrows():
-                    lbl = to_fiscal_label(date_idx)
-                    if lbl and not pd.isna(row.get('epsActual')) and lbl not in history_eps:
-                        history_eps[lbl] = float(row.get('epsActual'))
-
-            
-            # Revenue History (Quarterly)
-            qf = stock.quarterly_financials
-            if qf is not None and not qf.empty and "Total Revenue" in qf.index:
-                rev_row = qf.loc["Total Revenue"]
-                for date_idx, val in rev_row.items():
-                    lbl = to_fiscal_label(date_idx)
-                    if lbl and val is not None and not pd.isna(val):
-                        history_rev[lbl] = float(val) / fx_rate 
-            
-            # Annual History (for FY growth)
-            af = stock.financials
-            if af is not None and not af.empty and "Total Revenue" in af.index:
-                rev_row = af.loc["Total Revenue"]
-                for date_idx, val in rev_row.items():
-                    fy_lbl = f"FY {date_idx.year if date_idx.month > fy_end_month else date_idx.year}"
-                    if val is not None and not pd.isna(val) and fy_lbl not in history_rev:
-                        history_rev[fy_lbl] = float(val) / fx_rate
-            
-            # Annual EPS from income statement
-            if af is not None and not af.empty and "Diluted EPS" in af.index:
-                eps_row = af.loc["Diluted EPS"]
-                for date_idx, val in eps_row.items():
-                    fy_lbl = f"FY {date_idx.year if date_idx.month > fy_end_month else date_idx.year}"
-                    # v155: PROTECT Non-GAAP Anchors from GAAP Overwrite
-                    if val is not None and not pd.isna(val) and fy_lbl not in history_eps:
-                        history_eps[fy_lbl] = float(val)
-
-
-            # (v154: Redundant scaling block removed to prevent de-synchronization)
-            pass
-        except Exception as he:
-            log(f"[Analyst] History mapping error: {he}")
-
-
-        # ── FINAL ASSEMBLY (6-Row Standard) ────────────────────────────────────
-        current_year_str = str(current_fy_num)
-        # Calculate exactly which quarter we are in now (1-4)
-        now_dt = datetime.datetime.now()
-        l_fy_yr = now_dt.year if now_dt.month > fy_end_month else now_dt.year - 1
-        months_since_fye = (now_dt.year - l_fy_yr) * 12 + now_dt.month - fy_end_month
-        this_q = ((months_since_fye - 1) // 3) + 1
-        if this_q < 1: this_q = 1
-        if this_q > 4: this_q = 4
-
-        def fill_buckets(buckets, data_sources, target_fy):
-            for source in data_sources:
-                if not source: continue
-                for item in source:
-                    p = str(item.get('period', ''))
-                    code = str(item.get('period_code', ''))
-                    q_num = None
-                    yr = None
-                    is_fy = False
-                    q_match = re.search(r'Q(\d)\s+(\d{4})', p)
-                    fy_match = re.search(r'FY\s+(\d{4})', p) or re.search(r'FY\s+[A-Za-z]+\s+(\d{4})', p)
-                    if q_match:
-                        q_num = int(q_match.group(1)); yr = int(q_match.group(2))
-                    elif fy_match:
-                        digits = re.findall(r'\d{4}', p); yr = int(digits[-1]) if digits else None; is_fy = True
-                    elif 'q' in code:
-                        try:
-                            rel_idx = int(code.replace('q', '').replace('+', ''))
-                            q_num = ((this_q + rel_idx - 1) % 4) + 1
-                            yr = target_fy if (this_q + rel_idx) <= 4 else target_fy
-                        except: pass
-                    elif 'y' in code:
-                        try:
-                            rel_idx = int(code.replace('y', '').replace('+', ''))
-                            yr = target_fy + rel_idx; is_fy = True
-                        except: pass
-
-                    if yr == target_fy:
-                        if not is_fy and q_num:
-                            idx = f"Q{q_num}"
-                            if buckets[idx]["avg"] is None or item.get('status') == 'reported':
-                                buckets[idx].update({k: v for k, v in item.items() if v is not None})
-                        elif is_fy:
-                            if buckets["FY0"]["avg"] is None or (item.get('avg') is not None and buckets["FY0"]["avg"] is not None and item['avg'] > buckets["FY0"]["avg"]): 
-                                buckets["FY0"].update({k: v for k, v in item.items() if v is not None})
-                    elif yr == target_fy + 1 and is_fy:
-                        if buckets["FY1"]["avg"] is None or (item.get('avg') is not None and buckets["FY1"]["avg"] is not None and item['avg'] > buckets["FY1"]["avg"]): 
-                            buckets["FY1"].update({k: v for k, v in item.items() if v is not None})
-
-        # Count reported items
-        reported_eps_count = len([x for x in reported_eps if current_year_str in str(x.get('period'))])
-        reported_rev_count = len([x for x in reported_rev if current_year_str in str(x.get('period'))])
-
-        # Initialize
-        eps_buckets = {f"Q{i}": {"period": f"Q{i} {current_fy_num}", "avg": None, "growth": None, "status": "estimate"} for i in range(1, 5)}
-        eps_buckets.update({"FY0": {"period": f"FY {current_fy_num}", "avg": None, "growth": None, "reported_count": reported_eps_count}, 
-                            "FY1": {"period": f"FY {current_fy_num + 1}", "avg": None, "growth": None}})
-        rev_buckets = {f"Q{i}": {"period": f"Q{i} {current_fy_num}", "avg": None, "growth": None, "status": "estimate"} for i in range(1, 5)}
-        rev_buckets.update({"FY0": {"period": f"FY {current_fy_num}", "avg": None, "growth": None, "reported_count": reported_rev_count}, 
-                            "FY1": {"period": f"FY {current_fy_num + 1}", "avg": None, "growth": None}})
-
-        fill_buckets(eps_buckets, [reported_eps + eps_estimates], current_fy_num)
-        fill_buckets(rev_buckets, [reported_rev + rev_estimates], current_fy_num)
-
-        # ── PLUG MISSING QUARTERS ──────────────────────────────────────────────
-        # If 3 quarters and FY are present, calculate the 4th.
-        # v102: Mathematical Integrity Check (Sum of Quarters > Annual Estimate for Non-GAAP)
-        def plug_missing_q(buckets):
-            q_keys = ["Q1", "Q2", "Q3", "Q4"]
-            ann_val = buckets["FY0"].get("avg")
-            has_all_q = all(buckets[q].get("avg") is not None for q in q_keys)
-            
-            # 1. If FY0 has a value from Yahoo (Non-GAAP consensus), TRUST IT.
-            #    Adjust estimated (non-reported) quarters to reconcile.
-            if has_all_q and ann_val:
-                q_sum = sum(buckets[q]["avg"] for q in q_keys)
-                if abs(q_sum - ann_val) > 0.50:
-                    reported = [q for q in q_keys if buckets[q].get("status") == "reported"]
-                    estimated = [q for q in q_keys if buckets[q].get("status") != "reported"]
-                    if estimated:
-                        reported_sum = sum(buckets[q]["avg"] for q in reported)
-                        needed = ann_val - reported_sum
-                        est_sum = sum(buckets[q]["avg"] for q in estimated)
-                        if est_sum > 0:
-                            scale = needed / est_sum
-                            for q in estimated:
-                                buckets[q]["avg"] = round(buckets[q]["avg"] * scale, 2)
-                            log(f"DEBUG: Scaled {len(estimated)} estimated quarters to match FY0 {ann_val} (was {q_sum})")
-            elif has_all_q and not ann_val:
-                # FY0 missing: compute from quarterly sum
-                buckets["FY0"]["avg"] = round(sum(buckets[q]["avg"] for q in q_keys), 2)
-
-            # 2. Plug single missing quarter from FY0
-            missing = [q for q in q_keys if buckets[q].get("avg") is None]
-            if len(missing) == 1 and buckets["FY0"].get("avg") is not None:
-                m_key = missing[0]
-                total = buckets["FY0"]["avg"]
-                others = sum(buckets[q]["avg"] for q in q_keys if q != m_key and buckets[q].get("avg") is not None)
-                buckets[m_key]["avg"] = round(total - others, 2)
-                buckets[m_key]["status"] = "estimate"
-
-        plug_missing_q(eps_buckets)
-        plug_missing_q(rev_buckets)
-
-        # ── REFINED GROWTH CALCULATION ──────────────────────────────────────────
-        unified_eps = []; unified_rev = []
-        
-        # Improve FY0 baseline: yfinance info['trailingEps'] is often Adjusted
-        actual_trailing_eps = info.get('trailingEps')
-        actual_trailing_rev = info.get('totalRevenue')
-        
-        # v135/v136: ABSOLUTE SYNC with Historical Data (Adjusted Baseline)
-        if historical_data and "years" in historical_data:
-            for i, yr in enumerate(historical_data["years"]):
-                history_eps[f"FY {yr}"] = historical_data["eps"][i]
-                history_rev[f"FY {yr}"] = historical_data["revenue"][i]
-
-
-        # v210: FINAL UNIVERSAL FORENSIC GROWTH ANCHOR (Strict sequential chaining)
-        # 1. Identify the literal absolute most recent year in history as the root anchor
-        hist_years = []
-        if historical_data and "years" in historical_data:
-             hist_years = [int(y) for y in historical_data["years"] if str(y).isdigit()]
-        
-        # Merge with any backfilled years added to history_eps (v211: Robust extraction)
-        for k in history_eps.keys():
-            if "FY" in k:
-                digits = re.findall(r'\d{4}', k)
-                if digits: hist_years.append(int(digits[-1]))
-        
-        # v210.2: PREVENT SELF-ANCHORING (Only consider years strictly before the current estimate cycle)
-        hist_years = sorted(list(set([y for y in hist_years if y < current_fy_num])))
-        
-        last_act_y = hist_years[-1] if hist_years else (current_fy_num - 1)
-        last_act_eps = history_eps.get(f"FY {last_act_y}") 
-        last_act_rev = history_rev.get(f"FY {last_act_y}")
-
-        # v211: If forensic anchor is still missing, try matching current trailing base (7.46)
-        if not last_act_eps and base_eps: last_act_eps = base_eps
-        if not last_act_rev and base_rev: last_act_rev = base_rev
-
-        # 2. Sequential Force
-        for bucket_set, key_prefix, last_anchor in [ (eps_buckets, "eps", last_act_eps), (rev_buckets, "rev", last_act_rev) ]:
-            f0 = bucket_set.get("FY0")
-            f1 = bucket_set.get("FY1")
-            
-            # FY0: Anchor vs the newest Historical Actual
-            if f0 and f0.get("avg") and last_anchor and last_anchor != 0:
-                f0["growth"] = (f0["avg"] / abs(last_anchor)) - 1
-                log(f"DEBUG: v211 - {key_prefix.upper()} FY0 Growth anchored to {last_act_y} ({last_anchor}): {f0['growth']:.4f}")
-            elif f0 and f0.get("avg") and base_eps and key_prefix == "eps":
-                # Final safeguard fallback to info trailing base
-                f0["growth"] = (f0["avg"] / abs(base_eps)) - 1
-                log(f"DEBUG: v211 - {key_prefix.upper()} FY0 Growth anchored to BASE_EPS ({base_eps})")
-            
-            # FY1: Anchor vs FY0
-            if f1 and f1.get("avg") and f0 and f0.get("avg") and f0["avg"] != 0:
-                f1["growth"] = (f1["avg"] / abs(f0["avg"])) - 1
-                log(f"DEBUG: v210 - {key_prefix.upper()} FY1 Growth anchored to FY0: {f1['growth']:.4f}")
-
-        # v205: Generic Lock via Analysis Table (HIMS 1.11 anchor now handled by v267)
-
-        # v258: ANALYST REFORMATION (FY0, FY1, FY2 ONLY)
+        # v268: Strictly construct FY0, FY1, FY2 from Yahoo Analysis tab (Normalized)
         # Fetch the High-Fidelity Truth from our new scraper
         analysis_data = get_yahoo_analysis_normalized(ticker_symbol, info)
         
-        # Determine Years
-        fy0_yr = hist_years[-1] if hist_years else (current_fy_num - 1)
+        # Determine Years (Synchronized with Current Fiscal Year)
+        # FY1 is always the Current Year being forecasted
         fy1_yr = current_fy_num
-        fy2_yr = current_fy_num + 1
+        fy0_yr = fy1_yr - 1
+        fy2_yr = fy1_yr + 1
         
-        # FY 0 Data (Actuals)
+        # FY 0 Data (Last Reported - Non-GAAP Anchor)
         fy0_eps = analysis_data.get('eps', {}).get('0y', {}).get('yearAgo')
-        if not fy0_eps: fy0_eps = last_act_eps
+        if not fy0_eps: 
+            # Fallback to historical Non-GAAP history if scraper failed
+            fy0_eps = history_eps.get(f"FY {fy0_yr}") or base_eps
         
         fy0_rev = analysis_data.get('rev', {}).get('0y', {}).get('yearAgo')
-        if not fy0_rev: fy0_rev = last_act_rev
+        if not fy0_rev: 
+            fy0_rev = history_rev.get(f"FY {fy0_yr}") or base_rev
         
-        # FY 1 Data (Current Year Avg)
+        # FY 1 Data (Current Year Avg Estimate)
         fy1_eps = analysis_data.get('eps', {}).get('0y', {}).get('avg')
-        if not fy1_eps: fy1_eps = eps_buckets["FY0"].get("avg")
-        
         fy1_rev = analysis_data.get('rev', {}).get('0y', {}).get('avg')
-        if not fy1_rev: fy1_rev = rev_buckets["FY0"].get("avg")
         
-        # FY 2 Data (Next Year Avg)
+        # FY 2 Data (Next Year Avg Estimate)
         fy2_eps = analysis_data.get('eps', {}).get('+1y', {}).get('avg')
-        if not fy2_eps: fy2_eps = eps_buckets["FY1"].get("avg")
-        
         fy2_rev = analysis_data.get('rev', {}).get('+1y', {}).get('avg')
-        if not fy2_rev: fy2_rev = rev_buckets["FY1"].get("avg")
         
-        # Build Final Lists
+        # Build Final Unified Lists
         unified_eps = []
         unified_rev = []
         
-        # FY 0 (v260: Remove "(Actual)")
+        # 1. FY 0 (Reported Anchor)
         unified_eps.append({"period": f"FY {fy0_yr}", "avg": fy0_eps, "growth": None, "status": "reported"})
         unified_rev.append({"period": f"FY {fy0_yr}", "avg": fy0_rev, "growth": None, "status": "reported"})
         
-        # FY 1 (Current Year)
-        g1 = (fy1_eps / abs(fy0_eps) - 1) if fy0_eps and fy0_eps != 0 else None
+        # 2. FY 1 (Current Year Forecast)
+        g1 = (fy1_eps / abs(fy0_eps) - 1) if fy0_eps and fy0_eps != 0 and fy1_eps is not None else None
         unified_eps.append({"period": f"FY {fy1_yr}", "avg": fy1_eps, "growth": g1, "status": "estimate"})
         
-        g1r = (fy1_rev / abs(fy0_rev) - 1) if fy0_rev and fy0_rev != 0 else None
+        g1r = (fy1_rev / abs(fy0_rev) - 1) if fy0_rev and fy0_rev != 0 and fy1_rev is not None else None
         unified_rev.append({"period": f"FY {fy1_yr}", "avg": fy1_rev, "growth": g1r, "status": "estimate"})
         
-        # FY 2 (Next Year)
-        g2 = (fy2_eps / abs(fy1_eps) - 1) if fy1_eps and fy1_eps != 0 else None
+        # 3. FY 2 (Next Year Forecast)
+        g2 = (fy2_eps / abs(fy1_eps) - 1) if fy1_eps and fy1_eps != 0 and fy2_eps is not None else None
         unified_eps.append({"period": f"FY {fy2_yr}", "avg": fy2_eps, "growth": g2, "status": "estimate"})
         
-        g2r = (fy2_rev / abs(fy1_rev) - 1) if fy1_rev and fy1_rev != 0 else None
+        g2r = (fy2_rev / abs(fy1_rev) - 1) if fy1_rev and fy1_rev != 0 and fy2_rev is not None else None
         unified_rev.append({"period": f"FY {fy2_yr}", "avg": fy2_rev, "growth": g2r, "status": "estimate"})
 
 
