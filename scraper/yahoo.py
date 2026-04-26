@@ -1149,19 +1149,25 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 if executor is not None:
                     # Parallelize core financial fetches to stay under 5-10s
                     future_fin = future_fin # already submitted
+                    future_qfin = executor.submit(lambda: getattr(stock, 'quarterly_financials', {}))
                     future_cf = executor.submit(lambda: getattr(stock, 'cashflow', {}))
+                    future_qcf = executor.submit(lambda: getattr(stock, 'quarterly_cashflow', {}))
                     future_bs = executor.submit(lambda: getattr(stock, 'balance_sheet', {}))
                     future_qbs = executor.submit(lambda: getattr(stock, 'quarterly_balance_sheet', {}))
                     future_div = executor.submit(lambda: getattr(stock, 'dividends', pd.Series()))
                     
                     financials = future_fin.result(timeout=10)
+                    q_financials = future_qfin.result(timeout=10)
                     cashflow = future_cf.result(timeout=10)
+                    q_cashflow = future_qcf.result(timeout=10)
                     bs = future_bs.result(timeout=10)
                     q_bs = future_qbs.result(timeout=10)
                     dividends_raw = future_div.result(timeout=10)
                 else:
                     financials = getattr(stock, 'financials', {})
+                    q_financials = getattr(stock, 'quarterly_financials', {})
                     cashflow = getattr(stock, 'cashflow', {})
+                    q_cashflow = getattr(stock, 'quarterly_cashflow', {})
                     bs = getattr(stock, 'balance_sheet', {})
                     q_bs = getattr(stock, 'quarterly_balance_sheet', {})
                     dividends_raw = getattr(stock, 'dividends', pd.Series())
@@ -2065,19 +2071,44 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 
                 diluted_eps_idx = find_idx(financials, 'Diluted EPS')
                 e_raw = get_metric(financials, diluted_eps_idx, yr_col) if diluted_eps_idx else get_metric(financials, 'Basic EPS', yr_col)
+                
+                # v277: HEALING LOGIC (Sum quarters if annual is missing/0)
+                if (not e_raw or abs(e_raw) < 0.001) and q_financials is not None and not q_financials.empty:
+                    q_eps_idx = find_idx(q_financials, 'Diluted EPS') or find_idx(q_financials, 'Basic EPS')
+                    if q_eps_idx:
+                        year_sum = 0
+                        q_count = 0
+                        for q_col in q_financials.columns:
+                            try:
+                                q_dt = q_col if hasattr(q_col, 'year') else pd.to_datetime(q_col)
+                                if q_dt.year == yr_val:
+                                    q_val = q_financials.loc[q_eps_idx, q_col]
+                                    if hasattr(q_val, 'iloc'): q_val = q_val.iloc[0]
+                                    if q_val is not None and not pd.isna(q_val):
+                                        year_sum += float(q_val)
+                                        q_count += 1
+                            except: continue
+                        if q_count > 0:
+                            # Scale if we have partial year but usually we want at least 3-4
+                            if q_count < 4:
+                                log(f"DEBUG: v277 Partial Healing for {ticker_symbol} {yr_val} ({q_count} qtrs): {year_sum}")
+                            else:
+                                log(f"DEBUG: v277 Full Quarterly Healing for {ticker_symbol} {yr_val}: {year_sum}")
+                            e_raw = year_sum
+
                 f = get_metric(cashflow, 'Free Cash Flow', yr_col)
                 s = get_metric(financials, 'Diluted Average Shares', yr_col) or \
                     get_metric(financials, 'Basic Average Shares', yr_col)
                 
                 # v236: Shares Fallback (Fix for missing columns in reported years like Meta 2025)
                 if (not s or s < 1000) and info:
-                    # Try to get live shares from info module if historical row is empty
                     s = info.get('sharesOutstanding') or info.get('impliedSharesOutstanding') or s
-                if (not s or s < 1000) and historical_data["shares"]:
-                    # Fallback to last known historical shares to keep graph consistency
-                    s = historical_data["shares"][-1]
                 
+                # v277: Synchronize Net Income to Healed EPS if needed
                 ni_gaap = ni
+                if (not ni or ni == 0) and e_raw and s:
+                    ni = e_raw * s
+                    ni_gaap = ni
                 
                 # Apply Non-GAAP Overlay
                 if year_label in adjusted_history:
@@ -2127,29 +2158,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         except Exception as e_bridge:
             log(f"DEBUG: Anchor Bridge failed: {e_bridge}")
 
-        # v246: THE ULTIMATE TRUTH (NON-DESTRUCTIVE SURGERY)
-        # We ensure Meta has the exact Non-GAAP truth without breaking the rest of the data.
-        if ticker_symbol == "META":
-            # 1. Force Absolute Chronological Consistency [2022 -> 2025]
-            # Verify if order needs flipping
-            if historical_data["years"] and float(historical_data["years"][0]) > float(historical_data["years"][-1]):
-                for k in ["years", "revenue", "eps", "fcf", "margin", "cash", "debt", "shares", "roic"]:
-                    historical_data[k].reverse()
-                historical_trends.reverse()
-            
-            # 2. Inject Truth Map 
-            truth_map = {"2022": 8.59, "2023": 14.87, "2024": 23.86, "2025": (y_anchor_2025 or 29.68)}
-            
-            for i, yr in enumerate(historical_data["years"]):
-                if yr in truth_map:
-                    historical_data["eps"][i] = truth_map[yr]
-            
-            for tr in historical_trends:
-                y_str = str(tr.get("year", ""))
-                if y_str in truth_map:
-                    tr["eps"] = truth_map[y_str]
-                    
-            log(f"DEBUG: v246 ULTIMATE TRUTH {ticker_symbol} injection complete")
+        # v246: THE ULTIMATE TRUTH (NON-DESTRUCTIVE SURGERY) removed in v277.
+        # Dynamic quarterly healing now handles all tickers without hard-coding.
 
         # 2. Add Projections (Next 2 FYs)
         try:
@@ -3205,9 +3215,23 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         except: pass
         
         rec_counts = {
-            "strongBuy": info.get('numberOfAnalystOpinions', 0),
-            "buy": 0, "hold": 0, "sell": 0, "strongSell": 0
+            "strongBuy": 0, "buy": 0, "hold": 0, "sell": 0, "strongSell": 0
         }
+        try:
+            rt = getattr(stock, 'recommendations', None)
+            if rt is not None and not rt.empty:
+                # v278: Take the most recent month (period '0m' or first row)
+                latest = rt.iloc[0]
+                rec_counts = {
+                    "strongBuy": int(latest.get('strongBuy', 0)),
+                    "buy": int(latest.get('buy', 0)),
+                    "hold": int(latest.get('hold', 0)),
+                    "sell": int(latest.get('sell', 0)) + int(latest.get('underperform', 0)), # Merge underperform into sell
+                    "strongSell": int(latest.get('strongSell', 0))
+                }
+        except:
+            # Fallback to info total if recommendations fetch failed
+            rec_counts["strongBuy"] = info.get('numberOfAnalystOpinions', 0)
 
         # ── INITIALIZE LISTS ──────────────────────────────────────────────────
         eps_estimates = []
