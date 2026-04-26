@@ -189,28 +189,54 @@ def _find_insights_file():
         return cwd_path
     return path
 
-INSIGHTS_FILE = _find_insights_file()
-
 def normalize_growth(val):
     """Ensure growth rate is a decimal (e.g., 0.05 for 5%) even if source gives 5.0"""
     if val is None: return None
     try:
         f_val = float(val)
         # If absolute value > 1.0 (e.g. 7.56 or 756), it's likely a percentage
-        # Unless it's truly massive (756x growth), but for financial metrics > 2.0 (200%) usually needs correction
         if abs(f_val) > 2.0:
-            return f_val / 100.0
-        return f_val
+            f_val = f_val / 100.0
+            
+        # v281: Cap extreme growth rates (e.g. 1.5 billion %) to prevent valuation explosions
+        # Anything over 500% (5.0) is usually a data artifact or zero-denominator error.
+        return min(f_val, 5.0)
     except:
         return None
 
 def find_idx(df, target):
-    """Case-insensitive index lookup for pandas DataFrames."""
+    """Case-insensitive index lookup for pandas DataFrames (supports list of strings)."""
     if df is None or df.empty: return None
-    target_lower = str(target).lower().strip()
+    targets = [str(t).lower().strip() for t in (target if isinstance(target, list) else [target])]
     for idx in df.index:
-        if str(idx).lower().strip() == target_lower: return idx
+        idx_lower = str(idx).lower().strip()
+        if idx_lower in targets: return idx
     return None
+
+def get_metric(df, field, target):
+    """
+    Robust metric extraction from yfinance DataFrame.
+    target can be a date (for fuzzy lookup) or an integer index.
+    """
+    if df is None or df.empty: return None
+    f_idx = find_idx(df, field)
+    if not f_idx: return None
+    
+    c_idx = None
+    if isinstance(target, (int, float)):
+        if 0 <= int(target) < len(df.columns):
+            c_idx = df.columns[int(target)]
+    else:
+        c_idx = find_nearest_col(df, target)
+        
+    if c_idx is None: return None
+    
+    val = df.loc[f_idx, c_idx]
+    try:
+        f_val = float(val)
+        return f_val if math.isfinite(f_val) else None
+    except:
+        return None
 
 def find_nearest_col(df, target_date, max_days=10):
     """Finds the column index in df that most closely matches target_date within max_days."""
@@ -532,11 +558,11 @@ def get_nasdaq_actual_eps(ticker: str) -> float:
                 total_eps = 0.0
                 # Sum the last 4 reported quarters
                 count = 0
-                for row in rows[:4]:
+                for row in rows:
                     # 'eps' is the actual reported EPS in the surprise table
                     val_str = row.get('eps') or row.get('actualEPS')
                     fc_str = row.get('consensusForecast')
-                    if val_str:
+                    if val_str and str(val_str).upper() != "N/A":
                         try:
                             val = float(val_str)
                             
@@ -549,12 +575,13 @@ def get_nasdaq_actual_eps(ticker: str) -> float:
                                         diff = abs(val - f_fc)
                                         # Threshold 25% or $0.15 matches the logic in get_company_data
                                         if (diff / abs(f_fc) > 0.25) or diff > 0.15:
-                                            log(f"DEBUG: v255 Nasdaq Forensic Neutralizer for {ticker} ({val} -> {f_fc})")
+                                            log(f"DEBUG: v280 Nasdaq Forensic Neutralizer for {ticker} ({val} -> {f_fc})")
                                             val = f_fc
                                 except: pass
                             
                             total_eps += val
                             count += 1
+                            if count >= 4: break # Only need last 4 actuals
                         except ValueError:
                             continue
             
@@ -1044,7 +1071,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     if idx:
                         val = ge.loc[idx, ge.columns[0]]
                         if val is not None and not pd.isna(val):
-                            eps_growth_5y_consensus = float(val)
+                            eps_growth_5y_consensus = normalize_growth(val)
                             eps_growth = eps_growth_5y_consensus
                             eps_growth_period = "Next 5 Years (Consensus)"
             except Exception:
@@ -1062,11 +1089,11 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     labels = get_period_labels(info)
                     
                     if g_5y is not None:
-                        eps_growth = float(g_5y)
+                        eps_growth = normalize_growth(g_5y)
                         eps_growth_period = labels.get('+5y', 'Next 5 Years (Est)')
                     elif g_1y is not None:
                         # Only use +1y if it is sane (positive) OR if we have no other choice
-                        eps_growth = float(g_1y)
+                        eps_growth = normalize_growth(g_1y)
                         eps_growth_period = labels.get('+1y', 'Next Year (Est)')
             except Exception:
                 pass
@@ -1074,6 +1101,13 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         # 3. Try Nasdaq growth (fallback)
         nasdaq_growth_3y = None
         nasdaq_actual_eps = None
+        yf_0y_anchor = None
+        try:
+            # v280: Retrieve the Normalized Anchor directly from Trend module if available
+            y_trend = get_yahoo_eps_trend(ticker_symbol)
+            yf_0y_anchor = y_trend.get('0y', {}).get('yearAgoEps')
+        except: pass
+
         if not fast_mode and executor is not None:
             try:
                 # Increased timeout to 10s as Nasdaq can be slow
@@ -1083,10 +1117,10 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 log(f"DEBUG: Nasdaq growth result timeout/fail: {e}")
                 pass
 
-        # Detect Nasdaq Actual (Non-GAAP)
-        if nasdaq_actual_eps is not None:
-            # Store separately instead of overwriting the main trailing_eps
-            # This allow the UI to show the GAAP value the user expects from Yahoo summary
+        # Detect Normalized Anchor (Priority: Yahoo Trend -> Nasdaq Surprise -> Yahoo Info)
+        if yf_0y_anchor is not None:
+            adjusted_eps = yf_0y_anchor
+        elif nasdaq_actual_eps is not None:
             adjusted_eps = nasdaq_actual_eps
         else:
             adjusted_eps = trailing_eps
@@ -1102,8 +1136,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 for idx, row in ee.iterrows():
                     g = row.get('growth')
                     if g is not None and not pd.isna(g):
-                        if str(idx) == '0y': yf_0y_growth = float(g)
-                        elif str(idx) == '+1y': yf_1y_growth = float(g)
+                        if str(idx) == '0y': yf_0y_growth = normalize_growth(g)
+                        elif str(idx) == '+1y': yf_1y_growth = normalize_growth(g)
         except: pass
 
         # Select the best available growth rate
@@ -1128,12 +1162,12 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         if eps_growth is None:
             eg_val = info.get('earningsGrowth')
             if eg_val and eg_val > 0:
-                eps_growth = eg_val
+                eps_growth = normalize_growth(eg_val)
                 eps_growth_period = "Trailing Growth"
             else:
                 # Use revenue growth if explicitly provided, else 0 (No Implied PE deduction)
-                eps_growth = info.get('revenueGrowth', 0)
-                eps_growth_period = "Revenue Growth Proxy" if eps_growth > 0 else "None"
+                eps_growth = normalize_growth(info.get('revenueGrowth', 0))
+                eps_growth_period = "Revenue Growth Proxy" if (eps_growth and eps_growth > 0) else "None"
             
         # Financials for DCF & Margins (Wait for results)
         financials = None
@@ -1340,22 +1374,44 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             except (ValueError, TypeError):
                 debt_to_equity = None
 
-        # v168: Strict Current Ratio (Total Current Assets / Total Current Liabilities)
+        # v281: Forensic Current Ratio (Total Current Assets / Total Current Liabilities)
         def get_cr(df):
             if df is None or df.empty: return None
-            ca_idx = find_idx(df, 'Total Current Assets')
-            cl_idx = find_idx(df, 'Current Liabilities') or find_idx(df, 'Total Current Liabilities')
-            if ca_idx and cl_idx:
+            # Try primary labels
+            ca_idx = find_idx(df, 'Total Current Assets') or find_idx(df, 'Current Assets') or find_idx(df, 'CurrentAssets')
+            cl_idx = find_idx(df, 'Current Liabilities') or find_idx(df, 'Total Current Liabilities') or find_idx(df, 'CurrentLiabilities')
+            
+            ca = None
+            cl = None
+            
+            if ca_idx:
                 ca_obj = df.loc[ca_idx]
                 ca = float(ca_obj.iloc[0]) if hasattr(ca_obj, 'iloc') else float(ca_obj)
+            
+            if cl_idx:
                 cl_obj = df.loc[cl_idx]
                 cl = float(cl_obj.iloc[0]) if hasattr(cl_obj, 'iloc') else float(cl_obj)
-                return (ca / cl) if cl > 0 else None
+                
+            # Forensic Fallback: Sum components if total is missing
+            if ca is None:
+                cash = get_metric(df, ['Cash And Cash Equivalents', 'Cash'], 0) or 0
+                rec = get_metric(df, ['Receivables', 'Accounts Receivable'], 0) or 0
+                inv = get_metric(df, ['Inventory'], 0) or 0
+                if cash > 0: ca = cash + rec + inv
+                
+            if cl is None:
+                total_liab = get_metric(df, ['Total Liabilities'], 0) or 0
+                lt_debt = get_metric(df, ['Long Term Debt'], 0) or 0
+                if total_liab and lt_debt and total_liab > lt_debt: cl = total_liab - lt_debt
+            
+            if ca is not None and cl is not None and cl > 0:
+                return (ca / cl)
             return None
             
         current_ratio = get_cr(q_bs) or get_cr(bs) or info.get('currentRatio')
-        if current_ratio is None and info.get('sector') == 'Financial Services':
-            current_ratio = 1.0
+        if current_ratio is None:
+            if info.get('sector') in ['Financial Services', 'Insurance']:
+                current_ratio = 1.1 # Safe liquidity assumption for highly regulated sectors
 
         roic = info.get('returnOnCapitalEmployed') or info.get('returnOnAssets') or info.get('returnOnEquity')
         roe = info.get('returnOnEquity')
@@ -2052,25 +2108,20 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 year_label = str(yr_val)
 
                 # Helper for fuzzy extraction within this scope
-                def get_metric(df, field, target_date):
-                    f_idx = find_idx(df, field)
-                    if not f_idx: return 0
-                    c_idx = find_nearest_col(df, target_date)
-                    if not c_idx: return 0
-                    val = df.loc[f_idx, c_idx]
-                    # Handle multiple matches (Series)
-                    if hasattr(val, 'iloc'): val = val.iloc[0]
-                    return float(val) if not (val is None or (isinstance(val, float) and pd.isna(val))) else 0
+                # v281: Using global get_metric instead of local redefined one
 
                 # v233: Accurate Mapping
                 r_idx = find_idx(financials, 'Total Revenue')
                 r = get_metric(financials, r_idx, yr_col) if r_idx else 0
+                r = r or 0
                 
                 ni_idx = find_idx(financials, 'Net Income')
                 ni = get_metric(financials, ni_idx, yr_col) if ni_idx else 0
+                ni = ni or 0
                 
                 diluted_eps_idx = find_idx(financials, 'Diluted EPS')
                 e_raw = get_metric(financials, diluted_eps_idx, yr_col) if diluted_eps_idx else get_metric(financials, 'Basic EPS', yr_col)
+                e_raw = e_raw or 0
                 
                 # v277: HEALING LOGIC (Sum quarters if annual is missing/0)
                 if (not e_raw or abs(e_raw) < 0.001) and q_financials is not None and not q_financials.empty:
@@ -2096,9 +2147,9 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                                 log(f"DEBUG: v277 Full Quarterly Healing for {ticker_symbol} {yr_val}: {year_sum}")
                             e_raw = year_sum
 
-                f = get_metric(cashflow, 'Free Cash Flow', yr_col)
+                f = get_metric(cashflow, 'Free Cash Flow', yr_col) or 0
                 s = get_metric(financials, 'Diluted Average Shares', yr_col) or \
-                    get_metric(financials, 'Basic Average Shares', yr_col)
+                    get_metric(financials, 'Basic Average Shares', yr_col) or 0
                 
                 # v236: Shares Fallback (Fix for missing columns in reported years like Meta 2025)
                 if (not s or s < 1000) and info:
@@ -2348,8 +2399,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                         prev_eps = historical_data["eps"][-1] if historical_data["eps"] else eps_est
                         prev_rev = historical_data["revenue"][-1] if historical_data["revenue"] else rev_est
                     
-                    current_growth = (eps_est / prev_eps - 1) if prev_eps and prev_eps > 0 else 0.10
-                    rev_growth = (rev_est / prev_rev - 1) if prev_rev and prev_rev > 0 else 0.08
+                    current_growth = normalize_growth((eps_est / prev_eps - 1) if prev_eps and prev_eps > 0 else 0.10)
+                    rev_growth = normalize_growth((rev_est / prev_rev - 1) if prev_rev and prev_rev > 0 else 0.08)
                     
                     log(f"DEBUG: v228 {ticker_symbol} {label} growth base: {prev_eps:.2f}")
                     
@@ -2388,14 +2439,19 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                             break
 
             # Source A: Projections from trend table (Avg Estimates)
+            # v280: Robust Growth Averaging (Filtering out outliers and missing data)
             proj_growths = [t.get("eps_growth") for t in historical_trends if "Est" in str(t.get("year", "")) and t.get("eps_growth") is not None]
+            valid_proj = [g for g in proj_growths if g is not None and g > 0.001]
             
-            if len(proj_growths) >= 2:
-                eps_growth = (proj_growths[0] + proj_growths[1]) / 2
+            if len(valid_proj) >= 2:
+                eps_growth = (valid_proj[0] + valid_proj[1]) / 2
                 eps_growth_period = "2Y EPS CAGR (Yahoo Truth Sync)"
-            elif len(proj_growths) == 1:
-                eps_growth = proj_growths[0]
+            elif len(valid_proj) == 1:
+                eps_growth = valid_proj[0]
                 eps_growth_period = "FY1 Growth (Yahoo Truth Sync)"
+            else:
+                # Keep fallback from earlier in function if no valid projections found here
+                pass
                 
             log(f"DEBUG: v231 - Final eps_growth for {ticker_symbol}: {eps_growth:.4f} ({eps_growth_period})")
         except Exception as e_norm_g:
@@ -2428,11 +2484,11 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
 
                     def get_bs_metric(field, target_date):
                         idx = find_idx(bs, field)
-                        if not idx: return 0
+                        if not idx: return None
                         c_idx = find_nearest_col(bs, target_date)
-                        if not c_idx: return 0
+                        if not c_idx: return None
                         val = bs.loc[idx, c_idx]
-                        return float(val) if not pd.isna(val) else 0
+                        return float(val) if not pd.isna(val) else None
 
                     c_raw = get_bs_metric('Cash And Cash Equivalents', yr_col)
                     
@@ -2446,15 +2502,15 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                             if not c_idx: continue
                             val = bs.loc[idx, c_idx]
                             if not pd.isna(val): return float(val)
-                        return 0
+                        return None
 
-                    lt_debt = get_hist_metric(['Long Term Debt', 'Total Long Term Debt'], yr_col)
-                    st_debt = get_hist_metric(['Current Debt', 'Short Term Debt', 'Short Long Term Debt', 'Commercial Paper'], yr_col)
+                    lt_debt = get_hist_metric(['Long Term Debt', 'Total Long Term Debt'], yr_col) or 0
+                    st_debt = get_hist_metric(['Current Debt', 'Short Term Debt', 'Short Long Term Debt', 'Commercial Paper'], yr_col) or 0
                     d_raw = lt_debt + st_debt
                     
                     # Sanity Check (v168): Debt cannot exceed Total Liabilities (Quantitative Guardrail)
                     total_liab = get_bs_metric('Total Liabilities', yr_col) or get_bs_metric('Total Liabilities Net Minority Interest', yr_col)
-                    if (d_raw >= total_liab) and total_liab > 0:
+                    if total_liab and (d_raw >= total_liab) and total_liab > 0:
                         print(f"CRITICAL MAPPING ERROR: {ticker_symbol} {yr_label} - Debt (${d_raw/1e9:.2f}B) >= Liabilities (${total_liab/1e9:.2f}B). Sanity check failed.")
 
                     assets = get_bs_metric('Total Assets', yr_col)
@@ -2471,8 +2527,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                              yr_label = f"{yr_label} (Partial)"
 
                     # Rule 2: Symmetric Current Ratio (Total Current Assets / Current Liabs)
-                    cr_v = (current_assets / liabs) if liabs and liabs > 0 else None
-                    roic_v = (ni_raw / (assets - liabs) * 100.0) if (assets and liabs and (assets - liabs) > 0) else None
+                    cr_v = (current_assets / liabs) if (current_assets is not None and liabs and liabs > 0) else None
+                    roic_v = (ni_raw / (assets - liabs) * 100.0) if (assets is not None and liabs is not None and (assets - liabs) > 0) else None
                     
                     gaap_v = (historical_trends[i]["gaap_net_margin"] * 100.0) if (i < len(historical_trends) and "gaap_net_margin" in historical_trends[i]) else margin_v
                     
@@ -3220,8 +3276,13 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         try:
             rt = getattr(stock, 'recommendations', None)
             if rt is not None and not rt.empty:
-                # v278: Take the most recent month (period '0m' or first row)
-                latest = rt.iloc[0]
+                # v280: Robust month selection (prefer current month '0m')
+                latest = None
+                for _, row in rt.iterrows():
+                    if str(row.get('period')).lower() == '0m':
+                        latest = row
+                        break
+                if latest is None: latest = rt.iloc[0] # Fallback to first row
                 rec_counts = {
                     "strongBuy": int(latest.get('strongBuy', 0)),
                     "buy": int(latest.get('buy', 0)),
@@ -3283,17 +3344,17 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         unified_rev.append({"period": f"FY {fy0_yr}", "avg": fy0_rev, "growth": None, "status": "reported"})
         
         # 2. FY 1 (Current Year Forecast)
-        g1 = (fy1_eps / abs(fy0_eps) - 1) if fy0_eps and fy0_eps != 0 and fy1_eps is not None else None
+        g1 = normalize_growth((fy1_eps / abs(fy0_eps) - 1) if fy0_eps and fy0_eps != 0 and fy1_eps is not None else None)
         unified_eps.append({"period": f"FY {fy1_yr}", "avg": fy1_eps, "growth": g1, "status": "estimate"})
         
-        g1r = (fy1_rev / abs(fy0_rev) - 1) if fy0_rev and fy0_rev != 0 and fy1_rev is not None else None
+        g1r = normalize_growth((fy1_rev / abs(fy0_rev) - 1) if fy0_rev and fy0_rev != 0 and fy1_rev is not None else None)
         unified_rev.append({"period": f"FY {fy1_yr}", "avg": fy1_rev, "growth": g1r, "status": "estimate"})
         
         # 3. FY 2 (Next Year Forecast)
-        g2 = (fy2_eps / abs(fy1_eps) - 1) if fy1_eps and fy1_eps != 0 and fy2_eps is not None else None
+        g2 = normalize_growth((fy2_eps / abs(fy1_eps) - 1) if fy1_eps and fy1_eps != 0 and fy2_eps is not None else None)
         unified_eps.append({"period": f"FY {fy2_yr}", "avg": fy2_eps, "growth": g2, "status": "estimate"})
         
-        g2r = (fy2_rev / abs(fy1_rev) - 1) if fy1_rev and fy1_rev != 0 and fy2_rev is not None else None
+        g2r = normalize_growth((fy2_rev / abs(fy1_rev) - 1) if fy1_rev and fy1_rev != 0 and fy2_rev is not None else None)
         unified_rev.append({"period": f"FY {fy2_yr}", "avg": fy2_rev, "growth": g2r, "status": "estimate"})
 
 
@@ -3313,7 +3374,7 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
                         val = ge.loc[lbl, ge.columns[0]]
                         if val is not None and not pd.isna(val): break
                 if val is not None and not pd.isna(val):
-                    eps_growth_5y_consensus = float(val)
+                    eps_growth_5y_consensus = normalize_growth(val)
         except: pass
 
         # v258: Unified Growth detection from Reformed Table
@@ -3349,7 +3410,7 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             "eps_growth_5y_consensus": eps_growth_5y_consensus,
             "eps_estimates":  unified_eps,
             "rev_estimates":  unified_rev,
-            "eps_growth": eps_forward_growth,
+            "eps_growth": normalize_growth(eps_forward_growth),
             "fwd_pe": (current_price / fy1_eps) if (current_price and fy1_eps and fy1_eps > 0) else None, # v260
             "eps_trend": eps_trend
         }
