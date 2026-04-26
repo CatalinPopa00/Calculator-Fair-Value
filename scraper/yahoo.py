@@ -66,11 +66,19 @@ def get_yahoo_analysis_normalized(ticker, info=None):
                         is_rev = (val0 and ('B' in val0 or 'M' in val0)) or (val1 and ('B' in val1 or 'M' in val1))
                         
                         if is_rev:
-                            if val0: res['rev']['0y'] = {'avg': parse_n(val0)}
-                            if val1: res['rev']['+1y'] = {'avg': parse_n(val1)}
+                            if val0: 
+                                res['rev']['0y'] = {'avg': parse_n(val0)}
+                                log(f"DEBUG: Scraper Pass 1 (HTML) Rev 0y: {res['rev']['0y']['avg']}")
+                            if val1: 
+                                res['rev']['+1y'] = {'avg': parse_n(val1)}
+                                log(f"DEBUG: Scraper Pass 1 (HTML) Rev +1y: {res['rev']['+1y']['avg']}")
                         else:
-                            if val0: res['eps']['0y'] = {'avg': parse_n(val0)}
-                            if val1: res['eps']['+1y'] = {'avg': parse_n(val1)}
+                            if val0: 
+                                res['eps']['0y'] = {'avg': parse_n(val0)}
+                                log(f"DEBUG: Scraper Pass 1 (HTML) EPS 0y: {res['eps']['0y']['avg']}")
+                            if val1: 
+                                res['eps']['+1y'] = {'avg': parse_n(val1)}
+                                log(f"DEBUG: Scraper Pass 1 (HTML) EPS +1y: {res['eps']['+1y']['avg']}")
                             
                     elif 'Year Ago EPS' in clean_row:
                         m_ya = re.search(r'data-testid-cell="0y".*?>\s*([^<]+)', row)
@@ -105,14 +113,16 @@ def get_yahoo_analysis_normalized(ticker, info=None):
                     sub_chunk = chunk[p_idx:p_idx+3000] 
                     
                     if not is_rev_trend:
-                        eps_avg_m = re.search(r'earningsEstimate.*?avg.*?raw.*?([\d\.\-]+)', sub_chunk)
-                        eps_ya_m = re.search(r'yearAgoEps.*?raw.*?([\d\.\-]+)', sub_chunk)
+                        # v284: Non-nesting regex to prevent crossing object boundaries (Fix for ABNB crossover)
+                        eps_avg_m = re.search(r'earningsEstimate(?:\"|\\"):\{[^{}]*?avg(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
+                        eps_ya_m = re.search(r'yearAgoEps(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
                         
                         if eps_avg_m:
                             val = float(eps_avg_m.group(1))
                             if p not in res['eps']: res['eps'][p] = {}
                             if is_nongaap or 'avg' not in res['eps'][p]:
                                 res['eps'][p]['avg'] = val
+                                log(f"DEBUG: Scraper Pass 2 (JSON) EPS {p}: {val} (nongaap={is_nongaap})")
                         
                         if eps_ya_m:
                             val = float(eps_ya_m.group(1))
@@ -121,17 +131,20 @@ def get_yahoo_analysis_normalized(ticker, info=None):
                                 res['eps'][p]['yearAgo'] = val
                     else:
                         # Revenue extraction (Only if trend_key is revenueTrend)
-                        rev_avg_m = re.search(r'revenueEstimate.*?avg.*?raw.*?([\d\.\-]+)', sub_chunk)
-                        rev_ya_m = re.search(r'yearAgoSales.*?raw.*?([\d\.\-]+)', sub_chunk)
+                        rev_avg_m = re.search(r'revenueEstimate(?:\"|\\"):\{[^{}]*?avg(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
+                        rev_ya_m = re.search(r'yearAgoSales(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
                         
                         if rev_avg_m:
+                            val = float(rev_avg_m.group(1))
                             if p not in res['rev']: res['rev'][p] = {}
                             if 'avg' not in res['rev'][p]:
-                                res['rev'][p]['avg'] = float(rev_avg_m.group(1))
+                                res['rev'][p]['avg'] = val
+                                log(f"DEBUG: Scraper Pass 2 (JSON) Rev {p}: {val}")
                         if rev_ya_m:
+                            val = float(rev_ya_m.group(1))
                             if p not in res['rev']: res['rev'][p] = {}
                             if 'yearAgo' not in res['rev'][p]:
-                                res['rev'][p]['yearAgo'] = float(rev_ya_m.group(1))
+                                res['rev'][p]['yearAgo'] = val
 
             # v260: Price Target Scraping
             match_pt = re.search(r'"targetMeanPrice":\{"raw":([\d\.\-]+)', html)

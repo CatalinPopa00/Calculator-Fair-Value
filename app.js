@@ -2084,7 +2084,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         },
                         y:  { 
                             position: 'left',  
-                            ticks: { color: '#a855f7', font: { size: 10 }, callback: v => '$' + v }, 
+                            ticks: { color: '#a855f7', font: { size: 10 }, callback: v => formatLargeNumber(v, '$') }, 
                             grid: { color: 'rgba(148,163,184,0.1)' }, 
                         },
                         y1: { 
