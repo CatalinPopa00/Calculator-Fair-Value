@@ -2471,8 +2471,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                              yr_label = f"{yr_label} (Partial)"
 
                     # Rule 2: Symmetric Current Ratio (Total Current Assets / Current Liabs)
-                    cr_v = (current_assets / liabs) if liabs > 0 else 0
-                    roic_v = (ni_raw / (assets - liabs) * 100.0) if (assets - liabs) > 0 else None
+                    cr_v = (current_assets / liabs) if liabs and liabs > 0 else None
+                    roic_v = (ni_raw / (assets - liabs) * 100.0) if (assets and liabs and (assets - liabs) > 0) else None
                     
                     gaap_v = (historical_trends[i]["gaap_net_margin"] * 100.0) if (i < len(historical_trends) and "gaap_net_margin" in historical_trends[i]) else margin_v
                     
@@ -2481,12 +2481,12 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                         "revenue_b": round((r_raw * fx_rate) / 1e9, 2),
                         "eps": round(e_raw * fx_rate, 2),
                         "fcf_b": round((f_raw * fx_rate) / 1e9, 2),
-                        "net_margin_pct": f"{margin_v:.1f}%" if margin_v is not None else "0.0%",
+                        "net_margin_pct": f"{margin_v:.1f}%" if margin_v is not None else "N/A",
                         "gaap_net_margin": gaap_v / 100.0 if gaap_v is not None else None, # v129
                         "cash_b": round(c_raw / 1e9, 2),
                         "total_debt_b": round(d_raw / 1e9, 2),
                         "shares_out_b": round(s_raw / 1e9, 2),
-                        "roic_pct": f"{roic_v:.1f}%" if roic_v is not None else "0.0%",
+                        "roic_pct": f"{roic_v:.1f}%" if roic_v is not None else "N/A",
                         "current_ratio": round(cr_v, 2) if cr_v is not None else None
                     })
             # Reverse anchors so newest is first for the UI table

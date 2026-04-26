@@ -174,11 +174,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const growthFromAnchor = (window._simAnchors && window._simAnchors.growth > 0) ? window._simAnchors.growth : (prof.revenue_growth || 10);
         
         const shares = prof.shares_outstanding || 0;
-        const revenue = prof.revenue || 0;
-        const ebitda = prof.ebitda || 0;
-        const pToB = prof.price_to_book || 0;
+        // v279: Financials are at the root of globalData, not inside company_profile
+        const revenue = globalData.revenue || 0;
+        const ebitda = globalData.ebitda || 0;
+        const pToB = globalData.price_to_book || 0;
         const bookValuePerShare = (pToB > 0) ? (_originalPrice / pToB) : 0;
-        const dividendRate = prof.dividend_rate || 0;
+        const dividendRate = globalData.dividend_rate || 0;
         const pe5y = prof.historic_pe || 0;
 
         // --- 1. Recalculated Scalars ---
@@ -186,7 +187,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const newPE = (eps > 0) ? simPrice / eps : 0;
         const newPS = (revenue > 0 && shares > 0) ? simPrice / (revenue / shares) : 0;
         const newMktCap = simPrice * shares;
-        const ev = newMktCap + (prof.total_debt || 0) - (prof.total_cash || 0);
+        const ev = newMktCap + (globalData.total_debt || 0) - (globalData.total_cash || 0);
         const newEvEbitda = (ebitda > 0) ? ev / ebitda : 0;
         const newPB = (bookValuePerShare > 0) ? simPrice / bookValuePerShare : 0;
         const newDivYield = (simPrice > 0 && dividendRate > 0) ? (dividendRate / simPrice) : 0;

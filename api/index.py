@@ -36,7 +36,7 @@ from models.scoring import calculate_scoring_reform, calculate_piotroski_score
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v268"
+CACHE_VERSION = "v269"
 # 1. Initialize FastAPI App (Systemic Recovery Fix)
 app = FastAPI(title="Fair Value Calculator API")
 
@@ -880,7 +880,19 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 "payout_ratio": sanitize(data.get("payout_ratio")),
                 "dividend_streak": data.get("dividend_streak"),
                 "dividend_cagr_5y": sanitize(data.get("dividend_cagr_5y")),
-                "fwd_pe": sanitize(data.get("fwd_pe"))
+                "fwd_pe": sanitize(data.get("fwd_pe")),
+                "competitors": [p.get("ticker") for p in peers_data] if peers_data else [],
+                "competitor_metrics": [{
+                    "ticker": p.get("ticker"),
+                    "name": p.get("name"),
+                    "price": sanitize(p.get("price")),
+                    "pe_ratio": sanitize(p.get("pe_ratio")),
+                    "market_cap": sanitize(p.get("market_cap")),
+                    "eps": sanitize(p.get("eps")),
+                    "operating_margin": sanitize(p.get("operating_margin")),
+                    "revenue_growth": sanitize(p.get("revenue_growth")),
+                    "earnings_growth": sanitize(p.get("earnings_growth"))
+                } for p in peers_data] if peers_data else []
             },
             "revenue": sanitize(data.get("revenue")),
             "ebitda": sanitize(data.get("ebitda")),
@@ -888,18 +900,6 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             "total_debt": sanitize(data.get("total_debt")),
             "price_to_book": sanitize(data.get("price_to_book")),
             "dividend_rate": sanitize(data.get("dividend_rate")),
-            "competitors": [p.get("ticker") for p in peers_data] if peers_data else [],
-            "competitor_metrics": [{
-                "ticker": p.get("ticker"),
-                "name": p.get("name"),
-                "price": sanitize(p.get("price")),
-                "pe_ratio": sanitize(p.get("pe_ratio")),
-                "market_cap": sanitize(p.get("market_cap")),
-                "eps": sanitize(p.get("eps")),
-                "operating_margin": sanitize(p.get("operating_margin")),
-                "revenue_growth": sanitize(p.get("revenue_growth")),
-                "earnings_growth": sanitize(p.get("earnings_growth"))
-            } for p in peers_data] if peers_data else [],
             "historical_trends": data.get("historical_trends"),
             "historical_anchors": historical_anchors,
             "company_overview_synthesis": data.get("company_overview_synthesis"),
