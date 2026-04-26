@@ -2933,35 +2933,65 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=3, inc
                 else:
                     peers = ["IBM", "IT", "CTSH", "INFY", "ACN", "MSFT", "AAPL", "GOOGL"]
             elif sector == "Financial Services":
-                if "Bank" in target_industry or "Credit" in target_industry:
-                    peers = ["JPM", "BAC", "WFC", "C", "GS", "MS", "AXP"]
+                if "Credit Services" in target_industry or "Consumer Finance" in target_industry:
+                    peers = ["PYPL", "SQ", "NU", "AFRM", "UPST", "HOOD", "SOFI"]
+                elif "Bank" in target_industry:
+                    peers = ["JPM", "BAC", "WFC", "C", "GS", "MS", "USB"]
+                elif "Capital Markets" in target_industry or "Broker" in target_industry:
+                    peers = ["MS", "GS", "SCHW", "IBKR", "HOOD", "LPLA"]
                 elif "Data" in target_industry or "Exchange" in target_industry:
                     peers = ["MSCI", "NDAQ", "ICE", "SPGI", "MCO", "CBOE", "FDS"]
                 else:
-                    peers = ["SCHW", "MSI", "GS", "JPM", "BAC", "IBKR", "WFC"]
+                    peers = ["SCHW", "GS", "JPM", "BAC", "IBKR", "WFC", "V", "MA"]
             elif sector == "Consumer Cyclical":
                 if "Autos" in target_industry:
-                    peers = ["TSLA", "TM", "GM", "F", "FSR", "RIVN"]
+                    peers = ["TSLA", "TM", "GM", "F", "RIVN", "LCID"]
+                elif "Travel" in target_industry or "Hotel" in target_industry or "Lodging" in target_industry:
+                    peers = ["BKNG", "EXPE", "MAR", "HLT", "ABNB", "TRIP", "RCL", "CCL"]
+                elif "Restaurants" in target_industry:
+                    peers = ["MCD", "SBUX", "CMG", "YUM", "DRI", "QSR"]
+                elif "Retail - Home" in target_industry or "Home Improvement" in target_industry:
+                    peers = ["HD", "LOW", "SHW", "TSCO"]
+                elif "Apparel" in target_industry:
+                    peers = ["NKE", "LULU", "TJX", "VFC", "RL"]
                 else:
-                    peers = ["AMZN", "TSLA", "HD", "NKE", "MCD", "SBUX"]
+                    peers = ["AMZN", "TSLA", "HD", "NKE", "MCD", "SBUX", "LOW"]
+            elif sector == "Communication Services":
+                if "Entertainment" in target_industry or "Broadcasting" in target_industry:
+                    peers = ["DIS", "NFLX", "WBD", "PARA", "CMCSA", "ROKU"]
+                elif "Internet Content" in target_industry or "Social" in target_industry:
+                    peers = ["GOOGL", "META", "SNAP", "PINS", "MTCH", "TTD"]
+                else:
+                    peers = ["GOOGL", "META", "DIS", "NFLX", "VZ", "TMUS", "T"]
             elif sector == "Consumer Defensive":
                 if "Retail" in target_industry or "Discount" in target_industry:
                     peers = ["WMT", "COST", "TGT", "DG", "DLTR", "BJ"]
                 elif "Beverages" in target_industry:
                     peers = ["KO", "PEP", "MNST", "KDP", "CELH"]
+                elif "Tobacco" in target_industry:
+                    peers = ["PM", "MO", "BTI"]
                 else:
-                    peers = ["PG", "KO", "PEP", "COST", "WMT", "PM"]
+                    peers = ["PG", "KO", "PEP", "COST", "WMT", "PM", "CL"]
             elif sector == "Real Estate":
-                peers = ["PLD", "AMT", "EQIX", "CCI", "PSA", "O", "VICI"]
+                peers = ["PLD", "AMT", "EQIX", "CCI", "PSA", "O", "VICI", "DLR"]
             elif sector == "Energy":
-                peers = ["XOM", "CVX", "COP", "SLB", "EOG", "MPC", "PSX"]
+                peers = ["XOM", "CVX", "COP", "SLB", "EOG", "MPC", "PSX", "VLO"]
             elif sector == "Healthcare":
                 if "Drug" in target_industry or "Biotech" in target_industry:
-                    peers = ["LLY", "JNJ", "ABBV", "MRK", "PFE", "AMGN"]
+                    peers = ["LLY", "JNJ", "ABBV", "MRK", "PFE", "AMGN", "BMY"]
+                elif "Equipment" in target_industry or "Devices" in target_industry:
+                    peers = ["ISRG", "MDT", "ABT", "SYK", "BSX", "EW"]
                 else:
-                    peers = ["UNH", "TMO", "ISRG", "DHR", "LLY", "VRTX"]
+                    peers = ["UNH", "TMO", "ISRG", "DHR", "LLY", "VRTX", "CVS", "ELV"]
+            elif sector == "Industrials":
+                if "Aerospace" in target_industry:
+                    peers = ["BA", "LMT", "RTX", "GD", "NOC", "GE"]
+                elif "Logistics" in target_industry or "Railroads" in target_industry:
+                    peers = ["UPS", "FDX", "UNP", "CSX", "NSC"]
+                else:
+                    peers = ["CAT", "HON", "GE", "MMM", "UPS", "DE", "RTX"]
             elif sector == "Basic Materials":
-                peers = ["FCX", "LIN", "APD", "NEM", "CTVA", "SHW", "ECL"]
+                peers = ["FCX", "LIN", "APD", "NEM", "CTVA", "SHW", "ECL", "SCCO"]
             else:
                 # Absolute last resort across any US stock
                 peers = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA"]
