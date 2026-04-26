@@ -2812,7 +2812,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (model === 'relative' && currentFormulaData.relative) {
                 const r = currentFormulaData.relative;
                 title.textContent = '📊 Relative Valuation — Data Transparency';
-                html = row('Company EPS', '$' + fmt(r.company_eps))
+                html = row('Company EPS (GAAP)', '$' + fmt(r.company_eps))
                      + row('Median Peer P/E', r.median_peer_pe ? r.median_peer_pe.toFixed(2) + 'x' : 'N/A')
                      + row('Mean Peer P/E', r.mean_peer_pe ? r.mean_peer_pe.toFixed(2) + 'x' : 'N/A')
                      + row('S&P 500 P/E', r.market_pe_trailing ? r.market_pe_trailing.toFixed(2) + 'x' : 'N/A')
@@ -2829,7 +2829,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const g = currentFormulaData.peg;
                 title.textContent = '📊 PEG Valuation — Data Transparency';
                 const periodLabel = g.eps_growth_period || '2Y EPS CAGR';
-                html = row('Current P/E', g.current_pe ? g.current_pe.toFixed(2) + 'x' : 'N/A')
+                html = row('Current P/E (Adj.)', g.current_pe ? g.current_pe.toFixed(2) + 'x' : 'N/A')
                      + row('2Y EPS CAGR', fmtPct(g.eps_growth_estimated))
                      + row('Current PEG', g.current_peg ? g.current_peg.toFixed(2) + 'x' : 'N/A')
                      + row('Industry PEG', g.industry_peg ? g.industry_peg.toFixed(2) + 'x' : 'N/A')

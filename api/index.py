@@ -606,8 +606,9 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             if valid_pegs:
                 median_peer_peg = statistics.median(valid_pegs)
  
-        # Calculate Current PE for PEG transparency
-        current_pe = current_price / data.get("trailing_eps") if data.get("trailing_eps") and data.get("trailing_eps") > 0 else None
+        # v285: PEG MUST use Adjusted (Non-GAAP) PE to match Non-GAAP Growth Estimates
+        adj_pe = current_price / data.get("adjusted_eps") if data.get("adjusted_eps") and data.get("adjusted_eps") > 0 else None
+        current_pe = adj_pe
  
         # 5. Build Formula Data for Transparency
         fair_value_sector_pe = None
@@ -704,7 +705,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             "relative": {
                 "fair_value": sanitize(relative_value),
                 "margin_of_safety": sanitize(((relative_value - current_price) / current_price * 100)) if relative_value is not None and current_price > 0 else None,
-                "company_eps": sanitize(data.get("trailing_eps")),
+                "company_eps": sanitize(data.get("historical_data", {}).get("diluted_eps", [data.get("trailing_eps")])[-1]),
                 "company_trailing_pe": sanitize(pe_historic),
                 "peers": [p.get("ticker", p) if isinstance(p, dict) else p for p in peers_data] if peers_data else [],
                 "median_peer_pe": sanitize(median_peer_pe),
