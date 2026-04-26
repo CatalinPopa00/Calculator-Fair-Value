@@ -11,7 +11,7 @@ import requests
 import pandas as pd
 _pd = pd
 import re
-import requests
+import math
 
 def get_yahoo_analysis_normalized(ticker, info=None):
     """
@@ -94,6 +94,7 @@ def get_yahoo_analysis_normalized(ticker, info=None):
                 
                 chunk = parts[1][:150000]
                 is_nongaap = (trend_key == "earningsTrendNonGaap")
+                is_rev_trend = (trend_key == "revenueTrend")
                 
                 for p in ['0y', '+1y']:
                     p_target = f'"{p}"'
@@ -103,34 +104,34 @@ def get_yahoo_analysis_normalized(ticker, info=None):
                     p_idx = chunk.find(p_target)
                     sub_chunk = chunk[p_idx:p_idx+3000] 
                     
-                    eps_avg_m = re.search(r'earningsEstimate.*?avg.*?raw.*?([\d\.\-]+)', sub_chunk)
-                    eps_ya_m = re.search(r'yearAgoEps.*?raw.*?([\d\.\-]+)', sub_chunk)
-                    
-                    if eps_avg_m:
-                        val = float(eps_avg_m.group(1))
-                        if p not in res['eps']: res['eps'][p] = {}
-                        # v276: NonGaap overwrites anything. Others only fill gaps.
-                        if is_nongaap or 'avg' not in res['eps'][p]:
-                            res['eps'][p]['avg'] = val
-                    
-                    if eps_ya_m:
-                        val = float(eps_ya_m.group(1))
-                        if p not in res['eps']: res['eps'][p] = {}
-                        if is_nongaap or 'yearAgo' not in res['eps'][p]:
-                            res['eps'][p]['yearAgo'] = val
-
-                    # Revenue extraction
-                    rev_avg_m = re.search(r'revenueEstimate.*?avg.*?raw.*?([\d\.\-]+)', sub_chunk)
-                    rev_ya_m = re.search(r'yearAgoSales.*?raw.*?([\d\.\-]+)', sub_chunk)
-                    
-                    if rev_avg_m:
-                        if p not in res['rev']: res['rev'][p] = {}
-                        if 'avg' not in res['rev'][p]:
-                            res['rev'][p]['avg'] = float(rev_avg_m.group(1))
-                    if rev_ya_m:
-                        if p not in res['rev']: res['rev'][p] = {}
-                        if 'yearAgo' not in res['rev'][p]:
-                            res['rev'][p]['yearAgo'] = float(rev_ya_m.group(1))
+                    if not is_rev_trend:
+                        eps_avg_m = re.search(r'earningsEstimate.*?avg.*?raw.*?([\d\.\-]+)', sub_chunk)
+                        eps_ya_m = re.search(r'yearAgoEps.*?raw.*?([\d\.\-]+)', sub_chunk)
+                        
+                        if eps_avg_m:
+                            val = float(eps_avg_m.group(1))
+                            if p not in res['eps']: res['eps'][p] = {}
+                            if is_nongaap or 'avg' not in res['eps'][p]:
+                                res['eps'][p]['avg'] = val
+                        
+                        if eps_ya_m:
+                            val = float(eps_ya_m.group(1))
+                            if p not in res['eps']: res['eps'][p] = {}
+                            if is_nongaap or 'yearAgo' not in res['eps'][p]:
+                                res['eps'][p]['yearAgo'] = val
+                    else:
+                        # Revenue extraction (Only if trend_key is revenueTrend)
+                        rev_avg_m = re.search(r'revenueEstimate.*?avg.*?raw.*?([\d\.\-]+)', sub_chunk)
+                        rev_ya_m = re.search(r'yearAgoSales.*?raw.*?([\d\.\-]+)', sub_chunk)
+                        
+                        if rev_avg_m:
+                            if p not in res['rev']: res['rev'][p] = {}
+                            if 'avg' not in res['rev'][p]:
+                                res['rev'][p]['avg'] = float(rev_avg_m.group(1))
+                        if rev_ya_m:
+                            if p not in res['rev']: res['rev'][p] = {}
+                            if 'yearAgo' not in res['rev'][p]:
+                                res['rev'][p]['yearAgo'] = float(rev_ya_m.group(1))
 
             # v260: Price Target Scraping
             match_pt = re.search(r'"targetMeanPrice":\{"raw":([\d\.\-]+)', html)
@@ -232,10 +233,12 @@ def get_metric(df, field, target):
     if c_idx is None: return None
     
     val = df.loc[f_idx, c_idx]
+    if hasattr(val, 'iloc'): val = val.iloc[0]
+    
     try:
         f_val = float(val)
         return f_val if math.isfinite(f_val) else None
-    except:
+    except Exception:
         return None
 
 def find_nearest_col(df, target_date, max_days=10):
@@ -2111,7 +2114,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 # v281: Using global get_metric instead of local redefined one
 
                 # v233: Accurate Mapping
-                r_idx = find_idx(financials, 'Total Revenue')
+                r_idx = find_idx(financials, ['Total Revenue', 'Revenue', 'Total Operating Revenue', 'Operating Revenue'])
                 r = get_metric(financials, r_idx, yr_col) if r_idx else 0
                 r = r or 0
                 
@@ -2147,7 +2150,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                                 log(f"DEBUG: v277 Full Quarterly Healing for {ticker_symbol} {yr_val}: {year_sum}")
                             e_raw = year_sum
 
-                f = get_metric(cashflow, 'Free Cash Flow', yr_col) or 0
+                f = get_metric(cashflow, ['Free Cash Flow', 'Free Cash Flow (USD)', 'Total Cash Flow From Operating Activities', 'Cash Flow From Operating Activities'], yr_col) or 0
                 s = get_metric(financials, 'Diluted Average Shares', yr_col) or \
                     get_metric(financials, 'Basic Average Shares', yr_col) or 0
                 

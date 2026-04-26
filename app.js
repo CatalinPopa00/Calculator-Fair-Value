@@ -522,10 +522,22 @@ document.addEventListener('DOMContentLoaded', () => {
         pegValue: document.getElementById('peg-value')
     };
 
+    // Helper for large numbers (B/M/K)
+    const formatLargeNumber = (val, prefix = '', suffix = '') => {
+        if (val === null || val === undefined || isNaN(val)) return '--';
+        const absVal = Math.abs(val);
+        if (absVal >= 1e9) return prefix + (val / 1e9).toFixed(2) + 'B' + suffix;
+        if (absVal >= 1e6) return prefix + (val / 1e6).toFixed(2) + 'M' + suffix;
+        if (absVal >= 1e3) return prefix + (val / 1e3).toFixed(2) + 'K' + suffix;
+        return prefix + val.toFixed(2) + suffix;
+    };
+
     // Safe Percentage Formatter for Tables
     const formatSafePct = (val) => {
         if (val === null || val === undefined || val === '') return 'N/A';
-        return (val * 100).toFixed(2) + '%';
+        const num = parseFloat(val);
+        if (isNaN(num)) return 'N/A';
+        return (num * 100).toFixed(1) + '%';
     };
 
     // INJECT CUSTOM WEIGHTS UI WITH SMART AI BTN
@@ -1979,7 +1991,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             grid: { color: 'rgba(148,163,184,0.1)' } 
                         },
                         y: { 
-                            ticks: { color: '#94a3b8', font: { size: 10 }, callback: v => '$' + v.toLocaleString() + 'B' }, 
+                            ticks: { color: '#94a3b8', font: { size: 10 }, callback: v => formatLargeNumber(v, '$') }, 
                             grid: { color: 'rgba(148,163,184,0.1)' } 
                         }
                     }
@@ -2077,7 +2089,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         },
                         y1: { 
                             position: 'right', 
-                            ticks: { color: '#fbbf24', font: { size: 10 }, callback: v => v + 'B' }, 
+                            ticks: { color: '#fbbf24', font: { size: 10 }, callback: v => formatLargeNumber(v) }, 
                             grid: { drawOnChartArea: false }, 
                         }
                     }
@@ -2192,7 +2204,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!item) return;
                 const pLabel = item.period || '--';
                 const isAnchor = item.status === 'reported';
-                const aVal = (item.avg != null) ? '$' + parseFloat(item.avg).toFixed(2) : '--';
+                const aVal = (item.avg != null) ? formatLargeNumber(parseFloat(item.avg), '$') : '--';
                 let gVal = isAnchor ? '' : '--';
                 
                 if (!isAnchor) {
@@ -2216,7 +2228,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!item) return;
                 const pLabel = item.period || '--';
                 const isAnchor = item.status === 'reported';
-                const aVal = (item.avg != null) ? (parseFloat(item.avg) / 1e9).toFixed(2) + 'B' : '--';
+                const aVal = (item.avg != null) ? formatLargeNumber(parseFloat(item.avg), '$') : '--';
                 let gVal = isAnchor ? '' : '--';
                 
                 if (!isAnchor && item.growth != null) {
