@@ -3199,9 +3199,25 @@ document.addEventListener('DOMContentLoaded', () => {
                             </tr>
                         </thead>
                         <tbody>
+                            <!-- Target Company Row -->
+                            <tr style="border-bottom:1px solid rgba(255,255,255,0.1); background: rgba(40, 199, 111, 0.05);">
+                                <td style="padding:6px; color:#28c76f; font-weight:700;">${(globalData.ticker || 'TARGET').toUpperCase()}</td>
+                                ${activeKeys.map(k => {
+                                    const dk = peerKeyMap[k];
+                                    let val = null;
+                                    if (k === 'PE') val = (globalData.company_profile && (globalData.company_profile.trailing_pe || globalData.company_profile.current_pe));
+                                    else if (k === 'PS') val = (globalData.company_profile && globalData.company_profile.ps_ratio);
+                                    else if (k === 'PB') val = (globalData.company_profile && globalData.company_profile.price_to_book);
+                                    else if (k === 'EV_EBITDA') val = (rel && rel.company_ev_ebitda);
+                                    
+                                    return `<td style="text-align:right; padding:6px; color:#28c76f; font-weight:700;">${val != null ? val.toFixed(1) + 'x' : '—'}</td>`;
+                                }).join('')}
+                            </tr>
+                            
+                            <!-- Peers Rows -->
                             ${peers.map(p => `
                                 <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
-                                    <td style="padding:6px; color:var(--accent); font-weight:600;">${p.ticker}</td>
+                                    <td style="padding:6px; color:white; font-weight:600;">${p.ticker}</td>
                                     ${activeKeys.map(k => {
                                         const dk = peerKeyMap[k];
                                         const val = dk ? p[dk] : null;
