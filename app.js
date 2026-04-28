@@ -1171,9 +1171,26 @@ document.addEventListener('DOMContentLoaded', () => {
         if (pegStatusElem && pegCompareElem) {
             const pegMode = document.getElementById('peg-mode')?.value || 'standard';
             const industryPeg = currentFormulaData.peg ? currentFormulaData.peg.industry_peg : null;
-            const targetPeg = pegMode === 'industry' ? (industryPeg || 1.25) : 1.0;
-
             if (pegVal != null && currentPegToDisplay != null) {
+                const sector = globalData.company_profile.sector || "";
+                const industry = globalData.company_profile.industry || "";
+                const isTelecom = industry.toLowerCase().includes("telecom");
+                
+                let targetPeg = 1.0;
+                if (pegMode === 'industry') {
+                    targetPeg = industryPeg || 1.25;
+                } else {
+                    if (sector === "Technology" || (sector === "Communication Services" && !isTelecom)) {
+                        targetPeg = 1.50;
+                    } else if (sector === "Utilities" || isTelecom) {
+                        targetPeg = 1.00;
+                    } else if (sector === "Consumer Defensive") {
+                        targetPeg = 1.50;
+                    } else if (sector === "Financial Services") {
+                        targetPeg = 1.20;
+                    }
+                }
+
                 const displayCurrent = currentPegToDisplay;
                 const displayTarget = targetPeg;
                 pegCompareElem.textContent = `PEG = ${displayCurrent.toFixed(2)} vs PEG ${pegMode === 'industry' ? 'Sector' : 'Std'} = ${displayTarget.toFixed(2)}`;
@@ -1192,9 +1209,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 // ── SECTOR-SPECIFIC PEG THRESHOLDS (v260) ──
-                const sector = globalData.company_profile.sector || "";
-                const industry = globalData.company_profile.industry || "";
-                const isTelecom = industry.toLowerCase().includes("telecom");
                 const peg = currentPegToDisplay;
                 
                 let statusText = "";
