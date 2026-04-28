@@ -1433,6 +1433,10 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         roe = info.get('returnOnEquity')
         roa = info.get('returnOnAssets')
         price_to_book = info.get('priceToBook')
+        if not price_to_book or price_to_book <= 0:
+            book_value = info.get('bookValue')
+            if book_value and book_value > 0 and current_price and current_price > 0:
+                price_to_book = current_price / book_value
 
         # Dividends
         dividend_rate = info.get('dividendRate') or info.get('trailingAnnualDividendRate')
@@ -2983,15 +2987,21 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=3, inc
                     # Layer 3: Network
                     inf = batch.tickers[t].info
                     if inf and (inf.get('regularMarketPrice') or inf.get('currentPrice')):
+                        p_price = inf.get('regularMarketPrice') or inf.get('currentPrice')
+                        p_pb = inf.get('priceToBook')
+                        p_bv = inf.get('bookValue')
+                        if (not p_pb or p_pb <= 0) and p_bv and p_bv > 0 and p_price and p_price > 0:
+                            p_pb = p_price / p_bv
+
                         p_data = {
                             "ticker": t,
                             "name": inf.get('shortName') or inf.get('longName') or t,
-                            "price": inf.get('regularMarketPrice') or inf.get('currentPrice'),
+                            "price": p_price,
                             "pe_ratio": inf.get('trailingPE') or inf.get('forwardPE'),
                             "market_cap": inf.get('marketCap'),
                             "ps_ratio": inf.get('priceToSalesTrailing12Months') or inf.get('priceToSales'),
                             "pfcf_ratio": (inf.get('marketCap') / inf.get('freeCashflow')) if inf.get('freeCashflow') and inf.get('marketCap') else (inf.get('marketCap') / inf.get('operatingCashflow') if inf.get('operatingCashflow') and inf.get('marketCap') else None),
-                            "price_to_book": inf.get('priceToBook'),
+                            "price_to_book": p_pb,
                             "ev_to_ebitda": inf.get('enterpriseToEbitda'),
                             "eps": inf.get('trailingEps') or inf.get('forwardEps'),
                             "operating_margin": inf.get('operatingMargins') or inf.get('ebitdaMargins'),
