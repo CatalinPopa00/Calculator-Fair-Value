@@ -3246,10 +3246,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const variant = variantEl ? variantEl.value : 'peers';
                 
                 const getBenchmark = (key) => {
-                    const medMap = { PE: r.median_peer_pe, PFCF: r.median_peer_pfcf, PS: r.median_peer_ps, PB: r.median_peer_pb, EV_EBITDA: r.median_peer_ev_ebitda };
-                    const meanMap = { PE: r.mean_peer_pe, PFCF: r.mean_peer_pfcf, PS: r.mean_peer_ps, PB: r.mean_peer_pb, EV_EBITDA: r.mean_peer_ev_ebitda };
-                    const sp500Map = { PE: r.sp500_pe, PFCF: r.sp500_pfcf, PS: r.sp500_ps, PB: r.sp500_pb, EV_EBITDA: r.sp500_ev_ebitda };
-                    const defaults = { PE: 20, PFCF: 20, PS: 2, PB: 2, EV_EBITDA: 12 };
+                    const medMap = { PE: r.median_peer_pe, PFCF: r.median_peer_pfcf, PS: r.median_peer_ps, PB: r.median_peer_pb, EV_EBITDA: r.median_peer_ev_ebitda, P_FFO: r.median_peer_pe, P_AFFO: r.median_peer_pfcf };
+                    const meanMap = { PE: r.mean_peer_pe, PFCF: r.mean_peer_pfcf, PS: r.mean_peer_ps, PB: r.mean_peer_pb, EV_EBITDA: r.mean_peer_ev_ebitda, P_FFO: r.mean_peer_pe, P_AFFO: r.mean_peer_pfcf };
+                    const sp500Map = { PE: r.sp500_pe, PFCF: r.sp500_pfcf, PS: r.sp500_ps, PB: r.sp500_pb, EV_EBITDA: r.sp500_ev_ebitda, P_FFO: r.sp500_pe, P_AFFO: r.sp500_pfcf };
+                    const defaults = { PE: 20, PFCF: 20, PS: 2, PB: 2, EV_EBITDA: 12, P_FFO: 15, P_AFFO: 15 };
                     if (variant === 'peers') return medMap[key] || defaults[key];
                     if (variant === 'average') return meanMap[key] || defaults[key];
                     return sp500Map[key] || defaults[key];
@@ -3286,7 +3286,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     breakdownRows += `
                         <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
                             <td style="padding:8px 6px; color:var(--text-main);">${LABEL[k]}</td>
-                            <td style="text-align:right; padding:8px 6px; color:var(--text-main);">${bench.toFixed(1)}x</td>
+                            <td style="text-align:right; padding:8px 6px; color:var(--text-main);">${(bench || 0).toFixed(1)}x</td>
                             <td style="text-align:right; padding:8px 6px; color:${implColor}; font-weight:600;">${safeImpl > 0 ? '$' + fmt(safeImpl) : 'N/A'}</td>
                             <td style="text-align:right; padding:8px 6px; color:var(--accent); font-weight:700;" class="rel-weight-cell" data-key="${k}">${(w * 100).toFixed(0)}%</td>
                         </tr>`;
