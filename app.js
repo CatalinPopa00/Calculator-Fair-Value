@@ -1664,33 +1664,62 @@ document.addEventListener('DOMContentLoaded', () => {
             const current_price = data.current_price || 0;
             const non_gaap_pe = (current_price > 0 && prof.adjusted_eps > 0) ? current_price / prof.adjusted_eps : null;
 
+            const metricCard = (label, value, subtext = '', customStyle = '') => `
+                <div style="background: rgba(15,23,42,0.4); padding: 0.8rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.03); display: flex; flex-direction: column; justify-content: center;">
+                    <div style="font-size: 0.65rem; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">${label}</div>
+                    <div style="font-size: 1rem; font-weight: 700; color: white; ${customStyle}">${value}</div>
+                    ${subtext ? `<div style="font-size: 0.75rem; color: rgba(255,255,255,0.4); margin-top: 2px;">${subtext}</div>` : ''}
+                </div>
+            `;
+
             pBody.innerHTML = `
                 <!-- Mini-zona 1: Company -->
-                <tr><td colspan="2" style="padding: 0 0 6px 0; font-size: 0.7rem; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1px;">Company Summary</td></tr>
-                <tr class="profile-row"><td class="profile-label">Industry</td><td class="profile-value">${prof.industry}<br><span style="font-size: 0.85em; font-weight: normal; color: rgba(255,255,255,0.4);">${prof.sector}</span></td></tr>
-                <tr class="profile-row"><td class="profile-label">Market Cap</td><td class="profile-value">${formatBigNumber(prof.market_cap, '$')}</td></tr>
-                <tr class="profile-row"><td class="profile-label">Shares Out.</td><td class="profile-value">${formatBigNumber(prof.shares_outstanding, '')}</td></tr>
-                <tr class="profile-row"><td class="profile-label" style="white-space: nowrap;">Competitors ${prof.competitor_metrics && prof.competitor_metrics.length > 0 ? `<button id="compare-peers-btn" class="peer-btn">📊 Peers</button>` : ''}</td><td class="profile-value" style="word-wrap: break-word;">${prof.competitors && prof.competitors.length ? prof.competitors.join(', ') : 'None'}</td></tr>
-                <tr class="profile-row"><td class="profile-label">${prof.buyback_rate < 0 ? 'Dilution Rate' : 'Buyback Rate'}</td><td class="profile-value" style="color: ${prof.buyback_rate < 0 ? '#ef4444' : 'inherit'}">${prof.buyback_rate != null ? (prof.buyback_rate > 0 ? '+' : '') + formatSafePct(prof.buyback_rate) : 'N/A'}</td></tr>
+                <div class="profile-section">
+                    <div style="font-size: 0.75rem; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 0.8rem; padding-bottom: 0.4rem; border-bottom: 1px solid rgba(255,255,255,0.05); font-weight: 600;">Company Summary</div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 0.8rem;">
+                        ${metricCard('Industry', prof.industry, prof.sector)}
+                        ${metricCard('Market Cap', formatBigNumber(prof.market_cap, '$'))}
+                        ${metricCard('Shares Out.', formatBigNumber(prof.shares_outstanding, ''))}
+                        ${metricCard('Buyback Rate', prof.buyback_rate != null ? (prof.buyback_rate > 0 ? '+' : '') + formatSafePct(prof.buyback_rate) : 'N/A', '', prof.buyback_rate < 0 ? 'color: #ef4444;' : '')}
+                        <div style="background: rgba(15,23,42,0.4); padding: 0.8rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.03); display: flex; flex-direction: column; justify-content: center; grid-column: 1 / -1;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <div style="font-size: 0.65rem; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Competitors</div>
+                                    <div style="font-size: 0.95rem; font-weight: 700; color: white; word-wrap: break-word;">${prof.competitors && prof.competitors.length ? prof.competitors.join(', ') : 'None'}</div>
+                                </div>
+                                ${prof.competitor_metrics && prof.competitor_metrics.length > 0 ? `<button id="compare-peers-btn" class="peer-btn" style="margin:0;">📊 PEERS</button>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- Mini-zona 2: Valuation -->
-                <tr><td colspan="2" style="padding: 16px 0 6px 0; font-size: 0.7rem; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1px; border-top: 1px solid rgba(255,255,255,0.05);">Valuation & Earnings</td></tr>
-                <tr class="profile-row"><td class="profile-label">P/E (Trailing)</td><td class="profile-value">${prof.trailing_pe ? prof.trailing_pe.toFixed(2) + 'x' : 'N/A'}</td></tr>
-                <tr class="profile-row"><td class="profile-label">P/E Non-GAAP</td><td class="profile-value">${non_gaap_pe ? non_gaap_pe.toFixed(2) + 'x' : 'N/A'}</td></tr>
-                <tr class="profile-row"><td class="profile-label">PE FWD</td><td class="profile-value">${prof.fwd_pe ? prof.fwd_pe.toFixed(2) + 'x' : 'N/A'}</td></tr>
-                <tr class="profile-row"><td class="profile-label">EPS Diluted</td><td class="profile-value">${prof.trailing_eps ? '$' + prof.trailing_eps.toFixed(2) : 'N/A'}</td></tr>
-                <tr class="profile-row"><td class="profile-label">EPS Non-Gaap</td><td class="profile-value">${prof.adjusted_eps ? '$' + prof.adjusted_eps.toFixed(2) : 'N/A'}</td></tr>
-                <tr class="profile-row"><td class="profile-label">PEG</td><td class="profile-value">${prof.peg_ratio ? prof.peg_ratio.toFixed(2) : 'N/A'}</td></tr>
-                <tr class="profile-row"><td class="profile-label">P/S</td><td class="profile-value">${prof.ps_ratio ? prof.ps_ratio.toFixed(2) + 'x' : 'N/A'}</td></tr>
-                <tr class="profile-row"><td class="profile-label">P/S FWD</td><td class="profile-value">${prof.fwd_ps ? prof.fwd_ps.toFixed(2) + 'x' : 'N/A'}</td></tr>
-                <tr class="profile-row"><td class="profile-label">P/FCF</td><td class="profile-value">${prof.pfcf_ratio ? prof.pfcf_ratio.toFixed(2) + 'x' : 'N/A'}</td></tr>
+                <div class="profile-section">
+                    <div style="font-size: 0.75rem; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 0.8rem; padding-bottom: 0.4rem; border-bottom: 1px solid rgba(255,255,255,0.05); font-weight: 600;">Valuation & Earnings</div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 0.8rem;">
+                        ${metricCard('P/E (Trailing)', prof.trailing_pe ? prof.trailing_pe.toFixed(2) + 'x' : 'N/A')}
+                        ${metricCard('P/E Non-GAAP', non_gaap_pe ? non_gaap_pe.toFixed(2) + 'x' : 'N/A')}
+                        ${metricCard('PE FWD', prof.fwd_pe ? prof.fwd_pe.toFixed(2) + 'x' : 'N/A')}
+                        ${metricCard('EPS Diluted', prof.trailing_eps ? '$' + prof.trailing_eps.toFixed(2) : 'N/A')}
+                        ${metricCard('EPS Non-GAAP', prof.adjusted_eps ? '$' + prof.adjusted_eps.toFixed(2) : 'N/A')}
+                        ${metricCard('FWD EPS', prof.fwd_eps ? '$' + prof.fwd_eps.toFixed(2) : 'N/A')}
+                        ${metricCard('PEG', prof.peg_ratio ? prof.peg_ratio.toFixed(2) : 'N/A')}
+                        ${metricCard('P/S', prof.ps_ratio ? prof.ps_ratio.toFixed(2) + 'x' : 'N/A')}
+                        ${metricCard('P/S FWD', prof.fwd_ps ? prof.fwd_ps.toFixed(2) + 'x' : 'N/A')}
+                        ${metricCard('P/FCF', prof.pfcf_ratio ? prof.pfcf_ratio.toFixed(2) + 'x' : 'N/A')}
+                    </div>
+                </div>
 
                 <!-- Mini-zona 3: Dividends -->
-                <tr><td colspan="2" style="padding: 16px 0 6px 0; font-size: 0.7rem; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1px; border-top: 1px solid rgba(255,255,255,0.05);">Dividends</td></tr>
-                <tr class="profile-row"><td class="profile-label">Dividend Yield</td><td class="profile-value">${formatSafePct(prof.dividend_yield)}</td></tr>
-                <tr class="profile-row"><td class="profile-label">Payout Ratio</td><td class="profile-value">${prof.payout_ratio > 0.80 ? `<span style="color:var(--danger); font-weight:bold;">${formatSafePct(prof.payout_ratio)}</span>` : formatSafePct(prof.payout_ratio)}</td></tr>
-                <tr class="profile-row"><td class="profile-label">Div. Streak</td><td class="profile-value">${prof.dividend_streak != null ? prof.dividend_streak + ' Years' : 'N/A'}</td></tr>
-                <tr class="profile-row"><td class="profile-label">5Y Div Growth</td><td class="profile-value">${formatSafePct(prof.dividend_cagr_5y)}</td></tr>
+                <div class="profile-section">
+                    <div style="font-size: 0.75rem; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 0.8rem; padding-bottom: 0.4rem; border-bottom: 1px solid rgba(255,255,255,0.05); font-weight: 600;">Dividends</div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 0.8rem;">
+                        ${metricCard('Dividend Yield', formatSafePct(prof.dividend_yield))}
+                        ${metricCard('Payout Ratio', formatSafePct(prof.payout_ratio), '', prof.payout_ratio > 0.80 ? 'color: var(--danger);' : '')}
+                        ${metricCard('Div. Streak', prof.dividend_streak != null ? prof.dividend_streak + ' Years' : 'N/A')}
+                        ${metricCard('5Y Div Growth', formatSafePct(prof.dividend_cagr_5y))}
+                    </div>
+                </div>
             `;
 
             if(document.getElementById('compare-peers-btn')) {
