@@ -1430,9 +1430,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const mc = document.getElementById('relative-market-compare');
             if (mc) mc.textContent = multipleLabel;
-
-            const breakdownEl = document.getElementById('relative-breakdown');
-            if (breakdownEl) breakdownEl.innerHTML = breakdownHTML || '<div style="color: var(--text-muted); text-align: center;">Breakdown unavailable</div>';
         }
         setValuationStatus(relVal, globalData.current_price, 'relative-status', 'relative-value');
         
@@ -3094,12 +3091,262 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             } else if (model === 'relative' && currentFormulaData.relative) {
                 const r = currentFormulaData.relative;
-                title.textContent = '📊 Relative Valuation — Data Transparency';
-                html = row('Company EPS (GAAP)', '$' + fmt(r.company_eps))
-                     + row('Median Peer P/E', r.median_peer_pe ? r.median_peer_pe.toFixed(2) + 'x' : 'N/A')
-                     + row('Mean Peer P/E', r.mean_peer_pe ? r.mean_peer_pe.toFixed(2) + 'x' : 'N/A')
-                     + row('S&P 500 P/E', r.market_pe_trailing ? r.market_pe_trailing.toFixed(2) + 'x' : 'N/A')
-                     + row('Peers Used', (r.peers || []).join(', ') || 'N/A');
+                title.textContent = '📊 Relative Valuation — Triangulation';
+
+                // --- Determine which metrics are active based on sector weights ---
+                const SECTOR_WEIGHTS = {
+                    'Technology': { PE: 0.35, PFCF: 0.50, PS: 0.15 },
+                    'Information Technology': { PE: 0.35, PFCF: 0.50, PS: 0.15 },
+                    'Technology_Growth': { PE: 0.00, PFCF: 0.20, PS: 0.80 },
+                    'Financial Services': { PE: 0.40, PB: 0.60 },
+                    'Financials': { PE: 0.40, PB: 0.60 },
+                    'Industrials': { PE: 0.20, PFCF: 0.30, EV_EBITDA: 0.50 },
+                    'Energy': { PE: 0.20, PFCF: 0.30, EV_EBITDA: 0.50 },
+                    'Consumer Defensive': { PE: 0.50, PFCF: 0.30, PS: 0.20 },
+                    'Consumer Staples': { PE: 0.50, PFCF: 0.30, PS: 0.20 },
+                    'Consumer Cyclical': { PE: 0.35, PFCF: 0.35, PS: 0.30 },
+                    'Consumer Discretionary': { PE: 0.35, PFCF: 0.35, PS: 0.30 },
+                    'Healthcare': { PE: 0.35, PFCF: 0.40, PS: 0.25 },
+                    'Health Care': { PE: 0.35, PFCF: 0.40, PS: 0.25 },
+                    'Communication Services': { PE: 0.35, PFCF: 0.40, PS: 0.25 },
+                    'Utilities': { PE: 0.50, PFCF: 0.30, EV_EBITDA: 0.20 },
+                    'Basic Materials': { PE: 0.25, PFCF: 0.25, EV_EBITDA: 0.50 },
+                    'Materials': { PE: 0.25, PFCF: 0.25, EV_EBITDA: 0.50 },
+                    'Real Estate': { PE: 0.00, P_FFO: 0.80, P_AFFO: 0.20 },
+                    'Default': { PE: 0.40, PFCF: 0.40, PS: 0.20 }
+                };
+                const sn = r.sector || 'Default';
+                let defaultWeights = SECTOR_WEIGHTS[sn] || SECTOR_WEIGHTS['Default'];
+                if ((sn === 'Technology' || sn === 'Information Technology') && 
+                    ((r.company_eps || 0) <= 0 || (r.company_fcf_share || 0) <= 0)) {
+                    defaultWeights = SECTOR_WEIGHTS['Technology_Growth'];
+                }
+                
+                // Active metric keys for this sector
+                const activeKeys = Object.keys(defaultWeights).filter(k => (defaultWeights[k] || 0) > 0);
+                
+                // Label map
+                const LABEL = { PE: 'P/E', PFCF: 'P/FCF', PS: 'P/S', PB: 'P/B', EV_EBITDA: 'EV/EBITDA', P_FFO: 'P/FFO', P_AFFO: 'P/AFFO' };
+                const peerKeyMap = { PE: 'pe_ratio', PFCF: 'pfcf_ratio', PS: 'ps_ratio', PB: 'price_to_book', EV_EBITDA: 'ev_to_ebitda' };
+
+                // --- Competitor Table ---
+                const peers = (globalData.company_profile && globalData.company_profile.competitor_metrics) || [];
+                let peerTableHTML = '';
+                if (peers.length > 0) {
+                    peerTableHTML = `
+                    <h4 style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:10px;">Peer Benchmarks</h4>
+                    <div style="overflow-x:auto; margin-bottom:1.5rem;">
+                    <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+                        <thead>
+                            <tr style="border-bottom:1px solid rgba(255,255,255,0.15);">
+                                <th style="text-align:left; padding:8px 6px; color:white;">Ticker</th>
+                                ${activeKeys.map(k => `<th style="text-align:right; padding:8px 6px; color:white;">${LABEL[k] || k}</th>`).join('')}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${peers.map(p => `
+                                <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
+                                    <td style="padding:6px; color:var(--accent); font-weight:600;">${p.ticker}</td>
+                                    ${activeKeys.map(k => {
+                                        const dk = peerKeyMap[k];
+                                        const val = dk ? p[dk] : null;
+                                        return `<td style="text-align:right; padding:6px; color:var(--text-main);">${val != null ? val.toFixed(1) + 'x' : '—'}</td>`;
+                                    }).join('')}
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                        <tfoot>
+                            <tr style="border-top:1px solid rgba(255,255,255,0.15);">
+                                <td style="padding:8px 6px; color:white; font-weight:700;">Median</td>
+                                ${activeKeys.map(k => {
+                                    const medianMap = { PE: r.median_peer_pe, PFCF: r.median_peer_pfcf, PS: r.median_peer_ps, PB: r.median_peer_pb, EV_EBITDA: r.median_peer_ev_ebitda };
+                                    const v = medianMap[k];
+                                    return `<td style="text-align:right; padding:8px 6px; color:white; font-weight:700;">${v != null ? v.toFixed(1) + 'x' : '—'}</td>`;
+                                }).join('')}
+                            </tr>
+                        </tfoot>
+                    </table>
+                    </div>`;
+                }
+
+                // --- Implied Values & Weights ---
+                const variantEl = document.getElementById('relative-variant');
+                const variant = variantEl ? variantEl.value : 'peers';
+                
+                const getBenchmark = (key) => {
+                    const medMap = { PE: r.median_peer_pe, PFCF: r.median_peer_pfcf, PS: r.median_peer_ps, PB: r.median_peer_pb, EV_EBITDA: r.median_peer_ev_ebitda };
+                    const meanMap = { PE: r.mean_peer_pe, PFCF: r.mean_peer_pfcf, PS: r.mean_peer_ps, PB: r.mean_peer_pb, EV_EBITDA: r.mean_peer_ev_ebitda };
+                    const sp500Map = { PE: r.sp500_pe, PFCF: r.sp500_pfcf, PS: r.sp500_ps, PB: r.sp500_pb, EV_EBITDA: r.sp500_ev_ebitda };
+                    const defaults = { PE: 20, PFCF: 20, PS: 2, PB: 2, EV_EBITDA: 12 };
+                    if (variant === 'peers') return medMap[key] || defaults[key];
+                    if (variant === 'average') return meanMap[key] || defaults[key];
+                    return sp500Map[key] || defaults[key];
+                };
+
+                const getImplied = (key, bench) => {
+                    const eps = r.company_eps || 0;
+                    const fcfS = r.company_fcf_share || 0;
+                    const salesS = r.company_sales_share || 0;
+                    const bookS = r.company_book_share || 0;
+                    const ebitda = globalData.ebitda || 0;
+                    const debt = globalData.total_debt || 0;
+                    const cash = globalData.total_cash || 0;
+                    const shares = (globalData.company_profile && globalData.company_profile.shares_outstanding) || 1;
+                    
+                    if (key === 'PE' || key === 'P_FFO') return eps * bench;
+                    if (key === 'PFCF' || key === 'P_AFFO') return fcfS * bench;
+                    if (key === 'PS') return salesS * bench;
+                    if (key === 'PB') return bookS * bench;
+                    if (key === 'EV_EBITDA') {
+                        const ev = ebitda * bench;
+                        return shares > 0 ? (ev - debt + cash) / shares : 0;
+                    }
+                    return 0;
+                };
+
+                let breakdownRows = '';
+                activeKeys.forEach(k => {
+                    const bench = getBenchmark(k);
+                    const implied = getImplied(k, bench);
+                    const w = defaultWeights[k] || 0;
+                    const safeImpl = implied > 0 ? implied : 0;
+                    const implColor = safeImpl > 0 ? 'white' : 'var(--text-muted)';
+                    breakdownRows += `
+                        <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
+                            <td style="padding:8px 6px; color:var(--text-main);">${LABEL[k]}</td>
+                            <td style="text-align:right; padding:8px 6px; color:var(--text-main);">${bench.toFixed(1)}x</td>
+                            <td style="text-align:right; padding:8px 6px; color:${implColor}; font-weight:600;">${safeImpl > 0 ? '$' + fmt(safeImpl) : 'N/A'}</td>
+                            <td style="text-align:right; padding:8px 6px; color:var(--accent); font-weight:700;" class="rel-weight-cell" data-key="${k}">${(w * 100).toFixed(0)}%</td>
+                        </tr>`;
+                });
+
+                // Compute initial weighted FV for the modal display
+                let _initSum = 0, _initTot = 0;
+                activeKeys.forEach(k => {
+                    const b = getBenchmark(k);
+                    const impl = getImplied(k, b);
+                    const w = defaultWeights[k] || 0;
+                    if (w > 0 && impl > 0) { _initSum += impl * w; _initTot += w; }
+                });
+                const modalFV = _initTot > 0 ? _initSum / _initTot : 0;
+                const modalFVColor = modalFV > (globalData.current_price || 0) ? 'var(--accent)' : 'var(--danger)';
+
+                html = `
+                    ${peerTableHTML}
+
+                    <h4 style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:10px;">Implied Values & Weights</h4>
+                    <table style="width:100%; border-collapse:collapse; font-size:0.8rem; margin-bottom:1rem;">
+                        <thead>
+                            <tr style="border-bottom:1px solid rgba(255,255,255,0.15);">
+                                <th style="text-align:left; padding:8px 6px; color:white;">Metric</th>
+                                <th style="text-align:right; padding:8px 6px; color:white;">Benchmark</th>
+                                <th style="text-align:right; padding:8px 6px; color:white;">Implied FV</th>
+                                <th style="text-align:right; padding:8px 6px; color:white;">Weight</th>
+                            </tr>
+                        </thead>
+                        <tbody>${breakdownRows}</tbody>
+                    </table>
+
+                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:1rem; padding:10px 0; border-top:1px solid rgba(255,255,255,0.08);">
+                        <label style="font-size:0.8rem; color:var(--text-muted); font-weight:600;">Weights</label>
+                        <select id="rel-weight-mode" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.15); color:white; padding:5px 10px; border-radius:6px; font-size:0.8rem;">
+                            <option value="default" selected>Default</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                    </div>
+                    <div id="rel-custom-weights" style="display:none; padding:12px; background:rgba(255,255,255,0.03); border-radius:8px; border:1px solid rgba(255,255,255,0.06); margin-bottom:1rem;">
+                        <div style="display:flex; flex-wrap:wrap; gap:10px;">
+                            ${activeKeys.map(k => `
+                                <div style="display:flex; flex-direction:column; gap:3px; min-width:80px;">
+                                    <label style="font-size:0.7rem; color:var(--text-muted); font-weight:600;">${LABEL[k]}</label>
+                                    <div style="display:flex; align-items:center; gap:2px;">
+                                        <input type="number" id="rel-cw-${k}" value="${((defaultWeights[k] || 0) * 100).toFixed(0)}" min="0" max="100" step="5"
+                                            style="width:55px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); color:white; padding:5px 6px; border-radius:5px; font-size:0.8rem; text-align:center;">
+                                        <span style="font-size:0.75rem; color:var(--text-muted);">%</span>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <button id="rel-apply-custom" style="margin-top:12px; padding:7px 18px; background:var(--accent); color:#0f172a; border:none; border-radius:6px; font-weight:700; font-size:0.8rem; cursor:pointer; transition:opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">Apply Weights</button>
+                        <span id="rel-weight-error" style="font-size:0.7rem; color:var(--danger); margin-left:10px; display:none;"></span>
+                    </div>
+
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-top:1px solid rgba(255,255,255,0.1);">
+                        <span style="font-size:0.85rem; color:white; font-weight:600;">Weighted Fair Value</span>
+                        <span id="rel-modal-fv" style="font-size:1.2rem; font-weight:800; color:${modalFVColor};">$${fmt(modalFV)}</span>
+                    </div>
+                    <p style="font-size:0.7rem; color:var(--text-muted); margin-top:8px; font-style:italic;">
+                        ℹ️ S&P 500 calculates market premium, while Sector Peers calculates intrinsic industry value.
+                    </p>
+                `;
+
+                body.innerHTML = html;
+                modal.style.display = 'flex';
+
+                // --- Wire up Default/Custom toggle ---
+                const modeEl = document.getElementById('rel-weight-mode');
+                const customPanel = document.getElementById('rel-custom-weights');
+                if (modeEl && customPanel) {
+                    modeEl.addEventListener('change', () => {
+                        customPanel.style.display = modeEl.value === 'custom' ? 'block' : 'none';
+                        if (modeEl.value === 'default') {
+                            // Reset weight cells to default
+                            activeKeys.forEach(k => {
+                                const cell = body.querySelector(`.rel-weight-cell[data-key="${k}"]`);
+                                if (cell) cell.textContent = ((defaultWeights[k] || 0) * 100).toFixed(0) + '%';
+                                const inp = document.getElementById(`rel-cw-${k}`);
+                                if (inp) inp.value = ((defaultWeights[k] || 0) * 100).toFixed(0);
+                            });
+                            // Recalc with defaults
+                            recalcRelModal(activeKeys, defaultWeights, getBenchmark, getImplied);
+                        }
+                    });
+                }
+
+                // --- Wire up Apply button ---
+                const applyBtn = document.getElementById('rel-apply-custom');
+                if (applyBtn) {
+                    applyBtn.addEventListener('click', () => {
+                        const errEl = document.getElementById('rel-weight-error');
+                        let customW = {};
+                        let total = 0;
+                        activeKeys.forEach(k => {
+                            const inp = document.getElementById(`rel-cw-${k}`);
+                            const v = inp ? parseFloat(inp.value) || 0 : 0;
+                            customW[k] = v / 100;
+                            total += v;
+                        });
+                        if (Math.abs(total - 100) > 1) {
+                            if (errEl) { errEl.textContent = `Total is ${total.toFixed(0)}%, must be 100%.`; errEl.style.display = 'inline'; }
+                            return;
+                        }
+                        if (errEl) errEl.style.display = 'none';
+                        // Update weight cells
+                        activeKeys.forEach(k => {
+                            const cell = body.querySelector(`.rel-weight-cell[data-key="${k}"]`);
+                            if (cell) cell.textContent = ((customW[k] || 0) * 100).toFixed(0) + '%';
+                        });
+                        recalcRelModal(activeKeys, customW, getBenchmark, getImplied);
+                    });
+                }
+
+                function recalcRelModal(keys, weights, getBench, getImpl) {
+                    let wSum = 0, wTotal = 0;
+                    keys.forEach(k => {
+                        const b = getBench(k);
+                        const impl = getImpl(k, b);
+                        const w = weights[k] || 0;
+                        if (w > 0 && impl > 0) { wSum += impl * w; wTotal += w; }
+                    });
+                    const newFV = wTotal > 0 ? wSum / wTotal : 0;
+                    const fvEl = document.getElementById('rel-modal-fv');
+                    if (fvEl) {
+                        fvEl.textContent = '$' + fmt(newFV);
+                        fvEl.style.color = newFV > (globalData.current_price || 0) ? 'var(--accent)' : 'var(--danger)';
+                    }
+                }
+
+                return;
             } else if (model === 'peter_lynch' && currentFormulaData.peter_lynch) {
                 const p = currentFormulaData.peter_lynch;
                 title.textContent = '📊 Forward Multiple — Data Transparency';
