@@ -192,25 +192,40 @@ document.addEventListener('DOMContentLoaded', () => {
         const newPB = (bookValuePerShare > 0) ? simPrice / bookValuePerShare : 0;
         const newDivYield = (simPrice > 0 && dividendRate > 0) ? (dividendRate / simPrice) : 0;
 
-        // --- 2. Update Profile Table Row Displays ---
-        const pBody = document.getElementById('profile-body');
-        if (pBody) {
-            const rows = pBody.querySelectorAll('tr');
-            rows.forEach(row => {
-                const label = row.querySelector('.profile-label');
-                const val = row.querySelector('.profile-value');
-                if (!label || !val) return;
-                const txt = label.textContent.trim();
-                const simColor = '#fbbf24'; 
-                if (txt === 'P/E (Trailing TTM)') {
-                    val.textContent = newPE > 0 ? newPE.toFixed(2) + 'x' : 'N/A';
-                    val.style.color = _simulating ? simColor : '';
-                } else if (txt === 'Market Cap') {
-                    val.textContent = formatBigNumber(newMktCap, '$');
-                    val.style.color = _simulating ? simColor : '';
-                }
-            });
-        }
+        // --- 2. Update Profile Metrics ---
+        const updateMetric = (idSuffix, newValStr) => {
+            const el = document.getElementById(`metric-val-${idSuffix}`);
+            if (el) {
+                el.textContent = newValStr;
+                el.style.color = _simulating ? '#fbbf24' : 'white';
+            }
+        };
+
+        // Price-dependent metrics
+        updateMetric('marketcap', formatBigNumber(newMktCap, '$'));
+        updateMetric('petrailing', newPE > 0 ? newPE.toFixed(2) + 'x' : 'N/A');
+        
+        const newPeNonGaap = prof.adjusted_eps > 0 ? simPrice / prof.adjusted_eps : 0;
+        updateMetric('penongaap', newPeNonGaap > 0 ? newPeNonGaap.toFixed(2) + 'x' : 'N/A');
+        
+        const newPeFwd = prof.fwd_eps > 0 ? simPrice / prof.fwd_eps : 0;
+        updateMetric('pefwd', newPeFwd > 0 ? newPeFwd.toFixed(2) + 'x' : 'N/A');
+        
+        const growth = prof.earnings_growth || 0;
+        const newPeg = (growth > 0 && newPeNonGaap > 0) ? newPeNonGaap / (growth * 100) : 0;
+        updateMetric('peg', newPeg > 0 ? newPeg.toFixed(2) : 'N/A');
+        
+        updateMetric('ps', newPS > 0 ? newPS.toFixed(2) + 'x' : 'N/A');
+        
+        const fwd_rev_per_share = prof.fwd_ps > 0 ? (_originalPrice / prof.fwd_ps) : 0;
+        const newPsFwd = fwd_rev_per_share > 0 ? simPrice / fwd_rev_per_share : 0;
+        updateMetric('psfwd', newPsFwd > 0 ? newPsFwd.toFixed(2) + 'x' : 'N/A');
+        
+        const fcfPerShare = prof.pfcf_ratio > 0 ? (_originalPrice / prof.pfcf_ratio) : 0;
+        const newPfcf = fcfPerShare > 0 ? simPrice / fcfPerShare : 0;
+        updateMetric('pfcf', newPfcf > 0 ? newPfcf.toFixed(2) + 'x' : 'N/A');
+        
+        updateMetric('dividendyield', formatSafePct(newDivYield));
 
         // --- 3. Update Current Price Header ---
         const priceEl = document.getElementById('current-price');
@@ -254,7 +269,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     newPts = ptsAbs + ptsRel;
                     item.value = newPE > 0 ? newPE.toFixed(2) + 'x' : '0.00x';
                 } else if (metric === 'P/S Ratio') {
-                    newPts = (newPS > 0 && newPS < 4) ? 10 : ((newPS > 0 && newPS <= 8) ? 5 : 0);
+                    newPts = (newPS > 0 && newPS < 2) ? 10 : ((newPS > 0 && newPS <= 4) ? 5 : 0);
                     item.value = newPS > 0 ? newPS.toFixed(2) + 'x' : '0.00x';
                 } else if (metric === 'EV / EBITDA') {
                     newPts = (newEvEbitda > 0 && newEvEbitda < 12) ? 10 : ((newEvEbitda > 0 && newEvEbitda <= 18) ? 5 : 0);
@@ -1664,15 +1679,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const current_price = data.current_price || 0;
             const non_gaap_pe = (current_price > 0 && prof.adjusted_eps > 0) ? current_price / prof.adjusted_eps : null;
 
-            const metricRow = (label, value, subtext = '', customStyle = '') => `
+            const metricRow = (label, value, subtext = '', customStyle = '') => {
+                const id = 'metric-val-' + label.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+                return `
                 <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.04); align-items: center;">
                     <div style="display: flex; flex-direction: column;">
                         <span style="color: rgba(255,255,255,0.5); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">${label}</span>
                         ${subtext ? `<span style="font-size: 0.7rem; color: rgba(255,255,255,0.3); margin-top: 2px;">${subtext}</span>` : ''}
                     </div>
-                    <span style="font-weight: 600; font-size: 0.95rem; color: white; ${customStyle} text-align: right; max-width: 60%; word-wrap: break-word;">${value}</span>
+                    <span id="${id}" style="font-weight: 600; font-size: 0.95rem; color: white; ${customStyle} text-align: right; max-width: 60%; word-wrap: break-word; transition: color 0.2s;">${value}</span>
                 </div>
-            `;
+                `;
+            };
 
             pBody.innerHTML = `
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 2.5rem;">

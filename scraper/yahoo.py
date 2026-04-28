@@ -3434,8 +3434,7 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         fy1_n = nasdaq_map.get(fy1_yr)
         fy1_num_est = None
         if fy1_n:
-            if fy1_n.get('consensusEPSForecast') is not None:
-                fy1_eps = fy1_n['consensusEPSForecast']
+            # We no longer overwrite Yahoo's FY1 EPS with Nasdaq's
             fy1_num_est = fy1_n.get('noOfEstimates')
 
         g1 = normalize_growth((fy1_eps / abs(fy0_eps) - 1) if fy0_eps and fy0_eps != 0 and fy1_eps is not None else None)
@@ -3448,8 +3447,7 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         fy2_n = nasdaq_map.get(fy2_yr)
         fy2_num_est = None
         if fy2_n:
-            if fy2_n.get('consensusEPSForecast') is not None:
-                fy2_eps = fy2_n['consensusEPSForecast']
+            # We no longer overwrite Yahoo's FY2 EPS with Nasdaq's
             fy2_num_est = fy2_n.get('noOfEstimates')
 
         g2 = normalize_growth((fy2_eps / abs(fy1_eps) - 1) if fy1_eps and fy1_eps != 0 and fy2_eps is not None else None)
