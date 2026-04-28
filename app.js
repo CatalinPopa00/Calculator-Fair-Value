@@ -1144,7 +1144,25 @@ document.addEventListener('DOMContentLoaded', () => {
             // v61: Default to 1.25 if industry_peg is missing (e.g. no peers found)
             const pegMode = document.getElementById('peg-mode')?.value || 'standard';
             const industryPegRaw = currentFormulaData.peg.industry_peg;
-            const targetPeg = pegMode === 'industry' ? (industryPegRaw || 1.25) : 1.0;
+            
+            const sector = globalData.company_profile.sector || "";
+            const industry = globalData.company_profile.industry || "";
+            const isTelecom = industry.toLowerCase().includes("telecom");
+            
+            let targetPeg = 1.0;
+            if (pegMode === 'industry') {
+                targetPeg = industryPegRaw || 1.25;
+            } else {
+                if (sector === "Technology" || (sector === "Communication Services" && !isTelecom)) {
+                    targetPeg = 1.50;
+                } else if (sector === "Utilities" || isTelecom) {
+                    targetPeg = 1.00;
+                } else if (sector === "Consumer Defensive") {
+                    targetPeg = 1.50;
+                } else if (sector === "Financial Services") {
+                    targetPeg = 1.20;
+                }
+            }
 
             if (usedGrowth > 0 && currentPe > 0 && targetPeg > 0) {
                 currentPegToDisplay = currentPe / (usedGrowth * 100);
@@ -1216,35 +1234,35 @@ document.addEventListener('DOMContentLoaded', () => {
                 let subText = "";
 
                 if (pegMode === 'industry' && industryPeg) {
-                    if (peg < industryPeg * 0.8) { statusText = "Subevaluat (vs Sector)"; statusColor = "var(--accent)"; }
-                    else if (peg <= industryPeg * 1.2) { statusText = "Fair Value (vs Sector)"; statusColor = "#fbbf24"; }
-                    else { statusText = "Supraevaluat (vs Sector)"; statusColor = "var(--danger)"; }
+                    if (peg < industryPeg * 0.8) { statusText = "UNDERVALUED (vs Sector)"; statusColor = "var(--accent)"; }
+                    else if (peg <= industryPeg * 1.2) { statusText = "FAIR VALUE (vs Sector)"; statusColor = "#fbbf24"; }
+                    else { statusText = "OVERVALUED (vs Sector)"; statusColor = "var(--danger)"; }
                     subText = `Sector Median PEG: ${industryPeg.toFixed(2)}`;
                 } else if (sector === "Technology" || (sector === "Communication Services" && !isTelecom)) {
-                    if (peg < 1.5) { statusText = "Subevaluat"; statusColor = "var(--accent)"; }
-                    else if (peg <= 2.5) { statusText = "Fair Value"; statusColor = "#fbbf24"; }
-                    else { statusText = "Supraevaluat"; statusColor = "var(--danger)"; }
+                    if (peg < 1.5) { statusText = "UNDERVALUED"; statusColor = "var(--accent)"; }
+                    else if (peg <= 2.5) { statusText = "FAIR VALUE"; statusColor = "#fbbf24"; }
+                    else { statusText = "OVERVALUED"; statusColor = "var(--danger)"; }
                 } else if (sector === "Utilities" || isTelecom) {
-                    if (peg < 1.0) { statusText = "Subevaluat / Fair Value"; statusColor = "var(--accent)"; }
-                    else { statusText = "Supraevaluat"; statusColor = "var(--danger)"; }
-                    subText = "Notă: PEGY este mai precis pentru acest sector.";
+                    if (peg < 1.0) { statusText = "UNDERVALUED / FAIR VALUE"; statusColor = "var(--accent)"; }
+                    else { statusText = "OVERVALUED"; statusColor = "var(--danger)"; }
+                    subText = "Note: PEGY is more accurate for this sector.";
                 } else if (sector === "Consumer Defensive") {
-                    if (peg < 1.5) { statusText = "Subevaluat"; statusColor = "var(--accent)"; }
-                    else if (peg <= 2.0) { statusText = "Fair Value"; statusColor = "#fbbf24"; }
-                    else { statusText = "Supraevaluat"; statusColor = "var(--danger)"; }
+                    if (peg < 1.5) { statusText = "UNDERVALUED"; statusColor = "var(--accent)"; }
+                    else if (peg <= 2.0) { statusText = "FAIR VALUE"; statusColor = "#fbbf24"; }
+                    else { statusText = "OVERVALUED"; statusColor = "var(--danger)"; }
                 } else if (sector === "Financial Services") {
-                    if (peg < 0.8) { statusText = "Subevaluat"; statusColor = "var(--accent)"; }
-                    else if (peg <= 1.2) { statusText = "Fair Value"; statusColor = "#fbbf24"; }
-                    else { statusText = "Supraevaluat"; statusColor = "var(--danger)"; }
+                    if (peg < 0.8) { statusText = "UNDERVALUED"; statusColor = "var(--accent)"; }
+                    else if (peg <= 1.2) { statusText = "FAIR VALUE"; statusColor = "#fbbf24"; }
+                    else { statusText = "OVERVALUED"; statusColor = "var(--danger)"; }
                 } else if (["Industrials", "Energy", "Basic Materials"].includes(sector)) {
-                    statusText = "Verdict Ciclic";
+                    statusText = "CYCLICAL VERDICT";
                     statusColor = "#a855f7"; 
-                    subText = "Compară cu media industriei (Sector Ciclic).";
+                    subText = "Compare directly with industry benchmarks (Cyclical Sector).";
                 } else {
                     // Default Fallback (Standard PEG 1.0 logic)
-                    if (peg < 1.0) { statusText = "Subevaluat"; statusColor = "var(--accent)"; }
-                    else if (peg <= 1.5) { statusText = "Fair Value"; statusColor = "#fbbf24"; }
-                    else { statusText = "Supraevaluat"; statusColor = "var(--danger)"; }
+                    if (peg < 1.0) { statusText = "UNDERVALUED"; statusColor = "var(--accent)"; }
+                    else if (peg <= 1.5) { statusText = "FAIR VALUE"; statusColor = "#fbbf24"; }
+                    else { statusText = "OVERVALUED"; statusColor = "var(--danger)"; }
                 }
 
                 pegStatusElem.textContent = statusText;
