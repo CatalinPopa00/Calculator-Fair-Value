@@ -678,6 +678,35 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             
             if valid_pegs:
                 median_peer_peg = statistics.median(valid_pegs)
+                
+            median_peer_pfcf = None
+            mean_peer_pfcf = None
+            median_peer_ps = None
+            mean_peer_ps = None
+            median_peer_pb = None
+            mean_peer_pb = None
+            median_peer_ev_ebitda = None
+            mean_peer_ev_ebitda = None
+
+            valid_pfcfs = [float(p.get('pfcf_ratio')) for p in peers_data if p.get('pfcf_ratio') and isinstance(p.get('pfcf_ratio'), (int, float)) and math.isfinite(p.get('pfcf_ratio')) and p.get('pfcf_ratio') > 0]
+            if valid_pfcfs:
+                median_peer_pfcf = statistics.median(valid_pfcfs)
+                mean_peer_pfcf = sum(valid_pfcfs) / len(valid_pfcfs)
+
+            valid_ps_list = [float(p.get('ps_ratio')) for p in peers_data if p.get('ps_ratio') and isinstance(p.get('ps_ratio'), (int, float)) and math.isfinite(p.get('ps_ratio')) and p.get('ps_ratio') > 0]
+            if valid_ps_list:
+                median_peer_ps = statistics.median(valid_ps_list)
+                mean_peer_ps = sum(valid_ps_list) / len(valid_ps_list)
+
+            valid_pbs = [float(p.get('price_to_book')) for p in peers_data if p.get('price_to_book') and isinstance(p.get('price_to_book'), (int, float)) and math.isfinite(p.get('price_to_book')) and p.get('price_to_book') > 0]
+            if valid_pbs:
+                median_peer_pb = statistics.median(valid_pbs)
+                mean_peer_pb = sum(valid_pbs) / len(valid_pbs)
+
+            valid_ev_ebitdas = [float(p.get('ev_to_ebitda')) for p in peers_data if p.get('ev_to_ebitda') and isinstance(p.get('ev_to_ebitda'), (int, float)) and math.isfinite(p.get('ev_to_ebitda')) and p.get('ev_to_ebitda') > 0]
+            if valid_ev_ebitdas:
+                median_peer_ev_ebitda = statistics.median(valid_ev_ebitdas)
+                mean_peer_ev_ebitda = sum(valid_ev_ebitdas) / len(valid_ev_ebitdas)
  
         # v285: PEG MUST use Adjusted (Non-GAAP) PE to match Non-GAAP Growth Estimates
         adj_pe = current_price / data.get("adjusted_eps") if data.get("adjusted_eps") and data.get("adjusted_eps") > 0 else None
@@ -778,14 +807,32 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             "relative": {
                 "fair_value": sanitize(relative_value),
                 "margin_of_safety": sanitize(((relative_value - current_price) / current_price * 100)) if relative_value is not None and current_price > 0 else None,
-                "company_eps": sanitize(data.get("historical_data", {}).get("diluted_eps", [data.get("trailing_eps")])[-1]),
+                "company_eps": sanitize(data.get("adjusted_eps") or data.get("trailing_eps")),
+                "company_fcf_share": sanitize(data.get("fcf", 0) / shares if shares else 0),
+                "company_sales_share": sanitize(data.get("revenue", 0) / shares if shares else 0),
+                "company_book_share": sanitize(current_price / data.get("price_to_book") if data.get("price_to_book") and data.get("price_to_book") > 0 else 0),
+                "company_ev_ebitda": sanitize(data.get("ev_to_ebitda") or ( ((current_price * shares) + data.get("total_debt", 0) - data.get("total_cash", 0)) / data.get("ebitda") if data.get("ebitda") and shares else None )),
                 "company_trailing_pe": sanitize(pe_historic),
                 "peers": [p.get("ticker", p) if isinstance(p, dict) else p for p in peers_data] if peers_data else [],
                 "median_peer_pe": sanitize(median_peer_pe),
+                "median_peer_pfcf": sanitize(median_peer_pfcf),
+                "median_peer_ps": sanitize(median_peer_ps),
+                "median_peer_pb": sanitize(median_peer_pb),
+                "median_peer_ev_ebitda": sanitize(median_peer_ev_ebitda),
                 "median_peer_peg": sanitize(median_peer_peg),
                 "mean_peer_pe": sanitize(mean_peer_pe),
+                "mean_peer_pfcf": sanitize(mean_peer_pfcf),
+                "mean_peer_ps": sanitize(mean_peer_ps),
+                "mean_peer_pb": sanitize(mean_peer_pb),
+                "mean_peer_ev_ebitda": sanitize(mean_peer_ev_ebitda),
                 "market_pe_trailing": sanitize(market_data.get("trailing_pe")),
-                "market_pe_forward": sanitize(market_data.get("forward_pe"))
+                "market_pe_forward": sanitize(market_data.get("forward_pe")),
+                "sp500_pe": 24.5,
+                "sp500_pfcf": 28.0,
+                "sp500_ps": 2.8,
+                "sp500_pb": 4.5,
+                "sp500_ev_ebitda": 15.0,
+                "sector": sector
             }
     }
 

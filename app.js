@@ -1300,27 +1300,126 @@ document.addEventListener('DOMContentLoaded', () => {
         let relVal = null;
         const rel = currentFormulaData.relative;
         if (rel) {
-            const fvMedian = (rel.median_peer_pe != null && rel.company_eps != null) ? rel.median_peer_pe * rel.company_eps : null;
-            const fvMean = (rel.mean_peer_pe != null && rel.company_eps != null) ? rel.mean_peer_pe * rel.company_eps : null;
-            const fvSP500 = (rel.market_pe_trailing != null && rel.company_eps != null) ? rel.market_pe_trailing * rel.company_eps : null;
+            const SECTOR_WEIGHTS = {
+                'Technology': { PE: 0.35, PFCF: 0.50, PS: 0.15 },
+                'Technology_Growth': { PE: 0.00, PFCF: 0.20, PS: 0.80 },
+                'Financial Services': { PE: 0.40, PB: 0.60, PFCF: 0.00, PS: 0.00 },
+                'Financials': { PE: 0.40, PB: 0.60, PFCF: 0.00, PS: 0.00 },
+                'Industrials': { PE: 0.20, PFCF: 0.30, EV_EBITDA: 0.50 },
+                'Energy': { PE: 0.20, PFCF: 0.30, EV_EBITDA: 0.50 },
+                'Consumer Defensive': { PE: 0.50, PFCF: 0.30, PS: 0.20 },
+                'Real Estate': { PE: 0.00, P_FFO: 0.80, P_AFFO: 0.20 },
+                'Default': { PE: 0.40, PFCF: 0.40, PS: 0.20 }
+            };
+
+            let fvPE = 0, fvPFCF = 0, fvPS = 0, fvPB = 0, fvEVEBITDA = 0;
+            
+            const company_eps = rel.company_eps || 0;
+            const company_fcf_share = rel.company_fcf_share || 0;
+            const company_sales_share = rel.company_sales_share || 0;
+            const company_book_share = rel.company_book_share || 0;
+            const company_ebitda = globalData.ebitda || 0;
+            const company_debt = globalData.total_debt || 0;
+            const company_cash = globalData.total_cash || 0;
+            const company_shares = globalData.shares_outstanding || 1;
 
             const variantEl = document.getElementById('relative-variant');
             const variant = variantEl ? variantEl.value : 'peers';
+            
+            let bPE = 20, bPFCF = 20, bPS = 2, bPB = 2, bEVEBITDA = 12;
+            let multipleLabel = 'P/E';
 
-            if (variant === 'peers') relVal = fvMedian;
-            else if (variant === 'average') relVal = fvMean;
-            else if (variant === 'sp500') relVal = fvSP500;
+            if (variant === 'peers') {
+                bPE = rel.median_peer_pe || 20;
+                bPFCF = rel.median_peer_pfcf || 20;
+                bPS = rel.median_peer_ps || 2;
+                bPB = rel.median_peer_pb || 2;
+                bEVEBITDA = rel.median_peer_ev_ebitda || 12;
+                multipleLabel = `Peer Median P/E: ${bPE.toFixed(1)}x`;
+            } else if (variant === 'average') {
+                bPE = rel.mean_peer_pe || 20;
+                bPFCF = rel.mean_peer_pfcf || 20;
+                bPS = rel.mean_peer_ps || 2;
+                bPB = rel.mean_peer_pb || 2;
+                bEVEBITDA = rel.mean_peer_ev_ebitda || 12;
+                multipleLabel = `Peer Avg P/E: ${bPE.toFixed(1)}x`;
+            } else { 
+                bPE = rel.sp500_pe || 24.5;
+                bPFCF = rel.sp500_pfcf || 28.0;
+                bPS = rel.sp500_ps || 2.8;
+                bPB = rel.sp500_pb || 4.5;
+                bEVEBITDA = rel.sp500_ev_ebitda || 15.0;
+                multipleLabel = `S&P 500 Trailing P/E: ${bPE.toFixed(1)}x`;
+            }
+
+            fvPE = company_eps * bPE;
+            fvPFCF = company_fcf_share * bPFCF;
+            fvPS = company_sales_share * bPS;
+            fvPB = company_book_share * bPB;
+            
+            const impliedEV = company_ebitda * bEVEBITDA;
+            const impliedMktCap = impliedEV - company_debt + company_cash;
+            fvEVEBITDA = company_shares > 0 ? impliedMktCap / company_shares : 0;
+
+            const sectorName = rel.sector || 'Default';
+            let weights = SECTOR_WEIGHTS['Default'];
+            
+            if (sectorName === 'Technology' || sectorName === 'Information Technology') {
+                if (company_eps <= 0 || company_fcf_share <= 0 || bPE > 50) {
+                    weights = SECTOR_WEIGHTS['Technology_Growth'];
+                } else {
+                    weights = SECTOR_WEIGHTS['Technology'];
+                }
+            } else if (SECTOR_WEIGHTS[sectorName]) {
+                weights = SECTOR_WEIGHTS[sectorName];
+            } else {
+                // Map loose names
+                if (sectorName.includes('Tech')) weights = SECTOR_WEIGHTS['Technology'];
+                if (sectorName.includes('Finance') || sectorName.includes('Bank')) weights = SECTOR_WEIGHTS['Financial Services'];
+                if (sectorName.includes('Industrial')) weights = SECTOR_WEIGHTS['Industrials'];
+                if (sectorName.includes('Energy')) weights = SECTOR_WEIGHTS['Energy'];
+                if (sectorName.includes('Defensive')) weights = SECTOR_WEIGHTS['Consumer Defensive'];
+                if (sectorName.includes('Real Estate') || sectorName.includes('REIT')) weights = SECTOR_WEIGHTS['Real Estate'];
+            }
+
+            let weightedSum = 0;
+            let totalWeight = 0;
+            let breakdownHTML = '';
+
+            const addMetric = (label, val, weight, multVal) => {
+                if (weight != null && weight > 0) {
+                    const safeVal = val > 0 ? val : 0;
+                    weightedSum += (safeVal * weight);
+                    totalWeight += weight;
+                    
+                    breakdownHTML += `
+                        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem;">
+                            <span style="color: var(--text-muted);">${label} (${(weight * 100).toFixed(0)}%)</span>
+                            <span style="font-weight: 600; color: white;">${formatLargeNumber(safeVal, '$')} <span style="font-size: 0.65rem; color: rgba(255,255,255,0.3);">@ ${multVal.toFixed(1)}x</span></span>
+                        </div>
+                    `;
+                }
+            };
+
+            if (weights.PE !== undefined) addMetric('Implied Value via P/E', fvPE, weights.PE, bPE);
+            if (weights.PFCF !== undefined) addMetric('Implied Value via P/FCF', fvPFCF, weights.PFCF, bPFCF);
+            if (weights.PS !== undefined) addMetric('Implied Value via P/S', fvPS, weights.PS, bPS);
+            if (weights.PB !== undefined) addMetric('Implied Value via P/B', fvPB, weights.PB, bPB);
+            if (weights.EV_EBITDA !== undefined) addMetric('Implied Value via EV/EBITDA', fvEVEBITDA, weights.EV_EBITDA, bEVEBITDA);
+            if (weights.P_FFO !== undefined) addMetric('Implied Value via P/FFO', fvPE, weights.P_FFO, bPE);
+            if (weights.P_AFFO !== undefined) addMetric('Implied Value via P/AFFO', fvPFCF, weights.P_AFFO, bPFCF);
+
+            if (totalWeight > 0) {
+                relVal = weightedSum / totalWeight;
+            } else {
+                relVal = fvPE > 0 ? fvPE : (fvPS > 0 ? fvPS : null);
+            }
 
             const mc = document.getElementById('relative-market-compare');
-            if (mc) {
-                const mpe = rel.market_pe_trailing != null ? rel.market_pe_trailing.toFixed(1) + 'x' : '--';
-                const peerMedianPe = rel.median_peer_pe != null ? rel.median_peer_pe.toFixed(1) + 'x' : '--';
-                const peerMeanPe = rel.mean_peer_pe != null ? rel.mean_peer_pe.toFixed(1) + 'x' : '--';
+            if (mc) mc.textContent = multipleLabel;
 
-                if (variant === 'peers') mc.textContent = `Peer Median P/E: ${peerMedianPe}`;
-                else if (variant === 'average') mc.textContent = `Peer Mean P/E: ${peerMeanPe}`;
-                else if (variant === 'sp500') mc.textContent = `S&P 500 Trailing P/E: ${mpe}`;
-            }
+            const breakdownEl = document.getElementById('relative-breakdown');
+            if (breakdownEl) breakdownEl.innerHTML = breakdownHTML || '<div style="color: var(--text-muted); text-align: center;">Breakdown unavailable</div>';
         }
         setValuationStatus(relVal, globalData.current_price, 'relative-status', 'relative-value');
         

@@ -324,12 +324,18 @@
                         </div>
                         <div class="card-inputs">
                             <div class="valuation-input-group">
-                                <label class="premium-label">Compare vs.</label>
+                                <label class="premium-label" style="display: flex; align-items: center; gap: 4px;">
+                                    Compare vs.
+                                    <span style="cursor: help; font-size: 0.75rem; color: var(--text-muted);" title="S&P 500 calculates market premium, while Sector Peers calculates intrinsic industry value.">ℹ️</span>
+                                </label>
                                 <select id="relative-variant" class="premium-select" style="max-width: 150px;">
                                     <option value="peers" selected>Sector Peers</option>
                                     <option value="average">Avg. Peers</option>
                                     <option value="sp500">S&amp;P 500</option>
                                 </select>
+                            </div>
+                            <div id="relative-breakdown" style="width: 100%; margin-top: 1rem; padding-top: 0.5rem; border-top: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; gap: 6px;">
+                                <!-- Triangulation Breakdown dynamically rendered in app.js -->
                             </div>
                         </div>
                         <div class="card-footer">
