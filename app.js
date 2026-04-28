@@ -1302,12 +1302,22 @@ document.addEventListener('DOMContentLoaded', () => {
         if (rel) {
             const SECTOR_WEIGHTS = {
                 'Technology': { PE: 0.35, PFCF: 0.50, PS: 0.15 },
+                'Information Technology': { PE: 0.35, PFCF: 0.50, PS: 0.15 },
                 'Technology_Growth': { PE: 0.00, PFCF: 0.20, PS: 0.80 },
-                'Financial Services': { PE: 0.40, PB: 0.60, PFCF: 0.00, PS: 0.00 },
-                'Financials': { PE: 0.40, PB: 0.60, PFCF: 0.00, PS: 0.00 },
+                'Financial Services': { PE: 0.40, PB: 0.60 },
+                'Financials': { PE: 0.40, PB: 0.60 },
                 'Industrials': { PE: 0.20, PFCF: 0.30, EV_EBITDA: 0.50 },
                 'Energy': { PE: 0.20, PFCF: 0.30, EV_EBITDA: 0.50 },
                 'Consumer Defensive': { PE: 0.50, PFCF: 0.30, PS: 0.20 },
+                'Consumer Staples': { PE: 0.50, PFCF: 0.30, PS: 0.20 },
+                'Consumer Cyclical': { PE: 0.35, PFCF: 0.35, PS: 0.30 },
+                'Consumer Discretionary': { PE: 0.35, PFCF: 0.35, PS: 0.30 },
+                'Healthcare': { PE: 0.35, PFCF: 0.40, PS: 0.25 },
+                'Health Care': { PE: 0.35, PFCF: 0.40, PS: 0.25 },
+                'Communication Services': { PE: 0.35, PFCF: 0.40, PS: 0.25 },
+                'Utilities': { PE: 0.50, PFCF: 0.30, EV_EBITDA: 0.20 },
+                'Basic Materials': { PE: 0.25, PFCF: 0.25, EV_EBITDA: 0.50 },
+                'Materials': { PE: 0.25, PFCF: 0.25, EV_EBITDA: 0.50 },
                 'Real Estate': { PE: 0.00, P_FFO: 0.80, P_AFFO: 0.20 },
                 'Default': { PE: 0.40, PFCF: 0.40, PS: 0.20 }
             };
@@ -1321,7 +1331,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const company_ebitda = globalData.ebitda || 0;
             const company_debt = globalData.total_debt || 0;
             const company_cash = globalData.total_cash || 0;
-            const company_shares = globalData.shares_outstanding || 1;
+            const company_shares = (globalData.company_profile && globalData.company_profile.shares_outstanding) || 1;
 
             const variantEl = document.getElementById('relative-variant');
             const variant = variantEl ? variantEl.value : 'peers';
@@ -1362,24 +1372,25 @@ document.addEventListener('DOMContentLoaded', () => {
             fvEVEBITDA = company_shares > 0 ? impliedMktCap / company_shares : 0;
 
             const sectorName = rel.sector || 'Default';
-            let weights = SECTOR_WEIGHTS['Default'];
+            let weights = SECTOR_WEIGHTS[sectorName] || SECTOR_WEIGHTS['Default'];
             
-            if (sectorName === 'Technology' || sectorName === 'Information Technology') {
-                if (company_eps <= 0 || company_fcf_share <= 0 || bPE > 50) {
-                    weights = SECTOR_WEIGHTS['Technology_Growth'];
-                } else {
-                    weights = SECTOR_WEIGHTS['Technology'];
-                }
-            } else if (SECTOR_WEIGHTS[sectorName]) {
-                weights = SECTOR_WEIGHTS[sectorName];
-            } else {
-                // Map loose names
+            // Technology Growth override: unprofitable or high-multiple tech
+            if ((sectorName === 'Technology' || sectorName === 'Information Technology') &&
+                (company_eps <= 0 || company_fcf_share <= 0 || bPE > 50)) {
+                weights = SECTOR_WEIGHTS['Technology_Growth'];
+            }
+            
+            // Fuzzy fallback for rare/unmapped sector strings
+            if (!SECTOR_WEIGHTS[sectorName]) {
                 if (sectorName.includes('Tech')) weights = SECTOR_WEIGHTS['Technology'];
-                if (sectorName.includes('Finance') || sectorName.includes('Bank')) weights = SECTOR_WEIGHTS['Financial Services'];
-                if (sectorName.includes('Industrial')) weights = SECTOR_WEIGHTS['Industrials'];
-                if (sectorName.includes('Energy')) weights = SECTOR_WEIGHTS['Energy'];
-                if (sectorName.includes('Defensive')) weights = SECTOR_WEIGHTS['Consumer Defensive'];
-                if (sectorName.includes('Real Estate') || sectorName.includes('REIT')) weights = SECTOR_WEIGHTS['Real Estate'];
+                else if (sectorName.includes('Finance') || sectorName.includes('Bank')) weights = SECTOR_WEIGHTS['Financial Services'];
+                else if (sectorName.includes('Industrial')) weights = SECTOR_WEIGHTS['Industrials'];
+                else if (sectorName.includes('Energy')) weights = SECTOR_WEIGHTS['Energy'];
+                else if (sectorName.includes('Health')) weights = SECTOR_WEIGHTS['Healthcare'];
+                else if (sectorName.includes('Real Estate') || sectorName.includes('REIT')) weights = SECTOR_WEIGHTS['Real Estate'];
+                else if (sectorName.includes('Communication')) weights = SECTOR_WEIGHTS['Communication Services'];
+                else if (sectorName.includes('Utilit')) weights = SECTOR_WEIGHTS['Utilities'];
+                else if (sectorName.includes('Material')) weights = SECTOR_WEIGHTS['Materials'];
             }
 
             let weightedSum = 0;
@@ -1388,14 +1399,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const addMetric = (label, val, weight, multVal) => {
                 if (weight != null && weight > 0) {
-                    const safeVal = val > 0 ? val : 0;
-                    weightedSum += (safeVal * weight);
-                    totalWeight += weight;
+                    const safeVal = (val != null && isFinite(val) && val > 0) ? val : 0;
+                    if (safeVal > 0) {
+                        weightedSum += (safeVal * weight);
+                        totalWeight += weight;
+                    }
                     
                     breakdownHTML += `
                         <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem;">
                             <span style="color: var(--text-muted);">${label} (${(weight * 100).toFixed(0)}%)</span>
-                            <span style="font-weight: 600; color: white;">${formatLargeNumber(safeVal, '$')} <span style="font-size: 0.65rem; color: rgba(255,255,255,0.3);">@ ${multVal.toFixed(1)}x</span></span>
+                            <span style="font-weight: 600; color: ${safeVal > 0 ? 'white' : 'var(--text-muted)'};">${safeVal > 0 ? formatLargeNumber(safeVal, '$') : 'N/A'} <span style="font-size: 0.65rem; color: rgba(255,255,255,0.3);">@ ${multVal.toFixed(1)}x</span></span>
                         </div>
                     `;
                 }

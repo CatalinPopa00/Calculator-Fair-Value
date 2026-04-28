@@ -658,6 +658,14 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         median_peer_pe = None
         mean_peer_pe = None
         median_peer_peg = None
+        median_peer_pfcf = None
+        mean_peer_pfcf = None
+        median_peer_ps = None
+        mean_peer_ps = None
+        median_peer_pb = None
+        mean_peer_pb = None
+        median_peer_ev_ebitda = None
+        mean_peer_ev_ebitda = None
         if peers_data:
             valid_pes = []
             for p in peers_data:
@@ -678,15 +686,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             
             if valid_pegs:
                 median_peer_peg = statistics.median(valid_pegs)
-                
-            median_peer_pfcf = None
-            mean_peer_pfcf = None
-            median_peer_ps = None
-            mean_peer_ps = None
-            median_peer_pb = None
-            mean_peer_pb = None
-            median_peer_ev_ebitda = None
-            mean_peer_ev_ebitda = None
+
 
             valid_pfcfs = [float(p.get('pfcf_ratio')) for p in peers_data if p.get('pfcf_ratio') and isinstance(p.get('pfcf_ratio'), (int, float)) and math.isfinite(p.get('pfcf_ratio')) and p.get('pfcf_ratio') > 0]
             if valid_pfcfs:
