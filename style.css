@@ -2711,6 +2711,201 @@ body {
     .company-overview h2 {
         font-size: 1.8rem;
     }
+}
+
+@keyframes wlShimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+
+.wl-spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-top: 2px solid var(--accent);
+    border-radius: 50%;
+    animation: wlSpin 0.8s linear infinite;
+    display: inline-block;
+}
+
+@keyframes wlSpin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.wl-score-pill .wl-spinner {
+    width: 12px;
+    height: 12px;
+}
+
+/* --- ANALYST ESTIMATES TABS (Mobile) --- */
+.analyst-tabs-wrapper {
+    display: none; /* Hidden on desktop */
+    margin-bottom: 1.5rem;
+    width: 100%;
+}
+
+/* Ensure all content is visible on desktop */
+.analyst-tab-content {
+    display: block !important;
+    opacity: 1 !important;
+}
+
+/* Mobile Layout Styles */
+@media (max-width: 768px) {
+    .analyst-tabs-wrapper {
+        display: block;
+    }
+
+    .analyst-grid {
+        display: block !important; /* Stack context for mobile tabs */
+        border: none !important;
+    }
+
+    /* Hide INACTIVE tabs on mobile ONLY */
+    .analyst-tab-content {
+        display: none !important;
+        width: 100% !important;
+        padding-right: 0 !important;
+        border-right: none !important;
+        border-bottom: none !important;
+        animation: fadeIn 0.3s ease;
+    }
+
+    /* Show ACTIVE tab on mobile ONLY */
+    .analyst-tab-content.active {
+        display: block !important;
+    }
+
+    .analyst-tabs-control {
+        display: flex;
+        gap: 10px;
+        overflow-x: auto;
+        padding-bottom: 10px;
+        scrollbar-width: thin;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .analyst-tabs::-webkit-scrollbar {
+        height: 4px;
+    }
+
+    .analyst-tab-btn {
+        white-space: nowrap;
+        padding: 0.6rem 1.2rem;
+        background: rgba(30, 41, 59, 0.5);
+        border: 1px solid var(--card-border);
+        border-radius: 30px;
+        color: var(--text-muted);
+        font-family: 'Outfit', sans-serif;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    .analyst-tab-btn.active {
+        background: var(--primary);
+        color: white;
+        border-color: var(--primary);
+        box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+    }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Simulate Price Button & Input */
+.simulate-price-btn {
+    background: rgba(56, 189, 248, 0.1);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.simulate-price-btn:hover {
+    background: rgba(56, 189, 248, 0.25);
+    border-color: #38bdf8;
+    transform: scale(1.1);
+}
+.simulate-price-btn.active {
+    background: rgba(251, 191, 36, 0.2);
+    color: #fbbf24;
+    border-color: #fbbf24;
+    box-shadow: 0 0 12px rgba(251, 191, 36, 0.3);
+}
+
+.simulate-price-input {
+    width: 110px;
+    padding: 6px 10px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid #fbbf24;
+    color: #fbbf24;
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.4rem;
+    font-weight: 800;
+    text-align: center;
+    border-radius: 8px;
+    outline: none;
+    transition: all 0.2s ease;
+    appearance: textfield;
+    -moz-appearance: textfield;
+}
+.simulate-price-input::-webkit-inner-spin-button,
+.simulate-price-input::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.simulate-price-input:focus {
+    border-color: #fbbf24;
+    box-shadow: 0 0 15px rgba(251, 191, 36, 0.2);
+}
+
+.simulate-label {
+    font-size: 0.7rem;
+    color: #fbbf24;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 4px;
+    animation: fadeIn 0.3s ease;
+}
+.profile-table-wrapper table { width: 100%; border-collapse: separate; border-spacing: 0 0; }
+.profile-row { transition: background 0.2s ease; }
+.profile-row:hover { background: rgba(255, 255, 255, 0.03); }
+.profile-label { padding: 12px 0; color: rgba(255, 255, 255, 0.4); font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+.profile-value { padding: 12px 0; color: white; font-size: 0.9rem; font-weight: 700; text-align: right; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+.peer-btn { margin-left: 8px; background: rgba(56, 189, 248, 0.1); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.2); padding: 3px 8px; border-radius: 6px; font-size: 0.65rem; cursor: pointer; transition: all 0.2s; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
+.peer-btn:hover { background: #38bdf8; color: white; box-shadow: 0 0 12px rgba(56, 189, 248, 0.4); }
+#company-desc-card { background: rgba(15, 23, 42, 0.3) !important; border: 1px solid rgba(255, 255, 255, 0.05) !important; box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.2); border-left: 4px solid #38bdf8 !important; }
+#company-desc-text::-webkit-scrollbar { width: 4px; }
+#company-desc-text::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+/* FINAL GLOBAL RESPONSIVENESS POLISH */
+@media (max-width: 640px) {
+    .app-container {
+        padding: 1rem 0.75rem;
+    }
+    
+    .glass-card {
+        padding: 1.25rem 1rem;
+    }
+
+    .hero-layout, .row-2-grid, .methods-grid {
+        gap: 1rem;
+    }
+
+    .company-overview h2 {
+        font-size: 1.8rem;
+    }
 
     .accent-card .value {
         font-size: 2.5rem;
@@ -2729,8 +2924,8 @@ body {
     .analyst-grid {
         grid-template-columns: 1fr !important;
     }
+
     .valuation-input-group {
-        display: flex !important;
         flex-direction: row !important;
         justify-content: space-between !important;
         align-items: center !important;
