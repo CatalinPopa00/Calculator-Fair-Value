@@ -1005,7 +1005,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">Most recent historical 1-year revenue growth.</div>
                     </div>
                     <span style="font-size:0.85rem; font-weight:700; color:var(--text-main); min-width:28px; text-align:right;">
-                        ${(rule40Data.growth * 100).toFixed(1)}%
+                        ${(rule40Data.revenue_growth || 0).toFixed(1)}%
                     </span>
                 </div>
                 
@@ -1016,7 +1016,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">Free Cash Flow relative to Total Revenue.</div>
                     </div>
                     <span style="font-size:0.85rem; font-weight:700; color:var(--text-main); min-width:28px; text-align:right;">
-                        ${(rule40Data.margin * 100).toFixed(1)}%
+                        ${(rule40Data.fcf_margin || 0).toFixed(1)}%
                     </span>
                 </div>
             </div>`;
@@ -2391,7 +2391,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const valColor = isAnchor ? 'white' : 'inherit';
                 const estVal = item.num_estimates != null ? item.num_estimates : '--';
                 
-                if (eBody) eBody.innerHTML += `<tr><td style="padding:4px 0;color:${labelColor};">${pLabel}</td><td style="text-align:right;color:${valColor};">${aVal}</td><td style="text-align:right;color:${sColor};font-weight:${weight};">${gVal}</td><td style="text-align:right;color:var(--text-muted);">${estVal}</td></tr>`;
+                if (eBody) eBody.innerHTML += `<tr><td style="padding:4px 0;color:${labelColor};">${pLabel}</td><td style="text-align:right;color:${valColor};">${aVal}</td><td style="text-align:right;color:${sColor};font-weight:${weight};">${gVal}</td></tr>`;
             });
 
             const rItems = data.rev_estimates || [];
