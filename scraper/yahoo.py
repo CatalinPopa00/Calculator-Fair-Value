@@ -3456,14 +3456,7 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         g2r = normalize_growth((fy2_rev / abs(fy1_rev) - 1) if fy1_rev and fy1_rev != 0 and fy2_rev is not None else None)
         unified_rev.append({"period": f"FY {fy2_yr}", "avg": fy2_rev, "growth": g2r, "status": "estimate"})
 
-        # 4. FY 3 (Nasdaq Only for EPS)
-        fy3_yr = fy2_yr + 1
-        fy3_n = nasdaq_map.get(fy3_yr)
-        if fy3_n and fy3_n.get('consensusEPSForecast') is not None:
-            fy3_eps = fy3_n['consensusEPSForecast']
-            fy3_num_est = fy3_n.get('noOfEstimates')
-            g3 = normalize_growth((fy3_eps / abs(fy2_eps) - 1) if fy2_eps and fy2_eps != 0 and fy3_eps is not None else None)
-            unified_eps.append({"period": f"FY {fy3_yr}", "avg": fy3_eps, "growth": g3, "status": "estimate", "num_estimates": fy3_num_est})
+        # FY 3 block removed to stick only to 2 years (FY1, FY2) from Yahoo Finance.
 
 
         # (Anomaly healing removed: with proper FY0/FY1 from Yahoo, no longer needed)
