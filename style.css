@@ -1686,7 +1686,6 @@ body {
     border-radius: 12px;
     padding: 0.75rem;
     border: 1px solid rgba(255, 255, 255, 0.03);
-    margin-top: auto;
     margin-bottom: 1rem;
 }
 
@@ -1719,8 +1718,8 @@ body {
     font-size: 0.85rem;
     outline: none;
     transition: all 0.2s;
-    width: 100%;
-    max-width: 120px;
+    width: 150px;
+    max-width: 150px;
     text-align: right;
 }
 
@@ -2945,9 +2944,9 @@ body {
     }
 
     .premium-input, .premium-select {
-        width: 140px !important;
-        min-width: 140px !important;
-        max-width: 140px !important;
+        width: 150px !important;
+        min-width: 150px !important;
+        max-width: 150px !important;
         text-align: right !important;
         font-size: 0.85rem !important;
         padding: 0.4rem 0.6rem !important;

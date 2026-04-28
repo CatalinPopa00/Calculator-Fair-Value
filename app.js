@@ -3209,7 +3209,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     if (k === 'PE') val = (globalData.company_profile && (globalData.company_profile.trailing_pe || globalData.company_profile.current_pe));
                                     else if (k === 'PS') val = (globalData.company_profile && globalData.company_profile.ps_ratio);
                                     else if (k === 'PB') val = (globalData.company_profile && globalData.company_profile.price_to_book);
-                                    else if (k === 'EV_EBITDA') val = (rel && rel.company_ev_ebitda);
+                                    else if (k === 'EV_EBITDA') val = (r && r.company_ev_ebitda);
                                     
                                     return `<td style="text-align:right; padding:6px; color:#28c76f; font-weight:700;">${val != null ? val.toFixed(1) + 'x' : '—'}</td>`;
                                 }).join('')}
