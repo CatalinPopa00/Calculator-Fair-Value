@@ -2702,6 +2702,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         data = {
             "ticker": ticker_symbol.upper(),
             "name": name,
+            "currency": info.get("currency", "USD"),
+            "financial_currency": info.get("financialCurrency", "USD"),
             "historical_anchors": historical_anchors,
             "current_price": current_price,
             "data_source": data_source,

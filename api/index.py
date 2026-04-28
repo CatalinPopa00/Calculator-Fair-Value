@@ -37,6 +37,50 @@ search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
 CACHE_VERSION = "v269"
+def get_usd_fx_rate(currency: str) -> float:
+    if not currency:
+        return 1.0
+    c_upper = currency.upper().strip()
+    if c_upper == 'USD':
+        return 1.0
+    
+    # Handle Pence (GBp/GBX) to USD
+    is_pence = False
+    if c_upper in ['GBX', 'GBP']:
+        c_upper = 'GBP'
+        is_pence = True
+        
+    try:
+        import yfinance as yf
+        symbol = f"{c_upper}USD=X"
+        fx = yf.Ticker(symbol)
+        hist = fx.history(period="1d")
+        if not hist.empty:
+            rate = float(hist['Close'].iloc[-1])
+            if is_pence:
+                return rate / 100.0
+            return rate
+    except Exception as e:
+        print(f"Error fetching USD FX Rate for {currency}: {e}")
+        
+    # Fallbacks for common currencies if Yahoo is blocked
+    fallbacks = {
+        'EUR': 1.08,
+        'GBP': 1.25,
+        'CAD': 0.73,
+        'AUD': 0.66,
+        'JPY': 0.0065,
+        'CHF': 1.10,
+        'CNY': 0.14,
+        'RON': 0.22,
+        'DKK': 0.14,
+        'SEK': 0.095
+    }
+    rate = fallbacks.get(c_upper, 1.0)
+    if is_pence:
+        return rate / 100.0
+    return rate
+
 # 1. Initialize FastAPI App (Systemic Recovery Fix)
 app = FastAPI(title="Fair Value Calculator API")
 
@@ -322,6 +366,35 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         
         # Wait for main data first
         data = main_task.result() or {}
+        
+        # --- DYNAMIC FX CURRENCY CONVERSION TO USD ---
+        price_currency = data.get("currency", "USD")
+        fin_currency = data.get("financial_currency", "USD")
+        
+        price_fx = get_usd_fx_rate(price_currency)
+        fin_fx = get_usd_fx_rate(fin_currency)
+        
+        # Convert price-dependent metrics
+        if price_fx != 1.0:
+            if data.get("current_price"): data["current_price"] = data["current_price"] * price_fx
+            
+        # Convert financial-dependent metrics
+        if fin_fx != 1.0:
+            for key in ["adjusted_eps", "trailing_eps", "fwd_eps", "fcf", "total_cash", "total_debt", "revenue", "ebitda"]:
+                if data.get(key) is not None:
+                    data[key] = data[key] * fin_fx
+            
+            # Convert multi-year eps estimates
+            if data.get("eps_estimates"):
+                for est in data["eps_estimates"]:
+                    if est.get("avg") is not None:
+                        est["avg"] = est["avg"] * fin_fx
+            
+            # Convert historical data
+            if data.get("historical_data"):
+                for h_key in ["revenue", "eps", "diluted_eps", "fcf"]:
+                    if data["historical_data"].get(h_key):
+                        data["historical_data"][h_key] = [v * fin_fx if v is not None else None for v in data["historical_data"][h_key]]
         
         # Get peer data
         peers_data = []
