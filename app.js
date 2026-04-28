@@ -3092,6 +3092,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (method === 'perpetual' && sensMatrix.length > 0) {
                         matrixHTML = `<div style="margin-top: 25px;">
                             <h4 style="margin-bottom:15px; font-size:1rem; text-transform:uppercase; letter-spacing:1px; color:white; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:5px;">DCF Sensitivity Matrix</h4>
+                            <div style="overflow-x:auto;">
                             <table style="width:100%; border-collapse:collapse; font-size: 0.9rem; text-align:center; background: rgba(0,0,0,0.2); border-radius:6px; overflow:hidden;">`;
                         
                         matrixHTML += `<tr><th style="padding:10px; border:1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color:white;">WACC \\ Growth</th>`;
@@ -3108,7 +3109,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             });
                             matrixHTML += `</tr>`;
                         });
-                        matrixHTML += `</table></div>`;
+                        matrixHTML += `</table></div></div>`;
                     }
 
                     return `

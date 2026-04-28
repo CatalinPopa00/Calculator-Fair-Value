@@ -376,7 +376,13 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         
         # Convert price-dependent metrics
         if price_fx != 1.0:
-            if data.get("current_price"): data["current_price"] = data["current_price"] * price_fx
+            if data.get("current_price"): 
+                data["current_price"] = data["current_price"] * price_fx
+            if data.get("price_target"):
+                pt = data["price_target"]
+                for pt_key in ["low", "avg", "median", "high"]:
+                    if pt.get(pt_key) is not None:
+                        pt[pt_key] = pt[pt_key] * price_fx
             
         # Convert financial-dependent metrics
         if fin_fx != 1.0:
@@ -389,12 +395,35 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 for est in data["eps_estimates"]:
                     if est.get("avg") is not None:
                         est["avg"] = est["avg"] * fin_fx
+                        
+            # Convert multi-year revenue estimates
+            if data.get("rev_estimates"):
+                for est in data["rev_estimates"]:
+                    if est.get("avg") is not None:
+                        est["avg"] = est["avg"] * fin_fx
             
             # Convert historical data
             if data.get("historical_data"):
                 for h_key in ["revenue", "eps", "diluted_eps", "fcf"]:
                     if data["historical_data"].get(h_key):
                         data["historical_data"][h_key] = [v * fin_fx if v is not None else None for v in data["historical_data"][h_key]]
+
+        # Recalculate forward ratios in USD to prevent currency mismatch
+        shares = data.get("shares_outstanding") or 1
+        rev_per_share = (data.get("revenue") or 0) / shares if shares else 0
+        
+        # Recalculate fwd_pe if we have fy1_eps in USD
+        if data.get("eps_estimates") and data.get("current_price"):
+            fy1 = next((e for e in data["eps_estimates"] if e.get("period") == "FY 1" or "FY1" in str(e.get("period"))), None)
+            if fy1 and fy1.get("avg") and fy1.get("avg") > 0:
+                data["fwd_pe"] = data["current_price"] / fy1["avg"]
+                
+        # Recalculate fwd_ps if we have fy1_rev in USD
+        if data.get("rev_estimates") and data.get("current_price") and shares:
+            fy1_r = next((e for e in data["rev_estimates"] if e.get("period") == "FY 1" or "FY1" in str(e.get("period"))), None)
+            if fy1_r and fy1_r.get("avg") and fy1_r.get("avg") > 0:
+                fy1_rev_share = fy1_r["avg"] / shares
+                data["fwd_ps"] = data["current_price"] / fy1_rev_share if fy1_rev_share > 0 else None
         
         # Get peer data
         peers_data = []
