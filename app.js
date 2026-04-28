@@ -1301,25 +1301,25 @@ document.addEventListener('DOMContentLoaded', () => {
         const rel = currentFormulaData.relative;
         if (rel) {
             const SECTOR_WEIGHTS = {
-                'Technology': { PE: 0.35, PFCF: 0.50, PS: 0.15 },
-                'Information Technology': { PE: 0.35, PFCF: 0.50, PS: 0.15 },
-                'Technology_Growth': { PE: 0.00, PFCF: 0.20, PS: 0.80 },
+                'Technology': { PE: 0.35, EV_EBITDA: 0.50, PS: 0.15 },
+                'Information Technology': { PE: 0.35, EV_EBITDA: 0.50, PS: 0.15 },
+                'Technology_Growth': { PE: 0.00, EV_EBITDA: 0.20, PS: 0.80 },
                 'Financial Services': { PE: 0.40, PB: 0.60 },
                 'Financials': { PE: 0.40, PB: 0.60 },
-                'Industrials': { PE: 0.20, PFCF: 0.30, EV_EBITDA: 0.50 },
-                'Energy': { PE: 0.20, PFCF: 0.30, EV_EBITDA: 0.50 },
-                'Consumer Defensive': { PE: 0.50, PFCF: 0.30, PS: 0.20 },
-                'Consumer Staples': { PE: 0.50, PFCF: 0.30, PS: 0.20 },
-                'Consumer Cyclical': { PE: 0.35, PFCF: 0.35, PS: 0.30 },
-                'Consumer Discretionary': { PE: 0.35, PFCF: 0.35, PS: 0.30 },
-                'Healthcare': { PE: 0.35, PFCF: 0.40, PS: 0.25 },
-                'Health Care': { PE: 0.35, PFCF: 0.40, PS: 0.25 },
-                'Communication Services': { PE: 0.35, PFCF: 0.40, PS: 0.25 },
-                'Utilities': { PE: 0.50, PFCF: 0.30, EV_EBITDA: 0.20 },
-                'Basic Materials': { PE: 0.25, PFCF: 0.25, EV_EBITDA: 0.50 },
-                'Materials': { PE: 0.25, PFCF: 0.25, EV_EBITDA: 0.50 },
+                'Industrials': { PE: 0.20, EV_EBITDA: 0.80 },
+                'Energy': { PE: 0.20, EV_EBITDA: 0.80 },
+                'Consumer Defensive': { PE: 0.50, EV_EBITDA: 0.30, PS: 0.20 },
+                'Consumer Staples': { PE: 0.50, EV_EBITDA: 0.30, PS: 0.20 },
+                'Consumer Cyclical': { PE: 0.35, EV_EBITDA: 0.35, PS: 0.30 },
+                'Consumer Discretionary': { PE: 0.35, EV_EBITDA: 0.35, PS: 0.30 },
+                'Healthcare': { PE: 0.35, EV_EBITDA: 0.40, PS: 0.25 },
+                'Health Care': { PE: 0.35, EV_EBITDA: 0.40, PS: 0.25 },
+                'Communication Services': { PE: 0.35, EV_EBITDA: 0.40, PS: 0.25 },
+                'Utilities': { PE: 0.50, EV_EBITDA: 0.50 },
+                'Basic Materials': { PE: 0.25, EV_EBITDA: 0.75 },
+                'Materials': { PE: 0.25, EV_EBITDA: 0.75 },
                 'Real Estate': { PE: 0.00, P_FFO: 0.80, P_AFFO: 0.20 },
-                'Default': { PE: 0.40, PFCF: 0.40, PS: 0.20 }
+                'Default': { PE: 0.40, EV_EBITDA: 0.40, PS: 0.20 }
             };
 
             let fvPE = 0, fvPFCF = 0, fvPS = 0, fvPB = 0, fvEVEBITDA = 0;
@@ -1376,7 +1376,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Technology Growth override: unprofitable or high-multiple tech
             if ((sectorName === 'Technology' || sectorName === 'Information Technology') &&
-                (company_eps <= 0 || company_fcf_share <= 0 || bPE > 50)) {
+                (company_eps <= 0 || company_ebitda <= 0 || bPE > 50)) {
                 weights = SECTOR_WEIGHTS['Technology_Growth'];
             }
             
@@ -3150,25 +3150,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // --- Determine which metrics are active based on sector weights ---
                 const SECTOR_WEIGHTS = {
-                    'Technology': { PE: 0.35, PFCF: 0.50, PS: 0.15 },
-                    'Information Technology': { PE: 0.35, PFCF: 0.50, PS: 0.15 },
-                    'Technology_Growth': { PE: 0.00, PFCF: 0.20, PS: 0.80 },
+                    'Technology': { PE: 0.35, EV_EBITDA: 0.50, PS: 0.15 },
+                    'Information Technology': { PE: 0.35, EV_EBITDA: 0.50, PS: 0.15 },
+                    'Technology_Growth': { PE: 0.00, EV_EBITDA: 0.20, PS: 0.80 },
                     'Financial Services': { PE: 0.40, PB: 0.60 },
                     'Financials': { PE: 0.40, PB: 0.60 },
-                    'Industrials': { PE: 0.20, PFCF: 0.30, EV_EBITDA: 0.50 },
-                    'Energy': { PE: 0.20, PFCF: 0.30, EV_EBITDA: 0.50 },
-                    'Consumer Defensive': { PE: 0.50, PFCF: 0.30, PS: 0.20 },
-                    'Consumer Staples': { PE: 0.50, PFCF: 0.30, PS: 0.20 },
-                    'Consumer Cyclical': { PE: 0.35, PFCF: 0.35, PS: 0.30 },
-                    'Consumer Discretionary': { PE: 0.35, PFCF: 0.35, PS: 0.30 },
-                    'Healthcare': { PE: 0.35, PFCF: 0.40, PS: 0.25 },
-                    'Health Care': { PE: 0.35, PFCF: 0.40, PS: 0.25 },
-                    'Communication Services': { PE: 0.35, PFCF: 0.40, PS: 0.25 },
-                    'Utilities': { PE: 0.50, PFCF: 0.30, EV_EBITDA: 0.20 },
-                    'Basic Materials': { PE: 0.25, PFCF: 0.25, EV_EBITDA: 0.50 },
-                    'Materials': { PE: 0.25, PFCF: 0.25, EV_EBITDA: 0.50 },
+                    'Industrials': { PE: 0.20, EV_EBITDA: 0.80 },
+                    'Energy': { PE: 0.20, EV_EBITDA: 0.80 },
+                    'Consumer Defensive': { PE: 0.50, EV_EBITDA: 0.30, PS: 0.20 },
+                    'Consumer Staples': { PE: 0.50, EV_EBITDA: 0.30, PS: 0.20 },
+                    'Consumer Cyclical': { PE: 0.35, EV_EBITDA: 0.35, PS: 0.30 },
+                    'Consumer Discretionary': { PE: 0.35, EV_EBITDA: 0.35, PS: 0.30 },
+                    'Healthcare': { PE: 0.35, EV_EBITDA: 0.40, PS: 0.25 },
+                    'Health Care': { PE: 0.35, EV_EBITDA: 0.40, PS: 0.25 },
+                    'Communication Services': { PE: 0.35, EV_EBITDA: 0.40, PS: 0.25 },
+                    'Utilities': { PE: 0.50, EV_EBITDA: 0.50 },
+                    'Basic Materials': { PE: 0.25, EV_EBITDA: 0.75 },
+                    'Materials': { PE: 0.25, EV_EBITDA: 0.75 },
                     'Real Estate': { PE: 0.00, P_FFO: 0.80, P_AFFO: 0.20 },
-                    'Default': { PE: 0.40, PFCF: 0.40, PS: 0.20 }
+                    'Default': { PE: 0.40, EV_EBITDA: 0.40, PS: 0.20 }
                 };
                 const sn = r.sector || 'Default';
                 let defaultWeights = SECTOR_WEIGHTS[sn] || SECTOR_WEIGHTS['Default'];
