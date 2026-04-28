@@ -909,6 +909,112 @@ document.addEventListener('DOMContentLoaded', () => {
         modalEl.onclick = (e) => { if (e.target === modalEl) modalEl.style.display = 'none'; };
     };
 
+    // ── Rule of 40 UI ──────────────────────────────────────────────────────────
+    const updateRule40UI = (rule40Data) => {
+        const circle = document.getElementById('rule40-score-circle');
+        const fill   = document.getElementById('rule40-score-fill');
+        if (!circle || !fill) return;
+
+        // Reset
+        circle.className = 'score-circle';
+        fill.className = 'score-bar-fill';
+        circle.style.color = '';
+        fill.style.backgroundColor = '';
+        fill.style.width = '0%';
+        circle.style.width = 'auto'; // ensure padding is respected
+        circle.style.padding = '0 10px';
+        circle.style.borderRadius = '12px';
+
+        if (!rule40Data || rule40Data.total === null || isNaN(rule40Data.total)) {
+            circle.textContent = 'N/A';
+            circle.style.color = 'var(--text-muted)';
+            fill.style.backgroundColor = 'var(--text-muted)';
+            return;
+        }
+
+        const total = rule40Data.total;
+        circle.textContent = total.toFixed(1) + '%';
+        
+        // Bar width (cap at 100% of the bar, which represents 40% target)
+        // If it's over 40%, the bar is 100% full.
+        const target = 40.0;
+        let barPct = Math.min((Math.max(total, 0) / target) * 100, 100);
+        setTimeout(() => { fill.style.width = `${barPct}%`; }, 50);
+
+        if (rule40Data.passed) {
+            circle.classList.add('score-green');
+            fill.classList.add('bg-score-green');
+        } else if (total > 30) {
+            circle.classList.add('score-yellow');
+            fill.classList.add('bg-score-yellow');
+        } else {
+            circle.classList.add('score-red');
+            fill.classList.add('bg-score-red');
+        }
+    };
+
+    const renderRule40Breakdown = (rule40Data) => {
+        const modalEl = document.getElementById('score-modal');
+        const bodyEl  = document.getElementById('score-modal-body-content');
+        if (!modalEl || !bodyEl) return;
+
+        if (!rule40Data || rule40Data.total === null) {
+            bodyEl.innerHTML = `<p style="color: var(--text-muted); text-align: center; padding: 2rem;">No Rule of 40 data available.</p>`;
+            modalEl.style.display = 'flex';
+            return;
+        }
+
+        const total = rule40Data.total;
+        const labelColor = rule40Data.passed ? 'var(--accent)' : (total > 30 ? '#fbbf24' : 'var(--danger)');
+        const labelText  = rule40Data.label || (rule40Data.passed ? 'Strong' : (total > 30 ? 'Moderate' : 'Weak'));
+
+        let html = `
+            <div style="text-align:center; margin-bottom: 1.5rem;">
+                <h3 style="font-size: 1.2rem; margin: 0 0 0.5rem; color: white;">Rule of 40 Breakdown</h3>
+                <div style="font-size: 2.8rem; font-weight: 800; color: ${labelColor}; line-height: 1;">${total.toFixed(1)}%<span style="font-size: 1.2rem; color: var(--text-muted); font-weight: 500;">/40%</span></div>
+                <div style="font-size: 0.9rem; font-weight: 700; color: ${labelColor}; margin-top: 4px;">${labelText}</div>
+                <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 8px; max-width: 380px; margin-left: auto; margin-right: auto;">
+                    Target: Revenue Growth + FCF Margin ≥ 40%
+                </p>
+            </div>
+            
+            <div style="margin-bottom: 1.2rem;">
+                <h4 style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.6rem; border-bottom: 1px solid rgba(255,255,255,0.07); padding-bottom: 6px;">
+                    Metrics
+                </h4>
+                
+                <div style="display:flex; align-items:flex-start; gap:10px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04);">
+                    <span style="font-size:1.1rem; min-width:22px;">📈</span>
+                    <div style="flex:1; min-width:0;">
+                        <div style="font-size:0.85rem; font-weight:700; color:white;">Revenue Growth</div>
+                        <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">Most recent historical 1-year revenue growth.</div>
+                    </div>
+                    <span style="font-size:0.85rem; font-weight:700; color:var(--text-main); min-width:28px; text-align:right;">
+                        ${(rule40Data.growth * 100).toFixed(1)}%
+                    </span>
+                </div>
+                
+                <div style="display:flex; align-items:flex-start; gap:10px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04);">
+                    <span style="font-size:1.1rem; min-width:22px;">💰</span>
+                    <div style="flex:1; min-width:0;">
+                        <div style="font-size:0.85rem; font-weight:700; color:white;">FCF Margin</div>
+                        <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">Free Cash Flow relative to Total Revenue.</div>
+                    </div>
+                    <span style="font-size:0.85rem; font-weight:700; color:var(--text-main); min-width:28px; text-align:right;">
+                        ${(rule40Data.margin * 100).toFixed(1)}%
+                    </span>
+                </div>
+            </div>`;
+
+        bodyEl.innerHTML = html;
+        modalEl.style.display = 'flex';
+
+        // Close button
+        const closeBtn = document.getElementById('close-score-modal');
+        if (closeBtn) closeBtn.onclick = () => { modalEl.style.display = 'none'; };
+        modalEl.onclick = (e) => { if (e.target === modalEl) modalEl.style.display = 'none'; };
+    };
+
     const updateFairValue = () => {
         if (!currentFormulaData || !globalData) return;
         const prof = globalData.company_profile;
@@ -1530,6 +1636,16 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         }
 
+        // Rule of 40 UI Update & Click Binding
+        updateRule40UI(data.rule_of_40);
+        const rule40Row = document.getElementById('rule40-score-row');
+        if (rule40Row) {
+            rule40Row.style.cursor = 'pointer';
+            rule40Row.onclick = function() {
+                renderRule40Breakdown(data.rule_of_40);
+            };
+        }
+
         // UPDATED: Sync both MOS and PEG to the Score Breakdown dynamically
 
         // Restore overrides BEFORE first updateFairValue
@@ -1545,32 +1661,36 @@ document.addEventListener('DOMContentLoaded', () => {
             const prof = data.company_profile;
 
             // UPDATED: Replaced bad *100 formatting with safe formatSafePct
+            const current_price = data.current_price || 0;
+            const non_gaap_pe = (current_price > 0 && prof.adjusted_eps > 0) ? current_price / prof.adjusted_eps : null;
+
             pBody.innerHTML = `
-                <tr class="profile-row"><td class="profile-label">Next Earnings</td><td class="profile-value" style="color: var(--accent);">${prof.next_earnings_date || 'N/A'}</td></tr>
+                <!-- Mini-zona 1: Company -->
+                <tr><td colspan="2" style="padding: 0 0 6px 0; font-size: 0.7rem; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1px;">Company Summary</td></tr>
                 <tr class="profile-row"><td class="profile-label">Industry</td><td class="profile-value">${prof.industry}<br><span style="font-size: 0.85em; font-weight: normal; color: rgba(255,255,255,0.4);">${prof.sector}</span></td></tr>
                 <tr class="profile-row"><td class="profile-label">Market Cap</td><td class="profile-value">${formatBigNumber(prof.market_cap, '$')}</td></tr>
-                <tr class="profile-row"><td class="profile-label">Operating Margin</td><td class="profile-value">${formatSafePct(prof.operating_margin)}</td></tr>
-                <tr class="profile-row"><td class="profile-label">P/E (Trailing TTM)</td><td class="profile-value">${prof.trailing_pe ? prof.trailing_pe.toFixed(2) + 'x' : 'N/A'}</td></tr>
-                <tr class="profile-row"><td class="profile-label">P/E (Forward)</td><td class="profile-value">${prof.fwd_pe ? prof.fwd_pe.toFixed(2) + 'x' : 'N/A'}</td></tr>
-                <tr class="profile-row"><td class="profile-label">P/E (5Y Avg)</td><td class="profile-value">${prof.historic_pe ? prof.historic_pe.toFixed(2) + 'x' : 'N/A'}</td></tr>
-                <tr class="profile-row"><td class="profile-label">EPS (Trailing TTM)</td><td class="profile-value">${prof.trailing_eps ? '$' + prof.trailing_eps.toFixed(2) : 'N/A'}</td></tr>
-                ${(prof.adjusted_eps && Math.abs(prof.adjusted_eps - prof.trailing_eps) > 0.1) ? 
-                    `<tr class="profile-row"><td class="profile-label" style="color:var(--accent);">EPS (Adjusted TTM)</td><td class="profile-value" style="color:var(--accent);">${prof.adjusted_eps.toFixed(2)}</td></tr>` : ''}
-                <tr class="profile-row">
-                    <td class="profile-label">Rule of 40 (SaaS)</td>
-                    <td class="profile-value" style="color: ${data.rule_of_40?.passed ? 'var(--accent)' : (data.rule_of_40?.total > 30 ? '#fbbf24' : 'var(--danger)')}">
-                        ${data.rule_of_40 ? `${data.rule_of_40.total.toFixed(1)}% (${data.rule_of_40.label})` : 'N/A'}
-                    </td>
-                </tr>
-                <tr class="profile-row"><td class="profile-label">Debt-to-Equity</td><td class="profile-value">${prof.debt_to_equity != null ? prof.debt_to_equity.toFixed(2) + 'x' : 'N/A'}</td></tr>
-                <tr class="profile-row"><td class="profile-label">Ownership</td><td class="profile-value">${formatSafePct(prof.insider_ownership)} Insider</td></tr>
                 <tr class="profile-row"><td class="profile-label">Shares Out.</td><td class="profile-value">${formatBigNumber(prof.shares_outstanding, '')}</td></tr>
+                <tr class="profile-row"><td class="profile-label" style="white-space: nowrap;">Competitors ${prof.competitor_metrics && prof.competitor_metrics.length > 0 ? `<button id="compare-peers-btn" class="peer-btn">📊 Peers</button>` : ''}</td><td class="profile-value" style="word-wrap: break-word;">${prof.competitors && prof.competitors.length ? prof.competitors.join(', ') : 'None'}</td></tr>
                 <tr class="profile-row"><td class="profile-label">${prof.buyback_rate < 0 ? 'Dilution Rate' : 'Buyback Rate'}</td><td class="profile-value" style="color: ${prof.buyback_rate < 0 ? '#ef4444' : 'inherit'}">${prof.buyback_rate != null ? (prof.buyback_rate > 0 ? '+' : '') + formatSafePct(prof.buyback_rate) : 'N/A'}</td></tr>
+
+                <!-- Mini-zona 2: Valuation -->
+                <tr><td colspan="2" style="padding: 16px 0 6px 0; font-size: 0.7rem; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1px; border-top: 1px solid rgba(255,255,255,0.05);">Valuation & Earnings</td></tr>
+                <tr class="profile-row"><td class="profile-label">P/E (Trailing)</td><td class="profile-value">${prof.trailing_pe ? prof.trailing_pe.toFixed(2) + 'x' : 'N/A'}</td></tr>
+                <tr class="profile-row"><td class="profile-label">P/E Non-GAAP</td><td class="profile-value">${non_gaap_pe ? non_gaap_pe.toFixed(2) + 'x' : 'N/A'}</td></tr>
+                <tr class="profile-row"><td class="profile-label">PE FWD</td><td class="profile-value">${prof.fwd_pe ? prof.fwd_pe.toFixed(2) + 'x' : 'N/A'}</td></tr>
+                <tr class="profile-row"><td class="profile-label">EPS Diluted</td><td class="profile-value">${prof.trailing_eps ? '$' + prof.trailing_eps.toFixed(2) : 'N/A'}</td></tr>
+                <tr class="profile-row"><td class="profile-label">EPS Non-Gaap</td><td class="profile-value">${prof.adjusted_eps ? '$' + prof.adjusted_eps.toFixed(2) : 'N/A'}</td></tr>
+                <tr class="profile-row"><td class="profile-label">PEG</td><td class="profile-value">${prof.peg_ratio ? prof.peg_ratio.toFixed(2) : 'N/A'}</td></tr>
+                <tr class="profile-row"><td class="profile-label">P/S</td><td class="profile-value">${prof.ps_ratio ? prof.ps_ratio.toFixed(2) + 'x' : 'N/A'}</td></tr>
+                <tr class="profile-row"><td class="profile-label">P/S FWD</td><td class="profile-value">${prof.fwd_ps ? prof.fwd_ps.toFixed(2) + 'x' : 'N/A'}</td></tr>
+                <tr class="profile-row"><td class="profile-label">P/FCF</td><td class="profile-value">${prof.pfcf_ratio ? prof.pfcf_ratio.toFixed(2) + 'x' : 'N/A'}</td></tr>
+
+                <!-- Mini-zona 3: Dividends -->
+                <tr><td colspan="2" style="padding: 16px 0 6px 0; font-size: 0.7rem; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1px; border-top: 1px solid rgba(255,255,255,0.05);">Dividends</td></tr>
                 <tr class="profile-row"><td class="profile-label">Dividend Yield</td><td class="profile-value">${formatSafePct(prof.dividend_yield)}</td></tr>
                 <tr class="profile-row"><td class="profile-label">Payout Ratio</td><td class="profile-value">${prof.payout_ratio > 0.80 ? `<span style="color:var(--danger); font-weight:bold;">${formatSafePct(prof.payout_ratio)}</span>` : formatSafePct(prof.payout_ratio)}</td></tr>
                 <tr class="profile-row"><td class="profile-label">Div. Streak</td><td class="profile-value">${prof.dividend_streak != null ? prof.dividend_streak + ' Years' : 'N/A'}</td></tr>
                 <tr class="profile-row"><td class="profile-label">5Y Div Growth</td><td class="profile-value">${formatSafePct(prof.dividend_cagr_5y)}</td></tr>
-                <tr class="profile-row"><td class="profile-label" style="white-space: nowrap;">Competitors ${prof.competitor_metrics && prof.competitor_metrics.length > 0 ? `<button id="compare-peers-btn" class="peer-btn">📊 Peers</button>` : ''}</td><td class="profile-value" style="word-wrap: break-word;">${prof.competitors && prof.competitors.length ? prof.competitors.join(', ') : 'None'}</td></tr>
             `;
 
             if(document.getElementById('compare-peers-btn')) {
