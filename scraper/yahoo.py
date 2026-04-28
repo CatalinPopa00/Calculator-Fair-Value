@@ -2974,7 +2974,7 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=3, inc
                         if now - ts < 86400: return cached_inf
                     
                     # Layer 2: Persistent KV Store (Upstash/Redis)
-                    kv_key = f"peer_v1_{t.upper()}"
+                    kv_key = f"peer_v2_{t.upper()}"
                     kv_data = kv_get(kv_key)
                     if kv_data and isinstance(kv_data, dict):
                         _peer_info_cache[t] = (kv_data, now)
