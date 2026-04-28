@@ -3236,6 +3236,23 @@ def get_market_averages():
         print(f"Error fetching SPY market average: {e}")
         return {"trailing_pe": 24.5, "forward_pe": 21.0}
 
+def get_nasdaq_earnings_forecast(ticker):
+    headers = {
+        'User-Agent': get_random_agent(),
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Origin': 'https://www.nasdaq.com',
+        'Referer': f'https://www.nasdaq.com/market-activity/stocks/{ticker.lower()}/earnings-estimate',
+    }
+    url = f"https://api.nasdaq.com/api/analyst/{ticker.upper()}/earnings-forecast"
+    try:
+        resp = requests.get(url, headers=headers, timeout=5)
+        if resp.status_code == 200:
+            return resp.json().get('data', {}).get('yearlyForecast', {}).get('rows', [])
+    except Exception as e:
+        print(f"Nasdaq API Error for {ticker}: {e}")
+    return []
+
 def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, history_rev=None, fx_rate=None, historical_data=None, **kwargs):
     """
     Fetches analyst estimates data.
@@ -3387,6 +3404,7 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             fy0_rev = history_rev.get(f"FY {fy0_yr}") or base_rev
         
         # FY 1 Data (Current Year Avg Estimate)
+        # FY 1 Data (Current Year Avg Estimate)
         fy1_eps = analysis_data.get('eps', {}).get('0y', {}).get('avg')
         fy1_rev = analysis_data.get('rev', {}).get('0y', {}).get('avg')
         
@@ -3394,27 +3412,60 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         fy2_eps = analysis_data.get('eps', {}).get('+1y', {}).get('avg')
         fy2_rev = analysis_data.get('rev', {}).get('+1y', {}).get('avg')
         
+        # Nasdaq Data Fetch & Map
+        nasdaq_rows = get_nasdaq_earnings_forecast(ticker_symbol)
+        nasdaq_map = {}
+        for row in nasdaq_rows:
+            if row.get('fiscalEnd'):
+                try:
+                    yr = int(row['fiscalEnd'].split()[-1])
+                    nasdaq_map[yr] = row
+                except: pass
+
         # Build Final Unified Lists
         unified_eps = []
         unified_rev = []
         
         # 1. FY 0 (Reported Anchor)
-        unified_eps.append({"period": f"FY {fy0_yr}", "avg": fy0_eps, "growth": None, "status": "reported"})
+        unified_eps.append({"period": f"FY {fy0_yr}", "avg": fy0_eps, "growth": None, "status": "reported", "num_estimates": None})
         unified_rev.append({"period": f"FY {fy0_yr}", "avg": fy0_rev, "growth": None, "status": "reported"})
         
         # 2. FY 1 (Current Year Forecast)
+        fy1_n = nasdaq_map.get(fy1_yr)
+        fy1_num_est = None
+        if fy1_n:
+            if fy1_n.get('consensusEPSForecast') is not None:
+                fy1_eps = fy1_n['consensusEPSForecast']
+            fy1_num_est = fy1_n.get('noOfEstimates')
+
         g1 = normalize_growth((fy1_eps / abs(fy0_eps) - 1) if fy0_eps and fy0_eps != 0 and fy1_eps is not None else None)
-        unified_eps.append({"period": f"FY {fy1_yr}", "avg": fy1_eps, "growth": g1, "status": "estimate"})
+        unified_eps.append({"period": f"FY {fy1_yr}", "avg": fy1_eps, "growth": g1, "status": "estimate", "num_estimates": fy1_num_est})
         
         g1r = normalize_growth((fy1_rev / abs(fy0_rev) - 1) if fy0_rev and fy0_rev != 0 and fy1_rev is not None else None)
         unified_rev.append({"period": f"FY {fy1_yr}", "avg": fy1_rev, "growth": g1r, "status": "estimate"})
         
         # 3. FY 2 (Next Year Forecast)
+        fy2_n = nasdaq_map.get(fy2_yr)
+        fy2_num_est = None
+        if fy2_n:
+            if fy2_n.get('consensusEPSForecast') is not None:
+                fy2_eps = fy2_n['consensusEPSForecast']
+            fy2_num_est = fy2_n.get('noOfEstimates')
+
         g2 = normalize_growth((fy2_eps / abs(fy1_eps) - 1) if fy1_eps and fy1_eps != 0 and fy2_eps is not None else None)
-        unified_eps.append({"period": f"FY {fy2_yr}", "avg": fy2_eps, "growth": g2, "status": "estimate"})
+        unified_eps.append({"period": f"FY {fy2_yr}", "avg": fy2_eps, "growth": g2, "status": "estimate", "num_estimates": fy2_num_est})
         
         g2r = normalize_growth((fy2_rev / abs(fy1_rev) - 1) if fy1_rev and fy1_rev != 0 and fy2_rev is not None else None)
         unified_rev.append({"period": f"FY {fy2_yr}", "avg": fy2_rev, "growth": g2r, "status": "estimate"})
+
+        # 4. FY 3 (Nasdaq Only for EPS)
+        fy3_yr = fy2_yr + 1
+        fy3_n = nasdaq_map.get(fy3_yr)
+        if fy3_n and fy3_n.get('consensusEPSForecast') is not None:
+            fy3_eps = fy3_n['consensusEPSForecast']
+            fy3_num_est = fy3_n.get('noOfEstimates')
+            g3 = normalize_growth((fy3_eps / abs(fy2_eps) - 1) if fy2_eps and fy2_eps != 0 and fy3_eps is not None else None)
+            unified_eps.append({"period": f"FY {fy3_yr}", "avg": fy3_eps, "growth": g3, "status": "estimate", "num_estimates": fy3_num_est})
 
 
         # (Anomaly healing removed: with proper FY0/FY1 from Yahoo, no longer needed)

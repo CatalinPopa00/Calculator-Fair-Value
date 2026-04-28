@@ -2220,8 +2220,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const weight = item.status === 'reported' ? 'bold' : 'normal';
                 const labelColor = isAnchor ? 'white' : (item.status === 'reported' ? '#4ade80' : 'inherit');
                 const valColor = isAnchor ? 'white' : 'inherit';
+                const estVal = item.num_estimates != null ? item.num_estimates : '--';
                 
-                if (eBody) eBody.innerHTML += `<tr><td style="padding:4px 0;color:${labelColor};">${pLabel}</td><td style="text-align:right;color:${valColor};">${aVal}</td><td style="text-align:right;color:${sColor};font-weight:${weight};">${gVal}</td></tr>`;
+                if (eBody) eBody.innerHTML += `<tr><td style="padding:4px 0;color:${labelColor};">${pLabel}</td><td style="text-align:right;color:${valColor};">${aVal}</td><td style="text-align:right;color:${sColor};font-weight:${weight};">${gVal}</td><td style="text-align:right;color:var(--text-muted);">${estVal}</td></tr>`;
             });
 
             const rItems = data.rev_estimates || [];
