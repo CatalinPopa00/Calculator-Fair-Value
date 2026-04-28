@@ -2865,140 +2865,100 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=3, inc
                 if sector:
                     kv_set(kv_sec_key, {"sector": sector, "industry": target_industry}, ex=604800) # 1 week
 
-        # HARDCODED INDUSTRY FALLBACKS (v63: Ensure quality for high-profile tickers if info fails)
-        if not target_industry:
-            if target_ticker == "FDS": target_industry = "Financial Data & Stock Exchanges"
-            if target_ticker == "MSCI": target_industry = "Financial Data & Stock Exchanges"
-            if target_ticker == "NDAQ": target_industry = "Financial Data & Stock Exchanges"
-            if target_ticker == "ADBE": target_industry = "Software - Infrastructure"
-            if target_ticker == "SMCI": target_industry = "Computer Hardware"
-
-        # 2. SEED/PEER DISCOVERY
+        # --- DYNAMIC PEER DISCOVERY (v70): No hardcoded lists ---
+        # Step 1: Collect a wide pool of seed candidates from multiple sources
         peers = []
         FINNHUB_KEY = os.environ.get('FINNHUB_API_KEY')
 
+        # Source A: Finnhub peers endpoint
         if FINNHUB_KEY:
-            # 1. Try Finnhub
             try:
                 url = f"https://finnhub.io/api/v1/stock/peers?symbol={target_ticker}&token={FINNHUB_KEY}"
                 resp = requests.get(url, timeout=3)
                 if resp.status_code == 200:
-                    peers = resp.json()
+                    fh_peers = resp.json()
+                    if isinstance(fh_peers, list):
+                        peers.extend(fh_peers)
             except Exception as e:
-                print(f"Finnhub API call error: {e}")
+                print(f"Finnhub peers error: {e}")
 
-        # 1.5 Filter and Check for Dynamic Fallback
-        if peers:
-            # Filter out tickers with dots (international/local exchange symbols)
-            peers = [p for p in peers if '.' not in p]
-            
-        if not peers or len(peers) < 2:
-            print(f"Few or no US peers for {target_ticker}, attempting Yahoo Recommendation fallback...")
-            try:
-                # Yahoo Recommendations API
-                url = f"https://query2.finance.yahoo.com/v6/finance/recommendationsbysymbol/{target_ticker}"
-                headers = {'User-Agent': get_random_agent()}
-                resp = requests.get(url, headers=headers, timeout=3)
-                if resp.status_code == 200:
-                    rec_json = resp.json()
-                    results = rec_json.get('finance', {}).get('result', [])
-                    if results:
-                        rec_symbols = results[0].get('recommendedSymbols', [])
-                        rec_peers = [r.get('symbol') for r in rec_symbols if r.get('symbol')]
-                        # Filter out tickers with dots (international/local exchange symbols)
-                        rec_peers = [p for p in rec_peers if '.' not in p]
-                        if rec_peers:
-                            peers = rec_peers
-            except Exception as e_rec:
-                print(f"Yahoo Recommendation fallback error: {e_rec}")
+        # Source B: Yahoo Finance recommendations (people-also-buy)
+        try:
+            url = f"https://query2.finance.yahoo.com/v6/finance/recommendationsbysymbol/{target_ticker}"
+            headers = {'User-Agent': get_random_agent()}
+            resp = requests.get(url, headers=headers, timeout=3)
+            if resp.status_code == 200:
+                rec_json = resp.json()
+                results = rec_json.get('finance', {}).get('result', [])
+                if results:
+                    rec_symbols = [r.get('symbol') for r in results[0].get('recommendedSymbols', []) if r.get('symbol')]
+                    peers.extend(rec_symbols)
+        except Exception as e:
+            print(f"Yahoo recommendations error: {e}")
 
-        # 2. Universal Scraper Fallback (DELETED FOR SPEED)
-        # Using HTTP requests and parsing huge HTML dumps via RegEx was crippling the backend speed.
+        # Deduplicate, remove self and international symbols (with dots)
+        peers = list(dict.fromkeys([p.upper() for p in peers if p and '.' not in p and p.upper() != target_ticker.upper()]))
+
+        # Step 2: Fetch industry info for all candidates and filter by same industry
+        # Take up to 12 candidates for industry check
+        candidate_pool = peers[:12]
         
-        # 2.5 INDUSTRY QUALITY SHIELD (v63): Force high-quality peers and prune irrelevant symbols (like COIN for FDS)
-        if target_industry and ("Financial Data" in target_industry or "Exchange" in target_industry):
-            hq_peers = ["MSCI", "NDAQ", "ICE", "SPGI", "MCO", "CBOE"]
-            peers = list(dict.fromkeys(peers + hq_peers))
-            irrelevant = ["COIN"] # Yahoo often incorrectly suggests COIN for data providers
-            peers = [p for p in peers if p.upper() not in irrelevant]
+        if candidate_pool and target_industry:
+            try:
+                # Parallel industry check for all candidates
+                batch = yf.Tickers(" ".join(candidate_pool))
+                same_industry = []
+                same_sector = []
+                
+                def check_industry(t):
+                    try:
+                        inf = batch.tickers[t].info
+                        return (t, inf.get('industry', ''), inf.get('sector', ''))
+                    except Exception:
+                        return (t, '', '')
+                
+                with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:
+                    futs = {pool.submit(check_industry, t): t for t in candidate_pool}
+                    try:
+                        for f in concurrent.futures.as_completed(futs, timeout=4):
+                            t, t_ind, t_sec = f.result(timeout=1)
+                            if t_ind == target_industry:
+                                same_industry.append(t)
+                            elif t_sec == sector:
+                                same_sector.append(t)
+                    except concurrent.futures.TimeoutError:
+                        print("DEBUG: Industry check timed out, using available results")
+                
+                # Prioritize same-industry, then same-sector for the remainder
+                candidates = same_industry[:limit]
+                if len(candidates) < limit:
+                    for t in same_sector:
+                        if t not in candidates:
+                            candidates.append(t)
+                        if len(candidates) >= limit:
+                            break
+                
+                # If we still don't have enough, fall back to original order
+                if len(candidates) < limit:
+                    for t in candidate_pool:
+                        if t not in candidates:
+                            candidates.append(t)
+                        if len(candidates) >= limit:
+                            break
+                
+                print(f"DEBUG: Peer selection for {target_ticker} ({target_industry}): industry={same_industry}, sector={same_sector}, final={candidates[:limit]}")
+                
+            except Exception as e:
+                print(f"DEBUG: Industry filter failed: {e}")
+                candidates = candidate_pool[:limit]
+        elif candidate_pool:
+            candidates = candidate_pool[:limit]
+        else:
+            # Absolute fallback: no peers found at all
+            candidates = []
+            print(f"DEBUG: No peer candidates found for {target_ticker}")
 
-        if not peers:
-            if sector == "Technology":
-                # Industry specific fallbacks
-                if "Semiconductor" in target_industry or target_ticker in ["CRDO", "ALAB", "MRVL"]:
-                    # Ensure high-confidence chip peers
-                    peers = ["ALAB", "MRVL", "AVGO", "NVDA", "AMD", "ARM", "MU", "CRDO"]
-                elif "Software" in target_industry or target_ticker == "ADBE":
-                    peers = ["MSFT", "ADBE", "CRM", "ORCL", "SNOW", "PLTR", "DDOG", "CRWD"]
-                elif "Hardware" in target_industry or target_ticker == "SMCI":
-                    peers = ["DELL", "HPE", "NTAP", "STX", "WDC", "AAPL", "SMCI"]
-                else:
-                    peers = ["IBM", "IT", "CTSH", "INFY", "ACN", "MSFT", "AAPL", "GOOGL"]
-            elif sector == "Financial Services":
-                if "Credit Services" in target_industry or "Consumer Finance" in target_industry:
-                    peers = ["PYPL", "SQ", "NU", "AFRM", "UPST", "HOOD", "SOFI"]
-                elif "Bank" in target_industry:
-                    peers = ["JPM", "BAC", "WFC", "C", "GS", "MS", "USB"]
-                elif "Capital Markets" in target_industry or "Broker" in target_industry:
-                    peers = ["MS", "GS", "SCHW", "IBKR", "HOOD", "LPLA"]
-                elif "Data" in target_industry or "Exchange" in target_industry:
-                    peers = ["MSCI", "NDAQ", "ICE", "SPGI", "MCO", "CBOE", "FDS"]
-                else:
-                    peers = ["SCHW", "GS", "JPM", "BAC", "IBKR", "WFC", "V", "MA"]
-            elif sector == "Consumer Cyclical":
-                if "Autos" in target_industry:
-                    peers = ["TSLA", "TM", "GM", "F", "RIVN", "LCID"]
-                elif "Travel" in target_industry or "Hotel" in target_industry or "Lodging" in target_industry:
-                    peers = ["BKNG", "EXPE", "MAR", "HLT", "ABNB", "TRIP", "RCL", "CCL"]
-                elif "Restaurants" in target_industry:
-                    peers = ["MCD", "SBUX", "CMG", "YUM", "DRI", "QSR"]
-                elif "Retail - Home" in target_industry or "Home Improvement" in target_industry:
-                    peers = ["HD", "LOW", "SHW", "TSCO"]
-                elif "Apparel" in target_industry:
-                    peers = ["NKE", "LULU", "TJX", "VFC", "RL"]
-                else:
-                    peers = ["AMZN", "TSLA", "HD", "NKE", "MCD", "SBUX", "LOW"]
-            elif sector == "Communication Services":
-                if "Entertainment" in target_industry or "Broadcasting" in target_industry:
-                    peers = ["DIS", "NFLX", "WBD", "PARA", "CMCSA", "ROKU"]
-                elif "Internet Content" in target_industry or "Social" in target_industry:
-                    peers = ["GOOGL", "META", "SNAP", "PINS", "MTCH", "TTD"]
-                else:
-                    peers = ["GOOGL", "META", "DIS", "NFLX", "VZ", "TMUS", "T"]
-            elif sector == "Consumer Defensive":
-                if "Retail" in target_industry or "Discount" in target_industry:
-                    peers = ["WMT", "COST", "TGT", "DG", "DLTR", "BJ"]
-                elif "Beverages" in target_industry:
-                    peers = ["KO", "PEP", "MNST", "KDP", "CELH"]
-                elif "Tobacco" in target_industry:
-                    peers = ["PM", "MO", "BTI"]
-                else:
-                    peers = ["PG", "KO", "PEP", "COST", "WMT", "PM", "CL"]
-            elif sector == "Real Estate":
-                peers = ["PLD", "AMT", "EQIX", "CCI", "PSA", "O", "VICI", "DLR"]
-            elif sector == "Energy":
-                peers = ["XOM", "CVX", "COP", "SLB", "EOG", "MPC", "PSX", "VLO"]
-            elif sector == "Healthcare":
-                if "Drug" in target_industry or "Biotech" in target_industry:
-                    peers = ["LLY", "JNJ", "ABBV", "MRK", "PFE", "AMGN", "BMY"]
-                elif "Equipment" in target_industry or "Devices" in target_industry:
-                    peers = ["ISRG", "MDT", "ABT", "SYK", "BSX", "EW"]
-                else:
-                    peers = ["UNH", "TMO", "ISRG", "DHR", "LLY", "VRTX", "CVS", "ELV"]
-            elif sector == "Industrials":
-                if "Aerospace" in target_industry:
-                    peers = ["BA", "LMT", "RTX", "GD", "NOC", "GE"]
-                elif "Logistics" in target_industry or "Railroads" in target_industry:
-                    peers = ["UPS", "FDX", "UNP", "CSX", "NSC"]
-                else:
-                    peers = ["CAT", "HON", "GE", "MMM", "UPS", "DE", "RTX"]
-            elif sector == "Basic Materials":
-                peers = ["FCX", "LIN", "APD", "NEM", "CTVA", "SHW", "ECL", "SCCO"]
-            else:
-                # Absolute last resort across any US stock
-                peers = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA"]
-        # 3. BATCH EXTRACTION (Primary: yfinance)
-        candidates = [p.upper() for p in peers if p.upper() != target_ticker.upper() and '.' not in p][:3]
+        candidates = candidates[:limit]
         final_peers = []
 
         # --- Attempt yfinance with manual session (to handle crumbs better) ---
