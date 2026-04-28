@@ -1703,7 +1703,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             ${metricRow('PE FWD', prof.fwd_pe ? prof.fwd_pe.toFixed(2) + 'x' : 'N/A')}
                             ${metricRow('EPS Diluted', prof.trailing_eps ? '$' + prof.trailing_eps.toFixed(2) : 'N/A')}
                             ${metricRow('EPS Non-GAAP', prof.adjusted_eps ? '$' + prof.adjusted_eps.toFixed(2) : 'N/A')}
-                            ${metricRow('FWD EPS (3Y)', prof.fwd_eps ? '$' + prof.fwd_eps.toFixed(2) : 'N/A', 'Projected Consensus')}
+                            ${metricRow('FWD EPS', prof.fwd_eps ? '$' + prof.fwd_eps.toFixed(2) : 'N/A')}
                             ${metricRow('PEG', prof.peg_ratio ? prof.peg_ratio.toFixed(2) : 'N/A')}
                             ${metricRow('P/S', prof.ps_ratio ? prof.ps_ratio.toFixed(2) + 'x' : 'N/A')}
                             ${metricRow('P/S FWD', prof.fwd_ps ? prof.fwd_ps.toFixed(2) + 'x' : 'N/A')}
