@@ -323,16 +323,27 @@
                             <p class="method-desc" id="relative-market-compare" style="font-size: 0.8rem; color: var(--text-muted); text-align: center; margin-top: 0.4rem; min-height: 1.2em;">Peer Median P/E: --</p>
                         </div>
                         <div class="card-inputs">
-                            <div class="valuation-input-group">
-                                <label class="premium-label" style="display: flex; align-items: center; gap: 4px;">
-                                    Compare vs.
-                                    <span style="cursor: help; font-size: 0.75rem; color: var(--text-muted);" title="S&P 500 calculates market premium, while Sector Peers calculates intrinsic industry value.">ℹ️</span>
-                                </label>
+                            <div class="valuation-input-group" style="display: flex; align-items: center; justify-content: space-between;">
+                                <label class="premium-label" style="margin: 0; white-space: nowrap;">Compare vs.</label>
                                 <select id="relative-variant" class="premium-select" style="max-width: 150px;">
                                     <option value="peers" selected>Sector Peers</option>
                                     <option value="average">Avg. Peers</option>
                                     <option value="sp500">S&amp;P 500</option>
                                 </select>
+                            </div>
+                            <div class="valuation-input-group" style="display: flex; align-items: center; justify-content: space-between;">
+                                <label class="premium-label" style="margin: 0; white-space: nowrap;">Weights</label>
+                                <select id="rel-weight-mode-card" class="premium-select" style="max-width: 150px;">
+                                    <option value="default" selected>Default</option>
+                                    <option value="custom">Custom</option>
+                                </select>
+                            </div>
+                            <div id="rel-custom-weights-card" style="display: none; width: 100%; padding: 8px 0 0 0;">
+                                <div style="display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;"></div>
+                                <div style="display: flex; justify-content: center; margin-top: 8px;">
+                                    <button id="rel-apply-custom-card" style="padding: 5px 14px; background: var(--accent); color: #0f172a; border: none; border-radius: 5px; font-weight: 700; font-size: 0.7rem; cursor: pointer;">Apply</button>
+                                    <span id="rel-weight-error-card" style="font-size: 0.65rem; color: var(--danger); margin-left: 8px; display: none; align-self: center;"></span>
+                                </div>
                             </div>
                         </div>
                         <div class="card-footer">

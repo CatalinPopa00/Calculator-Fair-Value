@@ -1392,35 +1392,35 @@ document.addEventListener('DOMContentLoaded', () => {
                 else if (sectorName.includes('Utilit')) weights = SECTOR_WEIGHTS['Utilities'];
                 else if (sectorName.includes('Material')) weights = SECTOR_WEIGHTS['Materials'];
             }
+            // Check if user has custom weights stored for this sector
+            const customWKey = 'rel-weight-mode-card';
+            const modeCardEl = document.getElementById(customWKey);
+            if (modeCardEl && modeCardEl.value === 'custom' && window._relCustomWeights) {
+                // Override weights with user's custom values
+                const cw = window._relCustomWeights;
+                Object.keys(cw).forEach(k => { if (weights[k] !== undefined) weights[k] = cw[k]; });
+            }
 
             let weightedSum = 0;
             let totalWeight = 0;
-            let breakdownHTML = '';
 
-            const addMetric = (label, val, weight, multVal) => {
+            const calcMetric = (val, weight) => {
                 if (weight != null && weight > 0) {
                     const safeVal = (val != null && isFinite(val) && val > 0) ? val : 0;
                     if (safeVal > 0) {
                         weightedSum += (safeVal * weight);
                         totalWeight += weight;
                     }
-                    
-                    breakdownHTML += `
-                        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem;">
-                            <span style="color: var(--text-muted);">${label} (${(weight * 100).toFixed(0)}%)</span>
-                            <span style="font-weight: 600; color: ${safeVal > 0 ? 'white' : 'var(--text-muted)'};">${safeVal > 0 ? formatLargeNumber(safeVal, '$') : 'N/A'} <span style="font-size: 0.65rem; color: rgba(255,255,255,0.3);">@ ${multVal.toFixed(1)}x</span></span>
-                        </div>
-                    `;
                 }
             };
 
-            if (weights.PE !== undefined) addMetric('Implied Value via P/E', fvPE, weights.PE, bPE);
-            if (weights.PFCF !== undefined) addMetric('Implied Value via P/FCF', fvPFCF, weights.PFCF, bPFCF);
-            if (weights.PS !== undefined) addMetric('Implied Value via P/S', fvPS, weights.PS, bPS);
-            if (weights.PB !== undefined) addMetric('Implied Value via P/B', fvPB, weights.PB, bPB);
-            if (weights.EV_EBITDA !== undefined) addMetric('Implied Value via EV/EBITDA', fvEVEBITDA, weights.EV_EBITDA, bEVEBITDA);
-            if (weights.P_FFO !== undefined) addMetric('Implied Value via P/FFO', fvPE, weights.P_FFO, bPE);
-            if (weights.P_AFFO !== undefined) addMetric('Implied Value via P/AFFO', fvPFCF, weights.P_AFFO, bPFCF);
+            if (weights.PE !== undefined) calcMetric(fvPE, weights.PE);
+            if (weights.PFCF !== undefined) calcMetric(fvPFCF, weights.PFCF);
+            if (weights.PS !== undefined) calcMetric(fvPS, weights.PS);
+            if (weights.PB !== undefined) calcMetric(fvPB, weights.PB);
+            if (weights.EV_EBITDA !== undefined) calcMetric(fvEVEBITDA, weights.EV_EBITDA);
+            if (weights.P_FFO !== undefined) calcMetric(fvPE, weights.P_FFO);
+            if (weights.P_AFFO !== undefined) calcMetric(fvPFCF, weights.P_AFFO);
 
             if (totalWeight > 0) {
                 relVal = weightedSum / totalWeight;
@@ -1430,6 +1430,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const mc = document.getElementById('relative-market-compare');
             if (mc) mc.textContent = multipleLabel;
+            
+            // --- Populate custom weight inputs on the card ---
+            const LABEL = { PE: 'P/E', PFCF: 'P/FCF', PS: 'P/S', PB: 'P/B', EV_EBITDA: 'EV/EBITDA', P_FFO: 'P/FFO', P_AFFO: 'P/AFFO' };
+            const activeKeys = Object.keys(weights).filter(k => weights[k] !== undefined);
+            const cwPanel = document.getElementById('rel-custom-weights-card');
+            if (cwPanel) {
+                const container = cwPanel.querySelector('div');
+                if (container) {
+                    container.innerHTML = activeKeys.map(k => `
+                        <div style="display:flex; flex-direction:column; align-items:center; gap:2px;">
+                            <label style="font-size:0.6rem; color:var(--text-muted); font-weight:600;">${LABEL[k] || k}</label>
+                            <div style="display:flex; align-items:center; gap:1px;">
+                                <input type="number" id="rel-cw-card-${k}" value="${((weights[k] || 0) * 100).toFixed(0)}" min="0" max="100" step="5"
+                                    style="width:42px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); color:white; padding:3px 4px; border-radius:4px; font-size:0.7rem; text-align:center;">
+                                <span style="font-size:0.6rem; color:var(--text-muted);">%</span>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            }
         }
         setValuationStatus(relVal, globalData.current_price, 'relative-status', 'relative-value');
         
@@ -1517,6 +1537,41 @@ document.addEventListener('DOMContentLoaded', () => {
             else el.oninput = updateAndSave;
         }
     });
+
+    // --- Card-level Weights toggle for Relative Valuation ---
+    const relModeCard = document.getElementById('rel-weight-mode-card');
+    const relCWPanelCard = document.getElementById('rel-custom-weights-card');
+    if (relModeCard) {
+        relModeCard.onchange = () => {
+            if (relCWPanelCard) relCWPanelCard.style.display = relModeCard.value === 'custom' ? 'block' : 'none';
+            if (relModeCard.value === 'default') {
+                window._relCustomWeights = null;
+                updateAndSave();
+            }
+        };
+    }
+    const relApplyCard = document.getElementById('rel-apply-custom-card');
+    if (relApplyCard) {
+        relApplyCard.onclick = () => {
+            const errEl = document.getElementById('rel-weight-error-card');
+            const inputs = relCWPanelCard ? relCWPanelCard.querySelectorAll('input[type="number"]') : [];
+            let customW = {};
+            let total = 0;
+            inputs.forEach(inp => {
+                const key = inp.id.replace('rel-cw-card-', '');
+                const v = parseFloat(inp.value) || 0;
+                customW[key] = v / 100;
+                total += v;
+            });
+            if (Math.abs(total - 100) > 1) {
+                if (errEl) { errEl.textContent = `${total.toFixed(0)}% ≠ 100%`; errEl.style.display = 'inline'; }
+                return;
+            }
+            if (errEl) errEl.style.display = 'none';
+            window._relCustomWeights = customW;
+            updateAndSave();
+        };
+    }
 
     document.querySelectorAll('.valuation-toggle').forEach(toggle => {
         toggle.onchange = updateAndSave;
@@ -3247,105 +3302,17 @@ document.addEventListener('DOMContentLoaded', () => {
                         <tbody>${breakdownRows}</tbody>
                     </table>
 
-                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:1rem; padding:10px 0; border-top:1px solid rgba(255,255,255,0.08);">
-                        <label style="font-size:0.8rem; color:var(--text-muted); font-weight:600;">Weights</label>
-                        <select id="rel-weight-mode" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.15); color:white; padding:5px 10px; border-radius:6px; font-size:0.8rem;">
-                            <option value="default" selected>Default</option>
-                            <option value="custom">Custom</option>
-                        </select>
-                    </div>
-                    <div id="rel-custom-weights" style="display:none; padding:12px; background:rgba(255,255,255,0.03); border-radius:8px; border:1px solid rgba(255,255,255,0.06); margin-bottom:1rem;">
-                        <div style="display:flex; flex-wrap:wrap; gap:10px;">
-                            ${activeKeys.map(k => `
-                                <div style="display:flex; flex-direction:column; gap:3px; min-width:80px;">
-                                    <label style="font-size:0.7rem; color:var(--text-muted); font-weight:600;">${LABEL[k]}</label>
-                                    <div style="display:flex; align-items:center; gap:2px;">
-                                        <input type="number" id="rel-cw-${k}" value="${((defaultWeights[k] || 0) * 100).toFixed(0)}" min="0" max="100" step="5"
-                                            style="width:55px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); color:white; padding:5px 6px; border-radius:5px; font-size:0.8rem; text-align:center;">
-                                        <span style="font-size:0.75rem; color:var(--text-muted);">%</span>
-                                    </div>
-                                </div>
-                            `).join('')}
-                        </div>
-                        <button id="rel-apply-custom" style="margin-top:12px; padding:7px 18px; background:var(--accent); color:#0f172a; border:none; border-radius:6px; font-weight:700; font-size:0.8rem; cursor:pointer; transition:opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">Apply Weights</button>
-                        <span id="rel-weight-error" style="font-size:0.7rem; color:var(--danger); margin-left:10px; display:none;"></span>
-                    </div>
-
                     <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-top:1px solid rgba(255,255,255,0.1);">
                         <span style="font-size:0.85rem; color:white; font-weight:600;">Weighted Fair Value</span>
                         <span id="rel-modal-fv" style="font-size:1.2rem; font-weight:800; color:${modalFVColor};">$${fmt(modalFV)}</span>
                     </div>
                     <p style="font-size:0.7rem; color:var(--text-muted); margin-top:8px; font-style:italic;">
-                        ℹ️ S&P 500 calculates market premium, while Sector Peers calculates intrinsic industry value.
+                        Weights can be adjusted via the card's "Weights" selector on the main dashboard.
                     </p>
                 `;
 
                 body.innerHTML = html;
                 modal.style.display = 'flex';
-
-                // --- Wire up Default/Custom toggle ---
-                const modeEl = document.getElementById('rel-weight-mode');
-                const customPanel = document.getElementById('rel-custom-weights');
-                if (modeEl && customPanel) {
-                    modeEl.addEventListener('change', () => {
-                        customPanel.style.display = modeEl.value === 'custom' ? 'block' : 'none';
-                        if (modeEl.value === 'default') {
-                            // Reset weight cells to default
-                            activeKeys.forEach(k => {
-                                const cell = body.querySelector(`.rel-weight-cell[data-key="${k}"]`);
-                                if (cell) cell.textContent = ((defaultWeights[k] || 0) * 100).toFixed(0) + '%';
-                                const inp = document.getElementById(`rel-cw-${k}`);
-                                if (inp) inp.value = ((defaultWeights[k] || 0) * 100).toFixed(0);
-                            });
-                            // Recalc with defaults
-                            recalcRelModal(activeKeys, defaultWeights, getBenchmark, getImplied);
-                        }
-                    });
-                }
-
-                // --- Wire up Apply button ---
-                const applyBtn = document.getElementById('rel-apply-custom');
-                if (applyBtn) {
-                    applyBtn.addEventListener('click', () => {
-                        const errEl = document.getElementById('rel-weight-error');
-                        let customW = {};
-                        let total = 0;
-                        activeKeys.forEach(k => {
-                            const inp = document.getElementById(`rel-cw-${k}`);
-                            const v = inp ? parseFloat(inp.value) || 0 : 0;
-                            customW[k] = v / 100;
-                            total += v;
-                        });
-                        if (Math.abs(total - 100) > 1) {
-                            if (errEl) { errEl.textContent = `Total is ${total.toFixed(0)}%, must be 100%.`; errEl.style.display = 'inline'; }
-                            return;
-                        }
-                        if (errEl) errEl.style.display = 'none';
-                        // Update weight cells
-                        activeKeys.forEach(k => {
-                            const cell = body.querySelector(`.rel-weight-cell[data-key="${k}"]`);
-                            if (cell) cell.textContent = ((customW[k] || 0) * 100).toFixed(0) + '%';
-                        });
-                        recalcRelModal(activeKeys, customW, getBenchmark, getImplied);
-                    });
-                }
-
-                function recalcRelModal(keys, weights, getBench, getImpl) {
-                    let wSum = 0, wTotal = 0;
-                    keys.forEach(k => {
-                        const b = getBench(k);
-                        const impl = getImpl(k, b);
-                        const w = weights[k] || 0;
-                        if (w > 0 && impl > 0) { wSum += impl * w; wTotal += w; }
-                    });
-                    const newFV = wTotal > 0 ? wSum / wTotal : 0;
-                    const fvEl = document.getElementById('rel-modal-fv');
-                    if (fvEl) {
-                        fvEl.textContent = '$' + fmt(newFV);
-                        fvEl.style.color = newFV > (globalData.current_price || 0) ? 'var(--accent)' : 'var(--danger)';
-                    }
-                }
-
                 return;
             } else if (model === 'peter_lynch' && currentFormulaData.peter_lynch) {
                 const p = currentFormulaData.peter_lynch;
