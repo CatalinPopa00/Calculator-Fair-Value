@@ -1598,11 +1598,18 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                             s_new = vals[i]      # newer
                             s_old = vals[i + 1]   # older
                             if s_old > 0:
-                                # v65: Allow negative results (dilution)
                                 reduction = (s_old - s_new) / s_old
                                 yoy_rates.append(reduction)
+                        
+                        latest_buyback_rate = 0.0
                         if yoy_rates:
+                            latest_buyback_rate = yoy_rates[0] # Most recent (YoY 0)
                             historic_buyback_rate = sum(yoy_rates) / len(yoy_rates)
+                        
+                        # v66: Use LATEST YoY rate for "buyback_rate" (UI consistency)
+                        data["buyback_rate"] = latest_buyback_rate
+                        # Keep AVERAGE for "historic_buyback_rate" (DCF conservative modeling)
+                        data["historic_buyback_rate"] = historic_buyback_rate
 
             # Method 2: Cash Flow Net Fallback (Only use if Method 1 results in exactly 0.0 or is very small/uncertain)
             # v65: Subtract issuance from repurchases to get the 'Net' cash impact on shares.
