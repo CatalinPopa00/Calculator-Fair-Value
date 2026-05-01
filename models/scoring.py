@@ -68,7 +68,8 @@ def calculate_scoring_reform(valuation_data, metrics):
     # SECTOR-SPECIFIC P/E MAPPING
     sector_lower = sector.lower()
     industry_lower = industry.lower()
-    is_tech_software = sector_lower in ["technology"] or "software" in industry_lower
+    is_communication_tech = sector_lower == "communication services" and "telecom" not in industry_lower
+    is_tech_software = sector_lower in ["technology"] or "software" in industry_lower or "internet" in industry_lower or is_communication_tech
     is_health_biotech = sector_lower in ["healthcare"] or "biotechnology" in industry_lower
     
     use_non_gaap = is_tech_software or is_health_biotech
