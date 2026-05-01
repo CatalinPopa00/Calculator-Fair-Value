@@ -778,8 +778,8 @@ def search_companies(query: str) -> list:
                     symbol = q.get("symbol", "")
                     q_type = q.get("quoteType", "").upper()
                     
-                    # EQUITY or ETF, and NO dots (US markets only)
-                    if q_type in ["EQUITY", "ETF"] and "." not in symbol:
+                    # EQUITY or ETF (Allow dots for International/European tickers)
+                    if q_type in ["EQUITY", "ETF"]:
                         valid_quotes.append({
                             "ticker": symbol.upper(),
                             "name": q.get("shortname") or q.get("longname") or symbol,
