@@ -3409,19 +3409,19 @@ document.addEventListener('DOMContentLoaded', () => {
         breakdown.forEach(item => totalMax += item.max_points || 0);
         const scoreVal = totalScore != null ? totalScore : '?';
 
-        // Build header - Centered score, title on left
+        // Build header - Clean single line: Title Total: xx/yyy
+        const displayTitle = title.replace(' Breakdown', '');
         let html = `
-            <div style="display:grid; grid-template-columns: 1fr auto 1fr; align-items:center; margin-bottom:20px; padding-right:45px;">
-                <h3 style="margin:0; font-size:1.1rem; color:white; font-weight:700;">${title}</h3>
-                <div style="text-align:center;">
-                    <div style="font-size:0.8rem; color:var(--text-muted);">Total:</div>
-                    <div style="font-size:1.4rem; font-weight:800; color:white;">${scoreVal}/${totalMax}</div>
+            <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:25px; padding-right:40px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:15px;">
+                <h3 style="margin:0; font-size:1.2rem; color:white; font-weight:800;">${displayTitle}</h3>
+                <div style="display:flex; align-items:baseline; gap:8px;">
+                    <span style="font-size:0.9rem; color:var(--text-muted); font-weight:600;">Total:</span>
+                    <span style="font-size:1.5rem; font-weight:900; color:white; letter-spacing:-0.5px;">${scoreVal}/${totalMax}</span>
                 </div>
-                <div></div>
             </div>
         `;
 
-        // Build rows matching user's reference design
+        // Build rows - Grid: Label (flex) | Value (fixed) | Dot+Pts (fixed)
         breakdown.forEach(item => {
             let label = (item.metric || item.name || 'Unknown Metric');
             if (!label.includes('(adj.)')) {
@@ -3432,19 +3432,19 @@ document.addEventListener('DOMContentLoaded', () => {
             const maxPts = item.max_points || 0;
             const pct = maxPts > 0 ? (pts / maxPts) : 0;
 
-            // Dot color: green if >= 99% (full points), yellow if >= 40%, red otherwise
+            // Dot color
             let dotColor = 'var(--danger)';
             let ptsColor = 'var(--danger)';
             if (pct >= 0.99) { dotColor = 'var(--accent)'; ptsColor = 'var(--accent)'; }
             else if (pct >= 0.4) { dotColor = '#fbbf24'; ptsColor = '#fbbf24'; }
 
             html += `
-                <div style="display:grid; grid-template-columns: 1fr 70px 110px; align-items:center; padding:14px 0; border-top:1px solid rgba(255,255,255,0.06); gap:8px;">
-                    <div style="font-weight:600; font-size:0.9rem; color:white; white-space:nowrap;">${label}</div>
-                    <div style="font-weight:700; font-size:0.95rem; color:white; text-align:right;">${item.value || 'N/A'}</div>
-                    <div style="display:flex; align-items:center; gap:8px; justify-content:flex-end;">
-                        <span style="width:10px; height:10px; border-radius:50%; background:${dotColor}; display:inline-block; flex-shrink:0;"></span>
-                        <span style="font-weight:700; font-size:0.9rem; color:${ptsColor}; white-space:nowrap;">${pts}/${maxPts} pts</span>
+                <div style="display:grid; grid-template-columns: 1fr 80px 110px; align-items:center; padding:12px 0; border-top:1px solid rgba(255,255,255,0.04); gap:15px;">
+                    <div style="font-weight:600; font-size:0.95rem; color:white; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${label}</div>
+                    <div style="font-weight:700; font-size:1rem; color:rgba(255,255,255,0.9); text-align:right; font-family:monospace;">${item.value || 'N/A'}</div>
+                    <div style="display:flex; align-items:center; gap:10px; padding-left:5px;">
+                        <span style="width:10px; height:10px; border-radius:50%; background:${dotColor}; display:inline-block; flex-shrink:0; box-shadow: 0 0 8px ${dotColor}44;"></span>
+                        <span style="font-weight:800; font-size:0.95rem; color:${ptsColor}; white-space:nowrap; font-family: 'Inter', sans-serif;">${pts}/${maxPts} pts</span>
                     </div>
                 </div>
             `;
