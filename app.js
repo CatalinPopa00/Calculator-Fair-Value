@@ -3423,7 +3423,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Build rows matching user's reference design
         breakdown.forEach(item => {
-            const label = (item.metric || item.name || 'Unknown Metric').split(' (')[0];
+            let label = (item.metric || item.name || 'Unknown Metric');
+            if (!label.includes('(adj.)')) {
+                label = label.split(' (')[0];
+            }
+            
             const pts = (item.points_awarded !== undefined) ? item.points_awarded : (item.points || 0);
             const maxPts = item.max_points || 0;
             const pct = maxPts > 0 ? (pts / maxPts) : 0;
@@ -3436,13 +3440,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             html += `
                 <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 0; border-top:1px solid rgba(255,255,255,0.06);">
-                    <div style="flex:1; min-width:0;">
-                        <div style="font-weight:600; font-size:0.9rem; color:white;">${label}</div>
+                    <div style="flex:1; min-width:0; padding-right: 4px;">
+                        <div style="font-weight:600; font-size: clamp(0.7rem, 2.8vw, 0.9rem); color:white; white-space: nowrap; overflow: visible;">${label}</div>
                     </div>
-                    <div style="font-weight:700; font-size:0.95rem; color:white; min-width:60px; text-align:center;">${item.value || 'N/A'}</div>
-                    <div style="display:flex; align-items:center; gap:8px; min-width:90px; justify-content:flex-end;">
-                        <span style="width:10px; height:10px; border-radius:50%; background:${dotColor}; display:inline-block; flex-shrink:0;"></span>
-                        <span style="font-weight:700; font-size:0.9rem; color:${ptsColor};">${pts}/${maxPts} pts</span>
+                    <div style="font-weight:700; font-size: clamp(0.85rem, 3vw, 0.95rem); color:white; min-width:50px; text-align:center;">${item.value || 'N/A'}</div>
+                    <div style="display:flex; align-items:center; gap:6px; min-width:75px; justify-content:flex-end;">
+                        <span style="width:8px; height:8px; border-radius:50%; background:${dotColor}; display:inline-block; flex-shrink:0;"></span>
+                        <span style="font-weight:700; font-size: clamp(0.8rem, 2.5vw, 0.9rem); color:${ptsColor}; white-space: nowrap;">${pts}/${maxPts} pts</span>
                     </div>
                 </div>
             `;

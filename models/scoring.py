@@ -65,13 +65,32 @@ def calculate_scoring_reform(valuation_data, metrics):
         try: return float(val)
         except: return 0.0
 
-    # USER-DRIVEN DATA MAPPING: TRAILING PE ONLY (FORBIDDEN FORWARD PE)
-    # Prefer the Normalized P/E passed from valuation logic over the raw scraped P/E
-    pe = valuation_data.get('pe')
-    if not pe:
-        pe = clean_ratio(metrics.get('trailing_pe') or metrics.get('pe_ratio'))
+    # SECTOR-SPECIFIC P/E MAPPING
+    sector_lower = sector.lower()
+    industry_lower = industry.lower()
+    is_tech_software = sector_lower in ["technology"] or "software" in industry_lower
+    is_health_biotech = sector_lower in ["healthcare"] or "biotechnology" in industry_lower
+    
+    use_non_gaap = is_tech_software or is_health_biotech
+    
+    pe_label = "P/E Ratio"
+    pe = 0
+    if use_non_gaap:
+        adj_eps = metrics.get('adjusted_eps')
+        current_price = metrics.get('current_price') or valuation_data.get('current_price', 0)
+        if adj_eps and current_price and clean_ratio(adj_eps) > 0:
+            pe = clean_ratio(current_price / clean_ratio(adj_eps))
+            pe_label = "P/E Ratio (adj.)"
+        else:
+            # fallback
+            pe = valuation_data.get('pe')
+            if not pe:
+                pe = clean_ratio(metrics.get('trailing_pe') or metrics.get('pe_ratio'))
+            else:
+                pe = clean_ratio(pe)
+            pe_label = "P/E Ratio (adj.)"
     else:
-        pe = clean_ratio(pe)
+        pe = clean_ratio(metrics.get('trailing_pe') or metrics.get('pe_ratio'))
 
     if is_financial and is_bank:
         # --- ȘABLONUL 2: FINANCIALS ---
@@ -118,7 +137,7 @@ def calculate_scoring_reform(valuation_data, metrics):
             pe_diff_pct = ((pe - pe_5y) / pe_5y) * 100
             pts_rel = 7.5 if pe_diff_pct < -15 else (3.75 if abs(pe_diff_pct) <= 15 else 0)
         pts = pts_abs + pts_rel
-        add_b("P/E Ratio", pe, pts, 15, True)
+        add_b(pe_label, pe, pts, 15, True)
 
         pb = clean_ratio(metrics.get('price_to_book'))
         pts = 15 if (pb > 0 and pb < 1.2) else (7.5 if (pb > 0 and pb <= 2.0) else 0)
@@ -226,7 +245,7 @@ def calculate_scoring_reform(valuation_data, metrics):
             pe_diff_pct = ((pe - pe_5y) / pe_5y) * 100
             pts_rel = 10 if pe_diff_pct < -15 else (5 if abs(pe_diff_pct) <= 15 else 0)
         pts = pts_abs + pts_rel
-        add_b("P/E Ratio", pe, pts, 20, True)
+        add_b(pe_label, pe, pts, 20, True)
 
         ev_ebitda = clean_ratio(metrics.get('ev_to_ebitda'))
         pts = 10 if (ev_ebitda > 0 and ev_ebitda < 12.0) else (5 if (ev_ebitda > 0 and ev_ebitda <= 18.0) else 0)
