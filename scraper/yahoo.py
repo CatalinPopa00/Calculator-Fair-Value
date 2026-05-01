@@ -3203,13 +3203,17 @@ def get_market_averages():
     if not pe_t:
         try:
             url = "https://finance.yahoo.com/quote/SPY"
-            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36', 'Accept-Encoding': 'gzip'}
             req = urllib.request.Request(url, headers=headers)
             with urllib.request.urlopen(req, timeout=10) as response:
-                html = response.read().decode('utf-8')
-                # Look for PE Ratio (TTM) in the summary table
+                content = response.read()
+                if response.info().get('Content-Encoding') == 'gzip':
+                    import gzip
+                    content = gzip.decompress(content)
+                html = content.decode('utf-8')
+                
                 import re
-                # Pattern: PE RATIO (TTM) followed by any characters until a value inside a tag
+                # Pattern that worked in test: PE RATIO (TTM) followed by any characters until a value inside a tag
                 match = re.search(r'PE RATIO \(TTM\).*?value[^>]*>([\d\.]+)', html, re.IGNORECASE | re.DOTALL)
                 if match:
                     pe_t = float(match.group(1))
