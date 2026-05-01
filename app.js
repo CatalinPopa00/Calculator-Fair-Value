@@ -3409,15 +3409,18 @@ document.addEventListener('DOMContentLoaded', () => {
         breakdown.forEach(item => totalMax += item.max_points || 0);
         const scoreVal = totalScore != null ? totalScore : '?';
 
-        // Build header - Clean single line: Title Total: xx/yyy
+        // Build header - 3-column grid to center the total and align with X
         const displayTitle = title.replace(' Breakdown', '');
         let html = `
-            <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:25px; padding-right:40px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:15px;">
-                <h3 style="margin:0; font-size:1.2rem; color:white; font-weight:800;">${displayTitle}</h3>
-                <div style="display:flex; align-items:baseline; gap:8px;">
-                    <span style="font-size:0.9rem; color:var(--text-muted); font-weight:600;">Total:</span>
+            <div style="display:grid; grid-template-columns: 1fr auto 1fr; align-items:center; margin-bottom:25px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:15px; gap:10px;">
+                <h3 style="margin:0; font-size:1.15rem; color:white; font-weight:800; text-align:left;">${displayTitle}</h3>
+                
+                <div style="display:flex; align-items:baseline; gap:6px; justify-content:center;">
+                    <span style="font-size:0.85rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Total:</span>
                     <span style="font-size:1.5rem; font-weight:900; color:white; letter-spacing:-0.5px;">${scoreVal}/${totalMax}</span>
                 </div>
+                
+                <div style="width:40px; justify-self:end;"></div> <!-- Space for close button -->
             </div>
         `;
 
