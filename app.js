@@ -3447,7 +3447,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div style="font-weight:700; font-size:1rem; color:rgba(255,255,255,0.9); text-align:right; font-family:monospace;">${item.value || 'N/A'}</div>
                     <div style="display:flex; align-items:center; gap:10px; padding-left:5px;">
                         <span style="width:10px; height:10px; border-radius:50%; background:${dotColor}; display:inline-block; flex-shrink:0; box-shadow: 0 0 8px ${dotColor}44;"></span>
-                        <span style="font-weight:800; font-size:0.95rem; color:${ptsColor}; white-space:nowrap; font-family: 'Inter', sans-serif;">${pts}/${maxPts} pts</span>
+                        <span style="font-weight:800; font-size:0.95rem; color:${ptsColor}; white-space:nowrap; font-family: 'Outfit', sans-serif;">${pts}/${maxPts} pts</span>
                     </div>
                 </div>
             `;
