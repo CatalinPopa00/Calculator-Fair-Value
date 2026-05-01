@@ -3179,6 +3179,7 @@ def get_market_averages():
     """
     Returns S&P 500 P/E metrics using SPY as a proxy.
     Includes a 1-hour in-memory cache to reduce network calls.
+    Now with direct HTML fallback for reliability.
     """
     global _market_cache
     now = time.time()
@@ -3187,29 +3188,48 @@ def get_market_averages():
     if _market_cache["data"] and (now - _market_cache["timestamp"] < 3600):
         return _market_cache["data"]
 
+    pe_t, pe_f = None, None
+
+    # Attempt 1: yfinance (Fastest if it works)
     try:
         spy = yf.Ticker("SPY")
         info = spy.info
         pe_t = info.get('trailingPE')
         pe_f = info.get('forwardPE')
-        
-        # Fallback for SPY PE if one is missing
-        if not pe_t and pe_f: pe_t = pe_f
-        if not pe_f and pe_t: pe_f = pe_t
-        
-        # Absolute fallback if both are None (Yahoo bug)
-        if not pe_t: pe_t = 24.5  # Current realistic SPX PE
-        if not pe_f: pe_f = 21.0
-        
-        data = {
-            "trailing_pe": float(pe_t),
-            "forward_pe": float(pe_f)
-        }
-        _market_cache = {"data": data, "timestamp": now}
-        return data
     except Exception as e:
-        print(f"Error fetching SPY market average: {e}")
-        return {"trailing_pe": 24.5, "forward_pe": 21.0}
+        print(f"DEBUG: Market averages Attempt 1 (yf) failed: {e}")
+
+    # Attempt 2: Direct Scrape (Fallback for ETF Info issues in yfinance)
+    if not pe_t:
+        try:
+            url = "https://finance.yahoo.com/quote/SPY"
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=10) as response:
+                html = response.read().decode('utf-8')
+                # Look for PE Ratio (TTM) in the summary table
+                import re
+                # Pattern: PE RATIO (TTM) followed by any characters until a value inside a tag
+                match = re.search(r'PE RATIO \(TTM\).*?value[^>]*>([\d\.]+)', html, re.IGNORECASE | re.DOTALL)
+                if match:
+                    pe_t = float(match.group(1))
+                    print(f"DEBUG: Market averages Attempt 2 (Scrape) success: PE={pe_t}")
+        except Exception as e:
+            print(f"DEBUG: Market averages Attempt 2 (Scrape) failed: {e}")
+
+    # Final logic & absolute fallbacks
+    if not pe_t and pe_f: pe_t = pe_f
+    if not pe_f and pe_t: pe_f = pe_t
+    
+    if not pe_t: pe_t = 24.5  # Current realistic SPX PE fallback
+    if not pe_f: pe_f = 21.0
+    
+    data = {
+        "trailing_pe": float(pe_t),
+        "forward_pe": float(pe_f)
+    }
+    _market_cache = {"data": data, "timestamp": now}
+    return data
 
 def get_nasdaq_earnings_forecast(ticker):
     headers = {
