@@ -3439,14 +3439,12 @@ document.addEventListener('DOMContentLoaded', () => {
             else if (pct >= 0.4) { dotColor = '#fbbf24'; ptsColor = '#fbbf24'; }
 
             html += `
-                <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 0; border-top:1px solid rgba(255,255,255,0.06);">
-                    <div style="flex:1; min-width:0; padding-right: 4px;">
-                        <div style="font-weight:600; font-size: clamp(0.7rem, 2.8vw, 0.9rem); color:white; white-space: nowrap; overflow: visible;">${label}</div>
-                    </div>
-                    <div style="font-weight:700; font-size: clamp(0.85rem, 3vw, 0.95rem); color:white; min-width:50px; text-align:center;">${item.value || 'N/A'}</div>
-                    <div style="display:flex; align-items:center; gap:6px; min-width:75px; justify-content:flex-end;">
-                        <span style="width:8px; height:8px; border-radius:50%; background:${dotColor}; display:inline-block; flex-shrink:0;"></span>
-                        <span style="font-weight:700; font-size: clamp(0.8rem, 2.5vw, 0.9rem); color:${ptsColor}; white-space: nowrap;">${pts}/${maxPts} pts</span>
+                <div style="display:grid; grid-template-columns: 1fr 70px 110px; align-items:center; padding:14px 0; border-top:1px solid rgba(255,255,255,0.06); gap:8px;">
+                    <div style="font-weight:600; font-size:0.9rem; color:white; white-space:nowrap;">${label}</div>
+                    <div style="font-weight:700; font-size:0.95rem; color:white; text-align:right;">${item.value || 'N/A'}</div>
+                    <div style="display:flex; align-items:center; gap:8px; justify-content:flex-end;">
+                        <span style="width:10px; height:10px; border-radius:50%; background:${dotColor}; display:inline-block; flex-shrink:0;"></span>
+                        <span style="font-weight:700; font-size:0.9rem; color:${ptsColor}; white-space:nowrap;">${pts}/${maxPts} pts</span>
                     </div>
                 </div>
             `;
