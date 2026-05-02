@@ -810,15 +810,6 @@ document.addEventListener('DOMContentLoaded', () => {
         circle.style.color = '';
         fill.style.backgroundColor = '';
         fill.style.width = '0%';
-        
-        // v70: Simulated state visual feedback
-        if (_simulating) {
-            circle.style.boxShadow = '0 0 15px rgba(251, 191, 36, 0.4)';
-            circle.style.border = '2px solid #fbbf24';
-        } else {
-            circle.style.boxShadow = '';
-            circle.style.border = '';
-        }
 
         if (scoreVal === "N/A" || scoreVal == null) {
             circle.textContent = "N/A";
@@ -857,15 +848,6 @@ document.addEventListener('DOMContentLoaded', () => {
         circle.style.color = '';
         fill.style.backgroundColor = '';
         fill.style.width = '0%';
-        
-        // v70: Simulated state visual feedback
-        if (_simulating) {
-            circle.style.boxShadow = '0 0 15px rgba(251, 191, 36, 0.4)';
-            circle.style.border = '2px solid #fbbf24';
-        } else {
-            circle.style.boxShadow = '';
-            circle.style.border = '';
-        }
 
         if (scoreVal === 'N/A' || scoreVal == null) {
             circle.textContent = 'N/A';
@@ -974,15 +956,6 @@ document.addEventListener('DOMContentLoaded', () => {
         circle.style.width = 'auto'; // ensure padding is respected
         circle.style.padding = '0 10px';
         circle.style.borderRadius = '12px';
-        
-        // v70: Simulated state visual feedback
-        if (_simulating) {
-            circle.style.boxShadow = '0 0 15px rgba(251, 191, 36, 0.4)';
-            circle.style.border = '2px solid #fbbf24';
-        } else {
-            circle.style.boxShadow = '';
-            circle.style.border = '';
-        }
 
         if (!rule40Data || rule40Data.total === null || isNaN(rule40Data.total)) {
             circle.textContent = 'N/A';
