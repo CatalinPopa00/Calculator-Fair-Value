@@ -233,7 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
             priceEl.textContent = formatCurrency(simPrice);
         }
 
-        // --- 4. Predictive Scoring Logic ---
+        // --- 4. Predictive Scoring Logic (v70: Matches backend scoring.py thresholds) ---
         if (currentBuyBreakdown) {
             currentBuyBreakdown.forEach(item => {
                 const metric = item.metric || '';
@@ -247,10 +247,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const isREIT = sector.includes('real estate') || sector.includes('reit');
 
                 if (metric === 'Margin of Safety') {
-                    // All templates use >20: 30, >=0: 15
                     newPts = (newMos > 20) ? 30 : (newMos >= 0 ? 15 : 0);
                     item.value = formatPercent(newMos);
-                } else if (metric === 'P/E Ratio') {
+                } else if (metric === 'P/E Ratio' || metric === 'P/E Ratio (adj.)') {
                     let ptsAbs = 0, ptsRel = 0;
                     if (isFin && isBank) {
                         ptsAbs = (newPE > 0 && newPE < 10) ? 7.5 : ((newPE > 0 && newPE <= 15) ? 3.75 : 0);
@@ -259,7 +258,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             ptsRel = diff < -15 ? 7.5 : (Math.abs(diff) <= 15 ? 3.75 : 0);
                         }
                     } else {
-                        // Default template uses 20 max pts for P/E
                         ptsAbs = (newPE > 0 && newPE < 15) ? 10 : ((newPE > 0 && newPE <= 25) ? 5 : 0);
                         if (newPE > 0 && pe5y > 0) {
                             const diff = ((newPE - pe5y) / pe5y) * 100;
@@ -279,22 +277,24 @@ document.addEventListener('DOMContentLoaded', () => {
                     item.value = newPB > 0 ? newPB.toFixed(2) + 'x' : '0.00x';
                 } else if (metric === 'Dividend Yield') {
                     const dyPct = newDivYield * 100;
-                    if (isFin || isREIT) {
-                        newPts = dyPct > 4 ? 15 : (dyPct >= 2 ? 7.5 : 0);
-                    } else {
-                        newPts = dyPct > 5 ? 15 : (dyPct >= 3 ? 7.5 : 0);
-                    }
+                    if (isREIT) newPts = dyPct > 5 ? 15 : (dyPct >= 3 ? 7.5 : 0);
+                    else if (isFin) newPts = dyPct > 4 ? 15 : (dyPct >= 2 ? 7.5 : 0);
+                    else newPts = 0; // Default template doesn't use DY for scoring points usually
                     item.value = dyPct.toFixed(1) + '%';
                 } else if (metric === 'PEG Ratio') {
-                    // PEG is price dependent (P/E / Growth). 
-                    // v60: Using anchored growth for 1:1 match with backend
                     const newPEG = (growthFromAnchor > 0) ? newPE / growthFromAnchor : 0;
-                    if (isFin) {
-                        newPts = (newPEG > 0 && newPEG < 1.0) ? 15 : ((newPEG > 0 && newPEG <= 1.5) ? 7.5 : 0);
-                    } else {
-                        newPts = (newPEG > 0 && newPEG < 1.2) ? 10 : ((newPEG > 0 && newPEG <= 2.0) ? 5 : 0);
-                    }
+                    if (isFin) newPts = (newPEG > 0 && newPEG < 1.0) ? 15 : ((newPEG > 0 && newPEG <= 1.5) ? 7.5 : 0);
+                    else newPts = (newPEG > 0 && newPEG < 1.0) ? 10 : ((newPEG > 0 && newPEG <= 1.5) ? 5 : 0);
                     item.value = newPEG > 0 ? newPEG.toFixed(2) + 'x' : '0.00x';
+                } else if (metric === 'FCF Yield') {
+                    const fyPct = (fcfPerShare > 0) ? (fcfPerShare / simPrice) * 100 : 0;
+                    newPts = fyPct > 10 ? 15 : (fyPct >= 5 ? 7.5 : 0);
+                    item.value = fyPct.toFixed(1) + '%';
+                } else if (metric === 'P/AFFO') {
+                    const affoPerShare = prof.price_to_affo > 0 ? (_originalPrice / prof.price_to_affo) : 0;
+                    const newPAFFO = affoPerShare > 0 ? simPrice / affoPerShare : 0;
+                    newPts = (newPAFFO > 0 && newPAFFO < 15.0) ? 20 : (newPAFFO > 0 && newPAFFO <= 20.0 ? 10 : 0);
+                    item.value = newPAFFO > 0 ? newPAFFO.toFixed(2) + 'x' : '0.00x';
                 }
 
                 item.points_awarded = Math.min(newPts, item.max_points);
@@ -306,18 +306,32 @@ document.addEventListener('DOMContentLoaded', () => {
             window.triggerRecalculate();
         }
 
-        // --- 6. Quick Strengths/Risks Update ---
+        // --- 6. Refresh Score Dashboard ---
+        const totalBuy = currentBuyBreakdown.reduce((sum, item) => sum + (item.points_awarded || 0), 0);
+        globalData.good_to_buy_total = Math.min(Math.max(totalBuy, 0), 100);
+        updateScoreUI(globalData.good_to_buy_total, 'buy-score-circle', 'buy-score-fill');
+
+        // --- 7. Update Open Modal (Real-time Simulation) ---
+        const scoreModal = document.getElementById('score-modal');
+        if (scoreModal && scoreModal.style.display === 'flex') {
+            const titleEl = document.getElementById('score-modal-title');
+            if (titleEl && titleEl.textContent.includes('Good to Buy')) {
+                renderScoreBreakdown('Good to Buy Score Breakdown', globalData.good_to_buy_total, currentBuyBreakdown);
+            }
+        }
+
+        // --- 8. Quick Strengths/Risks Update ---
         const allMetrics = [...(currentHealthBreakdown || []), ...(currentBuyBreakdown || [])];
         const strengths = allMetrics.filter(m => m.points_awarded === m.max_points && m.max_points > 0).sort((a,b) => b.max_points - a.max_points);
         const risks = allMetrics.filter(m => m.points_awarded === 0 && m.max_points > 0).sort((a,b) => b.max_points - a.max_points);
 
         const sList = document.getElementById('top-strengths-list');
         if (sList) {
-            sList.innerHTML = strengths.slice(0, 3).map(s => `<li>${s.metric}: ${s.value}</li>`).join('');
+            sList.innerHTML = strengths.slice(0, 3).map(s => `<li>${s.metric.split(' (')[0]}: ${s.value}</li>`).join('');
         }
         const rList = document.getElementById('risk-factors-list');
         if (rList) {
-            rList.innerHTML = risks.slice(0, 3).map(r => `<li>${r.metric}: ${r.value}</li>`).join('');
+            rList.innerHTML = risks.slice(0, 3).map(r => `<li>${r.metric.split(' (')[0]}: ${r.value}</li>`).join('');
         }
     };
 
@@ -419,42 +433,37 @@ document.addEventListener('DOMContentLoaded', () => {
         return w;
     };
 
-    // UPDATED: Sync both MOS and PEG to the Score Breakdown dynamically (moved to top-level)
+    // UPDATED: Sync both MOS and PEG to the Score Breakdown dynamically (v70)
     const updateInsightsAndScores = (newMos, newPeg) => {
         if (!currentBuyBreakdown || !globalData) return;
 
-        // Update Margin of Safety
-        let mosItem = currentBuyBreakdown.find(i => i.metric && i.metric.includes("Margin of Safety"));
-        if (mosItem) {
-            let pts = 0;
-            let mos_str = "N/A";
-            if (newMos != null) {
-                mos_str = `${newMos.toFixed(1)}%`;
-                if (newMos > 20.0) pts = 30;
-                else if (newMos >= 0.0) pts = 15;
-            }
-
-            mosItem.points_awarded = pts;
-            mosItem.value = mos_str;
+        // Ensure Buy Breakdown reflects the latest MOS and PEG from the primary engine
+        const mosItem = currentBuyBreakdown.find(i => i.metric && i.metric.includes("Margin of Safety"));
+        if (mosItem && newMos != null) {
+            mosItem.value = `${newMos.toFixed(1)}%`;
+            mosItem.points_awarded = (newMos > 20.0) ? 30 : (newMos >= 0.0 ? 15 : 0);
         }
 
-        // Update Custom PEG
-        let pegItem = currentBuyBreakdown.find(i => i.metric && i.metric.includes("PEG Ratio"));
+        const pegItem = currentBuyBreakdown.find(i => i.metric && i.metric.includes("PEG Ratio"));
         if (pegItem && newPeg != null) {
-            let pts = 0;
-            let peg_str = `${newPeg.toFixed(2)}x`;
+            pegItem.value = `${newPeg.toFixed(2)}x`;
+            const industry = (globalData.company_profile?.industry || "").toLowerCase();
+            const sector = (globalData.company_profile?.sector || "").toLowerCase();
+            const isFin = sector.includes('financial');
             
-            if (newPeg < 1.2 && newPeg > 0) pts = 10;
-            else if (newPeg <= 2.0 && newPeg > 0) pts = 5;
-            
-            pegItem.points_awarded = pts;
-            pegItem.value = peg_str;
+            if (isFin) pegItem.points_awarded = (newPeg > 0 && newPeg < 1.0) ? 15 : (newPeg > 0 && newPeg <= 1.5 ? 7.5 : 0);
+            else pegItem.points_awarded = (newPeg > 0 && newPeg < 1.0) ? 10 : (newPeg > 0 && newPeg <= 1.5 ? 5 : 0);
         }
 
         if (typeof globalData.good_to_buy_total === 'number') {
             const rawTotal = currentBuyBreakdown.reduce((sum, item) => sum + (item.points_awarded || 0), 0);
             globalData.good_to_buy_total = Math.min(Math.max(rawTotal, 0), 100);
+            
+            // Re-sync all score circles during this pass
+            updateScoreUI(globalData.health_score_total, 'health-score-circle', 'health-score-fill');
             updateScoreUI(globalData.good_to_buy_total, 'buy-score-circle', 'buy-score-fill');
+            updatePiotroskiUI(globalData.piotroski ? globalData.piotroski.score : null);
+            updateRule40UI(globalData.rule_of_40);
         }
 
         const allMetrics = [...(currentHealthBreakdown || []), ...(currentBuyBreakdown || [])];
@@ -793,6 +802,15 @@ document.addEventListener('DOMContentLoaded', () => {
         circle.style.color = '';
         fill.style.backgroundColor = '';
         fill.style.width = '0%';
+        
+        // v70: Simulated state visual feedback
+        if (_simulating) {
+            circle.style.boxShadow = '0 0 15px rgba(251, 191, 36, 0.4)';
+            circle.style.border = '2px solid #fbbf24';
+        } else {
+            circle.style.boxShadow = '';
+            circle.style.border = '';
+        }
 
         if (scoreVal === "N/A" || scoreVal == null) {
             circle.textContent = "N/A";
@@ -831,6 +849,15 @@ document.addEventListener('DOMContentLoaded', () => {
         circle.style.color = '';
         fill.style.backgroundColor = '';
         fill.style.width = '0%';
+        
+        // v70: Simulated state visual feedback
+        if (_simulating) {
+            circle.style.boxShadow = '0 0 15px rgba(251, 191, 36, 0.4)';
+            circle.style.border = '2px solid #fbbf24';
+        } else {
+            circle.style.boxShadow = '';
+            circle.style.border = '';
+        }
 
         if (scoreVal === 'N/A' || scoreVal == null) {
             circle.textContent = 'N/A';
@@ -939,6 +966,15 @@ document.addEventListener('DOMContentLoaded', () => {
         circle.style.width = 'auto'; // ensure padding is respected
         circle.style.padding = '0 10px';
         circle.style.borderRadius = '12px';
+        
+        // v70: Simulated state visual feedback
+        if (_simulating) {
+            circle.style.boxShadow = '0 0 15px rgba(251, 191, 36, 0.4)';
+            circle.style.border = '2px solid #fbbf24';
+        } else {
+            circle.style.boxShadow = '';
+            circle.style.border = '';
+        }
 
         if (!rule40Data || rule40Data.total === null || isNaN(rule40Data.total)) {
             circle.textContent = 'N/A';
@@ -1818,22 +1854,19 @@ document.addEventListener('DOMContentLoaded', () => {
         updateScoreUI(data.good_to_buy_total, 'buy-score-circle', 'buy-score-fill');
 
         // Bind click handlers on score rows (must be done here, after data is loaded)
+        // v70: Use dynamic closures to ensure modals always show CURRENT simulated data
         const healthRow = document.getElementById('health-score-row') || document.getElementById('health-score-circle')?.closest('.score-row');
-        console.log('[Score Handlers] healthRow:', healthRow, 'breakdown:', currentHealthBreakdown?.length);
         if (healthRow) {
             healthRow.style.cursor = 'pointer';
-            healthRow.onclick = function() {
-                console.log('[Score Click] Health clicked!');
-                renderScoreBreakdown('Company Health Breakdown', data.health_score_total, currentHealthBreakdown);
+            healthRow.onclick = () => {
+                renderScoreBreakdown('Company Health Breakdown', globalData.health_score_total, currentHealthBreakdown);
             };
         }
         const buyRow = document.getElementById('buy-score-row') || document.getElementById('buy-score-circle')?.closest('.score-row');
-        console.log('[Score Handlers] buyRow:', buyRow, 'breakdown:', currentBuyBreakdown?.length);
         if (buyRow) {
             buyRow.style.cursor = 'pointer';
-            buyRow.onclick = function() {
-                console.log('[Score Click] Buy clicked!');
-                renderScoreBreakdown('Good to Buy Score Breakdown', data.good_to_buy_total, currentBuyBreakdown);
+            buyRow.onclick = () => {
+                renderScoreBreakdown('Good to Buy Score Breakdown', globalData.good_to_buy_total, currentBuyBreakdown);
             };
         }
 
@@ -1843,8 +1876,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const piotroskiRow = document.getElementById('piotroski-score-row');
         if (piotroskiRow) {
             piotroskiRow.style.cursor = 'pointer';
-            piotroskiRow.onclick = function() {
-                renderPiotroskiBreakdown(data.piotroski ? data.piotroski.score : null, currentPiotroskiBreakdown);
+            piotroskiRow.onclick = () => {
+                const score = globalData.piotroski ? globalData.piotroski.score : null;
+                renderPiotroskiBreakdown(score, currentPiotroskiBreakdown);
             };
         }
 
@@ -1853,8 +1887,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const rule40Row = document.getElementById('rule40-score-row');
         if (rule40Row) {
             rule40Row.style.cursor = 'pointer';
-            rule40Row.onclick = function() {
-                renderRule40Breakdown(data.rule_of_40);
+            rule40Row.onclick = () => {
+                renderRule40Breakdown(globalData.rule_of_40);
             };
         }
 
