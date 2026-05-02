@@ -2196,39 +2196,47 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     ni = e_raw * s
                     ni_gaap = ni
                 
+                # --- FX NORMALIZATION (CRITICAL FOR ADRs) ---
+                # Convert ALL local currency metrics to USD at once to prevent mixed-currency ratios
+                r_usd = r * fx_rate
+                ni_usd = ni * fx_rate
+                ni_gaap_usd = ni_gaap * fx_rate
+                f_usd = f * fx_rate
+                
                 # Apply Non-GAAP Overlay
                 if year_label in adjusted_history:
                     adj_val = adjusted_history[year_label]
                     
                     # Sync ni and margin to the normalized EPS (v223)
                     e = adj_val
-                    if s and s > 0: ni = e * s
+                    if s and s > 0: ni_usd = e * s
 
                     if int(year_label) >= latest_adj_yr:
                         adjusted_eps = adj_val
                         latest_adj_yr = int(year_label)
-                        net_margin_calc = (adj_val * s) / (r * fx_rate) if (r and s) else None
+                        # Margin must be USD / USD
+                        net_margin_calc = ni_usd / r_usd if (r_usd and r_usd > 0) else None
                     
                     # Recalculate margins based on normalized numbers
                 else:
-                    e = e_raw
+                    e = e_raw * fx_rate
                 
                 # Push to history
                 historical_data["years"].append(year_label)
-                historical_data["revenue"].append(r * fx_rate)
-                historical_data["eps"].append(e * fx_rate)
+                historical_data["revenue"].append(r_usd)
+                historical_data["eps"].append(e)
                 historical_data["diluted_eps"].append(e_raw * fx_rate) # v260: Track reported Diluted EPS
-                historical_data["fcf"].append(f * fx_rate)
+                historical_data["fcf"].append(f_usd)
                 historical_data["shares"].append(s)
                 
-                margin = (ni / (r * fx_rate)) if (r and r > 0) else 0
-                gaap_margin = (ni_gaap / (r * fx_rate)) if (r and r > 0) else 0
+                margin = (ni_usd / r_usd) if (r_usd and r_usd > 0) else 0
+                gaap_margin = (ni_gaap_usd / r_usd) if (r_usd and r_usd > 0) else 0
 
                 historical_trends.append({
                     "year": year_label,
-                    "revenue": r,
+                    "revenue": r_usd,
                     "eps": e,
-                    "fcf": f,
+                    "fcf": f_usd,
                     "net_margin": margin,
                     "gaap_net_margin": gaap_margin
                 })
@@ -2582,14 +2590,14 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     
                     historical_anchors.append({
                         "year": yr_label,
-                        "revenue_b": round((r_raw * fx_rate) / 1e9, 2),
-                        "eps": round(e_raw * fx_rate, 2),
-                        "fcf_b": round((f_raw * fx_rate) / 1e9, 2),
+                        "revenue_b": round(r_raw / 1e9, 2), # Already USD
+                        "eps": round(e_raw, 2), # Already USD
+                        "fcf_b": round(f_raw / 1e9, 2), # Already USD
                         "net_margin_pct": f"{margin_v:.1f}%" if margin_v is not None else "N/A",
-                        "gaap_net_margin": gaap_v / 100.0 if gaap_v is not None else None, # v129
-                        "cash_b": round(c_raw / 1e9, 2),
-                        "total_debt_b": round(d_raw / 1e9, 2),
-                        "shares_out_b": round(s_raw / 1e9, 2),
+                        "gaap_net_margin": gaap_v / 100.0 if gaap_v is not None else None, 
+                        "cash_b": round((c_raw * fx_rate) / 1e9, 2), 
+                        "total_debt_b": round((d_raw * fx_rate) / 1e9, 2), 
+                        "shares_out_b": round(s_raw / 1e9, 2), 
                         "roic_pct": f"{roic_v:.1f}%" if roic_v is not None else "N/A",
                         "current_ratio": round(cr_v, 2) if cr_v is not None else None
                     })
