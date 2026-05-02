@@ -1276,7 +1276,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                         # v287: ADR Guard - If Yahoo already gave us a sane EPS in the price currency (USD), 
                         # and our manual calculation (likely due to ADR ratios) is off by >20%, trust Yahoo's tag.
                         reported_eps = info.get('trailingEps')
-                        if reported_eps and gaap_eps:
+                        if reported_eps and gaap_eps and reported_eps > 0:
                             diff = abs(gaap_eps / reported_eps - 1)
                             if diff > 0.2:
                                 gaap_eps = reported_eps
@@ -2304,8 +2304,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                         # If we have analysis_truth['0y']['yearAgo'], it replaces our last anchor
                         # to ensure the timeline starts from the "Truth".
                         if i == 1 and '0y' in analysis_truth and analysis_truth['0y'].get('yearAgo'):
-                            y_anchor_truth = analysis_truth['0y']['yearAgo']
-                            if historical_data["eps"]:
+                            y_anchor_truth = analysis_truth['0y'].get('yearAgo')
+                            if historical_data["eps"] and y_anchor_truth is not None:
                                 historical_data["eps"][-1] = y_anchor_truth
                                 log(f"DEBUG: v254 Truth Anchor Sync: {y_anchor_truth:.2f}")
                     
@@ -3119,7 +3119,7 @@ def get_lightweight_company_data(ticker_symbol: str):
     ticker_symbol = ticker_symbol.upper()
     
     # Check KV Cache (Forced Bust v13 for Growth)
-    cache_key = f"peer_v13_{ticker_symbol}"
+    cache_key = f"peer_v292_{ticker_symbol}"
     cached = kv_get(cache_key)
     if cached:
         return cached
@@ -3141,10 +3141,9 @@ def get_lightweight_company_data(ticker_symbol: str):
                 "market_cap": info.get('marketCap'),
                 "ps_ratio": info.get('priceToSalesTrailing12Months') or info.get('priceToSales'),
             }
-            # Scale currencies if not USD
-            if fx_rate != 1.0:
-                for k in ["price", "eps", "market_cap"]:
-                    if data.get(k): data[k] *= fx_rate
+            # v292: ADR Logic - Yahoo's info tags (price, eps, target) are ALREADY in the price currency (USD for ADRs).
+            # ONLY multiply if we are 100% sure the tag is in local currency (rare for these tags).
+            # We remove the global fx_rate application here and move it only to raw financials.
 
     except Exception as e:
         print(f"yfinance peer fetch failed for {ticker_symbol}: {e}")
