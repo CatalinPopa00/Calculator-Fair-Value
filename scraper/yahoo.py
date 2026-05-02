@@ -1273,12 +1273,15 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                         # Recalibrate GAAP EPS using fx_rate since financials are now raw (local currency)
                         gaap_eps = (net_inc * fx_rate) / shares_outstanding
                         
-                        # v287: ADR Guard - If Yahoo already gave us a sane EPS in the price currency (USD), 
-                        # and our manual calculation (likely due to ADR ratios) is off by >20%, trust Yahoo's tag.
+                        # v294: ADR Currency Guard
+                        # If price is USD and gaap_eps is orders of magnitude smaller than reported_eps,
+                        # it's 100% a currency scale error in the raw financials.
                         reported_eps = info.get('trailingEps')
-                        if reported_eps and gaap_eps and reported_eps > 0:
-                            diff = abs(gaap_eps / reported_eps - 1)
-                            if diff > 0.2:
+                        if reported_eps and reported_eps > 0 and gaap_eps:
+                            ratio = gaap_eps / reported_eps
+                            # If our manual calc is 1/30th or 30x the reported USD EPS, something is wrong with fx_rate application
+                            if ratio < 0.1 or ratio > 10:
+                                log(f"DEBUG: ADR Currency Guard triggered for {ticker_symbol} ({gaap_eps:.2f} vs {reported_eps:.2f}). Trusting reported tag.")
                                 gaap_eps = reported_eps
 
                         # Save the Non-GAAP version for display
@@ -1287,6 +1290,9 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                         # Use GAAP EPS for P/E calculation (actual reported earnings)
                         if gaap_eps and gaap_eps > 0:
                             trailing_eps = gaap_eps
+                            # Final sync for Non-GAAP to prevent 1000x P/E artifacts
+                            if not adjusted_eps or abs(adjusted_eps/gaap_eps - 1) > 5:
+                                adjusted_eps = gaap_eps
                             pe_ratio = current_price / gaap_eps if current_price else pe_ratio
             except Exception as e_gaap:
                 print(f"GAAP recalibration error: {e_gaap}")
@@ -1948,9 +1954,10 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 else:
                     adjusted_history[ey] = total
 
-            # 6. Source J: SUPER-NORMALIZED QUARTERLY RECONSTRUCTION (v293: HIMS 1.1 Fix)
+            # 6. Source J: SUPER-NORMALIZED QUARTERLY RECONSTRUCTION (v294: HIMS 1.1 Fix)
             # This is now the HIGHEST PRIORITY for growth stocks.
             # We reconstruct the TTM by summing the last 4 quarters of GAAP actuals AND adding back the Quarterly SBC.
+            CACHE_VERSION = "v294"
             is_growth_e = any(x in str(info.get('sector', '')).lower() for x in ['tech', 'soft', 'comm', 'health', 'consumer'])
             if not fast_mode and is_growth_e:
                 try:
