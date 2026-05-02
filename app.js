@@ -249,7 +249,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (metric === 'Margin of Safety') {
                     newPts = (newMos > 20) ? 30 : (newMos >= 0 ? 15 : 0);
                     item.value = formatPercent(newMos);
-                } else if (metric === 'P/E Ratio' || metric === 'P/E Ratio (adj.)') {
+                } else if (metric.includes('P/E Ratio')) {
                     let ptsAbs = 0, ptsRel = 0;
                     if (isFin && isBank) {
                         ptsAbs = (newPE > 0 && newPE < 10) ? 7.5 : ((newPE > 0 && newPE <= 15) ? 3.75 : 0);
@@ -265,6 +265,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }
                     newPts = ptsAbs + ptsRel;
+                    item.metric = "P/E Ratio (Trailing)";
                     item.value = newPE > 0 ? newPE.toFixed(2) + 'x' : '0.00x';
                 } else if (metric === 'P/S Ratio') {
                     newPts = (newPS > 0 && newPS < 2) ? 10 : ((newPS > 0 && newPS <= 4) ? 5 : 0);
@@ -1737,13 +1738,12 @@ document.addEventListener('DOMContentLoaded', () => {
             saveOverride(data.ticker); 
         }
 
-        // v60: Extract "Anchor Metrics" for Simulation Stability
-        // This ensures frontend simulation uses the EXACT same basis as the backend scoring
-        const anchorPEItem = data.buy_breakdown?.find(i => i.metric === 'P/E Ratio');
+        // v70: Anchor simulation on Trailing EPS as per user request (nu adj)
+        const anchorPEItem = data.buy_breakdown?.find(i => i.metric && i.metric.includes('P/E Ratio'));
         const anchorPEGItem = data.buy_breakdown?.find(i => i.metric === 'PEG Ratio');
         
         window._simAnchors = {
-            eps: (anchorPEItem && parseFloat(anchorPEItem.value) > 0) ? (data.current_price / parseFloat(anchorPEItem.value)) : (data.company_profile?.trailing_eps || 0),
+            eps: data.company_profile?.trailing_eps || (anchorPEItem && parseFloat(anchorPEItem.value) > 0 ? (data.current_price / parseFloat(anchorPEItem.value)) : 0),
             growth: (anchorPEGItem && parseFloat(anchorPEGItem.value) > 0 && anchorPEItem) ? (parseFloat(anchorPEItem.value) / parseFloat(anchorPEGItem.value)) : (data.company_profile?.revenue_growth || 10)
         };
 

@@ -65,33 +65,16 @@ def calculate_scoring_reform(valuation_data, metrics):
         try: return float(val)
         except: return 0.0
 
-    # SECTOR-SPECIFIC P/E MAPPING
-    sector_lower = sector.lower()
-    industry_lower = industry.lower()
-    is_communication_tech = sector_lower == "communication services" and "telecom" not in industry_lower
-    is_tech_software = sector_lower in ["technology"] or "software" in industry_lower or "internet" in industry_lower or is_communication_tech
-    is_health_biotech = sector_lower in ["healthcare"] or "biotechnology" in industry_lower
+    # v70: Always use Trailing P/E for scoring as per user request (nu adj)
+    pe = clean_ratio(metrics.get('trailing_pe') or metrics.get('pe_ratio'))
+    pe_label = "P/E Ratio (Trailing)"
     
-    use_non_gaap = is_tech_software or is_health_biotech
-    
-    pe_label = "P/E Ratio"
-    pe = 0
-    if use_non_gaap:
-        adj_eps = metrics.get('adjusted_eps')
-        current_price = metrics.get('current_price') or valuation_data.get('current_price', 0)
-        if adj_eps and current_price and clean_ratio(adj_eps) > 0:
-            pe = clean_ratio(current_price / clean_ratio(adj_eps))
-            pe_label = "P/E Ratio (adj.)"
-        else:
-            # fallback
-            pe = valuation_data.get('pe')
-            if not pe:
-                pe = clean_ratio(metrics.get('trailing_pe') or metrics.get('pe_ratio'))
-            else:
-                pe = clean_ratio(pe)
-            pe_label = "P/E Ratio (adj.)"
-    else:
-        pe = clean_ratio(metrics.get('trailing_pe') or metrics.get('pe_ratio'))
+    # Fallback if metrics are missing but price/eps exist
+    if pe <= 0:
+        curr_p = metrics.get('current_price') or valuation_data.get('current_price', 0)
+        curr_eps = metrics.get('trailing_eps') or metrics.get('eps_diluted')
+        if curr_p and curr_eps and clean_ratio(curr_eps) > 0:
+            pe = clean_ratio(curr_p) / clean_ratio(curr_eps)
 
     if is_financial and is_bank:
         # --- ȘABLONUL 2: FINANCIALS ---
