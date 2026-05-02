@@ -265,7 +265,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }
                     newPts = ptsAbs + ptsRel;
-                    item.metric = "P/E Ratio (Trailing)";
+                    
+                    // v72: Dynamic label based on simulation anchor (adj for Tech/Health)
+                    const isTech = (sector.includes('technology') || sector.includes('communication') || industry.includes('software') || industry.includes('internet'));
+                    const isHealth = sector.includes('healthcare');
+                    item.metric = (isTech || isHealth) ? "P/E Ratio (adj.)" : "P/E Ratio (Trailing)";
                     item.value = newPE > 0 ? newPE.toFixed(2) + 'x' : '0.00x';
                 } else if (metric === 'P/S Ratio') {
                     newPts = (newPS > 0 && newPS < 2) ? 10 : ((newPS > 0 && newPS <= 4) ? 5 : 0);
@@ -1738,12 +1742,24 @@ document.addEventListener('DOMContentLoaded', () => {
             saveOverride(data.ticker); 
         }
 
-        // v70: Anchor simulation on Trailing EPS as per user request (nu adj)
+        // v72: Smart Anchor selection (Prioritize Adjusted EPS for Tech/Health)
+        const isTech = (data.company_profile?.sector || '').toLowerCase().includes('technology') || 
+                       (data.company_profile?.sector || '').toLowerCase().includes('communication') ||
+                       (data.company_profile?.industry || '').toLowerCase().includes('software') ||
+                       (data.company_profile?.industry || '').toLowerCase().includes('internet');
+        const isHealth = (data.company_profile?.sector || '').toLowerCase().includes('healthcare');
+        
         const anchorPEItem = data.buy_breakdown?.find(i => i.metric && i.metric.includes('P/E Ratio'));
         const anchorPEGItem = data.buy_breakdown?.find(i => i.metric === 'PEG Ratio');
         
+        // Base EPS for simulation: Use Adjusted EPS for Tech/Health if available, else Trailing
+        let baseEps = data.company_profile?.trailing_eps || 0;
+        if ((isTech || isHealth) && data.company_profile?.adjusted_eps) {
+            baseEps = data.company_profile.adjusted_eps;
+        }
+
         window._simAnchors = {
-            eps: data.company_profile?.trailing_eps || (anchorPEItem && parseFloat(anchorPEItem.value) > 0 ? (data.current_price / parseFloat(anchorPEItem.value)) : 0),
+            eps: baseEps || (anchorPEItem && parseFloat(anchorPEItem.value) > 0 ? (data.current_price / parseFloat(anchorPEItem.value)) : 0),
             growth: (anchorPEGItem && parseFloat(anchorPEGItem.value) > 0 && anchorPEItem) ? (parseFloat(anchorPEItem.value) / parseFloat(anchorPEGItem.value)) : (data.company_profile?.revenue_growth || 10)
         };
 
