@@ -1294,7 +1294,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         peg_ratio = None
         if pe_ratio and eps_growth and eps_growth > 0:
             peg_ratio = pe_ratio / (eps_growth * 100)
-        
+            
         if not peg_ratio:
             peg_ratio = info.get('pegRatio') or info.get('trailingPegRatio')
             
@@ -1828,28 +1828,13 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
 
             # 2. Source B: Nasdaq Earnings Surprise (Reports Actual Non-GAAP / Forensic Healing)
             try:
-                nq_surprises = get_nasdaq_earnings_surprise(ticker_symbol)
+                nq_surprises = get_nasdaq_historical_eps(ticker_symbol)
                 for row in nq_surprises:
                     eps_val = row.get('eps')
-                    fc_val = row.get('consensusForecast')
-                    dt_str = row.get('dateReported')
-                    if eps_val is not None and dt_str:
-                        dt = datetime.datetime.strptime(dt_str, '%m/%d/%Y')
-                        
-                        # v219: Universal Analyst Neutralizer (Optimized for Normalized anchors)
-                        # We prioritize the Analyst Consensus Forecast as the ground truth if 
-                        # the reported 'Actual' shows a significant GAAP-driven surprise.
-                        final_eps = float(eps_val)
-                        try:
-                            if fc_val and float(fc_val) != 0:
-                                f_fc = float(fc_val)
-                                diff = abs(final_eps - f_fc)
-                                if (diff / abs(f_fc) > 0.25) or diff > 0.15: # Tightened to 25% for better normalization
-                                    log(f"DEBUG: Neutralizing GAAP surprise for {ticker_symbol} ({final_eps} -> {f_fc})")
-                                    final_eps = f_fc
-                        except: pass
-                        
-                        add_to_map(dt, final_eps, priority=3) # Nasdaq is highest priority (Direct Non-GAAP)
+                    # Note: Nasdaq API doesn't provide consensus in the historical endpoint directly
+                    dt = row.get('date')
+                    if eps_val is not None and dt:
+                        add_to_map(dt, eps_val, priority=3)
             except: pass
 
             # 3. Source C: yfinance earnings_history (High Priority - "Analysis" tab chart)
@@ -1963,7 +1948,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 else:
                     adjusted_history[ey] = total
 
-            # 6. Source J: SUPER-NORMALIZED QUARTERLY RECONSTRUCTION (v202: HIMS 1.1 Fix)
+            # 6. Source J: SUPER-NORMALIZED QUARTERLY RECONSTRUCTION (v293: HIMS 1.1 Fix)
             # This is now the HIGHEST PRIORITY for growth stocks.
             # We reconstruct the TTM by summing the last 4 quarters of GAAP actuals AND adding back the Quarterly SBC.
             is_growth_e = any(x in str(info.get('sector', '')).lower() for x in ['tech', 'soft', 'comm', 'health', 'consumer'])
