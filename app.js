@@ -1226,7 +1226,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
 
-                // ── SECTOR-SPECIFIC PEG THRESHOLDS (v260) ──
+                // ── SECTOR-SPECIFIC PEG THRESHOLDS (v290) ──
                 const peg = currentPegToDisplay;
                 
                 let statusText = "";
@@ -3413,15 +3413,15 @@ document.addEventListener('DOMContentLoaded', () => {
         // Build header - 3-column grid to center the total and align with X
         const displayTitle = title.replace(' Breakdown', '');
         let html = `
-            <div style="display:grid; grid-template-columns: 1fr auto 1fr; align-items:center; margin-bottom:25px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:15px; gap:10px;">
-                <h3 style="margin:0; font-size:1.15rem; color:white; font-weight:800; text-align:left;">${displayTitle}</h3>
+            <div style="display:grid; grid-template-columns: 1fr auto 1fr; align-items:center; margin-bottom:20px; padding-bottom:10px; gap:10px;">
+                <h3 style="margin:0; font-size:1.1rem; color:white; font-weight:800; text-align:left; letter-spacing:-0.2px;">${displayTitle}</h3>
                 
                 <div style="display:flex; align-items:baseline; gap:6px; justify-content:center;">
-                    <span style="font-size:0.85rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Total:</span>
-                    <span style="font-size:1.5rem; font-weight:900; color:white; letter-spacing:-0.5px;">${scoreVal}/${totalMax}</span>
+                    <span style="font-size:0.8rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Total:</span>
+                    <span style="font-size:1.4rem; font-weight:900; color:white; letter-spacing:-0.5px;">${scoreVal}/${totalMax}</span>
                 </div>
                 
-                <div style="width:40px; justify-self:end;"></div> <!-- Space for close button -->
+                <div style="width:30px; justify-self:end;"></div> <!-- Space for close button -->
             </div>
         `;
 
@@ -3443,12 +3443,12 @@ document.addEventListener('DOMContentLoaded', () => {
             else if (pct >= 0.4) { dotColor = '#fbbf24'; ptsColor = '#fbbf24'; }
 
             html += `
-                <div style="display:grid; grid-template-columns: 1fr 80px 110px; align-items:center; padding:12px 0; border-top:1px solid rgba(255,255,255,0.04); gap:15px;">
-                    <div style="font-weight:600; font-size:0.92rem; color:white; line-height:1.2;">${label}</div>
-                    <div style="font-weight:700; font-size:1rem; color:rgba(255,255,255,0.9); text-align:right; font-family:monospace;">${item.value || 'N/A'}</div>
-                    <div style="display:flex; align-items:center; gap:10px; padding-left:5px;">
-                        <span style="width:10px; height:10px; border-radius:50%; background:${dotColor}; display:inline-block; flex-shrink:0; box-shadow: 0 0 8px ${dotColor}44;"></span>
-                        <span style="font-weight:800; font-size:0.95rem; color:${ptsColor}; white-space:nowrap; font-family: 'Outfit', sans-serif;">${pts}/${maxPts} pts</span>
+                <div style="display:grid; grid-template-columns: 1fr 75px 95px; align-items:center; padding:10px 0; border-top:1px solid rgba(255,255,255,0.04); gap:10px;">
+                    <div style="font-weight:600; font-size:0.88rem; color:white; white-space:nowrap; overflow:visible;">${label}</div>
+                    <div style="font-weight:700; font-size:0.9rem; color:rgba(255,255,255,0.85); text-align:right; font-family:monospace;">${item.value || 'N/A'}</div>
+                    <div style="display:flex; align-items:center; gap:8px; justify-content:flex-end;">
+                        <span style="width:8px; height:8px; border-radius:50%; background:${dotColor}; display:inline-block; flex-shrink:0;"></span>
+                        <span style="font-weight:800; font-size:0.85rem; color:${ptsColor}; white-space:nowrap; font-family: 'Outfit', sans-serif;">${pts}/${maxPts}</span>
                     </div>
                 </div>
             `;
