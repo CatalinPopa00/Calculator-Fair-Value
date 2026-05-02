@@ -1287,15 +1287,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
             let usedGrowth = pl.eps_growth_estimated || 0.05;
             let baseEps = pl.valuation_eps || pl.trailing_eps || 0;
-            let targetEps = baseEps * (1 + usedGrowth); // v286: Standard 1-Year Forward
+            let targetEps = baseEps * Math.pow(1 + usedGrowth, 3); // v288: Restored 3Y Compounded Projection
 
             if (epsSource === 'historical') {
                 usedGrowth = prof.historic_eps_growth != null ? prof.historic_eps_growth : 0.05;
-                targetEps = baseEps * (1 + usedGrowth);
+                targetEps = baseEps * Math.pow(1 + usedGrowth, 3);
             } else if (epsSource === 'custom') {
                 const rawG = document.getElementById('lynch-custom-growth').value;
                 usedGrowth = (rawG === '' || isNaN(parseFloat(rawG))) ? 0.20 : parseFloat(rawG) / 100;
-                targetEps = baseEps * (1 + usedGrowth);
+                targetEps = baseEps * Math.pow(1 + usedGrowth, 3);
             }
 
             const multEl = document.getElementById('lynch-multiple-source');
@@ -3369,8 +3369,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 title.textContent = '📊 Forward Multiple — Data Transparency';
                 const epsLabel = p.valuation_eps !== p.trailing_eps ? 'EPS Base (Normalized)' : 'Trailing EPS (GAAP)';
                 html = row(epsLabel, '$' + fmt(p.valuation_eps || p.trailing_eps))
-                     + row('Growth Estimate (1Y)', fmtPct(p.eps_growth_estimated))
-                     + row('Forward EPS (FY1)', '$' + fmt(p.fwd_eps))
+                     + row('Growth Estimate', fmtPct(p.eps_growth_estimated))
+                     + row('Forward EPS (3Y Projection)', '$' + fmt(p.fwd_eps))
                      + row('Fair Value (PE 20)', '$' + fmt(p.fair_value_pe_20));
             } else if (model === 'peg' && currentFormulaData.peg) {
                 const g = currentFormulaData.peg;
@@ -3444,7 +3444,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             html += `
                 <div style="display:grid; grid-template-columns: 1fr 80px 110px; align-items:center; padding:12px 0; border-top:1px solid rgba(255,255,255,0.04); gap:15px;">
-                    <div style="font-weight:600; font-size:0.95rem; color:white; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${label}</div>
+                    <div style="font-weight:600; font-size:0.92rem; color:white; line-height:1.2;">${label}</div>
                     <div style="font-weight:700; font-size:1rem; color:rgba(255,255,255,0.9); text-align:right; font-family:monospace;">${item.value || 'N/A'}</div>
                     <div style="display:flex; align-items:center; gap:10px; padding-left:5px;">
                         <span style="width:10px; height:10px; border-radius:50%; background:${dotColor}; display:inline-block; flex-shrink:0; box-shadow: 0 0 8px ${dotColor}44;"></span>
