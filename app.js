@@ -184,7 +184,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // --- 1. Recalculated Scalars ---
         const newMos = fairValue ? ((fairValue - simPrice) / simPrice) * 100 : null;
-        const newPE = (eps > 0) ? simPrice / eps : 0;
+        
+        // v73: Distinct P/E calculations for GAAP and Non-GAAP transparency
+        const newTrailingPE = (prof.trailing_eps > 0) ? simPrice / prof.trailing_eps : 0;
+        const newNonGaapPE  = (prof.adjusted_eps > 0) ? simPrice / prof.adjusted_eps : 0;
+        const scoringPE     = (eps > 0) ? simPrice / eps : 0; // Use anchored EPS for scoring (v72 logic)
+
         const newPS = (revenue > 0 && shares > 0) ? simPrice / (revenue / shares) : 0;
         const newMktCap = simPrice * shares;
         const ev = newMktCap + (globalData.total_debt || 0) - (globalData.total_cash || 0);
@@ -203,16 +208,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Price-dependent metrics
         updateMetric('marketcap', formatBigNumber(newMktCap, '$'));
-        updateMetric('petrailing', newPE > 0 ? newPE.toFixed(2) + 'x' : 'N/A');
-        
-        const newPeNonGaap = prof.adjusted_eps > 0 ? simPrice / prof.adjusted_eps : 0;
-        updateMetric('penongaap', newPeNonGaap > 0 ? newPeNonGaap.toFixed(2) + 'x' : 'N/A');
+        updateMetric('petrailing', newTrailingPE > 0 ? newTrailingPE.toFixed(2) + 'x' : 'N/A');
+        updateMetric('penongaap', newNonGaapPE > 0 ? newNonGaapPE.toFixed(2) + 'x' : 'N/A');
         
         const newPeFwd = prof.fwd_eps > 0 ? simPrice / prof.fwd_eps : 0;
         updateMetric('pefwd', newPeFwd > 0 ? newPeFwd.toFixed(2) + 'x' : 'N/A');
         
         const growth = prof.earnings_growth || 0;
-        const newPeg = (growth > 0 && newPeNonGaap > 0) ? newPeNonGaap / (growth * 100) : 0;
+        const newPeg = (growth > 0 && newNonGaapPE > 0) ? newNonGaapPE / (growth * 100) : 0;
         updateMetric('peg', newPeg > 0 ? newPeg.toFixed(2) : 'N/A');
         
         updateMetric('ps', newPS > 0 ? newPS.toFixed(2) + 'x' : 'N/A');
@@ -252,15 +255,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (metric.includes('P/E Ratio')) {
                     let ptsAbs = 0, ptsRel = 0;
                     if (isFin && isBank) {
-                        ptsAbs = (newPE > 0 && newPE < 10) ? 7.5 : ((newPE > 0 && newPE <= 15) ? 3.75 : 0);
-                        if (newPE > 0 && pe5y > 0) {
-                            const diff = ((newPE - pe5y) / pe5y) * 100;
+                        ptsAbs = (scoringPE > 0 && scoringPE < 10) ? 7.5 : ((scoringPE > 0 && scoringPE <= 15) ? 3.75 : 0);
+                        if (scoringPE > 0 && pe5y > 0) {
+                            const diff = ((scoringPE - pe5y) / pe5y) * 100;
                             ptsRel = diff < -15 ? 7.5 : (Math.abs(diff) <= 15 ? 3.75 : 0);
                         }
                     } else {
-                        ptsAbs = (newPE > 0 && newPE < 15) ? 10 : ((newPE > 0 && newPE <= 25) ? 5 : 0);
-                        if (newPE > 0 && pe5y > 0) {
-                            const diff = ((newPE - pe5y) / pe5y) * 100;
+                        ptsAbs = (scoringPE > 0 && scoringPE < 15) ? 10 : ((scoringPE > 0 && scoringPE <= 25) ? 5 : 0);
+                        if (scoringPE > 0 && pe5y > 0) {
+                            const diff = ((scoringPE - pe5y) / pe5y) * 100;
                             ptsRel = diff < -15 ? 10 : (Math.abs(diff) <= 15 ? 5 : 0);
                         }
                     }
@@ -270,7 +273,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const isTech = (sector.includes('technology') || sector.includes('communication') || industry.includes('software') || industry.includes('internet'));
                     const isHealth = sector.includes('healthcare');
                     item.metric = (isTech || isHealth) ? "P/E Ratio (adj.)" : "P/E Ratio (Trailing)";
-                    item.value = newPE > 0 ? newPE.toFixed(2) + 'x' : '0.00x';
+                    item.value = scoringPE > 0 ? scoringPE.toFixed(2) + 'x' : '0.00x';
                 } else if (metric === 'P/S Ratio') {
                     newPts = (newPS > 0 && newPS < 2) ? 10 : ((newPS > 0 && newPS <= 4) ? 5 : 0);
                     item.value = newPS > 0 ? newPS.toFixed(2) + 'x' : '0.00x';
@@ -287,7 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     else newPts = 0; // Default template doesn't use DY for scoring points usually
                     item.value = dyPct.toFixed(1) + '%';
                 } else if (metric === 'PEG Ratio') {
-                    const newPEG = (growthFromAnchor > 0) ? newPE / growthFromAnchor : 0;
+                    const newPEG = (growthFromAnchor > 0) ? scoringPE / growthFromAnchor : 0;
                     if (isFin) newPts = (newPEG > 0 && newPEG < 1.0) ? 15 : ((newPEG > 0 && newPEG <= 1.5) ? 7.5 : 0);
                     else newPts = (newPEG > 0 && newPEG < 1.0) ? 10 : ((newPEG > 0 && newPEG <= 1.5) ? 5 : 0);
                     item.value = newPEG > 0 ? newPEG.toFixed(2) + 'x' : '0.00x';
