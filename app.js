@@ -1286,15 +1286,16 @@ document.addEventListener('DOMContentLoaded', () => {
             if (lynchInputs) lynchInputs.style.display = epsSource === 'custom' ? 'flex' : 'none';
 
             let usedGrowth = pl.eps_growth_estimated || 0.05;
-            let targetEps = (pl.trailing_eps || 0) * Math.pow(1 + usedGrowth, 3);
+            let baseEps = pl.valuation_eps || pl.trailing_eps || 0;
+            let targetEps = baseEps * (1 + usedGrowth); // v286: Standard 1-Year Forward
 
             if (epsSource === 'historical') {
                 usedGrowth = prof.historic_eps_growth != null ? prof.historic_eps_growth : 0.05;
-                targetEps = (pl.trailing_eps || 0) * Math.pow(1 + usedGrowth, 3);
+                targetEps = baseEps * (1 + usedGrowth);
             } else if (epsSource === 'custom') {
                 const rawG = document.getElementById('lynch-custom-growth').value;
                 usedGrowth = (rawG === '' || isNaN(parseFloat(rawG))) ? 0.20 : parseFloat(rawG) / 100;
-                targetEps = (pl.trailing_eps || 0) * Math.pow(1 + usedGrowth, 3);
+                targetEps = baseEps * (1 + usedGrowth);
             }
 
             const multEl = document.getElementById('lynch-multiple-source');
@@ -3366,10 +3367,10 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (model === 'peter_lynch' && currentFormulaData.peter_lynch) {
                 const p = currentFormulaData.peter_lynch;
                 title.textContent = '📊 Forward Multiple — Data Transparency';
-                const periodLabel = p.eps_growth_period || '2Y EPS CAGR';
-                html = row('Trailing EPS', '$' + fmt(p.trailing_eps))
-                     + row('2Y EPS CAGR', fmtPct(p.eps_growth_estimated))
-                     + row('Historic P/E (5Y Avg)', p.historic_pe ? p.historic_pe.toFixed(2) + 'x' : 'N/A')
+                const epsLabel = p.valuation_eps !== p.trailing_eps ? 'EPS Base (Normalized)' : 'Trailing EPS (GAAP)';
+                html = row(epsLabel, '$' + fmt(p.valuation_eps || p.trailing_eps))
+                     + row('Growth Estimate (1Y)', fmtPct(p.eps_growth_estimated))
+                     + row('Forward EPS (FY1)', '$' + fmt(p.fwd_eps))
                      + row('Fair Value (PE 20)', '$' + fmt(p.fair_value_pe_20));
             } else if (model === 'peg' && currentFormulaData.peg) {
                 const g = currentFormulaData.peg;

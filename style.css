@@ -694,6 +694,22 @@ body {
     align-items: center;
     gap: 1rem;
     margin-top: 0.5rem;
+    flex-wrap: wrap; /* v287: Allow wrapping on tiny screens */
+}
+
+@media (max-width: 480px) {
+    .score-display {
+        gap: 0.5rem;
+    }
+    .score-circle {
+        font-size: 1.2rem;
+        width: auto;
+        min-width: 2.5rem;
+    }
+    .score-max {
+        margin-left: 5px !important;
+        font-size: 0.7rem !important;
+    }
 }
 
 .score-circle {

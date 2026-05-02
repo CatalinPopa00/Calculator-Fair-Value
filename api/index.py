@@ -36,7 +36,7 @@ from models.scoring import calculate_scoring_reform, calculate_piotroski_score
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v273"
+CACHE_VERSION = "v287"
 def get_usd_fx_rate(currency: str) -> float:
     if not currency:
         return 1.0
@@ -796,6 +796,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             "peter_lynch": {
                 "current_price": sanitize(current_price),
                 "trailing_eps": sanitize(data.get("trailing_eps")),
+                "valuation_eps": sanitize(eps_for_valuation),
                 "fwd_eps": sanitize(lynch_result.get("fwd_eps")),
                 "eps_growth_estimated": sanitize(eps_growth_estimated),
                 "eps_growth_period": lynch_period_label,
@@ -837,6 +838,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 "fair_value": sanitize(relative_value),
                 "margin_of_safety": sanitize(((relative_value - current_price) / current_price * 100)) if relative_value is not None and current_price > 0 else None,
                 "company_eps": sanitize(data.get("adjusted_eps") or data.get("trailing_eps")),
+                "company_fwd_eps": sanitize(data.get("forward_eps")),
                 "company_fcf_share": sanitize(data.get("fcf", 0) / shares if shares else 0),
                 "company_sales_share": sanitize(data.get("revenue", 0) / shares if shares else 0),
                 "company_book_share": sanitize(current_price / data.get("price_to_book") if data.get("price_to_book") and data.get("price_to_book") > 0 else 0),

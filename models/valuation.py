@@ -1,8 +1,8 @@
 def calculate_peter_lynch(current_price: float, trailing_eps: float, eps_growth_estimated: float, pe_historic: float, sector_median_pe: float = 20.0):
     """
-    Refined Peter Lynch Model:
-    1. FWD EPS (3Y) = trailing_eps * ((1 + eps_growth_estimated) ** 3)
-    2. FWD PE = current_price / FWD EPS (3Y)
+    Refined Peter Lynch Model (Standard Forward P/E):
+    1. FWD EPS (1Y) = trailing_eps * (1 + eps_growth_estimated)
+    2. FWD PE = current_price / FWD EPS (1Y)
     3. Fair Value (Company) = FWD EPS * pe_historic
     4. Fair Value (PE 20) = FWD EPS * 20
     5. Fair Value (Sector) = FWD EPS * sector_median_pe
@@ -14,7 +14,8 @@ def calculate_peter_lynch(current_price: float, trailing_eps: float, eps_growth_
     safe_pe_historic = pe_historic if pe_historic else 20.0
     safe_sector_pe = sector_median_pe if sector_median_pe else 20.0
     
-    fwd_eps = trailing_eps * ((1 + eps_growth_estimated) ** 3)
+    # v286: Standard 1-Year Forward EPS (Trailing * (1+G))
+    fwd_eps = trailing_eps * (1 + eps_growth_estimated)
     
     if fwd_eps == 0:
         return {"fwd_pe": None, "fair_value": None, "status": "N/A"}

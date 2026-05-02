@@ -1273,6 +1273,14 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                         # Recalibrate GAAP EPS using fx_rate since financials are now raw (local currency)
                         gaap_eps = (net_inc * fx_rate) / shares_outstanding
                         
+                        # v287: ADR Guard - If Yahoo already gave us a sane EPS in the price currency (USD), 
+                        # and our manual calculation (likely due to ADR ratios) is off by >20%, trust Yahoo's tag.
+                        reported_eps = info.get('trailingEps')
+                        if reported_eps and gaap_eps:
+                            diff = abs(gaap_eps / reported_eps - 1)
+                            if diff > 0.2:
+                                gaap_eps = reported_eps
+
                         # Save the Non-GAAP version for display
                         adjusted_eps = trailing_eps
                         
