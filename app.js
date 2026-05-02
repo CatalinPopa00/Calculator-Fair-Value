@@ -1226,7 +1226,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
 
-                // ── SECTOR-SPECIFIC PEG THRESHOLDS (v290) ──
+                // ── SECTOR-SPECIFIC PEG THRESHOLDS (v291) ──
                 const peg = currentPegToDisplay;
                 
                 let statusText = "";
@@ -3413,15 +3413,13 @@ document.addEventListener('DOMContentLoaded', () => {
         // Build header - 3-column grid to center the total and align with X
         const displayTitle = title.replace(' Breakdown', '');
         let html = `
-            <div style="display:grid; grid-template-columns: 1fr auto 1fr; align-items:center; margin-bottom:20px; padding-bottom:10px; gap:10px;">
-                <h3 style="margin:0; font-size:1.1rem; color:white; font-weight:800; text-align:left; letter-spacing:-0.2px;">${displayTitle}</h3>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:5px; gap:15px; flex-wrap:nowrap;">
+                <h3 style="margin:0; font-size:1.05rem; color:white; font-weight:800; white-space:nowrap;">${displayTitle}</h3>
                 
-                <div style="display:flex; align-items:baseline; gap:6px; justify-content:center;">
-                    <span style="font-size:0.8rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Total:</span>
-                    <span style="font-size:1.4rem; font-weight:900; color:white; letter-spacing:-0.5px;">${scoreVal}/${totalMax}</span>
+                <div style="display:flex; align-items:baseline; gap:6px; flex-shrink:0;">
+                    <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600; text-transform:uppercase;">Total:</span>
+                    <span style="font-size:1.3rem; font-weight:900; color:white;">${scoreVal}/${totalMax}</span>
                 </div>
-                
-                <div style="width:30px; justify-self:end;"></div> <!-- Space for close button -->
             </div>
         `;
 
