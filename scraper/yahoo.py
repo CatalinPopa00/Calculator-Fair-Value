@@ -1510,7 +1510,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                         if yoy_rates:
                             historic_fcf_growth = sum(yoy_rates) / len(yoy_rates)
         except Exception:
-            pass          pass
+            pass
             
         # Historic EPS growth (3Y and 5Y)
         historic_eps_growth_3y = None
