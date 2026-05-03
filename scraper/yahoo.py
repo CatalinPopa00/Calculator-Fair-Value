@@ -3463,10 +3463,10 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             # We no longer overwrite Yahoo's FY1 EPS with Nasdaq's
             fy1_num_est = fy1_n.get('noOfEstimates')
 
-        g1 = normalize_growth((fy1_eps / abs(fy0_eps) - 1) if fy0_eps and fy0_eps != 0 and fy1_eps is not None else None)
+        g1 = normalize_growth(((fy1_eps - fy0_eps) / abs(fy0_eps)) if fy0_eps and fy0_eps != 0 and fy1_eps is not None else None)
         unified_eps.append({"period": f"FY {fy1_yr}", "avg": fy1_eps, "growth": g1, "status": "estimate", "num_estimates": fy1_num_est})
         
-        g1r = normalize_growth((fy1_rev / abs(fy0_rev) - 1) if fy0_rev and fy0_rev != 0 and fy1_rev is not None else None)
+        g1r = normalize_growth(((fy1_rev - fy0_rev) / abs(fy0_rev)) if fy0_rev and fy0_rev != 0 and fy1_rev is not None else None)
         unified_rev.append({"period": f"FY {fy1_yr}", "avg": fy1_rev, "growth": g1r, "status": "estimate"})
         
         # 3. FY 2 (Next Year Forecast)
@@ -3476,10 +3476,10 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             # We no longer overwrite Yahoo's FY2 EPS with Nasdaq's
             fy2_num_est = fy2_n.get('noOfEstimates')
 
-        g2 = normalize_growth((fy2_eps / abs(fy1_eps) - 1) if fy1_eps and fy1_eps != 0 and fy2_eps is not None else None)
+        g2 = normalize_growth(((fy2_eps - fy1_eps) / abs(fy1_eps)) if fy1_eps and fy1_eps != 0 and fy2_eps is not None else None)
         unified_eps.append({"period": f"FY {fy2_yr}", "avg": fy2_eps, "growth": g2, "status": "estimate", "num_estimates": fy2_num_est})
         
-        g2r = normalize_growth((fy2_rev / abs(fy1_rev) - 1) if fy1_rev and fy1_rev != 0 and fy2_rev is not None else None)
+        g2r = normalize_growth(((fy2_rev - fy1_rev) / abs(fy1_rev)) if fy1_rev and fy1_rev != 0 and fy2_rev is not None else None)
         unified_rev.append({"period": f"FY {fy2_yr}", "avg": fy2_rev, "growth": g2r, "status": "estimate"})
 
         # FY 3 block removed to stick only to 2 years (FY1, FY2) from Yahoo Finance.

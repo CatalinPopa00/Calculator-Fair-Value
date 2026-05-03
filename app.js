@@ -1112,6 +1112,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             } else if (fcfSource === 'historical') {
                 const hg = prof.historic_fcf_growth != null ? prof.historic_fcf_growth : 0.05;
+                if (currentFormulaData.dcf) currentFormulaData.dcf.eps_growth_applied = hg;
                 const em = parseFloat(document.getElementById('input-exit-multiple')?.value) || (globalData.dcf_assumptions?.recommended_exit_multiple || 10.0);
                 dcfVal = calcLocalDcf(baseFcf, hg, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
             } else if (fcfSource === 'eps_growth') {
@@ -1941,8 +1942,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div style="font-size: 0.8rem; color: var(--text-main); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 2px solid rgba(255,255,255,0.1); font-weight: 700;">Valuation & Earnings</div>
                         <div style="display: flex; flex-direction: column;">
                             ${metricRow('P/E (Trailing)', prof.trailing_pe ? prof.trailing_pe.toFixed(2) + 'x' : 'N/A')}
-                            ${metricRow('5Y Avg. P/E', prof.historic_pe ? prof.historic_pe.toFixed(2) + 'x' : 'N/A')}
                             ${metricRow('P/E Non-GAAP', non_gaap_pe ? non_gaap_pe.toFixed(2) + 'x' : 'N/A')}
+                            ${metricRow('5Y Avg. P/E', prof.historic_pe ? prof.historic_pe.toFixed(2) + 'x' : 'N/A')}
                             ${metricRow('PE FWD', prof.fwd_pe ? prof.fwd_pe.toFixed(2) + 'x' : 'N/A')}
                             ${metricRow('EPS Diluted', prof.trailing_eps ? '$' + prof.trailing_eps.toFixed(2) : 'N/A')}
                             ${metricRow('EPS Non-GAAP', prof.adjusted_eps ? '$' + prof.adjusted_eps.toFixed(2) : 'N/A')}
