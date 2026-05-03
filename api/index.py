@@ -1031,7 +1031,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 "sector_median_peg": sanitize(median_peer_peg),
                 # Newly added fields (v59 Fix)
                 "next_earnings_date": data.get("next_earnings_date") or "N/A",
-                "historic_pe": sanitize(data.get("pe_historic")),
+                "historic_pe": sanitize(pe_historic),
                 "insider_ownership": sanitize(data.get("insider_ownership")),
                 "shares_outstanding": sanitize(data.get("shares_outstanding")),
                 "buyback_rate": sanitize(data.get("historic_buyback_rate")),

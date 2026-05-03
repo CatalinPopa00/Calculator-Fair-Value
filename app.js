@@ -213,6 +213,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const newPeFwd = prof.fwd_eps > 0 ? simPrice / prof.fwd_eps : 0;
         updateMetric('pefwd', newPeFwd > 0 ? newPeFwd.toFixed(2) + 'x' : 'N/A');
+        updateMetric('5yavgpe', prof.historic_pe ? prof.historic_pe.toFixed(2) + 'x' : 'N/A');
         
         const growth = prof.earnings_growth || 0;
         const newPeg = (growth > 0 && newNonGaapPE > 0) ? newNonGaapPE / (growth * 100) : 0;
@@ -1940,6 +1941,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div style="font-size: 0.8rem; color: var(--text-main); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 2px solid rgba(255,255,255,0.1); font-weight: 700;">Valuation & Earnings</div>
                         <div style="display: flex; flex-direction: column;">
                             ${metricRow('P/E (Trailing)', prof.trailing_pe ? prof.trailing_pe.toFixed(2) + 'x' : 'N/A')}
+                            ${metricRow('5Y Avg. P/E', prof.historic_pe ? prof.historic_pe.toFixed(2) + 'x' : 'N/A')}
                             ${metricRow('P/E Non-GAAP', non_gaap_pe ? non_gaap_pe.toFixed(2) + 'x' : 'N/A')}
                             ${metricRow('PE FWD', prof.fwd_pe ? prof.fwd_pe.toFixed(2) + 'x' : 'N/A')}
                             ${metricRow('EPS Diluted', prof.trailing_eps ? '$' + prof.trailing_eps.toFixed(2) : 'N/A')}

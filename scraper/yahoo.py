@@ -1484,11 +1484,24 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     ocf_idx = find_idx(cashflow, 'Operating Cash Flow')
                     if ocf_idx:
                         ocf_obj = cashflow.loc[ocf_idx]
-                        fcf_y = ocf_obj.dropna().head(5).tolist() if hasattr(ocf_obj, 'dropna') else [ocf_obj]
+                        fcf_y = ocf_obj.dropna().head(5).tolist() if hasattr(ocf_obj, 'dropna') else [fcf_obj]
                 
                 if fcf_y:
                     fcf_history = fcf_y[:3]
-                    if len(fcf_y) >= 2:
+                    # v295: Calculate 3Y CAGR FCF (using last 4 reported years)
+                    if len(fcf_y) >= 4:
+                        end_val = fcf_y[0]
+                        start_val = fcf_y[3]
+                        if start_val != 0:
+                            # Total growth over 3 years
+                            total_g = (end_val - start_val) / abs(start_val)
+                            # Annualize (CAGR approximation)
+                            if total_g > -1:
+                                historic_fcf_growth = (1 + total_g) ** (1/3) - 1
+                            else:
+                                historic_fcf_growth = total_g / 3
+                    elif len(fcf_y) >= 2:
+                        # Fallback to YoY average for 2-3 years
                         yoy_rates = []
                         for i in range(len(fcf_y)-1):
                             new_val, old_val = fcf_y[i], fcf_y[i+1]
@@ -1497,7 +1510,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                         if yoy_rates:
                             historic_fcf_growth = sum(yoy_rates) / len(yoy_rates)
         except Exception:
-            pass
+            pass          pass
             
         # Historic EPS growth (3Y and 5Y)
         historic_eps_growth_3y = None
