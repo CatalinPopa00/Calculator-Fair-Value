@@ -1700,7 +1700,7 @@ body {
 .method-card {
     display: flex;
     flex-direction: column;
-    padding: 1.25rem;
+    padding: 1rem; /* v309: Reduced padding to give more horizontal space */
     min-height: 480px; /* v304: Increased height to accommodate all input variants */
     height: 100%;
     position: relative;
@@ -1757,8 +1757,8 @@ body {
 }
 
 .valuation-input-group {
-    display: flex;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: 1fr 142px; /* v309: Rigid grid for perfect vertical alignment of boxes */
     align-items: center;
     gap: 0.5rem;
     margin-bottom: 12px;
@@ -1770,13 +1770,12 @@ body {
 }
 
 .premium-label {
-    font-size: 0.75rem;
-    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.8rem; /* v309: Slightly larger for better readability */
+    color: rgba(255, 255, 255, 0.7);
     font-weight: 600;
-    line-height: 1.2;
-    flex: 1;
-    padding-right: 5px;
+    line-height: 1.3;
     text-align: left;
+    padding-right: 4px;
 }
 
 .premium-select, .premium-input {
@@ -1789,9 +1788,8 @@ body {
     font-size: 0.85rem;
     outline: none;
     transition: all 0.2s;
-    flex: 0 0 148px;
-    width: 148px;
-    max-width: 148px;
+    width: 142px; /* v309: Optimized width to fit long text while saving space */
+    max-width: 142px;
     box-sizing: border-box;
     text-align: right;
 }
