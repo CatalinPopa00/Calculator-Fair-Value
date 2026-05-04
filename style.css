@@ -1761,7 +1761,7 @@ body {
     color: rgba(255, 255, 255, 0.6);
     font-weight: 600;
     line-height: 1.2;
-    flex: 0 0 85px; /* v298: Fixed width for labels to align dropdowns vertically */
+    flex: 0 0 80px; /* v305: Slightly narrower label */
     text-align: left;
 }
 
@@ -1775,8 +1775,8 @@ body {
     font-size: 0.85rem;
     outline: none;
     transition: all 0.2s;
-    width: 150px;
-    max-width: 150px;
+    width: 135px; /* v305: Slightly narrower */
+    max-width: 135px;
     text-align: right;
 }
 

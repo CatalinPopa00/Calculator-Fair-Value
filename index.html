@@ -221,9 +221,9 @@
                 </section>
 
                 <!-- Valuation Methods Breakdown -->
-                <section class="methods-grid">
+                <section class="methods-grid" id="methods-container" style="margin-top: 1.5rem; padding: 0 1.5rem;">
                     <!-- DCF Card -->
-                    <div class="method-card glass-card">
+                    <div class="method-card glass-card" id="dcf-card">
                         <div class="method-toggle">
                             <input type="checkbox" id="toggle-dcf" class="valuation-toggle" data-method="dcf" checked>
                             <label for="toggle-dcf" title="Include in Fair Value Average"></label>
@@ -308,7 +308,7 @@
                     </div>
 
                     <!-- Relative Valuation Card -->
-                    <div class="method-card glass-card">
+                    <div class="method-card glass-card" id="relative-card">
                         <div class="method-toggle">
                             <input type="checkbox" id="toggle-relative" class="valuation-toggle" data-method="relative" checked>
                             <label for="toggle-relative" title="Include in Fair Value Average"></label>
@@ -323,10 +323,6 @@
                             <p class="method-desc" id="relative-market-compare" style="font-size: 0.8rem; color: var(--text-muted); text-align: center; margin-top: 0.4rem; min-height: 1.2em;">Peer Median P/E: --</p>
                         </div>
                         <div class="card-inputs">
-                            <div class="valuation-input-group" style="display: flex; align-items: center; justify-content: space-between;">
-                                <label class="premium-label" style="margin: 0; white-space: nowrap;">Compare vs.</label>
-                                <select id="relative-variant" class="premium-select">
-                                    <option value="peers" selected>Sector Peers</option>
                             <div class="valuation-input-group">
                                 <label class="premium-label">Compare vs.</label>
                                 <select class="premium-select" id="relative-variant">
@@ -342,7 +338,7 @@
                                     <option value="custom">Custom</option>
                                 </select>
                             </div>
-                        </div>
+
                             <div id="rel-custom-weights-card" style="display: none; width: 100%; padding: 8px 0 0 0;">
                                 <div style="display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;"></div>
                                 <div style="display: flex; justify-content: center; margin-top: 8px;">
@@ -350,13 +346,14 @@
                                     <span id="rel-weight-error-card" style="font-size: 0.65rem; color: var(--danger); margin-left: 8px; display: none; align-self: center;"></span>
                                 </div>
                             </div>
+                        </div>
                         <div class="card-footer">
                             <button class="view-data-btn modal-trigger" data-method="relative">View Data</button>
                         </div>
                     </div>
 
                     <!-- Forward Multiple Card -->
-                    <div class="method-card glass-card">
+                    <div class="method-card glass-card" id="peter_lynch-card">
                         <div class="method-toggle">
                             <input type="checkbox" id="toggle-peter_lynch" class="valuation-toggle" data-method="peter_lynch" checked>
                             <label for="toggle-peter_lynch" title="Include in Fair Value Average"></label>
@@ -408,7 +405,7 @@
                     </div>
 
                     <!-- PEG Card -->
-                    <div class="method-card glass-card">
+                    <div class="method-card glass-card" id="peg-card">
                         <div class="method-toggle">
                             <input type="checkbox" id="toggle-peg" class="valuation-toggle" data-method="peg" checked>
                             <label for="toggle-peg" title="Include in Fair Value Average"></label>
