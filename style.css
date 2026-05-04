@@ -1701,7 +1701,7 @@ body {
     display: flex;
     flex-direction: column;
     padding: 1rem; /* v309: Reduced padding to give more horizontal space */
-    min-height: 480px; /* v304: Increased height to accommodate all input variants */
+    min-height: auto; /* v312: Allow cards to shrink to their content */
     height: 100%;
     position: relative;
     min-width: 0;
@@ -1743,7 +1743,7 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.03);
     padding: 0.75rem; /* v310: More compact layout */
     margin-bottom: 1rem;
-    min-height: 160px; /* v310: Reduced height to look better in all cards */
+    min-height: auto; /* v312: Allow input blocks to shrink to fit fields */
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
