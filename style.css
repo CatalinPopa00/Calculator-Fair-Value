@@ -1785,16 +1785,33 @@ body {
     color: white;
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 8px;
-    padding: 6px 8px;
+    padding: 6px 10px;
     font-family: 'Outfit', sans-serif;
-    font-size: 0.82rem; /* v310: Slightly smaller to fit long strings */
+    font-size: 0.82rem;
     outline: none;
     transition: all 0.2s;
-    width: 120px; /* v311: Shrunk as requested */
+    width: 120px;
     max-width: 120px;
     box-sizing: border-box;
     text-align: right;
-    justify-self: end; /* v310: Force perfect alignment to the right */
+    justify-self: end;
+    display: block;
+}
+
+.premium-select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 14px;
+    padding-right: 28px !important; /* Space for the custom arrow */
+    cursor: pointer;
+}
+
+.premium-input {
+    padding-right: 10px !important; /* Match the select's base padding for consistent alignment */
 }
 
 .premium-select:focus, .premium-input:focus {
