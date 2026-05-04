@@ -1758,7 +1758,7 @@ body {
 
 .valuation-input-group {
     display: grid;
-    grid-template-columns: 1fr 158px; /* v310: Increased width to fit 'Standard Thresholds' fully */
+    grid-template-columns: 1fr 120px; /* v311: Shrunk to give labels more space */
     align-items: center;
     gap: 0.5rem;
     margin-bottom: 10px;
@@ -1790,8 +1790,8 @@ body {
     font-size: 0.82rem; /* v310: Slightly smaller to fit long strings */
     outline: none;
     transition: all 0.2s;
-    width: 158px; /* v310: Fixed width that accommodates 'Standard Thresholds' */
-    max-width: 158px;
+    width: 120px; /* v311: Shrunk as requested */
+    max-width: 120px;
     box-sizing: border-box;
     text-align: right;
     justify-self: end; /* v310: Force perfect alignment to the right */
