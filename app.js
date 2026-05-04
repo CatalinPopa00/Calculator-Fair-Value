@@ -118,7 +118,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let chartRevFcf = null;
     let chartEpsShares = null;
     let globalData = null; 
-    let _originalPrice = null; // Stores the real (API) price before simulation
+    let _realApiPrice = null; // v299: Immutable anchor for Fair Value stability
+    let _originalPrice = null; // Stores the restore point for simulation reset
     let _simulating = false;
 
     // --- SIMULATE PRICE ENGINE ---
@@ -1159,7 +1160,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const eps = globalData.company_profile.trailing_eps || 0;
-            const currentPe = (eps > 0) ? (globalData.current_price / eps) : (currentFormulaData.peg.current_pe || (parseFloat(globalData.company_profile.trailing_pe) || 0));
+            // v299: Use _realApiPrice for valuation anchor to prevent Fair Value drift during simulation
+            const currentPe = (eps > 0) ? (_realApiPrice / eps) : (currentFormulaData.peg.current_pe || (parseFloat(globalData.company_profile.trailing_pe) || 0));
             // v61: Default to 1.25 if industry_peg is missing (e.g. no peers found)
             const pegMode = document.getElementById('peg-mode')?.value || 'standard';
             const industryPegRaw = currentFormulaData.peg.industry_peg;
@@ -1184,12 +1186,20 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (usedGrowth > 0 && currentPe > 0 && targetPeg > 0) {
-                currentPegToDisplay = currentPe / (usedGrowth * 100);
-                pegVal = globalData.current_price * (targetPeg / currentPegToDisplay);
+                const originalPeg = currentPe / (usedGrowth * 100);
+                pegVal = _realApiPrice * (targetPeg / originalPeg);
+                
+                // Calculate simulated PEG for display text only
+                const simPe = (eps > 0) ? (globalData.current_price / eps) : currentPe;
+                currentPegToDisplay = simPe / (usedGrowth * 100);
+                
                 pegMos = ((pegVal - globalData.current_price) / globalData.current_price) * 100;
             } else if (pegSrc === 'analyst') {
                 pegVal = currentFormulaData.peg.fair_value;
-                currentPegToDisplay = currentFormulaData.peg.current_peg;
+                // For analyst PEG, current PEG display still reacts to price
+                const staticPe = currentFormulaData.peg.current_pe || (eps > 0 ? (globalData.current_price / eps) : 0);
+                currentPegToDisplay = staticPe / (usedGrowth * 100);
+                
                 if (pegVal != null) {
                     pegMos = ((pegVal - globalData.current_price) / globalData.current_price) * 100;
                 }
@@ -1747,6 +1757,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Reset Simulate Price mode on new ticker load
         _simulating = false;
+        _realApiPrice = data.current_price;
         _originalPrice = data.current_price;
         const simInput = document.getElementById('simulate-price-input');
         const simBtn = document.getElementById('simulate-price-btn');
