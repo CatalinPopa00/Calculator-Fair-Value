@@ -448,7 +448,7 @@ body {
 }
 
 @media (max-width: 768px) {
-    .hero-layout, .row-2-grid, .methods-grid, .analyst-grid, .methods-grid {
+    .hero-layout, .row-2-grid, .methods-grid, .analyst-grid {
         grid-template-columns: 1fr !important;
         gap: 1.5rem;
     }
@@ -663,6 +663,7 @@ body {
     justify-content: center;
     align-items: center;
     text-align: center;
+    min-height: 180px; /* v303: Added min-height to avoid excessive stretching vs Profile box */
 }
 
 .accent-card .value {
@@ -769,7 +770,8 @@ body {
 .methods-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr) !important;
-    gap: 1rem;
+    gap: 1.25rem;
+    align-items: stretch; /* v304: Ensure all cards in the row have the exact same height */
 }
 
 .charts-flex-column {
@@ -863,6 +865,7 @@ body {
     height: 100%;
     position: relative;
     padding: 1.5rem;
+    flex: 1 1 300px;
 }
 
 .card-header {
@@ -883,18 +886,26 @@ body {
 
 .card-metrics {
     text-align: center;
-    width: 100%;
-    margin-bottom: 1rem;
+    margin-bottom: 1.25rem;
     flex-shrink: 0;
+    min-height: 175px; /* v304: Standardized height to keep Fair Value text in perfect alignment */
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    padding-top: 5px;
+    gap: 4px;
 }
 
 .card-inputs {
-    width: 100%;
-    margin-top: auto;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
+    padding: 0.85rem;
+    border: 1px solid rgba(255, 255, 255, 0.03);
     margin-bottom: 1rem;
+    min-height: 220px; /* v304: Rigorous fixed height for input blocks across all methods */
     display: flex;
     flex-direction: column;
-    justify-content: flex-end;
+    justify-content: flex-start;
 }
 
 .card-footer {
@@ -1662,6 +1673,11 @@ body {
     }
 }
 
+.analyst-tab-btn:hover {
+    color: white;
+    background: rgba(255, 255, 255, 0.05);
+}
+
 .analyst-tab-btn.active {
     background: var(--primary);
     color: white;
@@ -1673,20 +1689,23 @@ body {
     display: flex;
     flex-direction: column;
     padding: 1.25rem;
-    min-height: 420px;
+    min-height: 480px; /* v304: Increased height to accommodate all input variants */
     height: 100%;
     position: relative;
     flex: 1 1 300px;
+    align-self: stretch; /* v304: Ensure flex items stretch to match tallest sibling */
 }
 
 .card-metrics {
     text-align: center;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.25rem;
     flex-shrink: 0;
-    min-height: 145px; /* v302: Increased to ensure input sections align horizontally across all companies */
+    min-height: 175px; /* v304: Standardized height to keep Fair Value text in perfect alignment */
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-start;
+    padding-top: 5px;
+    gap: 4px;
 }
 
 .method-val {
@@ -1708,9 +1727,20 @@ body {
 .card-inputs {
     background: rgba(0, 0, 0, 0.2);
     border-radius: 12px;
-    padding: 0.75rem;
+    padding: 0.85rem;
     border: 1px solid rgba(255, 255, 255, 0.03);
     margin-bottom: 1rem;
+    min-height: 220px; /* v304: Rigorous fixed height for input blocks across all methods */
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+}
+
+.card-footer {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    margin-top: auto; /* v304: Push View Data button to the very bottom of the card */
 }
 
 .valuation-input-group {

@@ -182,7 +182,7 @@
                                     Rule of 40
                                 </span>
                                 <div class="score-display">
-                                    <div class="score-circle" id="rule40-score-circle" style="width: auto; padding: 0 10px; border-radius: 12px; font-size: 0.85rem;">N/A</div>
+                                    <div class="score-circle" id="rule40-score-circle">N/A</div>
                                     <div class="score-bar-wrapper">
                                         <div class="score-bar-fill" id="rule40-score-fill"></div>
                                     </div>
@@ -327,17 +327,22 @@
                                 <label class="premium-label" style="margin: 0; white-space: nowrap;">Compare vs.</label>
                                 <select id="relative-variant" class="premium-select">
                                     <option value="peers" selected>Sector Peers</option>
-                                    <option value="average">Avg. Peers</option>
-                                    <option value="sp500">S&amp;P 500</option>
+                            <div class="valuation-input-group">
+                                <label class="premium-label">Compare vs.</label>
+                                <select class="premium-select" id="relative-variant">
+                                    <option value="peers">Sector Peers</option>
+                                    <option value="average">Peer Average</option>
+                                    <option value="sp500">S&P 500</option>
                                 </select>
                             </div>
-                            <div class="valuation-input-group" style="display: flex; align-items: center; justify-content: space-between;">
-                                <label class="premium-label" style="margin: 0; white-space: nowrap;">Weights</label>
-                                <select id="rel-weight-mode-card" class="premium-select">
-                                    <option value="default" selected>Default</option>
+                            <div class="valuation-input-group">
+                                <label class="premium-label">Weights</label>
+                                <select class="premium-select" id="rel-weight-mode-card">
+                                    <option value="default">Default</option>
                                     <option value="custom">Custom</option>
                                 </select>
                             </div>
+                        </div>
                             <div id="rel-custom-weights-card" style="display: none; width: 100%; padding: 8px 0 0 0;">
                                 <div style="display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;"></div>
                                 <div style="display: flex; justify-content: center; margin-top: 8px;">
@@ -345,7 +350,6 @@
                                     <span id="rel-weight-error-card" style="font-size: 0.65rem; color: var(--danger); margin-left: 8px; display: none; align-self: center;"></span>
                                 </div>
                             </div>
-                        </div>
                         <div class="card-footer">
                             <button class="view-data-btn modal-trigger" data-method="relative">View Data</button>
                         </div>
@@ -368,29 +372,34 @@
                         <div class="card-inputs">
                             <div class="valuation-input-group">
                                 <label class="premium-label">Multiple</label>
-                                <select id="lynch-multiple-source" class="premium-select">
+                                <select class="premium-select" id="lynch-multiple-source">
                                     <option value="pe15">PE 15</option>
                                     <option value="pe20" selected>PE 20</option>
                                     <option value="pe25">PE 25</option>
                                     <option value="historical">Historical PE</option>
-                                    <option value="custom">Custom</option>
+                                    <option value="custom">Custom PE</option>
                                 </select>
                             </div>
-                            <div id="lynch-custom-multiple-inputs" class="valuation-input-group" style="display: none;">
-                                <label class="premium-label">Custom P/E</label>
-                                <input type="number" id="lynch-custom-mult" class="premium-input">
+
+                            <!-- Custom Multiple Input (hidden by default) -->
+                            <div class="valuation-input-group" id="lynch-custom-multiple-inputs" style="display:none;">
+                                <label class="premium-label">Custom PE</label>
+                                <input type="number" id="lynch-custom-mult" class="premium-input" placeholder="e.g. 18">
                             </div>
+
                             <div class="valuation-input-group">
                                 <label class="premium-label">EPS Basis</label>
-                                <select id="lynch-eps-source" class="premium-select">
-                                    <option value="analyst" selected>Analyst Est.</option>
-                                    <option value="historical">Historical</option>
-                                    <option value="custom">Custom</option>
+                                <select class="premium-select" id="lynch-eps-source">
+                                    <option value="analyst">Analyst Est.</option>
+                                    <option value="historical">Historical Growth</option>
+                                    <option value="custom">Custom Growth</option>
                                 </select>
                             </div>
-                            <div id="lynch-custom-inputs" class="valuation-input-group" style="display: none;">
-                                <label class="premium-label">Growth Rate (%)</label>
-                                <input type="number" id="lynch-custom-growth" class="premium-input">
+
+                            <!-- Custom Growth Input (hidden by default) -->
+                            <div class="valuation-input-group" id="lynch-custom-inputs" style="display:none;">
+                                <label class="premium-label">Growth %</label>
+                                <input type="number" id="lynch-custom-growth" class="premium-input" placeholder="e.g. 15">
                             </div>
                         </div>
                         <div class="card-footer">
@@ -416,20 +425,21 @@
                         <div class="card-inputs">
                             <div class="valuation-input-group">
                                 <label class="premium-label">EPS Basis</label>
-                                <select id="peg-eps-source" class="premium-select">
+                                <select class="premium-select" id="peg-eps-source">
                                     <option value="analyst">Analyst Est.</option>
-                                    <option value="custom">Custom</option>
+                                    <option value="custom">Custom Growth</option>
                                 </select>
                             </div>
-                            <div id="peg-custom-inputs" class="valuation-input-group" style="display: none;">
-                                <label class="premium-label">Growth (%)</label>
-                                <input type="number" id="peg-custom-growth" class="premium-input">
+                            <!-- Custom Growth Input (hidden by default) -->
+                            <div class="valuation-input-group" id="peg-custom-inputs" style="display:none;">
+                                <label class="premium-label">Growth %</label>
+                                <input type="number" id="peg-custom-growth" class="premium-input" placeholder="e.g. 15">
                             </div>
                             <div class="valuation-input-group">
                                 <label class="premium-label">PEG Mode</label>
-                                <select id="peg-mode" class="premium-select">
-                                    <option value="industry">Industry Median</option>
-                                    <option value="standard" selected>Standard Thresholds</option>
+                                <select class="premium-select" id="peg-mode">
+                                    <option value="standard">Standard Thresholds</option>
+                                    <option value="industry">Sector Benchmarks</option>
                                 </select>
                             </div>
                         </div>

@@ -111,6 +111,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     let currentFormulaData = null;
+    // ── Global Error Handling ─────────────────────────────────────────
+    window.onerror = function(message, source, lineno, colno, error) {
+        console.error('GLOBAL ERROR:', message, 'at', source, ':', lineno, ':', colno);
+        return false; // Let browser handle it too
+    };
+    window.onunhandledrejection = function(event) {
+        console.error('UNHANDLED PROMISE REJECTION:', event.reason);
+    };
+
     let currentTicker = null;
     let currentHealthBreakdown = null;
     let currentBuyBreakdown = null;

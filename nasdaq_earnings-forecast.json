@@ -1,0 +1,120 @@
+{
+    "data": {
+        "symbol": "abnb",
+        "quarterlyForecast": {
+            "asOf": null,
+            "headers": {
+                "fiscalEnd": "Fiscal Quarter End",
+                "consensusEPSForecast": "Consensus EPS* Forecast",
+                "highEPSForecast": "High EPS* Forecast",
+                "lowEPSForecast": "Low EPS* Forecast",
+                "noOfEstimates": "Number of Estimates",
+                "up": "Over the Last 4 Weeks Number of Revisions - Up",
+                "down": "Over the Last 4 Weeks Number of Revisions - Down"
+            },
+            "rows": [
+                {
+                    "fiscalEnd": "Mar 2026",
+                    "consensusEPSForecast": 0.3,
+                    "highEPSForecast": 0.4,
+                    "lowEPSForecast": 0.23,
+                    "noOfEstimates": 10,
+                    "up": 0,
+                    "down": 0
+                },
+                {
+                    "fiscalEnd": "Jun 2026",
+                    "consensusEPSForecast": 1.17,
+                    "highEPSForecast": 1.3,
+                    "lowEPSForecast": 1.1,
+                    "noOfEstimates": 10,
+                    "up": 0,
+                    "down": 0
+                },
+                {
+                    "fiscalEnd": "Sep 2026",
+                    "consensusEPSForecast": 2.7,
+                    "highEPSForecast": 2.9,
+                    "lowEPSForecast": 2.38,
+                    "noOfEstimates": 10,
+                    "up": 0,
+                    "down": 0
+                },
+                {
+                    "fiscalEnd": "Dec 2026",
+                    "consensusEPSForecast": 0.82,
+                    "highEPSForecast": 1.12,
+                    "lowEPSForecast": 0.62,
+                    "noOfEstimates": 10,
+                    "up": 0,
+                    "down": 0
+                },
+                {
+                    "fiscalEnd": "Mar 2027",
+                    "consensusEPSForecast": 0.35,
+                    "highEPSForecast": 0.5,
+                    "lowEPSForecast": 0.23,
+                    "noOfEstimates": 5,
+                    "up": 0,
+                    "down": 0
+                }
+            ]
+        },
+        "yearlyForecast": {
+            "asOf": null,
+            "headers": {
+                "fiscalEnd": "Fiscal Year End",
+                "consensusEPSForecast": "Consensus EPS* Forecast",
+                "highEPSForecast": "High EPS* Forecast",
+                "lowEPSForecast": "Low EPS* Forecast",
+                "noOfEstimates": "Number of Estimates",
+                "up": "Over the Last 4 Weeks Number of Revisions - Up",
+                "down": "Over the Last 4 Weeks Number of Revisions - Down"
+            },
+            "rows": [
+                {
+                    "fiscalEnd": "Dec 2026",
+                    "consensusEPSForecast": 4.96,
+                    "highEPSForecast": 5.34,
+                    "lowEPSForecast": 4.66,
+                    "noOfEstimates": 12,
+                    "up": 0,
+                    "down": 0
+                },
+                {
+                    "fiscalEnd": "Dec 2027",
+                    "consensusEPSForecast": 5.65,
+                    "highEPSForecast": 6.29,
+                    "lowEPSForecast": 5.17,
+                    "noOfEstimates": 11,
+                    "up": 0,
+                    "down": 0
+                },
+                {
+                    "fiscalEnd": "Dec 2028",
+                    "consensusEPSForecast": 6.81,
+                    "highEPSForecast": 8.13,
+                    "lowEPSForecast": 5.6,
+                    "noOfEstimates": 5,
+                    "up": 0,
+                    "down": 0
+                },
+                {
+                    "fiscalEnd": "Dec 2029",
+                    "consensusEPSForecast": 8.41,
+                    "highEPSForecast": 10.49,
+                    "lowEPSForecast": 6.36,
+                    "noOfEstimates": 3,
+                    "up": 0,
+                    "down": 0
+                }
+            ]
+        }
+    },
+    "message": null,
+    "status": {
+        "rCode": 200,
+        "bCodeMessage": null,
+        "developerMessage": null
+    }
+}
