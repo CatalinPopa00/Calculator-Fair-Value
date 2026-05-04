@@ -771,7 +771,7 @@ body {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 1.25rem;
-    align-items: stretch;
+    align-items: start; /* v315: Allow cards to shrink to their content instead of stretching to the tallest sibling */
 }
 
 @media (max-width: 1200px) {
