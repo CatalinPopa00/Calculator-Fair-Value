@@ -769,21 +769,10 @@ body {
 /* Methods Grid */
 .methods-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(4, 1fr) !important;
     gap: 1.25rem;
     align-items: stretch; /* v304: Ensure all cards in the row have the exact same height */
 }
-
-@media (max-width: 1200px) {
-    .methods-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-@media (max-width: 640px) {
-    .methods-grid {
-        grid-template-columns: 1fr;
-    }
 
 .charts-flex-column {
     display: flex;
@@ -1759,8 +1748,8 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 12px;
+    gap: 0.75rem;
+    margin-bottom: 10px;
     width: 100%;
 }
 
@@ -1773,8 +1762,7 @@ body {
     color: rgba(255, 255, 255, 0.6);
     font-weight: 600;
     line-height: 1.2;
-    flex: 1;
-    padding-right: 5px;
+    flex: 0 0 80px; /* v305: Slightly narrower label */
     text-align: left;
 }
 
@@ -1788,10 +1776,8 @@ body {
     font-size: 0.85rem;
     outline: none;
     transition: all 0.2s;
-    width: 148px;
-    max-width: 148px;
-    flex: 0 0 148px;
-    box-sizing: border-box;
+    width: 135px; /* v305: Slightly narrower */
+    max-width: 135px;
     text-align: right;
 }
 
