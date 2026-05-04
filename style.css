@@ -768,7 +768,7 @@ body {
 /* Methods Grid */
 .methods-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(4, 1fr) !important;
     gap: 1rem;
 }
 
@@ -1683,7 +1683,7 @@ body {
     text-align: center;
     margin-bottom: 1.5rem;
     flex-shrink: 0;
-    min-height: 115px; /* v298: Ensures input sections align horizontally across cards */
+    min-height: 145px; /* v302: Increased to ensure input sections align horizontally across all companies */
     display: flex;
     flex-direction: column;
     justify-content: center;

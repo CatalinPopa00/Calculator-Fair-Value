@@ -179,7 +179,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const revenue = globalData.revenue || 0;
         const ebitda = globalData.ebitda || 0;
         const pToB = globalData.price_to_book || 0;
-        const bookValuePerShare = (pToB > 0) ? (_originalPrice / pToB) : 0;
+        const bookValuePerShare = (pToB > 0) ? (_realApiPrice / pToB) : 0;
         const dividendRate = globalData.dividend_rate || 0;
         const pe5y = prof.historic_pe || 0;
 
@@ -222,11 +222,11 @@ document.addEventListener('DOMContentLoaded', () => {
         
         updateMetric('ps', newPS > 0 ? newPS.toFixed(2) + 'x' : 'N/A');
         
-        const fwd_rev_per_share = prof.fwd_ps > 0 ? (_originalPrice / prof.fwd_ps) : 0;
+        const fwd_rev_per_share = prof.fwd_ps > 0 ? (_realApiPrice / prof.fwd_ps) : 0;
         const newPsFwd = fwd_rev_per_share > 0 ? simPrice / fwd_rev_per_share : 0;
         updateMetric('psfwd', newPsFwd > 0 ? newPsFwd.toFixed(2) + 'x' : 'N/A');
         
-        const fcfPerShare = prof.pfcf_ratio > 0 ? (_originalPrice / prof.pfcf_ratio) : 0;
+        const fcfPerShare = prof.pfcf_ratio > 0 ? (_realApiPrice / prof.pfcf_ratio) : 0;
         const newPfcf = fcfPerShare > 0 ? simPrice / fcfPerShare : 0;
         updateMetric('pfcf', newPfcf > 0 ? newPfcf.toFixed(2) + 'x' : 'N/A');
         
@@ -1190,7 +1190,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 pegVal = _realApiPrice * (targetPeg / originalPeg);
                 
                 // Calculate simulated PEG for display text only
-                const simPe = (eps > 0) ? (globalData.current_price / eps) : currentPe;
+                // v302: Scale by currentPrice/realApiPrice ratio for reactive simulation on all tickers
+                const simPe = (eps > 0) ? (globalData.current_price / eps) : (currentPe * (globalData.current_price / _realApiPrice));
                 currentPegToDisplay = simPe / (usedGrowth * 100);
                 
                 pegMos = ((pegVal - globalData.current_price) / globalData.current_price) * 100;
