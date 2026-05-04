@@ -1706,7 +1706,7 @@ body {
     position: relative;
     min-width: 0;
     width: 100%;
-    align-self: stretch; /* v304: Ensure flex items stretch to match tallest sibling */
+    align-self: flex-start; /* v317: Prevent stretching to match tallest card */
 }
 
 .card-metrics {
@@ -1795,12 +1795,16 @@ body {
     font-size: 0.82rem;
     outline: none;
     transition: all 0.2s;
-    width: 120px !important; /* v316: Hardened width for absolute alignment */
+    width: 120px !important;
     min-width: 120px !important;
     max-width: 120px !important;
     box-sizing: border-box;
     text-align: right;
-    margin: 0;
+    margin: 0 0 0 auto !important; /* Force right alignment */
+    display: block;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
 }
 
 /* Disable spin buttons for number inputs to prevent width shifts */
