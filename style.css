@@ -1692,7 +1692,8 @@ body {
     min-height: 480px; /* v304: Increased height to accommodate all input variants */
     height: 100%;
     position: relative;
-    flex: 1 1 300px;
+    min-width: 0;
+    width: 100%;
     align-self: stretch; /* v304: Ensure flex items stretch to match tallest sibling */
 }
 
