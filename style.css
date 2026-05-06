@@ -461,6 +461,13 @@ body {
         grid-template-columns: 1fr 120px;
     }
 
+    @media (max-width: 480px) {
+        .valuation-input-group {
+            grid-template-columns: 1fr 105px !important;
+            gap: 0.3rem;
+        }
+    }
+
     .analyst-grid > div {
         border-right: none !important;
         border-bottom: 1px solid rgba(255, 255, 255, 0.1);
@@ -1785,6 +1792,13 @@ body {
     overflow: visible;
 }
 
+@media (max-width: 480px) {
+    .premium-label {
+        white-space: normal; /* Allow wrapping on very small screens to avoid overflow */
+        font-size: 0.7rem;
+    }
+}
+
 .premium-select, .premium-input {
     background: rgba(15, 23, 42, 0.6);
     color: white;
@@ -1830,7 +1844,16 @@ body {
 }
 
 .premium-input {
-    padding-right: 10px !important; /* Base padding for inputs */
+    padding-right: 28px !important; /* Standardized to match select arrow spacing for perfect vertical alignment */
+}
+
+@media (max-width: 480px) {
+    .premium-select, .premium-input {
+        width: 105px !important;
+        min-width: 105px !important;
+        max-width: 105px !important;
+        font-size: 0.8rem;
+    }
 }
 
 .premium-select:focus, .premium-input:focus {
