@@ -457,13 +457,8 @@ body {
         min-height: auto;
     }
     
-    .valuation-input-group {
-        grid-template-columns: 1fr 135px;
-    }
-
     @media (max-width: 480px) {
         .valuation-input-group {
-            grid-template-columns: 1fr 115px !important;
             gap: 0.3rem;
         }
     }
@@ -1769,8 +1764,8 @@ body {
 }
 
 .valuation-input-group {
-    display: grid;
-    grid-template-columns: 1fr 135px; /* Wider to accommodate select text perfectly */
+    display: flex;
+    justify-content: space-between;
     align-items: center;
     gap: 0.5rem;
     margin-bottom: 10px;
@@ -1789,12 +1784,14 @@ body {
     text-align: left;
     padding-right: 4px;
     white-space: nowrap; /* v310: Keep TV Method, FCF Basis etc. on a single line */
-    overflow: visible;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
 }
 
 @media (max-width: 480px) {
     .premium-label {
-        white-space: normal; /* Allow wrapping on very small screens to avoid overflow */
         font-size: 0.7rem;
     }
 }
@@ -1809,15 +1806,16 @@ body {
     font-size: 0.82rem;
     outline: none;
     transition: all 0.2s;
-    width: 100% !important; /* Rely on grid column width instead of hardcoding */
-    max-width: 100% !important;
-    min-width: 0 !important; /* Prevent select from overflowing grid */
+    flex: 0 0 135px !important; /* EXACT width enforced by flexbox */
+    width: 135px !important;
+    min-width: 135px !important;
+    max-width: 135px !important;
     text-overflow: ellipsis;
     white-space: nowrap;
     overflow: hidden;
     box-sizing: border-box;
     text-align: right;
-    margin: 0 0 0 auto !important; /* Force right alignment */
+    margin: 0 !important; /* Flexbox handles alignment natively */
     display: block;
     appearance: none;
     -webkit-appearance: none;
@@ -1852,6 +1850,10 @@ body {
 
 @media (max-width: 480px) {
     .premium-select, .premium-input {
+        flex: 0 0 115px !important;
+        width: 115px !important;
+        min-width: 115px !important;
+        max-width: 115px !important;
         font-size: 0.8rem;
     }
 }
