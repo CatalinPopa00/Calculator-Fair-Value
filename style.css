@@ -459,6 +459,7 @@ body {
     
     .valuation-input-group {
         grid-template-columns: 1fr 120px;
+        gap: 0.4rem;
     }
 
     .analyst-grid > div {
@@ -654,16 +655,17 @@ body {
 }
 
 /* Fair Value Box Highlight */
-.accent-card {
-    background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%);
-    border-color: var(--accent);
-    box-shadow: 0 0 30px var(--accent-glow);
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    text-align: center;
     min-height: 180px; /* v303: Added min-height to avoid excessive stretching vs Profile box */
+}
+
+@media (max-width: 480px) {
+    .accent-card {
+        min-height: auto !important;
+        padding: 1.5rem 1rem;
+    }
+    .accent-card .value {
+        margin: 0.5rem 0;
+    }
 }
 
 .accent-card .value {
@@ -1781,8 +1783,15 @@ body {
     line-height: 1.2;
     text-align: left;
     padding-right: 4px;
-    white-space: nowrap; /* v310: Keep TV Method, FCF Basis etc. on a single line */
+    white-space: nowrap; /* Default: Keep on single line */
     overflow: visible;
+}
+
+@media (max-width: 480px) {
+    .premium-label {
+        white-space: normal; /* Allow wrapping on very small screens */
+        font-size: 0.7rem;
+    }
 }
 
 .premium-select, .premium-input {
@@ -1805,6 +1814,23 @@ body {
     appearance: none;
     -webkit-appearance: none;
     -moz-appearance: none;
+}
+
+@media (max-width: 480px) {
+    .premium-select, .premium-input {
+        width: 105px !important;
+        min-width: 105px !important;
+        max-width: 105px !important;
+        font-size: 0.8rem;
+    }
+    .valuation-input-group {
+        grid-template-columns: 1fr 105px !important;
+        gap: 0.3rem;
+    }
+    .card-metrics {
+        min-height: auto !important;
+        margin-bottom: 0.75rem;
+    }
 }
 
 /* Disable spin buttons for number inputs to prevent width shifts */
@@ -1830,7 +1856,7 @@ body {
 }
 
 .premium-input {
-    padding-right: 10px !important; /* Base padding for inputs */
+    padding-right: 28px !important; /* v318: Standardized with selects for perfect vertical alignment */
 }
 
 .premium-select:focus, .premium-input:focus {
