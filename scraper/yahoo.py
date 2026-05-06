@@ -208,8 +208,10 @@ def normalize_growth(val):
     if val is None: return None
     try:
         f_val = float(val)
-        # If absolute value > 1.0 (e.g. 7.56 or 756), it's likely a percentage
-        if abs(f_val) > 2.0:
+        # v281: Only auto-scale if the value is clearly a whole-number percentage (e.g., 15 for 15%)
+        # but avoid scaling if it could be a legitimate high-growth rate (e.g., 5.0 for 500%).
+        # We increase the threshold from 2.0 to 30.0 (3000%) to accommodate high-growth recovery tickers like MU.
+        if abs(f_val) > 30.0:
             f_val = f_val / 100.0
             
         # v281: Cap extreme growth rates (e.g. 1.5 billion %) to prevent valuation explosions
