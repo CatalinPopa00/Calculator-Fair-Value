@@ -3028,8 +3028,8 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=3, inc
                             "pe_ratio": inf.get('trailingPE') or inf.get('forwardPE'),
                             "market_cap": inf.get('marketCap'),
                             "ps_ratio": inf.get('priceToSalesTrailing12Months') or inf.get('priceToSales'),
-                            "revenue": inf.get('totalRevenue'),
-                            "fcf": inf.get('freeCashflow'),
+                            "revenue": inf.get('totalRevenue') or inf.get('revenue'),
+                            "fcf": inf.get('freeCashflow') or inf.get('operatingCashflow'),
                             "pfcf_ratio": (inf.get('marketCap') / inf.get('freeCashflow')) if inf.get('freeCashflow') and inf.get('marketCap') else (inf.get('marketCap') / inf.get('operatingCashflow') if inf.get('operatingCashflow') and inf.get('marketCap') else None),
                             "price_to_book": p_pb,
                             "ev_to_ebitda": inf.get('enterpriseToEbitda'),
@@ -3041,6 +3041,7 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=3, inc
                         if include_growth:
                             p_data["revenue_growth"] = inf.get('revenueGrowth') or inf.get('revenueQuarterlyGrowth')
                             p_data["earnings_growth"] = inf.get('earningsGrowth') or inf.get('earningsQuarterlyGrowth')
+                            p_data["fcf_growth"] = inf.get('freeCashflowGrowth') or inf.get('operatingCashflowGrowth') # Best effort proxy
                             if p_data["earnings_growth"] is None and inf.get('trailingEps') and inf.get('forwardEps'):
                                 te, fe = inf['trailingEps'], inf['forwardEps']
                                 if te > 0: p_data["earnings_growth"] = (fe - te) / te
