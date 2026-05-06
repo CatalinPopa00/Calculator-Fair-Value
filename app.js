@@ -710,9 +710,9 @@ document.addEventListener('DOMContentLoaded', () => {
             pe_ratio: prof.trailing_pe,
             eps: prof.trailing_eps,
             ps_ratio: prof.ps_ratio,
-            revenue: prof.revenue,
+            revenue: prof.revenue || (prof.market_cap && prof.ps_ratio && prof.ps_ratio > 0 ? prof.market_cap / prof.ps_ratio : null),
             pfcf_ratio: mainPfcf,
-            fcf: mainFcf,
+            fcf: mainFcf || (prof.market_cap && mainPfcf && mainPfcf > 0 ? prof.market_cap / mainPfcf : null),
             fcf_growth: prof.historic_fcf_growth,
             margin: prof.operating_margin,
             rev_growth: prof.revenue_growth,
@@ -754,6 +754,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 ${all.map((c, i) => {
                     const isMain = i === 0;
                     
+                    // Derive revenue and FCF from ratios if not directly available
+                    const mCap = c.market_cap || c.marketCap;
+                    const derivedRevenue = c.revenue || (mCap && c.ps_ratio && c.ps_ratio > 0 ? mCap / c.ps_ratio : null);
+                    const derivedFcf = c.fcf || (mCap && c.pfcf_ratio && c.pfcf_ratio > 0 ? mCap / c.pfcf_ratio : null);
+
                     const pScore = isMain ? (globalData && globalData.piotroski ? globalData.piotroski.score : null) : (c.piotroski ? c.piotroski.score : null);
                     const pVal = pScore != null ? pScore : '—';
                     let pColor = 'var(--text-muted)';
@@ -765,13 +770,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     return `
                     <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: ${isMain ? 'rgba(56, 189, 248, 0.05)' : 'transparent'};">
                         <td style="padding:12px; text-align:left; font-weight:bold; color:${isMain ? 'var(--accent)' : 'white'}; position: sticky; left: 0; background: ${isMain ? '#122238' : '#0f172a'}; z-index: 10; border-right: 1px solid rgba(255,255,255,0.1); box-shadow: 2px 0 5px rgba(0,0,0,0.2);">${c.ticker}</td>
-                        <td style="padding:12px; font-weight:bold;">${formatBigNumber(c.market_cap || c.marketCap, '$')}</td>
+                        <td style="padding:12px; font-weight:bold;">${formatBigNumber(mCap, '$')}</td>
                         <td style="padding:12px; font-weight:bold;">${fmtPE(c.pe_ratio || c.pe_ratio)}</td>
                         <td style="padding:12px; font-weight:bold;">${fmtEPS(c.eps || c.trailing_eps)}</td>
                         <td style="padding:12px; font-weight:bold;">${fmtPE(c.ps_ratio)}</td>
-                        <td style="padding:12px; font-weight:bold;">${formatBigNumber(c.revenue, '$')}</td>
+                        <td style="padding:12px; font-weight:bold;">${formatBigNumber(derivedRevenue, '$')}</td>
                         <td style="padding:12px; font-weight:bold;">${fmtPE(c.pfcf_ratio)}</td>
-                        <td style="padding:12px; font-weight:bold;">${formatBigNumber(c.fcf, '$')}</td>
+                        <td style="padding:12px; font-weight:bold;">${formatBigNumber(derivedFcf, '$')}</td>
                         <td style="padding:12px; font-weight:bold;">${fmtPctRow(c.fcf_growth)}</td>
                         <td style="padding:12px; font-weight:bold;">${fmtMargin(c.margin || c.operating_margin)}</td>
                         <td style="padding:12px; font-weight:bold;">${pScoreHtml}</td>
