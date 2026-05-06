@@ -745,7 +745,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 120px;">Revenue (TTM)</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 100px;">P/FCF</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">FCF (Trailing)</th>
-                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 140px;">FCF Growth (Y/Y)</th>
+                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 140px;">Growth (Y/Y)</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 130px;">Operating Margin</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 140px;">Piotroski F-Score</th>
                 </tr>
@@ -759,7 +759,40 @@ document.addEventListener('DOMContentLoaded', () => {
                     const derivedRevenue = c.revenue || (mCap && c.ps_ratio && c.ps_ratio > 0 ? mCap / c.ps_ratio : null);
                     const derivedFcf = c.fcf || (mCap && c.pfcf_ratio && c.pfcf_ratio > 0 ? mCap / c.pfcf_ratio : null);
 
-                    const pScore = isMain ? (globalData && globalData.piotroski ? globalData.piotroski.score : null) : (c.piotroski ? c.piotroski.score : null);
+                    // FCF Growth: use earnings_growth as proxy when fcf_growth unavailable
+                    const derivedFcfGrowth = c.fcf_growth != null ? c.fcf_growth : (c.earnings_growth != null ? c.earnings_growth : (c.eps_growth != null ? c.eps_growth : null));
+
+                    // Piotroski: for main company use globalData, for peers compute lightweight score
+                    let pScore;
+                    if (isMain) {
+                        pScore = globalData && globalData.piotroski ? globalData.piotroski.score : null;
+                    } else if (c.piotroski && c.piotroski.score != null) {
+                        pScore = c.piotroski.score;
+                    } else {
+                        // Lightweight Piotroski from available peer data (max 9, usually 4-5 evaluable)
+                        let lp = 0;
+                        let evaluable = 0;
+                        // F1: Positive earnings (EPS > 0)
+                        if (c.eps != null) { evaluable++; if (c.eps > 0) lp++; }
+                        // F2: Positive cash flow (FCF > 0)
+                        if (derivedFcf != null) { evaluable++; if (derivedFcf > 0) lp++; }
+                        // F3: ROA improving → proxy: earnings_growth > 0
+                        if (c.earnings_growth != null) { evaluable++; if (c.earnings_growth > 0) lp++; }
+                        // F4: Accruals: Cash Flow > Net Income → proxy: P/FCF < P/E (higher cash quality)
+                        if (c.pfcf_ratio != null && c.pe_ratio != null && c.pfcf_ratio > 0 && c.pe_ratio > 0) {
+                            evaluable++; if (c.pfcf_ratio < c.pe_ratio) lp++;
+                        }
+                        // F5: Low leverage → proxy: price_to_book reasonable (< 10)
+                        if (c.price_to_book != null) { evaluable++; if (c.price_to_book < 10) lp++; }
+                        // F8: Margin positive
+                        const cMargin = c.margin || c.operating_margin;
+                        if (cMargin != null) { evaluable++; if (cMargin > 0) lp++; }
+                        // F9: Revenue growing
+                        const cRevGrowth = c.rev_growth || c.revenue_growth;
+                        if (cRevGrowth != null) { evaluable++; if (cRevGrowth > 0) lp++; }
+                        // Scale to /9 based on evaluable criteria
+                        pScore = evaluable >= 3 ? Math.round((lp / evaluable) * 9) : null;
+                    }
                     const pVal = pScore != null ? pScore : '—';
                     let pColor = 'var(--text-muted)';
                     if (pVal !== 'N/A' && pVal !== '—') {
@@ -777,7 +810,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <td style="padding:12px; font-weight:bold;">${formatBigNumber(derivedRevenue, '$')}</td>
                         <td style="padding:12px; font-weight:bold;">${fmtPE(c.pfcf_ratio)}</td>
                         <td style="padding:12px; font-weight:bold;">${formatBigNumber(derivedFcf, '$')}</td>
-                        <td style="padding:12px; font-weight:bold;">${fmtPctRow(c.fcf_growth)}</td>
+                        <td style="padding:12px; font-weight:bold;">${fmtPctRow(derivedFcfGrowth)}</td>
                         <td style="padding:12px; font-weight:bold;">${fmtMargin(c.margin || c.operating_margin)}</td>
                         <td style="padding:12px; font-weight:bold;">${pScoreHtml}</td>
                     </tr>
