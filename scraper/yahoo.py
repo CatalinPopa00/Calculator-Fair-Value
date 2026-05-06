@@ -2897,98 +2897,109 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=3, inc
                 if sector:
                     kv_set(kv_sec_key, {"sector": sector, "industry": target_industry}, ex=604800) # 1 week
 
-        # --- DYNAMIC PEER DISCOVERY (v70): No hardcoded lists ---
-        # Step 1: Collect a wide pool of seed candidates from multiple sources
-        peers = []
-        FINNHUB_KEY = os.environ.get('FINNHUB_API_KEY')
-
-        # Source A: Finnhub peers endpoint
-        if FINNHUB_KEY:
-            try:
-                url = f"https://finnhub.io/api/v1/stock/peers?symbol={target_ticker}&token={FINNHUB_KEY}"
-                resp = requests.get(url, timeout=3)
-                if resp.status_code == 200:
-                    fh_peers = resp.json()
-                    if isinstance(fh_peers, list):
-                        peers.extend(fh_peers)
-            except Exception as e:
-                print(f"Finnhub peers error: {e}")
-
-        # Source B: Yahoo Finance recommendations (people-also-buy)
-        try:
-            url = f"https://query2.finance.yahoo.com/v6/finance/recommendationsbysymbol/{target_ticker}"
-            headers = {'User-Agent': get_random_agent()}
-            resp = requests.get(url, headers=headers, timeout=3)
-            if resp.status_code == 200:
-                rec_json = resp.json()
-                results = rec_json.get('finance', {}).get('result', [])
-                if results:
-                    rec_symbols = [r.get('symbol') for r in results[0].get('recommendedSymbols', []) if r.get('symbol')]
-                    peers.extend(rec_symbols)
-        except Exception as e:
-            print(f"Yahoo recommendations error: {e}")
-
-        # Deduplicate, remove self and international symbols (with dots)
-        peers = list(dict.fromkeys([p.upper() for p in peers if p and '.' not in p and p.upper() != target_ticker.upper()]))
-
-        # Step 2: Fetch industry info for all candidates and filter by same industry
-        # Take up to 12 candidates for industry check
-        candidate_pool = peers[:12]
+        # --- SMART PEER DISCOVERY (v300): Industry-matched screener ---
+        # Primary: Use yfinance screener to find companies in EXACT same industry
+        # This matches Seeking Alpha's peer methodology perfectly.
+        candidates = []
         
-        if candidate_pool and target_industry:
+        try:
+            from yfinance.screener.screener import screen as yf_screen
+            from yfinance.screener.query import EquityQuery
+            
+            # yfinance info uses ' - ' (e.g. "Software - Infrastructure") 
+            # but screener uses em-dash '—' (e.g. "Software—Infrastructure")
+            screener_industry = target_industry.replace(' - ', '\u2014') if target_industry else ''
+            
+            if screener_industry:
+                # Build query: same industry + US exchanges (NMS=NASDAQ, NYQ=NYSE)
+                q_ind = EquityQuery('eq', ['industry', screener_industry])
+                q_ex1 = EquityQuery('eq', ['exchange', 'NMS'])
+                q_ex2 = EquityQuery('eq', ['exchange', 'NYQ'])
+                q_us = EquityQuery('or', [q_ex1, q_ex2])
+                q = EquityQuery('and', [q_ind, q_us])
+                
+                # Fetch more than needed, sorted by market cap descending
+                res = yf_screen(q, size=limit + 10, sortField='intradaymarketcap', sortAsc=False)
+                raw_peers = [r.get('symbol') for r in res.get('quotes', []) 
+                             if r.get('symbol') and r.get('symbol').upper() != target_ticker 
+                             and '.' not in r.get('symbol', '')]
+                
+                # Remove share-class duplicates (GOOGL/GOOG, BRK-A/BRK-B)
+                seen_bases = set()
+                for p in raw_peers:
+                    base = p.rstrip('L').replace('-B', '-A')  # GOOGL->GOOG, BRK-B->BRK-A
+                    if base not in seen_bases and p not in seen_bases:
+                        seen_bases.add(base)
+                        seen_bases.add(p)
+                        candidates.append(p)
+                
+                print(f"DEBUG: Screener peers for {target_ticker} ({target_industry}): {candidates[:limit]}")
+        except Exception as e:
+            print(f"DEBUG: Screener peer discovery failed: {e}")
+        
+        # Fallback: If screener returned too few results, supplement with Finnhub + Yahoo recs
+        if len(candidates) < limit:
+            fallback_peers = []
+            FINNHUB_KEY = os.environ.get('FINNHUB_API_KEY')
+            
+            # Source A: Finnhub peers endpoint
+            if FINNHUB_KEY:
+                try:
+                    url = f"https://finnhub.io/api/v1/stock/peers?symbol={target_ticker}&token={FINNHUB_KEY}"
+                    resp = requests.get(url, timeout=3)
+                    if resp.status_code == 200:
+                        fh_peers = resp.json()
+                        if isinstance(fh_peers, list):
+                            fallback_peers.extend(fh_peers)
+                except Exception as e:
+                    print(f"Finnhub peers error: {e}")
+            
+            # Source B: Yahoo Finance recommendations
             try:
-                # Parallel industry check for all candidates
-                batch = yf.Tickers(" ".join(candidate_pool))
-                same_industry = []
-                same_sector = []
-                
-                def check_industry(t):
-                    try:
-                        inf = batch.tickers[t].info
-                        return (t, inf.get('industry', ''), inf.get('sector', ''))
-                    except Exception:
-                        return (t, '', '')
-                
-                with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:
-                    futs = {pool.submit(check_industry, t): t for t in candidate_pool}
-                    try:
-                        for f in concurrent.futures.as_completed(futs, timeout=4):
-                            t, t_ind, t_sec = f.result(timeout=1)
-                            if t_ind == target_industry:
-                                same_industry.append(t)
-                            elif t_sec == sector:
-                                same_sector.append(t)
-                    except concurrent.futures.TimeoutError:
-                        print("DEBUG: Industry check timed out, using available results")
-                
-                # Prioritize same-industry, then same-sector for the remainder
-                candidates = same_industry[:limit]
-                if len(candidates) < limit:
-                    for t in same_sector:
-                        if t not in candidates:
-                            candidates.append(t)
-                        if len(candidates) >= limit:
-                            break
-                
-                # If we still don't have enough, fall back to original order
-                if len(candidates) < limit:
-                    for t in candidate_pool:
-                        if t not in candidates:
-                            candidates.append(t)
-                        if len(candidates) >= limit:
-                            break
-                
-                print(f"DEBUG: Peer selection for {target_ticker} ({target_industry}): industry={same_industry}, sector={same_sector}, final={candidates[:limit]}")
-                
+                url = f"https://query2.finance.yahoo.com/v6/finance/recommendationsbysymbol/{target_ticker}"
+                headers = {'User-Agent': get_random_agent()}
+                resp = requests.get(url, headers=headers, timeout=3)
+                if resp.status_code == 200:
+                    rec_json = resp.json()
+                    results = rec_json.get('finance', {}).get('result', [])
+                    if results:
+                        rec_symbols = [r.get('symbol') for r in results[0].get('recommendedSymbols', []) if r.get('symbol')]
+                        fallback_peers.extend(rec_symbols)
             except Exception as e:
-                print(f"DEBUG: Industry filter failed: {e}")
-                candidates = candidate_pool[:limit]
-        elif candidate_pool:
-            candidates = candidate_pool[:limit]
-        else:
-            # Absolute fallback: no peers found at all
-            candidates = []
-            print(f"DEBUG: No peer candidates found for {target_ticker}")
+                print(f"Yahoo recommendations error: {e}")
+            
+            # Deduplicate fallback, remove self and international
+            fallback_peers = [p.upper() for p in fallback_peers if p and '.' not in p and p.upper() != target_ticker]
+            fallback_peers = list(dict.fromkeys(fallback_peers))
+            
+            # Filter fallback peers by same industry or sector
+            if fallback_peers and (target_industry or sector):
+                try:
+                    batch = yf.Tickers(" ".join(fallback_peers[:10]))
+                    for t in fallback_peers[:10]:
+                        if t in [c.upper() for c in candidates]:
+                            continue
+                        try:
+                            inf = batch.tickers[t].info
+                            t_ind = inf.get('industry', '')
+                            t_sec = inf.get('sector', '')
+                            if t_ind == target_industry or t_sec == sector:
+                                candidates.append(t)
+                        except: pass
+                        if len(candidates) >= limit:
+                            break
+                except Exception as e:
+                    print(f"DEBUG: Fallback industry filter failed: {e}")
+            
+            # Last resort: add whatever we have
+            if len(candidates) < limit:
+                for t in fallback_peers:
+                    if t not in candidates:
+                        candidates.append(t)
+                    if len(candidates) >= limit:
+                        break
+            
+            print(f"DEBUG: Final peers after fallback for {target_ticker}: {candidates[:limit]}")
 
         candidates = candidates[:limit]
         final_peers = []

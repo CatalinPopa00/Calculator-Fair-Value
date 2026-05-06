@@ -36,7 +36,7 @@ from models.scoring import calculate_scoring_reform, calculate_piotroski_score
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v257"
+CACHE_VERSION = "v258"
 # 1. Initialize FastAPI App (Systemic Recovery Fix)
 app = FastAPI(title="Fair Value Calculator API")
 
@@ -315,7 +315,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         # 2. Start peer scraper (pass None for strings, yahoo.py handles ticker-based resolution)
         peer_task = None
         if not skip_peers:
-            peer_task = executor.submit(get_competitors_data, ticker, None, None, limit=3)
+            peer_task = executor.submit(get_competitors_data, ticker, None, None, limit=5)
         
         # Wait for main data first
         data = main_task.result() or {}
@@ -812,10 +812,12 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         good_to_buy_total = scoring_results.get("good_to_buy_total")
         buy_breakdown = scoring_results.get("buy_breakdown")
 
-        # Piotroski F-Score (pass full data dict including historical_anchors)
-        piotroski_result = calculate_piotroski_score(data)
-        piotroski_score = piotroski_result.get("score")
-        piotroski_breakdown = piotroski_result.get("breakdown", [])
+        # Piotroski F-Score (v258: Disabled per user request)
+        # piotroski_result = calculate_piotroski_score(data)
+        # piotroski_score = piotroski_result.get("score")
+        # piotroski_breakdown = piotroski_result.get("breakdown", [])
+        piotroski_score = "N/A"
+        piotroski_breakdown = []
 
         # 7. Algorithmic Insights Generation
         all_breakdowns = health_breakdown + buy_breakdown

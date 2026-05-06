@@ -887,68 +887,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    const renderPiotroskiBreakdown = (score, breakdown) => {
-        const modalEl = document.getElementById('score-modal');
-        const bodyEl  = document.getElementById('score-modal-body-content');
-        if (!modalEl || !bodyEl) return;
 
-        const num = (score === 'N/A' || score == null) ? null : parseInt(score);
-        const labelColor = num == null ? '#94a3b8' : (num >= 7 ? 'var(--accent)' : num >= 4 ? '#fbbf24' : 'var(--danger)');
-        const labelText  = num == null ? 'N/A' : (num >= 7 ? 'Strong' : num >= 4 ? 'Neutral' : 'Weak');
 
-        const groups = ['Profitability', 'Leverage & Liquidity', 'Operating Efficiency'];
-        const groupIcons = { 'Profitability': '📈', 'Leverage & Liquidity': '🏦', 'Operating Efficiency': '⚙️' };
-
-        let html = `
-            <div style="text-align:center; margin-bottom: 1.5rem;">
-                <h3 style="font-size: 1.2rem; margin: 0 0 0.5rem; color: white;">Piotroski F-Score Breakdown</h3>
-                <div style="font-size: 2.8rem; font-weight: 800; color: ${labelColor}; line-height: 1;">${num != null ? num : 'N/A'}<span style="font-size: 1.2rem; color: var(--text-muted); font-weight: 500;">/9</span></div>
-                <div style="font-size: 0.9rem; font-weight: 700; color: ${labelColor}; margin-top: 4px;">${labelText}</div>
-                <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 8px; max-width: 380px; margin-left: auto; margin-right: auto;">
-                    Score ≥ 7 = Strong financial health &nbsp;|&nbsp; 4-6 = Neutral &nbsp;|&nbsp; ≤ 3 = Weak
-                </p>
-            </div>`;
-
-        if (!breakdown || breakdown.length === 0) {
-            html += `<p style="color: var(--text-muted); text-align: center;">No breakdown data available.</p>`;
-        } else {
-            groups.forEach(group => {
-                const items = breakdown.filter(b => b.group === group);
-                if (!items.length) return;
-                html += `
-                    <div style="margin-bottom: 1.2rem;">
-                        <h4 style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.6rem; border-bottom: 1px solid rgba(255,255,255,0.07); padding-bottom: 6px;">
-                            ${groupIcons[group] || ''} ${group}
-                        </h4>`;
-                items.forEach(item => {
-                    const passed = item.passed;
-                    const icon   = passed === null ? '⬜' : (passed ? '✅' : '❌');
-                    const rowColor = passed === null ? 'var(--text-muted)' : (passed ? 'var(--accent)' : 'var(--danger)');
-                    html += `
-                        <div style="display:flex; align-items:flex-start; gap:10px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04);">
-                            <span style="font-size:1.1rem; min-width:22px;">${icon}</span>
-                            <div style="flex:1; min-width:0;">
-                                <div style="font-size:0.85rem; font-weight:700; color:white;">${item.criterion}</div>
-                                <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">${item.description}</div>
-                                ${item.value && item.value !== 'N/A' ? `<div style="font-size:0.78rem; color:${rowColor}; margin-top:3px; font-weight:600;">${item.value}</div>` : ''}
-                            </div>
-                            <span style="font-size:0.85rem; font-weight:700; color:${passed === null ? 'var(--text-muted)' : rowColor}; min-width:28px; text-align:right;">
-                                ${passed === null ? '—' : (passed ? '+1' : '0')}
-                            </span>
-                        </div>`;
-                });
-                html += `</div>`;
-            });
-        }
-
-        bodyEl.innerHTML = html;
-        modalEl.style.display = 'flex';
-
-        // Close button
-        const closeBtn = document.getElementById('close-score-modal');
-        if (closeBtn) closeBtn.onclick = () => { modalEl.style.display = 'none'; };
-        modalEl.onclick = (e) => { if (e.target === modalEl) modalEl.style.display = 'none'; };
-    };
 
     // ── Rule of 40 UI ──────────────────────────────────────────────────────────
     const updateRule40UI = (rule40Data) => {
@@ -1883,17 +1823,7 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         }
 
-        // Piotroski F-Score UI
-        currentPiotroskiBreakdown = data.piotroski ? data.piotroski.breakdown : [];
-        updatePiotroskiUI(data.piotroski ? data.piotroski.score : null);
-        const piotroskiRow = document.getElementById('piotroski-score-row');
-        if (piotroskiRow) {
-            piotroskiRow.style.cursor = 'pointer';
-            piotroskiRow.onclick = () => {
-                const score = globalData.piotroski ? globalData.piotroski.score : null;
-                renderPiotroskiBreakdown(score, currentPiotroskiBreakdown);
-            };
-        }
+
 
         // Rule of 40 UI Update & Click Binding
         updateRule40UI(data.rule_of_40);
