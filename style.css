@@ -458,12 +458,12 @@ body {
     }
     
     .valuation-input-group {
-        grid-template-columns: 1fr 120px;
+        grid-template-columns: 1fr 135px;
     }
 
     @media (max-width: 480px) {
         .valuation-input-group {
-            grid-template-columns: 1fr 105px !important;
+            grid-template-columns: 1fr 115px !important;
             gap: 0.3rem;
         }
     }
@@ -1770,7 +1770,7 @@ body {
 
 .valuation-input-group {
     display: grid;
-    grid-template-columns: 1fr 120px; /* v314: Strict column width for perfect alignment */
+    grid-template-columns: 1fr 135px; /* Wider to accommodate select text perfectly */
     align-items: center;
     gap: 0.5rem;
     margin-bottom: 10px;
@@ -1809,9 +1809,12 @@ body {
     font-size: 0.82rem;
     outline: none;
     transition: all 0.2s;
-    width: 120px !important;
-    min-width: 120px !important;
-    max-width: 120px !important;
+    width: 100% !important; /* Rely on grid column width instead of hardcoding */
+    max-width: 100% !important;
+    min-width: 0 !important; /* Prevent select from overflowing grid */
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
     box-sizing: border-box;
     text-align: right;
     margin: 0 0 0 auto !important; /* Force right alignment */
@@ -1849,9 +1852,6 @@ body {
 
 @media (max-width: 480px) {
     .premium-select, .premium-input {
-        width: 105px !important;
-        min-width: 105px !important;
-        max-width: 105px !important;
         font-size: 0.8rem;
     }
 }
