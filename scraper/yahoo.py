@@ -2874,14 +2874,16 @@ def ticker_search(q: str):
             
     return hits[:8]
 
-# --- V41: Persistent Sector Cache ---
-def get_competitors_data(target_ticker, sector=None, industry=None, limit=3, include_growth=True) -> list:
-    """ Fetches metrics for peer companies. v41: Autonomously resolves sector if missing. """
+def get_competitors_data(target_ticker, sector=None, industry=None, limit=5, include_growth=True) -> list:
+    """ 
+    Fetches metrics for peer companies using Hybrid Scored Discovery (v305). 
+    Combines Screener (Industry Match) + Analyst Recommendations (Yahoo/Finnhub).
+    """
     try:
         target_ticker = target_ticker.upper()
         target_industry = industry or ""
         
-        # 1. AUTONOMOUS RESOLUTION (v41): If sector is missing (Parallel Blitz), check KV or yf
+        # 1. Resolve Sector/Industry if missing
         if not sector:
             kv_sec_key = f"sec_v1_{target_ticker}"
             cached_meta = kv_get(kv_sec_key)
@@ -2889,246 +2891,141 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=3, inc
                 sector = cached_meta.get("sector")
                 target_industry = cached_meta.get("industry")
             else:
-                # Fast info fetch
                 main_yf = yf.Ticker(target_ticker)
                 inf = main_yf.info
                 sector = inf.get("sector")
                 target_industry = inf.get("industry")
                 if sector:
-                    kv_set(kv_sec_key, {"sector": sector, "industry": target_industry}, ex=604800) # 1 week
+                    kv_set(kv_sec_key, {"sector": sector, "industry": target_industry}, ex=604800)
 
-        # --- SMART PEER DISCOVERY (v300): Industry-matched screener ---
-        # Primary: Use yfinance screener to find companies in EXACT same industry
-        # This matches Seeking Alpha's peer methodology perfectly.
-        candidates = []
-        
+        # 2. Collect Candidates & Score them
+        candidate_scores = {} # symbol -> score
+
+        # A. Screener (Exact Industry Match) - Weight 5
         try:
             from yfinance.screener.screener import screen as yf_screen
             from yfinance.screener.query import EquityQuery
-            
-            # yfinance info uses ' - ' (e.g. "Software - Infrastructure") 
-            # but screener uses em-dash '—' (e.g. "Software—Infrastructure")
-            screener_industry = target_industry.replace(' - ', '\u2014') if target_industry else ''
-            
-            if screener_industry:
-                # Build query: same industry + US exchanges (NMS=NASDAQ, NYQ=NYSE)
-                q_ind = EquityQuery('eq', ['industry', screener_industry])
+            s_ind = target_industry.replace(' - ', '\u2014') if target_industry else ''
+            if s_ind:
+                q_ind = EquityQuery('eq', ['industry', s_ind])
                 q_ex1 = EquityQuery('eq', ['exchange', 'NMS'])
                 q_ex2 = EquityQuery('eq', ['exchange', 'NYQ'])
                 q_us = EquityQuery('or', [q_ex1, q_ex2])
                 q = EquityQuery('and', [q_ind, q_us])
-                
-                # Fetch more than needed, sorted by market cap descending
-                res = yf_screen(q, size=limit + 10, sortField='intradaymarketcap', sortAsc=False)
-                raw_peers = [r.get('symbol') for r in res.get('quotes', []) 
-                             if r.get('symbol') and r.get('symbol').upper() != target_ticker 
-                             and '.' not in r.get('symbol', '')]
-                
-                # Remove share-class duplicates (GOOGL/GOOG, BRK-A/BRK-B)
-                seen_bases = set()
-                for p in raw_peers:
-                    base = p.rstrip('L').replace('-B', '-A')  # GOOGL->GOOG, BRK-B->BRK-A
-                    if base not in seen_bases and p not in seen_bases:
-                        seen_bases.add(base)
-                        seen_bases.add(p)
-                        candidates.append(p)
-                
-                print(f"DEBUG: Screener peers for {target_ticker} ({target_industry}): {candidates[:limit]}")
-        except Exception as e:
-            print(f"DEBUG: Screener peer discovery failed: {e}")
-        
-        # Fallback: If screener returned too few results, supplement with Finnhub + Yahoo recs
-        if len(candidates) < limit:
-            fallback_peers = []
-            FINNHUB_KEY = os.environ.get('FINNHUB_API_KEY')
-            
-            # Source A: Finnhub peers endpoint
-            if FINNHUB_KEY:
-                try:
-                    url = f"https://finnhub.io/api/v1/stock/peers?symbol={target_ticker}&token={FINNHUB_KEY}"
-                    resp = requests.get(url, timeout=3)
-                    if resp.status_code == 200:
-                        fh_peers = resp.json()
-                        if isinstance(fh_peers, list):
-                            fallback_peers.extend(fh_peers)
-                except Exception as e:
-                    print(f"Finnhub peers error: {e}")
-            
-            # Source B: Yahoo Finance recommendations
-            try:
-                url = f"https://query2.finance.yahoo.com/v6/finance/recommendationsbysymbol/{target_ticker}"
-                headers = {'User-Agent': get_random_agent()}
-                resp = requests.get(url, headers=headers, timeout=3)
-                if resp.status_code == 200:
-                    rec_json = resp.json()
-                    results = rec_json.get('finance', {}).get('result', [])
-                    if results:
-                        rec_symbols = [r.get('symbol') for r in results[0].get('recommendedSymbols', []) if r.get('symbol')]
-                        fallback_peers.extend(rec_symbols)
-            except Exception as e:
-                print(f"Yahoo recommendations error: {e}")
-            
-            # Deduplicate fallback, remove self and international
-            fallback_peers = [p.upper() for p in fallback_peers if p and '.' not in p and p.upper() != target_ticker]
-            fallback_peers = list(dict.fromkeys(fallback_peers))
-            
-            # Filter fallback peers by same industry or sector
-            if fallback_peers and (target_industry or sector):
-                try:
-                    batch = yf.Tickers(" ".join(fallback_peers[:10]))
-                    for t in fallback_peers[:10]:
-                        if t in [c.upper() for c in candidates]:
-                            continue
-                        try:
-                            inf = batch.tickers[t].info
-                            t_ind = inf.get('industry', '')
-                            t_sec = inf.get('sector', '')
-                            if t_ind == target_industry or t_sec == sector:
-                                candidates.append(t)
-                        except: pass
-                        if len(candidates) >= limit:
-                            break
-                except Exception as e:
-                    print(f"DEBUG: Fallback industry filter failed: {e}")
-            
-            # Last resort: add whatever we have
-            if len(candidates) < limit:
-                for t in fallback_peers:
-                    if t not in candidates:
-                        candidates.append(t)
-                    if len(candidates) >= limit:
-                        break
-            
-            print(f"DEBUG: Final peers after fallback for {target_ticker}: {candidates[:limit]}")
+                res = yf_screen(q, size=15, sortField='intradaymarketcap', sortAsc=False)
+                for qt in res.get('quotes', []):
+                    sym = qt.get('symbol', '').upper()
+                    if sym and sym != target_ticker and '.' not in sym:
+                        candidate_scores[sym] = candidate_scores.get(sym, 0) + 5
+        except: pass
 
-        candidates = candidates[:limit]
-        final_peers = []
-
-        # --- Attempt yfinance with manual session (to handle crumbs better) ---
+        # B. Yahoo Recommendations - Weight 3
         try:
-            print(f"DEBUG: Attempting yfinance batch for {candidates}")
+            url = f"https://query2.finance.yahoo.com/v6/finance/recommendationsbysymbol/{target_ticker}"
+            resp = requests.get(url, headers={'User-Agent': get_random_agent()}, timeout=5).json()
+            recs = resp.get('finance', {}).get('result', [{}])[0].get('recommendedSymbols', [])
+            for r in recs:
+                sym = r.get('symbol', '').upper()
+                if sym and sym != target_ticker and '.' not in sym:
+                    candidate_scores[sym] = candidate_scores.get(sym, 0) + 3
+        except: pass
+
+        # C. Finnhub Recommendations - Weight 2
+        fh_key = os.environ.get('FINNHUB_API_KEY')
+        if fh_key:
+            try:
+                url = f"https://finnhub.io/api/v1/stock/peers?symbol={target_ticker}&token={fh_key}"
+                peers_fh = requests.get(url, timeout=5).json()
+                if isinstance(peers_fh, list):
+                    for sym in peers_fh:
+                        sym = sym.upper()
+                        if sym and sym != target_ticker and '.' not in sym:
+                            candidate_scores[sym] = candidate_scores.get(sym, 0) + 2
+            except: pass
+
+        # 3. Rank and Fetch Info
+        sorted_candidates = sorted(candidate_scores.items(), key=lambda x: x[1], reverse=True)
+        # Fetch top 15 to ensure we have enough after filtering/failures
+        candidates = [c[0] for c in sorted_candidates[:15]]
+        
+        if not candidates:
+            return []
+
+        final_peers = []
+        try:
             batch = yf.Tickers(" ".join(candidates))
             def fetch_peer_info(t):
                 try:
                     now = time.time()
-                    # Layer 1: Memory
                     if t in _peer_info_cache:
-                        cached_inf, ts = _peer_info_cache[t]
-                        if now - ts < 86400: return cached_inf
+                        c_inf, ts = _peer_info_cache[t]
+                        if now - ts < 86400: return c_inf
                     
-                    # Layer 2: Persistent KV Store (Upstash/Redis)
-                    kv_key = f"peer_v4_{t.upper()}"
+                    kv_key = f"peer_v5_{t}" 
                     kv_data = kv_get(kv_key)
                     if kv_data and isinstance(kv_data, dict):
                         _peer_info_cache[t] = (kv_data, now)
                         return kv_data
 
-                    # Layer 3: Network
                     inf = batch.tickers[t].info
-                    if inf and (inf.get('regularMarketPrice') or inf.get('currentPrice')):
-                        p_price = inf.get('regularMarketPrice') or inf.get('currentPrice')
-                        p_pb = inf.get('priceToBook')
-                        p_bv = inf.get('bookValue')
-                        if (not p_pb or p_pb <= 0) and p_bv and p_bv > 0 and p_price and p_price > 0:
-                            p_pb = p_price / p_bv
+                    if not inf or not (inf.get('regularMarketPrice') or inf.get('currentPrice')):
+                        return None
+                    
+                    # STRICT SECTOR FILTER
+                    p_sector = inf.get('sector')
+                    if sector and p_sector and p_sector.lower() != sector.lower():
+                        # Only allow cross-sector if it's a very strong analyst match (score > 3)
+                        if candidate_scores.get(t, 0) <= 3:
+                            return None
 
-                        p_data = {
-                            "ticker": t,
-                            "name": inf.get('shortName') or inf.get('longName') or t,
-                            "price": p_price,
-                            "pe_ratio": inf.get('trailingPE') or inf.get('forwardPE'),
-                            "market_cap": inf.get('marketCap'),
-                            "ps_ratio": inf.get('priceToSalesTrailing12Months') or inf.get('priceToSales'),
-                            "revenue": inf.get('totalRevenue') or inf.get('revenue'),
-                            "fcf": inf.get('freeCashflow') or inf.get('operatingCashflow'),
-                            "pfcf_ratio": (inf.get('marketCap') / inf.get('freeCashflow')) if inf.get('freeCashflow') and inf.get('marketCap') else (inf.get('marketCap') / inf.get('operatingCashflow') if inf.get('operatingCashflow') and inf.get('marketCap') else None),
-                            "price_to_book": p_pb,
-                            "ev_to_ebitda": inf.get('enterpriseToEbitda'),
-                            "eps": inf.get('trailingEps') or inf.get('forwardEps'),
-                            "operating_margin": inf.get('operatingMargins') or inf.get('ebitdaMargins'),
-                            "industry": inf.get('industry') or target_industry,
-                            "sector": inf.get('sector') or sector
-                        }
-                        if include_growth:
-                            p_data["revenue_growth"] = inf.get('revenueGrowth') or inf.get('revenueQuarterlyGrowth')
-                            p_data["earnings_growth"] = inf.get('earningsGrowth') or inf.get('earningsQuarterlyGrowth')
-                            p_data["fcf_growth"] = inf.get('freeCashflowGrowth') or inf.get('operatingCashflowGrowth') # Best effort proxy
-                            if p_data["earnings_growth"] is None and inf.get('trailingEps') and inf.get('forwardEps'):
-                                te, fe = inf['trailingEps'], inf['forwardEps']
-                                if te > 0: p_data["earnings_growth"] = (fe - te) / te
-                        
-                        # Update both caches
-                        _peer_info_cache[t] = (p_data, now)
-                        kv_set(kv_key, p_data, ex=86400) # 24h TTL
-                        return p_data
-                except Exception as e:
-                    print(f"DEBUG: fetch_peer_info error for {t}: {e}")
-                    return None
-                return None
+                    p_price = inf.get('regularMarketPrice') or inf.get('currentPrice')
+                    p_data = {
+                        "ticker": t,
+                        "name": inf.get('shortName') or inf.get('longName') or t,
+                        "price": p_price,
+                        "pe_ratio": inf.get('trailingPE') or inf.get('forwardPE'),
+                        "market_cap": inf.get('marketCap'),
+                        "ps_ratio": inf.get('priceToSalesTrailing12Months') or inf.get('priceToSales'),
+                        "revenue": inf.get('totalRevenue') or inf.get('revenue'),
+                        "fcf": inf.get('freeCashflow') or inf.get('operatingCashflow'),
+                        "pfcf_ratio": (inf.get('marketCap') / inf.get('freeCashflow')) if inf.get('freeCashflow') and inf.get('marketCap') else (inf.get('marketCap') / inf.get('operatingCashflow') if inf.get('operatingCashflow') and inf.get('marketCap') else None),
+                        "price_to_book": inf.get('priceToBook') or (p_price / inf.get('bookValue') if inf.get('bookValue') and inf.get('bookValue') > 0 else None),
+                        "ev_to_ebitda": inf.get('enterpriseToEbitda'),
+                        "eps": inf.get('trailingEps') or inf.get('forwardEps'),
+                        "operating_margin": inf.get('operatingMargins') or inf.get('ebitdaMargins'),
+                        "industry": inf.get('industry') or target_industry,
+                        "sector": p_sector or sector
+                    }
+                    if include_growth:
+                        p_data["revenue_growth"] = inf.get('revenueGrowth') or inf.get('revenueQuarterlyGrowth')
+                        p_data["earnings_growth"] = inf.get('earningsGrowth') or inf.get('earningsQuarterlyGrowth')
+                        p_data["fcf_growth"] = inf.get('freeCashflowGrowth') or inf.get('operatingCashflowGrowth')
+                    
+                    _peer_info_cache[t] = (p_data, now)
+                    kv_set(kv_key, p_data, ex=86400)
+                    return p_data
+                except: return None
 
-            ex = concurrent.futures.ThreadPoolExecutor(max_workers=3)
+            ex = concurrent.futures.ThreadPoolExecutor(max_workers=min(len(candidates), 5))
             futs = {ex.submit(fetch_peer_info, t): t for t in candidates}
-            try:
-                for f in concurrent.futures.as_completed(futs, timeout=5):
-                    t = futs[f]
-                    try:
-                        res = f.result(timeout=1)
-                        if res: final_peers.append(res)
-                    except Exception as e:
-                        print(f"DEBUG: Peer {t} failed: {e}")
-            except concurrent.futures.TimeoutError:
-                print("DEBUG: Peer fetch batch timed out")
-            finally:
-                ex.shutdown(wait=False)
+            for f in concurrent.futures.as_completed(futs, timeout=12):
+                res = f.result()
+                if res: final_peers.append(res)
+            ex.shutdown(wait=False)
         except Exception as e:
-            print(f"DEBUG: yfinance batch failed: {e}")
+            print(f"DEBUG: Peer fetch error: {e}")
 
-        # --- Fallback 1: Finnhub (Detailed Metrics) ---
-        fh_key = os.environ.get('FINNHUB_API_KEY')
-        if len(final_peers) < 2 and fh_key:
-            print("DEBUG: Yahoo failed, trying Finnhub...")
-            for t in candidates:
-                if any(p['ticker'] == t for p in final_peers): continue
-                try:
-                    q = requests.get(f"https://finnhub.io/api/v1/quote?symbol={t}&token={fh_key}", timeout=5).json()
-                    m = requests.get(f"https://finnhub.io/api/v1/stock/metric?symbol={t}&metric=all&token={fh_key}", timeout=5).json().get('metric', {})
-                    if q.get('c'):
-                        final_peers.append({
-                            "ticker": t, "name": t, "price": q['c'], "pe_ratio": m.get('peExclExtraTTM'),
-                            "market_cap": (m.get('marketCapitalization',0)*1e6) if m.get('marketCapitalization') else None,
-                            "operating_margin": (m.get('operatingMarginTTM', 0)/100.0) if m.get('operatingMarginTTM') else None,
-                            "revenue_growth": (m.get('revenueGrowthTTM', 0)/100.0) if m.get('revenueGrowthTTM') else None,
-                            "earnings_growth": (m.get('epsGrowthTTM', 0)/100.0) if m.get('epsGrowthTTM') else None,
-                            "industry": target_industry, "sector": sector
-                        })
-                except: continue
-
-        # --- Fallback 2: Direct Chart API (Prices ONLY - Last Resort for visuals) ---
-        if len(final_peers) < limit:
-            print("DEBUG: Trying Direct Chart fallback for prices...")
-            for t in candidates:
-                if any(p['ticker'] == t for p in final_peers): continue
-                try:
-                    c_url = f"https://query1.finance.yahoo.com/v8/finance/chart/{t}?interval=1d&range=1d"
-                    c_resp = requests.get(c_url, headers={'User-Agent': get_random_agent()}, timeout=5).json()
-                    meta = c_resp.get('chart', {}).get('result', [{}])[0].get('meta', {})
-                    if meta.get('regularMarketPrice'):
-                        final_peers.append({
-                            "ticker": t, "name": t, "price": meta['regularMarketPrice'],
-                            "pe_ratio": None, "industry": target_industry, "sector": sector
-                        })
-                except: continue
-
-        # Final Deduplication
+        # 4. Final selection (respect original scored order)
         unique = []
-        seen_t = {target_ticker.upper()}
-        for p in final_peers:
-            if p['ticker'] not in seen_t:
-                unique.append(p)
-                seen_t.add(p['ticker'])
+        seen = {target_ticker}
+        for t in candidates:
+            match = next((p for p in final_peers if p['ticker'] == t), None)
+            if match and match['ticker'] not in seen:
+                unique.append(match)
+                seen.add(match['ticker'])
         
         return unique[:limit]
-        
+
     except Exception as e:
         print(f"Global competitors failure for {target_ticker}: {e}")
         return []
