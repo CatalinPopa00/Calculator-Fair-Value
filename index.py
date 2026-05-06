@@ -894,7 +894,12 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                     "eps": sanitize(p.get("eps")),
                     "operating_margin": sanitize(p.get("operating_margin")),
                     "revenue_growth": sanitize(p.get("revenue_growth")),
-                    "earnings_growth": sanitize(p.get("earnings_growth"))
+                    "earnings_growth": sanitize(p.get("earnings_growth")),
+                    "ps_ratio": sanitize(p.get("ps_ratio")),
+                    "revenue": sanitize(p.get("revenue")),
+                    "fcf": sanitize(p.get("fcf")),
+                    "pfcf_ratio": sanitize(p.get("pfcf_ratio")),
+                    "fcf_growth": sanitize(p.get("fcf_growth") or p.get("historic_fcf_growth"))
                 } for p in peers_data] if peers_data else []
             },
             "historical_trends": data.get("historical_trends"),

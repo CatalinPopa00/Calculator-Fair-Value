@@ -698,12 +698,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const renderComparisonModal = (prof) => {
         const container = document.getElementById('comparison-table-container');
+        
+        // Helper: safe calculation of P/FCF for main company
+        const mainFcf = globalData?.formula_data?.dcf?.fcf || prof.fcf;
+        const mainPfcf = prof.market_cap && mainFcf > 0 ? (prof.market_cap / mainFcf) : null;
+
         const mainComp = {
             ticker: prof.ticker || currentTicker,
             name: prof.name || 'Current',
             market_cap: prof.market_cap,
             pe_ratio: prof.trailing_pe,
             eps: prof.trailing_eps,
+            ps_ratio: prof.ps_ratio,
+            revenue: prof.revenue,
+            pfcf_ratio: mainPfcf,
+            fcf: mainFcf,
+            fcf_growth: prof.historic_fcf_growth,
             margin: prof.operating_margin,
             rev_growth: prof.revenue_growth,
             eps_growth: prof.earnings_growth
@@ -712,67 +722,62 @@ document.addEventListener('DOMContentLoaded', () => {
         const competitors = prof.competitor_metrics || [];
         const all = [mainComp, ...competitors];
         
-        const fmtPE = (v) => v != null ? v.toFixed(2) + 'x' : 'N/A';
+        const fmtPE = (v) => v != null && v > 0 ? v.toFixed(2) + 'x' : 'N/A';
         const fmtEPS = (v) => v != null ? '$' + v.toFixed(2) : 'N/A';
         const fmtMargin = (v) => v != null ? (v * 100).toFixed(2) + '%' : 'N/A';
-        const fmtPctRow = (v) => v != null ? (v * 100).toFixed(2) + '%' : 'N/A';
+        const fmtPctRow = (v) => {
+            if (v == null) return 'N/A';
+            const val = (v * 100).toFixed(2) + '%';
+            let color = 'inherit';
+            if (v > 0) color = 'var(--accent)';
+            else if (v < 0) color = 'var(--danger)';
+            return `<span style="color:${color};">${val}</span>`;
+        };
 
-        let html = `<table style="width:100%; border-collapse:collapse; margin-top:10px; min-width: 600px;">
+        let html = `<table style="width:100%; border-collapse:collapse; margin-top:10px; min-width: 900px; text-align: right;">
             <thead style="border-bottom: 2px solid rgba(255,255,255,0.1);">
                 <tr>
-                    <th style="padding:12px; text-align:left; color:var(--text-muted); font-size:0.85rem;">METRIC</th>
-                    ${all.map((c, i) => `<th style="padding:12px; text-align:right; color:${i === 0 ? 'var(--accent)' : 'white'};">${c.ticker}</th>`).join('')}
+                    <th style="padding:12px; text-align:left; color:var(--text-muted); font-size:0.85rem; position: sticky; left: 0; background: #0f172a; z-index: 10; border-right: 1px solid rgba(255,255,255,0.1);">COMPETITOR</th>
+                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 100px;">Market Cap</th>
+                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">P/E (Trailing)</th>
+                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">EPS (Trailing)</th>
+                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">P/S (Trailing)</th>
+                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 120px;">Revenue (TTM)</th>
+                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 100px;">P/FCF</th>
+                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">FCF (Trailing)</th>
+                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 140px;">FCF Growth (Y/Y)</th>
+                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 130px;">Operating Margin</th>
+                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 140px;">Piotroski F-Score</th>
                 </tr>
             </thead>
             <tbody>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td style="padding:12px; color:var(--text-muted);">Market Cap</td>
-                    ${all.map(c => `<td style="padding:12px; text-align:right; font-weight:bold;">${formatBigNumber(c.market_cap || c.marketCap, '$')}</td>`).join('')}
-                </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td style="padding:12px; color:var(--text-muted);">P/E (Trailing)</td>
-                    ${all.map(c => `<td style="padding:12px; text-align:right; font-weight:bold;">${fmtPE(c.pe_ratio || c.pe_ratio)}</td>`).join('')}
-                </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td style="padding:12px; color:var(--text-muted);">EPS (Trailing)</td>
-                    ${all.map(c => `<td style="padding:12px; text-align:right; font-weight:bold;">${fmtEPS(c.eps || c.trailing_eps)}</td>`).join('')}
-                </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td style="padding:12px; color:var(--text-muted);">Operating Margin</td>
-                    ${all.map(c => `<td style="padding:12px; text-align:right; font-weight:bold;">${fmtMargin(c.margin || c.operating_margin)}</td>`).join('')}
-                </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td style="padding:12px; color:var(--text-muted);">Revenue Growth (y/y)</td>
-                    ${all.map(c => {
-                        const val = (c.rev_growth != null ? c.rev_growth : c.revenue_growth);
-                        let color = 'inherit';
-                        if (val > 0) color = 'var(--accent)';
-                        else if (val < 0) color = 'var(--danger)';
-                        return `<td style="padding:12px; text-align:right; font-weight:bold; color:${color};">${fmtPctRow(val)}</td>`;
-                    }).join('')}
-                </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td style="padding:12px; color:var(--text-muted);">EPS Growth (y/y)</td>
-                    ${all.map(c => {
-                        const val = (c.eps_growth != null ? c.eps_growth : c.earnings_growth);
-                        let color = 'inherit';
-                        if (val > 0) color = 'var(--accent)';
-                        else if (val < 0) color = 'var(--danger)';
-                        return `<td style="padding:12px; text-align:right; font-weight:bold; color:${color};">${fmtPctRow(val)}</td>`;
-                    }).join('')}
-                </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); background: rgba(56, 189, 248, 0.03);">
-                    <td style="padding:12px; color:var(--accent); font-weight:bold;">Piotroski F-Score</td>
-                    ${all.map((c, i) => {
-                        const pScore = i === 0 ? (globalData && globalData.piotroski ? globalData.piotroski.score : null) : (c.piotroski ? c.piotroski.score : null);
-                        const val = pScore != null ? pScore : '—';
-                        let color = 'var(--text-muted)';
-                        if (val !== 'N/A' && val !== '—') {
-                            color = val >= 7 ? 'var(--accent)' : (val >= 4 ? '#fbbf24' : 'var(--danger)');
-                        }
-                        return `<td style="padding:12px; text-align:right; font-weight:800; color:${color};">${val}${val !== 'N/A' && val !== '—' ? '/9' : ''}</td>`;
-                    }).join('')}
-                </tr>
+                ${all.map((c, i) => {
+                    const isMain = i === 0;
+                    
+                    const pScore = isMain ? (globalData && globalData.piotroski ? globalData.piotroski.score : null) : (c.piotroski ? c.piotroski.score : null);
+                    const pVal = pScore != null ? pScore : '—';
+                    let pColor = 'var(--text-muted)';
+                    if (pVal !== 'N/A' && pVal !== '—') {
+                        pColor = pVal >= 7 ? 'var(--accent)' : (pVal >= 4 ? '#fbbf24' : 'var(--danger)');
+                    }
+                    const pScoreHtml = `<span style="color:${pColor}; font-weight:800;">${pVal}${pVal !== 'N/A' && pVal !== '—' ? '/9' : ''}</span>`;
+                    
+                    return `
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: ${isMain ? 'rgba(56, 189, 248, 0.05)' : 'transparent'};">
+                        <td style="padding:12px; text-align:left; font-weight:bold; color:${isMain ? 'var(--accent)' : 'white'}; position: sticky; left: 0; background: ${isMain ? '#122238' : '#0f172a'}; z-index: 10; border-right: 1px solid rgba(255,255,255,0.1); box-shadow: 2px 0 5px rgba(0,0,0,0.2);">${c.ticker}</td>
+                        <td style="padding:12px; font-weight:bold;">${formatBigNumber(c.market_cap || c.marketCap, '$')}</td>
+                        <td style="padding:12px; font-weight:bold;">${fmtPE(c.pe_ratio || c.pe_ratio)}</td>
+                        <td style="padding:12px; font-weight:bold;">${fmtEPS(c.eps || c.trailing_eps)}</td>
+                        <td style="padding:12px; font-weight:bold;">${fmtPE(c.ps_ratio)}</td>
+                        <td style="padding:12px; font-weight:bold;">${formatBigNumber(c.revenue, '$')}</td>
+                        <td style="padding:12px; font-weight:bold;">${fmtPE(c.pfcf_ratio)}</td>
+                        <td style="padding:12px; font-weight:bold;">${formatBigNumber(c.fcf, '$')}</td>
+                        <td style="padding:12px; font-weight:bold;">${fmtPctRow(c.fcf_growth)}</td>
+                        <td style="padding:12px; font-weight:bold;">${fmtMargin(c.margin || c.operating_margin)}</td>
+                        <td style="padding:12px; font-weight:bold;">${pScoreHtml}</td>
+                    </tr>
+                    `;
+                }).join('')}
             </tbody>
         </table>`;
         
