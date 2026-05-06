@@ -3028,6 +3028,8 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=3, inc
                             "pe_ratio": inf.get('trailingPE') or inf.get('forwardPE'),
                             "market_cap": inf.get('marketCap'),
                             "ps_ratio": inf.get('priceToSalesTrailing12Months') or inf.get('priceToSales'),
+                            "revenue": inf.get('totalRevenue'),
+                            "fcf": inf.get('freeCashflow'),
                             "pfcf_ratio": (inf.get('marketCap') / inf.get('freeCashflow')) if inf.get('freeCashflow') and inf.get('marketCap') else (inf.get('marketCap') / inf.get('operatingCashflow') if inf.get('operatingCashflow') and inf.get('marketCap') else None),
                             "price_to_book": p_pb,
                             "ev_to_ebitda": inf.get('enterpriseToEbitda'),

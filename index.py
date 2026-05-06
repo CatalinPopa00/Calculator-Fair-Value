@@ -36,7 +36,7 @@ from models.scoring import calculate_scoring_reform, calculate_piotroski_score
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v253"
+CACHE_VERSION = "v254"
 # 1. Initialize FastAPI App (Systemic Recovery Fix)
 app = FastAPI(title="Fair Value Calculator API")
 
@@ -879,6 +879,8 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 "dividend_streak": data.get("dividend_streak"),
                 "dividend_cagr_5y": sanitize(data.get("dividend_cagr_5y")),
                 "revenue": sanitize(data.get("revenue")),
+                "ps_ratio": sanitize(data.get("ps_ratio")),
+                "fcf": sanitize(data.get("fcf")),
                 "ebitda": sanitize(data.get("ebitda")),
                 "total_cash": sanitize(data.get("total_cash")),
                 "total_debt": sanitize(data.get("total_debt")),
