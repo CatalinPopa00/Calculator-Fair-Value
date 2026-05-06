@@ -734,7 +734,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return `<span style="color:${color};">${val}</span>`;
         };
 
-        let html = `<table style="width:100%; border-collapse:collapse; margin-top:10px; min-width: 900px; text-align: right;">
+        let html = `<table style="width:100%; border-collapse:collapse; margin-top:10px; min-width: 750px; text-align: right;">
             <thead style="border-bottom: 2px solid rgba(255,255,255,0.1);">
                 <tr>
                     <th style="padding:12px; text-align:left; color:var(--text-muted); font-size:0.85rem; position: sticky; left: 0; background: #0f172a; z-index: 10; border-right: 1px solid rgba(255,255,255,0.1);">COMPETITOR</th>
@@ -745,9 +745,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 120px;">Revenue (TTM)</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 100px;">P/FCF</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">FCF (Trailing)</th>
-                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 140px;">Growth (Y/Y)</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 130px;">Operating Margin</th>
-                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 140px;">Piotroski F-Score</th>
                 </tr>
             </thead>
             <tbody>
@@ -758,61 +756,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     const mCap = c.market_cap || c.marketCap;
                     const derivedRevenue = c.revenue || (mCap && c.ps_ratio && c.ps_ratio > 0 ? mCap / c.ps_ratio : null);
                     const derivedFcf = c.fcf || (mCap && c.pfcf_ratio && c.pfcf_ratio > 0 ? mCap / c.pfcf_ratio : null);
-
-                    // FCF Growth: use earnings_growth as proxy when fcf_growth unavailable
-                    const derivedFcfGrowth = c.fcf_growth != null ? c.fcf_growth : (c.earnings_growth != null ? c.earnings_growth : (c.eps_growth != null ? c.eps_growth : null));
-
-                    // Piotroski: for main company use globalData, for peers compute lightweight score
-                    let pScore;
-                    if (isMain) {
-                        pScore = globalData && globalData.piotroski ? globalData.piotroski.score : null;
-                    } else if (c.piotroski && c.piotroski.score != null) {
-                        pScore = c.piotroski.score;
-                    } else {
-                        // Lightweight Piotroski from available peer data (max 9, usually 4-5 evaluable)
-                        let lp = 0;
-                        let evaluable = 0;
-                        // F1: Positive earnings (EPS > 0)
-                        if (c.eps != null) { evaluable++; if (c.eps > 0) lp++; }
-                        // F2: Positive cash flow (FCF > 0)
-                        if (derivedFcf != null) { evaluable++; if (derivedFcf > 0) lp++; }
-                        // F3: ROA improving → proxy: earnings_growth > 0
-                        if (c.earnings_growth != null) { evaluable++; if (c.earnings_growth > 0) lp++; }
-                        // F4: Accruals: Cash Flow > Net Income → proxy: P/FCF < P/E (higher cash quality)
-                        if (c.pfcf_ratio != null && c.pe_ratio != null && c.pfcf_ratio > 0 && c.pe_ratio > 0) {
-                            evaluable++; if (c.pfcf_ratio < c.pe_ratio) lp++;
-                        }
-                        // F5: Low leverage → proxy: price_to_book reasonable (< 10)
-                        if (c.price_to_book != null) { evaluable++; if (c.price_to_book < 10) lp++; }
-                        // F8: Margin positive
-                        const cMargin = c.margin || c.operating_margin;
-                        if (cMargin != null) { evaluable++; if (cMargin > 0) lp++; }
-                        // F9: Revenue growing
-                        const cRevGrowth = c.rev_growth || c.revenue_growth;
-                        if (cRevGrowth != null) { evaluable++; if (cRevGrowth > 0) lp++; }
-                        // Scale to /9 based on evaluable criteria
-                        pScore = evaluable >= 3 ? Math.round((lp / evaluable) * 9) : null;
-                    }
-                    const pVal = pScore != null ? pScore : '—';
-                    let pColor = 'var(--text-muted)';
-                    if (pVal !== 'N/A' && pVal !== '—') {
-                        pColor = pVal >= 7 ? 'var(--accent)' : (pVal >= 4 ? '#fbbf24' : 'var(--danger)');
-                    }
-                    const pScoreHtml = `<span style="color:${pColor}; font-weight:800;">${pVal}${pVal !== 'N/A' && pVal !== '—' ? '/9' : ''}</span>`;
                     
                     return `
                     <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: ${isMain ? 'rgba(56, 189, 248, 0.05)' : 'transparent'};">
                         <td style="padding:12px; text-align:left; font-weight:bold; color:${isMain ? 'var(--accent)' : 'white'}; position: sticky; left: 0; background: ${isMain ? '#122238' : '#0f172a'}; z-index: 10; border-right: 1px solid rgba(255,255,255,0.1); box-shadow: 2px 0 5px rgba(0,0,0,0.2);">${c.ticker}</td>
                         <td style="padding:12px; font-weight:bold;">${formatBigNumber(mCap, '$')}</td>
-                        <td style="padding:12px; font-weight:bold;">${fmtPE(c.pe_ratio || c.pe_ratio)}</td>
+                        <td style="padding:12px; font-weight:bold;">${fmtPE(c.pe_ratio)}</td>
                         <td style="padding:12px; font-weight:bold;">${fmtEPS(c.eps || c.trailing_eps)}</td>
                         <td style="padding:12px; font-weight:bold;">${fmtPE(c.ps_ratio)}</td>
                         <td style="padding:12px; font-weight:bold;">${formatBigNumber(derivedRevenue, '$')}</td>
                         <td style="padding:12px; font-weight:bold;">${fmtPE(c.pfcf_ratio)}</td>
                         <td style="padding:12px; font-weight:bold;">${formatBigNumber(derivedFcf, '$')}</td>
-                        <td style="padding:12px; font-weight:bold;">${fmtPctRow(derivedFcfGrowth)}</td>
                         <td style="padding:12px; font-weight:bold;">${fmtMargin(c.margin || c.operating_margin)}</td>
-                        <td style="padding:12px; font-weight:bold;">${pScoreHtml}</td>
                     </tr>
                     `;
                 }).join('')}
