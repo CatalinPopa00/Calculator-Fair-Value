@@ -2866,7 +2866,7 @@ def ticker_search(q: str):
     for item in MASTER_TICKERS:
         if item["ticker"].startswith(q) and item not in hits:
             hits.append(item)
-            
+    
     # 3. Name matches
     for item in MASTER_TICKERS:
         if q in item["name"].upper() and item not in hits:
@@ -2898,7 +2898,15 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=5, inc
                 if sector:
                     kv_set(kv_sec_key, {"sector": sector, "industry": target_industry}, ex=604800)
 
-        # 2. Collect Candidates & Score them
+        # 2. Helper: Base Ticker for deduplication (GOOG/GOOGL, etc.)
+        def get_base_ticker(t):
+            t = t.upper()
+            if t.startswith("GOOG"): return "GOOG"
+            if t.startswith("BRK"): return "BRK"
+            if t.startswith("RDS"): return "RDS"
+            return t.split('.')[0].split('-')[0].rstrip('L')
+
+        # 3. Collect Candidates & Score them
         candidate_scores = {} # symbol -> score
 
         # A. Screener (Exact Industry Match) - Weight 5
@@ -2912,7 +2920,7 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=5, inc
                 q_ex2 = EquityQuery('eq', ['exchange', 'NYQ'])
                 q_us = EquityQuery('or', [q_ex1, q_ex2])
                 q = EquityQuery('and', [q_ind, q_us])
-                res = yf_screen(q, size=15, sortField='intradaymarketcap', sortAsc=False)
+                res = yf_screen(q, size=20, sortField='intradaymarketcap', sortAsc=False)
                 for qt in res.get('quotes', []):
                     sym = qt.get('symbol', '').upper()
                     if sym and sym != target_ticker and '.' not in sym:
@@ -2943,10 +2951,17 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=5, inc
                             candidate_scores[sym] = candidate_scores.get(sym, 0) + 2
             except: pass
 
-        # 3. Rank and Fetch Info
+        # 4. Rank and Deduplicate by Base Ticker
         sorted_candidates = sorted(candidate_scores.items(), key=lambda x: x[1], reverse=True)
-        # Fetch top 15 to ensure we have enough after filtering/failures
-        candidates = [c[0] for c in sorted_candidates[:15]]
+        
+        candidates = []
+        seen_bases = {get_base_ticker(target_ticker)}
+        for sym, score in sorted_candidates:
+            base = get_base_ticker(sym)
+            if base not in seen_bases:
+                candidates.append(sym)
+                seen_bases.add(base)
+            if len(candidates) >= 15: break
         
         if not candidates:
             return []
@@ -3015,14 +3030,16 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=5, inc
         except Exception as e:
             print(f"DEBUG: Peer fetch error: {e}")
 
-        # 4. Final selection (respect original scored order)
+        # 5. Final selection (respect original scored order and ensure limit)
         unique = []
-        seen = {target_ticker}
+        final_seen_bases = {get_base_ticker(target_ticker)}
         for t in candidates:
             match = next((p for p in final_peers if p['ticker'] == t), None)
-            if match and match['ticker'] not in seen:
-                unique.append(match)
-                seen.add(match['ticker'])
+            if match:
+                base = get_base_ticker(match['ticker'])
+                if base not in final_seen_bases:
+                    unique.append(match)
+                    final_seen_bases.add(base)
         
         return unique[:limit]
 
