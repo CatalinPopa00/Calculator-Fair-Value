@@ -1189,19 +1189,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const displayCurrent = currentPegToDisplay;
                 const displayTarget = targetPeg;
                 pegCompareElem.textContent = `PEG = ${displayCurrent.toFixed(2)} vs PEG ${pegMode === 'industry' ? 'Sector' : 'Std'} = ${displayTarget.toFixed(2)}`;
-                
-                if (pegMos != null) {
-                    const mosText = `${pegMos > 0 ? '+' : ''}${pegMos.toFixed(2)}% Margin of Safety`;
-                    pegCompareElem.innerHTML += `<br><span style="color: ${pegMos > 0 ? 'var(--accent)' : 'var(--danger)'}; font-weight: 600;">${mosText}</span>`;
-                    
-                    // Also sync to the new card-mos element for consistency with other cards
-                    const pegCardMos = document.getElementById('peg-card-mos');
-                    if (pegCardMos) {
-                        pegCardMos.textContent = `MOS: ${formatPercent(pegMos)}`;
-                        pegCardMos.style.color = pegMos > 0 ? 'var(--accent)' : 'var(--danger)';
-                        pegCardMos.style.display = 'block';
-                    }
-                }
 
                 // ── SECTOR-SPECIFIC PEG THRESHOLDS (v291) ──
                 const peg = currentPegToDisplay;
@@ -1244,9 +1231,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 pegStatusElem.textContent = statusText;
                 pegStatusElem.style.color = statusColor;
-                if (subText) {
-                    pegCompareElem.innerHTML += `<br><span style="font-size:0.75rem; color:var(--text-muted); font-style:italic;">${subText}</span>`;
-                }
             } else {
                 pegStatusElem.textContent = "N/A";
                 pegStatusElem.style.color = "var(--text-muted)";
