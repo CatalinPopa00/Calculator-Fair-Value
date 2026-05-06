@@ -1106,9 +1106,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 usedGrowth = (rawG === '' || isNaN(parseFloat(rawG))) ? 0.20 : parseFloat(rawG) / 100;
             }
 
-            const eps = globalData.company_profile.trailing_eps || 0;
+            const eps = globalData.company_profile.adjusted_eps || globalData.company_profile.trailing_eps || 0;
             // v299: Use _realApiPrice for valuation anchor to prevent Fair Value drift during simulation
-            const currentPe = (eps > 0) ? (_realApiPrice / eps) : (currentFormulaData.peg.current_pe || (parseFloat(globalData.company_profile.trailing_pe) || 0));
+            const currentPe = (eps > 0) ? (_realApiPrice / eps) : (currentFormulaData.peg.current_pe || (parseFloat(globalData.company_profile.current_pe) || parseFloat(globalData.company_profile.trailing_pe) || 0));
             // v61: Default to 1.25 if industry_peg is missing (e.g. no peers found)
             const pegMode = document.getElementById('peg-mode')?.value || 'standard';
             const industryPegRaw = currentFormulaData.peg.industry_peg;
