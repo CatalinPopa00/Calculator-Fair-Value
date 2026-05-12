@@ -882,7 +882,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 "historic_pe": sanitize(data.get("pe_historic")),
                 "insider_ownership": sanitize(data.get("insider_ownership")),
                 "shares_outstanding": sanitize(data.get("shares_outstanding")),
-                "buyback_rate": sanitize(data.get("historic_buyback_rate")),
+                "buyback_rate": sanitize(data.get("buyback_rate") if data.get("buyback_rate") is not None else data.get("historic_buyback_rate")),
                 "dividend_yield": sanitize(data.get("dividend_yield")),
                 "payout_ratio": sanitize(data.get("payout_ratio")),
                 "dividend_streak": data.get("dividend_streak"),
