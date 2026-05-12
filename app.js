@@ -225,8 +225,18 @@ document.addEventListener('DOMContentLoaded', () => {
         updateMetric('pefwd', newPeFwd > 0 ? newPeFwd.toFixed(2) + 'x' : 'N/A');
         updateMetric('5yavgpe', prof.historic_pe ? prof.historic_pe.toFixed(2) + 'x' : 'N/A');
         
-        const growth = prof.earnings_growth || 0;
-        const newPeg = (growth > 0 && newNonGaapPE > 0) ? newNonGaapPE / (growth * 100) : 0;
+        let pegUsedGrowth = prof.earnings_growth || 0;
+        const pegSrcEl = document.getElementById('peg-eps-source');
+        if (pegSrcEl && pegSrcEl.value === 'custom') {
+            const rawG = document.getElementById('peg-custom-growth').value;
+            if (rawG !== '' && !isNaN(parseFloat(rawG))) {
+                pegUsedGrowth = parseFloat(rawG) / 100;
+            }
+        } else if (globalData.formula_data && globalData.formula_data.peg) {
+            pegUsedGrowth = globalData.formula_data.peg.eps_growth_estimated || pegUsedGrowth;
+        }
+        
+        const newPeg = (pegUsedGrowth > 0 && newNonGaapPE > 0) ? newNonGaapPE / (pegUsedGrowth * 100) : 0;
         updateMetric('peg', newPeg > 0 ? newPeg.toFixed(2) : 'N/A');
         
         updateMetric('ps', newPS > 0 ? newPS.toFixed(2) + 'x' : 'N/A');
@@ -1508,6 +1518,12 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.marginSafety.style.color = 'var(--text-muted)';
             elements.marginSafety.style.background = 'none';
             updateInsightsAndScores(null, currentPegToDisplay);
+        }
+
+        // --- Sync Profile & Metrics Table PEG with Card PEG ---
+        const pegTableVal = document.getElementById('metric-val-peg');
+        if (pegTableVal && currentPegToDisplay != null && !_simulating) {
+            pegTableVal.textContent = currentPegToDisplay.toFixed(2);
         }
     };
 
