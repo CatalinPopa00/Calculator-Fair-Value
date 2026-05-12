@@ -36,7 +36,7 @@ from models.scoring import calculate_scoring_reform, calculate_piotroski_score
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v261"
+CACHE_VERSION = "v262"
 # 1. Initialize FastAPI App (Systemic Recovery Fix)
 app = FastAPI(title="Fair Value Calculator API")
 
@@ -812,12 +812,15 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         good_to_buy_total = scoring_results.get("good_to_buy_total")
         buy_breakdown = scoring_results.get("buy_breakdown")
 
-        # Piotroski F-Score (v258: Disabled per user request)
-        # piotroski_result = calculate_piotroski_score(data)
-        # piotroski_score = piotroski_result.get("score")
-        # piotroski_breakdown = piotroski_result.get("breakdown", [])
-        piotroski_score = "N/A"
-        piotroski_breakdown = []
+        # Piotroski F-Score (v262: Re-enabled - was only meant to be removed from peers table, not from dashboard)
+        try:
+            piotroski_result = calculate_piotroski_score(data)
+            piotroski_score = piotroski_result.get("score")
+            piotroski_breakdown = piotroski_result.get("breakdown", [])
+        except Exception as e_pio:
+            print(f"Piotroski calculation error: {e_pio}")
+            piotroski_score = "N/A"
+            piotroski_breakdown = []
 
         # 7. Algorithmic Insights Generation
         all_breakdowns = health_breakdown + buy_breakdown
@@ -863,7 +866,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 "adjusted_eps": sanitize(data.get("adjusted_eps")),
                 "fwd_eps": sanitize(data.get("forward_eps") or data.get("fwd_eps")),
                 "fwd_pe": sanitize(data.get("forward_pe")),
-                "peg_ratio": sanitize(company_peg) if company_peg > 0 else sanitize(data.get("peg_ratio")),
+                "peg_ratio": sanitize(company_peg) if (company_peg and company_peg > 0) else sanitize(data.get("peg_ratio")),
                 "historic_eps_growth": sanitize(data.get("historic_eps_growth")),
                 "historic_fcf_growth": sanitize(data.get("historic_fcf_growth")),
                 "debt_to_equity": sanitize(data.get("debt_to_equity")),
@@ -921,6 +924,10 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             "buy_breakdown": buy_breakdown,
             "piotroski_score": piotroski_score,
             "piotroski_breakdown": piotroski_breakdown,
+            "piotroski": {
+                "score": piotroski_score if piotroski_score != "N/A" else None,
+                "breakdown": piotroski_breakdown
+            },
             "formula_data": formula_data,
             "recommended_exit_multiple": recommended_exit_multiple,
             "dcf_assumptions": {
