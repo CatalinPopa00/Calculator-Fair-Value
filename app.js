@@ -1786,9 +1786,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         currentHealthBreakdown = data.health_breakdown;
         currentBuyBreakdown = data.buy_breakdown;
+        currentPiotroskiBreakdown = data.piotroski_breakdown || (data.piotroski && data.piotroski.breakdown) || [];
 
         updateScoreUI(data.health_score_total, 'health-score-circle', 'health-score-fill');
         updateScoreUI(data.good_to_buy_total, 'buy-score-circle', 'buy-score-fill');
+        updatePiotroskiUI(data.piotroski ? data.piotroski.score : data.piotroski_score);
 
         // Bind click handlers on score rows (must be done here, after data is loaded)
         // v70: Use dynamic closures to ensure modals always show CURRENT simulated data
@@ -1807,7 +1809,15 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         }
 
-
+        // Piotroski F-Score Click Binding
+        const pioRow = document.getElementById('piotroski-score-row');
+        if (pioRow) {
+            pioRow.style.cursor = 'pointer';
+            pioRow.onclick = () => {
+                const pScore = data.piotroski ? data.piotroski.score : data.piotroski_score;
+                renderPiotroskiBreakdown(pScore, currentPiotroskiBreakdown);
+            };
+        }
 
         // Rule of 40 UI Update & Click Binding
         updateRule40UI(data.rule_of_40);
@@ -3409,6 +3419,63 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div style="display:flex; align-items:center; gap:8px; justify-content:flex-end;">
                         <span style="width:8px; height:8px; border-radius:50%; background:${dotColor}; display:inline-block; flex-shrink:0;"></span>
                         <span style="font-weight:800; font-size:0.85rem; color:${ptsColor}; white-space:nowrap; font-family: 'Outfit', sans-serif;">${pts}/${maxPts}</span>
+                    </div>
+                </div>
+            `;
+        });
+
+        if (titleEl) titleEl.textContent = '';
+        body.innerHTML = html;
+        modal.style.display = 'flex';
+    };
+
+    // ── Piotroski F-Score Breakdown Modal ──────────────────────
+    function renderPiotroskiBreakdown(totalScore, breakdown) {
+        const modal = document.getElementById('score-modal');
+        const body = document.getElementById('score-modal-body-content');
+        const titleEl = document.getElementById('score-modal-title');
+        if (!modal || !body) return;
+
+        if (!breakdown || breakdown.length === 0) {
+            if (titleEl) titleEl.textContent = 'Piotroski F-Score';
+            body.innerHTML = '<p style="color:var(--text-muted);">No Piotroski data available for this ticker.</p>';
+            modal.style.display = 'flex';
+            return;
+        }
+
+        const scoreVal = (totalScore != null && totalScore !== 'N/A') ? totalScore : '?';
+        let html = `
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:5px; gap:15px;">
+                <h3 style="margin:0; font-size:1.05rem; color:white; font-weight:800;">Piotroski F-Score</h3>
+                <div style="display:flex; align-items:baseline; gap:6px;">
+                    <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600; text-transform:uppercase;">Total:</span>
+                    <span style="font-size:1.3rem; font-weight:900; color:white;">${scoreVal}/9</span>
+                </div>
+            </div>
+        `;
+
+        let lastGroup = '';
+        breakdown.forEach(item => {
+            // Group header
+            const group = item.group || '';
+            if (group && group !== lastGroup) {
+                lastGroup = group;
+                html += `<div style="margin-top:12px; margin-bottom:6px; font-size:0.75rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px;">${group}</div>`;
+            }
+
+            const label = item.criterion || item.name || 'Unknown';
+            const passed = item.passed;
+            const dotColor = passed === true ? 'var(--accent)' : (passed === false ? 'var(--danger)' : 'var(--text-muted)');
+            const statusText = passed === true ? '✓ Pass' : (passed === false ? '✗ Fail' : '— N/A');
+            const statusColor = passed === true ? 'var(--accent)' : (passed === false ? 'var(--danger)' : 'var(--text-muted)');
+
+            html += `
+                <div style="display:grid; grid-template-columns: 1fr 120px 70px; align-items:center; padding:8px 0; border-top:1px solid rgba(255,255,255,0.04); gap:10px;">
+                    <div style="font-weight:600; font-size:0.85rem; color:white;">${label}</div>
+                    <div style="font-weight:700; font-size:0.8rem; color:rgba(255,255,255,0.7); text-align:right; font-family:monospace;">${item.value || 'N/A'}</div>
+                    <div style="display:flex; align-items:center; gap:6px; justify-content:flex-end;">
+                        <span style="width:8px; height:8px; border-radius:50%; background:${dotColor}; display:inline-block;"></span>
+                        <span style="font-weight:800; font-size:0.8rem; color:${statusColor}; font-family:'Outfit',sans-serif;">${statusText}</span>
                     </div>
                 </div>
             `;
