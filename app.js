@@ -1599,12 +1599,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 const val = parseFloat(source.value);
                 if (!isNaN(val)) {
                     const newValue = val - 2;
-                    // Only update and dispatch if the value is actually different to prevent unnecessary cycles
-                    if (parseFloat(target.value) !== newValue) {
+                    // v274: Only cascade if target is empty OR was already part of a default cascade
+                    // This allows the -2% default while preserving manual modifications
+                    if (target.value === '' || target.dataset.isDefault === 'true') {
                         target.value = newValue;
+                        target.dataset.isDefault = 'true';
                         target.dispatchEvent(new Event('input', { bubbles: true }));
                     }
                 }
+            });
+            // Mark as NOT default if the user manually types in it
+            target.addEventListener('keydown', () => {
+                target.dataset.isDefault = 'false';
             });
         };
         cascade(g13, g46);
@@ -2291,9 +2297,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const rowExit = document.getElementById('row-input-exit-multiple');
         if (method === 'multiple') {
             if (rowPerp) rowPerp.style.display = 'none';
-            if (rowExit) rowExit.style.display = 'flex';
+            if (rowExit) rowExit.style.display = 'grid';
         } else {
-            if (rowPerp) rowPerp.style.display = 'flex';
+            if (rowPerp) rowPerp.style.display = 'grid';
             if (rowExit) rowExit.style.display = 'none';
         }
         updateFairValue();
