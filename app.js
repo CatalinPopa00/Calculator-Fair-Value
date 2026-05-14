@@ -542,7 +542,9 @@ document.addEventListener('DOMContentLoaded', () => {
         let pv = 0;
         let f = fcf;
         for (let i = 1; i <= years; i++) {
-            f *= (1 + growth);
+            // Support multi-phase growth: growth can be an array (per-year) or a single number
+            const g = Array.isArray(growth) ? (growth[i - 1] !== undefined ? growth[i - 1] : growth[growth.length - 1]) : growth;
+            f *= (1 + g);
             pv += f / Math.pow(1 + finalWacc, i);
         }
         
@@ -1026,6 +1028,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 const dcfInputs = document.getElementById('dcf-custom-inputs');
                 if (dcfInputs) dcfInputs.style.display = fcfSource === 'custom' ? 'flex' : 'none';
 
+                // v270: Show/hide extended growth rows based on 5yr vs 10yr projection
+                const show10yr = years === 10;
+                const row78 = document.getElementById('dcf-growth-row-7-8');
+                const row910 = document.getElementById('dcf-growth-row-9-10');
+                if (row78) row78.style.display = show10yr ? 'flex' : 'none';
+                if (row910) row910.style.display = show10yr ? 'flex' : 'none';
+
                 const buybackEl = document.getElementById('dcf-buyback-source');
                 const buybackSrc = buybackEl ? buybackEl.value : 'none';
                 const buybackCustomInputs = document.getElementById('dcf-buyback-custom-inputs');
@@ -1081,17 +1090,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 const em = parseFloat(document.getElementById('input-exit-multiple')?.value) || (globalData.dcf_assumptions?.recommended_exit_multiple || 10.0);
                 dcfVal = calcLocalDcf(baseFcf, g, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
             } else if (fcfSource === 'custom') {
-                const gRaw = document.getElementById('dcf-custom-growth').value;
+                const parseGrowth = (id, fallback) => {
+                    const raw = document.getElementById(id)?.value;
+                    return (raw === '' || raw === undefined || isNaN(parseFloat(raw))) ? fallback : parseFloat(raw) / 100;
+                };
+                const g13 = parseGrowth('dcf-growth-1-3', 0.15);
+                const g46 = parseGrowth('dcf-growth-4-6', 0.10);
+                const g78 = parseGrowth('dcf-growth-7-8', 0.05);
+                const g910 = parseGrowth('dcf-growth-9-10', 0.03);
+                
+                // Build per-year growth array
+                const growthArr = [];
+                for (let y = 1; y <= years; y++) {
+                    if (y <= 3) growthArr.push(g13);
+                    else if (y <= 6) growthArr.push(g46);
+                    else if (y <= 8) growthArr.push(g78);
+                    else growthArr.push(g910);
+                }
+                
                 const wRaw = document.getElementById('dcf-custom-wacc').value;
                 const pRaw = document.getElementById('dcf-custom-perp').value;
                 const emRaw = document.getElementById('input-exit-multiple').value;
                 
-                const g = (gRaw === '' || isNaN(parseFloat(gRaw))) ? 0.15 : parseFloat(gRaw) / 100;
                 const wCustom = (wRaw === '' || isNaN(parseFloat(wRaw))) ? 0.09 : parseFloat(wRaw) / 100;
                 const pCustom = (pRaw === '' || isNaN(parseFloat(pRaw))) ? 0.025 : parseFloat(pRaw) / 100;
                 const em = (emRaw === '' || isNaN(parseFloat(emRaw))) ? (globalData.dcf_assumptions?.recommended_exit_multiple || 10.0) : parseFloat(emRaw);
                 
-                dcfVal = calcLocalDcf(baseFcf, g, wCustom, pCustom, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
+                dcfVal = calcLocalDcf(baseFcf, growthArr, wCustom, pCustom, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
             }
         }
         setValuationStatus(dcfVal, globalData.current_price, 'dcf-status', 'dcf-value');
@@ -1533,7 +1558,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.triggerRecalculate = updateFairValue;
 
     const inputSelectors = [
-        'fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple', 'dcf-custom-growth', 'dcf-custom-wacc', 'dcf-custom-perp',
+        'fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple', 'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp',
         'dcf-buyback-source', 'dcf-custom-buyback', 'relative-variant',
         'lynch-multiple-source', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth',
         'peg-eps-source', 'peg-custom-growth'
@@ -2029,7 +2054,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Overrides Sync ---
     const overrideInputIds = [
         'fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple',
-        'dcf-custom-growth', 'dcf-custom-wacc', 'dcf-custom-perp',
+        'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp',
         'dcf-buyback-source', 'dcf-custom-buyback', 'relative-variant',
         'lynch-multiple-source', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth',
         'peg-eps-source', 'peg-custom-growth', 'peg-mode'
@@ -2156,6 +2181,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (id === 'lynch-eps-source') {
                     const ci = document.getElementById('lynch-custom-inputs');
                     if (ci) ci.style.display = val === 'custom' ? 'flex' : 'none';
+                }
+                if (id === 'dcf-years-source') {
+                    const row78 = document.getElementById('dcf-growth-row-7-8');
+                    const row910 = document.getElementById('dcf-growth-row-9-10');
+                    if (row78) row78.style.display = val === '10yr' ? 'flex' : 'none';
+                    if (row910) row910.style.display = val === '10yr' ? 'flex' : 'none';
                 }
                 if (id === 'peg-eps-source') {
                     const ci = document.getElementById('peg-custom-inputs');
