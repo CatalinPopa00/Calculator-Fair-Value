@@ -3429,10 +3429,10 @@ document.addEventListener('DOMContentLoaded', () => {
             else if (pct >= 0.4) { dotColor = '#fbbf24'; ptsColor = '#fbbf24'; }
 
             html += `
-                <div style="display:grid; grid-template-columns: 1fr 75px 95px; align-items:center; padding:10px 0; border-top:1px solid rgba(255,255,255,0.04); gap:10px;">
-                    <div style="font-weight:600; font-size:0.88rem; color:white; white-space:nowrap; overflow:visible;">${label}</div>
-                    <div style="font-weight:700; font-size:0.9rem; color:rgba(255,255,255,0.85); text-align:right; font-family:monospace;">${item.value || 'N/A'}</div>
-                    <div style="display:flex; align-items:center; gap:8px; justify-content:flex-end;">
+                <div style="display:grid; grid-template-columns: 1fr auto auto; align-items:center; padding:10px 0; border-top:1px solid rgba(255,255,255,0.04); gap:15px;">
+                    <div style="font-weight:600; font-size:0.88rem; color:white; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${label}</div>
+                    <div style="font-weight:700; font-size:0.9rem; color:rgba(255,255,255,0.85); text-align:right; font-family:monospace; min-width:60px;">${item.value || 'N/A'}</div>
+                    <div style="display:flex; align-items:center; gap:8px; justify-content:flex-end; min-width:65px;">
                         <span style="width:8px; height:8px; border-radius:50%; background:${dotColor}; display:inline-block; flex-shrink:0;"></span>
                         <span style="font-weight:800; font-size:0.85rem; color:${ptsColor}; white-space:nowrap; font-family: 'Outfit', sans-serif;">${pts}/${maxPts}</span>
                     </div>
@@ -3486,12 +3486,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const statusColor = passed === true ? 'var(--accent)' : (passed === false ? 'var(--danger)' : 'var(--text-muted)');
 
             html += `
-                <div style="display:grid; grid-template-columns: 1fr 120px 70px; align-items:center; padding:8px 0; border-top:1px solid rgba(255,255,255,0.04); gap:10px;">
-                    <div style="font-weight:600; font-size:0.85rem; color:white;">${label}</div>
-                    <div style="font-weight:700; font-size:0.8rem; color:rgba(255,255,255,0.7); text-align:right; font-family:monospace;">${item.value || 'N/A'}</div>
-                    <div style="display:flex; align-items:center; gap:6px; justify-content:flex-end;">
-                        <span style="width:8px; height:8px; border-radius:50%; background:${dotColor}; display:inline-block;"></span>
-                        <span style="font-weight:800; font-size:0.8rem; color:${statusColor}; font-family:'Outfit',sans-serif;">${statusText}</span>
+                <div style="display:grid; grid-template-columns: 1fr auto auto; align-items:center; padding:8px 0; border-top:1px solid rgba(255,255,255,0.04); gap:15px;">
+                    <div style="font-weight:600; font-size:0.85rem; color:white; overflow:hidden; text-overflow:ellipsis;">${label}</div>
+                    <div style="font-weight:700; font-size:0.85rem; color:rgba(255,255,255,0.7); text-align:right; font-family:monospace; min-width:80px;">${item.value || 'N/A'}</div>
+                    <div style="display:flex; align-items:center; gap:8px; justify-content:flex-end; min-width:60px;">
+                        <span style="width:8px; height:8px; border-radius:50%; background:${dotColor}; display:inline-block; flex-shrink:0;"></span>
+                        <span style="font-weight:800; font-size:0.85rem; color:${statusColor}; white-space:nowrap;">${statusText}</span>
                     </div>
                 </div>
             `;
