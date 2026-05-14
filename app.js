@@ -1931,32 +1931,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // UPDATED: Sync both MOS and PEG to the Score Breakdown dynamically
 
-        // v287: Robust Growth Hierarchy (Revenue FY -> EPS FY -> Consensus -> T12M)
+        // v288: Strictly prioritize Revenue Estimates for DCF growth
         window.getDcfGrowthDefault = (data) => {
             if (!data) return 10.0;
             
-            const getFyAvg = (list) => {
-                if (!Array.isArray(list)) return null;
-                const fyItems = list.filter(e => e && e.period && e.period.toString().includes('FY') && e.growth != null);
-                if (fyItems.length > 0) {
-                    const valid = fyItems.map(e => parseFloat(e.growth)).filter(g => !isNaN(g) && g > 0);
-                    if (valid.length > 0) return (valid.reduce((s, g) => s + g, 0) / valid.length) * 100;
-                }
-                return null;
-            };
+            const rList = data.rev_estimates || [];
+            
+            // Tier 1: FY Revenue Estimates (The gold standard)
+            const fyEstimates = rList.filter(e => 
+                e && e.status !== 'reported' && e.growth != null && 
+                e.period && e.period.toString().toUpperCase().includes('FY')
+            );
+            if (fyEstimates.length > 0) {
+                const vals = fyEstimates.map(e => parseFloat(e.growth)).filter(v => !isNaN(v));
+                if (vals.length > 0) return (vals.reduce((s, v) => s + v, 0) / vals.length) * 100;
+            }
 
-            // 1. Revenue FY Estimates (User's primary request)
-            const revAvg = getFyAvg(data.rev_estimates);
-            if (revAvg !== null) return revAvg;
+            // Tier 2: Any Revenue Estimate (Q or Other)
+            const anyEstimates = rList.filter(e => 
+                e && e.status !== 'reported' && e.growth != null
+            );
+            if (anyEstimates.length > 0) {
+                const vals = anyEstimates.map(e => parseFloat(e.growth)).filter(v => !isNaN(v));
+                if (vals.length > 0) return (vals.reduce((s, v) => s + v, 0) / vals.length) * 100;
+            }
 
-            // 2. EPS FY Estimates (Fallback if revenue estimates missing)
-            const epsAvg = getFyAvg(data.eps_estimates);
-            if (epsAvg !== null) return epsAvg;
-
-            // 3. Analyst Consensus (Top-level metric)
-            let consensus = (data.company_profile?.earnings_growth || data.company_profile?.revenue_growth || 0.10);
-            if (consensus > 1) consensus /= 100;
-            return consensus * 100;
+            // Tier 3: Historical Revenue Growth (Consensus fallback)
+            let fallback = (data.company_profile?.revenue_growth || 0.10);
+            if (fallback > 1) fallback /= 100;
+            return fallback * 100;
         };
 
         const targetGrowth = window.getDcfGrowthDefault(data);
