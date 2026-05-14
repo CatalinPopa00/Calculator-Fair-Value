@@ -2360,19 +2360,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 3. FORCE re-population of specific fields for THIS method
         if (method === 'dcf') {
-            const fcfSrc = document.getElementById('fcf-source');
-            if (fcfSrc) {
-                fcfSrc.value = 'eps_growth';
-                fcfSrc.dispatchEvent(new Event('change', { bubbles: true })); // Ensure UI container toggles
-            }
+            // Reset Dropdowns
+            ['fcf-source', 'dcf-buyback-source', 'dcf-method-selector'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.value = (id === 'fcf-source') ? 'eps_growth' : 
+                               (id === 'dcf-buyback-source') ? 'none' : 'perpetual';
+                    el.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            });
             
-            // v284: Re-detect growth using unified logic
-            const estimates = (globalData.rev_estimates || []).filter(e => e && e.status && e.status.toLowerCase().includes('estim') && e.growth != null);
+            // v285: Even more aggressive growth detection - look at ALL entries with growth
+            const validGrowths = (globalData.rev_estimates || [])
+                .filter(e => e && e.growth != null && parseFloat(e.growth) !== 0)
+                .map(e => parseFloat(e.growth));
+
             let targetGrowth = (globalData.company_profile?.revenue_growth || window._simAnchors?.growth || 0.10);
             if (targetGrowth < 1) targetGrowth *= 100;
-            if (estimates.length > 0) {
-                const sum = estimates.reduce((s, e) => s + parseFloat(e.growth), 0);
-                targetGrowth = (sum / estimates.length) * 100;
+
+            if (validGrowths.length > 0) {
+                const sum = validGrowths.reduce((s, g) => s + g, 0);
+                targetGrowth = (sum / validGrowths.length) * 100;
             }
 
             const g13 = document.getElementById('dcf-growth-1-3');
@@ -2392,11 +2400,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const perp = document.getElementById('dcf-custom-perp');
             if (perp) perp.value = '2.5';
             
-            const methodSel = document.getElementById('dcf-method-selector');
-            if (methodSel) {
-                methodSel.value = 'perpetual';
-                switchDCFMethod('perpetual');
-            }
+            switchDCFMethod('perpetual');
         } else if (method === 'relative') {
             const relVar = document.getElementById('relative-variant');
             if (relVar) relVar.value = 'peers';
