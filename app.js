@@ -1931,22 +1931,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // UPDATED: Sync both MOS and PEG to the Score Breakdown dynamically
 
-        // v276: Set default DCF growth to average revenue growth for next 2 years (robust detection)
+        // v278: Improved detection of DCF Growth Default (Revenue & EPS estimates)
         const estimates = data.rev_estimates || [];
-        const estGrowth = estimates.filter(e => e.status === 'estimate' && e.growth != null).map(e => e.growth);
+        const epsEst = data.eps_estimates || [];
         
-        let targetGrowth = (data.company_profile?.revenue_growth || 10); // Ultimate fallback
-        if (estGrowth.length >= 2) {
-            targetGrowth = ((estGrowth[0] + estGrowth[1]) / 2) * 100;
-        } else if (estGrowth.length === 1) {
-            targetGrowth = estGrowth[0] * 100;
+        // Collect all future growth estimates (decimals)
+        const futureGrowths = [
+            ...estimates.filter(e => e.status === 'estimate' && e.growth != null).map(e => e.growth),
+            ...epsEst.filter(e => e.status === 'estimate' && e.growth != null).map(e => e.growth)
+        ];
+        
+        let targetGrowth = 10; // Default if nothing found
+        if (futureGrowths.length > 0) {
+            // Average of up to first 4 available estimates (Revenue + EPS FY1/FY2)
+            const subset = futureGrowths.slice(0, 4);
+            targetGrowth = (subset.reduce((a, b) => a + b, 0) / subset.length) * 100;
+        } else {
+            // Fallback to historical revenue or EPS growth (and ENSURE it is a percentage)
+            const histGrowth = data.company_profile?.revenue_growth || data.company_profile?.earnings_growth || 0.10;
+            targetGrowth = histGrowth * 100;
         }
 
         const g13 = document.getElementById('dcf-growth-1-3');
         if (g13) {
-            g13.value = targetGrowth.toFixed(1);
-            // v276: Manually trigger cascade for the initial default
-            g13.dispatchEvent(new Event('input', { bubbles: true }));
+            // Only set if not already set by overrides
+            const hadOverrides = cachedOverrides[data.ticker] && cachedOverrides[data.ticker].inputs && cachedOverrides[data.ticker].inputs['dcf-growth-1-3'];
+            if (!hadOverrides) {
+                g13.value = targetGrowth.toFixed(1);
+                // v278: Manually trigger cascade for the initial default
+                g13.dispatchEvent(new Event('input', { bubbles: true }));
+            }
         }
 
         // Restore overrides BEFORE first updateFairValue
