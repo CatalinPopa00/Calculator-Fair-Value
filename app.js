@@ -1931,23 +1931,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // UPDATED: Sync both MOS and PEG to the Score Breakdown dynamically
 
-        // v281: Set default DCF growth to average of ALL available revenue estimates (skip null growth)
-        const estimates = (data.rev_estimates || []).filter(e => e.status === 'estimate' && e.growth != null);
-        
-        let targetGrowth = (data.company_profile?.revenue_growth || 0.10) * 100; // Historical fallback
-        if (estimates.length > 0) {
-            // v281: Strictly average only the years that HAVE growth values (ignore null baseline)
-            const sum = estimates.reduce((s, e) => s + e.growth, 0);
-            targetGrowth = (sum / estimates.length) * 100;
-        }
+        // v284: Unified DCF Growth Default Logic
+        const getDcfGrowthDefault = (data) => {
+            const estimates = (data.rev_estimates || []).filter(e => e && e.status && e.status.toLowerCase().includes('estim') && e.growth != null);
+            if (estimates.length > 0) {
+                // Average only the years that have growth values
+                const sum = estimates.reduce((s, e) => s + parseFloat(e.growth), 0);
+                return (sum / estimates.length) * 100;
+            }
+            // Fallback to historical revenue growth or simulation anchor
+            let fallback = (data.company_profile?.revenue_growth || window._simAnchors?.growth || 0.10);
+            if (fallback > 1) fallback /= 100; // Safety if already a percentage
+            return fallback * 100;
+        };
 
+        const targetGrowth = getDcfGrowthDefault(data);
         const g13 = document.getElementById('dcf-growth-1-3');
         if (g13) {
             // Only set if not already set by overrides
             const hadOverrides = cachedOverrides[data.ticker] && cachedOverrides[data.ticker].inputs && cachedOverrides[data.ticker].inputs['dcf-growth-1-3'];
             if (!hadOverrides) {
                 g13.value = targetGrowth.toFixed(1);
-                // v280: Manually trigger cascade for the initial default
+                // v284: Manually trigger cascade for the initial default
                 g13.dispatchEvent(new Event('input', { bubbles: true }));
             }
         }
@@ -2356,14 +2361,18 @@ document.addEventListener('DOMContentLoaded', () => {
         // 3. FORCE re-population of specific fields for THIS method
         if (method === 'dcf') {
             const fcfSrc = document.getElementById('fcf-source');
-            if (fcfSrc) fcfSrc.value = 'eps_growth';
+            if (fcfSrc) {
+                fcfSrc.value = 'eps_growth';
+                fcfSrc.dispatchEvent(new Event('change', { bubbles: true })); // Ensure UI container toggles
+            }
             
-            const estimates = (globalData.rev_estimates || []).filter(e => e.status === 'estimate' && e.growth != null);
-            let targetGrowth = (globalData.company_profile?.revenue_growth || window._simAnchors?.growth || 10);
+            // v284: Re-detect growth using unified logic
+            const estimates = (globalData.rev_estimates || []).filter(e => e && e.status && e.status.toLowerCase().includes('estim') && e.growth != null);
+            let targetGrowth = (globalData.company_profile?.revenue_growth || window._simAnchors?.growth || 0.10);
             if (targetGrowth < 1) targetGrowth *= 100;
-
             if (estimates.length > 0) {
-                targetGrowth = (estimates.reduce((s, e) => s + e.growth, 0) / estimates.length) * 100;
+                const sum = estimates.reduce((s, e) => s + parseFloat(e.growth), 0);
+                targetGrowth = (sum / estimates.length) * 100;
             }
 
             const g13 = document.getElementById('dcf-growth-1-3');
@@ -2382,6 +2391,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (wacc) wacc.value = '9';
             const perp = document.getElementById('dcf-custom-perp');
             if (perp) perp.value = '2.5';
+            
+            const methodSel = document.getElementById('dcf-method-selector');
+            if (methodSel) {
+                methodSel.value = 'perpetual';
+                switchDCFMethod('perpetual');
+            }
         } else if (method === 'relative') {
             const relVar = document.getElementById('relative-variant');
             if (relVar) relVar.value = 'peers';
