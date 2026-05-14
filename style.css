@@ -1825,8 +1825,8 @@ body {
 
 .valuation-input-group {
     display: grid;
-    grid-template-columns: 1fr 135px;
-    /* Wider to accommodate select text perfectly */
+    grid-template-columns: 1fr 110px;
+    /* v273: Balanced to give labels more room while keeping inputs consistent */
     align-items: center;
     gap: 0.5rem;
     margin-bottom: 10px;

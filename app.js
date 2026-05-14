@@ -1028,12 +1028,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const dcfInputs = document.getElementById('dcf-custom-inputs');
                 if (dcfInputs) dcfInputs.style.display = fcfSource === 'custom' ? 'flex' : 'none';
 
-                // v270: Show/hide extended growth rows based on 5yr vs 10yr projection
-                const show10yr = years === 10;
-                const row78 = document.getElementById('dcf-growth-row-7-8');
-                const row910 = document.getElementById('dcf-growth-row-9-10');
-                if (row78) row78.style.display = show10yr ? 'flex' : 'none';
-                if (row910) row910.style.display = show10yr ? 'flex' : 'none';
+                // v273: Growth rows 7-8 and 9-10 are now always visible if FCF Basis is Custom
 
                 const buybackEl = document.getElementById('dcf-buyback-source');
                 const buybackSrc = buybackEl ? buybackEl.value : 'none';
@@ -2235,10 +2230,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (ci) ci.style.display = val === 'custom' ? 'flex' : 'none';
                 }
                 if (id === 'dcf-years-source') {
-                    const row78 = document.getElementById('dcf-growth-row-7-8');
-                    const row910 = document.getElementById('dcf-growth-row-9-10');
-                    if (row78) row78.style.display = val === '10yr' ? 'flex' : 'none';
-                    if (row910) row910.style.display = val === '10yr' ? 'flex' : 'none';
+                    // Logic removed in v273: rows are always visible if Custom
                 }
                 if (id === 'peg-eps-source') {
                     const ci = document.getElementById('peg-custom-inputs');
