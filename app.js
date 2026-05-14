@@ -1931,18 +1931,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // UPDATED: Sync both MOS and PEG to the Score Breakdown dynamically
 
-        // v279: Strictly use Revenue Growth estimates for DCF default
-        const revEstimates = (data.rev_estimates || []).filter(e => e.status === 'estimate' && e.growth != null);
+        // v280: Set default DCF growth to average of ALL available revenue estimates (more lenient)
+        const estimates = (data.rev_estimates || []).filter(e => e.status === 'estimate' && e.growth != null);
         
-        let targetGrowth = 10; // Default if nothing found
-        if (revEstimates.length >= 2) {
-            // Average of FY1 and FY2 revenue growth
-            targetGrowth = ((revEstimates[0].growth + revEstimates[1].growth) / 2) * 100;
-        } else if (revEstimates.length === 1) {
-            targetGrowth = revEstimates[0].growth * 100;
-        } else {
-            // Fallback only to historical revenue growth
-            targetGrowth = (data.company_profile?.revenue_growth || 0.10) * 100;
+        let targetGrowth = (data.company_profile?.revenue_growth || 0.10) * 100; // Historical fallback
+        if (estimates.length > 0) {
+            // Average all available revenue estimates (FY1, FY2, etc.)
+            targetGrowth = (estimates.reduce((s, e) => s + e.growth, 0) / estimates.length) * 100;
         }
 
         const g13 = document.getElementById('dcf-growth-1-3');
@@ -1951,7 +1946,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const hadOverrides = cachedOverrides[data.ticker] && cachedOverrides[data.ticker].inputs && cachedOverrides[data.ticker].inputs['dcf-growth-1-3'];
             if (!hadOverrides) {
                 g13.value = targetGrowth.toFixed(1);
-                // v279: Manually trigger cascade for the initial default
+                // v280: Manually trigger cascade for the initial default
                 g13.dispatchEvent(new Event('input', { bubbles: true }));
             }
         }
@@ -2333,6 +2328,82 @@ document.addEventListener('DOMContentLoaded', () => {
         updateFairValue();
     };
     window.switchDCFMethod = switchDCFMethod;
+
+    const resetMethodDefaults = (method) => {
+        if (!globalData || !currentTicker) return;
+        
+        // 1. Clear overrides for this specific method
+        const ov = cachedOverrides[currentTicker];
+        if (ov && ov.inputs) {
+            const idsToReset = {
+                dcf: ['fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple', 'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp', 'dcf-buyback-source', 'dcf-custom-buyback'],
+                relative: ['relative-variant', 'rel-weight-mode-card'],
+                peter_lynch: ['lynch-multiple-source', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth'],
+                peg: ['peg-eps-source', 'peg-custom-growth', 'peg-mode']
+            };
+            
+            (idsToReset[method] || []).forEach(id => {
+                delete ov.inputs[id];
+            });
+            
+            saveOverridesToServer(currentTicker);
+        }
+        
+        // 2. Force re-population of specific fields
+        if (method === 'dcf') {
+            const fcfSrc = document.getElementById('fcf-source');
+            if (fcfSrc) fcfSrc.value = 'eps_growth';
+            
+            const estimates = (globalData.rev_estimates || []).filter(e => e.status === 'estimate' && e.growth != null);
+            let targetGrowth = (globalData.company_profile?.revenue_growth || 0.10) * 100;
+            if (estimates.length > 0) {
+                targetGrowth = (estimates.reduce((s, e) => s + e.growth, 0) / estimates.length) * 100;
+            }
+            const g13 = document.getElementById('dcf-growth-1-3');
+            if (g13) {
+                g13.value = targetGrowth.toFixed(1);
+                // Reset 'isDefault' markers to allow fresh cascade
+                const g46 = document.getElementById('dcf-growth-4-6');
+                const g78 = document.getElementById('dcf-growth-7-8');
+                const g910 = document.getElementById('dcf-growth-9-10');
+                if (g46) g46.dataset.isDefault = 'true';
+                if (g78) g78.dataset.isDefault = 'true';
+                if (g910) g910.dataset.isDefault = 'true';
+                g13.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            const wacc = document.getElementById('dcf-custom-wacc');
+            if (wacc) wacc.value = '9';
+            const perp = document.getElementById('dcf-custom-perp');
+            if (perp) perp.value = '2.5';
+        } else if (method === 'relative') {
+            const relVar = document.getElementById('relative-variant');
+            if (relVar) relVar.value = 'peers';
+            const relWeight = document.getElementById('rel-weight-mode-card');
+            if (relWeight) relWeight.value = 'default';
+        } else if (method === 'peter_lynch') {
+            const lMult = document.getElementById('lynch-multiple-source');
+            if (lMult) lMult.value = 'pe20';
+            const lEps = document.getElementById('lynch-eps-source');
+            if (lEps) lEps.value = 'analyst';
+        } else if (method === 'peg') {
+            const pEps = document.getElementById('peg-eps-source');
+            if (pEps) pEps.value = 'analyst';
+            const pMode = document.getElementById('peg-mode');
+            if (pMode) pMode.value = 'standard';
+        }
+        
+        applyOverrides(currentTicker);
+        updateFairValue();
+    };
+
+    document.querySelectorAll('.reset-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const method = e.target.getAttribute('data-method');
+            if (confirm(`Reset ${method.toUpperCase()} to defaults?`)) {
+                resetMethodDefaults(method);
+            }
+        });
+    });
 
     const dcfMethodSelector = document.getElementById('dcf-method-selector');
     if (dcfMethodSelector) {
