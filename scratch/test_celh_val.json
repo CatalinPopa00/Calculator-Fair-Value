@@ -1,0 +1,1064 @@
+{
+  "ticker": "CELH",
+  "name": "Celsius Holdings, Inc.",
+  "current_price": 27.860000610351562,
+  "fair_value": 40.5304,
+  "margin_of_safety": 45.4788,
+  "dcf_value": 37.3569,
+  "relative_value": 9.8997,
+  "lynch_fwd_pe": 11.0598,
+  "lynch_fair_value": 262.2299,
+  "lynch_status": "Undervalued",
+  "peg_value": 64.4844,
+  "recommended_exit_multiple": 12.0,
+  "company_profile": {
+    "industry": "Beverages - Non-Alcoholic",
+    "sector": "Consumer Defensive",
+    "market_cap": 7122140585.6305,
+    "current_pe": 65.9464,
+    "trailing_pe": 65.9464,
+    "trailing_eps": 0.4225,
+    "adjusted_eps": 1.34,
+    "fwd_eps": null,
+    "fwd_pe": 13.6531,
+    "peg_ratio": 0.8878,
+    "historic_eps_growth": 0.0467,
+    "historic_fcf_growth": 0.4792,
+    "debt_to_equity": 0.567,
+    "operating_margin": 0.1982,
+    "net_margin": 4.2937,
+    "revenue_growth": 0.8554,
+    "earnings_growth": 0.2342,
+    "business_summary": "Celsius Holdings, Inc. develops, processes, manufactures, markets, sells, and distributes functional energy drinks in the United States, North America, Europe, the Asia Pacific, and internationally. T...",
+    "sector_median_pe": 23.4333,
+    "sector_median_peg": 2.48,
+    "next_earnings_date": "2026-05-07",
+    "historic_pe": 104.0995,
+    "insider_ownership": 0.2857,
+    "shares_outstanding": 255640360,
+    "buyback_rate": -0.0395,
+    "dividend_yield": 0.0,
+    "payout_ratio": 0.0,
+    "dividend_streak": 0,
+    "dividend_cagr_5y": null,
+    "revenue": 2515269000.0,
+    "ps_ratio": 2.8316,
+    "fwd_ps": 2.3992,
+    "fcf": 323375000.0,
+    "pfcf_ratio": null,
+    "ebitda": 679286016,
+    "total_cash": 549201024.0,
+    "total_debt": 668881000.0,
+    "price_to_book": 5.7149,
+    "dividend_rate": 0.0,
+    "competitors": [
+      "KO",
+      "PEP",
+      "MNST",
+      "CCEP",
+      "KDP"
+    ],
+    "competitor_metrics": [
+      {
+        "ticker": "KO",
+        "name": "Coca-Cola Company (The)",
+        "price": 80.26,
+        "pe_ratio": 25.239,
+        "peg_ratio": 4.1,
+        "market_cap": 345317244928,
+        "eps": 3.18,
+        "operating_margin": 0.3505,
+        "revenue_growth": 0.121,
+        "earnings_growth": 0.182,
+        "ps_ratio": 7.0067,
+        "revenue": 49284001792,
+        "fcf": 3126125056,
+        "pfcf_ratio": 110.4618,
+        "fcf_growth": null
+      },
+      {
+        "ticker": "PEP",
+        "name": "Pepsico, Inc.",
+        "price": 149.27,
+        "pe_ratio": 23.4333,
+        "peg_ratio": 1.63,
+        "market_cap": 204043272192,
+        "eps": 6.37,
+        "operating_margin": 0.1696,
+        "revenue_growth": 0.085,
+        "earnings_growth": 0.278,
+        "ps_ratio": 2.1377,
+        "revenue": 95448997888,
+        "fcf": 8746250240,
+        "pfcf_ratio": 23.3292,
+        "fcf_growth": null
+      },
+      {
+        "ticker": "MNST",
+        "name": "Monster Beverage Corporation",
+        "price": 85.93,
+        "pe_ratio": 41.5121,
+        "peg_ratio": 2.48,
+        "market_cap": 84040237056,
+        "eps": 2.07,
+        "operating_margin": 0.3102,
+        "revenue_growth": 0.269,
+        "earnings_growth": 0.289,
+        "ps_ratio": 9.5575,
+        "revenue": 8793075712,
+        "fcf": 1684340480,
+        "pfcf_ratio": 49.895,
+        "fcf_growth": null
+      },
+      {
+        "ticker": "CCEP",
+        "name": "Coca-Cola Europacific Partners ",
+        "price": 91.42,
+        "pe_ratio": 18.2112,
+        "peg_ratio": 2.65,
+        "market_cap": 40478679040,
+        "eps": 5.02,
+        "operating_margin": 0.1372,
+        "revenue_growth": 0.002,
+        "earnings_growth": 0.683,
+        "ps_ratio": 1.9367,
+        "revenue": 20900999168,
+        "fcf": 1747874944,
+        "pfcf_ratio": 23.1588,
+        "fcf_growth": null
+      },
+      {
+        "ticker": "KDP",
+        "name": "Keurig Dr Pepper Inc.",
+        "price": 29.31,
+        "pe_ratio": 21.7111,
+        "peg_ratio": 0.98,
+        "market_cap": 39877996544,
+        "eps": 1.35,
+        "operating_margin": 0.1901,
+        "revenue_growth": 0.094,
+        "earnings_growth": -0.477,
+        "ps_ratio": 2.3535,
+        "revenue": 16944000000,
+        "fcf": -16345499648,
+        "pfcf_ratio": -2.4397,
+        "fcf_growth": null
+      }
+    ]
+  },
+  "historical_trends": [
+    {
+      "year": "2022",
+      "revenue": 653604000.0,
+      "eps": 0.09,
+      "fcf": 99918000.0,
+      "net_margin": 0.03125016064773165,
+      "gaap_net_margin": -0.286537414091713
+    },
+    {
+      "year": "2023",
+      "revenue": 1318014000.0,
+      "eps": 0.5,
+      "fcf": 123785000.0,
+      "net_margin": 0.08989434103127888,
+      "gaap_net_margin": 0.1720778383234169
+    },
+    {
+      "year": "2024",
+      "revenue": 1355630000.0,
+      "eps": 0.55,
+      "fcf": 239508000.0,
+      "net_margin": 0.09688213830469966,
+      "gaap_net_margin": 0.10701592617454615
+    },
+    {
+      "year": "2025",
+      "revenue": 2515269000.0,
+      "eps": 1.34,
+      "fcf": 323375000.0,
+      "net_margin": 0.1360356765021952,
+      "gaap_net_margin": 0.04293735580568122
+    },
+    {
+      "year": "2026 (Est)",
+      "revenue": 3348222550.0,
+      "revenue_growth": 0.3311588343036074,
+      "eps_growth": 0.21472388059701486,
+      "eps": 1.62773,
+      "net_margin": 0.12413679014257878,
+      "fcf": 462081083.1412122
+    },
+    {
+      "year": "2027 (Est)",
+      "revenue": 3676925570.0,
+      "revenue_growth": 0.0,
+      "eps_growth": 0.0,
+      "eps": 2.04056,
+      "net_margin": 0.1417088556622592,
+      "fcf": 507444688.8290681
+    }
+  ],
+  "historical_anchors": [
+    {
+      "year": "2025",
+      "revenue_b": 2.52,
+      "eps": 0.25,
+      "fcf_b": 0.32,
+      "net_margin_pct": "13.6%",
+      "gaap_net_margin": 0.04293735580568123,
+      "cash_b": 0.4,
+      "total_debt_b": 0.67,
+      "shares_out_b": 0.26,
+      "roic_pct": "8.5%",
+      "current_ratio": 1.68
+    },
+    {
+      "year": "2024",
+      "revenue_b": 1.36,
+      "eps": 0.45,
+      "fcf_b": 0.24,
+      "net_margin_pct": "9.7%",
+      "gaap_net_margin": 0.10701592617454615,
+      "cash_b": 0.89,
+      "total_debt_b": 0.0,
+      "shares_out_b": 0.24,
+      "roic_pct": "9.4%",
+      "current_ratio": 3.62
+    },
+    {
+      "year": "2023",
+      "revenue_b": 1.32,
+      "eps": 0.77,
+      "fcf_b": 0.12,
+      "net_margin_pct": "9.0%",
+      "gaap_net_margin": 0.1720778383234169,
+      "cash_b": 0.76,
+      "total_debt_b": 0.0,
+      "shares_out_b": 0.24,
+      "roic_pct": "9.4%",
+      "current_ratio": 4.36
+    },
+    {
+      "year": "2022",
+      "revenue_b": 0.65,
+      "eps": -0.88,
+      "fcf_b": 0.1,
+      "net_margin_pct": "3.1%",
+      "gaap_net_margin": -0.286537414091713,
+      "cash_b": 0.61,
+      "total_debt_b": 0.0,
+      "shares_out_b": 0.23,
+      "roic_pct": "1.9%",
+      "current_ratio": 5.69
+    }
+  ],
+  "company_overview_synthesis": "**EXECUTIVE SUMMARY**\nCelsius Holdings, Inc. is a leading enterprise operating within the Consumer Defensive sector, with a primary focus on Beverages - Non-Alcoholic.\n\nCelsius Holdings, Inc. develops, processes, manufactures, markets, sells, and distributes functional energy drinks in the United States, North America, Europe, the Asia Pacific, and internationally. The company offers CELSIUS ESSENTIALS, a functional energy drink formulated with aminos; and CELSIUS Hydration, a line of zero-sugar hydration powders featuring electrolytes in various fruit-forward flavors, as well as ready-to-drink energy beverages, on-the-go powder and hydration sticks, and nutrition and wellness products under CELSIUS, Alani Nu, and Rockstar brand names.\n\n**STRATEGIC STRENGTHS**\n\u2022 Robust revenue expansion (YoY: 137.7%) indicating strong market demand.\n\u2022 Conservative capital structure with low leverage, providing significant financial flexibility.\n\n**VULNERABILITIES & RISKS**\n\u2022 Premium valuation (P/E: 64.8x), necessitating aggressive growth to justify current levels.\n\n**LATEST MARKET INTELLIGENCE**\n\u2022 Is Trending Stock Celsius Holdings Inc. (CELH) a Buy Now? (Source: Zacks)\n\u2022 Why Celsius (CELH) Shares Are Sliding Today (Source: StockStory)\n\u2022 Why Celsius Holdings (CELH) Is Down 11.7% After Record Q1 2026 Results and Market Share Gains \u2013 And What's Next (Source: Simply Wall St.)\n\u2022 Celsius Says Energy Drink Demand Still Strong as Shelf Reset Weighs on Growth (Source: MarketBeat)",
+  "health_score_total": 75,
+  "health_breakdown": [
+    {
+      "metric": "Debt-to-Equity",
+      "value": "0.57x",
+      "points_awarded": 20,
+      "max_points": 20
+    },
+    {
+      "metric": "Interest Coverage",
+      "value": "3.55x",
+      "points_awarded": 7,
+      "max_points": 15
+    },
+    {
+      "metric": "Current Ratio",
+      "value": "1.68x",
+      "points_awarded": 15,
+      "max_points": 15
+    },
+    {
+      "metric": "EBIT Margin",
+      "value": "19.8%",
+      "points_awarded": 7,
+      "max_points": 15
+    },
+    {
+      "metric": "ROIC",
+      "value": "8.5%",
+      "points_awarded": 10,
+      "max_points": 20
+    },
+    {
+      "metric": "FCF Trend",
+      "value": "Growing",
+      "points_awarded": 15,
+      "max_points": 15
+    }
+  ],
+  "good_to_buy_total": 75,
+  "buy_breakdown": [
+    {
+      "metric": "Margin of Safety",
+      "value": "45.5%",
+      "points_awarded": 30,
+      "max_points": 30
+    },
+    {
+      "metric": "Revenue Growth (Next 3Y)",
+      "value": "85.5%",
+      "points_awarded": 20,
+      "max_points": 20
+    },
+    {
+      "metric": "P/E Ratio (Trailing)",
+      "value": "65.95x",
+      "points_awarded": 10,
+      "max_points": 20
+    },
+    {
+      "metric": "EV / EBITDA",
+      "value": "10.66x",
+      "points_awarded": 10,
+      "max_points": 10
+    },
+    {
+      "metric": "P/S Ratio",
+      "value": "2.83x",
+      "points_awarded": 5,
+      "max_points": 10
+    },
+    {
+      "metric": "PEG Ratio",
+      "value": "2.82x",
+      "points_awarded": 0,
+      "max_points": 10
+    }
+  ],
+  "piotroski_score": 4,
+  "piotroski_breakdown": [
+    {
+      "group": "Profitability",
+      "criterion": "ROA / Net Profit (F1)",
+      "description": "Company has positive Net Income or ROA",
+      "value": "2.11%",
+      "passed": true,
+      "points_awarded": 1,
+      "max_points": 1
+    },
+    {
+      "group": "Profitability",
+      "criterion": "Cash Flow Positive (F2)",
+      "description": "Operating Cash Flow (CFO) is positive",
+      "value": "$0.36B",
+      "passed": true,
+      "points_awarded": 1,
+      "max_points": 1
+    },
+    {
+      "group": "Profitability",
+      "criterion": "Delta ROA (F3)",
+      "description": "ROA is higher than in the previous year",
+      "value": "2.1% vs 9.7%",
+      "passed": false,
+      "points_awarded": 0,
+      "max_points": 1
+    },
+    {
+      "group": "Profitability",
+      "criterion": "Accruals (Earnings Quality) (F4)",
+      "description": "Cash Flow (CFO) is greater than Net Profit",
+      "value": "CFO > Net Inc",
+      "passed": true,
+      "points_awarded": 1,
+      "max_points": 1
+    },
+    {
+      "group": "Leverage & Liquidity",
+      "criterion": "Delta Leverage (F5)",
+      "description": "Total Debt decreased or stayed the same (1% margin)",
+      "value": "$0.67B vs $0.00B",
+      "passed": false,
+      "points_awarded": 0,
+      "max_points": 1
+    },
+    {
+      "group": "Leverage & Liquidity",
+      "criterion": "Delta Liquidity (F6)",
+      "description": "Current Ratio is higher than in the previous year",
+      "value": "1.68 vs 3.62",
+      "passed": false,
+      "points_awarded": 0,
+      "max_points": 1
+    },
+    {
+      "group": "Leverage & Liquidity",
+      "criterion": "No Dilution (F7)",
+      "description": "Shares Outstanding stayed the same or decreased",
+      "value": "0.26B vs 0.24B",
+      "passed": false,
+      "points_awarded": 0,
+      "max_points": 1
+    },
+    {
+      "group": "Operating Efficiency",
+      "criterion": "Delta Margin (F8)",
+      "description": "Net or Gross Margin is higher than in the previous year",
+      "value": "13.6% vs 9.7%",
+      "passed": true,
+      "points_awarded": 1,
+      "max_points": 1
+    },
+    {
+      "group": "Operating Efficiency",
+      "criterion": "Capital Efficiency (ROIC) (F9)",
+      "description": "ROIC is strictly higher than in the previous year",
+      "value": "8.5% vs 9.4%",
+      "passed": false,
+      "points_awarded": 0,
+      "max_points": 1
+    }
+  ],
+  "piotroski": {
+    "score": 4,
+    "breakdown": [
+      {
+        "group": "Profitability",
+        "criterion": "ROA / Net Profit (F1)",
+        "description": "Company has positive Net Income or ROA",
+        "value": "2.11%",
+        "passed": true,
+        "points_awarded": 1,
+        "max_points": 1
+      },
+      {
+        "group": "Profitability",
+        "criterion": "Cash Flow Positive (F2)",
+        "description": "Operating Cash Flow (CFO) is positive",
+        "value": "$0.36B",
+        "passed": true,
+        "points_awarded": 1,
+        "max_points": 1
+      },
+      {
+        "group": "Profitability",
+        "criterion": "Delta ROA (F3)",
+        "description": "ROA is higher than in the previous year",
+        "value": "2.1% vs 9.7%",
+        "passed": false,
+        "points_awarded": 0,
+        "max_points": 1
+      },
+      {
+        "group": "Profitability",
+        "criterion": "Accruals (Earnings Quality) (F4)",
+        "description": "Cash Flow (CFO) is greater than Net Profit",
+        "value": "CFO > Net Inc",
+        "passed": true,
+        "points_awarded": 1,
+        "max_points": 1
+      },
+      {
+        "group": "Leverage & Liquidity",
+        "criterion": "Delta Leverage (F5)",
+        "description": "Total Debt decreased or stayed the same (1% margin)",
+        "value": "$0.67B vs $0.00B",
+        "passed": false,
+        "points_awarded": 0,
+        "max_points": 1
+      },
+      {
+        "group": "Leverage & Liquidity",
+        "criterion": "Delta Liquidity (F6)",
+        "description": "Current Ratio is higher than in the previous year",
+        "value": "1.68 vs 3.62",
+        "passed": false,
+        "points_awarded": 0,
+        "max_points": 1
+      },
+      {
+        "group": "Leverage & Liquidity",
+        "criterion": "No Dilution (F7)",
+        "description": "Shares Outstanding stayed the same or decreased",
+        "value": "0.26B vs 0.24B",
+        "passed": false,
+        "points_awarded": 0,
+        "max_points": 1
+      },
+      {
+        "group": "Operating Efficiency",
+        "criterion": "Delta Margin (F8)",
+        "description": "Net or Gross Margin is higher than in the previous year",
+        "value": "13.6% vs 9.7%",
+        "passed": true,
+        "points_awarded": 1,
+        "max_points": 1
+      },
+      {
+        "group": "Operating Efficiency",
+        "criterion": "Capital Efficiency (ROIC) (F9)",
+        "description": "ROIC is strictly higher than in the previous year",
+        "value": "8.5% vs 9.4%",
+        "passed": false,
+        "points_awarded": 0,
+        "max_points": 1
+      }
+    ]
+  },
+  "formula_data": {
+    "peter_lynch": {
+      "current_price": 27.86,
+      "trailing_eps": 0.4225,
+      "fwd_eps": 2.519,
+      "eps_growth_estimated": 0.2342,
+      "eps_growth_period": "Avg FY0+FY1 Growth (Yahoo Consensus) (v223 Forensic)",
+      "historic_pe": 104.0995,
+      "fwd_pe": 11.0598,
+      "fair_value": 262.2299,
+      "fair_value_pe_20": 50.3806,
+      "fair_value_sector_pe": 59.0292,
+      "sector_pe": 23.4333,
+      "status": "Undervalued",
+      "margin_of_safety": 89.3757
+    },
+    "peg": {
+      "current_pe": 65.9464,
+      "eps_growth_estimated": 0.2342,
+      "eps_growth_period": "Avg FY0+FY1 Growth (Yahoo Consensus) (v223 Forensic)",
+      "current_peg": 0.8878,
+      "industry_peg": 2.055,
+      "fair_value": 64.4844,
+      "margin_of_safety": 56.7957
+    },
+    "dcf": {
+      "fcf": 323375000.0,
+      "eps_growth_applied": 0.2342,
+      "eps_growth_period": "Avg FY0+FY1 Growth (Yahoo Consensus) (v223 Forensic)",
+      "discount_rate": 0.0998,
+      "perpetual_growth": 0.02,
+      "shares_outstanding": 255640360,
+      "historic_buyback_rate": -0.0395,
+      "intrinsic_value": 37.3569,
+      "margin_of_safety": 34.0878,
+      "current_price": 27.86,
+      "fcf_projections": [
+        399100859.5213,
+        492559709.5344,
+        607904146.705,
+        750259195.8456,
+        925950026.8288
+      ],
+      "pv_fcf_years": [
+        362881642.7577,
+        407214802.1663,
+        456964132.5562,
+        512791326.1796,
+        575438914.0656
+      ],
+      "present_value_fcf_sum": 2315290817.7253,
+      "perpetual_growth_rate": 0.02,
+      "exit_multiple": 12.0,
+      "total_cash": 549201024.0,
+      "total_debt": 668881000.0,
+      "dcf_perpetual": {
+        "terminal_value": 11833968517.2959,
+        "present_value_terminal": 7354312646.8722,
+        "fair_value_per_share": 37.3569,
+        "margin_of_safety_pct": 34.0878,
+        "fcf_projections": [
+          399100859.5213,
+          492559709.5344,
+          607904146.705,
+          750259195.8456,
+          925950026.8288
+        ],
+        "pv_fcf_years": [
+          362881642.7577,
+          407214802.1663,
+          456964132.5562,
+          512791326.1796,
+          575438914.0656
+        ],
+        "present_value_fcf_sum": 2315290817.7253,
+        "discount_rate": 0.0998,
+        "perpetual_growth_rate": 0.02,
+        "exit_multiple": 12.0,
+        "total_cash": 549201024.0,
+        "total_debt": 668881000.0,
+        "shares_outstanding": 255640360
+      },
+      "dcf_exit_multiple": {
+        "terminal_value": 11111400321.9457,
+        "present_value_terminal": 6905266968.7867,
+        "fair_value_per_share": 35.6003,
+        "margin_of_safety_pct": 27.7829,
+        "fcf_projections": [
+          399100859.5213,
+          492559709.5344,
+          607904146.705,
+          750259195.8456,
+          925950026.8288
+        ],
+        "pv_fcf_years": [
+          362881642.7577,
+          407214802.1663,
+          456964132.5562,
+          512791326.1796,
+          575438914.0656
+        ],
+        "present_value_fcf_sum": 2315290817.7253,
+        "discount_rate": 0.0998,
+        "perpetual_growth_rate": 0.02,
+        "exit_multiple": 12.0,
+        "total_cash": 549201024.0,
+        "total_debt": 668881000.0,
+        "shares_outstanding": 255640360
+      },
+      "sensitivity_matrix": [
+        {
+          "discount_rate": 0.0898,
+          "values": [
+            {
+              "perpetual_growth": 0.015,
+              "fair_value": 40.8282
+            },
+            {
+              "perpetual_growth": 0.02,
+              "fair_value": 43.2866
+            },
+            {
+              "perpetual_growth": 0.025,
+              "fair_value": 46.1243
+            }
+          ]
+        },
+        {
+          "discount_rate": 0.0998,
+          "values": [
+            {
+              "perpetual_growth": 0.015,
+              "fair_value": 35.5281
+            },
+            {
+              "perpetual_growth": 0.02,
+              "fair_value": 37.3569
+            },
+            {
+              "perpetual_growth": 0.025,
+              "fair_value": 39.4301
+            }
+          ]
+        },
+        {
+          "discount_rate": 0.1098,
+          "values": [
+            {
+              "perpetual_growth": 0.015,
+              "fair_value": 33.2476
+            },
+            {
+              "perpetual_growth": 0.02,
+              "fair_value": 34.8354
+            },
+            {
+              "perpetual_growth": 0.025,
+              "fair_value": 36.6218
+            }
+          ]
+        }
+      ],
+      "reverse_dcf_growth": 0.1582,
+      "5yr": {
+        "fcf_projections": [
+          399100859.5213,
+          492559709.5344,
+          607904146.705,
+          750259195.8456,
+          925950026.8288
+        ],
+        "pv_fcf_years": [
+          362881642.7577,
+          407214802.1663,
+          456964132.5562,
+          512791326.1796,
+          575438914.0656
+        ],
+        "present_value_fcf_sum": 2315290817.7253,
+        "discount_rate": 0.0998,
+        "perpetual_growth_rate": 0.02,
+        "exit_multiple": 12.0,
+        "total_cash": 549201024.0,
+        "total_debt": 668881000.0,
+        "shares_outstanding": 255640360,
+        "dcf_perpetual": {
+          "terminal_value": 11833968517.2959,
+          "present_value_terminal": 7354312646.8722,
+          "fair_value_per_share": 37.3569,
+          "margin_of_safety_pct": 34.0878,
+          "fcf_projections": [
+            399100859.5213,
+            492559709.5344,
+            607904146.705,
+            750259195.8456,
+            925950026.8288
+          ],
+          "pv_fcf_years": [
+            362881642.7577,
+            407214802.1663,
+            456964132.5562,
+            512791326.1796,
+            575438914.0656
+          ],
+          "present_value_fcf_sum": 2315290817.7253,
+          "discount_rate": 0.0998,
+          "perpetual_growth_rate": 0.02,
+          "exit_multiple": 12.0,
+          "total_cash": 549201024.0,
+          "total_debt": 668881000.0,
+          "shares_outstanding": 255640360
+        },
+        "dcf_exit_multiple": {
+          "terminal_value": 11111400321.9457,
+          "present_value_terminal": 6905266968.7867,
+          "fair_value_per_share": 35.6003,
+          "margin_of_safety_pct": 27.7829,
+          "fcf_projections": [
+            399100859.5213,
+            492559709.5344,
+            607904146.705,
+            750259195.8456,
+            925950026.8288
+          ],
+          "pv_fcf_years": [
+            362881642.7577,
+            407214802.1663,
+            456964132.5562,
+            512791326.1796,
+            575438914.0656
+          ],
+          "present_value_fcf_sum": 2315290817.7253,
+          "discount_rate": 0.0998,
+          "perpetual_growth_rate": 0.02,
+          "exit_multiple": 12.0,
+          "total_cash": 549201024.0,
+          "total_debt": 668881000.0,
+          "shares_outstanding": 255640360
+        },
+        "sensitivity_matrix": [
+          {
+            "discount_rate": 0.0898,
+            "values": [
+              {
+                "perpetual_growth": 0.015,
+                "fair_value": 40.8282
+              },
+              {
+                "perpetual_growth": 0.02,
+                "fair_value": 43.2866
+              },
+              {
+                "perpetual_growth": 0.025,
+                "fair_value": 46.1243
+              }
+            ]
+          },
+          {
+            "discount_rate": 0.0998,
+            "values": [
+              {
+                "perpetual_growth": 0.015,
+                "fair_value": 35.5281
+              },
+              {
+                "perpetual_growth": 0.02,
+                "fair_value": 37.3569
+              },
+              {
+                "perpetual_growth": 0.025,
+                "fair_value": 39.4301
+              }
+            ]
+          },
+          {
+            "discount_rate": 0.1098,
+            "values": [
+              {
+                "perpetual_growth": 0.015,
+                "fair_value": 33.2476
+              },
+              {
+                "perpetual_growth": 0.02,
+                "fair_value": 34.8354
+              },
+              {
+                "perpetual_growth": 0.025,
+                "fair_value": 36.6218
+              }
+            ]
+          }
+        ],
+        "reverse_dcf_growth": 0.1582
+      },
+      "10yr": {
+        "fcf_projections": [
+          399100859.5213,
+          492559709.5344,
+          607904146.705,
+          750259195.8456,
+          925950026.8288,
+          1142782996.7721,
+          1410392504.857,
+          1740669071.3595,
+          2148287661.4512,
+          2651359728.44
+        ],
+        "pv_fcf_years": [
+          362881642.7577,
+          407214802.1663,
+          456964132.5562,
+          512791326.1796,
+          575438914.0656,
+          645740142.0729,
+          724630053.4982,
+          813157925.6437,
+          912501225.7566,
+          1023981271.9627
+        ],
+        "present_value_fcf_sum": 6435301436.6594,
+        "discount_rate": 0.0998,
+        "perpetual_growth_rate": 0.02,
+        "exit_multiple": 12.0,
+        "total_cash": 549201024.0,
+        "total_debt": 668881000.0,
+        "shares_outstanding": 255640360,
+        "dcf_perpetual": {
+          "terminal_value": 33885314158.7364,
+          "present_value_terminal": 13086842468.3873,
+          "fair_value_per_share": 75.8975,
+          "margin_of_safety_pct": 172.4246,
+          "fcf_projections": [
+            399100859.5213,
+            492559709.5344,
+            607904146.705,
+            750259195.8456,
+            925950026.8288,
+            1142782996.7721,
+            1410392504.857,
+            1740669071.3595,
+            2148287661.4512,
+            2651359728.44
+          ],
+          "pv_fcf_years": [
+            362881642.7577,
+            407214802.1663,
+            456964132.5562,
+            512791326.1796,
+            575438914.0656,
+            645740142.0729,
+            724630053.4982,
+            813157925.6437,
+            912501225.7566,
+            1023981271.9627
+          ],
+          "present_value_fcf_sum": 6435301436.6594,
+          "discount_rate": 0.0998,
+          "perpetual_growth_rate": 0.02,
+          "exit_multiple": 12.0,
+          "total_cash": 549201024.0,
+          "total_debt": 668881000.0,
+          "shares_outstanding": 255640360
+        },
+        "dcf_exit_multiple": {
+          "terminal_value": 31816316741.2795,
+          "present_value_terminal": 12287775263.5528,
+          "fair_value_per_share": 72.7718,
+          "margin_of_safety_pct": 161.2051,
+          "fcf_projections": [
+            399100859.5213,
+            492559709.5344,
+            607904146.705,
+            750259195.8456,
+            925950026.8288,
+            1142782996.7721,
+            1410392504.857,
+            1740669071.3595,
+            2148287661.4512,
+            2651359728.44
+          ],
+          "pv_fcf_years": [
+            362881642.7577,
+            407214802.1663,
+            456964132.5562,
+            512791326.1796,
+            575438914.0656,
+            645740142.0729,
+            724630053.4982,
+            813157925.6437,
+            912501225.7566,
+            1023981271.9627
+          ],
+          "present_value_fcf_sum": 6435301436.6594,
+          "discount_rate": 0.0998,
+          "perpetual_growth_rate": 0.02,
+          "exit_multiple": 12.0,
+          "total_cash": 549201024.0,
+          "total_debt": 668881000.0,
+          "shares_outstanding": 255640360
+        },
+        "sensitivity_matrix": [
+          {
+            "discount_rate": 0.0898,
+            "values": [
+              {
+                "perpetual_growth": 0.015,
+                "fair_value": 85.7805
+              },
+              {
+                "perpetual_growth": 0.02,
+                "fair_value": 90.3595
+              },
+              {
+                "perpetual_growth": 0.025,
+                "fair_value": 95.6451
+              }
+            ]
+          },
+          {
+            "discount_rate": 0.0998,
+            "values": [
+              {
+                "perpetual_growth": 0.015,
+                "fair_value": 72.6433
+              },
+              {
+                "perpetual_growth": 0.02,
+                "fair_value": 75.8975
+              },
+              {
+                "perpetual_growth": 0.025,
+                "fair_value": 79.5867
+              }
+            ]
+          },
+          {
+            "discount_rate": 0.1098,
+            "values": [
+              {
+                "perpetual_growth": 0.015,
+                "fair_value": 67.0528
+              },
+              {
+                "perpetual_growth": 0.02,
+                "fair_value": 69.8127
+              },
+              {
+                "perpetual_growth": 0.025,
+                "fair_value": 72.9175
+              }
+            ]
+          }
+        ],
+        "reverse_dcf_growth": 0.0974
+      }
+    },
+    "relative": {
+      "fair_value": 9.8997,
+      "margin_of_safety": -64.4661,
+      "company_eps": 0.4225,
+      "company_trailing_pe": 104.0995,
+      "peers": [
+        "KO",
+        "PEP",
+        "MNST",
+        "CCEP",
+        "KDP"
+      ],
+      "median_peer_pe": 23.4333,
+      "median_peer_peg": 2.48,
+      "mean_peer_pe": 26.0213,
+      "market_pe_trailing": 27.8863,
+      "market_pe_forward": 27.8863
+    }
+  },
+  "dcf_assumptions": {
+    "recommended_exit_multiple": 12.0
+  },
+  "historical_data": {
+    "years": [
+      "2022",
+      "2023",
+      "2024",
+      "2025",
+      "2026 (Est)",
+      "2027 (Est)"
+    ],
+    "revenue": [
+      653604000.0,
+      1318014000.0,
+      1355630000.0,
+      2515269000.0,
+      3348222550.0,
+      3676925570.0
+    ],
+    "eps": [
+      0.09,
+      0.5,
+      0.55,
+      1.34,
+      1.62773,
+      2.04056
+    ],
+    "diluted_eps": [
+      -0.88,
+      0.77,
+      0.45,
+      0.25
+    ],
+    "fcf": [
+      99918000.0,
+      123785000.0,
+      239508000.0,
+      323375000.0,
+      462081083.1412122,
+      507444688.8290681
+    ],
+    "shares": [
+      226947000.0,
+      236964000.0,
+      238793333.0,
+      255348000.0,
+      255348000.0,
+      255348000.0
+    ]
+  },
+  "algorithmic_insights": {
+    "top_strengths": [
+      {
+        "metric": "Margin of Safety",
+        "value": "45.5%",
+        "points_awarded": 30,
+        "max_points": 30
+      },
+      {
+        "metric": "Debt-to-Equity",
+        "value": "0.57x",
+        "points_awarded": 20,
+        "max_points": 20
+      },
+      {
+        "metric": "Revenue Growth (Next 3Y)",
+        "value": "85.5%",
+        "points_awarded": 20,
+        "max_points": 20
+      }
+    ],
+    "risk_factors": [
+      {
+        "metric": "PEG Ratio",
+        "value": "2.82x",
+        "points_awarded": 0,
+        "max_points": 10
+      }
+    ]
+  },
+  "red_flags": [
+    "\u26a0\ufe0f Shareholder Dilution: Shares outstanding increased by 9.3%."
+  ],
+  "overrides": null
+}

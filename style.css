@@ -3349,8 +3349,8 @@ body {
     border-radius: 10px;
 }
 
-/* FINAL GLOBAL RESPONSIVENESS POLISH */
-@media (max-width: 640px) {
+/* FINAL GLOBAL RESPONSIVENESS POLISH (v300) */
+@media (max-width: 768px) {
     .app-container {
         padding: 1rem 0.75rem;
     }
@@ -3389,34 +3389,26 @@ body {
     }
 
     .valuation-input-group {
-        flex-direction: column !important; /* v299: Stack for mobile */
-        align-items: flex-start !important;
-        gap: 0.5rem !important;
-        margin-bottom: 1rem;
-        width: 100% !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 8px !important;
+        margin-bottom: 1.2rem !important;
     }
 
     .premium-label {
-        margin-bottom: 0 !important;
-        text-align: left;
-        font-size: 0.85rem !important;
-        flex: 1 !important;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        margin-bottom: 4px !important;
+        text-align: left !important;
+        font-size: 0.8rem !important;
+        color: rgba(255,255,255,0.5) !important;
     }
 
     .premium-input,
     .premium-select {
-        width: 150px !important;
-        min-width: 150px !important;
-        max-width: 150px !important;
-        text-align: right !important;
-        font-size: 0.85rem !important;
-        padding: 0.4rem 0.6rem !important;
-        box-sizing: border-box !important;
-        border-radius: 8px !important;
-        background: rgba(30, 41, 59, 0.5) !important;
-        flex-shrink: 0 !important;
+        width: 100% !important;
+        min-width: 100% !important;
+        max-width: 100% !important;
+        text-align: left !important;
+        font-size: 0.9rem !important;
+        padding: 0.6rem !important;
     }
 }
