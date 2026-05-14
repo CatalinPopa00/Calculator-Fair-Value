@@ -1847,7 +1847,8 @@ body {
     padding-right: 4px;
     white-space: nowrap;
     /* v310: Keep TV Method, FCF Basis etc. on a single line */
-    overflow: visible;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 @media (max-width: 480px) {
