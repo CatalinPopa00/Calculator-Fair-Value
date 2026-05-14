@@ -1603,7 +1603,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 pairs.forEach(([target, diff]) => {
                     if (!target) return;
                     if (target.value === '' || target.dataset.isDefault === 'true') {
-                        target.value = (val - diff);
+                        target.value = (val - diff).toFixed(1);
                         target.dataset.isDefault = 'true';
                         target.dispatchEvent(new Event('input', { bubbles: true }));
                     }
