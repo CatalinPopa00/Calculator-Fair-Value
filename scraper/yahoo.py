@@ -3001,6 +3001,7 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=5, inc
                         "name": inf.get('shortName') or inf.get('longName') or t,
                         "price": p_price,
                         "pe_ratio": inf.get('trailingPE') or inf.get('forwardPE'),
+                        "peg_ratio": inf.get('pegRatio'),
                         "market_cap": inf.get('marketCap'),
                         "ps_ratio": inf.get('priceToSalesTrailing12Months') or inf.get('priceToSales'),
                         "revenue": inf.get('totalRevenue') or inf.get('revenue'),
