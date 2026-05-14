@@ -1928,6 +1928,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // UPDATED: Sync both MOS and PEG to the Score Breakdown dynamically
 
+        // v275: Set default DCF growth to average revenue growth for next 2 years
+        if (data.rev_estimates && data.rev_estimates.length >= 2) {
+            const fy1r = data.rev_estimates.find(e => e.period && (e.period.includes('FY 1') || e.period.includes('FY1')));
+            const fy2r = data.rev_estimates.find(e => e.period && (e.period.includes('FY 2') || e.period.includes('FY2')));
+            if (fy1r && fy1r.growth != null && fy2r && fy2r.growth != null) {
+                const avgRevGrowth = ((fy1r.growth + fy2r.growth) / 2) * 100;
+                const g13 = document.getElementById('dcf-growth-1-3');
+                // Only set if not already set (will be potentially overwritten by applyOverrides anyway)
+                if (g13) {
+                    g13.value = avgRevGrowth.toFixed(1);
+                    // v275: Manually trigger cascade for the initial default
+                    g13.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+            }
+        }
+
         // Restore overrides BEFORE first updateFairValue
         const hadOverrides = applyOverrides(currentTicker);
         updateFairValue();
