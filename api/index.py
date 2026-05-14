@@ -364,9 +364,21 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         if not skip_peers:
             peer_task = executor.submit(get_competitors_data, ticker, None, None, limit=3)
         
-        # Wait for main data first
-        data = main_task.result() or {}
+        # Wait for main data with robust error handling
+        try:
+            data = main_task.result() or {}
+        except Exception as e:
+            print(f"DEBUG: Main scraper task failed for {ticker_upper}: {e}")
+            data = {"ticker": ticker_upper, "error": f"Ticker analysis failed: {str(e)}"}
         
+        # v296: Early exit if ticker is definitively not found (Bypasses 500 crashes)
+        if not data or data.get("error") or (not data.get("current_price") and not data.get("name")):
+            detail_msg = data.get("error") or f"Ticker '{ticker_upper}' not found or has no active trade data."
+            return JSONResponse(
+                status_code=404,
+                content={"error": True, "detail": detail_msg, "ticker": ticker_upper}
+            )
+
         # --- DYNAMIC FX CURRENCY CONVERSION TO USD ---
         price_currency = data.get("currency", "USD")
         fin_currency = data.get("financial_currency", "USD")
@@ -407,7 +419,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 for h_key in ["revenue", "eps", "diluted_eps", "fcf"]:
                     if data["historical_data"].get(h_key):
                         data["historical_data"][h_key] = [v * fin_fx if v is not None else None for v in data["historical_data"][h_key]]
-
+        
         # Recalculate forward ratios in USD to prevent currency mismatch
         shares = data.get("shares_outstanding") or 1
         rev_per_share = (data.get("revenue") or 0) / shares if shares else 0
@@ -424,15 +436,14 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             if fy1_r and fy1_r.get("avg") and fy1_r.get("avg") > 0:
                 fy1_rev_share = fy1_r["avg"] / shares
                 data["fwd_ps"] = data["current_price"] / fy1_rev_share if fy1_rev_share > 0 else None
-        
-        # Get peer data
+
+        # Get peer data with timeout protection
         peers_data = []
         if peer_task:
             try:
-                # v63: Increased timeout to 10s to handle slow Yahoo parallel fetches
-                peers_data = peer_task.result(timeout=10) or []
+                peers_data = peer_task.result(timeout=12) or []
             except Exception as e:
-                print(f"DEBUG: Parallel peer fetch failed: {e}")
+                print(f"DEBUG: Parallel peer fetch failed for {ticker_upper}: {e}")
                 peers_data = []
                 
         executor.shutdown(wait=False)
