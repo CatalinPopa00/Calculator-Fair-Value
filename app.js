@@ -1931,21 +1931,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // UPDATED: Sync both MOS and PEG to the Score Breakdown dynamically
 
-        // v284: Unified DCF Growth Default Logic
-        const getDcfGrowthDefault = (data) => {
-            const estimates = (data.rev_estimates || []).filter(e => e && e.status && e.status.toLowerCase().includes('estim') && e.growth != null);
-            if (estimates.length > 0) {
-                // Average only the years that have growth values
-                const sum = estimates.reduce((s, e) => s + parseFloat(e.growth), 0);
-                return (sum / estimates.length) * 100;
+        // v286: Promoted to global for consistency in Reset
+        window.getDcfGrowthDefault = (data) => {
+            if (!data) return 10;
+            const validGrowths = (data.rev_estimates || [])
+                .filter(e => e && e.growth != null)
+                .map(e => parseFloat(e.growth))
+                .filter(g => !isNaN(g) && g !== 0);
+            
+            if (validGrowths.length > 0) {
+                const sum = validGrowths.reduce((s, g) => s + g, 0);
+                return (sum / validGrowths.length) * 100;
             }
-            // Fallback to historical revenue growth or simulation anchor
+            // Fallback to historical or simulation anchor
             let fallback = (data.company_profile?.revenue_growth || window._simAnchors?.growth || 0.10);
-            if (fallback > 1) fallback /= 100; // Safety if already a percentage
+            if (fallback > 1) fallback /= 100;
             return fallback * 100;
         };
 
-        const targetGrowth = getDcfGrowthDefault(data);
+        const targetGrowth = window.getDcfGrowthDefault(data);
         const g13 = document.getElementById('dcf-growth-1-3');
         if (g13) {
             // Only set if not already set by overrides
@@ -2370,18 +2374,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
             
-            // v285: Even more aggressive growth detection - look at ALL entries with growth
-            const validGrowths = (globalData.rev_estimates || [])
-                .filter(e => e && e.growth != null && parseFloat(e.growth) !== 0)
-                .map(e => parseFloat(e.growth));
-
-            let targetGrowth = (globalData.company_profile?.revenue_growth || window._simAnchors?.growth || 0.10);
-            if (targetGrowth < 1) targetGrowth *= 100;
-
-            if (validGrowths.length > 0) {
-                const sum = validGrowths.reduce((s, g) => s + g, 0);
-                targetGrowth = (sum / validGrowths.length) * 100;
-            }
+            // v286: Use global unified logic
+            const targetGrowth = window.getDcfGrowthDefault(globalData);
 
             const g13 = document.getElementById('dcf-growth-1-3');
             if (g13) {
