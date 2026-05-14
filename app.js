@@ -1090,33 +1090,48 @@ document.addEventListener('DOMContentLoaded', () => {
                 const em = parseFloat(document.getElementById('input-exit-multiple')?.value) || (globalData.dcf_assumptions?.recommended_exit_multiple || 10.0);
                 dcfVal = calcLocalDcf(baseFcf, g, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
             } else if (fcfSource === 'custom') {
-                const parseGrowth = (id, fallback) => {
-                    const raw = document.getElementById(id)?.value;
-                    return (raw === '' || raw === undefined || isNaN(parseFloat(raw))) ? fallback : parseFloat(raw) / 100;
+                const getVal = (id) => {
+                    const el = document.getElementById(id);
+                    if (!el || el.value === '') return null;
+                    return parseFloat(el.value);
                 };
-                const g13 = parseGrowth('dcf-growth-1-3', 0.15);
-                const g46 = parseGrowth('dcf-growth-4-6', 0.10);
-                const g78 = parseGrowth('dcf-growth-7-8', 0.05);
-                const g910 = parseGrowth('dcf-growth-9-10', 0.03);
-                
-                // Build per-year growth array
-                const growthArr = [];
-                for (let y = 1; y <= years; y++) {
-                    if (y <= 3) growthArr.push(g13);
-                    else if (y <= 6) growthArr.push(g46);
-                    else if (y <= 8) growthArr.push(g78);
-                    else growthArr.push(g910);
+
+                const v13 = getVal('dcf-growth-1-3');
+                const v46 = getVal('dcf-growth-4-6');
+                const v78 = getVal('dcf-growth-7-8');
+                const v910 = getVal('dcf-growth-9-10');
+
+                // Strict validation: 1-3Y and 4-6Y are ALWAYS required for custom
+                if (v13 === null || v46 === null) {
+                    dcfVal = null;
+                } else if (years === 10 && (v78 === null || v910 === null)) {
+                    // If 10yr selected, 7-8Y and 9-10Y are ALSO required
+                    dcfVal = null;
+                } else {
+                    const g13 = v13 / 100;
+                    const g46 = v46 / 100;
+                    const g78 = (v78 ?? 0) / 100;
+                    const g910 = (v910 ?? 0) / 100;
+
+                    // Build per-year growth array
+                    const growthArr = [];
+                    for (let y = 1; y <= years; y++) {
+                        if (y <= 3) growthArr.push(g13);
+                        else if (y <= 6) growthArr.push(g46);
+                        else if (y <= 8) growthArr.push(g78);
+                        else growthArr.push(g910);
+                    }
+
+                    const wRaw = document.getElementById('dcf-custom-wacc').value;
+                    const pRaw = document.getElementById('dcf-custom-perp').value;
+                    const emRaw = document.getElementById('input-exit-multiple').value;
+
+                    const wCustom = (wRaw === '' || isNaN(parseFloat(wRaw))) ? 0.09 : parseFloat(wRaw) / 100;
+                    const pCustom = (pRaw === '' || isNaN(parseFloat(pRaw))) ? 0.025 : parseFloat(pRaw) / 100;
+                    const em = (emRaw === '' || isNaN(parseFloat(emRaw))) ? (globalData.dcf_assumptions?.recommended_exit_multiple || 10.0) : parseFloat(emRaw);
+
+                    dcfVal = calcLocalDcf(baseFcf, growthArr, wCustom, pCustom, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
                 }
-                
-                const wRaw = document.getElementById('dcf-custom-wacc').value;
-                const pRaw = document.getElementById('dcf-custom-perp').value;
-                const emRaw = document.getElementById('input-exit-multiple').value;
-                
-                const wCustom = (wRaw === '' || isNaN(parseFloat(wRaw))) ? 0.09 : parseFloat(wRaw) / 100;
-                const pCustom = (pRaw === '' || isNaN(parseFloat(pRaw))) ? 0.025 : parseFloat(pRaw) / 100;
-                const em = (emRaw === '' || isNaN(parseFloat(emRaw))) ? (globalData.dcf_assumptions?.recommended_exit_multiple || 10.0) : parseFloat(emRaw);
-                
-                dcfVal = calcLocalDcf(baseFcf, growthArr, wCustom, pCustom, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
             }
         }
         setValuationStatus(dcfVal, globalData.current_price, 'dcf-status', 'dcf-value');
@@ -1575,6 +1590,43 @@ document.addEventListener('DOMContentLoaded', () => {
             else el.oninput = updateAndSave;
         }
     });
+
+    // v272: DCF Growth Cascading Logic (-2% per phase)
+    const setupDcfCascade = () => {
+        const g13 = document.getElementById('dcf-growth-1-3');
+        const g46 = document.getElementById('dcf-growth-4-6');
+        const g78 = document.getElementById('dcf-growth-7-8');
+        const g910 = document.getElementById('dcf-growth-9-10');
+
+        const cascade = (source, target) => {
+            if (!source || !target) return;
+            source.addEventListener('input', () => {
+                const val = parseFloat(source.value);
+                if (!isNaN(val)) {
+                    const newValue = val - 2;
+                    // Only update and dispatch if the value is actually different to prevent unnecessary cycles
+                    if (parseFloat(target.value) !== newValue) {
+                        target.value = newValue;
+                        target.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                }
+            });
+        };
+        cascade(g13, g46);
+        cascade(g46, g78);
+        cascade(g78, g910);
+
+        // v272: Also trigger cascade when switching years to ensure newly shown fields are populated
+        const yearsSrc = document.getElementById('dcf-years-source');
+        if (yearsSrc) {
+            yearsSrc.addEventListener('change', () => {
+                if (g13 && g13.value !== '') {
+                    g13.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+            });
+        }
+    };
+    setupDcfCascade();
 
     // --- Card-level Weights toggle for Relative Valuation ---
     const relModeCard = document.getElementById('rel-weight-mode-card');
