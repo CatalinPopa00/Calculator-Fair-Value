@@ -718,6 +718,7 @@ document.addEventListener('DOMContentLoaded', () => {
             name: prof.name || 'Current',
             market_cap: prof.market_cap,
             pe_ratio: prof.trailing_pe,
+            peg_ratio: globalData?.formula_data?.peg?.current_peg,
             eps: prof.trailing_eps,
             ps_ratio: prof.ps_ratio,
             revenue: prof.revenue || (prof.market_cap && prof.ps_ratio && prof.ps_ratio > 0 ? prof.market_cap / prof.ps_ratio : null),
@@ -750,6 +751,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <th style="padding:12px; text-align:left; color:var(--text-muted); font-size:0.85rem; position: sticky; left: 0; background: #0f172a; z-index: 10; border-right: 1px solid rgba(255,255,255,0.1);">COMPETITOR</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 100px;">Market Cap</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">P/E (Trailing)</th>
+                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 100px;">PEG Ratio</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">EPS (Trailing)</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">P/S (Trailing)</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 120px;">Revenue (TTM)</th>
@@ -772,6 +774,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <td style="padding:12px; text-align:left; font-weight:bold; color:${isMain ? 'var(--accent)' : 'white'}; position: sticky; left: 0; background: ${isMain ? '#122238' : '#0f172a'}; z-index: 10; border-right: 1px solid rgba(255,255,255,0.1); box-shadow: 2px 0 5px rgba(0,0,0,0.2);">${c.ticker}</td>
                         <td style="padding:12px; font-weight:bold;">${formatBigNumber(mCap, '$')}</td>
                         <td style="padding:12px; font-weight:bold;">${fmtPE(c.pe_ratio)}</td>
+                        <td style="padding:12px; font-weight:bold;">${fmtPE(c.peg_ratio)}</td>
                         <td style="padding:12px; font-weight:bold;">${fmtEPS(c.eps || c.trailing_eps)}</td>
                         <td style="padding:12px; font-weight:bold;">${fmtPE(c.ps_ratio)}</td>
                         <td style="padding:12px; font-weight:bold;">${formatBigNumber(derivedRevenue, '$')}</td>
