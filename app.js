@@ -2130,8 +2130,8 @@ document.addEventListener('DOMContentLoaded', () => {
         watchlistView.style.display = 'none';
         dashboard.style.display = 'block';
 
-        renderAnalystEstimatesInline(data.ticker);
         renderHistoricalCharts(data);
+        renderAnalystEstimatesInline(data.ticker);
 
         // Sync DCF Exit Multiple from backend assumptions
         const exitMultipleInput = document.getElementById('input-exit-multiple');
@@ -2497,7 +2497,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
         container.style.display = 'block';
 
-        const labels = hd.years;
+        // v298: Dynamic Timeline Expansion
+        // We look at analyst estimates and if we see a year that's NOT in our chart labels, we add it.
+        const labels = [...(hd.years || [])];
+        const epsDataRawBase = [...(hd.eps || [])];
+        const revDataRawBase = [...(hd.revenue || [])];
+        const fcfDataRawBase = [...(hd.fcf || [])];
+        const sharesDataRawBase = [...(hd.shares || [])];
+
+        const allEst = [...(data.eps_estimates || []), ...(data.rev_estimates || [])];
+        const newYears = [];
+        allEst.forEach(est => {
+            if (est.status === 'estimate') {
+                const yrMatch = est.period.match(/\d{4}/);
+                if (yrMatch) {
+                    const yrStr = yrMatch[0];
+                    const label = yrStr + ' (Est)';
+                    if (!labels.includes(label) && !labels.includes(yrStr)) {
+                        if (!newYears.includes(yrStr)) newYears.push(yrStr);
+                    }
+                }
+            }
+        });
+        
+        newYears.sort().forEach(yr => {
+            labels.push(yr + ' (Est)');
+            epsDataRawBase.push(0);
+            revDataRawBase.push(0);
+            fcfDataRawBase.push(0);
+            sharesDataRawBase.push(sharesDataRawBase.length > 0 ? sharesDataRawBase[sharesDataRawBase.length - 1] : 0);
+        });
+
         const estIndex = labels.findIndex(l => String(l).includes('Est'));
 
         // Helper: build background colors (solid for actual, translucent for estimates)
@@ -2529,7 +2559,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     datasets: [
                         {
                             label: 'Revenue ($B)',
-                            data: hd.revenue.map(v => v ? +(v / 1e9).toFixed(2) : 0),
+                            data: revDataRawBase.map(v => v ? +(v / 1e9).toFixed(2) : 0),
                             backgroundColor: bgColors('rgba(56, 189, 248, 1)', 0.7, 0.3),
                             borderColor: 'rgba(56, 189, 248, 1)',
                             borderWidth: 1,
@@ -2538,7 +2568,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         },
                         {
                             label: 'FCF ($B)',
-                            data: hd.fcf.map(v => v ? +(v / 1e9).toFixed(2) : 0),
+                            data: fcfDataRawBase.map(v => v ? +(v / 1e9).toFixed(2) : 0),
                             backgroundColor: bgColors('rgba(16, 185, 129, 1)', 0.7, 0.3),
                             borderColor: 'rgba(16, 185, 129, 1)',
                             borderWidth: 1,
@@ -2589,10 +2619,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const epsData = labels.map((l, i) => {
                 const yearStr = String(l).replace(' (Est)', '');
                 if (gaapMap[yearStr] !== undefined) return gaapMap[yearStr];
-                return epsDataRaw[i] || 0;
+                return epsDataRawBase[i] || 0;
             });
             
-            const sharesData = (hd.shares || []).map(v => v ? +(v / 1e9).toFixed(3) : 0);
+            const sharesData = sharesDataRawBase.map(v => v ? +(v / 1e9).toFixed(3) : 0);
 
             // Build custom legend
             const legendEl = document.getElementById('legend-eps-shares');
