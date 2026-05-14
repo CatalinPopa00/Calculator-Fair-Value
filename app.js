@@ -1506,7 +1506,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         // --- CALCULATE FINAL FAIR VALUE ---
-        const hasUserWeights = localStorage.getItem('fairValueWeights') !== null;
+        // v306: Cross-device sync - check overrides instead of local-only localStorage
+        const hasSavedWeights = (cachedOverrides[currentTicker] && cachedOverrides[currentTicker].weights);
         const modelsToggled = !document.getElementById('toggle-peter_lynch').checked || 
                              !document.getElementById('toggle-peg').checked || 
                              !document.getElementById('toggle-relative').checked || 
@@ -1515,7 +1516,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let finalFv = globalData.fair_value;
         let finalMos = globalData.margin_of_safety;
 
-        if (hasUserWeights || modelsToggled) {
+        if (hasSavedWeights || modelsToggled) {
             let totalWeight = 0;
             let weightedSum = 0;
 
@@ -1725,10 +1726,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if (fcfSourceEl) fcfSourceEl.value = 'eps_growth';
 
         try {
-            const response = await fetch(`/api/valuation/${encodeURIComponent(query)}?t=${Date.now()}`);
-            if (!response.ok) throw new Error('Network response was not ok');
+            // v305: Parallel fetch for valuation AND fresh overrides to prevent cross-device drift
+            const [valRes, ovRes] = await Promise.all([
+                fetch(`/api/valuation/${encodeURIComponent(query)}?t=${Date.now()}`),
+                fetch(`/api/overrides?t=${Date.now()}`, { cache: 'no-store' })
+            ]);
 
-            const data = await response.json();
+            if (!valRes.ok) throw new Error('Network response was not ok');
+
+            const data = await valRes.json();
+            const freshOverrides = await ovRes.json().catch(() => ({}));
+
+            // Sync the global cache before rendering to ensure both mobile and desktop use same rules
+            cachedOverrides = freshOverrides || {};
+
             displayData(data);
 
         } catch (error) {
