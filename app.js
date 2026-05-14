@@ -2350,16 +2350,22 @@ document.addEventListener('DOMContentLoaded', () => {
             saveOverridesToServer(currentTicker);
         }
         
-        // 2. Force re-population of specific fields
+        // 2. Re-apply baseline overrides (if any left)
+        applyOverrides(currentTicker);
+
+        // 3. FORCE re-population of specific fields for THIS method
         if (method === 'dcf') {
             const fcfSrc = document.getElementById('fcf-source');
             if (fcfSrc) fcfSrc.value = 'eps_growth';
             
             const estimates = (globalData.rev_estimates || []).filter(e => e.status === 'estimate' && e.growth != null);
-            let targetGrowth = (globalData.company_profile?.revenue_growth || 0.10) * 100;
+            let targetGrowth = (globalData.company_profile?.revenue_growth || window._simAnchors?.growth || 10);
+            if (targetGrowth < 1) targetGrowth *= 100;
+
             if (estimates.length > 0) {
                 targetGrowth = (estimates.reduce((s, e) => s + e.growth, 0) / estimates.length) * 100;
             }
+
             const g13 = document.getElementById('dcf-growth-1-3');
             if (g13) {
                 g13.value = targetGrowth.toFixed(1);
@@ -2367,9 +2373,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const g46 = document.getElementById('dcf-growth-4-6');
                 const g78 = document.getElementById('dcf-growth-7-8');
                 const g910 = document.getElementById('dcf-growth-9-10');
-                if (g46) g46.dataset.isDefault = 'true';
-                if (g78) g78.dataset.isDefault = 'true';
-                if (g910) g910.dataset.isDefault = 'true';
+                if (g46) { g46.value = ''; g46.dataset.isDefault = 'true'; }
+                if (g78) { g78.value = ''; g78.dataset.isDefault = 'true'; }
+                if (g910) { g910.value = ''; g910.dataset.isDefault = 'true'; }
                 g13.dispatchEvent(new Event('input', { bubbles: true }));
             }
             const wacc = document.getElementById('dcf-custom-wacc');
@@ -2393,7 +2399,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (pMode) pMode.value = 'standard';
         }
         
-        applyOverrides(currentTicker);
         updateFairValue();
     };
 
