@@ -1931,13 +1931,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // UPDATED: Sync both MOS and PEG to the Score Breakdown dynamically
 
-        // v280: Set default DCF growth to average of ALL available revenue estimates (more lenient)
+        // v281: Set default DCF growth to average of ALL available revenue estimates (skip null growth)
         const estimates = (data.rev_estimates || []).filter(e => e.status === 'estimate' && e.growth != null);
         
         let targetGrowth = (data.company_profile?.revenue_growth || 0.10) * 100; // Historical fallback
         if (estimates.length > 0) {
-            // Average all available revenue estimates (FY1, FY2, etc.)
-            targetGrowth = (estimates.reduce((s, e) => s + e.growth, 0) / estimates.length) * 100;
+            // v281: Strictly average only the years that HAVE growth values (ignore null baseline)
+            const sum = estimates.reduce((s, e) => s + e.growth, 0);
+            targetGrowth = (sum / estimates.length) * 100;
         }
 
         const g13 = document.getElementById('dcf-growth-1-3');
