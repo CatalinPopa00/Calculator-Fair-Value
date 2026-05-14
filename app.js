@@ -1597,7 +1597,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (g13) {
             g13.addEventListener('input', () => {
                 const val = parseFloat(g13.value);
-                if (isNaN(val)) return;
+                if (isNaN(val) || window._isApplyingOverrides) return;
 
                 const pairs = [[g46, 2], [g78, 4], [g910, 6]];
                 pairs.forEach(([target, diff]) => {
@@ -2261,38 +2261,24 @@ document.addEventListener('DOMContentLoaded', () => {
         const inputs = ov.inputs || {};
         const toggles = ov.toggles || {};
 
+        // v299: Lock cascade during load
+        window._isApplyingOverrides = true;
+
         // Apply inputs
         Object.entries(inputs).forEach(([id, val]) => {
             const el = document.getElementById(id);
             if (el) {
                 el.value = val;
                 // Show/hide custom input containers based on select values
-                if (id === 'fcf-source') {
-                    const ci = document.getElementById('dcf-custom-inputs');
-                    if (ci) ci.style.display = val === 'custom' ? 'flex' : 'none';
+                if (id === 'fcf-source' || id === 'dcf-buyback-source' || id === 'lynch-multiple-source' || id === 'lynch-eps-source' || id === 'peg-eps-source') {
+                   const ciId = id === 'fcf-source' ? 'dcf-custom-inputs' : 
+                               id === 'dcf-buyback-source' ? 'dcf-buyback-custom-inputs' :
+                               id === 'lynch-multiple-source' ? 'lynch-custom-multiple-inputs' :
+                               id === 'lynch-eps-source' ? 'lynch-custom-inputs' : 'peg-custom-inputs';
+                   const ci = document.getElementById(ciId);
+                   if (ci) ci.style.display = val === 'custom' ? 'flex' : 'none';
                 }
-                if (id === 'dcf-buyback-source') {
-                    const ci = document.getElementById('dcf-buyback-custom-inputs');
-                    if (ci) ci.style.display = val === 'custom' ? 'flex' : 'none';
-                }
-                if (id === 'lynch-multiple-source') {
-                    const ci = document.getElementById('lynch-custom-multiple-inputs');
-                    if (ci) ci.style.display = val === 'custom' ? 'flex' : 'none';
-                }
-                if (id === 'lynch-eps-source') {
-                    const ci = document.getElementById('lynch-custom-inputs');
-                    if (ci) ci.style.display = val === 'custom' ? 'flex' : 'none';
-                }
-                if (id === 'dcf-years-source') {
-                    // Logic removed in v273: rows are always visible if Custom
-                }
-                if (id === 'peg-eps-source') {
-                    const ci = document.getElementById('peg-custom-inputs');
-                    if (ci) ci.style.display = val === 'custom' ? 'flex' : 'none';
-                }
-                if (id === 'dcf-method-selector') {
-                    switchDCFMethod(val);
-                }
+                if (id === 'dcf-method-selector') switchDCFMethod(val);
             }
         });
 
@@ -2302,6 +2288,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (el) el.checked = checked;
         });
 
+        window._isApplyingOverrides = false;
         return true;
     };
 
