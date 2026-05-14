@@ -1931,45 +1931,47 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // UPDATED: Sync both MOS and PEG to the Score Breakdown dynamically
 
-        // v288: Strictly prioritize Revenue Estimates for DCF growth
+        // v289: The Unstoppable DCF Growth Logic (DOM Scraping -> Object Logic -> Flat Fallback)
         window.getDcfGrowthDefault = (data) => {
             if (!data) return 10.0;
             
+            // Tier 1: SCRAPE UI TABLE (The Ultimate Truth)
+            const revRows = document.querySelectorAll('#rev-est-table tbody tr');
+            let scraped = [];
+            revRows.forEach(r => {
+                const cells = r.querySelectorAll('td');
+                if (cells.length === 3) {
+                    const period = cells[0].innerText;
+                    const growthTxt = cells[2].innerText.replace('%', '').trim();
+                    if (period.includes('FY') && growthTxt !== '' && growthTxt !== '--') {
+                        const val = parseFloat(growthTxt.replace(',', '.'));
+                        if (!isNaN(val)) scraped.push(val);
+                    }
+                }
+            });
+            if (scraped.length > 0) return scraped.reduce((s, v) => s + v, 0) / scraped.length;
+
+            // Tier 2: OBJECT LOGIC (Used if table isn't rendered yet)
             const rList = data.rev_estimates || [];
-            
-            // Tier 1: FY Revenue Estimates (The gold standard)
-            const fyEstimates = rList.filter(e => 
+            const fyEst = rList.filter(e => 
                 e && e.status !== 'reported' && e.growth != null && 
-                e.period && e.period.toString().toUpperCase().includes('FY')
+                e.period && (e.period.toString().toUpperCase().includes('FY') || !e.period.toString().includes('Q'))
             );
-            if (fyEstimates.length > 0) {
-                const vals = fyEstimates.map(e => parseFloat(e.growth)).filter(v => !isNaN(v));
+            if (fyEst.length > 0) {
+                const vals = fyEst.map(e => parseFloat(e.growth)).filter(v => !isNaN(v));
                 if (vals.length > 0) return (vals.reduce((s, v) => s + v, 0) / vals.length) * 100;
             }
 
-            // Tier 2: Any Revenue Estimate (Q or Other)
-            const anyEstimates = rList.filter(e => 
-                e && e.status !== 'reported' && e.growth != null
-            );
-            if (anyEstimates.length > 0) {
-                const vals = anyEstimates.map(e => parseFloat(e.growth)).filter(v => !isNaN(v));
-                if (vals.length > 0) return (vals.reduce((s, v) => s + v, 0) / vals.length) * 100;
-            }
-
-            // Tier 3: Historical Revenue Growth (Consensus fallback)
-            let fallback = (data.company_profile?.revenue_growth || 0.10);
-            if (fallback > 1) fallback /= 100;
-            return fallback * 100;
+            // Tier 3: Hard Fallback (Decoupled from historical 10.5%)
+            return 10.0;
         };
 
         const targetGrowth = window.getDcfGrowthDefault(data);
         const g13 = document.getElementById('dcf-growth-1-3');
         if (g13) {
-            // Only set if not already set by overrides
-            const hadOverrides = cachedOverrides[data.ticker] && cachedOverrides[data.ticker].inputs && cachedOverrides[data.ticker].inputs['dcf-growth-1-3'];
+            const hadOverrides = (cachedOverrides[data.ticker] && cachedOverrides[data.ticker].inputs && cachedOverrides[data.ticker].inputs['dcf-growth-1-3']);
             if (!hadOverrides) {
                 g13.value = targetGrowth.toFixed(1);
-                // v284: Manually trigger cascade for the initial default
                 g13.dispatchEvent(new Event('input', { bubbles: true }));
             }
         }
