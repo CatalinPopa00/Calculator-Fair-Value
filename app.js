@@ -1593,29 +1593,32 @@ document.addEventListener('DOMContentLoaded', () => {
         const g78 = document.getElementById('dcf-growth-7-8');
         const g910 = document.getElementById('dcf-growth-9-10');
 
-        const cascade = (source, target) => {
-            if (!source || !target) return;
-            source.addEventListener('input', () => {
-                const val = parseFloat(source.value);
-                if (!isNaN(val)) {
-                    const newValue = val - 2;
-                    // v274: Only cascade if target is empty OR was already part of a default cascade
-                    // This allows the -2% default while preserving manual modifications
+        // v277: Ripple only from 1-3Y to all others, and ONLY if targets are default/empty
+        if (g13) {
+            g13.addEventListener('input', () => {
+                const val = parseFloat(g13.value);
+                if (isNaN(val)) return;
+
+                const pairs = [[g46, 2], [g78, 4], [g910, 6]];
+                pairs.forEach(([target, diff]) => {
+                    if (!target) return;
                     if (target.value === '' || target.dataset.isDefault === 'true') {
-                        target.value = newValue;
+                        target.value = (val - diff);
                         target.dataset.isDefault = 'true';
                         target.dispatchEvent(new Event('input', { bubbles: true }));
                     }
-                }
+                });
             });
-            // Mark as NOT default if the user manually types in it
-            target.addEventListener('keydown', () => {
-                target.dataset.isDefault = 'false';
-            });
-        };
-        cascade(g13, g46);
-        cascade(g46, g78);
-        cascade(g78, g910);
+        }
+
+        // Mark as NOT default if the user manually types in any box
+        [g46, g78, g910].forEach(target => {
+            if (target) {
+                target.addEventListener('keydown', () => {
+                    target.dataset.isDefault = 'false';
+                });
+            }
+        });
 
         // v272: Also trigger cascade when switching years to ensure newly shown fields are populated
         const yearsSrc = document.getElementById('dcf-years-source');
