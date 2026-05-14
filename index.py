@@ -903,6 +903,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                     "name": p.get("name"),
                     "price": sanitize(p.get("price")),
                     "pe_ratio": sanitize(p.get("pe_ratio")),
+                    "peg_ratio": sanitize(p.get("peg_ratio")),
                     "market_cap": sanitize(p.get("market_cap")),
                     "eps": sanitize(p.get("eps")),
                     "operating_margin": sanitize(p.get("operating_margin")),
