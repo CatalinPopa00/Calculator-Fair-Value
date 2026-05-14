@@ -1931,22 +1931,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // UPDATED: Sync both MOS and PEG to the Score Breakdown dynamically
 
-        // v286: Promoted to global for consistency in Reset
+        // v287: Robust Growth Hierarchy (Revenue FY -> EPS FY -> Consensus -> T12M)
         window.getDcfGrowthDefault = (data) => {
-            if (!data) return 10;
-            const validGrowths = (data.rev_estimates || [])
-                .filter(e => e && e.growth != null)
-                .map(e => parseFloat(e.growth))
-                .filter(g => !isNaN(g) && g !== 0);
+            if (!data) return 10.0;
             
-            if (validGrowths.length > 0) {
-                const sum = validGrowths.reduce((s, g) => s + g, 0);
-                return (sum / validGrowths.length) * 100;
-            }
-            // Fallback to historical or simulation anchor
-            let fallback = (data.company_profile?.revenue_growth || window._simAnchors?.growth || 0.10);
-            if (fallback > 1) fallback /= 100;
-            return fallback * 100;
+            const getFyAvg = (list) => {
+                if (!Array.isArray(list)) return null;
+                const fyItems = list.filter(e => e && e.period && e.period.toString().includes('FY') && e.growth != null);
+                if (fyItems.length > 0) {
+                    const valid = fyItems.map(e => parseFloat(e.growth)).filter(g => !isNaN(g) && g > 0);
+                    if (valid.length > 0) return (valid.reduce((s, g) => s + g, 0) / valid.length) * 100;
+                }
+                return null;
+            };
+
+            // 1. Revenue FY Estimates (User's primary request)
+            const revAvg = getFyAvg(data.rev_estimates);
+            if (revAvg !== null) return revAvg;
+
+            // 2. EPS FY Estimates (Fallback if revenue estimates missing)
+            const epsAvg = getFyAvg(data.eps_estimates);
+            if (epsAvg !== null) return epsAvg;
+
+            // 3. Analyst Consensus (Top-level metric)
+            let consensus = (data.company_profile?.earnings_growth || data.company_profile?.revenue_growth || 0.10);
+            if (consensus > 1) consensus /= 100;
+            return consensus * 100;
         };
 
         const targetGrowth = window.getDcfGrowthDefault(data);
