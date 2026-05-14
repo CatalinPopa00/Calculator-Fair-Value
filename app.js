@@ -2399,7 +2399,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.querySelectorAll('.reset-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-            const method = e.target.getAttribute('data-method');
+            const button = e.target.closest('.reset-btn');
+            if (!button) return;
+            const method = button.getAttribute('data-method');
             if (confirm(`Reset ${method.toUpperCase()} to defaults?`)) {
                 resetMethodDefaults(method);
             }
