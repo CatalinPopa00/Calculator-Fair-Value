@@ -3444,9 +3444,16 @@ document.addEventListener('DOMContentLoaded', () => {
                             <tr style="border-bottom:1px solid rgba(255,255,255,0.1); background: rgba(40, 199, 111, 0.05);">
                                 <td style="padding:6px; color:#28c76f; font-weight:700;">${(globalData.ticker || 'TARGET').toUpperCase()}</td>
                                 ${activeKeys.map(k => {
-                                    const dk = peerKeyMap[k];
                                     let val = null;
-                                    if (k === 'PE') val = (globalData.company_profile && (globalData.company_profile.trailing_pe || globalData.company_profile.current_pe));
+                                    if (k === 'PE') {
+                                        const adjEps = globalData.company_profile && globalData.company_profile.adjusted_eps;
+                                        const curPrice = globalData.current_price || 0;
+                                        if (adjEps && adjEps > 0 && curPrice > 0) {
+                                            val = curPrice / adjEps;
+                                        } else {
+                                            val = (globalData.company_profile && (globalData.company_profile.trailing_pe || globalData.company_profile.current_pe));
+                                        }
+                                    }
                                     else if (k === 'PS') val = (globalData.company_profile && globalData.company_profile.ps_ratio);
                                     else if (k === 'PB') val = (globalData.company_profile && globalData.company_profile.price_to_book);
                                     else if (k === 'EV_EBITDA') val = (r && r.company_ev_ebitda);
