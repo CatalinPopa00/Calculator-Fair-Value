@@ -251,14 +251,15 @@
                                 <div class="valuation-input-group">
                                     <label class="premium-label">TV Method</label>
                                     <select id="dcf-method-selector" class="premium-select">
-                                        <option value="perpetual">Perpetual Growth</option>
-                                        <option value="multiple">Exit Multiple</option>
+                                        <option value="perpetual">Perp. G.r.</option>
+                                        <option value="multiple">Ex. Multp.</option>
                                     </select>
                                 </div>
                                 <div class="valuation-input-group">
                                     <label class="premium-label">FCF Basis</label>
                                     <select id="fcf-source" class="premium-select">
-                                        <option value="eps_growth" selected>Earnings Growth</option>
+                                        <option value="revenue" selected>Rev. G.r.</option>
+                                        <option value="eps_growth">EPS G.r.</option>
                                         <option value="historical">Historical</option>
                                         <option value="custom">Custom</option>
                                     </select>
@@ -266,8 +267,8 @@
                                 <div class="valuation-input-group">
                                     <label class="premium-label">Projection</label>
                                     <select id="dcf-years-source" class="premium-select">
-                                        <option value="5yr">5 Years</option>
-                                        <option value="10yr">10 Years</option>
+                                        <option value="5yr">5y</option>
+                                        <option value="10yr" selected>10y</option>
                                     </select>
                                 </div>
                                 <div class="valuation-input-group">
@@ -409,8 +410,8 @@
                             <div class="valuation-input-group">
                                 <label class="premium-label">EPS Basis</label>
                                 <select class="premium-select" id="lynch-eps-source">
-                                    <option value="analyst">Analyst Est.</option>
-                                    <option value="historical">Historical Growth</option>
+                                    <option value="analyst">EPS Est.</option>
+                                    <option value="historical">Historical</option>
                                     <option value="custom">Custom</option>
                                 </select>
                             </div>
@@ -448,7 +449,7 @@
                             <div class="valuation-input-group">
                                 <label class="premium-label">EPS Basis</label>
                                 <select class="premium-select" id="peg-eps-source">
-                                    <option value="analyst">Analyst Est.</option>
+                                    <option value="analyst">EPS Est.</option>
                                     <option value="custom">Custom</option>
                                 </select>
                             </div>

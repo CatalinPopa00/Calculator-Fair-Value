@@ -71,7 +71,11 @@ def calculate_dcf(fcf: float, growth_rate: float, discount_rate: float, perpetua
 
     # 2. Projections
     for i in range(1, years + 1):
-        current_fcf *= (1 + growth_rate)
+        if isinstance(growth_rate, list):
+            g = growth_rate[i - 1] if (i - 1) < len(growth_rate) else growth_rate[-1]
+        else:
+            g = growth_rate
+        current_fcf *= (1 + g)
         cash_flows.append(current_fcf)
         pv = current_fcf / ((1 + wacc) ** i)
         pv_cash_flows_list.append(pv)

@@ -2,6 +2,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchBtn = document.getElementById('search-btn');
     const tickerInput = document.getElementById('ticker-input');
 
+    const formatCleanInputVal = (val) => {
+        if (val === null || val === undefined || val === '') return '';
+        const num = parseFloat(val);
+        if (isNaN(num)) return '';
+        return num % 1 === 0 ? num.toString() : num.toFixed(1);
+    };
+
     // Dashboard elements
     const dashboard = document.getElementById('dashboard');
     const loadingState = document.getElementById('loading-state');
@@ -1019,7 +1026,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let dcfVal = null;
         if (currentFormulaData.dcf) {
             const fcfSourceEl = document.getElementById('fcf-source');
-            const fcfSource = fcfSourceEl ? fcfSourceEl.value : 'eps_growth';
+            const fcfSource = fcfSourceEl ? fcfSourceEl.value : 'revenue';
             const yearsSourceEl = document.getElementById('dcf-years-source');
             const yearsVal = yearsSourceEl ? yearsSourceEl.value : '5yr';
             const years = yearsVal === '10yr' ? 10 : 5;
@@ -1050,25 +1057,52 @@ document.addEventListener('DOMContentLoaded', () => {
                 const w = currentFormulaData.dcf.discount_rate || 0.09;
                 const p = currentFormulaData.dcf.perpetual_growth || 0.02;
 
-                if (fcfSource === 'eps_growth') {
-                    // Logic formerly under analyst fallback now default here
+                if (fcfSource === 'revenue' || fcfSource === 'eps_growth') {
                     const waccInput = document.getElementById('dcf-custom-wacc');
                     const backendWacc = currentFormulaData.dcf.discount_rate_applied / 100;
                     const method = document.getElementById('dcf-method-selector')?.value || 'perpetual';
                     
-                    // v161: Robust null check for dcfData to prevent "Cannot read properties of null"
                     if (dcfData) {
                         const branch = method === 'multiple' ? dcfData.dcf_exit_multiple : dcfData.dcf_perpetual;
                         
-                    // SYNC v62: Use backend branch if no manual overrides affecting calc are present
-                    if (buybackRate === 0 && (!waccInput || !waccInput.value) && fcfSource !== 'custom') {
-                        // Use the exact same branch selection as the modal to ensure sync
-                        dcfVal = branch ? branch.fair_value_per_share : null;
+                        if (buybackRate === 0 && (!waccInput || !waccInput.value) && fcfSource !== 'custom') {
+                            dcfVal = branch ? branch.fair_value_per_share : null;
+                        }
                     }
                     
-                    // Fallback to local calculation only if backend branch failed or overrides are present
                     if (dcfVal === null) {
-                        const g = currentFormulaData.dcf.eps_growth_applied || 0.10;
+                        let g;
+                        if (fcfSource === 'revenue') {
+                            const getRevG = () => {
+                                const rList = globalData.rev_estimates || [];
+                                const ests = rList.filter(e => e && e.status !== 'reported' && e.growth != null);
+                                if (ests.length >= 2) {
+                                    const g1 = parseFloat(ests[0].growth);
+                                    const g2 = parseFloat(ests[1].growth);
+                                    if (!isNaN(g1) && !isNaN(g2)) return (g1 + g2) / 2.0;
+                                } else if (ests.length === 1) {
+                                    const g1 = parseFloat(ests[0].growth);
+                                    if (!isNaN(g1)) return g1;
+                                }
+                                if (prof && prof.revenue_growth != null) return prof.revenue_growth;
+                                return 0.08;
+                            };
+                            const g13 = getRevG();
+                            const g46 = g13 - 0.02;
+                            const g78 = g46 - 0.02;
+                            const g910 = g78 - 0.02;
+                            g = [];
+                            for (let y = 1; y <= 10; y++) {
+                                if (y <= 3) g.push(g13);
+                                else if (y <= 6) g.push(g46);
+                                else if (y <= 8) g.push(g78);
+                                else g.push(g910);
+                            }
+                        } else {
+                            g = currentFormulaData.dcf.eps_growth_applied || 0.10;
+                        }
+                        
+                        if (currentFormulaData.dcf) currentFormulaData.dcf.eps_growth_applied = g;
                         const wAnalyst = (waccInput && waccInput.value) ? parseFloat(waccInput.value)/100 : w;
                         const em = parseFloat(document.getElementById('input-exit-multiple')?.value) || (globalData.dcf_assumptions?.recommended_exit_multiple || 15.0);
                         dcfVal = calcLocalDcf(baseFcf, g, wAnalyst, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
@@ -1080,10 +1114,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (currentFormulaData.dcf) currentFormulaData.dcf.eps_growth_applied = hg;
                 const em = parseFloat(document.getElementById('input-exit-multiple')?.value) || (globalData.dcf_assumptions?.recommended_exit_multiple || 10.0);
                 dcfVal = calcLocalDcf(baseFcf, hg, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
-            } else if (fcfSource === 'eps_growth') {
-                const g = currentFormulaData.dcf.eps_growth_applied || 0.10;
-                const em = parseFloat(document.getElementById('input-exit-multiple')?.value) || (globalData.dcf_assumptions?.recommended_exit_multiple || 10.0);
-                dcfVal = calcLocalDcf(baseFcf, g, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
             } else if (fcfSource === 'custom') {
                 const getVal = (id) => {
                     const el = document.getElementById(id);
@@ -1604,7 +1634,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 pairs.forEach(([target, diff]) => {
                     if (!target) return;
                     if (target.value === '' || target.dataset.isDefault === 'true') {
-                        target.value = (val - diff).toFixed(1);
+                        target.value = formatCleanInputVal(val - diff);
                         target.dataset.isDefault = 'true';
                         target.dispatchEvent(new Event('input', { bubbles: true }));
                     }
@@ -1723,7 +1753,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (el) el.value = 'analyst';
         });
         const fcfSourceEl = document.getElementById('fcf-source');
-        if (fcfSourceEl) fcfSourceEl.value = 'eps_growth';
+        if (fcfSourceEl) fcfSourceEl.value = 'revenue';
+        const yearsSourceEl = document.getElementById('dcf-years-source');
+        if (yearsSourceEl) yearsSourceEl.value = '10yr';
 
         try {
             // v305: Parallel fetch for valuation AND fresh overrides to prevent cross-device drift
@@ -1946,35 +1978,25 @@ document.addEventListener('DOMContentLoaded', () => {
         window.getDcfGrowthDefault = (data) => {
             if (!data) return 10.0;
             
-            // Tier 1: SCRAPE UI TABLE (The Ultimate Truth)
-            const revRows = document.querySelectorAll('#rev-est-table tbody tr');
-            let scraped = [];
-            revRows.forEach(r => {
-                const cells = r.querySelectorAll('td');
-                if (cells.length === 3) {
-                    const period = cells[0].innerText;
-                    const growthTxt = cells[2].innerText.replace('%', '').trim();
-                    if (period.includes('FY') && growthTxt !== '' && growthTxt !== '--') {
-                        const val = parseFloat(growthTxt.replace(',', '.'));
-                        if (!isNaN(val)) scraped.push(val);
-                    }
-                }
-            });
-            if (scraped.length > 0) return scraped.reduce((s, v) => s + v, 0) / scraped.length;
-
-            // Tier 2: OBJECT LOGIC (Used if table isn't rendered yet)
+            // Try to parse from the rev_estimates array (strictly FY 1 and FY 2)
             const rList = data.rev_estimates || [];
-            const fyEst = rList.filter(e => 
-                e && e.status !== 'reported' && e.growth != null && 
-                e.period && (e.period.toString().toUpperCase().includes('FY') || !e.period.toString().includes('Q'))
-            );
-            if (fyEst.length > 0) {
-                const vals = fyEst.map(e => parseFloat(e.growth)).filter(v => !isNaN(v));
-                if (vals.length > 0) return (vals.reduce((s, v) => s + v, 0) / vals.length) * 100;
+            const ests = rList.filter(e => e && e.status !== 'reported' && e.growth != null);
+            if (ests.length >= 2) {
+                const g1 = parseFloat(ests[0].growth);
+                const g2 = parseFloat(ests[1].growth);
+                if (!isNaN(g1) && !isNaN(g2)) {
+                    return ((g1 + g2) / 2) * 100;
+                }
+            } else if (ests.length === 1) {
+                const g1 = parseFloat(ests[0].growth);
+                if (!isNaN(g1)) return g1 * 100;
             }
-
-            // Tier 3: Hard Fallback (Decoupled from historical 10.5%)
-            return 10.0;
+            
+            if (data.company_profile && data.company_profile.revenue_growth != null) {
+                return data.company_profile.revenue_growth * 100;
+            }
+            
+            return 8.0;
         };
 
         const targetGrowth = window.getDcfGrowthDefault(data);
@@ -1982,7 +2004,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (g13) {
             const hadOverrides = (cachedOverrides[data.ticker] && cachedOverrides[data.ticker].inputs && cachedOverrides[data.ticker].inputs['dcf-growth-1-3']);
             if (!hadOverrides) {
-                g13.value = targetGrowth.toFixed(1);
+                g13.value = formatCleanInputVal(targetGrowth);
                 g13.dispatchEvent(new Event('input', { bubbles: true }));
             }
         }
@@ -2279,7 +2301,14 @@ document.addEventListener('DOMContentLoaded', () => {
         Object.entries(inputs).forEach(([id, val]) => {
             const el = document.getElementById(id);
             if (el) {
-                el.value = val;
+                let cleanVal = val;
+                if (el.type === 'number' && (id.includes('growth') || id.includes('perp') || id.includes('wacc') || id.includes('mult') || id.includes('dcf-growth-'))) {
+                    const parsed = parseFloat(val);
+                    if (!isNaN(parsed)) {
+                        cleanVal = parsed % 1 === 0 ? parsed.toString() : parsed.toFixed(1);
+                    }
+                }
+                el.value = cleanVal;
                 // Show/hide custom input containers based on select values
                 if (id === 'fcf-source' || id === 'dcf-buyback-source' || id === 'lynch-multiple-source' || id === 'lynch-eps-source' || id === 'peg-eps-source') {
                    const ciId = id === 'fcf-source' ? 'dcf-custom-inputs' : 
@@ -2378,10 +2407,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // 3. FORCE re-population of specific fields for THIS method
         if (method === 'dcf') {
             // Reset Dropdowns
-            ['fcf-source', 'dcf-buyback-source', 'dcf-method-selector'].forEach(id => {
+            ['fcf-source', 'dcf-buyback-source', 'dcf-method-selector', 'dcf-years-source'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) {
-                    el.value = (id === 'fcf-source') ? 'eps_growth' : 
+                    el.value = (id === 'fcf-source') ? 'revenue' : 
+                               (id === 'dcf-years-source') ? '10yr' :
                                (id === 'dcf-buyback-source') ? 'none' : 'perpetual';
                     el.dispatchEvent(new Event('change', { bubbles: true }));
                 }
@@ -2392,7 +2422,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const g13 = document.getElementById('dcf-growth-1-3');
             if (g13) {
-                g13.value = targetGrowth.toFixed(1);
+                g13.value = formatCleanInputVal(targetGrowth);
                 // Reset 'isDefault' markers to allow fresh cascade
                 const g46 = document.getElementById('dcf-growth-4-6');
                 const g78 = document.getElementById('dcf-growth-7-8');

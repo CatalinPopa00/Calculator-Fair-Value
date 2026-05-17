@@ -1968,6 +1968,16 @@ body {
     .premium-input {
         font-size: 0.8rem;
     }
+
+    .valuation-input-group {
+        grid-template-columns: 1fr 120px !important;
+        gap: 0.5rem !important;
+    }
+
+    .premium-select {
+        padding-right: 28px !important;
+        background-position: right 6px center !important;
+    }
 }
 
 .premium-select:focus,

@@ -202,6 +202,12 @@ def save_override(req: OverrideRequest):
             "weights": req.weights
         }
         _save_overrides(all_overrides)
+        
+        # Evict in-memory cached valuations to force instant recalculation
+        for k in list(valuation_cache.keys()):
+            if k.startswith(f"valuation_{req.ticker.upper()}_"):
+                del valuation_cache[k]
+                
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -214,6 +220,12 @@ def delete_override(ticker: str):
         if ticker_upper in all_overrides:
             del all_overrides[ticker_upper]
             _save_overrides(all_overrides)
+            
+            # Evict in-memory cached valuations to force instant recalculation
+            for k in list(valuation_cache.keys()):
+                if k.startswith(f"valuation_{ticker_upper}_"):
+                    del valuation_cache[k]
+                    
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -341,7 +353,11 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         data["ticker"] = ticker.upper()
     
         all_overrides = _load_overrides()
-        ticker_overrides = all_overrides.get(ticker.upper())
+        ticker_overrides = all_overrides.get(ticker.upper()) or {}
+        overrides_inputs = ticker_overrides.get("inputs", {})
+        overrides_toggles = ticker_overrides.get("toggles", {})
+        overrides_weights = ticker_overrides.get("weights", {})
+        
         sector = data.get("sector")
         industry = data.get("industry")
         target_market_cap = data.get("market_cap") or 0.0
@@ -361,7 +377,6 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         eps_growth_estimated = consensus_growth
         
         lynch_period_label = data.get("eps_growth_period") or "2Y EPS CAGR"
-        
         
         # Calculate Industry Median PE for Peter Lynch fallback
         valid_pes = []
@@ -383,30 +398,53 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         # Trailing TTM EPS fallback only if Adjusted is missing.
         eps_for_valuation = data.get("adjusted_eps") or data.get("trailing_eps", 0) 
         
-        # Peter Lynch - Conservative Guardrails for Negative Growth
-        # Standard Lynch PE is 20, but for shrinking companies (<0% growth), we cap it at 12x (Risk Adjusted)
-        effective_lynch_pe = sector_median_pe
-        if consensus_growth < 0:
-            effective_lynch_pe = min(sector_median_pe, 12.0)
-            
-        lynch_result = calculate_peter_lynch(current_price, eps_for_valuation, consensus_growth, pe_historic, effective_lynch_pe)
+        # Apply Lynch Overrides
+        lynch_eps_source = overrides_inputs.get("lynch-eps-source", "analyst")
+        if lynch_eps_source == "historical":
+            eps_growth_lynch = data.get("historic_eps_growth") or 0.05
+        elif lynch_eps_source == "custom":
+            eps_growth_lynch = float(overrides_inputs.get("lynch-custom-growth") or 20.0) / 100.0
+        else:
+            eps_growth_lynch = consensus_growth
+
+        lynch_multiple_source = overrides_inputs.get("lynch-multiple-source", "pe20")
+        if lynch_multiple_source == "pe15":
+            effective_lynch_pe = 15.0
+        elif lynch_multiple_source == "pe20":
+            effective_lynch_pe = 20.0
+        elif lynch_multiple_source == "pe25":
+            effective_lynch_pe = 25.0
+        elif lynch_multiple_source == "historical":
+            effective_lynch_pe = pe_historic or 20.0
+        elif lynch_multiple_source == "custom":
+            effective_lynch_pe = float(overrides_inputs.get("lynch-custom-mult") or 18.0)
+        else:
+            effective_lynch_pe = sector_median_pe
+            if eps_growth_lynch < 0:
+                effective_lynch_pe = min(sector_median_pe, 12.0)
+
+        lynch_result = calculate_peter_lynch(current_price, eps_for_valuation, eps_growth_lynch, effective_lynch_pe, sector_median_pe)
         lynch_fwd_pe = lynch_result.get("fwd_pe")
         lynch_fair_value = lynch_result.get("fair_value")
         lynch_status = lynch_result.get("status")
 
         # Additional Benchmarks for Data Transparency
-        res_pe20 = calculate_peter_lynch(current_price, eps_for_valuation, consensus_growth, pe_historic, 20.0)
+        res_pe20 = calculate_peter_lynch(current_price, eps_for_valuation, eps_growth_lynch, pe_historic, 20.0)
         lynch_pe20_val = res_pe20.get("fair_value")
         
-        res_sector = calculate_peter_lynch(current_price, eps_for_valuation, consensus_growth, pe_historic, sector_median_pe)
+        res_sector = calculate_peter_lynch(current_price, eps_for_valuation, eps_growth_lynch, pe_historic, sector_median_pe)
         fair_value_sector_pe = res_sector.get("fair_value")
         
         # PEG Valuation (Sector-based)
         eps_base = eps_for_valuation or 0
         current_pe = current_price / eps_base if eps_base > 0 else 0
         
-        # Fallback logic handled by consensus_growth
-        eps_growth_rate_peg = consensus_growth
+        # Apply PEG Overrides
+        peg_eps_source = overrides_inputs.get("peg-eps-source", "analyst")
+        if peg_eps_source == "custom":
+            eps_growth_rate_peg = float(overrides_inputs.get("peg-custom-growth") or 20.0) / 100.0
+        else:
+            eps_growth_rate_peg = consensus_growth
         
         peg_period_label = data.get("eps_growth_period") or "2Y EPS CAGR"
         company_peg = current_pe / (eps_growth_rate_peg * 100) if eps_growth_rate_peg > 0 else 0
@@ -424,10 +462,163 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         
         # v61: Improved industry PEG fallback to 1.25 if no peer data is available
         industry_peg = statistics.median(valid_pegs) if valid_pegs else 1.25
-        peg_value = calculate_peg_fair_value(current_price, company_peg, industry_peg)
+
+        peg_mode = overrides_inputs.get("peg-mode", "standard")
+        is_telecom = "telecom" in str(industry).lower()
+
+        if peg_mode == "industry":
+            target_peg = industry_peg
+        else:
+            target_peg = 1.0
+            if sector == "Technology" or (sector == "Communication Services" and not is_telecom):
+                target_peg = 1.50
+            elif sector == "Utilities" or is_telecom:
+                target_peg = 1.00
+            elif sector == "Consumer Defensive":
+                target_peg = 1.50
+            elif sector == "Financial Services":
+                target_peg = 1.20
+
+        peg_value = calculate_peg_fair_value(current_price, company_peg, target_peg)
         
-        # Relative Valuation (P/E Based currently)
-        relative_value = calculate_relative_valuation(ticker, data, peers_data)
+        # Calculate Peer Stats for all metrics
+        median_peer_pfcf = None
+        mean_peer_pfcf = None
+        median_peer_ps = None
+        mean_peer_ps = None
+        median_peer_pb = None
+        mean_peer_pb = None
+        median_peer_ev_ebitda = None
+        mean_peer_ev_ebitda = None
+        mean_peer_pe = None
+
+        if peers_data:
+            def get_peer_stats(key):
+                vals = []
+                for p in peers_data:
+                    v = p.get(key)
+                    if v is not None and isinstance(v, (int, float)) and math.isfinite(v) and v > 0:
+                        vals.append(float(v))
+                if not vals:
+                    return None, None
+                return statistics.median(vals), sum(vals) / len(vals)
+
+            _, mean_peer_pe = get_peer_stats('pe_ratio')
+            median_peer_pfcf, mean_peer_pfcf = get_peer_stats('pfcf_ratio')
+            median_peer_ps, mean_peer_ps = get_peer_stats('ps_ratio')
+            median_peer_pb, mean_peer_pb = get_peer_stats('price_to_book')
+            median_peer_ev_ebitda, mean_peer_ev_ebitda = get_peer_stats('ev_to_ebitda')
+
+        # Multi-Metric Sector-Weighted Relative Valuation
+        company_eps = eps_for_valuation or 0
+        company_shares = data.get("shares_outstanding") or 1
+        
+        company_fcf_val = data.get("fcf") or 0
+        company_fcf_share = (company_fcf_val / company_shares) if company_fcf_val and company_shares else 0
+        
+        company_sales_val = data.get("revenue") or 0
+        company_sales_share = (company_sales_val / company_shares) if company_sales_val and company_shares else 0
+        
+        company_book_val = data.get("book_value") or (data.get("book_value_per_share") * company_shares if data.get("book_value_per_share") and company_shares else 0)
+        company_book_share = (company_book_val / company_shares) if company_book_val and company_shares else (data.get("book_value_per_share") or 0)
+        
+        company_ebitda = data.get("ebitda") or 0
+        company_debt = data.get("total_debt") or 0
+        company_cash = data.get("total_cash") or 0
+
+        relative_variant = overrides_inputs.get("relative-variant", "peers")
+        defaults = { "PE": 20.0, "PFCF": 20.0, "PS": 2.0, "PB": 2.0, "EV_EBITDA": 12.0 }
+        
+        if relative_variant == "peers":
+            bPE = median_peer_pe if median_peer_pe is not None else defaults["PE"]
+            bPFCF = median_peer_pfcf if median_peer_pfcf is not None else defaults["PFCF"]
+            bPS = median_peer_ps if median_peer_ps is not None else defaults["PS"]
+            bPB = median_peer_pb if median_peer_pb is not None else defaults["PB"]
+            bEVEBITDA = median_peer_ev_ebitda if median_peer_ev_ebitda is not None else defaults["EV_EBITDA"]
+        elif relative_variant == "average":
+            bPE = mean_peer_pe if mean_peer_pe is not None else defaults["PE"]
+            bPFCF = mean_peer_pfcf if mean_peer_pfcf is not None else defaults["PFCF"]
+            bPS = mean_peer_ps if mean_peer_ps is not None else defaults["PS"]
+            bPB = mean_peer_pb if mean_peer_pb is not None else defaults["PB"]
+            bEVEBITDA = mean_peer_ev_ebitda if mean_peer_ev_ebitda is not None else defaults["EV_EBITDA"]
+        else: # sp500
+            bPE = 24.5
+            bPFCF = 28.0
+            bPS = 2.8
+            bPB = 4.5
+            bEVEBITDA = 15.0
+
+        fvPE = company_eps * bPE
+        fvPFCF = company_fcf_share * bPFCF
+        fvPS = company_sales_share * bPS
+        fvPB = company_book_share * bPB
+        
+        impliedEV = company_ebitda * bEVEBITDA
+        impliedMktCap = impliedEV - company_debt + company_cash
+        fvEVEBITDA = impliedMktCap / company_shares if company_shares > 0 else 0
+
+        SECTOR_WEIGHTS = {
+            'Technology': { "PE": 0.35, "EV_EBITDA": 0.50, "PS": 0.15 },
+            'Information Technology': { "PE": 0.35, "EV_EBITDA": 0.50, "PS": 0.15 },
+            'Technology_Growth': { "PE": 0.00, "EV_EBITDA": 0.20, "PS": 0.80 },
+            'Financial Services': { "PE": 0.40, "PB": 0.60 },
+            'Financials': { "PE": 0.40, "PB": 0.60 },
+            'Industrials': { "PE": 0.20, "EV_EBITDA": 0.80 },
+            'Energy': { "PE": 0.20, "EV_EBITDA": 0.80 },
+            'Consumer Defensive': { "PE": 0.50, "EV_EBITDA": 0.30, "PS": 0.20 },
+            'Consumer Staples': { "PE": 0.50, "EV_EBITDA": 0.30, "PS": 0.20 },
+            'Consumer Cyclical': { "PE": 0.35, "EV_EBITDA": 0.35, "PS": 0.30 },
+            'Consumer Discretionary': { "PE": 0.35, "EV_EBITDA": 0.35, "PS": 0.30 },
+            'Healthcare': { "PE": 0.35, "EV_EBITDA": 0.40, "PS": 0.25 },
+            'Health Care': { "PE": 0.35, "EV_EBITDA": 0.40, "PS": 0.25 },
+            'Communication Services': { "PE": 0.35, "EV_EBITDA": 0.40, "PS": 0.25 },
+            'Utilities': { "PE": 0.50, "EV_EBITDA": 0.50 },
+            'Basic Materials': { "PE": 0.25, "EV_EBITDA": 0.75 },
+            'Materials': { "PE": 0.25, "EV_EBITDA": 0.75 },
+            'Real Estate': { "PE": 0.00, "P_FFO": 0.80, "P_AFFO": 0.20 },
+            'Default': { "PE": 0.40, "EV_EBITDA": 0.40, "PS": 0.20 }
+        }
+
+        sector_name = sector or 'Default'
+        weights = SECTOR_WEIGHTS.get(sector_name) or SECTOR_WEIGHTS.get('Default')
+        
+        if (sector_name == 'Technology' or sector_name == 'Information Technology') and (company_eps <= 0 or company_ebitda <= 0 or bPE > 50):
+            weights = SECTOR_WEIGHTS['Technology_Growth']
+            
+        if sector_name not in SECTOR_WEIGHTS:
+            if 'Tech' in sector_name: weights = SECTOR_WEIGHTS['Technology']
+            elif 'Finance' in sector_name or 'Bank' in sector_name: weights = SECTOR_WEIGHTS['Financial Services']
+            elif 'Industrial' in sector_name: weights = SECTOR_WEIGHTS['Industrials']
+            elif 'Energy' in sector_name: weights = SECTOR_WEIGHTS['Energy']
+            elif 'Health' in sector_name: weights = SECTOR_WEIGHTS['Healthcare']
+            elif 'Real Estate' in sector_name or 'REIT' in sector_name: weights = SECTOR_WEIGHTS['Real Estate']
+            elif 'Communication' in sector_name: weights = SECTOR_WEIGHTS['Communication Services']
+            elif 'Utilit' in sector_name: weights = SECTOR_WEIGHTS['Utilities']
+            elif 'Material' in sector_name: weights = SECTOR_WEIGHTS['Materials']
+
+        weightedSum = 0.0
+        totalWeight = 0.0
+        
+        def calcMetric(val, w):
+            nonlocal weightedSum, totalWeight
+            if w is not None and w > 0:
+                safeVal = val if (val is not None and math.isfinite(val) and val > 0) else 0
+                if safeVal > 0:
+                    weightedSum += safeVal * w
+                    totalWeight += w
+
+        if weights.get("PE") is not None: calcMetric(fvPE, weights.get("PE"))
+        if weights.get("PFCF") is not None: calcMetric(fvPFCF, weights.get("PFCF"))
+        if weights.get("PS") is not None: calcMetric(fvPS, weights.get("PS"))
+        if weights.get("PB") is not None: calcMetric(fvPB, weights.get("PB"))
+        if weights.get("EV_EBITDA") is not None: calcMetric(fvEVEBITDA, weights.get("EV_EBITDA"))
+        if weights.get("P_FFO") is not None: calcMetric(fvPE, weights.get("P_FFO"))
+        if weights.get("P_AFFO") is not None: calcMetric(fvPFCF, weights.get("P_AFFO"))
+
+        if totalWeight > 0:
+            relative_value = weightedSum / totalWeight
+        else:
+            relative_value = fvPE if fvPE > 0 else (fvPS if fvPS > 0 else None)
         
         # DCF Exit Multiple Mapping
         recommended_exit_multiple = get_recommended_exit_multiple(sector, industry)
@@ -436,14 +627,50 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         # For DCF, we need FCF, Growth, WACC (discount_rate), terminal growth
         fcf = data.get("fcf")
         shares = data.get("shares_outstanding")
-        # We will use simple defaults if missing
-        # For DCF, we strictly use the consensus_growth (v62 fix for growing FCF in negative scenarios)
-        eps_growth = consensus_growth
         
-        dcf_value = None
-        dcf_5yr = None
-        dcf_10yr = None
-    
+        fcf_source = overrides_inputs.get("fcf-source", "revenue")
+        
+        if fcf_source == "historical":
+            eps_growth = data.get("historic_fcf_growth") or 0.05
+        elif fcf_source == "custom":
+            # Multi-phase growth rates
+            g13 = float(overrides_inputs.get("dcf-growth-1-3") or 10.0) / 100.0
+            g46 = float(overrides_inputs.get("dcf-growth-4-6") or (g13 * 100 - 2.0) or 8.0) / 100.0
+            g78 = float(overrides_inputs.get("dcf-growth-7-8") or (g46 * 100 - 2.0) or 6.0) / 100.0
+            g910 = float(overrides_inputs.get("dcf-growth-9-10") or (g78 * 100 - 2.0) or 4.0) / 100.0
+            
+            eps_growth = []
+            for y in range(1, 11):
+                if y <= 3: eps_growth.append(g13)
+                elif y <= 6: eps_growth.append(g46)
+                elif y <= 8: eps_growth.append(g78)
+                else: eps_growth.append(g910)
+        elif fcf_source == "revenue":
+            rev_ests = data.get("rev_estimates") or []
+            est_growths = [float(e["growth"]) for e in rev_ests if e and e.get("status") == "estimate" and e.get("growth") is not None]
+            if len(est_growths) >= 2:
+                avg_growth = (est_growths[0] + est_growths[1]) / 2.0
+            elif len(est_growths) == 1:
+                avg_growth = est_growths[0]
+            else:
+                avg_growth = data.get("revenue_growth") or 0.08
+            
+            g13 = avg_growth
+            g46 = g13 - 0.02
+            g78 = g46 - 0.02
+            g910 = g78 - 0.02
+            
+            eps_growth = []
+            for y in range(1, 11):
+                if y <= 3: eps_growth.append(g13)
+                elif y <= 6: eps_growth.append(g46)
+                elif y <= 8: eps_growth.append(g78)
+                else: eps_growth.append(g910)
+        else:
+            eps_growth = consensus_growth
+            
+        dcf_years_source = overrides_inputs.get("dcf-years-source", "10yr")
+        
         # Dynamic WACC (CAPM)
         risk_free_rate = get_risk_free_rate()
         erp = 0.055 # Equity Risk Premium fallback
@@ -453,36 +680,61 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             
         dynamic_wacc = risk_free_rate + (beta * erp)
         
-        # Use custom WACC if provided by frontend, else dynamic_wacc
-        discount_rate = (wacc / 100.0) if wacc is not None else dynamic_wacc
-        perpetual_growth = 0.02 # 2% GDP growth standard
+        dcf_custom_wacc = overrides_inputs.get("dcf-custom-wacc")
+        if dcf_custom_wacc is not None and dcf_custom_wacc != "":
+            discount_rate = float(dcf_custom_wacc) / 100.0
+        else:
+            discount_rate = (wacc / 100.0) if wacc is not None else dynamic_wacc
+            
+        dcf_custom_perp = overrides_inputs.get("dcf-custom-perp")
+        if dcf_custom_perp is not None and dcf_custom_perp != "":
+            perpetual_growth = float(dcf_custom_perp) / 100.0
+        else:
+            perpetual_growth = 0.02
+            
+        input_exit_multiple = overrides_inputs.get("input-exit-multiple")
+        if input_exit_multiple is not None and input_exit_multiple != "":
+            exit_mult_applied = float(input_exit_multiple)
+        else:
+            exit_mult_applied = recommended_exit_multiple
+            if eps_growth is not None and not isinstance(eps_growth, list) and eps_growth < 0:
+                exit_mult_applied = min(exit_mult_applied or 15.0, 12.0)
+            elif eps_growth is not None and isinstance(eps_growth, list) and len(eps_growth) > 0 and eps_growth[0] < 0:
+                exit_mult_applied = min(exit_mult_applied or 15.0, 12.0)
+
+        buyback_source = overrides_inputs.get("dcf-buyback-source", "none")
+        if buyback_source == "historical":
+            buyback_rate = data.get("historic_buyback_rate") or 0.0
+        elif buyback_source == "custom":
+            buyback_rate = float(overrides_inputs.get("dcf-custom-buyback") or 0.0) / 100.0
+        else:
+            buyback_rate = 0.0
+            
+        dcf_method = overrides_inputs.get("dcf-method-selector", "perpetual")
         
-        # Initialize variables before conditional assignment to avoid UnboundLocalError
+        dcf_value = None
+        dcf_5yr = None
+        dcf_10yr = None
+        
         dcf_cash = data.get("total_cash") or 0
         dcf_debt = data.get("total_debt") or 0
         
-        # EXIT MULTIPLE CAP: If growth is negative, cap exit multiple to 12.0 for prudence
-        if eps_growth < 0:
-            recommended_exit_multiple = min(recommended_exit_multiple or 15.0, 12.0)
-
         if fcf and shares and fcf > 0:
-            # Standard DCF EV = PV(FCF) + Cash - Debt is highly misleading because Cash often includes customer money.
-            # For these, we use PV(FCF) as a proxy for Equity Value directly.
-            # v63: Only apply to actual Banks/Insurance, not Data/FinTech providers like FDS or MSCI.
             is_bank_or_insurance = any(x in str(industry).lower() for x in ["bank", "insurance", "savings", "credit"])
             if sector == "Financial Services" and is_bank_or_insurance:
                 dcf_cash = 0
                 dcf_debt = 0
                 
-        # 5 Year Calculation (Default for Dashboard)
-        res_5 = calculate_dcf(fcf, eps_growth, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, years=5, exit_multiple=recommended_exit_multiple)
-        sens_5 = calculate_dcf_sensitivity(fcf, eps_growth, shares, dcf_cash, dcf_debt, 5, discount_rate, perpetual_growth, exit_multiple=recommended_exit_multiple)
-        rev_5 = calculate_reverse_dcf(current_price, fcf, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, 5, exit_multiple=recommended_exit_multiple)
+        # 5 Year Calculation
+        res_5 = calculate_dcf(fcf, eps_growth, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, years=5, buyback_rate=buyback_rate, exit_multiple=exit_mult_applied)
+        sens_5 = calculate_dcf_sensitivity(fcf, eps_growth, shares, dcf_cash, dcf_debt, 5, discount_rate, perpetual_growth, exit_multiple=exit_mult_applied)
+        rev_5 = calculate_reverse_dcf(current_price, fcf, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, 5, exit_multiple=exit_mult_applied)
         
         if res_5:
-            # Use Perpetual as baseline for weighted average
-            dcf_value = res_5["dcf_perpetual"]["fair_value"]
-            # Apply WACC cap globally to the response
+            if dcf_method == "multiple":
+                dcf_value = res_5["dcf_exit_multiple"]["fair_value"]
+            else:
+                dcf_value = res_5["dcf_perpetual"]["fair_value"]
             discount_rate = res_5["discount_rate_applied"]
             
             dcf_5yr = {
@@ -492,9 +744,9 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             }
             
         # 10 Year Calculation 
-        res_10 = calculate_dcf(fcf, eps_growth, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, years=10, exit_multiple=recommended_exit_multiple)
-        sens_10 = calculate_dcf_sensitivity(fcf, eps_growth, shares, dcf_cash, dcf_debt, 10, discount_rate, perpetual_growth, exit_multiple=recommended_exit_multiple)
-        rev_10 = calculate_reverse_dcf(current_price, fcf, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, 10, exit_multiple=recommended_exit_multiple)
+        res_10 = calculate_dcf(fcf, eps_growth, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, years=10, buyback_rate=buyback_rate, exit_multiple=exit_mult_applied)
+        sens_10 = calculate_dcf_sensitivity(fcf, eps_growth, shares, dcf_cash, dcf_debt, 10, discount_rate, perpetual_growth, exit_multiple=exit_mult_applied)
+        rev_10 = calculate_reverse_dcf(current_price, fcf, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, 10, exit_multiple=exit_mult_applied)
         
         if res_10:
             dcf_10yr = {
@@ -502,6 +754,13 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 "sensitivity": sens_10,
                 "reverse_dcf": rev_10
             }
+            
+        if dcf_years_source == "10yr" and res_10:
+            if dcf_method == "multiple":
+                dcf_value = res_10["dcf_exit_multiple"]["fair_value"]
+            else:
+                dcf_value = res_10["dcf_perpetual"]["fair_value"]
+
         # historical trends
         historical_trends = data.get("historical_trends", [])
 
@@ -509,17 +768,12 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         stable_rev_growth = data.get("revenue_growth")
         if historical_trends and len(historical_trends) >= 2:
             try:
-                # trends might be [2022, 2023, 2024, 2025] or reversed. 
-                # We extract the year number to sort correctly even with "(Est)" labels.
                 def get_yr_num(h):
                     y_str = str(h.get("year", "0"))
                     nums = "".join(filter(str.isdigit, y_str))
                     return int(nums) if nums else 0
                 
-                # Sort descending: [2027 (Est), 2026 (Est), 2025, 2024...]
                 sorted_trends = sorted(historical_trends, key=get_yr_num, reverse=True)
-                
-                # We only want REPORTED years for the 'historical' growth comparison (e.g. 2025 vs 2024)
                 reported_revs = [h.get("revenue") for h in sorted_trends if h.get("revenue") and "(Est)" not in str(h.get("year"))]
                 
                 if len(reported_revs) >= 2:
@@ -530,40 +784,52 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             except:
                 pass
         
-        # Propagate stable revenue growth to both the profile and the scoring engine (v63 fix)
         data["revenue_growth"] = stable_rev_growth
         data["next_3y_rev_growth"] = stable_rev_growth
             
         # Stabilize Fair Value with Sector-Aware Weighting
-        # Define base sector weights using the pre-assigned sector variable
-        if sector == "Financial Services":
-            base_weights = {"lynch": 0.45, "relative": 0.45, "peg": 0.10, "dcf": 0.0}
-        elif sector == "Real Estate":
-            base_weights = {"lynch": 0.30, "relative": 0.40, "peg": 0.10, "dcf": 0.20}
+        if overrides_weights:
+            base_weights = {}
+            for k, v in overrides_weights.items():
+                try:
+                    base_weights[k] = float(v) / 100.0 if float(v) > 1.0 else float(v)
+                except:
+                    base_weights[k] = 0.0
         else:
-            base_weights = {"lynch": 0.25, "relative": 0.25, "peg": 0.25, "dcf": 0.25}
- 
-        # Map methods to weight keys
-        lynch_pe20_val = lynch_result.get("fair_value_pe_20")
+            s_name = str(sector).lower()
+            if "financial" in s_name or "bank" in s_name:
+                base_weights = {"lynch": 0.30, "relative": 0.60, "peg": 0.10, "dcf": 0.0}
+            elif "real estate" in s_name or "reit" in s_name:
+                base_weights = {"lynch": 0.30, "relative": 0.40, "peg": 0.10, "dcf": 0.20}
+            elif "tech" in s_name or "communication" in s_name or "software" in str(industry).lower():
+                base_weights = {"lynch": 0.40, "relative": 0.10, "peg": 0.25, "dcf": 0.25}
+            elif "health" in s_name or "defensive" in s_name or "staple" in s_name or "utilit" in s_name:
+                base_weights = {"lynch": 0.20, "relative": 0.20, "peg": 0.10, "dcf": 0.50}
+            else: # Industrials, Energy, Materials, Cyclical
+                base_weights = {"lynch": 0.20, "relative": 0.40, "peg": 0.10, "dcf": 0.30}
+
+        for method in ["lynch", "peg", "relative", "dcf"]:
+            toggle_key = f"toggle-{method}" if method != "lynch" else "toggle-peter_lynch"
+            if overrides_toggles.get(toggle_key) is False:
+                base_weights[method] = 0.0
+
         method_map = {
-            "lynch": lynch_pe20_val,
+            "lynch": lynch_fair_value,
             "peg": peg_value,
             "relative": relative_value,
             "dcf": dcf_value
         }
  
-        # Calculate weighted average based on AVAILABLE methods
-        total_weight = 0
-        weighted_sum = 0
+        total_weight = 0.0
+        weighted_sum = 0.0
         for key, val in method_map.items():
             if val is not None and val > 0:
-                w = base_weights.get(key, 0)
+                w = base_weights.get(key, 0.0)
                 weighted_sum += val * w
                 total_weight += w
  
         if total_weight > 0:
             fair_value = weighted_sum / total_weight
-            # Margin of Safety relative to PRICE is the standard for buy scores
             if current_price > 0:
                 margin_of_safety = ((fair_value - current_price) / current_price) * 100
             else:
@@ -702,12 +968,29 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             "relative": {
                 "fair_value": sanitize(relative_value),
                 "margin_of_safety": sanitize(((relative_value - current_price) / current_price * 100)) if relative_value is not None and current_price > 0 else None,
-                "company_eps": sanitize(data.get("trailing_eps")),
+                "company_eps": sanitize(company_eps),
                 "company_trailing_pe": sanitize(pe_historic),
                 "peers": [p.get("ticker", p) if isinstance(p, dict) else p for p in peers_data] if peers_data else [],
                 "median_peer_pe": sanitize(median_peer_pe),
                 "median_peer_peg": sanitize(median_peer_peg),
                 "mean_peer_pe": sanitize(mean_peer_pe),
+                "median_peer_pfcf": sanitize(median_peer_pfcf),
+                "mean_peer_pfcf": sanitize(mean_peer_pfcf),
+                "median_peer_ps": sanitize(median_peer_ps),
+                "mean_peer_ps": sanitize(mean_peer_ps),
+                "median_peer_pb": sanitize(median_peer_pb),
+                "mean_peer_pb": sanitize(mean_peer_pb),
+                "median_peer_ev_ebitda": sanitize(median_peer_ev_ebitda),
+                "mean_peer_ev_ebitda": sanitize(mean_peer_ev_ebitda),
+                "sp500_pe": 24.5,
+                "sp500_pfcf": 28.0,
+                "sp500_ps": 2.8,
+                "sp500_pb": 4.5,
+                "sp500_ev_ebitda": 15.0,
+                "company_fcf_share": sanitize(company_fcf_share),
+                "company_sales_share": sanitize(company_sales_share),
+                "company_book_share": sanitize(company_book_share),
+                "sector": sector,
                 "market_pe_trailing": sanitize(market_data.get("trailing_pe")),
                 "market_pe_forward": sanitize(market_data.get("forward_pe"))
             }
@@ -983,4 +1266,24 @@ def get_batch_valuation(req: WatchlistRequest):
     return results
 
 if __name__ == "__main__":
+    import os
+    from fastapi.responses import FileResponse
+    root_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    @app.get("/")
+    async def get_index():
+        return FileResponse(os.path.join(root_dir, "index.html"))
+        
+    @app.get("/style.css")
+    async def get_css():
+        return FileResponse(os.path.join(root_dir, "style.css"))
+        
+    @app.get("/app.js")
+    async def get_js():
+        return FileResponse(os.path.join(root_dir, "app.js"))
+        
+    @app.get("/icon.png")
+    async def get_icon():
+        return FileResponse(os.path.join(root_dir, "icon.png"))
+
     uvicorn.run(app, host="127.0.0.1", port=8000)
