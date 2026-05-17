@@ -1059,55 +1059,49 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (fcfSource === 'revenue' || fcfSource === 'eps_growth') {
                     const waccInput = document.getElementById('dcf-custom-wacc');
-                    const backendWacc = currentFormulaData.dcf.discount_rate_applied / 100;
-                    const method = document.getElementById('dcf-method-selector')?.value || 'perpetual';
+                    const wAnalyst = (waccInput && waccInput.value) ? parseFloat(waccInput.value)/100 : w;
                     
-                    if (dcfData) {
-                        const branch = method === 'multiple' ? dcfData.dcf_exit_multiple : dcfData.dcf_perpetual;
-                        
-                        if (buybackRate === 0 && (!waccInput || !waccInput.value) && fcfSource !== 'custom') {
-                            dcfVal = branch ? branch.fair_value_per_share : null;
-                        }
-                    }
+                    const pRaw = document.getElementById('dcf-custom-perp')?.value;
+                    const pCustom = (pRaw === '' || isNaN(parseFloat(pRaw))) ? p : parseFloat(pRaw) / 100;
                     
-                    if (dcfVal === null) {
-                        let g;
-                        if (fcfSource === 'revenue') {
-                            const getRevG = () => {
-                                const rList = globalData.rev_estimates || [];
-                                const ests = rList.filter(e => e && e.status !== 'reported' && e.growth != null);
-                                if (ests.length >= 2) {
-                                    const g1 = parseFloat(ests[0].growth);
-                                    const g2 = parseFloat(ests[1].growth);
-                                    if (!isNaN(g1) && !isNaN(g2)) return (g1 + g2) / 2.0;
-                                } else if (ests.length === 1) {
-                                    const g1 = parseFloat(ests[0].growth);
-                                    if (!isNaN(g1)) return g1;
-                                }
-                                if (prof && prof.revenue_growth != null) return prof.revenue_growth;
-                                return 0.08;
-                            };
-                            const g13 = getRevG();
-                            const g46 = g13 - 0.02;
-                            const g78 = g46 - 0.02;
-                            const g910 = g78 - 0.02;
-                            g = [];
-                            for (let y = 1; y <= 10; y++) {
-                                if (y <= 3) g.push(g13);
-                                else if (y <= 6) g.push(g46);
-                                else if (y <= 8) g.push(g78);
-                                else g.push(g910);
+                    const em = parseFloat(document.getElementById('input-exit-multiple')?.value) || (globalData.dcf_assumptions?.recommended_exit_multiple || 15.0);
+                    
+                    let g;
+                    if (fcfSource === 'revenue') {
+                        const getRevG = () => {
+                            const rList = globalData.rev_estimates || [];
+                            const ests = rList.filter(e => e && e.status !== 'reported' && e.growth != null);
+                            if (ests.length >= 2) {
+                                const g1 = parseFloat(ests[0].growth);
+                                const g2 = parseFloat(ests[1].growth);
+                                if (!isNaN(g1) && !isNaN(g2)) return (g1 + g2) / 2.0;
+                            } else if (ests.length === 1) {
+                                const g1 = parseFloat(ests[0].growth);
+                                if (!isNaN(g1)) return g1;
                             }
-                        } else {
-                            g = currentFormulaData.dcf.eps_growth_applied || 0.10;
+                            if (prof && prof.revenue_growth != null) return prof.revenue_growth;
+                            return 0.08;
+                        };
+                        const g13 = getRevG();
+                        const g46 = g13 - 0.02;
+                        const g78 = g46 - 0.02;
+                        const g910 = g78 - 0.02;
+                        g = [];
+                        for (let y = 1; y <= 10; y++) {
+                            if (y <= 3) g.push(g13);
+                            else if (y <= 6) g.push(g46);
+                            else if (y <= 8) g.push(g78);
+                            else g.push(g910);
                         }
-                        
-                        if (currentFormulaData.dcf) currentFormulaData.dcf.eps_growth_applied = g;
-                        const wAnalyst = (waccInput && waccInput.value) ? parseFloat(waccInput.value)/100 : w;
-                        const em = parseFloat(document.getElementById('input-exit-multiple')?.value) || (globalData.dcf_assumptions?.recommended_exit_multiple || 15.0);
-                        dcfVal = calcLocalDcf(baseFcf, g, wAnalyst, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
+                    } else {
+                        g = currentFormulaData.dcf.eps_growth_applied || 0.10;
                     }
-            } else if (fcfSource === 'historical') {
+                    
+                    if (currentFormulaData.dcf) currentFormulaData.dcf.eps_growth_applied = g;
+                    
+                    dcfVal = calcLocalDcf(baseFcf, g, wAnalyst, pCustom, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
+                }
+                else if (fcfSource === 'historical') {
                 const hg = prof.historic_fcf_growth != null ? prof.historic_fcf_growth : 0.05;
                 if (currentFormulaData.dcf) currentFormulaData.dcf.eps_growth_applied = hg;
                 const em = parseFloat(document.getElementById('input-exit-multiple')?.value) || (globalData.dcf_assumptions?.recommended_exit_multiple || 10.0);
@@ -1534,39 +1528,36 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         // --- CALCULATE FINAL FAIR VALUE ---
-        // v306: Cross-device sync - check overrides instead of local-only localStorage
-        const hasSavedWeights = (cachedOverrides[currentTicker] && cachedOverrides[currentTicker].weights);
-        const modelsToggled = !document.getElementById('toggle-peter_lynch').checked || 
-                             !document.getElementById('toggle-peg').checked || 
-                             !document.getElementById('toggle-relative').checked || 
-                             !document.getElementById('toggle-dcf').checked;
+        // Always calculate final Fair Value dynamically based on active models and current weights
+        let totalWeight = 0;
+        let weightedSum = 0;
 
-        let finalFv = globalData.fair_value;
-        let finalMos = globalData.margin_of_safety;
-
-        if (hasSavedWeights || modelsToggled) {
-            let totalWeight = 0;
-            let weightedSum = 0;
-
-            const addVal = (val, isChecked, weightKey) => {
-                if (val != null && val > 0 && isChecked) {
-                    const w = customWeights[weightKey] || 0;
-                    totalWeight += w;
-                    weightedSum += (val * w);
-                }
-            };
-
-            addVal(lynchVal, document.getElementById('toggle-peter_lynch').checked, 'lynch');
-            addVal(pegVal, document.getElementById('toggle-peg').checked, 'peg');
-            addVal(relVal, document.getElementById('toggle-relative').checked, 'relative');
-            addVal(dcfVal, document.getElementById('toggle-dcf').checked, 'dcf');
-
-            if (totalWeight > 0) {
-                finalFv = weightedSum / totalWeight;
-                finalMos = ((finalFv - globalData.current_price) / globalData.current_price) * 100;
-                // v47: Sync for reactive simulations
-                globalData.fair_value = finalFv;
+        const addVal = (val, isChecked, weightKey) => {
+            if (val != null && val > 0 && isChecked) {
+                const w = customWeights[weightKey] || 0;
+                totalWeight += w;
+                weightedSum += (val * w);
             }
+        };
+
+        addVal(lynchVal, document.getElementById('toggle-peter_lynch').checked, 'lynch');
+        addVal(pegVal, document.getElementById('toggle-peg').checked, 'peg');
+        addVal(relVal, document.getElementById('toggle-relative').checked, 'relative');
+        addVal(dcfVal, document.getElementById('toggle-dcf').checked, 'dcf');
+
+        let finalFv = null;
+        let finalMos = null;
+
+        if (totalWeight > 0) {
+            finalFv = weightedSum / totalWeight;
+            finalMos = ((finalFv - globalData.current_price) / globalData.current_price) * 100;
+            // v47: Sync for reactive simulations
+            globalData.fair_value = finalFv;
+            globalData.margin_of_safety = finalMos;
+        } else {
+            // Fallback to backend static values if no active models are found
+            finalFv = globalData.fair_value;
+            finalMos = globalData.margin_of_safety;
         }
 
         if (finalFv != null) {
@@ -2004,6 +1995,26 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!hadOverrides) {
                 g13.value = formatCleanInputVal(targetGrowth);
                 g13.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        }
+
+        // Initialize inputs to company's defaults before applying overrides
+        const dcf = data.formula_data?.dcf;
+        if (dcf) {
+            const waccInput = document.getElementById('dcf-custom-wacc');
+            if (waccInput) {
+                const defaultWacc = dcf.discount_rate_applied || (dcf.discount_rate ? dcf.discount_rate * 100 : 9.0);
+                waccInput.value = formatCleanInputVal(defaultWacc);
+            }
+            const perpInput = document.getElementById('dcf-custom-perp');
+            if (perpInput) {
+                const defaultPerp = dcf.perpetual_growth ? dcf.perpetual_growth * 100 : 2.5;
+                perpInput.value = formatCleanInputVal(defaultPerp);
+            }
+            const exitInput = document.getElementById('input-exit-multiple');
+            if (exitInput) {
+                const defaultExit = data.dcf_assumptions?.recommended_exit_multiple || 15.0;
+                exitInput.value = formatCleanInputVal(defaultExit);
             }
         }
 
