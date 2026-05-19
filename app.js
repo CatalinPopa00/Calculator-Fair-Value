@@ -3538,6 +3538,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (model === 'dcf' && currentFormulaData.dcf) {
                 const d = currentFormulaData.dcf;
+                const prof = globalData ? globalData.company_profile : {};
                 title.textContent = 'Discounted Cash Flow';
 
                 const method = document.getElementById('dcf-method-selector')?.value || 'perpetual';
