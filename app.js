@@ -1131,10 +1131,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     dcfValObj = calcLocalDcf(baseFcf, g, wAnalyst, pCustom, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
                 }
                 else if (fcfSource === 'historical') {
-                    const hg = prof.historic_fcf_growth != null ? prof.historic_fcf_growth : 0.05;
-                    if (currentFormulaData.dcf) currentFormulaData.dcf.eps_growth_applied = hg;
+                    const hg13 = prof.historic_fcf_growth != null ? prof.historic_fcf_growth : 0.05;
+                    const hg46 = hg13 - 0.02;
+                    const hg78 = hg46 - 0.02;
+                    const hg910 = hg78 - 0.02;
+                    const hgArray = [];
+                    for (let y = 1; y <= 10; y++) {
+                        if (y <= 3) hgArray.push(hg13);
+                        else if (y <= 6) hgArray.push(hg46);
+                        else if (y <= 8) hgArray.push(hg78);
+                        else hgArray.push(hg910);
+                    }
+                    if (currentFormulaData.dcf) currentFormulaData.dcf.eps_growth_applied = hgArray;
                     const em = parseLocaleFloat(document.getElementById('input-exit-multiple')?.value) || (globalData.dcf_assumptions?.recommended_exit_multiple || 10.0);
-                    dcfValObj = calcLocalDcf(baseFcf, hg, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
+                    dcfValObj = calcLocalDcf(baseFcf, hgArray, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
                 } else if (fcfSource === 'custom') {
                     const getVal = (id) => {
                         const el = document.getElementById(id);
