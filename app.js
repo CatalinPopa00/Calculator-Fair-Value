@@ -546,24 +546,58 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    const calcLocalDcf = (fcf, growth, wacc, perp, shares, cash, debt, buybackRate = 0, years = 5, exitMult = 10.0) => {
+    const calcLocalDcf = (fcfObj, growth, wacc, perp, shares, cash, debt, buybackRate = 0, years = 5, exitMult = 10.0) => {
+        let fcf = 0;
+        let revenue = 0;
+        let customMargin = null;
+        
+        if (fcfObj && typeof fcfObj === 'object') {
+            fcf = fcfObj.fcf || 0;
+            revenue = fcfObj.revenue || 0;
+            customMargin = fcfObj.customMargin;
+        } else {
+            fcf = fcfObj || 0;
+        }
+
         if (!fcf || !shares || shares <= 0) return null;
         
         // WACC Smart Cap
         const finalWacc = Math.max(0.07, Math.min(wacc, 0.105));
         
+        // 1. Determine base Revenue and starting FCF Margin
+        let currentRevenue = revenue;
+        if (!currentRevenue || currentRevenue <= 0) {
+            currentRevenue = fcf / 0.10; // Fallback if revenue is missing
+        }
+        
+        let startingFcfMargin = 0.10;
+        if (customMargin !== null && !isNaN(customMargin)) {
+            startingFcfMargin = customMargin / 100;
+        } else if (currentRevenue > 0) {
+            startingFcfMargin = fcf / currentRevenue;
+        }
+        
         let pv = 0;
-        let f = fcf;
+        let currentFcf = fcf;
         const fcf_projections = [];
         const pv_fcf_years = [];
         
         for (let i = 1; i <= years; i++) {
             // Support multi-phase growth: growth can be an array (per-year) or a single number
             const g = Array.isArray(growth) ? (growth[i - 1] !== undefined ? growth[i - 1] : growth[growth.length - 1]) : growth;
-            f *= (1 + g);
-            fcf_projections.push(f);
             
-            const pv_fcf = f / Math.pow(1 + finalWacc, i);
+            // Revenue grows year-over-year
+            currentRevenue *= (1 + g);
+            
+            // FCF margin increases by 0.2% (0.002) each year in the background
+            const yearMargin = startingFcfMargin + (i * 0.002);
+            
+            // FCF is calculated on top of projected Revenue
+            currentFcf = currentRevenue * yearMargin;
+            
+            fcf_projections.push(currentFcf);
+            
+            const pv_fcf = currentFcf / Math.pow(1 + finalWacc, i);
             pv_fcf_years.push(pv_fcf);
             pv += pv_fcf;
         }
@@ -571,9 +605,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const method = document.getElementById('dcf-method-selector')?.value || 'perpetual';
         let tv = 0;
         if (method === 'perpetual') {
-            tv = (f * (1 + perp)) / (finalWacc - perp);
+            tv = (currentFcf * (1 + perp)) / (finalWacc - perp);
         } else {
-            tv = f * exitMult;
+            tv = currentFcf * exitMult;
         }
         
         const pvTv = tv / Math.pow(1 + finalWacc, years);
@@ -1080,6 +1114,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 const baseFcf = currentFormulaData.dcf.fcf;
+                const baseRevenue = prof.revenue || (prof.market_cap && prof.ps_ratio && prof.ps_ratio > 0 ? prof.market_cap / prof.ps_ratio : null) || 0;
+                
+                const customMarginEl = document.getElementById('dcf-custom-fcf-margin');
+                const customMargin = (customMarginEl && customMarginEl.value !== '') ? parseLocaleFloat(customMarginEl.value) : null;
+                
+                const fcfParam = { fcf: baseFcf, revenue: baseRevenue, customMargin: customMargin };
+                
                 const shares = prof.shares_outstanding;
                 
                 // Dynamic WACC and Perpetual Growth from backend
@@ -1128,7 +1169,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     if (currentFormulaData.dcf) currentFormulaData.dcf.eps_growth_applied = g;
                     
-                    dcfValObj = calcLocalDcf(baseFcf, g, wAnalyst, pCustom, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
+                    dcfValObj = calcLocalDcf(fcfParam, g, wAnalyst, pCustom, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
                 }
                 else if (fcfSource === 'historical') {
                     const hg13 = Math.round((prof.historic_fcf_growth != null ? prof.historic_fcf_growth : 0.05) * 1000) / 1000;
@@ -1144,7 +1185,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     if (currentFormulaData.dcf) currentFormulaData.dcf.eps_growth_applied = hgArray;
                     const em = parseLocaleFloat(document.getElementById('input-exit-multiple')?.value) || (globalData.dcf_assumptions?.recommended_exit_multiple || 10.0);
-                    dcfValObj = calcLocalDcf(baseFcf, hgArray, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
+                    dcfValObj = calcLocalDcf(fcfParam, hgArray, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
                 } else if (fcfSource === 'custom') {
                     const getVal = (id) => {
                         const el = document.getElementById(id);
@@ -1188,7 +1229,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const pCustom = (pRaw === '' || isNaN(parseLocaleFloat(pRaw))) ? 0.025 : parseLocaleFloat(pRaw) / 100;
                         const em = (emRaw === '' || isNaN(parseLocaleFloat(emRaw))) ? (globalData.dcf_assumptions?.recommended_exit_multiple || 10.0) : parseLocaleFloat(emRaw);
 
-                        dcfValObj = calcLocalDcf(baseFcf, growthArr, wCustom, pCustom, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
+                        dcfValObj = calcLocalDcf(fcfParam, growthArr, wCustom, pCustom, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
                     }
                 }
 
@@ -1813,6 +1854,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         const fcfSourceEl = document.getElementById('fcf-source');
         if (fcfSourceEl) fcfSourceEl.value = 'custom';
+        const fcfMarginEl = document.getElementById('dcf-custom-fcf-margin');
+        if (fcfMarginEl) fcfMarginEl.value = '';
         const yearsSourceEl = document.getElementById('dcf-years-source');
         if (yearsSourceEl) yearsSourceEl.value = '10yr';
 
@@ -2267,7 +2310,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Overrides Sync ---
     const overrideInputIds = [
         'fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple',
-        'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp',
+        'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp', 'dcf-custom-fcf-margin',
         'dcf-buyback-source', 'dcf-custom-buyback', 'relative-variant',
         'lynch-multiple-source', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth',
         'peg-eps-source', 'peg-custom-growth', 'peg-mode'
@@ -2473,7 +2516,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const ov = cachedOverrides[currentTicker];
         if (ov && ov.inputs) {
             const idsToReset = {
-                dcf: ['fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple', 'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp', 'dcf-buyback-source', 'dcf-custom-buyback'],
+                dcf: ['fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple', 'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp', 'dcf-custom-fcf-margin', 'dcf-buyback-source', 'dcf-custom-buyback'],
                 relative: ['relative-variant', 'rel-weight-mode-card'],
                 peter_lynch: ['lynch-multiple-source', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth'],
                 peg: ['peg-eps-source', 'peg-custom-growth', 'peg-mode']
@@ -2521,6 +2564,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (wacc) wacc.value = '9';
             const perp = document.getElementById('dcf-custom-perp');
             if (perp) perp.value = '2.5';
+            const fcfMargin = document.getElementById('dcf-custom-fcf-margin');
+            if (fcfMargin) fcfMargin.value = '';
             
             switchDCFMethod('perpetual');
         } else if (method === 'relative') {
