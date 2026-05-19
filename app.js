@@ -3548,10 +3548,32 @@ document.addEventListener('DOMContentLoaded', () => {
                     const fcfYears = dataObj.fcf_projections || [];
                     const sensMatrix = method === 'perpetual' ? (dataObj.sensitivity_matrix || []) : [];
                     
+                    const baseFcf = d.fcf || 0;
+                    const baseRevenue = prof.revenue || 0;
+                    const customMarginEl = document.getElementById('dcf-custom-fcf-margin');
+                    const customMargin = (customMarginEl && customMarginEl.value !== '') ? parseLocaleFloat(customMarginEl.value) : null;
+                    let startingFcfMargin = 0.10;
+                    if (customMargin !== null && !isNaN(customMargin)) {
+                        startingFcfMargin = customMargin / 100;
+                    } else if (baseRevenue > 0) {
+                        startingFcfMargin = baseFcf / baseRevenue;
+                    }
+                    const customMarginGrowthEl = document.getElementById('dcf-custom-margin-growth');
+                    const customMarginGrowth = (customMarginGrowthEl && customMarginGrowthEl.value !== '') ? parseLocaleFloat(customMarginGrowthEl.value) / 100 : 0.002;
+
                     let tableHTML = `<table style="width:100%; border-collapse:collapse; margin-top:20px; font-size: 0.95rem;">
-                                        <tr style="border-bottom:1px solid rgba(255,255,255,0.2);"><th style="text-align:left; padding:8px 0; color:white;">Year</th><th style="text-align:right; padding:8px 0; color:white;">Projected FCF</th></tr>`;
+                                        <tr style="border-bottom:1px solid rgba(255,255,255,0.2);">
+                                            <th style="text-align:left; padding:8px 0; color:white;">Year</th>
+                                            <th style="text-align:right; padding:8px 0; color:white;">Projected FCF</th>
+                                            <th style="text-align:right; padding:8px 0; color:white;">FCF Margin</th>
+                                        </tr>`;
                     fcfYears.forEach((val, i) => {
-                        tableHTML += `<tr><td style="padding:6px 0; color:white;">Year ${i+1}</td><td style="text-align:right; color:white;">${fmtBig(val)}</td></tr>`;
+                        const yearMargin = startingFcfMargin + ((i + 1) * customMarginGrowth);
+                        tableHTML += `<tr>
+                                        <td style="padding:6px 0; color:white;">Year ${i+1}</td>
+                                        <td style="text-align:right; color:white;">${fmtBig(val)}</td>
+                                        <td style="text-align:right; color:var(--accent); font-weight:600;">${fmtPct(yearMargin)}</td>
+                                      </tr>`;
                     });
                     tableHTML += `</table>`;
 
