@@ -1238,7 +1238,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const pegSrcEl = document.getElementById('peg-eps-source');
             const pegSrc = pegSrcEl ? pegSrcEl.value : 'analyst';
             const pegInputs = document.getElementById('peg-custom-inputs');
-            if (pegInputs) pegInputs.style.display = pegSrc === 'custom' ? 'flex' : 'none';
+            if (pegInputs) pegInputs.style.display = pegSrc === 'custom' ? 'grid' : 'none';
 
             usedGrowth = currentFormulaData.peg.eps_growth_estimated || 0;
             if (pegSrc === 'custom') {
@@ -1384,7 +1384,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const epsSourceEl = document.getElementById('lynch-eps-source');
             const epsSource = epsSourceEl ? epsSourceEl.value : 'analyst';
             const lynchInputs = document.getElementById('lynch-custom-inputs');
-            if (lynchInputs) lynchInputs.style.display = epsSource === 'custom' ? 'flex' : 'none';
+            if (lynchInputs) lynchInputs.style.display = epsSource === 'custom' ? 'grid' : 'none';
 
             let usedGrowth = pl.eps_growth_estimated || 0.05;
             let baseEps = pl.valuation_eps || pl.trailing_eps || 0;
@@ -1402,7 +1402,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const multEl = document.getElementById('lynch-multiple-source');
             const multVal = multEl ? multEl.value : 'pe20';
             const multCustomInputs = document.getElementById('lynch-custom-multiple-inputs');
-            if (multCustomInputs) multCustomInputs.style.display = multVal === 'custom' ? 'flex' : 'none';
+            if (multCustomInputs) multCustomInputs.style.display = multVal === 'custom' ? 'grid' : 'none';
 
             let selectedMult = 20; 
             if (multVal === 'pe15') selectedMult = 15;
@@ -2395,7 +2395,13 @@ document.addEventListener('DOMContentLoaded', () => {
                                id === 'lynch-multiple-source' ? 'lynch-custom-multiple-inputs' :
                                id === 'lynch-eps-source' ? 'lynch-custom-inputs' : 'peg-custom-inputs';
                    const ci = document.getElementById(ciId);
-                   if (ci) ci.style.display = val === 'custom' ? 'flex' : 'none';
+                   if (ci) {
+                       if (ciId === 'lynch-custom-inputs' || ciId === 'peg-custom-inputs' || ciId === 'lynch-custom-multiple-inputs') {
+                           ci.style.display = val === 'custom' ? 'grid' : 'none';
+                       } else {
+                           ci.style.display = val === 'custom' ? 'flex' : 'none';
+                       }
+                   }
                 }
                 if (id === 'dcf-method-selector') switchDCFMethod(val);
             }
