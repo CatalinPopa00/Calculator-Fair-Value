@@ -554,11 +554,18 @@ document.addEventListener('DOMContentLoaded', () => {
         
         let pv = 0;
         let f = fcf;
+        const fcf_projections = [];
+        const pv_fcf_years = [];
+        
         for (let i = 1; i <= years; i++) {
             // Support multi-phase growth: growth can be an array (per-year) or a single number
             const g = Array.isArray(growth) ? (growth[i - 1] !== undefined ? growth[i - 1] : growth[growth.length - 1]) : growth;
             f *= (1 + g);
-            pv += f / Math.pow(1 + finalWacc, i);
+            fcf_projections.push(f);
+            
+            const pv_fcf = f / Math.pow(1 + finalWacc, i);
+            pv_fcf_years.push(pv_fcf);
+            pv += pv_fcf;
         }
         
         const method = document.getElementById('dcf-method-selector')?.value || 'perpetual';
@@ -574,7 +581,22 @@ document.addEventListener('DOMContentLoaded', () => {
         const eqVal = ev + (cash || 0) - (debt || 0);
         if (eqVal <= 0) return null;
         const effectiveShares = shares * Math.pow(1 - (buybackRate || 0), years);
-        return eqVal / (effectiveShares > 0 ? effectiveShares : shares);
+        const fair_value = eqVal / (effectiveShares > 0 ? effectiveShares : shares);
+        
+        return {
+            fair_value,
+            fcf_projections,
+            pv_fcf_years,
+            present_value_fcf_sum: pv,
+            terminal_value: tv,
+            present_value_terminal: pvTv,
+            discount_rate: finalWacc,
+            perpetual_growth_rate: perp,
+            exit_multiple: exitMult,
+            shares_outstanding: shares,
+            total_cash: cash || 0,
+            total_debt: debt || 0
+        };
     };
 
     // Data elements
@@ -1030,6 +1052,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const dcfCardMos = document.getElementById('dcf-card-mos');
 
         let dcfVal = null;
+        let dcfValObj = null;
         if (currentFormulaData.dcf) {
             const fcfSourceEl = document.getElementById('fcf-source');
             const fcfSource = fcfSourceEl ? fcfSourceEl.value : 'revenue';
@@ -1105,57 +1128,88 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     if (currentFormulaData.dcf) currentFormulaData.dcf.eps_growth_applied = g;
                     
-                    dcfVal = calcLocalDcf(baseFcf, g, wAnalyst, pCustom, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
+                    dcfValObj = calcLocalDcf(baseFcf, g, wAnalyst, pCustom, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
                 }
                 else if (fcfSource === 'historical') {
-                const hg = prof.historic_fcf_growth != null ? prof.historic_fcf_growth : 0.05;
-                if (currentFormulaData.dcf) currentFormulaData.dcf.eps_growth_applied = hg;
-                const em = parseLocaleFloat(document.getElementById('input-exit-multiple')?.value) || (globalData.dcf_assumptions?.recommended_exit_multiple || 10.0);
-                dcfVal = calcLocalDcf(baseFcf, hg, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
-            } else if (fcfSource === 'custom') {
-                const getVal = (id) => {
-                    const el = document.getElementById(id);
-                    if (!el || el.value === '') return null;
-                    return parseLocaleFloat(el.value);
-                };
+                    const hg = prof.historic_fcf_growth != null ? prof.historic_fcf_growth : 0.05;
+                    if (currentFormulaData.dcf) currentFormulaData.dcf.eps_growth_applied = hg;
+                    const em = parseLocaleFloat(document.getElementById('input-exit-multiple')?.value) || (globalData.dcf_assumptions?.recommended_exit_multiple || 10.0);
+                    dcfValObj = calcLocalDcf(baseFcf, hg, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
+                } else if (fcfSource === 'custom') {
+                    const getVal = (id) => {
+                        const el = document.getElementById(id);
+                        if (!el || el.value === '') return null;
+                        return parseLocaleFloat(el.value);
+                    };
 
-                const v13 = getVal('dcf-growth-1-3');
-                const v46 = getVal('dcf-growth-4-6');
-                const v78 = getVal('dcf-growth-7-8');
-                const v910 = getVal('dcf-growth-9-10');
+                    const v13 = getVal('dcf-growth-1-3');
+                    const v46 = getVal('dcf-growth-4-6');
+                    const v78 = getVal('dcf-growth-7-8');
+                    const v910 = getVal('dcf-growth-9-10');
 
-                // Strict validation: 1-3Y and 4-6Y are ALWAYS required for custom
-                if (v13 === null || v46 === null) {
-                    dcfVal = null;
-                } else if (years === 10 && (v78 === null || v910 === null)) {
-                    // If 10yr selected, 7-8Y and 9-10Y are ALSO required
-                    dcfVal = null;
-                } else {
-                    const g13 = v13 / 100;
-                    const g46 = v46 / 100;
-                    const g78 = (v78 ?? 0) / 100;
-                    const g910 = (v910 ?? 0) / 100;
+                    // Strict validation: 1-3Y and 4-6Y are ALWAYS required for custom
+                    if (v13 === null || v46 === null) {
+                        dcfValObj = null;
+                    } else if (years === 10 && (v78 === null || v910 === null)) {
+                        // If 10yr selected, 7-8Y and 9-10Y are ALSO required
+                        dcfValObj = null;
+                    } else {
+                        const g13 = v13 / 100;
+                        const g46 = v46 / 100;
+                        const g78 = (v78 ?? 0) / 100;
+                        const g910 = (v910 ?? 0) / 100;
 
-                    // Build per-year growth array
-                    const growthArr = [];
-                    for (let y = 1; y <= years; y++) {
-                        if (y <= 3) growthArr.push(g13);
-                        else if (y <= 6) growthArr.push(g46);
-                        else if (y <= 8) growthArr.push(g78);
-                        else growthArr.push(g910);
+                        // Build per-year growth array
+                        const growthArr = [];
+                        for (let y = 1; y <= years; y++) {
+                            if (y <= 3) growthArr.push(g13);
+                            else if (y <= 6) growthArr.push(g46);
+                            else if (y <= 8) growthArr.push(g78);
+                            else growthArr.push(g910);
+                        }
+
+                        if (currentFormulaData.dcf) currentFormulaData.dcf.eps_growth_applied = growthArr;
+
+                        const wRaw = document.getElementById('dcf-custom-wacc').value;
+                        const pRaw = document.getElementById('dcf-custom-perp').value;
+                        const emRaw = document.getElementById('input-exit-multiple').value;
+
+                        const wCustom = (wRaw === '' || isNaN(parseLocaleFloat(wRaw))) ? 0.09 : parseLocaleFloat(wRaw) / 100;
+                        const pCustom = (pRaw === '' || isNaN(parseLocaleFloat(pRaw))) ? 0.025 : parseLocaleFloat(pRaw) / 100;
+                        const em = (emRaw === '' || isNaN(parseLocaleFloat(emRaw))) ? (globalData.dcf_assumptions?.recommended_exit_multiple || 10.0) : parseLocaleFloat(emRaw);
+
+                        dcfValObj = calcLocalDcf(baseFcf, growthArr, wCustom, pCustom, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
                     }
-
-                    const wRaw = document.getElementById('dcf-custom-wacc').value;
-                    const pRaw = document.getElementById('dcf-custom-perp').value;
-                    const emRaw = document.getElementById('input-exit-multiple').value;
-
-                    const wCustom = (wRaw === '' || isNaN(parseLocaleFloat(wRaw))) ? 0.09 : parseLocaleFloat(wRaw) / 100;
-                    const pCustom = (pRaw === '' || isNaN(parseLocaleFloat(pRaw))) ? 0.025 : parseLocaleFloat(pRaw) / 100;
-                    const em = (emRaw === '' || isNaN(parseLocaleFloat(emRaw))) ? (globalData.dcf_assumptions?.recommended_exit_multiple || 10.0) : parseLocaleFloat(emRaw);
-
-                    dcfVal = calcLocalDcf(baseFcf, growthArr, wCustom, pCustom, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
                 }
-            }
+
+                if (dcfValObj) {
+                    dcfVal = dcfValObj.fair_value;
+                    
+                    const method = document.getElementById('dcf-method-selector')?.value || 'perpetual';
+                    const methodKey = method === 'multiple' ? 'dcf_exit_multiple' : 'dcf_perpetual';
+                    
+                    currentFormulaData.dcf[methodKey] = {
+                        fair_value_per_share: dcfValObj.fair_value,
+                        fcf_projections: dcfValObj.fcf_projections,
+                        pv_fcf_years: dcfValObj.pv_fcf_years,
+                        present_value_fcf_sum: dcfValObj.present_value_fcf_sum,
+                        terminal_value: dcfValObj.terminal_value,
+                        present_value_terminal: dcfValObj.present_value_terminal,
+                        discount_rate: dcfValObj.discount_rate,
+                        perpetual_growth_rate: dcfValObj.perpetual_growth_rate,
+                        exit_multiple: dcfValObj.exit_multiple,
+                        shares_outstanding: dcfValObj.shares_outstanding,
+                        total_cash: dcfValObj.total_cash,
+                        total_debt: dcfValObj.total_debt,
+                        sensitivity_matrix: currentFormulaData.dcf[methodKey]?.sensitivity_matrix || []
+                    };
+                    
+                    currentFormulaData.dcf.total_cash = dcfValObj.total_cash;
+                    currentFormulaData.dcf.total_debt = dcfValObj.total_debt;
+                    currentFormulaData.dcf.shares_outstanding = dcfValObj.shares_outstanding;
+                } else {
+                    dcfVal = null;
+                }
         }
         setValuationStatus(dcfVal, globalData.current_price, 'dcf-status', 'dcf-value');
         
@@ -3448,7 +3502,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     return `
                         <div style="background:rgba(255,255,255,0.02); padding:20px; border-radius:8px; border:1px solid rgba(255,255,255,0.05); margin-bottom:20px;">
                             <div style="display:flex; justify-content:space-between; padding:4px 0;"><span style="color:var(--text-muted);">Discount Rate (Applied):</span><span style="font-weight:500; color:white;">${fmtPct(dataObj.discount_rate)}</span></div>
-                            <div style="display:flex; justify-content:space-between; padding:4px 0;"><span style="color:var(--text-muted);">Growth Rate (Applied):</span><span style="font-weight:500; color:${d.eps_growth_applied < 0 ? 'var(--danger)' : 'white'};">${fmtPct(d.eps_growth_applied)}</span></div>
+                            <div style="display:flex; justify-content:space-between; padding:4px 0;"><span style="color:var(--text-muted);">Growth Rate (Applied):</span><span style="font-weight:500; color:${!Array.isArray(d.eps_growth_applied) && d.eps_growth_applied < 0 ? 'var(--danger)' : 'white'};">${Array.isArray(d.eps_growth_applied) ? 'Custom' : fmtPct(d.eps_growth_applied)}</span></div>
                             ${method === 'perpetual' ? `<div style="display:flex; justify-content:space-between; padding:4px 0;"><span style="color:var(--text-muted);">Perpetual Growth:</span><span style="font-weight:500; color:white;">${fmtPct(dataObj.perpetual_growth_rate)}</span></div>` : `<div style="display:flex; justify-content:space-between; padding:4px 0;"><span style="color:var(--text-muted);">Exit Multiple:</span><span style="font-weight:500; color:white;">${dataObj.exit_multiple}x</span></div>`}
                             <div style="display:flex; justify-content:space-between; padding:4px 0;"><span style="color:var(--text-muted);">Shares Outstanding:</span><span style="font-weight:500; color:white;">${d.shares_outstanding ? fmtBigNum(d.shares_outstanding, '') : 'N/A'}</span></div>
                         </div>
