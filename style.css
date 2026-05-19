@@ -3551,14 +3551,23 @@ body {
         text-overflow: ellipsis;
     }
 
-    .premium-input,
-    .premium-select {
-        width: 100px !important;
-        min-width: 100px !important;
-        max-width: 100px !important;
+    .premium-input {
+        width: 115px !important;
+        min-width: 115px !important;
+        max-width: 115px !important;
         text-align: right !important;
         font-size: 0.75rem !important;
         padding: 0.3rem 0.4rem !important;
+        height: 28px !important;
+    }
+
+    .premium-select {
+        width: 115px !important;
+        min-width: 115px !important;
+        max-width: 115px !important;
+        text-align: right !important;
+        font-size: 0.75rem !important;
+        padding: 0.3rem 1.5rem 0.3rem 0.4rem !important;
         height: 28px !important;
     }
 }
