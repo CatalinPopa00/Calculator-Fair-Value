@@ -1265,25 +1265,25 @@ def get_batch_valuation(req: WatchlistRequest):
                 
     return results
 
-if __name__ == "__main__":
-    import os
-    from fastapi.responses import FileResponse
-    root_dir = os.path.dirname(os.path.abspath(__file__))
-    
-    @app.get("/")
-    async def get_index():
-        return FileResponse(os.path.join(root_dir, "index.html"))
-        
-    @app.get("/style.css")
-    async def get_css():
-        return FileResponse(os.path.join(root_dir, "style.css"))
-        
-    @app.get("/app.js")
-    async def get_js():
-        return FileResponse(os.path.join(root_dir, "app.js"))
-        
-    @app.get("/icon.png")
-    async def get_icon():
-        return FileResponse(os.path.join(root_dir, "icon.png"))
+import os
+from fastapi.responses import FileResponse
+root_dir = os.path.dirname(os.path.abspath(__file__))
 
+@app.get("/")
+async def get_index():
+    return FileResponse(os.path.join(root_dir, "index.html"))
+    
+@app.get("/style.css")
+async def get_css():
+    return FileResponse(os.path.join(root_dir, "style.css"))
+    
+@app.get("/app.js")
+async def get_js():
+    return FileResponse(os.path.join(root_dir, "app.js"))
+    
+@app.get("/icon.png")
+async def get_icon():
+    return FileResponse(os.path.join(root_dir, "icon.png"))
+
+if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8000)

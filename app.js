@@ -2,9 +2,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchBtn = document.getElementById('search-btn');
     const tickerInput = document.getElementById('ticker-input');
 
+    const parseLocaleFloat = (val) => {
+        if (val === null || val === undefined || val === '') return NaN;
+        const cleaned = val.toString().trim().replace(',', '.');
+        return parseFloat(cleaned);
+    };
+
     const formatCleanInputVal = (val) => {
         if (val === null || val === undefined || val === '') return '';
-        const num = parseFloat(val);
+        const num = parseLocaleFloat(val);
         if (isNaN(num)) return '';
         return num % 1 === 0 ? num.toString() : num.toFixed(1);
     };
@@ -1047,7 +1053,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     buybackRate = currentFormulaData.dcf.historic_buyback_rate || 0;
                 } else if (buybackSrc === 'custom') {
                     const rawVal = document.getElementById('dcf-custom-buyback').value;
-                    buybackRate = (rawVal === '' || isNaN(parseFloat(rawVal))) ? 0 : parseFloat(rawVal) / 100;
+                    buybackRate = (rawVal === '' || isNaN(parseLocaleFloat(rawVal))) ? 0 : parseLocaleFloat(rawVal) / 100;
                 }
 
                 const baseFcf = currentFormulaData.dcf.fcf;
@@ -1059,12 +1065,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (fcfSource === 'revenue' || fcfSource === 'eps_growth') {
                     const waccInput = document.getElementById('dcf-custom-wacc');
-                    const wAnalyst = (waccInput && waccInput.value) ? parseFloat(waccInput.value)/100 : w;
+                    const wAnalyst = (waccInput && waccInput.value) ? parseLocaleFloat(waccInput.value)/100 : w;
                     
                     const pRaw = document.getElementById('dcf-custom-perp')?.value;
-                    const pCustom = (pRaw === '' || isNaN(parseFloat(pRaw))) ? p : parseFloat(pRaw) / 100;
+                    const pCustom = (pRaw === '' || isNaN(parseLocaleFloat(pRaw))) ? p : parseLocaleFloat(pRaw) / 100;
                     
-                    const em = parseFloat(document.getElementById('input-exit-multiple')?.value) || (globalData.dcf_assumptions?.recommended_exit_multiple || 15.0);
+                    const em = parseLocaleFloat(document.getElementById('input-exit-multiple')?.value) || (globalData.dcf_assumptions?.recommended_exit_multiple || 15.0);
                     
                     let g;
                     if (fcfSource === 'revenue') {
@@ -1072,11 +1078,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             const rList = globalData.rev_estimates || [];
                             const ests = rList.filter(e => e && e.status !== 'reported' && e.growth != null);
                             if (ests.length >= 2) {
-                                const g1 = parseFloat(ests[0].growth);
-                                const g2 = parseFloat(ests[1].growth);
+                                const g1 = parseLocaleFloat(ests[0].growth);
+                                const g2 = parseLocaleFloat(ests[1].growth);
                                 if (!isNaN(g1) && !isNaN(g2)) return (g1 + g2) / 2.0;
                             } else if (ests.length === 1) {
-                                const g1 = parseFloat(ests[0].growth);
+                                const g1 = parseLocaleFloat(ests[0].growth);
                                 if (!isNaN(g1)) return g1;
                             }
                             if (prof && prof.revenue_growth != null) return prof.revenue_growth;
@@ -1104,13 +1110,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 else if (fcfSource === 'historical') {
                 const hg = prof.historic_fcf_growth != null ? prof.historic_fcf_growth : 0.05;
                 if (currentFormulaData.dcf) currentFormulaData.dcf.eps_growth_applied = hg;
-                const em = parseFloat(document.getElementById('input-exit-multiple')?.value) || (globalData.dcf_assumptions?.recommended_exit_multiple || 10.0);
+                const em = parseLocaleFloat(document.getElementById('input-exit-multiple')?.value) || (globalData.dcf_assumptions?.recommended_exit_multiple || 10.0);
                 dcfVal = calcLocalDcf(baseFcf, hg, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
             } else if (fcfSource === 'custom') {
                 const getVal = (id) => {
                     const el = document.getElementById(id);
                     if (!el || el.value === '') return null;
-                    return parseFloat(el.value);
+                    return parseLocaleFloat(el.value);
                 };
 
                 const v13 = getVal('dcf-growth-1-3');
@@ -1143,9 +1149,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     const pRaw = document.getElementById('dcf-custom-perp').value;
                     const emRaw = document.getElementById('input-exit-multiple').value;
 
-                    const wCustom = (wRaw === '' || isNaN(parseFloat(wRaw))) ? 0.09 : parseFloat(wRaw) / 100;
-                    const pCustom = (pRaw === '' || isNaN(parseFloat(pRaw))) ? 0.025 : parseFloat(pRaw) / 100;
-                    const em = (emRaw === '' || isNaN(parseFloat(emRaw))) ? (globalData.dcf_assumptions?.recommended_exit_multiple || 10.0) : parseFloat(emRaw);
+                    const wCustom = (wRaw === '' || isNaN(parseLocaleFloat(wRaw))) ? 0.09 : parseLocaleFloat(wRaw) / 100;
+                    const pCustom = (pRaw === '' || isNaN(parseLocaleFloat(pRaw))) ? 0.025 : parseLocaleFloat(pRaw) / 100;
+                    const em = (emRaw === '' || isNaN(parseLocaleFloat(emRaw))) ? (globalData.dcf_assumptions?.recommended_exit_multiple || 10.0) : parseLocaleFloat(emRaw);
 
                     dcfVal = calcLocalDcf(baseFcf, growthArr, wCustom, pCustom, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
                 }
@@ -1616,7 +1622,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // v277: Ripple only from 1-3Y to all others, and ONLY if targets are default/empty
         if (g13) {
             g13.addEventListener('input', () => {
-                const val = parseFloat(g13.value);
+                const val = parseLocaleFloat(g13.value);
                 if (isNaN(val) || window._isApplyingOverrides) return;
 
                 const pairs = [[g46, 2], [g78, 4], [g910, 6]];
@@ -2956,6 +2962,26 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (updated) chartRevFcf.update('none');
                     }
                 }
+            }
+
+            // Sync analyst estimates data to globalData
+            if (globalData && globalData.ticker && globalData.ticker.toUpperCase() === ticker.toUpperCase()) {
+                globalData.rev_estimates = rItems;
+                globalData.eps_estimates = eItems;
+                
+                const g13 = document.getElementById('dcf-growth-1-3');
+                if (g13) {
+                    const hadOverrides = (cachedOverrides[globalData.ticker] && cachedOverrides[globalData.ticker].inputs && cachedOverrides[globalData.ticker].inputs['dcf-growth-1-3']);
+                    if (!hadOverrides) {
+                        const targetGrowth = window.getDcfGrowthDefault(globalData);
+                        g13.value = formatCleanInputVal(targetGrowth);
+                        // Cascade to other inputs
+                        g13.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                }
+                
+                // Re-calculate all fair values to reflect the fresh consensus growth
+                updateFairValue();
             }
         } catch (err) {
             console.error("Analyst major error:", err);
