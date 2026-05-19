@@ -1419,6 +1419,16 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
+        const pegCardMos = document.getElementById('peg-card-mos');
+        if (pegCardMos && pegVal != null) {
+            const pegMos = ((pegVal - globalData.current_price) / globalData.current_price) * 100;
+            pegCardMos.textContent = `MOS: ${formatPercent(pegMos)}`;
+            pegCardMos.style.color = pegMos > 0 ? 'var(--accent)' : 'var(--danger)';
+            pegCardMos.style.display = 'block';
+        } else if (pegCardMos) {
+            pegCardMos.style.display = 'none';
+        }
+
         let lynchVal = null;
         if (currentFormulaData.peter_lynch) {
             const pl = currentFormulaData.peter_lynch;
@@ -3960,6 +3970,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 card.classList.add('collapsed');
             }
         }
+    });
+
+    // COLLAPSIBLE DETAILS Accordion logic inside cards
+    document.querySelectorAll('.details-toggle-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            btn.classList.toggle('active');
+            const content = btn.nextElementSibling;
+            if (content) {
+                content.classList.toggle('collapsed');
+            }
+        });
     });
 
 });

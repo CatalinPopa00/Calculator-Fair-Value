@@ -1859,6 +1859,70 @@ body {
     justify-content: flex-start;
 }
 
+/* Premium Collapsible Details inside Cards */
+.details-collapsible-container {
+    width: 100%;
+    margin-bottom: 0.75rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.details-toggle-btn {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: 0.45rem 0.75rem;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all 0.2s ease;
+    user-select: none;
+    outline: none;
+}
+
+.details-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.12);
+    color: var(--text);
+}
+
+.details-toggle-btn .chevron-icon {
+    width: 12px;
+    height: 12px;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    stroke-width: 2.5;
+}
+
+.details-toggle-btn.active {
+    color: var(--accent);
+    background: rgba(16, 185, 129, 0.04);
+    border-color: rgba(16, 185, 129, 0.15);
+}
+
+.details-toggle-btn.active .chevron-icon {
+    transform: rotate(180deg);
+}
+
+.details-content-collapsible {
+    max-height: 1200px;
+    opacity: 1;
+    overflow: hidden;
+    transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, margin-top 0.3s ease;
+    margin-top: 0.5rem;
+}
+
+.details-content-collapsible.collapsed {
+    max-height: 0 !important;
+    opacity: 0 !important;
+    margin-top: 0 !important;
+    pointer-events: none;
+}
+
 /* Premium Collapsible Accordeon Styles */
 .card-body-collapsible {
     max-height: 1200px;
