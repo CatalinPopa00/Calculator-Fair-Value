@@ -3891,4 +3891,30 @@ document.addEventListener('DOMContentLoaded', () => {
         modal.style.display = 'flex';
     };
 
+    // COLLAPSIBLE METHOD CARDS Accordion logic
+    document.querySelectorAll('.collapsible-trigger').forEach(trigger => {
+        trigger.addEventListener('click', () => {
+            const cardId = trigger.getAttribute('data-card');
+            const card = document.getElementById(`${cardId}-card`);
+            if (card) {
+                card.classList.toggle('collapsed');
+                
+                // Save collapsed state to localStorage
+                const collapsedStates = JSON.parse(localStorage.getItem('method_cards_collapsed') || '{}');
+                collapsedStates[cardId] = card.classList.contains('collapsed');
+                localStorage.setItem('method_cards_collapsed', JSON.stringify(collapsedStates));
+            }
+        });
+        
+        // Restore collapsed state on load
+        const cardId = trigger.getAttribute('data-card');
+        const card = document.getElementById(`${cardId}-card`);
+        if (card) {
+            const collapsedStates = JSON.parse(localStorage.getItem('method_cards_collapsed') || '{}');
+            if (collapsedStates[cardId]) {
+                card.classList.add('collapsed');
+            }
+        }
+    });
+
 });

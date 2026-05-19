@@ -1853,10 +1853,49 @@ body {
     padding: 0.75rem;
     /* v310: More compact layout */
     margin-bottom: 1rem;
-    min-height: 280px; /* v270: Fixed height to prevent layout jumps when custom fields toggle */
+    min-height: auto; /* Dynamically adjusts height based on open/closed custom fields */
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
+}
+
+/* Premium Collapsible Accordeon Styles */
+.card-body-collapsible {
+    max-height: 1200px;
+    opacity: 1;
+    overflow: hidden;
+    transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+}
+
+.method-card.collapsed .card-body-collapsible {
+    max-height: 0 !important;
+    opacity: 0 !important;
+    pointer-events: none;
+}
+
+.collapsible-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.2s ease;
+}
+
+.collapsible-trigger:hover {
+    color: var(--accent);
+}
+
+.chevron-icon {
+    width: 14px;
+    height: 14px;
+    stroke-width: 3px;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.method-card.collapsed .chevron-icon {
+    transform: rotate(-90deg); /* Points to the right when collapsed */
 }
 
 .card-footer {
