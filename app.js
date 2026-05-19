@@ -1111,7 +1111,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (prof && prof.revenue_growth != null) return prof.revenue_growth;
                             return 0.08;
                         };
-                        const g13 = getRevG();
+                        const g13 = Math.round(getRevG() * 1000) / 1000;
                         const g46 = g13 - 0.02;
                         const g78 = g46 - 0.02;
                         const g910 = g78 - 0.02;
@@ -1131,7 +1131,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     dcfValObj = calcLocalDcf(baseFcf, g, wAnalyst, pCustom, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
                 }
                 else if (fcfSource === 'historical') {
-                    const hg13 = prof.historic_fcf_growth != null ? prof.historic_fcf_growth : 0.05;
+                    const hg13 = Math.round((prof.historic_fcf_growth != null ? prof.historic_fcf_growth : 0.05) * 1000) / 1000;
                     const hg46 = hg13 - 0.02;
                     const hg78 = hg46 - 0.02;
                     const hg910 = hg78 - 0.02;
@@ -2044,15 +2044,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 const g1 = parseFloat(ests[0].growth);
                 const g2 = parseFloat(ests[1].growth);
                 if (!isNaN(g1) && !isNaN(g2)) {
-                    return ((g1 + g2) / 2) * 100;
+                    return Math.round(((g1 + g2) / 2) * 1000) / 10;
                 }
             } else if (ests.length === 1) {
                 const g1 = parseFloat(ests[0].growth);
-                if (!isNaN(g1)) return g1 * 100;
+                if (!isNaN(g1)) return Math.round(g1 * 1000) / 10;
             }
             
             if (data.company_profile && data.company_profile.revenue_growth != null) {
-                return data.company_profile.revenue_growth * 100;
+                return Math.round(data.company_profile.revenue_growth * 1000) / 10;
             }
             
             return 8.0;
