@@ -550,11 +550,15 @@ document.addEventListener('DOMContentLoaded', () => {
         let fcf = 0;
         let revenue = 0;
         let customMargin = null;
+        let marginGrowth = 0.002;
         
         if (fcfObj && typeof fcfObj === 'object') {
             fcf = fcfObj.fcf || 0;
             revenue = fcfObj.revenue || 0;
             customMargin = fcfObj.customMargin;
+            if (fcfObj.marginGrowth !== undefined && fcfObj.marginGrowth !== null) {
+                marginGrowth = fcfObj.marginGrowth;
+            }
         } else {
             fcf = fcfObj || 0;
         }
@@ -589,8 +593,8 @@ document.addEventListener('DOMContentLoaded', () => {
             // Revenue grows year-over-year
             currentRevenue *= (1 + g);
             
-            // FCF margin increases by 0.2% (0.002) each year in the background
-            const yearMargin = startingFcfMargin + (i * 0.002);
+            // FCF margin increases by configured growth rate each year in the background
+            const yearMargin = startingFcfMargin + (i * marginGrowth);
             
             // FCF is calculated on top of projected Revenue
             currentFcf = currentRevenue * yearMargin;
@@ -1119,7 +1123,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const customMarginEl = document.getElementById('dcf-custom-fcf-margin');
                 const customMargin = (customMarginEl && customMarginEl.value !== '') ? parseLocaleFloat(customMarginEl.value) : null;
                 
-                const fcfParam = { fcf: baseFcf, revenue: baseRevenue, customMargin: customMargin };
+                const customMarginGrowthEl = document.getElementById('dcf-custom-margin-growth');
+                const customMarginGrowth = (customMarginGrowthEl && customMarginGrowthEl.value !== '') ? parseLocaleFloat(customMarginGrowthEl.value) / 100 : 0.002;
+                
+                const fcfParam = { fcf: baseFcf, revenue: baseRevenue, customMargin: customMargin, marginGrowth: customMarginGrowth };
                 
                 const shares = prof.shares_outstanding;
                 
@@ -1866,6 +1873,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (fcfSourceEl) fcfSourceEl.value = 'custom';
         const fcfMarginEl = document.getElementById('dcf-custom-fcf-margin');
         if (fcfMarginEl) fcfMarginEl.value = '';
+        const fcfMarginGrowthEl = document.getElementById('dcf-custom-margin-growth');
+        if (fcfMarginGrowthEl) fcfMarginGrowthEl.value = '0.2';
         const yearsSourceEl = document.getElementById('dcf-years-source');
         if (yearsSourceEl) yearsSourceEl.value = '10yr';
 
@@ -2320,7 +2329,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Overrides Sync ---
     const overrideInputIds = [
         'fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple',
-        'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp', 'dcf-custom-fcf-margin',
+        'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp', 'dcf-custom-fcf-margin', 'dcf-custom-margin-growth',
         'dcf-buyback-source', 'dcf-custom-buyback', 'relative-variant',
         'lynch-multiple-source', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth',
         'peg-eps-source', 'peg-custom-growth', 'peg-mode'
@@ -2526,7 +2535,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const ov = cachedOverrides[currentTicker];
         if (ov && ov.inputs) {
             const idsToReset = {
-                dcf: ['fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple', 'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp', 'dcf-custom-fcf-margin', 'dcf-buyback-source', 'dcf-custom-buyback'],
+                dcf: ['fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple', 'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp', 'dcf-custom-fcf-margin', 'dcf-custom-margin-growth', 'dcf-buyback-source', 'dcf-custom-buyback'],
                 relative: ['relative-variant', 'rel-weight-mode-card'],
                 peter_lynch: ['lynch-multiple-source', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth'],
                 peg: ['peg-eps-source', 'peg-custom-growth', 'peg-mode']
@@ -2576,6 +2585,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (perp) perp.value = '2.5';
             const fcfMargin = document.getElementById('dcf-custom-fcf-margin');
             if (fcfMargin) fcfMargin.value = '';
+            const fcfMarginGrowth = document.getElementById('dcf-custom-margin-growth');
+            if (fcfMarginGrowth) fcfMarginGrowth.value = '0.2';
             
             switchDCFMethod('perpetual');
         } else if (method === 'relative') {
