@@ -1055,7 +1055,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let dcfValObj = null;
         if (currentFormulaData.dcf) {
             const fcfSourceEl = document.getElementById('fcf-source');
-            const fcfSource = fcfSourceEl ? fcfSourceEl.value : 'revenue';
+            const fcfSource = fcfSourceEl ? fcfSourceEl.value : 'custom';
             const yearsSourceEl = document.getElementById('dcf-years-source');
             const yearsVal = yearsSourceEl ? yearsSourceEl.value : '5yr';
             const years = yearsVal === '10yr' ? 10 : 5;
@@ -1812,7 +1812,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (el) el.value = 'analyst';
         });
         const fcfSourceEl = document.getElementById('fcf-source');
-        if (fcfSourceEl) fcfSourceEl.value = 'revenue';
+        if (fcfSourceEl) fcfSourceEl.value = 'custom';
         const yearsSourceEl = document.getElementById('dcf-years-source');
         if (yearsSourceEl) yearsSourceEl.value = '10yr';
 
@@ -2495,7 +2495,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ['fcf-source', 'dcf-buyback-source', 'dcf-method-selector', 'dcf-years-source'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) {
-                    el.value = (id === 'fcf-source') ? 'revenue' : 
+                    el.value = (id === 'fcf-source') ? 'custom' : 
                                (id === 'dcf-years-source') ? '10yr' :
                                (id === 'dcf-buyback-source') ? 'none' : 'perpetual';
                     el.dispatchEvent(new Event('change', { bubbles: true }));

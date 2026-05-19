@@ -239,15 +239,15 @@
                                 <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
                             </h4>
                         </div>
-                        <div class="card-metrics">
-                            <div class="method-val" id="dcf-value" style="color: var(--accent);">--</div>
-                            <p class="method-desc" id="dcf-status" style="font-weight: bold; margin-bottom: 5px;">--</p>
-                            <div id="dcf-card-mos-row" style="display: none; flex-direction: column; align-items: center; gap: 2px;">
-                                <span id="dcf-card-price" style="font-size: 0.85rem; color: var(--text-muted);">Price: --</span>
-                                <span id="dcf-card-mos" style="font-size: 0.9rem; font-weight: 700;">MOS: --</span>
-                            </div>
-                        </div>
                         <div class="card-body-collapsible">
+                            <div class="card-metrics">
+                                <div class="method-val" id="dcf-value" style="color: var(--accent);">--</div>
+                                <p class="method-desc" id="dcf-status" style="font-weight: bold; margin-bottom: 5px;">--</p>
+                                <div id="dcf-card-mos-row" style="display: none; flex-direction: column; align-items: center; gap: 2px;">
+                                    <span id="dcf-card-price" style="font-size: 0.85rem; color: var(--text-muted);">Price: --</span>
+                                    <span id="dcf-card-mos" style="font-size: 0.9rem; font-weight: 700;">MOS: --</span>
+                                </div>
+                            </div>
                             <div class="card-inputs">
                                 <!-- Core Assumptions Group -->
                                 <div class="valuation-method-section" style="margin-bottom: 0;">
@@ -262,9 +262,9 @@
                                     <div class="valuation-input-group">
                                         <label class="premium-label">FCF Basis</label>
                                         <select id="fcf-source" class="premium-select">
-                                            <option value="revenue" selected>Rev. G.r.</option>
+                                            <option value="revenue">Rev. G.r.</option>
                                             <option value="historical">Historical</option>
-                                            <option value="custom">Custom</option>
+                                            <option value="custom" selected>Custom</option>
                                         </select>
                                     </div>
                                     <div class="valuation-input-group">
@@ -285,7 +285,7 @@
                                 </div>
 
                                 <!-- Custom Parameters Group -->
-                                <div id="dcf-custom-inputs" class="valuation-method-section" style="display: none; flex-direction: column; gap: 0.5rem; margin-top: 0;">
+                                <div id="dcf-custom-inputs" class="valuation-method-section" style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0;">
                                     <h5 style="font-size: 0.65rem; color: rgba(255,255,255,0.3); text-transform: uppercase; margin-bottom: 8px; letter-spacing: 1px;">Numerical Drivers</h5>
                                     <div class="valuation-input-group">
                                         <label class="premium-label" title="Growth 1-3Y">Gr.% 1-3Y</label>
@@ -344,13 +344,13 @@
                                 <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
                             </h4>
                         </div>
-                        <div class="card-metrics">
-                            <div class="method-val" id="relative-value" style="color: var(--accent);">--</div>
-                            <p class="method-desc" id="relative-status" style="font-weight: bold;">--</p>
-                            <p class="method-desc" id="relative-card-mos" style="font-size: 0.85rem; color: var(--accent); margin-top: 0.2rem; display: none;">--</p>
-                            <p class="method-desc" id="relative-market-compare" style="font-size: 0.8rem; color: var(--text-muted); text-align: center; margin-top: 0.4rem; min-height: 1.2em;">Peer Median P/E: --</p>
-                        </div>
                         <div class="card-body-collapsible">
+                            <div class="card-metrics">
+                                <div class="method-val" id="relative-value" style="color: var(--accent);">--</div>
+                                <p class="method-desc" id="relative-status" style="font-weight: bold;">--</p>
+                                <p class="method-desc" id="relative-card-mos" style="font-size: 0.85rem; color: var(--accent); margin-top: 0.2rem; display: none;">--</p>
+                                <p class="method-desc" id="relative-market-compare" style="font-size: 0.8rem; color: var(--text-muted); text-align: center; margin-top: 0.4rem; min-height: 1.2em;">Peer Median P/E: --</p>
+                            </div>
                             <div class="card-inputs">
                                 <div class="valuation-input-group">
                                     <label class="premium-label">Compare vs.</label>
@@ -396,12 +396,12 @@
                                 <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
                             </h4>
                         </div>
-                        <div class="card-metrics">
-                            <div class="method-val" id="lynch-fair-value" style="color: var(--accent);">--</div>
-                            <p class="method-desc" id="lynch-status" style="font-weight: bold;">--</p>
-                            <p class="method-desc" id="lynch-card-mos" style="font-size: 0.85rem; color: var(--accent); margin-top: 0.2rem; display: none;">--</p>
-                        </div>
                         <div class="card-body-collapsible">
+                            <div class="card-metrics">
+                                <div class="method-val" id="lynch-fair-value" style="color: var(--accent);">--</div>
+                                <p class="method-desc" id="lynch-status" style="font-weight: bold;">--</p>
+                                <p class="method-desc" id="lynch-card-mos" style="font-size: 0.85rem; color: var(--accent); margin-top: 0.2rem; display: none;">--</p>
+                            </div>
                             <div class="card-inputs">
                                 <div class="valuation-input-group">
                                     <label class="premium-label">Multiple</label>
@@ -456,13 +456,13 @@
                                 <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
                             </h4>
                         </div>
-                        <div class="card-metrics">
-                            <div class="method-val" id="peg-value" style="color: var(--accent);">--</div>
-                            <p class="method-desc" id="peg-status" style="font-weight: bold;">--</p>
-                            <p class="method-desc" id="peg-card-mos" style="font-size: 0.85rem; color: var(--accent); margin-top: 0.2rem; display: none;">--</p>
-                            <p class="method-desc" id="peg-compare" style="font-size: 0.85rem; color: var(--text-muted); text-align: center; margin-top: 0.2rem;">--</p>
-                        </div>
                         <div class="card-body-collapsible">
+                            <div class="card-metrics">
+                                <div class="method-val" id="peg-value" style="color: var(--accent);">--</div>
+                                <p class="method-desc" id="peg-status" style="font-weight: bold;">--</p>
+                                <p class="method-desc" id="peg-card-mos" style="font-size: 0.85rem; color: var(--accent); margin-top: 0.2rem; display: none;">--</p>
+                                <p class="method-desc" id="peg-compare" style="font-size: 0.85rem; color: var(--text-muted); text-align: center; margin-top: 0.2rem;">--</p>
+                            </div>
                             <div class="card-inputs">
                                 <div class="valuation-input-group">
                                     <label class="premium-label">EPS Basis</label>
