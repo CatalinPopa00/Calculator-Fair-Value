@@ -1299,12 +1299,13 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             except Exception as e_gaap:
                 print(f"GAAP recalibration error: {e_gaap}")
 
-        peg_ratio = None
-        if pe_ratio and eps_growth and eps_growth > 0:
+        # Prioritize Yahoo's official PEG Ratio (5yr expected)
+        # We check trailingPegRatio first since it matches the 0.72 PEG expected by the user,
+        # but fallback to pegRatio (0.73) or manual calculation.
+        peg_ratio = info.get('trailingPegRatio') or info.get('pegRatio')
+        
+        if not peg_ratio and pe_ratio and eps_growth and eps_growth > 0:
             peg_ratio = pe_ratio / (eps_growth * 100)
-            
-        if not peg_ratio:
-            peg_ratio = info.get('pegRatio') or info.get('trailingPegRatio')
             
         # Financials for DCF & Margins (Prefer normalized DataFrames over info.get for ADR reliability)
         fcf = None
@@ -3002,7 +3003,7 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=5, inc
                         "name": inf.get('shortName') or inf.get('longName') or t,
                         "price": p_price,
                         "pe_ratio": inf.get('trailingPE') or inf.get('forwardPE'),
-                        "peg_ratio": inf.get('pegRatio'),
+                        "peg_ratio": inf.get('trailingPegRatio') or inf.get('pegRatio'),
                         "market_cap": inf.get('marketCap'),
                         "ps_ratio": inf.get('priceToSalesTrailing12Months') or inf.get('priceToSales'),
                         "revenue": inf.get('totalRevenue') or inf.get('revenue'),
@@ -3073,7 +3074,7 @@ def get_lightweight_company_data(ticker_symbol: str):
                 "name": info.get('shortName') or info.get('longName') or ticker_symbol,
                 "price": info.get('currentPrice') or info.get('regularMarketPrice'),
                 "pe_ratio": info.get('trailingPE') or info.get('forwardPE'),
-                "peg_ratio": info.get('pegRatio'),
+                "peg_ratio": info.get('trailingPegRatio') or info.get('pegRatio'),
                 "eps": info.get('trailingEps'),
                 "market_cap": info.get('marketCap'),
                 "ps_ratio": info.get('priceToSalesTrailing12Months') or info.get('priceToSales'),
