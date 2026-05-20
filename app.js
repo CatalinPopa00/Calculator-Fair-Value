@@ -1555,7 +1555,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const displayCurrent = currentPegToDisplay;
                 const displayTarget = targetPeg;
-                pegCompareElem.textContent = `PEG = ${displayCurrent.toFixed(2)} vs PEG ${pegMode === 'industry' ? 'Sector' : 'Std'} = ${displayTarget.toFixed(2)}`;
+                pegCompareElem.textContent = `PEG = ${displayCurrent.toFixed(2)} vs PEG ${pegMode === 'industry' ? 'Sector' : 'Std'} = ${displayTarget.toFixed(2)} | Growth: ${(usedGrowth * 100).toFixed(2)}%`;
 
                 // ── SECTOR-SPECIFIC PEG THRESHOLDS (v291) ──
                 const peg = currentPegToDisplay;
@@ -4117,6 +4117,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const epsLabel = p.valuation_eps !== p.trailing_eps ? 'EPS Base (Normalized)' : 'Trailing EPS (GAAP)';
                 html = row(epsLabel, '$' + fmt(p.valuation_eps || p.trailing_eps))
                      + row('Growth Estimate', fmtPct(p.eps_growth_estimated))
+                     + (p.eps_growth_5y_cagr != null ? row('5Y CAGR (Implied)', fmtPct(p.eps_growth_5y_cagr)) : '')
                      + row('Forward EPS (3Y Projection)', '$' + fmt(p.fwd_eps))
                      + row('Fair Value (PE 20)', '$' + fmt(p.fair_value_pe_20));
             } else if (model === 'peg' && currentFormulaData.peg) {
@@ -4125,6 +4126,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const periodLabel = g.eps_growth_period || '2Y EPS CAGR';
                 html = row('Current P/E (Adj.)', g.current_pe ? g.current_pe.toFixed(2) + 'x' : 'N/A')
                      + row('2Y EPS CAGR', fmtPct(g.eps_growth_estimated))
+                     + (g.eps_growth_5y_cagr != null ? row('5Y CAGR (Implied)', fmtPct(g.eps_growth_5y_cagr)) : '')
                      + row('Current PEG', g.current_peg ? g.current_peg.toFixed(2) + 'x' : 'N/A')
                      + row('Industry PEG', g.industry_peg ? g.industry_peg.toFixed(2) + 'x' : 'N/A')
                      + row('Fair Value', '$' + fmt(g.fair_value))
