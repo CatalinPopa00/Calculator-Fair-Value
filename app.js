@@ -1518,6 +1518,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (pegVal != null) {
                     pegMos = ((pegVal - globalData.current_price) / globalData.current_price) * 100;
                 }
+                
+                currentFormulaData.peg.dynamic_growth = usedGrowth;
+                currentFormulaData.peg.dynamic_fv = pegVal;
+                currentFormulaData.peg.dynamic_peg = currentPegToDisplay;
             }
         }
         
@@ -1555,7 +1559,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const displayCurrent = currentPegToDisplay;
                 const displayTarget = targetPeg;
-                pegCompareElem.textContent = `PEG = ${displayCurrent.toFixed(2)} vs PEG ${pegMode === 'industry' ? 'Sector' : 'Std'} = ${displayTarget.toFixed(2)} | Growth: ${(usedGrowth * 100).toFixed(2)}%`;
+                pegCompareElem.textContent = `PEG = ${displayCurrent.toFixed(2)} vs PEG ${pegMode === 'industry' ? 'Sector' : 'Std'} = ${displayTarget.toFixed(2)}`;
+                
+                // Store dynamics for modal
+                currentFormulaData.peg.dynamic_growth = usedGrowth;
+                currentFormulaData.peg.dynamic_fv = pegVal;
+                currentFormulaData.peg.dynamic_peg = currentPegToDisplay;
 
                 // ── SECTOR-SPECIFIC PEG THRESHOLDS (v291) ──
                 const peg = currentPegToDisplay;
@@ -1657,6 +1666,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 // v46: Simple Future Project (no discounting per user preference)
                 lynchVal = targetEps * selectedMult;
             }
+            
+            // Store dynamics for modal
+            currentFormulaData.peter_lynch.dynamic_growth = usedGrowth;
+            currentFormulaData.peter_lynch.dynamic_fwd_eps = targetEps;
+            currentFormulaData.peter_lynch.dynamic_fv = lynchVal;
         }
 
         setValuationStatus(lynchVal, globalData.current_price, 'lynch-status', 'lynch-fair-value');
@@ -4116,21 +4130,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 title.textContent = '📊 Forward Multiple — Data Transparency';
                 const epsLabel = p.valuation_eps !== p.trailing_eps ? 'EPS Base (Normalized)' : 'Trailing EPS (GAAP)';
                 html = row(epsLabel, '$' + fmt(p.valuation_eps || p.trailing_eps))
-                     + row('Growth Estimate', fmtPct(p.eps_growth_estimated))
-                     + (p.eps_growth_5y_cagr != null ? row('5Y CAGR (Implied)', fmtPct(p.eps_growth_5y_cagr)) : '')
-                     + row('Forward EPS (3Y Projection)', '$' + fmt(p.fwd_eps))
-                     + row('Fair Value (PE 20)', '$' + fmt(p.fair_value_pe_20));
+                     + row('Growth Estimate', fmtPct(p.dynamic_growth != null ? p.dynamic_growth : p.eps_growth_estimated))
+                     + row('Forward EPS (3Y Projection)', '$' + fmt(p.dynamic_fwd_eps != null ? p.dynamic_fwd_eps : p.fwd_eps))
+                     + row('Fair Value (PE 20)', '$' + fmt(p.dynamic_fv != null ? p.dynamic_fv : p.fair_value_pe_20));
             } else if (model === 'peg' && currentFormulaData.peg) {
                 const g = currentFormulaData.peg;
                 title.textContent = '📊 PEG Valuation — Data Transparency';
                 const periodLabel = g.eps_growth_period || '2Y EPS CAGR';
                 html = row('Current P/E (Adj.)', g.current_pe ? g.current_pe.toFixed(2) + 'x' : 'N/A')
-                     + row('2Y EPS CAGR', fmtPct(g.eps_growth_estimated))
-                     + (g.eps_growth_5y_cagr != null ? row('5Y CAGR (Implied)', fmtPct(g.eps_growth_5y_cagr)) : '')
-                     + row('Current PEG', g.current_peg ? g.current_peg.toFixed(2) + 'x' : 'N/A')
+                     + row('Growth Estimate', fmtPct(g.dynamic_growth != null ? g.dynamic_growth : g.eps_growth_estimated))
+                     + row('Current PEG', g.dynamic_peg ? g.dynamic_peg.toFixed(2) + 'x' : (g.current_peg ? g.current_peg.toFixed(2) + 'x' : 'N/A'))
                      + row('Industry PEG', g.industry_peg ? g.industry_peg.toFixed(2) + 'x' : 'N/A')
-                     + row('Fair Value', '$' + fmt(g.fair_value))
-                     + row('Margin of Safety', (() => { const cp = globalData.current_price; const fv = g.fair_value; if (fv != null && cp > 0) { const mos = (fv - cp) / cp; return fmtPct(mos); } return 'N/A'; })());
+                     + row('Fair Value', '$' + fmt(g.dynamic_fv != null ? g.dynamic_fv : g.fair_value))
+                     + row('Margin of Safety', (() => { const cp = globalData.current_price; const fv = (g.dynamic_fv != null ? g.dynamic_fv : g.fair_value); if (fv != null && cp > 0) { const mos = (fv - cp) / cp; return fmtPct(mos); } return 'N/A'; })());
             } else {
                 title.textContent = 'Data Transparency';
                 html = '<p style="color:var(--text-muted);">No data available for this model.</p>';
