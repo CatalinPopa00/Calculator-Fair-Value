@@ -820,7 +820,16 @@ document.addEventListener('DOMContentLoaded', () => {
             return `<span style="color:${color};">${val}</span>`;
         };
 
-        let html = `<table style="width:100%; border-collapse:collapse; margin-top:10px; min-width: 750px; text-align: right;">
+        let html = `
+        <div style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center; justify-content: space-between; flex-wrap: wrap; background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+            <div style="display: flex; gap: 8px; align-items: center; flex-grow: 1; max-width: 450px;">
+                <input id="add-peer-input" type="text" placeholder="Add Competitor Ticker (e.g. MSFT)" style="flex-grow: 1; padding: 8px 12px; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: white; text-transform: uppercase; font-size: 0.9rem;">
+                <button id="add-peer-btn" class="peer-btn" style="margin: 0; padding: 8px 16px;">➕ Add Peer</button>
+            </div>
+            <span id="add-peer-error" style="color: var(--danger); font-size: 0.85rem; font-weight: 500; display: none;"></span>
+        </div>
+        <div style="overflow-x: auto; border-radius: 12px;">
+        <table style="width:100%; border-collapse:collapse; min-width: 750px; text-align: right;">
             <thead style="border-bottom: 2px solid rgba(255,255,255,0.1);">
                 <tr>
                     <th style="padding:12px; text-align:left; color:var(--text-muted); font-size:0.85rem; position: sticky; left: 0; background: #0f172a; z-index: 10; border-right: 1px solid rgba(255,255,255,0.1);">COMPETITOR</th>
@@ -846,7 +855,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     return `
                     <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: ${isMain ? 'rgba(56, 189, 248, 0.05)' : 'transparent'};">
-                        <td style="padding:12px; text-align:left; font-weight:bold; color:${isMain ? 'var(--accent)' : 'white'}; position: sticky; left: 0; background: ${isMain ? '#122238' : '#0f172a'}; z-index: 10; border-right: 1px solid rgba(255,255,255,0.1); box-shadow: 2px 0 5px rgba(0,0,0,0.2);">${c.ticker}</td>
+                        <td style="padding:12px; text-align:left; font-weight:bold; color:${isMain ? 'var(--accent)' : 'white'}; position: sticky; left: 0; background: ${isMain ? '#122238' : '#0f172a'}; z-index: 10; border-right: 1px solid rgba(255,255,255,0.1); box-shadow: 2px 0 5px rgba(0,0,0,0.2);">
+                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                <span>${c.ticker}</span>
+                                ${!isMain ? `<span class="delete-peer-btn" data-ticker="${c.ticker}" style="cursor:pointer; color:var(--danger); font-size:1.15rem; font-weight:bold; padding: 2px 6px; transition: color 0.15s;" title="Remove Peer">&times;</span>` : ''}
+                            </div>
+                        </td>
                         <td style="padding:12px; font-weight:bold;">${formatBigNumber(mCap, '$')}</td>
                         <td style="padding:12px; font-weight:bold;">${fmtPE(c.pe_ratio)}</td>
                         <td style="padding:12px; font-weight:bold;">${fmtPE(c.peg_ratio)}</td>
@@ -860,11 +874,111 @@ document.addEventListener('DOMContentLoaded', () => {
                     `;
                 }).join('')}
             </tbody>
-        </table>`;
+        </table>
+        </div>`;
         
         container.innerHTML = html;
         document.getElementById('comparison-modal').style.display = 'flex';
         document.body.style.overflow = 'hidden';
+
+        // Setup reactive event listeners
+        const addBtn = document.getElementById('add-peer-btn');
+        const addInput = document.getElementById('add-peer-input');
+        const errSpan = document.getElementById('add-peer-error');
+        
+        if (addBtn && addInput) {
+            addBtn.onclick = async () => {
+                const rawVal = addInput.value.trim().toUpperCase();
+                if (!rawVal) return;
+                
+                errSpan.style.display = 'none';
+                addBtn.disabled = true;
+                addBtn.textContent = 'Fetching...';
+                
+                try {
+                    const res = await fetch(`/api/valuation/${encodeURIComponent(rawVal)}?t=${Date.now()}`);
+                    if (!res.ok) throw new Error('Ticker not found or valuation missing');
+                    const peerData = await res.json();
+                    
+                    const peerProf = peerData.company_profile;
+                    if (!peerProf || !peerProf.ticker) throw new Error('Invalid peer metrics received');
+                    
+                    const exists = (prof.competitor_metrics || []).some(p => p.ticker.toUpperCase() === rawVal);
+                    if (exists) throw new Error('Peer is already in comparison');
+                    
+                    const mainFcf = peerData.formula_data?.dcf?.fcf || peerProf.fcf;
+                    const pfcf = peerProf.market_cap && mainFcf > 0 ? (peerProf.market_cap / mainFcf) : null;
+                    
+                    const newPeerObj = {
+                        ticker: peerProf.ticker.toUpperCase(),
+                        name: peerProf.name || 'Competitor',
+                        market_cap: peerProf.market_cap,
+                        pe_ratio: peerProf.trailing_pe,
+                        peg_ratio: peerData.formula_data?.peg?.current_peg,
+                        trailing_eps: peerProf.trailing_eps,
+                        eps: peerProf.trailing_eps,
+                        ps_ratio: peerProf.ps_ratio,
+                        price_to_book: peerProf.price_to_book,
+                        ev_to_ebitda: peerData.formula_data?.relative?.company_ev_ebitda || peerProf.ev_to_ebitda,
+                        revenue: peerProf.revenue,
+                        pfcf_ratio: pfcf,
+                        fcf: mainFcf,
+                        margin: peerProf.operating_margin,
+                        operating_margin: peerProf.operating_margin
+                    };
+                    
+                    if (!prof.competitor_metrics) prof.competitor_metrics = [];
+                    prof.competitor_metrics.push(newPeerObj);
+                    
+                    if (!prof.competitors) prof.competitors = [];
+                    if (!prof.competitors.includes(rawVal)) prof.competitors.push(rawVal);
+                    
+                    // Persist to local storage
+                    localStorage.setItem('customPeers_' + (prof.ticker || currentTicker), JSON.stringify(prof.competitor_metrics));
+                    
+                    // Update calculations and UI
+                    updateFairValue();
+                    renderComparisonModal(prof);
+                    
+                    if (typeof window._renderProfile === 'function') {
+                        window._renderProfile();
+                    }
+                } catch (e) {
+                    errSpan.textContent = e.message;
+                    errSpan.style.display = 'inline';
+                } finally {
+                    addBtn.disabled = false;
+                    addBtn.textContent = '➕ Add Peer';
+                }
+            };
+            
+            addInput.onkeydown = (ev) => {
+                if (ev.key === 'Enter') addBtn.click();
+            };
+        }
+        
+        document.querySelectorAll('.delete-peer-btn').forEach(btn => {
+            btn.onclick = () => {
+                const t = btn.getAttribute('data-ticker');
+                if (!t) return;
+                
+                prof.competitor_metrics = prof.competitor_metrics.filter(p => p.ticker.toUpperCase() !== t.toUpperCase());
+                if (prof.competitors) {
+                    prof.competitors = prof.competitors.filter(tk => tk.toUpperCase() !== t.toUpperCase());
+                }
+                
+                // Persist
+                localStorage.setItem('customPeers_' + (prof.ticker || currentTicker), JSON.stringify(prof.competitor_metrics));
+                
+                // Update calculations and UI
+                updateFairValue();
+                renderComparisonModal(prof);
+                
+                if (typeof window._renderProfile === 'function') {
+                    window._renderProfile();
+                }
+            };
+        });
     };
 
     const setValuationStatus = (value, price, statusElemId, valueElemId) => {
@@ -1528,22 +1642,54 @@ document.addEventListener('DOMContentLoaded', () => {
             const variantEl = document.getElementById('relative-variant');
             const variant = variantEl ? variantEl.value : 'peers';
             
+            // Calculate dynamic peer medians and means
+            const peers = (globalData && globalData.company_profile && globalData.company_profile.competitor_metrics) || [];
+            
+            const getMedian = (arr) => {
+                const sorted = arr.filter(x => x != null && !isNaN(x)).sort((a, b) => a - b);
+                if (sorted.length === 0) return null;
+                const mid = Math.floor(sorted.length / 2);
+                return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+            };
+
+            const getMean = (arr) => {
+                const valid = arr.filter(x => x != null && !isNaN(x));
+                if (valid.length === 0) return null;
+                return valid.reduce((sum, v) => sum + v, 0) / valid.length;
+            };
+
+            const dynamicMedians = {
+                PE: getMedian(peers.map(p => p.pe_ratio)),
+                PFCF: getMedian(peers.map(p => p.pfcf_ratio)),
+                PS: getMedian(peers.map(p => p.ps_ratio)),
+                PB: getMedian(peers.map(p => p.price_to_book)),
+                EV_EBITDA: getMedian(peers.map(p => p.ev_to_ebitda))
+            };
+
+            const dynamicMeans = {
+                PE: getMean(peers.map(p => p.pe_ratio)),
+                PFCF: getMean(peers.map(p => p.pfcf_ratio)),
+                PS: getMean(peers.map(p => p.ps_ratio)),
+                PB: getMean(peers.map(p => p.price_to_book)),
+                EV_EBITDA: getMean(peers.map(p => p.ev_to_ebitda))
+            };
+
             let bPE = 20, bPFCF = 20, bPS = 2, bPB = 2, bEVEBITDA = 12;
             let multipleLabel = 'P/E';
 
             if (variant === 'peers') {
-                bPE = rel.median_peer_pe || 20;
-                bPFCF = rel.median_peer_pfcf || 20;
-                bPS = rel.median_peer_ps || 2;
-                bPB = rel.median_peer_pb || 2;
-                bEVEBITDA = rel.median_peer_ev_ebitda || 12;
+                bPE = dynamicMedians.PE ?? rel.median_peer_pe ?? 20;
+                bPFCF = dynamicMedians.PFCF ?? rel.median_peer_pfcf ?? 20;
+                bPS = dynamicMedians.PS ?? rel.median_peer_ps ?? 2;
+                bPB = dynamicMedians.PB ?? rel.median_peer_pb ?? 2;
+                bEVEBITDA = dynamicMedians.EV_EBITDA ?? rel.median_peer_ev_ebitda ?? 12;
                 multipleLabel = `Peer Median P/E: ${bPE.toFixed(1)}x`;
             } else if (variant === 'average') {
-                bPE = rel.mean_peer_pe || 20;
-                bPFCF = rel.mean_peer_pfcf || 20;
-                bPS = rel.mean_peer_ps || 2;
-                bPB = rel.mean_peer_pb || 2;
-                bEVEBITDA = rel.mean_peer_ev_ebitda || 12;
+                bPE = dynamicMeans.PE ?? rel.mean_peer_pe ?? 20;
+                bPFCF = dynamicMeans.PFCF ?? rel.mean_peer_pfcf ?? 20;
+                bPS = dynamicMeans.PS ?? rel.mean_peer_ps ?? 2;
+                bPB = dynamicMeans.PB ?? rel.mean_peer_pb ?? 2;
+                bEVEBITDA = dynamicMeans.EV_EBITDA ?? rel.mean_peer_ev_ebitda ?? 12;
                 multipleLabel = `Peer Avg P/E: ${bPE.toFixed(1)}x`;
             } else { 
                 bPE = rel.sp500_pe || 24.5;
@@ -1915,6 +2061,18 @@ document.addEventListener('DOMContentLoaded', () => {
         currentFormulaData = data.formula_data;
         currentTicker = data.ticker;
 
+        // Custom Peers Loader (v306)
+        const savedPeers = localStorage.getItem('customPeers_' + data.ticker);
+        if (savedPeers && data.company_profile) {
+            try {
+                const peersList = JSON.parse(savedPeers);
+                data.company_profile.competitor_metrics = peersList;
+                data.company_profile.competitors = peersList.map(p => p.ticker);
+            } catch (e) {
+                console.error("Error loading custom peers", e);
+            }
+        }
+
         // Ticker-Specific Weights Logic (v34)
         const override = cachedOverrides[data.ticker] || {};
         if (override.weights) {
@@ -2158,82 +2316,86 @@ document.addEventListener('DOMContentLoaded', () => {
             toggle.onchange = updateAndSave;
         });
 
-        const pBody = document.getElementById('profile-body');
-        if (pBody && data.company_profile) {
-            const prof = data.company_profile;
+        const renderProfileSection = () => {
+            const pBody = document.getElementById('profile-body');
+            if (pBody && data.company_profile) {
+                const prof = data.company_profile;
 
-            // UPDATED: Replaced bad *100 formatting with safe formatSafePct
-            const current_price = data.current_price || 0;
-            const non_gaap_pe = (current_price > 0 && prof.adjusted_eps > 0) ? current_price / prof.adjusted_eps : null;
+                // UPDATED: Replaced bad *100 formatting with safe formatSafePct
+                const current_price = data.current_price || 0;
+                const non_gaap_pe = (current_price > 0 && prof.adjusted_eps > 0) ? current_price / prof.adjusted_eps : null;
 
-            const metricRow = (label, value, subtext = '', customStyle = '') => {
-                const id = 'metric-val-' + label.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-                return `
-                <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.04); align-items: center;">
-                    <div style="display: flex; flex-direction: column;">
-                        <span style="color: rgba(255,255,255,0.5); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">${label}</span>
-                        ${subtext ? `<span style="font-size: 0.7rem; color: rgba(255,255,255,0.3); margin-top: 2px;">${subtext}</span>` : ''}
-                    </div>
-                    <span id="${id}" style="font-weight: 600; font-size: 0.95rem; color: white; ${customStyle} text-align: right; max-width: 60%; word-wrap: break-word; transition: color 0.2s;">${value}</span>
-                </div>
-                `;
-            };
-
-            pBody.innerHTML = `
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 2.5rem;">
-                    <!-- Column 1: Company -->
-                    <div class="profile-section">
-                        <div style="font-size: 0.8rem; color: var(--text-main); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 2px solid rgba(255,255,255,0.1); font-weight: 700;">Company Summary</div>
+                const metricRow = (label, value, subtext = '', customStyle = '') => {
+                    const id = 'metric-val-' + label.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+                    return `
+                    <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.04); align-items: center;">
                         <div style="display: flex; flex-direction: column;">
-                            ${metricRow('Industry', prof.industry, prof.sector)}
-                            ${metricRow('Market Cap', formatBigNumber(prof.market_cap, '$'))}
-                            ${metricRow('Shares Out.', formatBigNumber(prof.shares_outstanding, ''))}
-                            ${metricRow('Buyback Rate', prof.buyback_rate != null ? (prof.buyback_rate > 0 ? '+' : '') + formatSafePct(prof.buyback_rate) : 'N/A', '', prof.buyback_rate < 0 ? 'color: #ef4444;' : '')}
-                            <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.04); align-items: center;">
-                                <span style="color: rgba(255,255,255,0.5); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Competitors</span>
-                                <div style="display: flex; align-items: center; gap: 8px; text-align: right; max-width: 65%;">
-                                    <span style="font-weight: 600; font-size: 0.95rem; color: white; word-wrap: break-word;">${prof.competitors && prof.competitors.length ? prof.competitors.join(', ') : 'None'}</span>
-                                    ${prof.competitor_metrics && prof.competitor_metrics.length > 0 ? `<button id="compare-peers-btn" class="peer-btn" style="margin:0;">📊 PEERS</button>` : ''}
+                            <span style="color: rgba(255,255,255,0.5); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">${label}</span>
+                            ${subtext ? `<span style="font-size: 0.7rem; color: rgba(255,255,255,0.3); margin-top: 2px;">${subtext}</span>` : ''}
+                        </div>
+                        <span id="${id}" style="font-weight: 600; font-size: 0.95rem; color: white; ${customStyle} text-align: right; max-width: 60%; word-wrap: break-word; transition: color 0.2s;">${value}</span>
+                    </div>
+                    `;
+                };
+
+                pBody.innerHTML = `
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 2.5rem;">
+                        <!-- Column 1: Company -->
+                        <div class="profile-section">
+                            <div style="font-size: 0.8rem; color: var(--text-main); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 2px solid rgba(255,255,255,0.1); font-weight: 700;">Company Summary</div>
+                            <div style="display: flex; flex-direction: column;">
+                                ${metricRow('Industry', prof.industry, prof.sector)}
+                                ${metricRow('Market Cap', formatBigNumber(prof.market_cap, '$'))}
+                                ${metricRow('Shares Out.', formatBigNumber(prof.shares_outstanding, ''))}
+                                ${metricRow('Buyback Rate', prof.buyback_rate != null ? (prof.buyback_rate > 0 ? '+' : '') + formatSafePct(prof.buyback_rate) : 'N/A', '', prof.buyback_rate < 0 ? 'color: #ef4444;' : '')}
+                                <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.04); align-items: center;">
+                                    <span style="color: rgba(255,255,255,0.5); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Competitors</span>
+                                    <div style="display: flex; align-items: center; gap: 8px; text-align: right; max-width: 65%;">
+                                        <span style="font-weight: 600; font-size: 0.95rem; color: white; word-wrap: break-word;">${prof.competitors && prof.competitors.length ? prof.competitors.join(', ') : 'None'}</span>
+                                        ${prof.competitor_metrics && prof.competitor_metrics.length > 0 ? `<button id="compare-peers-btn" class="peer-btn" style="margin:0;">📊 PEERS</button>` : ''}
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- Column 2: Valuation -->
-                    <div class="profile-section">
-                        <div style="font-size: 0.8rem; color: var(--text-main); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 2px solid rgba(255,255,255,0.1); font-weight: 700;">Valuation & Earnings</div>
-                        <div style="display: flex; flex-direction: column;">
-                            ${metricRow('P/E (Trailing)', prof.trailing_pe ? prof.trailing_pe.toFixed(2) + 'x' : 'N/A')}
-                            ${metricRow('P/E Non-GAAP', non_gaap_pe ? non_gaap_pe.toFixed(2) + 'x' : 'N/A')}
-                            ${metricRow('5Y Avg. P/E', prof.historic_pe ? prof.historic_pe.toFixed(2) + 'x' : 'N/A')}
-                            ${metricRow('PE FWD', prof.fwd_pe ? prof.fwd_pe.toFixed(2) + 'x' : 'N/A')}
-                            ${metricRow('EPS Diluted', prof.trailing_eps ? '$' + prof.trailing_eps.toFixed(2) : 'N/A')}
-                            ${metricRow('EPS Non-GAAP', prof.adjusted_eps ? '$' + prof.adjusted_eps.toFixed(2) : 'N/A')}
-                            ${metricRow('FWD EPS', prof.fwd_eps ? '$' + prof.fwd_eps.toFixed(2) : 'N/A')}
-                            ${metricRow('PEG', prof.peg_ratio ? prof.peg_ratio.toFixed(2) : 'N/A')}
-                            ${metricRow('P/S', prof.ps_ratio ? prof.ps_ratio.toFixed(2) + 'x' : 'N/A')}
-                            ${metricRow('P/S FWD', prof.fwd_ps ? prof.fwd_ps.toFixed(2) + 'x' : 'N/A')}
-                            ${metricRow('P/FCF', prof.pfcf_ratio ? prof.pfcf_ratio.toFixed(2) + 'x' : 'N/A')}
+                        <!-- Column 2: Valuation -->
+                        <div class="profile-section">
+                            <div style="font-size: 0.8rem; color: var(--text-main); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 2px solid rgba(255,255,255,0.1); font-weight: 700;">Valuation & Earnings</div>
+                            <div style="display: flex; flex-direction: column;">
+                                ${metricRow('P/E (Trailing)', prof.trailing_pe ? prof.trailing_pe.toFixed(2) + 'x' : 'N/A')}
+                                ${metricRow('P/E Non-GAAP', non_gaap_pe ? non_gaap_pe.toFixed(2) + 'x' : 'N/A')}
+                                ${metricRow('5Y Avg. P/E', prof.historic_pe ? prof.historic_pe.toFixed(2) + 'x' : 'N/A')}
+                                ${metricRow('PE FWD', prof.fwd_pe ? prof.fwd_pe.toFixed(2) + 'x' : 'N/A')}
+                                ${metricRow('EPS Diluted', prof.trailing_eps ? '$' + prof.trailing_eps.toFixed(2) : 'N/A')}
+                                ${metricRow('EPS Non-GAAP', prof.adjusted_eps ? '$' + prof.adjusted_eps.toFixed(2) : 'N/A')}
+                                ${metricRow('FWD EPS', prof.fwd_eps ? '$' + prof.fwd_eps.toFixed(2) : 'N/A')}
+                                ${metricRow('PEG', prof.peg_ratio ? prof.peg_ratio.toFixed(2) : 'N/A')}
+                                ${metricRow('P/S', prof.ps_ratio ? prof.ps_ratio.toFixed(2) + 'x' : 'N/A')}
+                                ${metricRow('P/S FWD', prof.fwd_ps ? prof.fwd_ps.toFixed(2) + 'x' : 'N/A')}
+                                ${metricRow('P/FCF', prof.pfcf_ratio ? prof.pfcf_ratio.toFixed(2) + 'x' : 'N/A')}
+                            </div>
+                        </div>
+
+                        <!-- Column 3: Dividends -->
+                        <div class="profile-section">
+                            <div style="font-size: 0.8rem; color: var(--text-main); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 2px solid rgba(255,255,255,0.1); font-weight: 700;">Dividends</div>
+                            <div style="display: flex; flex-direction: column;">
+                                ${metricRow('Dividend Yield', formatSafePct(prof.dividend_yield))}
+                                ${metricRow('Payout Ratio', formatSafePct(prof.payout_ratio), '', prof.payout_ratio > 0.80 ? 'color: var(--danger);' : '')}
+                                ${metricRow('Div. Streak', prof.dividend_streak != null ? prof.dividend_streak + ' Years' : 'N/A')}
+                                ${metricRow('5Y Div Growth', formatSafePct(prof.dividend_cagr_5y))}
+                            </div>
                         </div>
                     </div>
+                `;
 
-                    <!-- Column 3: Dividends -->
-                    <div class="profile-section">
-                        <div style="font-size: 0.8rem; color: var(--text-main); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 2px solid rgba(255,255,255,0.1); font-weight: 700;">Dividends</div>
-                        <div style="display: flex; flex-direction: column;">
-                            ${metricRow('Dividend Yield', formatSafePct(prof.dividend_yield))}
-                            ${metricRow('Payout Ratio', formatSafePct(prof.payout_ratio), '', prof.payout_ratio > 0.80 ? 'color: var(--danger);' : '')}
-                            ${metricRow('Div. Streak', prof.dividend_streak != null ? prof.dividend_streak + ' Years' : 'N/A')}
-                            ${metricRow('5Y Div Growth', formatSafePct(prof.dividend_cagr_5y))}
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            if(document.getElementById('compare-peers-btn')) {
-                document.getElementById('compare-peers-btn').onclick = () => renderComparisonModal(prof);
+                if(document.getElementById('compare-peers-btn')) {
+                    document.getElementById('compare-peers-btn').onclick = () => renderComparisonModal(prof);
+                }
             }
-        }
+        };
+        window._renderProfile = renderProfileSection;
+        renderProfileSection();
 
         // --- ADDITIONAL SECTIONS ---
         const trendsBody = document.getElementById('trends-body');
@@ -3679,6 +3841,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // --- Competitor Table ---
                 const peers = (globalData.company_profile && globalData.company_profile.competitor_metrics) || [];
+
+                const getMedian = (arr) => {
+                    const sorted = arr.filter(x => x != null && !isNaN(x)).sort((a, b) => a - b);
+                    if (sorted.length === 0) return null;
+                    const mid = Math.floor(sorted.length / 2);
+                    return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+                };
+
+                const getMean = (arr) => {
+                    const valid = arr.filter(x => x != null && !isNaN(x));
+                    if (valid.length === 0) return null;
+                    return valid.reduce((sum, v) => sum + v, 0) / valid.length;
+                };
+
+                const dynamicMedians = {
+                    PE: getMedian(peers.map(p => p.pe_ratio)),
+                    PFCF: getMedian(peers.map(p => p.pfcf_ratio)),
+                    PS: getMedian(peers.map(p => p.ps_ratio)),
+                    PB: getMedian(peers.map(p => p.price_to_book)),
+                    EV_EBITDA: getMedian(peers.map(p => p.ev_to_ebitda))
+                };
+
+                const dynamicMeans = {
+                    PE: getMean(peers.map(p => p.pe_ratio)),
+                    PFCF: getMean(peers.map(p => p.pfcf_ratio)),
+                    PS: getMean(peers.map(p => p.ps_ratio)),
+                    PB: getMean(peers.map(p => p.price_to_book)),
+                    EV_EBITDA: getMean(peers.map(p => p.ev_to_ebitda))
+                };
+
                 let peerTableHTML = '';
                 if (peers.length > 0) {
                     peerTableHTML = `
@@ -3730,8 +3922,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <tr style="border-top:1px solid rgba(255,255,255,0.15);">
                                 <td style="padding:8px 6px; color:white; font-weight:700;">Median</td>
                                 ${activeKeys.map(k => {
-                                    const medianMap = { PE: r.median_peer_pe, PFCF: r.median_peer_pfcf, PS: r.median_peer_ps, PB: r.median_peer_pb, EV_EBITDA: r.median_peer_ev_ebitda };
-                                    const v = medianMap[k];
+                                    const v = dynamicMedians[k] ?? r['median_peer_' + k.toLowerCase()];
                                     return `<td style="text-align:right; padding:8px 6px; color:white; font-weight:700;">${v != null ? v.toFixed(1) + 'x' : '—'}</td>`;
                                 }).join('')}
                             </tr>
@@ -3745,8 +3936,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 const variant = variantEl ? variantEl.value : 'peers';
                 
                 const getBenchmark = (key) => {
-                    const medMap = { PE: r.median_peer_pe, PFCF: r.median_peer_pfcf, PS: r.median_peer_ps, PB: r.median_peer_pb, EV_EBITDA: r.median_peer_ev_ebitda, P_FFO: r.median_peer_pe, P_AFFO: r.median_peer_pfcf };
-                    const meanMap = { PE: r.mean_peer_pe, PFCF: r.mean_peer_pfcf, PS: r.mean_peer_ps, PB: r.mean_peer_pb, EV_EBITDA: r.mean_peer_ev_ebitda, P_FFO: r.mean_peer_pe, P_AFFO: r.mean_peer_pfcf };
+                    const medMap = {
+                        PE: dynamicMedians.PE ?? r.median_peer_pe,
+                        PFCF: dynamicMedians.PFCF ?? r.median_peer_pfcf,
+                        PS: dynamicMedians.PS ?? r.median_peer_ps,
+                        PB: dynamicMedians.PB ?? r.median_peer_pb,
+                        EV_EBITDA: dynamicMedians.EV_EBITDA ?? r.median_peer_ev_ebitda,
+                        P_FFO: dynamicMedians.PE ?? r.median_peer_pe,
+                        P_AFFO: dynamicMedians.PFCF ?? r.median_peer_pfcf
+                    };
+                    const meanMap = {
+                        PE: dynamicMeans.PE ?? r.mean_peer_pe,
+                        PFCF: dynamicMeans.PFCF ?? r.mean_peer_pfcf,
+                        PS: dynamicMeans.PS ?? r.mean_peer_ps,
+                        PB: dynamicMeans.PB ?? r.mean_peer_pb,
+                        EV_EBITDA: dynamicMeans.EV_EBITDA ?? r.mean_peer_ev_ebitda,
+                        P_FFO: dynamicMeans.PE ?? r.mean_peer_pe,
+                        P_AFFO: dynamicMeans.PFCF ?? r.mean_peer_pfcf
+                    };
                     const sp500Map = { PE: r.sp500_pe, PFCF: r.sp500_pfcf, PS: r.sp500_ps, PB: r.sp500_pb, EV_EBITDA: r.sp500_ev_ebitda, P_FFO: r.sp500_pe, P_AFFO: r.sp500_pfcf };
                     const defaults = { PE: 20, PFCF: 20, PS: 2, PB: 2, EV_EBITDA: 12, P_FFO: 15, P_AFFO: 15 };
                     if (variant === 'peers') return medMap[key] || defaults[key];
