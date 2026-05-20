@@ -3667,8 +3667,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ── View Data Button Handlers ──────────────────────────────
-    document.querySelectorAll('.modal-trigger').forEach(btn => {
-        btn.addEventListener('click', () => {
+    document.body.addEventListener('click', (e) => {
+        const btn = e.target.closest('.modal-trigger');
+        if (!btn) return;
             const model = btn.getAttribute('data-method');
             const modal = document.getElementById('data-modal');
             const body = document.getElementById('modal-body-content');
@@ -4062,7 +4063,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             body.innerHTML = html;
             modal.style.display = 'flex';
-        });
     });
 
     // ── Score Bar Click Handlers ──────────────────────────────
@@ -4224,5 +4224,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     });
+
 
 });
