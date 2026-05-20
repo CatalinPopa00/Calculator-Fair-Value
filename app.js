@@ -909,7 +909,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 addBtn.textContent = 'Fetching...';
                 
                 try {
-                    const res = await fetch(`/api/valuation/${encodeURIComponent(rawVal)}?t=${Date.now()}&fast_mode=true&skip_peers=true`);
+                    const res = await fetch(`/api/valuation/${encodeURIComponent(rawVal)}?t=${Date.now()}&skip_peers=true`);
                     if (!res.ok) throw new Error('Ticker not found or valuation missing');
                     const peerData = await res.json();
                     
