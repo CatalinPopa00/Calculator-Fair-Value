@@ -914,7 +914,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     const peerData = await res.json();
                     
                     const peerProf = peerData.company_profile;
-                    if (!peerProf || !peerProf.ticker) throw new Error('Invalid peer metrics received');
+                    if (!peerProf) throw new Error('Invalid peer metrics received');
+                    peerProf.ticker = peerProf.ticker || peerData.ticker || rawVal;
                     
                     const exists = (prof.competitor_metrics || []).some(p => p.ticker.toUpperCase() === rawVal);
                     if (exists) throw new Error('Peer is already in comparison');
