@@ -784,16 +784,23 @@ document.addEventListener('DOMContentLoaded', () => {
             if(typeof window.triggerRecalculate === 'function') {
                 window.triggerRecalculate();
             }
-        });
-    };
     injectWeightsUI();
     
     // INJECT COMPARISON UI
     const injectComparisonUI = () => {
         if(document.getElementById('comparison-modal')) return;
         const modalHtml = `
+            <style>
+                @media (max-width: 600px) {
+                    .comparison-modal-card { padding: 15px !important; max-height: 95vh !important; }
+                    .comparison-actions { flex-direction: column !important; align-items: stretch !important; }
+                    .comparison-actions > div { max-width: 100% !important; flex-wrap: wrap !important; }
+                    .comparison-actions input { flex: 1 1 100% !important; }
+                    .comparison-actions button { flex: 1 1 auto !important; }
+                }
+            </style>
             <div id="comparison-modal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; justify-content:center; align-items:center; backdrop-filter: blur(8px);">
-                <div class="glass-card" style="width:95%; max-width:900px; padding:25px; position:relative; display:flex; flex-direction:column; gap:20px; border: 1px solid rgba(255,255,255,0.1); overflow-x: auto; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);">
+                <div class="glass-card comparison-modal-card" style="width:95%; max-width:1000px; padding:25px; position:relative; display:flex; flex-direction:column; gap:20px; border: 1px solid rgba(255,255,255,0.1); overflow-y: auto; overflow-x: hidden; max-height: 90vh; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);">
                     <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:15px;">
                         <h3 style="margin:0; font-size:1.4rem; color:white; display:flex; align-items:center; gap:10px;">
                             <span style="font-size:1.5rem;">📊</span> Side-by-Side Comparison
@@ -861,11 +868,11 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         let html = `
-        <div style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center; justify-content: space-between; flex-wrap: wrap; background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+        <div class="comparison-actions" style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center; justify-content: space-between; flex-wrap: wrap; background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
             <div style="display: flex; gap: 8px; align-items: center; flex-grow: 1; max-width: 450px;">
-                <input id="add-peer-input" type="text" placeholder="Add Competitor Ticker (e.g. MSFT)" style="flex-grow: 1; padding: 8px 12px; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: white; text-transform: uppercase; font-size: 0.9rem;">
-                <button id="add-peer-btn" class="peer-btn" style="margin: 0; padding: 8px 16px;">➕ Add Peer</button>
-                <button id="reset-peers-btn" class="peer-btn" style="margin: 0; padding: 8px 16px; background: rgba(239, 68, 68, 0.1); color: var(--danger); border-color: rgba(239, 68, 68, 0.3);">Reset</button>
+                <input id="add-peer-input" type="text" placeholder="Add Competitor (e.g. MSFT)" style="flex: 1 1 150px; padding: 8px 12px; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: white; text-transform: uppercase; font-size: 0.9rem;">
+                <button id="add-peer-btn" class="peer-btn" style="margin: 0; padding: 8px 16px; flex-shrink: 0;">Add</button>
+                <button id="reset-peers-btn" class="peer-btn" style="margin: 0; padding: 8px 16px; background: rgba(239, 68, 68, 0.1); color: var(--danger); border-color: rgba(239, 68, 68, 0.3); flex-shrink: 0;">Reset</button>
             </div>
             <span id="add-peer-error" style="color: var(--danger); font-size: 0.85rem; font-weight: 500; display: none;"></span>
         </div>
