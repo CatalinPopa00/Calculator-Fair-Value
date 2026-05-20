@@ -2784,6 +2784,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             "eps_growth": normalize_growth(eps_growth),
             "eps_growth_period": eps_growth_period + " (v223 Forensic)",
             "eps_growth_5y_consensus": normalize_growth(eps_growth_5y_consensus),
+            "nasdaq_growth_3y": normalize_growth(nasdaq_growth_3y),
             "historic_eps_growth": normalize_growth(historic_eps_growth),
             "historic_fcf_growth": normalize_growth(historic_fcf_growth),
             "historic_buyback_rate": normalize_growth(historic_buyback_rate),
