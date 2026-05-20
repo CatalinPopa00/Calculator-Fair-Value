@@ -327,7 +327,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     item.value = scoringPE > 0 ? scoringPE.toFixed(2) + 'x' : '0.00x';
                 } else if (metric === 'P/S Ratio') {
                     const target_pe = getTargetPe(sector, industry);
-                    const margin = globalData.ebit_margin || 0; 
+                    const margin = (globalData.company_profile.operating_margin || 0) * 100; 
                     const target_ps = target_pe * (margin / 100.0);
                     let pts = 0;
                     if (newPS > 0) {
