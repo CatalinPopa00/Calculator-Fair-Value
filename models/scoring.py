@@ -11,6 +11,17 @@ def clean_percent(val):
         return f_val
     except:
         return 0.0
+def get_target_pe(sector, industry):
+    s_low = str(sector).lower()
+    i_low = str(industry).lower()
+    if 'technology' in s_low or 'software' in i_low or 'communication' in s_low: return 25.0
+    if 'consumer discretionary' in s_low: return 22.0
+    if 'health' in s_low or 'biotech' in i_low: return 18.0
+    if any(x in s_low for x in ['industrials', 'materials', 'consumer staples', 'defensive']): return 16.0
+    if any(x in s_low for x in ['utilities', 'real estate', 'reit']): return 15.0
+    if 'financial' in s_low or 'bank' in i_low: return 13.0
+    return 18.0
+
 def calculate_scoring_reform(valuation_data, metrics):
     sector = metrics.get('sector', 'Technology')
     industry = str(metrics.get('industry', '')).lower()
@@ -19,6 +30,8 @@ def calculate_scoring_reform(valuation_data, metrics):
     is_bank = 'bank' in industry or 'credit services' in industry or 'savings' in industry
     is_financial = 'financial' in sector.lower()
     is_reit = 'real estate' in sector.lower() or 'reit' in sector.lower()
+    
+    target_pe = get_target_pe(sector, industry)
 
     h_score = 0
     h_breakdown = []
@@ -123,24 +136,26 @@ def calculate_scoring_reform(valuation_data, metrics):
         add_h("BVPS Growth", bvps, pts, 15, False)
 
         # BUY (100 pct)
-        pts = 30 if mos > 20 else (15 if mos >= 0 else 0)
-        add_b("Margin of Safety", mos, pts, 30, False)
+        pts = 25 if mos > 20 else (12.5 if mos >= 0 else 0)
+        add_b("Margin of Safety", mos, pts, 25, False)
 
         f_peg = clean_ratio(metrics.get('peg_ratio'))
         pts = 15 if (f_peg > 0 and f_peg < 1.0) else (7.5 if (f_peg > 0 and f_peg <= 1.5) else 0)
         add_b("PEG Ratio", f_peg, pts, 15, True)
 
-        # P/E Ratio (HYBRID BLENDED SCORE - 15 pct max)
-        pe_5y = clean_ratio(metrics.get('pe_historic'))
-        # Part A: Absolute (7.5 pct)
-        pts_abs = 7.5 if (pe > 0 and pe < 10.0) else (3.75 if (pe > 0 and pe <= 15.0) else 0)
-        # Part B: Relative to 5Y Avg (7.5 pct)
-        pts_rel = 0
-        if pe > 0 and pe_5y and pe_5y > 0.001:
-            pe_diff_pct = ((pe - pe_5y) / pe_5y) * 100
-            pts_rel = 7.5 if pe_diff_pct < -15 else (3.75 if abs(pe_diff_pct) <= 15 else 0)
-        pts = pts_abs + pts_rel
-        add_b(pe_label, pe, pts, 15, True)
+        # P/E Ratio (20 pct max)
+        pts = 0
+        if pe > 0:
+            if pe <= target_pe:
+                pts = 20
+            elif pe <= target_pe * 1.3:
+                peg_val = clean_ratio(metrics.get('peg_ratio'))
+                rev_g_val = clean_percent(metrics.get('revenue_growth'))
+                if rev_g_val > 15 or (0 < peg_val < 1.5):
+                    pts = 15
+                else:
+                    pts = 10
+        add_b(pe_label, pe, pts, 20, True)
 
         pb = clean_ratio(metrics.get('price_to_book'))
         pts = 15 if (pb > 0 and pb < 1.2) else (7.5 if (pb > 0 and pb <= 2.0) else 0)
@@ -173,20 +188,29 @@ def calculate_scoring_reform(valuation_data, metrics):
         pts = 15 if affo_m > 50 else (7.5 if affo_m >= 30 else 0)
         add_h("AFFO Margin", affo_m, pts, 15, False)
 
-        roic = clean_percent(metrics.get('roic'))
-        pts = 20 if roic > 8 else (10 if roic >= 4 else 0)
-        add_h("ROIC", roic, pts, 20, False)
+        roe = clean_percent(metrics.get('roe'))
+        pts = 15 if roe > 10 else (7.5 if roe >= 5 else 0)
+        add_h("ROE", roe, pts, 15, False)
 
         affo_g = clean_percent(metrics.get('affo_growth'))
-        pts = 15 if affo_g > 5 else (7.5 if affo_g >= 2 else 0)
-        add_h("AFFO Growth", affo_g, pts, 15, False)
+        pts = 20 if affo_g > 5 else (10 if affo_g >= 2 else 0)
+        add_h("AFFO Growth", affo_g, pts, 20, False)
 
         # BUY (100 pct)
         pts = 30 if mos > 20 else (15 if mos >= 0 else 0)
         add_b("Margin of Safety", mos, pts, 30, False)
 
         p_affo = clean_ratio(metrics.get('price_to_affo'))
-        pts = 20 if (p_affo > 0 and p_affo < 15.0) else (10 if (p_affo > 0 and p_affo <= 20.0) else 0)
+        pts = 0
+        if p_affo > 0:
+            if p_affo <= 15:
+                pts = 20
+            elif p_affo <= 15 * 1.3:
+                affo_g_val = clean_percent(metrics.get('affo_growth'))
+                if affo_g_val > 15:
+                    pts = 15
+                else:
+                    pts = 10
         add_b("P/AFFO", p_affo, pts, 20, True)
 
         div_y = clean_percent(metrics.get('dividend_yield'))
@@ -217,7 +241,23 @@ def calculate_scoring_reform(valuation_data, metrics):
         add_h("Interest Coverage", ic, pts, 15, True)
 
         cr = clean_ratio(metrics.get('current_ratio'))
-        pts = 15 if cr > 1.2 else (7.5 if cr >= 0.8 else 0)
+        cr_exempt = any(x in sector_lower or x in industry_lower for x in ["software", "saas", "retail", "subscription", "consumer staples", "consumer defensive", "fmcg"])
+        fcf_trend = metrics.get('fcf_trend', 'Flat')
+        fcf_val = clean_ratio(metrics.get('fcf'))
+        
+        pts = 0
+        if cr >= 1.5:
+            pts = 15
+        elif 0.7 <= cr < 1.5:
+            if cr_exempt or fcf_trend == "Growing":
+                pts = 15
+            else:
+                pts = 7.5
+        else:
+            if cr_exempt and fcf_val > 0:
+                pts = 7.5
+            else:
+                pts = 0
         add_h("Current Ratio", cr, pts, 15, True)
 
         ebit_m = clean_percent(metrics.get('ebit_margin'))
@@ -238,16 +278,18 @@ def calculate_scoring_reform(valuation_data, metrics):
         pts = 20 if rev_g > 15 else (10 if rev_g >= 5 else 0)
         add_b("Revenue Growth (Next 3Y)", rev_g, pts, 20, False)
 
-        # P/E Ratio (HYBRID BLENDED SCORE - 20 pct max)
-        pe_5y = clean_ratio(metrics.get('pe_historic'))
-        # Part A: Absolute (10 pct)
-        pts_abs = 10 if (pe > 0 and pe < 15.0) else (5 if (pe > 0 and pe <= 25.0) else 0)
-        # Part B: Relative to 5Y Avg (10 pct)
-        pts_rel = 0
-        if pe > 0 and pe_5y and pe_5y > 0.001:
-            pe_diff_pct = ((pe - pe_5y) / pe_5y) * 100
-            pts_rel = 10 if pe_diff_pct < -15 else (5 if abs(pe_diff_pct) <= 15 else 0)
-        pts = pts_abs + pts_rel
+        # P/E Ratio (20 pct max)
+        pts = 0
+        if pe > 0:
+            if pe <= target_pe:
+                pts = 20
+            elif pe <= target_pe * 1.3:
+                peg_val = clean_ratio(metrics.get('peg_ratio'))
+                rev_g_val = clean_percent(metrics.get('revenue_growth'))
+                if rev_g_val > 15 or (0 < peg_val < 1.5):
+                    pts = 15
+                else:
+                    pts = 10
         add_b(pe_label, pe, pts, 20, True)
 
         ev_ebitda = clean_ratio(metrics.get('ev_to_ebitda'))
@@ -255,7 +297,20 @@ def calculate_scoring_reform(valuation_data, metrics):
         add_b("EV / EBITDA", ev_ebitda, pts, 10, True)
 
         ps = clean_ratio(metrics.get('ps_ratio') or metrics.get('price_to_sales'))
-        pts = 10 if (ps > 0 and ps < 2.0) else (5 if (ps > 0 and ps <= 4.0) else 0)
+        margin = clean_percent(metrics.get('ebit_margin'))
+        target_ps = target_pe * (margin / 100.0)
+        pts = 0
+        
+        if ps > 0:
+            if margin < 0:
+                rev_g_val = clean_percent(metrics.get('revenue_growth'))
+                if rev_g_val > 20 and ps <= 5.0:
+                    pts = 5
+            else:
+                if ps <= target_ps:
+                    pts = 10
+                elif ps <= target_ps * 1.5:
+                    pts = 5
         add_b("P/S Ratio", ps, pts, 10, True)
 
         f_peg = clean_ratio(metrics.get('peg_ratio'))
