@@ -784,6 +784,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if(typeof window.triggerRecalculate === 'function') {
                 window.triggerRecalculate();
             }
+        });
+    };
     injectWeightsUI();
     
     // INJECT COMPARISON UI
