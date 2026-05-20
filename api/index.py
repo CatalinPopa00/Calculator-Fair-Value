@@ -803,6 +803,17 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 "reverse_dcf_growth": sanitize(rev) if rev is not None else None
             }
 
+        # Derive implied 5Y EPS CAGR from Yahoo's PEG Ratio (5yr expected)
+        # PEG = PE / Growth% => Growth% = PE / PEG => Growth (decimal) = PE / PEG / 100
+        yahoo_peg_5yr = data.get("peg_ratio")
+        trailing_pe_for_peg = data.get("pe_ratio") or (current_price / data.get("trailing_eps") if data.get("trailing_eps") and data.get("trailing_eps") > 0 else None)
+        implied_5y_growth = None
+        if yahoo_peg_5yr and yahoo_peg_5yr > 0 and trailing_pe_for_peg and trailing_pe_for_peg > 0:
+            implied_5y_growth = (trailing_pe_for_peg / yahoo_peg_5yr) / 100.0
+            # Sanity: cap at 200% and floor at 0%
+            if implied_5y_growth > 2.0: implied_5y_growth = 2.0
+            if implied_5y_growth <= 0: implied_5y_growth = None
+
         formula_data = {
             "peter_lynch": {
                 "current_price": sanitize(current_price),
@@ -810,6 +821,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 "valuation_eps": sanitize(eps_for_valuation),
                 "fwd_eps": sanitize(lynch_result.get("fwd_eps")),
                 "eps_growth_estimated": sanitize(eps_growth_estimated),
+                "eps_growth_5y_cagr": sanitize(implied_5y_growth),
                 "eps_growth_period": lynch_period_label,
                 "historic_pe": sanitize(pe_historic),
                 "fwd_pe": sanitize(lynch_fwd_pe),
@@ -823,6 +835,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             "peg": {
                 "current_pe": sanitize(current_pe),
                 "eps_growth_estimated": sanitize(eps_growth_rate_peg),
+                "eps_growth_5y_cagr": sanitize(implied_5y_growth),
                 "eps_growth_period": peg_period_label,
                 "current_peg": sanitize(company_peg) if company_peg > 0 else None,
                 "industry_peg": sanitize(industry_peg) if industry_peg else 1.25,
@@ -1057,7 +1070,15 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                     "name": p.get("name"),
                     "price": sanitize(p.get("price")),
                     "pe_ratio": sanitize(p.get("pe_ratio")),
-                    "peg_ratio": sanitize(p.get("peg_ratio")),
+                    "peg_ratio": sanitize(
+                        p.get("pe_ratio") / (p.get("earnings_growth") * 100.0)
+                        if p.get("pe_ratio") and p.get("earnings_growth") and p.get("earnings_growth") > 0
+                        else (
+                            p.get("pe_ratio") / (p.get("revenue_growth") * 100.0)
+                            if p.get("pe_ratio") and p.get("revenue_growth") and p.get("revenue_growth") > 0
+                            else p.get("peg_ratio")
+                        )
+                    ),
                     "pfcf_ratio": sanitize(p.get("pfcf_ratio")),
                     "ps_ratio": sanitize(p.get("ps_ratio")),
                     "price_to_book": sanitize(p.get("price_to_book")),
