@@ -825,6 +825,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div style="display: flex; gap: 8px; align-items: center; flex-grow: 1; max-width: 450px;">
                 <input id="add-peer-input" type="text" placeholder="Add Competitor Ticker (e.g. MSFT)" style="flex-grow: 1; padding: 8px 12px; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: white; text-transform: uppercase; font-size: 0.9rem;">
                 <button id="add-peer-btn" class="peer-btn" style="margin: 0; padding: 8px 16px;">➕ Add Peer</button>
+                <button id="reset-peers-btn" class="peer-btn" style="margin: 0; padding: 8px 16px; background: rgba(239, 68, 68, 0.1); color: var(--danger); border-color: rgba(239, 68, 68, 0.3);">Reset</button>
             </div>
             <span id="add-peer-error" style="color: var(--danger); font-size: 0.85rem; font-weight: 500; display: none;"></span>
         </div>
@@ -885,7 +886,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const addBtn = document.getElementById('add-peer-btn');
         const addInput = document.getElementById('add-peer-input');
         const errSpan = document.getElementById('add-peer-error');
+        const resetBtn = document.getElementById('reset-peers-btn');
         
+        if (resetBtn) {
+            resetBtn.onclick = () => {
+                localStorage.removeItem('customPeers_' + (prof.ticker || currentTicker));
+                if (prof.original_competitor_metrics) {
+                    prof.competitor_metrics = JSON.parse(JSON.stringify(prof.original_competitor_metrics));
+                    prof.competitors = prof.competitor_metrics.map(p => p.ticker);
+                }
+                renderComparisonModal(prof);
+            };
+        }
+
         if (addBtn && addInput) {
             addBtn.onclick = async () => {
                 const rawVal = addInput.value.trim().toUpperCase();
@@ -896,7 +909,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 addBtn.textContent = 'Fetching...';
                 
                 try {
-                    const res = await fetch(`/api/valuation/${encodeURIComponent(rawVal)}?t=${Date.now()}`);
+                    const res = await fetch(`/api/valuation/${encodeURIComponent(rawVal)}?t=${Date.now()}&fast_mode=true&skip_peers=true`);
                     if (!res.ok) throw new Error('Ticker not found or valuation missing');
                     const peerData = await res.json();
                     
@@ -2060,6 +2073,11 @@ document.addEventListener('DOMContentLoaded', () => {
         globalData = data; 
         currentFormulaData = data.formula_data;
         currentTicker = data.ticker;
+
+        // Save original peers before custom overrides (v307)
+        if (data.company_profile && data.company_profile.competitor_metrics && !data.company_profile.original_competitor_metrics) {
+            data.company_profile.original_competitor_metrics = JSON.parse(JSON.stringify(data.company_profile.competitor_metrics));
+        }
 
         // Custom Peers Loader (v306)
         const savedPeers = localStorage.getItem('customPeers_' + data.ticker);
