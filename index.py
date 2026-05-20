@@ -36,7 +36,7 @@ from models.scoring import calculate_scoring_reform, calculate_piotroski_score
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v262"
+CACHE_VERSION = "v263"
 # 1. Initialize FastAPI App (Systemic Recovery Fix)
 app = FastAPI(title="Fair Value Calculator API")
 
@@ -930,6 +930,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 "trailing_eps": sanitize(data.get("trailing_eps")),
                 "fwd_eps": sanitize(lynch_result.get("fwd_eps")),
                 "eps_growth_estimated": sanitize(eps_growth_estimated),
+                "eps_growth_5y_cagr": sanitize(data.get("eps_growth_5y_consensus")),
                 "eps_growth_period": lynch_period_label,
                 "historic_pe": sanitize(pe_historic),
                 "fwd_pe": sanitize(lynch_fwd_pe),
@@ -943,6 +944,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             "peg": {
                 "current_pe": sanitize(current_pe),
                 "eps_growth_estimated": sanitize(eps_growth_rate_peg),
+                "eps_growth_5y_cagr": sanitize(data.get("eps_growth_5y_consensus")),
                 "eps_growth_period": peg_period_label,
                 "current_peg": sanitize(company_peg) if company_peg > 0 else None,
                 "industry_peg": sanitize(industry_peg) if industry_peg else 1.25,
@@ -1186,7 +1188,15 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                     "name": p.get("name"),
                     "price": sanitize(p.get("price")),
                     "pe_ratio": sanitize(p.get("pe_ratio")),
-                    "peg_ratio": sanitize(p.get("peg_ratio")),
+                    "peg_ratio": sanitize(
+                        p.get("pe_ratio") / (p.get("earnings_growth") * 100.0)
+                        if p.get("pe_ratio") and p.get("earnings_growth") and p.get("earnings_growth") > 0
+                        else (
+                            p.get("pe_ratio") / (p.get("revenue_growth") * 100.0)
+                            if p.get("pe_ratio") and p.get("revenue_growth") and p.get("revenue_growth") > 0
+                            else p.get("peg_ratio")
+                        )
+                    ),
                     "market_cap": sanitize(p.get("market_cap")),
                     "eps": sanitize(p.get("eps")),
                     "operating_margin": sanitize(p.get("operating_margin")),

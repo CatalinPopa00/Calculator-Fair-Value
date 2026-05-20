@@ -1466,7 +1466,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (pegInputs) pegInputs.style.display = pegSrc === 'custom' ? 'grid' : 'none';
 
             usedGrowth = currentFormulaData.peg.eps_growth_estimated || 0;
-            if (pegSrc === 'custom') {
+            if (pegSrc === '5ycagr') {
+                usedGrowth = currentFormulaData.peg.eps_growth_5y_cagr || usedGrowth;
+            } else if (pegSrc === 'custom') {
                 const rawG = document.getElementById('peg-custom-growth').value;
                 usedGrowth = (rawG === '' || isNaN(parseFloat(rawG))) ? 0.20 : parseFloat(rawG) / 100;
             }
@@ -1625,7 +1627,10 @@ document.addEventListener('DOMContentLoaded', () => {
             let baseEps = pl.valuation_eps || pl.trailing_eps || 0;
             let targetEps = baseEps * Math.pow(1 + usedGrowth, 3); // v288: Restored 3Y Compounded Projection
 
-            if (epsSource === 'historical') {
+            if (epsSource === '5ycagr') {
+                usedGrowth = pl.eps_growth_5y_cagr || usedGrowth;
+                targetEps = baseEps * Math.pow(1 + usedGrowth, 3);
+            } else if (epsSource === 'historical') {
                 usedGrowth = prof.historic_eps_growth != null ? prof.historic_eps_growth : 0.05;
                 targetEps = baseEps * Math.pow(1 + usedGrowth, 3);
             } else if (epsSource === 'custom') {
