@@ -835,8 +835,8 @@ document.addEventListener('DOMContentLoaded', () => {
             pe_ratio: prof.trailing_pe,
             peg_ratio: globalData?.formula_data?.peg?.current_peg,
             eps: prof.trailing_eps,
-            ps_ratio: prof.ps_ratio,
-            revenue: prof.revenue || (prof.market_cap && prof.ps_ratio && prof.ps_ratio > 0 ? prof.market_cap / prof.ps_ratio : null),
+            ps_ratio: globalData.ps_ratio,
+            revenue: globalData.revenue || (prof.market_cap && globalData.ps_ratio && globalData.ps_ratio > 0 ? prof.market_cap / globalData.ps_ratio : null),
             pfcf_ratio: mainPfcf,
             fcf: mainFcf || (prof.market_cap && mainPfcf && mainPfcf > 0 ? prof.market_cap / mainPfcf : null),
             fcf_growth: prof.historic_fcf_growth,
@@ -1286,7 +1286,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 const baseFcf = currentFormulaData.dcf.fcf;
-                const baseRevenue = prof.revenue || (prof.market_cap && prof.ps_ratio && prof.ps_ratio > 0 ? prof.market_cap / prof.ps_ratio : null) || 0;
+                const baseRevenue = globalData.revenue || (prof.market_cap && globalData.ps_ratio && globalData.ps_ratio > 0 ? prof.market_cap / globalData.ps_ratio : null) || 0;
                 
                 const customMarginEl = document.getElementById('dcf-custom-fcf-margin');
                 const customMargin = (customMarginEl && customMarginEl.value !== '') ? parseLocaleFloat(customMarginEl.value) : null;
@@ -3772,7 +3772,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const sensMatrix = method === 'perpetual' ? (dataObj.sensitivity_matrix || []) : [];
                     
                     const baseFcf = d.fcf || 0;
-                    const baseRevenue = prof.revenue || 0;
+                    const baseRevenue = globalData.revenue || 0;
                     const customMarginEl = document.getElementById('dcf-custom-fcf-margin');
                     const customMargin = (customMarginEl && customMarginEl.value !== '') ? parseLocaleFloat(customMarginEl.value) : null;
                     let startingFcfMargin = 0.10;
