@@ -188,6 +188,18 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     };
 
+    const getTargetPe = (sector, industry) => {
+        const s_low = (sector || "").toLowerCase();
+        const i_low = (industry || "").toLowerCase();
+        if (s_low.includes('technology') || i_low.includes('software') || s_low.includes('communication')) return 25.0;
+        if (s_low.includes('consumer discretionary')) return 22.0;
+        if (s_low.includes('health') || i_low.includes('biotech')) return 18.0;
+        if (['industrials', 'materials', 'consumer staples', 'defensive'].some(x => s_low.includes(x))) return 16.0;
+        if (['utilities', 'real estate', 'reit'].some(x => s_low.includes(x))) return 15.0;
+        if (s_low.includes('financial') || i_low.includes('bank')) return 13.0;
+        return 18.0;
+    };
+
     const recalcWithSimPrice = (simPrice) => {
         if (!globalData || !globalData.company_profile) return;
         const prof = globalData.company_profile;
@@ -284,24 +296,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 const isREIT = sector.includes('real estate') || sector.includes('reit');
 
                 if (metric === 'Margin of Safety') {
-                    newPts = (newMos > 20) ? 30 : (newMos >= 0 ? 15 : 0);
+                    if (isFin && isBank) {
+                        newPts = (newMos > 20) ? 25 : (newMos >= 0 ? 12.5 : 0);
+                    } else {
+                        newPts = (newMos > 20) ? 30 : (newMos >= 0 ? 15 : 0);
+                    }
                     item.value = formatPercent(newMos);
                 } else if (metric.includes('P/E Ratio')) {
-                    let ptsAbs = 0, ptsRel = 0;
-                    if (isFin && isBank) {
-                        ptsAbs = (scoringPE > 0 && scoringPE < 10) ? 7.5 : ((scoringPE > 0 && scoringPE <= 15) ? 3.75 : 0);
-                        if (scoringPE > 0 && pe5y > 0) {
-                            const diff = ((scoringPE - pe5y) / pe5y) * 100;
-                            ptsRel = diff < -15 ? 7.5 : (Math.abs(diff) <= 15 ? 3.75 : 0);
-                        }
-                    } else {
-                        ptsAbs = (scoringPE > 0 && scoringPE < 15) ? 10 : ((scoringPE > 0 && scoringPE <= 25) ? 5 : 0);
-                        if (scoringPE > 0 && pe5y > 0) {
-                            const diff = ((scoringPE - pe5y) / pe5y) * 100;
-                            ptsRel = diff < -15 ? 10 : (Math.abs(diff) <= 15 ? 5 : 0);
+                    const target_pe = getTargetPe(sector, industry);
+                    let pts = 0;
+                    if (scoringPE > 0) {
+                        if (scoringPE <= target_pe) {
+                            pts = 20;
+                        } else if (scoringPE <= target_pe * 1.3) {
+                            const rev_g_val = prof.revenue_growth || 0;
+                            const peg_val = (growthFromAnchor > 0) ? scoringPE / growthFromAnchor : 0;
+                            if (rev_g_val > 15 || (peg_val > 0 && peg_val < 1.5)) {
+                                pts = 15;
+                            } else {
+                                pts = 10;
+                            }
                         }
                     }
-                    newPts = ptsAbs + ptsRel;
+                    newPts = pts;
                     
                     // v72: Dynamic label based on simulation anchor (adj for Tech/Health)
                     const isTech = (sector.includes('technology') || sector.includes('communication') || industry.includes('software') || industry.includes('internet'));
@@ -309,7 +326,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     item.metric = (isTech || isHealth) ? "P/E Ratio (adj.)" : "P/E Ratio (Trailing)";
                     item.value = scoringPE > 0 ? scoringPE.toFixed(2) + 'x' : '0.00x';
                 } else if (metric === 'P/S Ratio') {
-                    newPts = (newPS > 0 && newPS < 2) ? 10 : ((newPS > 0 && newPS <= 4) ? 5 : 0);
+                    const target_pe = getTargetPe(sector, industry);
+                    const margin = globalData.ebit_margin || 0; 
+                    const target_ps = target_pe * (margin / 100.0);
+                    let pts = 0;
+                    if (newPS > 0) {
+                        if (margin < 0) {
+                            const rev_g_val = prof.revenue_growth || 0;
+                            if (rev_g_val > 20 && newPS <= 5.0) pts = 5;
+                        } else {
+                            if (newPS <= target_ps) pts = 10;
+                            else if (newPS <= target_ps * 1.5) pts = 5;
+                        }
+                    }
+                    newPts = pts;
                     item.value = newPS > 0 ? newPS.toFixed(2) + 'x' : '0.00x';
                 } else if (metric === 'EV / EBITDA') {
                     newPts = (newEvEbitda > 0 && newEvEbitda < 12) ? 10 : ((newEvEbitda > 0 && newEvEbitda <= 18) ? 5 : 0);
@@ -335,7 +365,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (metric === 'P/AFFO') {
                     const affoPerShare = prof.price_to_affo > 0 ? (_originalPrice / prof.price_to_affo) : 0;
                     const newPAFFO = affoPerShare > 0 ? simPrice / affoPerShare : 0;
-                    newPts = (newPAFFO > 0 && newPAFFO < 15.0) ? 20 : (newPAFFO > 0 && newPAFFO <= 20.0 ? 10 : 0);
+                    let pts = 0;
+                    if (newPAFFO > 0) {
+                        if (newPAFFO <= 15) {
+                            pts = 20;
+                        } else if (newPAFFO <= 15 * 1.3) {
+                            const affo_g_val = prof.affo_growth || 0;
+                            if (affo_g_val > 15) pts = 15;
+                            else pts = 10;
+                        }
+                    }
+                    newPts = pts;
                     item.value = newPAFFO > 0 ? newPAFFO.toFixed(2) + 'x' : '0.00x';
                 }
 
