@@ -873,7 +873,7 @@ def load_gemini_api_key() -> str:
 
 def get_company_synthesis(ticker: str, info: dict, run_ai: bool = False) -> str:
     """
-    Returns a professional, structured analytical synthesis of the company in English.
+    Returns a professional, structured analytical synthesis of the company in Romanian.
     Integrates Gemini AI insights for deep semantic extraction (pharma catalyst, segment analysis, M&A distortions)
     and falls back to deterministic rule-based heuristics if no API key is available.
     """
@@ -905,43 +905,45 @@ def get_company_synthesis(ticker: str, info: dict, run_ai: bool = False) -> str:
             debt_equity = info.get('debtToEquity')
             de_str = f"{debt_equity:.1f}%" if isinstance(debt_equity, (int, float)) else "N/A"
             
-            prompt = f"""You are a senior financial analyst and biopharma/industry researcher.
-Analyze the following company data for {name} ({ticker_upper}) operating in the {sector} sector and {industry} industry.
+            prompt = f"""Ești un analist financiar senior și cercetător de top în industrie.
+Analizează următoarele date despre compania {name} ({ticker_upper}), care activează în sectorul {sector} și industria {industry}.
 
-COMPANY DESCRIPTION:
+DESCRIEREA COMPANIEI:
 {summary}
 
-FINANCIAL DATA OVERVIEW:
-- PE Ratio: {pe_str}
-- Revenue Growth: {rev_str}
-- Net Profit Margin: {margin_str}
-- Debt to Equity Ratio: {de_str}
+DATE FINANCIARE RELEVANTE:
+- Multiplu P/E: {pe_str}
+- Creșterea Veniturilor (YoY): {rev_str}
+- Marja Netă de Profit: {margin_str}
+- Raport Datorie/Capital Propriu (Debt to Equity): {de_str}
 
-RECENT NEWS HEADLINES:
+CELE MAI RECENTE ȘTIRI ȘI EVENIMENTE DE PIAȚĂ:
 {news_text}
 
-Provide a professional, structured analytical synthesis of this company in English.
-You MUST format your output exactly as follows with these precise markdown headers:
+Oferă o sinteză analitică extrem de profesionistă, structurată și detaliată, redactată direct în limba română.
+Evită cu desăvârșire generalitățile inutile sau descrierile de tip șablon care nu oferă valoare reală (cum ar fi „este o companie de tehnologie de top...”). Fii extrem de specific, tehnic și axat pe cifre și detalii strategice.
 
-**EXECUTIVE SUMMARY**
-[Provide a concise 3-4 sentence professional summary of the company. If it is a biotechnology or pharmaceutical company, you MUST identify and highlight any clinical trials, active drug pipelines (Phase I, II, III), FDA decisions, or expected dates for trial readouts or PDUFA dates. If the company operates in distinct business divisions, highlight which segment is growing fastest and becoming the primary profit driver. If the company's recent earnings or EPS have fluctuated or declined due to a specific strategic event like a large acquisition, merger, integration costs, or capital investments, explain this context clearly so the investor understands it is a one-off or strategic distortion.]
+Trebuie să structurezi răspunsul tău EXACT conform formatului de mai jos, folosind aceste headere markdown precise:
 
-**STRATEGIC STRENGTHS**
-• [Bullet 1: Main strategic advantage, segment dominance, or competitive moat]
-• [Bullet 2: Financial strength, high margin, or solid leverage profile based on the data]
-• [Bullet 3: Operational growth catalyst or upcoming product event/pharma trial milestone]
+**SINTEZĂ EXECUTIVĂ**
+[Oferă o sinteză extrem de valoroasă și densă, de 3-5 propoziții, despre modelul de business, dinamica financiară și poziționarea strategică. Identifică numele produselor cheie (de ex. Photoshop, Acrobat, Firefly în cazul Adobe) sau serviciilor de bază și segmentele operaționale cele mai importante, menționând care sunt motoarele principale de generare a banilor (cash-generating engines) și care sunt produsele cu cea mai rapidă creștere. Dacă este o companie din biotehnologie sau farmaceutică, identifică stadiul studiilor clinice relevante, fazele de dezvoltare (Faza I, II, III), deciziile FDA sau termenele PDUFA. Dacă profitabilitatea sau EPS-ul recent prezintă fluctuații temporare din cauza unor cheltuieli non-recurente, fuziuni/achiziții sau investiții masive de capital, explică clar acest context strategic.]
 
-**VULNERABILITIES & RISKS**
-• [Bullet 1: Main threat, industry headwind, or segment weakness]
-• [Bullet 2: Valuation risk or balance sheet concern based on the PE or debt data]
-• [Bullet 3: Regulatory, clinical trial failure risk, or integration risks from recent acquisitions]
+**PUNCTE FORTE STRATEGICE**
+• [Bullet 1: Avantajul competitiv dominant sau „moat”-ul strategic specific al companiei (de ex. costuri mari de schimbare a furnizorului, efecte de rețea, putere de stabilire a prețurilor, brevete). Fii specific cu privire la produse și segmente.]
+• [Bullet 2: Punctul forte din punct de vedere financiar bazat pe datele oferite (PE, marjă, datorie sau creștere). Explică pe scurt de ce această cifră reprezintă o ancoră de stabilitate sau de performanță.]
+• [Bullet 3: Principalul motor de creștere viitoare sau catalizator operațional (de ex. integrarea tehnologiilor AI generative, extinderea geografică, noi produse strategice în curs de lansare).]
 
-**LATEST MARKET INTELLIGENCE**
-• [Headline 1 (Source: Publisher)]
-• [Headline 2 (Source: Publisher)]
-• [Headline 3 (Source: Publisher)]
+**VULNERABILITĂȚI ȘI RISCURI**
+• [Bullet 1: Principala amenințare strategică sau presiune concurențială. Identifică concurenți specifici din piață care amenință cota de piață (de ex. Canva, Figma sau alternative open-source pentru Adobe) sau schimbări tehnologice disruptive.]
+• [Bullet 2: Riscul legat de evaluare sau de structura bilanțului (de ex. dacă multiplul PE este foarte mare, ce riscuri de corecție implică, sau cum afectează costul capitalului datoria ridicată).]
+• [Bullet 3: Riscuri de reglementare, riscuri operaționale specifice, eșecuri în studii clinice sau riscuri legate de integrarea achizițiilor recente.]
 
-Make sure to strictly adhere to the markdown header format. Do not use extra asterisks or custom formatting headers. Keep the tone professional, objective, and dense with high-value analytical facts.
+**ULTIMELE INFORMAȚII DE PIAȚĂ**
+• [Tradu prima știre relevantă în limba română (Sursa: Nume Publicație) - Oferă în maximum o propoziție o analiză scurtă a impactului financiar sau strategic al acestei știri asupra companiei.]
+• [Tradu a doua știre relevantă în limba română (Sursa: Nume Publicație) - Oferă în maximum o propoziție o analiză scurtă a impactului financiar sau strategic al acestei știri asupra companiei.]
+• [Tradu a treia știre relevantă în limba română (Sursa: Nume Publicație) - Oferă în maximum o propoziție o analiză scurtă a impactului financiar sau strategic al acestei știri asupra companiei.]
+
+Aderează strict la aceste headere markdown precise (scrise exact așa, cu litere mari și între asteriscuri duble). Nu folosi alte headere personalizate sau caractere suplimentare. Păstrează un ton sobru, analitic, demn de un raport de investment banking.
 """
             url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
             headers = {"Content-Type": "application/json"}
@@ -958,7 +960,7 @@ Make sure to strictly adhere to the markdown header format. Do not use extra ast
                 if response.status_code == 200:
                     res_json = response.json()
                     generated_text = res_json['candidates'][0]['content']['parts'][0]['text']
-                    if generated_text and "**EXECUTIVE SUMMARY**" in generated_text:
+                    if generated_text and ("**EXECUTIVE SUMMARY**" in generated_text or "**SINTEZĂ EXECUTIVĂ**" in generated_text):
                         # Clean up triple backticks if model wraps markdown
                         cleaned_text = generated_text.replace("```markdown", "").replace("```", "").strip()
                         return cleaned_text
@@ -968,13 +970,13 @@ Make sure to strictly adhere to the markdown header format. Do not use extra ast
                 print(f"Error calling Gemini API for {ticker_upper}: {e}")
 
     # 2. HEURISTIC FALLBACK (Rule-based local generation) - Used if run_ai=False or Gemini API fails
-    presentation = f"{name} is a leading enterprise operating within the {sector} sector, with a primary focus on {industry}."
+    presentation = f"{name} este o companie de vârf ce activează în sectorul {sector}, având ca focus principal segmentul {industry}."
     if summary:
         # Extract first 2-3 sentences for a professional description
         sentences = re.split(r'(?<=[.!?])\s+', summary)
         activity = " ".join(sentences[:3])
     else:
-        activity = f"The company operates a global industrial footprint, providing specialized solutions and integrated services within the {industry} domain."
+        activity = f"Compania operează la nivel global, oferind soluții specializate și servicii integrate în domeniul {industry}."
 
     strengths = []
     weaknesses = []
@@ -982,43 +984,43 @@ Make sure to strictly adhere to the markdown header format. Do not use extra ast
     # Financial Performance & Growth
     rev_growth = info.get('revenueGrowth')
     if rev_growth and rev_growth > 0.15: 
-        strengths.append(f"Robust revenue expansion (YoY: {rev_growth*100:.1f}%) indicating strong market demand.")
+        strengths.append(f"Expansiune robustă a veniturilor (YoY: {rev_growth*100:.1f}%), indicând o cerere puternică în piață.")
     elif rev_growth and rev_growth < 0: 
-        weaknesses.append("Observed revenue contraction suggesting cyclical headwinds or market share pressure.")
+        weaknesses.append("Contractare observată a veniturilor, ceea ce sugerează presiuni ciclice sau pierderea cotei de piață.")
 
     # Profitability & Efficiency
     margin = info.get('profitMargins')
     if margin and margin > 0.20: 
-        strengths.append(f"High-margin operations (Net Margin: {margin*100:.1f}%), reflecting pricing power or operational scale.")
+        strengths.append(f"Marje operaționale ridicate (Marjă Netă: {margin*100:.1f}%), reflectând putere de stabilire a prețurilor sau eficiență la scară.")
     elif margin and margin < 0.05: 
-        weaknesses.append("Lean profit margins, potentially susceptible to input cost volatility.")
+        weaknesses.append("Marje de profit reduse, potențial expuse la volatilitatea costurilor de producție.")
 
     # Capital Structure
     debt_equity = info.get('debtToEquity')
     if debt_equity and debt_equity < 40: 
-        strengths.append("Conservative capital structure with low leverage, providing significant financial flexibility.")
+        strengths.append("Structură conservatoare a capitalului cu grad scăzut de îndatorare, oferind o flexibilitate financiară semnificativă.")
     elif debt_equity and debt_equity > 150: 
-        weaknesses.append("Elevated debt-to-equity ratio, increasing sensitivity to interest rate fluctuations.")
+        weaknesses.append("Raport datorie/capital propriu ridicat, sporind vulnerabilitatea la fluctuațiile ratelor dobânzilor.")
 
     # Market Valuation Context
     pe = info.get('trailingPE')
     if pe and pe < 18: 
-        strengths.append(f"Attractive valuation relative to historical norms (P/E: {pe:.1f}x).")
+        strengths.append(f"Evaluare atractivă în raport cu mediile istorice (P/E: {pe:.1f}x).")
     elif pe and pe > 45: 
-        weaknesses.append(f"Premium valuation (P/E: {pe:.1f}x), necessitating aggressive growth to justify current levels.")
+        weaknesses.append(f"Evaluare premium (P/E: {pe:.1f}x), necesitând o creștere agresivă pentru a justifica nivelurile actuale.")
 
     # Defaults for completeness
-    if not strengths: strengths.append("Established market presence with diversified revenue streams.")
-    if not weaknesses: weaknesses.append("Exposure to broader macroeconomic cycles and regulatory shifts.")
+    if not strengths: strengths.append("Prezență stabilă pe piață cu surse diversificate de venituri.")
+    if not weaknesses: weaknesses.append("Expunere la ciclurile macroeconomice generale și la modificările de reglementare.")
 
     # Construct Structured Output (Heuristics Fallback)
-    output = f"**EXECUTIVE SUMMARY**\n{presentation}\n\n{activity}\n\n"
-    output += f"**STRATEGIC STRENGTHS**\n" + "\n".join([f"• {s}" for s in strengths[:3]]) + "\n\n"
-    output += f"**VULNERABILITIES & RISKS**\n" + "\n".join([f"• {w}" for w in weaknesses[:3]]) + "\n\n"
+    output = f"**SINTEZĂ EXECUTIVĂ**\n{presentation}\n\n{activity}\n\n"
+    output += f"**PUNCTE FORTE STRATEGICE**\n" + "\n".join([f"• {s}" for s in strengths[:3]]) + "\n\n"
+    output += f"**VULNERABILITĂȚI ȘI RISCURI**\n" + "\n".join([f"• {w}" for w in weaknesses[:3]]) + "\n\n"
     
     # Fast news placeholder for fallback
-    fallback_news = ["AI Insights generation is active. View SWOT or full intelligence shortly."]
-    output += f"**LATEST MARKET INTELLIGENCE**\n" + "\n".join([f"• {n}" for n in fallback_news])
+    fallback_news = ["Generarea Analizei AI este activă. Secțiunea SWOT și informațiile detaliate vor fi afișate în scurt timp."]
+    output += f"**ULTIMELE INFORMAȚII DE PIAȚĂ**\n" + "\n".join([f"• {n}" for n in fallback_news])
 
     return output
 

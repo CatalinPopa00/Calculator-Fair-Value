@@ -136,8 +136,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentTicker = null;
     let currentHealthBreakdown = null;
     let currentBuyBreakdown = null;
-    let _originalBuyBreakdown = null;
-    let _originalBuyScore = null;
     let currentPiotroskiBreakdown = null;
     let chartRevFcf = null;
     let chartEpsShares = null;
@@ -177,37 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (globalData && _originalPrice != null) {
                     globalData.current_price = _originalPrice;
                     priceEl.textContent = formatCurrency(_originalPrice);
-                    
-                    // Restore original Buy Score and Breakdown to 100% exact original values (v308 Fix)
-                    if (_originalBuyBreakdown && _originalBuyScore !== null) {
-                        currentBuyBreakdown = JSON.parse(JSON.stringify(_originalBuyBreakdown));
-                        globalData.buy_breakdown = currentBuyBreakdown;
-                        globalData.good_to_buy_total = _originalBuyScore;
-                        
-                        // Re-render profile section (restores all DOM metric values and styling)
-                        if (window._renderProfile) {
-                            window._renderProfile();
-                        }
-                        
-                        // Update UI
-                        updateScoreUI(globalData.good_to_buy_total, 'buy-score-circle', 'buy-score-fill');
-                        
-                        // If score breakdown modal is open, refresh it
-                        const scoreModal = document.getElementById('score-modal');
-                        if (scoreModal && scoreModal.style.display === 'flex') {
-                            const titleEl = document.getElementById('score-modal-title');
-                            if (titleEl && titleEl.textContent.includes('Good to Buy')) {
-                                renderScoreBreakdown('Good to Buy Score Breakdown', globalData.good_to_buy_total, currentBuyBreakdown);
-                            }
-                        }
-                    } else {
-                        recalcWithSimPrice(_originalPrice);
-                    }
-                    
-                    // Trigger global recalculate callback if exists
-                    if (window.triggerRecalculate) {
-                        window.triggerRecalculate();
-                    }
+                    recalcWithSimPrice(_originalPrice);
                 }
             }
         };
@@ -2190,7 +2158,6 @@ document.addEventListener('DOMContentLoaded', () => {
         globalData = data; 
         currentFormulaData = data.formula_data;
         currentTicker = data.ticker;
-        const prof = data.company_profile || {};
 
         // Save original peers before custom overrides (v307)
         if (data.company_profile && data.company_profile.competitor_metrics && !data.company_profile.original_competitor_metrics) {
@@ -2467,7 +2434,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div id="brief-kpis" style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 15px;">
                         ${kpiHtml}
                     </div>
-
+                    
                     <!-- Tabs Navigation -->
                     <div style="display: flex; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; gap: 10px; overflow-x: auto; scrollbar-width: none;">
                         <button class="brief-tab ${activeTab === 'overview' ? 'active' : ''}" data-tab="overview">🏢 Prezentare Generală</button>
@@ -2574,7 +2541,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 `;
                             }).join('');
                         } else {
-                            panel.innerHTML = '<div style="color: rgba(255,255,255,0.5); font-size: 0.8rem; padding: 20px; text-align: center; font-style:italic;">Nu există știri recente sau evoluții de piață disponibile.</div>';
+                            panel.innerHTML = '<div style="color: rgba(255,255,255,0.5); font-size: 0.8rem; padding: 20px; text-align: center; font-style:italic;">Nu există știri recente sau evoluții de piață globale.</div>';
                         }
                     }
                 };
@@ -2667,8 +2634,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         currentHealthBreakdown = data.health_breakdown;
         currentBuyBreakdown = data.buy_breakdown;
-        _originalBuyBreakdown = JSON.parse(JSON.stringify(data.buy_breakdown));
-        _originalBuyScore = data.good_to_buy_total;
         currentPiotroskiBreakdown = data.piotroski_breakdown || (data.piotroski && data.piotroski.breakdown) || [];
 
         updateScoreUI(data.health_score_total, 'health-score-circle', 'health-score-fill');
