@@ -2243,32 +2243,242 @@ document.addEventListener('DOMContentLoaded', () => {
         if (fvContainer) {
             let descCard = document.getElementById('company-desc-card');
             if (!descCard) {
-                fvContainer.insertAdjacentHTML('afterend', `
-                    <div id="company-desc-card" class="glass-card" style="margin-top: 15px; padding: 20px; border-left: 4px solid #38bdf8;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                            <h3 style="font-size: 0.75rem; color: rgba(255,255,255,0.4); margin: 0; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 800;">Corporate Brief</h3>
-                            <div id="ai-synthesis-badge" style="display: none; background: linear-gradient(135deg, #38bdf8, #818cf8); color: white; font-size: 0.6rem; padding: 3px 8px; border-radius: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">✨ AI INSIGHTS</div>
-                        </div>
-                        <div id="company-desc-text" style="font-size: 0.9rem; line-height: 1.6; color: rgba(255,255,255,0.8); max-height: 250px; overflow-y: auto; text-align: justify; padding-right: 8px; font-family: 'Outfit', sans-serif;"></div>
-                    </div>`);
+                fvContainer.insertAdjacentHTML('afterend', `<div id="company-desc-card" class="glass-card" style="margin-top: 15px; padding: 20px; border-left: 4px solid #38bdf8;"></div>`);
                 descCard = document.getElementById('company-desc-card');
             }
+
+            // v301: Smart client-side regex parser for the AI Synthesis sections
+            const parseSynthesis = (synthesisText) => {
+                const sections = {
+                    executiveSummary: "",
+                    strategicStrengths: [],
+                    vulnerabilitiesRisks: [],
+                    latestMarketIntelligence: []
+                };
+                if (!synthesisText) return sections;
+                const parts = synthesisText.split(/\*\*(EXECUTIVE SUMMARY|STRATEGIC STRENGTHS|VULNERABILITIES \& RISKS|LATEST MARKET INTELLIGENCE)\*\*/i);
+                for (let i = 1; i < parts.length; i += 2) {
+                    const title = parts[i].trim().toUpperCase();
+                    const content = parts[i+1] ? parts[i+1].trim() : "";
+                    if (title === "EXECUTIVE SUMMARY") {
+                        sections.executiveSummary = content;
+                    } else if (title === "STRATEGIC STRENGTHS") {
+                        sections.strategicStrengths = content.split('\n')
+                            .map(line => line.replace(/^•\s*/, '').trim())
+                            .filter(Boolean);
+                    } else if (title === "VULNERABILITIES & RISKS") {
+                        sections.vulnerabilitiesRisks = content.split('\n')
+                            .map(line => line.replace(/^•\s*/, '').trim())
+                            .filter(Boolean);
+                    } else if (title === "LATEST MARKET INTELLIGENCE") {
+                        sections.latestMarketIntelligence = content.split('\n')
+                            .map(line => line.replace(/^•\s*/, '').trim())
+                            .filter(Boolean);
+                    }
+                }
+                return sections;
+            };
+
+            const parsed = parseSynthesis(data.company_overview_synthesis);
             
-            const descText = document.getElementById('company-desc-text');
-            const aiBadge = document.getElementById('ai-synthesis-badge');
+            // Build Dynamic KPI Badges
+            let kpiHtml = '';
+            const pe = prof.trailing_pe || prof.current_pe;
+            const netMargin = prof.net_margin || prof.operating_margin;
+            const deRatio = prof.debt_to_equity;
             
-            if (data.company_overview_synthesis) {
-                // v202: Format markdown-style bolding and newlines for the structured synthesis
-                const formatted = data.company_overview_synthesis
-                    .replace(/\*\*(.*?)\*\*/g, '<strong style="color: #38bdf8; display: block; margin-top: 12px; margin-bottom: 6px; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px;">$1</strong>')
-                    .replace(/\n/g, '<br>');
-                descText.innerHTML = formatted;
-                aiBadge.style.display = 'block';
-                descCard.style.borderLeft = '4px solid #38bdf8';
-            } else {
-                descText.textContent = (data.company_profile && data.company_profile.business_summary) || 'Description not available.';
-                aiBadge.style.display = 'none';
-                descCard.style.borderLeft = 'none';
+            if (pe != null && pe > 0) {
+                if (pe > 45) {
+                    kpiHtml += `<span style="background: rgba(239, 68, 68, 0.12); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px;">🔴 Premium PE (${pe.toFixed(1)}x)</span>`;
+                } else if (pe < 18) {
+                    kpiHtml += `<span style="background: rgba(34, 197, 94, 0.12); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px;">🟢 Attractive PE (${pe.toFixed(1)}x)</span>`;
+                } else {
+                    kpiHtml += `<span style="background: rgba(245, 158, 11, 0.12); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px;">🟡 Moderate PE (${pe.toFixed(1)}x)</span>`;
+                }
+            }
+            if (netMargin != null) {
+                if (netMargin > 0.20) {
+                    kpiHtml += `<span style="background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px;">💎 High Margins (${(netMargin * 100).toFixed(0)}%)</span>`;
+                } else if (netMargin < 0.05) {
+                    kpiHtml += `<span style="background: rgba(239, 68, 68, 0.12); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px;">⚠️ Lean Margins (${(netMargin * 100).toFixed(0)}%)</span>`;
+                } else {
+                    kpiHtml += `<span style="background: rgba(255, 255, 255, 0.05); color: rgba(255,255,255,0.7); border: 1px solid rgba(255, 255, 255, 0.1); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px;">📊 Healthy Margins (${(netMargin * 100).toFixed(0)}%)</span>`;
+                }
+            }
+            if (deRatio != null) {
+                if (deRatio < 40) {
+                    kpiHtml += `<span style="background: rgba(168, 85, 247, 0.12); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px;">🛡️ Safe Leverage</span>`;
+                } else if (deRatio > 150) {
+                    kpiHtml += `<span style="background: rgba(239, 68, 68, 0.12); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px;">⚠️ High Leverage (${deRatio.toFixed(0)}%)</span>`;
+                } else {
+                    kpiHtml += `<span style="background: rgba(255, 255, 255, 0.05); color: rgba(255,255,255,0.7); border: 1px solid rgba(255, 255, 255, 0.1); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px;">⚖️ Balanced Debt</span>`;
+                }
+            }
+
+            descCard.innerHTML = `
+                <style>
+                    .brief-tab {
+                        background: none;
+                        border: none;
+                        color: rgba(255,255,255,0.5);
+                        padding: 8px 12px;
+                        font-size: 0.85rem;
+                        font-weight: 700;
+                        cursor: pointer;
+                        font-family: 'Outfit', sans-serif;
+                        transition: all 0.2s ease;
+                        opacity: 0.7;
+                        position: relative;
+                        white-space: nowrap;
+                    }
+                    .brief-tab:hover {
+                        opacity: 1;
+                        color: #38bdf8 !important;
+                    }
+                    .brief-tab.active {
+                        opacity: 1;
+                        color: #38bdf8 !important;
+                        border-bottom: 2px solid #38bdf8 !important;
+                    }
+                    .brief-news-item {
+                        background: rgba(255,255,255,0.02);
+                        border: 1px solid rgba(255,255,255,0.05);
+                        border-radius: 8px;
+                        padding: 10px 12px;
+                        margin-bottom: 8px;
+                        transition: all 0.2s ease;
+                    }
+                    .brief-news-item:hover {
+                        background: rgba(255,255,255,0.05);
+                        border-color: rgba(56, 189, 248, 0.2);
+                        transform: translateY(-1px);
+                    }
+                </style>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <h3 style="font-size: 0.75rem; color: rgba(255,255,255,0.4); margin: 0; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 800; font-family: 'Outfit', sans-serif;">Corporate Brief</h3>
+                        <div id="ai-synthesis-badge" style="display: ${data.company_overview_synthesis ? 'block' : 'none'}; background: linear-gradient(135deg, #38bdf8, #818cf8); color: white; font-size: 0.6rem; padding: 3px 8px; border-radius: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">✨ AI INSIGHTS</div>
+                    </div>
+                    <button id="copy-brief-btn" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 4px 8px; color: rgba(255,255,255,0.7); cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 0.72rem; transition: all 0.2s; font-family: 'Outfit', sans-serif;" title="Copy Brief to Clipboard">
+                        <span style="font-size: 0.8rem;">📋</span> <span id="copy-brief-text">Copy</span>
+                    </button>
+                </div>
+                
+                <!-- KPI Row -->
+                <div id="brief-kpis" style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 15px;">
+                    ${kpiHtml}
+                </div>
+
+                <!-- Tabs Navigation -->
+                <div style="display: flex; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; gap: 10px; overflow-x: auto; scrollbar-width: none;">
+                    <button class="brief-tab active" data-tab="overview">🏢 Overview</button>
+                    <button class="brief-tab" data-tab="swot">⚖️ SWOT Analysis</button>
+                    <button class="brief-tab" data-tab="news">📰 Intelligence</button>
+                </div>
+
+                <!-- Active Tab Content -->
+                <div id="brief-panel-content" style="font-size: 0.9rem; line-height: 1.6; color: rgba(255,255,255,0.85); max-height: 250px; overflow-y: auto; padding-right: 6px; font-family: 'Outfit', sans-serif;"></div>
+            `;
+
+            let activeTab = 'overview';
+            
+            const renderActivePanel = () => {
+                const panel = document.getElementById('brief-panel-content');
+                if (!panel) return;
+                
+                if (activeTab === 'overview') {
+                    panel.innerHTML = `
+                        <div style="font-size: 0.95rem; font-weight: 700; margin-bottom: 8px; color: white;">
+                            ${prof.name || 'Company'} is classified in <span style="color:#38bdf8;">${prof.sector || 'N/A'}</span> under <span style="color:#38bdf8;">${prof.industry || 'N/A'}</span>.
+                        </div>
+                        <p style="margin: 0; color: rgba(255,255,255,0.8); line-height: 1.6; text-align: justify;">
+                            ${parsed.executiveSummary || prof.business_summary || 'No summary description available.'}
+                        </p>
+                    `;
+                } else if (activeTab === 'swot') {
+                    const strengthsHtml = parsed.strategicStrengths.length > 0 
+                        ? parsed.strategicStrengths.map(s => `
+                            <div style="display: flex; gap: 10px; margin-bottom: 8px; align-items: flex-start; background: rgba(34, 197, 94, 0.04); border: 1px solid rgba(34, 197, 94, 0.1); padding: 8px 12px; border-radius: 6px;">
+                                <span style="color: #4ade80; font-weight: bold; font-size: 0.9rem; flex-shrink:0;">✔️</span>
+                                <span style="color: rgba(255,255,255,0.85); font-size: 0.8rem;">${s}</span>
+                            </div>`).join('')
+                        : '<div style="color: rgba(255,255,255,0.5); font-size: 0.8rem; padding: 10px; font-style:italic;">Diversified business operations.</div>';
+                        
+                    const risksHtml = parsed.vulnerabilitiesRisks.length > 0 
+                        ? parsed.vulnerabilitiesRisks.map(r => `
+                            <div style="display: flex; gap: 10px; margin-bottom: 8px; align-items: flex-start; background: rgba(239, 68, 68, 0.04); border: 1px solid rgba(239, 68, 68, 0.1); padding: 8px 12px; border-radius: 6px;">
+                                <span style="color: #f87171; font-weight: bold; font-size: 0.9rem; flex-shrink:0;">⚠️</span>
+                                <span style="color: rgba(255,255,255,0.85); font-size: 0.8rem;">${r}</span>
+                            </div>`).join('')
+                        : '<div style="color: rgba(255,255,255,0.5); font-size: 0.8rem; padding: 10px; font-style:italic;">Exposure to market cycles.</div>';
+
+                    panel.innerHTML = `
+                        <div style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 15px; width: 100%;">
+                            <div style="flex: 1 1 280px; min-width: 250px;">
+                                <h4 style="color: #4ade80; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin-top: 0; margin-bottom: 10px; font-weight: 800;">Strategic Strengths</h4>
+                                ${strengthsHtml}
+                            </div>
+                            <div style="flex: 1 1 280px; min-width: 250px;">
+                                <h4 style="color: #f87171; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin-top: 0; margin-bottom: 10px; font-weight: 800;">Vulnerabilities & Risks</h4>
+                                ${risksHtml}
+                            </div>
+                        </div>
+                    `;
+                } else if (activeTab === 'news') {
+                    if (parsed.latestMarketIntelligence.length > 0) {
+                        panel.innerHTML = parsed.latestMarketIntelligence.map(item => {
+                            const match = item.match(/^(.*?)\s*\(Source:\s*(.*?)\)$/i);
+                            const title = match ? match[1] : item;
+                            const source = match ? match[2] : "Market News";
+                            
+                            return `
+                                <div class="brief-news-item">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; gap: 10px;">
+                                        <span style="background: rgba(56, 189, 248, 0.1); color: #38bdf8; font-size: 0.58rem; padding: 2px 6px; border-radius: 4px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3px;">${source}</span>
+                                    </div>
+                                    <div style="color: rgba(255,255,255,0.9); font-size: 0.8rem; line-height: 1.4;">${title}</div>
+                                </div>
+                            `;
+                        }).join('');
+                    } else {
+                        panel.innerHTML = '<div style="color: rgba(255,255,255,0.5); font-size: 0.8rem; padding: 20px; text-align: center; font-style:italic;">No recent market news or developments available.</div>';
+                    }
+                }
+            };
+            
+            // Draw first panel
+            renderActivePanel();
+            
+            // Setup Click Handlers for Tabs
+            const tabs = descCard.querySelectorAll('.brief-tab');
+            tabs.forEach(t => {
+                t.onclick = () => {
+                    tabs.forEach(btn => btn.classList.remove('active'));
+                    t.classList.add('active');
+                    activeTab = t.getAttribute('data-tab');
+                    renderActivePanel();
+                };
+            });
+            
+            // Copy brief handler
+            const copyBtn = document.getElementById('copy-brief-btn');
+            const copyText = document.getElementById('copy-brief-text');
+            if (copyBtn) {
+                copyBtn.onclick = () => {
+                    const textToCopy = data.company_overview_synthesis || (prof.name + ' - ' + (prof.business_summary || ''));
+                    navigator.clipboard.writeText(textToCopy).then(() => {
+                        copyText.textContent = 'Copied!';
+                        copyBtn.style.background = 'rgba(34, 197, 94, 0.15)';
+                        copyBtn.style.color = '#4ade80';
+                        copyBtn.style.borderColor = 'rgba(34, 197, 94, 0.3)';
+                        setTimeout(() => {
+                            copyText.textContent = 'Copy';
+                            copyBtn.style.background = 'rgba(255,255,255,0.05)';
+                            copyBtn.style.color = 'rgba(255,255,255,0.7)';
+                            copyBtn.style.borderColor = 'rgba(255,255,255,0.1)';
+                        }, 2000);
+                    });
+                };
             }
         }
 
