@@ -2301,7 +2301,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
                 if (netMargin != null) {
-                    if (netMargin > 0.20) {
+                    if (netMargin > 1.0) {
+                        kpiHtml += `<span style="background: rgba(245, 158, 11, 0.12); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px;">⚠️ One-Time Gain (${(netMargin * 100).toFixed(0)}%)</span>`;
+                    } else if (netMargin > 0.20) {
                         kpiHtml += `<span style="background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px;">💎 High Margins (${(netMargin * 100).toFixed(0)}%)</span>`;
                     } else if (netMargin < 0.05) {
                         kpiHtml += `<span style="background: rgba(239, 68, 68, 0.12); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px;">⚠️ Lean Margins (${(netMargin * 100).toFixed(0)}%)</span>`;
@@ -2562,11 +2564,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             };
 
-            // Fast rendering of local heuristic fallback initially
-            renderCorporateBrief(data.company_overview_synthesis, !data.company_overview_synthesis);
+            // Determine if the loaded synthesis is just a fallback (either empty, or containing our specific fallback marker)
+            const isFallback = !data.company_overview_synthesis || 
+                               data.company_overview_synthesis.includes("AI Insights generation is active");
 
-            // Fetch high-fidelity synthesis in the background if not already loaded
-            if (!data.company_overview_synthesis) {
+            // Fast rendering of local heuristic fallback initially. If fallback, show loading state
+            renderCorporateBrief(data.company_overview_synthesis, isFallback);
+
+            // Fetch high-fidelity synthesis in the background if it's the heuristic fallback
+            if (isFallback) {
                 fetch(`/api/valuation/${encodeURIComponent(data.ticker)}/synthesis`)
                     .then(response => {
                         if (!response.ok) throw new Error('Failed to fetch synthesis');
@@ -2581,7 +2587,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     .catch(err => {
                         console.error('[Synthesis Async] Error loading AI synthesis:', err);
                         // Disable loading state and fallback permanently to heuristics
-                        renderCorporateBrief(null, false);
+                        renderCorporateBrief(data.company_overview_synthesis, false);
                     });
             }
         }
