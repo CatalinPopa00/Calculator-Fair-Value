@@ -843,9 +843,11 @@ def fetch_latest_news_v2(ticker_symbol: str) -> list:
 
 def load_gemini_api_key() -> str:
     """Helper to load the Gemini API Key from system env or local .env file."""
-    key = os.environ.get("GEMINI_API_KEY")
-    if key:
-        return key.strip()
+    # Check multiple environment variable names to be fully resilient with user Vercel configuration
+    for var_name in ["GEMINI_API_KEY", "Gemini", "gemini", "GEMINI"]:
+        key = os.environ.get(var_name)
+        if key:
+            return key.strip()
     
     try:
         # Search in current directory and parent directory of current file
@@ -857,7 +859,8 @@ def load_gemini_api_key() -> str:
                         line = line.strip()
                         if line and not line.startswith("#") and "=" in line:
                             k, v = line.split("=", 1)
-                            if k.strip() == "GEMINI_API_KEY":
+                            key_name = k.strip()
+                            if key_name in ["GEMINI_API_KEY", "Gemini", "gemini", "GEMINI"]:
                                 return v.strip().strip('"').strip("'")
     except Exception as e:
         print(f"Error loading .env file for Gemini Key: {e}")
