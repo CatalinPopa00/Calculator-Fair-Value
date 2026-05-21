@@ -3634,10 +3634,21 @@ body {
         padding: 2px 6px !important;
     }
 
-    /* Hero left col: ensure fair value box stays contained */
+    /* Hero left col: ensure fair value box stays contained and doesn't squish header */
     .hero-left-col {
         max-width: 100%;
         overflow: hidden;
+        height: auto !important;
+    }
+
+    .company-header {
+        flex-shrink: 0;
+        height: auto !important;
+    }
+
+    .fair-value-box,
+    .company-profile-box {
+        height: auto !important;
     }
 
     .fair-value-box .value,
