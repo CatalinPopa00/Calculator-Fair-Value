@@ -13,6 +13,9 @@ _pd = pd
 import re
 import math
 
+# Global in-memory cache for raw company info dicts to prevent redundant slow scrapers on decoupled endpoints
+_company_info_cache = {}
+
 def get_yahoo_analysis_normalized(ticker, info=None):
     """
     High-fidelity scraper for the Yahoo Finance 'Analysis' tab.
@@ -868,7 +871,7 @@ def load_gemini_api_key() -> str:
     return ""
 
 
-def get_company_synthesis(ticker: str, info: dict) -> str:
+def get_company_synthesis(ticker: str, info: dict, run_ai: bool = False) -> str:
     """
     Returns a professional, structured analytical synthesis of the company in English.
     Integrates Gemini AI insights for deep semantic extraction (pharma catalyst, segment analysis, M&A distortions)
@@ -880,29 +883,29 @@ def get_company_synthesis(ticker: str, info: dict) -> str:
     industry = info.get('industry', 'N/A')
     summary = info.get('longBusinessSummary', '')
 
-    # Fetch news first (used by both AI and heuristic fallback)
-    news_items = fetch_latest_news_v2(ticker_upper)
-
-    # 1. Try Gemini API first if a key is available
-    api_key = load_gemini_api_key()
-    if api_key:
-        # Format news as list text
-        news_text = "\n".join([f"- {item}" for item in news_items])
-        
-        # Prepare context values
-        pe = info.get('trailingPE') or info.get('forwardPE') or 'N/A'
-        pe_str = f"{pe:.1f}x" if isinstance(pe, (int, float)) else "N/A"
-        
-        rev_growth = info.get('revenueGrowth')
-        rev_str = f"{rev_growth*100:.1f}%" if isinstance(rev_growth, (int, float)) else "N/A"
-        
-        margin = info.get('profitMargins')
-        margin_str = f"{margin*100:.1f}%" if isinstance(margin, (int, float)) else "N/A"
-        
-        debt_equity = info.get('debtToEquity')
-        de_str = f"{debt_equity:.1f}%" if isinstance(debt_equity, (int, float)) else "N/A"
-        
-        prompt = f"""You are a senior financial analyst and biopharma/industry researcher.
+    # 1. Try Gemini API first if run_ai is True and a key is available
+    if run_ai:
+        api_key = load_gemini_api_key()
+        if api_key:
+            # Fetch news first (only when running AI)
+            news_items = fetch_latest_news_v2(ticker_upper)
+            # Format news as list text
+            news_text = "\n".join([f"- {item}" for item in news_items])
+            
+            # Prepare context values
+            pe = info.get('trailingPE') or info.get('forwardPE') or 'N/A'
+            pe_str = f"{pe:.1f}x" if isinstance(pe, (int, float)) else "N/A"
+            
+            rev_growth = info.get('revenueGrowth')
+            rev_str = f"{rev_growth*100:.1f}%" if isinstance(rev_growth, (int, float)) else "N/A"
+            
+            margin = info.get('profitMargins')
+            margin_str = f"{margin*100:.1f}%" if isinstance(margin, (int, float)) else "N/A"
+            
+            debt_equity = info.get('debtToEquity')
+            de_str = f"{debt_equity:.1f}%" if isinstance(debt_equity, (int, float)) else "N/A"
+            
+            prompt = f"""You are a senior financial analyst and biopharma/industry researcher.
 Analyze the following company data for {name} ({ticker_upper}) operating in the {sector} sector and {industry} industry.
 
 COMPANY DESCRIPTION:
@@ -940,31 +943,31 @@ You MUST format your output exactly as follows with these precise markdown heade
 
 Make sure to strictly adhere to the markdown header format. Do not use extra asterisks or custom formatting headers. Keep the tone professional, objective, and dense with high-value analytical facts.
 """
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
-        headers = {"Content-Type": "application/json"}
-        payload = {
-            "contents": [{
-                "parts": [{
-                    "text": prompt
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+            headers = {"Content-Type": "application/json"}
+            payload = {
+                "contents": [{
+                    "parts": [{
+                        "text": prompt
+                    }]
                 }]
-            }]
-        }
-        
-        try:
-            response = requests.post(url, json=payload, headers=headers, timeout=12)
-            if response.status_code == 200:
-                res_json = response.json()
-                generated_text = res_json['candidates'][0]['content']['parts'][0]['text']
-                if generated_text and "**EXECUTIVE SUMMARY**" in generated_text:
-                    # Clean up triple backticks if model wraps markdown
-                    cleaned_text = generated_text.replace("```markdown", "").replace("```", "").strip()
-                    return cleaned_text
-            else:
-                print(f"Gemini API returned error code {response.status_code}: {response.text}")
-        except Exception as e:
-            print(f"Error calling Gemini API for {ticker_upper}: {e}")
+            }
+            
+            try:
+                response = requests.post(url, json=payload, headers=headers, timeout=12)
+                if response.status_code == 200:
+                    res_json = response.json()
+                    generated_text = res_json['candidates'][0]['content']['parts'][0]['text']
+                    if generated_text and "**EXECUTIVE SUMMARY**" in generated_text:
+                        # Clean up triple backticks if model wraps markdown
+                        cleaned_text = generated_text.replace("```markdown", "").replace("```", "").strip()
+                        return cleaned_text
+                else:
+                    print(f"Gemini API returned error code {response.status_code}: {response.text}")
+            except Exception as e:
+                print(f"Error calling Gemini API for {ticker_upper}: {e}")
 
-    # 2. HEURISTIC FALLBACK (Rule-based local generation)
+    # 2. HEURISTIC FALLBACK (Rule-based local generation) - Used if run_ai=False or Gemini API fails
     presentation = f"{name} is a leading enterprise operating within the {sector} sector, with a primary focus on {industry}."
     if summary:
         # Extract first 2-3 sentences for a professional description
@@ -1012,7 +1015,10 @@ Make sure to strictly adhere to the markdown header format. Do not use extra ast
     output = f"**EXECUTIVE SUMMARY**\n{presentation}\n\n{activity}\n\n"
     output += f"**STRATEGIC STRENGTHS**\n" + "\n".join([f"• {s}" for s in strengths[:3]]) + "\n\n"
     output += f"**VULNERABILITIES & RISKS**\n" + "\n".join([f"• {w}" for w in weaknesses[:3]]) + "\n\n"
-    output += f"**LATEST MARKET INTELLIGENCE**\n" + "\n".join([f"• {n}" for n in news_items])
+    
+    # Fast news placeholder for fallback
+    fallback_news = ["AI Insights generation is active. View SWOT or full intelligence shortly."]
+    output += f"**LATEST MARKET INTELLIGENCE**\n" + "\n".join([f"• {n}" for n in fallback_news])
 
     return output
 
@@ -2907,8 +2913,12 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             "netInterestMargin": info.get('netInterestMargin') or (float(financials.loc[find_idx(financials, 'Net Interest Income')].iloc[0]) / (float(bs.loc[find_idx(bs, 'Total Assets')].iloc[0]) if bs is not None and find_idx(bs, 'Total Assets') else (info.get('totalAssets') or 1)) if financials is not None and find_idx(financials, 'Net Interest Income') else None),
             "cet1_ratio": info.get('commonEquityTier1Ratio') or (float(bs.loc[find_idx(bs, 'Common Equity Tier 1')].iloc[0]) if bs is not None and find_idx(bs, 'Common Equity Tier 1') else (float(bs.loc[find_idx(bs, 'Total Equity')].iloc[0]) / float(bs.loc[find_idx(bs, 'Total Assets')].iloc[0]) if bs is not None and find_idx(bs, 'Total Assets') and find_idx(bs, 'Total Equity') and float(bs.loc[find_idx(bs, 'Total Assets')].iloc[0]) > 0 else None)),
             "red_flags": red_flags,
-            "company_overview_synthesis": get_company_synthesis(ticker_symbol, info)
+            "company_overview_synthesis": get_company_synthesis(ticker_symbol, info, run_ai=False)
         }
+        
+        # Cache raw yfinance info dictionary for asynchronous decoupled Gemini endpoints
+        if ticker_symbol and isinstance(info, dict):
+            _company_info_cache[ticker_symbol.upper()] = info
         
         # Initialize mappings for analyst consensus synchronization
         history_eps = {}

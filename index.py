@@ -20,7 +20,7 @@ import os
 import requests
 import concurrent.futures
 
-from scraper.yahoo import get_company_data, get_competitors_data, get_market_averages, search_companies, get_analyst_data, get_risk_free_rate
+from scraper.yahoo import get_company_data, get_competitors_data, get_market_averages, search_companies, get_analyst_data, get_risk_free_rate, get_company_synthesis, _company_info_cache
 from utils.kv import kv_get, kv_set
 from models.valuation import (
     calculate_peter_lynch, 
@@ -1285,6 +1285,39 @@ def get_batch_valuation(req: WatchlistRequest):
                 print(f"Batch Error for {ticker}: {e}")
                 
     return results
+
+@app.get("/api/valuation/{ticker}/synthesis")
+def get_synthesis(ticker: str, response: Response):
+    # Set Vercel Edge Cache headers for synthesis (Cache 1hr, stale up to 24hr)
+    response.headers["Cache-Control"] = "public, s-maxage=3600, stale-while-revalidate=86400"
+    
+    ticker_upper = ticker.upper()
+    try:
+        # 1. Check if we have cached info from get_company_data
+        info = _company_info_cache.get(ticker_upper)
+        if not info:
+            # 2. Dynamic fallback if info is not cached (e.g. direct synthesis request or container recycle)
+            import yfinance as yf
+            stock = yf.Ticker(ticker_upper)
+            info = stock.info
+            if info:
+                _company_info_cache[ticker_upper] = info
+                
+        if not info:
+            raise HTTPException(status_code=404, detail="Company profile info not found")
+            
+        # 3. Call get_company_synthesis with run_ai=True to invoke Gemini API
+        synthesis = get_company_synthesis(ticker_upper, info, run_ai=True)
+        return {"ticker": ticker_upper, "company_overview_synthesis": synthesis}
+        
+    except Exception as e:
+        import traceback
+        print(f"Error in synthesis endpoint for {ticker_upper}: {e}")
+        print(traceback.format_exc())
+        return JSONResponse(
+            status_code=500,
+            content={"error": True, "detail": f"Synthesis failed: {str(e)}"}
+        )
 
 import os
 from fastapi.responses import FileResponse

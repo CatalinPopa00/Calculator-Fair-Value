@@ -8,10 +8,11 @@ sys.path.append(os.path.abspath(os.curdir))
 from api.index import get_valuation
 
 def verify():
-    ticker = "AAPL"
+    ticker = "BKNG"
     print(f"--- Verifying Ticker: {ticker} ---")
+    from fastapi import Response
     try:
-        data = get_valuation(ticker)
+        data = get_valuation(ticker, Response())
         
         print(f"Status: SUCCESS")
         print(f"Ticker: {data.get('ticker')}")
@@ -26,6 +27,11 @@ def verify():
             print(f"  Current Price in DCF: {dcf.get('current_price')}")
             print(f"  Margin of Safety: {dcf.get('margin_of_safety')}%")
             print(f"  Discount Rate (WACC): {dcf.get('discount_rate', 0)*100:.2f}%")
+            print(f"  FCF Baseline: {dcf.get('fcf')}")
+            print(f"  Shares: {data.get('company_profile', {}).get('shares_outstanding')}")
+            print(f"  Total Cash: {dcf.get('total_cash')}")
+            print(f"  Total Debt: {dcf.get('total_debt')}")
+            print(f"  EPS Growth Applied: {dcf.get('eps_growth_applied')}")
             
             if dcf.get('fcf_years'):
                 print(f"  First Year Projected FCF: {dcf.get('fcf_years')[0]}")
