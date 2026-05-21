@@ -841,10 +841,35 @@ def fetch_latest_news_v2(ticker_symbol: str) -> list:
     return ["No significant recent news available (last 24-48h)."]
 
 
+def load_gemini_api_key() -> str:
+    """Helper to load the Gemini API Key from system env or local .env file."""
+    key = os.environ.get("GEMINI_API_KEY")
+    if key:
+        return key.strip()
+    
+    try:
+        # Search in current directory and parent directory of current file
+        for base_dir in [os.getcwd(), os.path.dirname(os.path.dirname(__file__))]:
+            env_path = os.path.join(base_dir, ".env")
+            if os.path.exists(env_path):
+                with open(env_path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#") and "=" in line:
+                            k, v = line.split("=", 1)
+                            if k.strip() == "GEMINI_API_KEY":
+                                return v.strip().strip('"').strip("'")
+    except Exception as e:
+        print(f"Error loading .env file for Gemini Key: {e}")
+        
+    return ""
+
+
 def get_company_synthesis(ticker: str, info: dict) -> str:
     """
     Returns a professional, structured analytical synthesis of the company in English.
-    Focuses on business model, competitive advantages, and risk profile.
+    Integrates Gemini AI insights for deep semantic extraction (pharma catalyst, segment analysis, M&A distortions)
+    and falls back to deterministic rule-based heuristics if no API key is available.
     """
     ticker_upper = ticker.upper()
     name = info.get('longName') or ticker_upper
@@ -852,7 +877,91 @@ def get_company_synthesis(ticker: str, info: dict) -> str:
     industry = info.get('industry', 'N/A')
     summary = info.get('longBusinessSummary', '')
 
-    # 1. Executive Summary & Core Activity
+    # Fetch news first (used by both AI and heuristic fallback)
+    news_items = fetch_latest_news_v2(ticker_upper)
+
+    # 1. Try Gemini API first if a key is available
+    api_key = load_gemini_api_key()
+    if api_key:
+        # Format news as list text
+        news_text = "\n".join([f"- {item}" for item in news_items])
+        
+        # Prepare context values
+        pe = info.get('trailingPE') or info.get('forwardPE') or 'N/A'
+        pe_str = f"{pe:.1f}x" if isinstance(pe, (int, float)) else "N/A"
+        
+        rev_growth = info.get('revenueGrowth')
+        rev_str = f"{rev_growth*100:.1f}%" if isinstance(rev_growth, (int, float)) else "N/A"
+        
+        margin = info.get('profitMargins')
+        margin_str = f"{margin*100:.1f}%" if isinstance(margin, (int, float)) else "N/A"
+        
+        debt_equity = info.get('debtToEquity')
+        de_str = f"{debt_equity:.1f}%" if isinstance(debt_equity, (int, float)) else "N/A"
+        
+        prompt = f"""You are a senior financial analyst and biopharma/industry researcher.
+Analyze the following company data for {name} ({ticker_upper}) operating in the {sector} sector and {industry} industry.
+
+COMPANY DESCRIPTION:
+{summary}
+
+FINANCIAL DATA OVERVIEW:
+- PE Ratio: {pe_str}
+- Revenue Growth: {rev_str}
+- Net Profit Margin: {margin_str}
+- Debt to Equity Ratio: {de_str}
+
+RECENT NEWS HEADLINES:
+{news_text}
+
+Provide a professional, structured analytical synthesis of this company in English.
+You MUST format your output exactly as follows with these precise markdown headers:
+
+**EXECUTIVE SUMMARY**
+[Provide a concise 3-4 sentence professional summary of the company. If it is a biotechnology or pharmaceutical company, you MUST identify and highlight any clinical trials, active drug pipelines (Phase I, II, III), FDA decisions, or expected dates for trial readouts or PDUFA dates. If the company operates in distinct business divisions, highlight which segment is growing fastest and becoming the primary profit driver. If the company's recent earnings or EPS have fluctuated or declined due to a specific strategic event like a large acquisition, merger, integration costs, or capital investments, explain this context clearly so the investor understands it is a one-off or strategic distortion.]
+
+**STRATEGIC STRENGTHS**
+• [Bullet 1: Main strategic advantage, segment dominance, or competitive moat]
+• [Bullet 2: Financial strength, high margin, or solid leverage profile based on the data]
+• [Bullet 3: Operational growth catalyst or upcoming product event/pharma trial milestone]
+
+**VULNERABILITIES & RISKS**
+• [Bullet 1: Main threat, industry headwind, or segment weakness]
+• [Bullet 2: Valuation risk or balance sheet concern based on the PE or debt data]
+• [Bullet 3: Regulatory, clinical trial failure risk, or integration risks from recent acquisitions]
+
+**LATEST MARKET INTELLIGENCE**
+• [Headline 1 (Source: Publisher)]
+• [Headline 2 (Source: Publisher)]
+• [Headline 3 (Source: Publisher)]
+
+Make sure to strictly adhere to the markdown header format. Do not use extra asterisks or custom formatting headers. Keep the tone professional, objective, and dense with high-value analytical facts.
+"""
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+        headers = {"Content-Type": "application/json"}
+        payload = {
+            "contents": [{
+                "parts": [{
+                    "text": prompt
+                }]
+            }]
+        }
+        
+        try:
+            response = requests.post(url, json=payload, headers=headers, timeout=12)
+            if response.status_code == 200:
+                res_json = response.json()
+                generated_text = res_json['candidates'][0]['content']['parts'][0]['text']
+                if generated_text and "**EXECUTIVE SUMMARY**" in generated_text:
+                    # Clean up triple backticks if model wraps markdown
+                    cleaned_text = generated_text.replace("```markdown", "").replace("```", "").strip()
+                    return cleaned_text
+            else:
+                print(f"Gemini API returned error code {response.status_code}: {response.text}")
+        except Exception as e:
+            print(f"Error calling Gemini API for {ticker_upper}: {e}")
+
+    # 2. HEURISTIC FALLBACK (Rule-based local generation)
     presentation = f"{name} is a leading enterprise operating within the {sector} sector, with a primary focus on {industry}."
     if summary:
         # Extract first 2-3 sentences for a professional description
@@ -861,7 +970,6 @@ def get_company_synthesis(ticker: str, info: dict) -> str:
     else:
         activity = f"The company operates a global industrial footprint, providing specialized solutions and integrated services within the {industry} domain."
 
-    # 2. Strategic Strengths & Competitive Moats
     strengths = []
     weaknesses = []
 
@@ -897,16 +1005,14 @@ def get_company_synthesis(ticker: str, info: dict) -> str:
     if not strengths: strengths.append("Established market presence with diversified revenue streams.")
     if not weaknesses: weaknesses.append("Exposure to broader macroeconomic cycles and regulatory shifts.")
 
-    # 3. Market Intelligence & Recent Developments
-    news_items = fetch_latest_news_v2(ticker_upper)
-    
-    # 4. Construct Structured Output
+    # Construct Structured Output (Heuristics Fallback)
     output = f"**EXECUTIVE SUMMARY**\n{presentation}\n\n{activity}\n\n"
     output += f"**STRATEGIC STRENGTHS**\n" + "\n".join([f"• {s}" for s in strengths[:3]]) + "\n\n"
     output += f"**VULNERABILITIES & RISKS**\n" + "\n".join([f"• {w}" for w in weaknesses[:3]]) + "\n\n"
     output += f"**LATEST MARKET INTELLIGENCE**\n" + "\n".join([f"• {n}" for n in news_items])
 
     return output
+
 
 
 def get_company_data(ticker_symbol: str, fast_mode: bool = False):

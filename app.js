@@ -2315,8 +2315,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
+            // AI Semantic Insights Extraction
+            const synthText = (data.company_overview_synthesis || "").toLowerCase();
+            const hasPharma = /phase\s+[i|1|ii|2|iii|3]|clinical|fda|pdufa|pipeline|drug|vaccine|pharma|biotech/i.test(synthText);
+            const hasMa = /acquire|acquisition|merger|takeover|bought|transaction|integration/i.test(synthText);
+            const hasSegment = /segment|division|revenue share|growth driver|business unit|segmentation/i.test(synthText);
+            
+            if (hasPharma) {
+                kpiHtml += `<span style="background: rgba(16, 185, 129, 0.12); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px; animation: brief-pulse 2s infinite;" title="Clinical pipeline, FDA decision, or trial readout detected.">🧪 Clinical Catalyst</span>`;
+            }
+            if (hasMa) {
+                kpiHtml += `<span style="background: rgba(245, 158, 11, 0.12); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px;" title="M&A activity, fusions, or integration costs detected.">🤝 M&A Event</span>`;
+            }
+            if (hasSegment) {
+                kpiHtml += `<span style="background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px;" title="Specific division or segment metrics highlighted.">📈 Segment Focus</span>`;
+            }
+
             descCard.innerHTML = `
                 <style>
+                    @keyframes brief-pulse {
+                        0% { opacity: 0.8; }
+                        50% { opacity: 1; transform: scale(1.01); }
+                        100% { opacity: 0.8; }
+                    }
                     .brief-tab {
                         background: none;
                         border: none;
