@@ -634,7 +634,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    const calcLocalDcf = (fcfObj, growth, wacc, perp, shares, cash, debt, buybackRate = 0, years = 5, exitMult = 10.0) => {
+    const calcLocalDcf = (fcfObj, growth, wacc, perp, shares, cash, debt, buybackRate = 0, years = 5, exitMult = 10.0, currentPrice = null) => {
         let fcf = 0;
         let revenue = 0;
         let customMargin = null;
@@ -674,6 +674,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const fcf_projections = [];
         const pv_fcf_years = [];
         
+        // Method A Buyback tracking
+        let remainingShares = shares;
+        const buybackCostPerYear = [];
+        
         for (let i = 1; i <= years; i++) {
             // Support multi-phase growth: growth can be an array (per-year) or a single number
             const g = Array.isArray(growth) ? (growth[i - 1] !== undefined ? growth[i - 1] : growth[growth.length - 1]) : growth;
@@ -687,6 +691,20 @@ document.addEventListener('DOMContentLoaded', () => {
             // FCF is calculated on top of projected Revenue
             currentFcf = currentRevenue * yearMargin;
             
+            // Method A: Deduct buyback cash cost from FCF
+            let buybackCashSpent = 0;
+            if (buybackRate > 0 && currentPrice && currentPrice > 0) {
+                const projectedPrice = currentPrice * Math.pow(1 + finalWacc, i);
+                const sharesBought = remainingShares * buybackRate;
+                buybackCashSpent = sharesBought * projectedPrice;
+                remainingShares -= sharesBought;
+                currentFcf -= buybackCashSpent;
+            } else if (buybackRate > 0) {
+                // Fallback: just reduce shares without FCF deduction
+                remainingShares *= (1 - buybackRate);
+            }
+            
+            buybackCostPerYear.push(buybackCashSpent);
             fcf_projections.push(currentFcf);
             
             const pv_fcf = currentFcf / Math.pow(1 + finalWacc, i);
@@ -706,8 +724,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const ev = pv + pvTv;
         const eqVal = ev + (cash || 0) - (debt || 0);
         if (eqVal <= 0) return null;
-        const effectiveShares = shares * Math.pow(1 - (buybackRate || 0), years);
-        const fair_value = eqVal / (effectiveShares > 0 ? effectiveShares : shares);
+        const effectiveShares = remainingShares > 0 ? remainingShares : shares;
+        const fair_value = eqVal / effectiveShares;
         
         return {
             fair_value,
@@ -720,8 +738,10 @@ document.addEventListener('DOMContentLoaded', () => {
             perpetual_growth_rate: perp,
             exit_multiple: exitMult,
             shares_outstanding: shares,
+            effective_shares: effectiveShares,
             total_cash: cash || 0,
-            total_debt: debt || 0
+            total_debt: debt || 0,
+            buyback_cost_per_year: buybackCostPerYear
         };
     };
 
@@ -1401,7 +1421,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     if (currentFormulaData.dcf) currentFormulaData.dcf.eps_growth_applied = g;
                     
-                    dcfValObj = calcLocalDcf(fcfParam, g, wAnalyst, pCustom, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
+                    dcfValObj = calcLocalDcf(fcfParam, g, wAnalyst, pCustom, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em, globalData.current_price);
                 }
                 else if (fcfSource === 'historical') {
                     const hg13 = Math.round((prof.historic_fcf_growth != null ? prof.historic_fcf_growth : 0.05) * 1000) / 1000;
@@ -1417,7 +1437,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     if (currentFormulaData.dcf) currentFormulaData.dcf.eps_growth_applied = hgArray;
                     const em = parseLocaleFloat(document.getElementById('input-exit-multiple')?.value) || (globalData.dcf_assumptions?.recommended_exit_multiple || 10.0);
-                    dcfValObj = calcLocalDcf(fcfParam, hgArray, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
+                    dcfValObj = calcLocalDcf(fcfParam, hgArray, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em, globalData.current_price);
                 } else if (fcfSource === 'custom') {
                     const getVal = (id) => {
                         const el = document.getElementById(id);
@@ -1461,7 +1481,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const pCustom = (pRaw === '' || isNaN(parseLocaleFloat(pRaw))) ? 0.025 : parseLocaleFloat(pRaw) / 100;
                         const em = (emRaw === '' || isNaN(parseLocaleFloat(emRaw))) ? (globalData.dcf_assumptions?.recommended_exit_multiple || 10.0) : parseLocaleFloat(emRaw);
 
-                        dcfValObj = calcLocalDcf(fcfParam, growthArr, wCustom, pCustom, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em);
+                        dcfValObj = calcLocalDcf(fcfParam, growthArr, wCustom, pCustom, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em, globalData.current_price);
                     }
                 }
 

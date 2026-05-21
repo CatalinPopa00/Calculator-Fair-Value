@@ -53,10 +53,13 @@ def calculate_peg_fair_value(current_price: float, company_peg: float, industry_
         
     return current_price * (industry_peg / company_peg)
 
-def calculate_dcf(fcf: float, growth_rate: float, discount_rate: float, perpetual_growth: float, shares_outstanding: int, total_cash: float = 0, total_debt: float = 0, years: int = 5, buyback_rate: float = 0.0, exit_multiple: float = 15.0):
+def calculate_dcf(fcf: float, growth_rate: float, discount_rate: float, perpetual_growth: float, shares_outstanding: int, total_cash: float = 0, total_debt: float = 0, years: int = 5, buyback_rate: float = 0.0, exit_multiple: float = 15.0, current_price: float = None):
     """
     Discounted Cash Flow (DCF) - Dual Method.
     WACC Smart Cap: Forced between 7% and 10.5%.
+    Method A Buybacks: If buyback_rate > 0 and current_price is provided,
+    the cash cost of buybacks is deducted from each year's projected FCF.
+    Stock price is assumed to grow at WACC rate year-over-year.
     """
     if not all([fcf, shares_outstanding]):
         return None
@@ -68,6 +71,10 @@ def calculate_dcf(fcf: float, growth_rate: float, discount_rate: float, perpetua
     current_fcf = fcf
     cash_flows = []
     pv_cash_flows_list = []
+    
+    # Method A Buyback tracking
+    remaining_shares = float(shares_outstanding)
+    buyback_cost_per_year = []
 
     # 2. Projections
     for i in range(1, years + 1):
@@ -76,6 +83,20 @@ def calculate_dcf(fcf: float, growth_rate: float, discount_rate: float, perpetua
         else:
             g = growth_rate
         current_fcf *= (1 + g)
+        
+        # Method A: Deduct buyback cash cost from FCF
+        buyback_cash_spent = 0
+        if buyback_rate > 0 and current_price and current_price > 0:
+            projected_price = current_price * ((1 + wacc) ** i)
+            shares_bought = remaining_shares * buyback_rate
+            buyback_cash_spent = shares_bought * projected_price
+            remaining_shares -= shares_bought
+            current_fcf -= buyback_cash_spent
+        elif buyback_rate > 0:
+            # Fallback: just reduce shares without FCF deduction (old behavior)
+            remaining_shares *= (1 - buyback_rate)
+        
+        buyback_cost_per_year.append(buyback_cash_spent)
         cash_flows.append(current_fcf)
         pv = current_fcf / ((1 + wacc) ** i)
         pv_cash_flows_list.append(pv)
@@ -92,8 +113,8 @@ def calculate_dcf(fcf: float, growth_rate: float, discount_rate: float, perpetua
     tv_exit = cash_flows[-1] * exit_multiple
     pv_tv_exit = tv_exit / ((1 + wacc) ** years)
 
-    # Effective Shares (Buyback)
-    effective_shares = shares_outstanding * ((1 - buyback_rate) ** years)
+    # Effective Shares from Method A tracking
+    effective_shares = remaining_shares
     if effective_shares <= 0: effective_shares = shares_outstanding
 
     def finalize_valuation(pv_tv):
@@ -118,7 +139,8 @@ def calculate_dcf(fcf: float, growth_rate: float, discount_rate: float, perpetua
         "dcf_perpetual": perp_res,
         "dcf_exit_multiple": exit_res,
         "effective_shares": effective_shares,
-        "buyback_rate_applied": buyback_rate
+        "buyback_rate_applied": buyback_rate,
+        "buyback_cost_per_year": buyback_cost_per_year
     }
     
 def calculate_dcf_sensitivity(fcf: float, growth_rate: float, shares_outstanding: int, total_cash: float = 0, total_debt: float = 0, years: int = 5, base_discount: float = 0.09, base_perp: float = 0.02, exit_multiple: float = 15.0):

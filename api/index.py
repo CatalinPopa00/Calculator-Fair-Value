@@ -446,6 +446,18 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 print(f"DEBUG: Parallel peer fetch failed for {ticker_upper}: {e}")
                 peers_data = []
                 
+        # Dynamic peer P/E and PEG calculations using real-time price and EPS
+        if peers_data:
+            for p in peers_data:
+                p_price = p.get("price")
+                p_eps = p.get("eps")
+                if p_price and p_eps and p_eps > 0:
+                    p["pe_ratio"] = p_price / p_eps
+                p_pe = p.get("pe_ratio")
+                p_growth = p.get("earnings_growth") or p.get("revenue_growth")
+                if p_pe and p_growth and p_growth > 0:
+                    p["peg_ratio"] = p_pe / (p_growth * 100.0)
+
         executor.shutdown(wait=False)
 
         # FINAL STRIKE: Graceful recovery if Yahoo is blocked or null
@@ -589,7 +601,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 dcf_debt = 0
                 
         # 5 Year Calculation (Default for Dashboard)
-        res_5 = calculate_dcf(fcf, eps_growth, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, years=5, exit_multiple=recommended_exit_multiple)
+        res_5 = calculate_dcf(fcf, eps_growth, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, years=5, exit_multiple=recommended_exit_multiple, current_price=current_price)
         sens_5 = calculate_dcf_sensitivity(fcf, eps_growth, shares, dcf_cash, dcf_debt, 5, discount_rate, perpetual_growth, exit_multiple=recommended_exit_multiple)
         rev_5 = calculate_reverse_dcf(current_price, fcf, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, 5, exit_multiple=recommended_exit_multiple)
         
@@ -606,7 +618,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             }
             
         # 10 Year Calculation 
-        res_10 = calculate_dcf(fcf, eps_growth, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, years=10, exit_multiple=recommended_exit_multiple)
+        res_10 = calculate_dcf(fcf, eps_growth, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, years=10, exit_multiple=recommended_exit_multiple, current_price=current_price)
         sens_10 = calculate_dcf_sensitivity(fcf, eps_growth, shares, dcf_cash, dcf_debt, 10, discount_rate, perpetual_growth, exit_multiple=recommended_exit_multiple)
         rev_10 = calculate_reverse_dcf(current_price, fcf, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, 10, exit_multiple=recommended_exit_multiple)
         
@@ -806,7 +818,10 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         # Derive implied 5Y EPS CAGR from Yahoo's PEG Ratio (5yr expected)
         # PEG = PE / Growth% => Growth% = PE / PEG => Growth (decimal) = PE / PEG / 100
         yahoo_peg_5yr = data.get("peg_ratio")
-        trailing_pe_for_peg = data.get("pe_ratio") or (current_price / data.get("trailing_eps") if data.get("trailing_eps") and data.get("trailing_eps") > 0 else None)
+        if current_price and data.get("trailing_eps") and data.get("trailing_eps") > 0:
+            trailing_pe_for_peg = current_price / data.get("trailing_eps")
+        else:
+            trailing_pe_for_peg = data.get("pe_ratio")
         implied_5y_growth = None
         if yahoo_peg_5yr and yahoo_peg_5yr > 0 and trailing_pe_for_peg and trailing_pe_for_peg > 0:
             implied_5y_growth = (trailing_pe_for_peg / yahoo_peg_5yr) / 100.0
@@ -891,14 +906,11 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             }
     }
 
-        # USER-DRIVEN DATA MAPPING: TRAILING PE ONLY (FORBIDDEN FORWARD PE)
-        # Ensure we prioritize actual TTM multiple
-        ttm_pe = data.get("pe_ratio")
-        if not ttm_pe or ttm_pe <= 0:
-            if current_price and data.get("trailing_eps") and data.get("trailing_eps") > 0:
-                ttm_pe = current_price / data.get("trailing_eps")
-            else:
-                ttm_pe = 0
+        # Ensure we prioritize actual TTM multiple calculated using the most up-to-date price
+        if current_price and data.get("trailing_eps") and data.get("trailing_eps") > 0:
+            ttm_pe = current_price / data.get("trailing_eps")
+        else:
+            ttm_pe = data.get("pe_ratio") or 0
         
         data["trailing_pe"] = ttm_pe
 
@@ -1047,6 +1059,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 "historic_fcf_growth": sanitize(data.get("historic_fcf_growth")),
                 "debt_to_equity": sanitize(data.get("debt_to_equity")),
                 "operating_margin": sanitize(data.get("operating_margin")),
+                "ebit_margin": sanitize(data.get("ebit_margin")),
                 "net_margin": sanitize(data.get("net_margin")),
                 "revenue_growth": sanitize(stable_rev_growth), # Use calculated 1Y historical growth for stability
                 "earnings_growth": sanitize(consensus_growth), # Use Consensus/Nasdaq CAGRs for comparison instead of buggy Yahoo TTM
