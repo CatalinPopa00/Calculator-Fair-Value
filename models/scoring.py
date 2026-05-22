@@ -108,35 +108,46 @@ def calculate_scoring_reform(valuation_data, metrics):
         if curr_p and curr_eps and clean_ratio(curr_eps) > 0:
             pe = clean_ratio(curr_p) / clean_ratio(curr_eps)
 
+    def get_mos_points(mos_val, max_pts):
+        if mos_val > 15.0:
+            return max_pts
+        elif mos_val > 5.0:
+            return max_pts * (14.9 / 25.0)
+        elif mos_val >= -5.0:
+            return max_pts * (10.0 / 25.0)
+        else:
+            return 0.0
+
     if is_financial and is_bank:
         # --- ȘABLONUL 2: FINANCIALS ---
         # HEALTH (100 pct)
-        de = clean_ratio(metrics.get('debt_to_equity'))
-        pts = 20 if de < 0.8 else (10 if de <= 1.5 else 0)
-        add_h("Debt-to-Equity", de, pts, 20, True)
-
+        
         nim = clean_percent(metrics.get('nim'))
-        pts = 15 if nim > 3.0 else (7.5 if nim >= 1.5 else 0)
-        add_h("Net Interest Margin", nim, pts, 15, False)
+        pts = 20 if nim > 3.0 else (10 if nim >= 1.5 else 0)
+        add_h("Net Interest Margin", nim, pts, 20, False)
 
         cet1 = clean_percent(metrics.get('cet1_ratio'))
-        pts = 15 if cet1 > 12 else (7.5 if cet1 >= 9 else 0)
-        add_h("CET1 Ratio", cet1, pts, 15, False)
+        pts = 0
+        if cet1 >= 12:
+            pts = 20
+        elif cet1 >= 10:
+            pts = 10
+        add_h("CET1 Ratio", cet1, pts, 20, False)
 
         roe = clean_percent(metrics.get('roe'))
-        pts = 15 if roe > 15 else (7.5 if roe >= 8 else 0)
-        add_h("ROE", roe, pts, 15, False)
+        pts = 20 if roe > 15 else (10 if roe >= 8 else 0)
+        add_h("ROE", roe, pts, 20, False)
 
         roa = clean_percent(metrics.get('roa'))
         pts = 20 if roa > 1.5 else (10 if roa >= 0.5 else 0)
         add_h("ROA", roa, pts, 20, False)
 
         bvps = clean_percent(metrics.get('bvps_growth'))
-        pts = 15 if bvps > 8 else (7.5 if bvps >= 3 else 0)
-        add_h("BVPS Growth", bvps, pts, 15, False)
+        pts = 20 if bvps > 8 else (10 if bvps >= 3 else 0)
+        add_h("BVPS Growth", bvps, pts, 20, False)
 
         # BUY (100 pct)
-        pts = 25 if mos > 20 else (12.5 if mos >= 0 else 0)
+        pts = get_mos_points(mos, 25)
         add_b("Margin of Safety", mos, pts, 25, False)
 
         f_peg = clean_ratio(metrics.get('peg_ratio'))
@@ -197,7 +208,7 @@ def calculate_scoring_reform(valuation_data, metrics):
         add_h("AFFO Growth", affo_g, pts, 20, False)
 
         # BUY (100 pct)
-        pts = 30 if mos > 20 else (15 if mos >= 0 else 0)
+        pts = get_mos_points(mos, 30)
         add_b("Margin of Safety", mos, pts, 30, False)
 
         p_affo = clean_ratio(metrics.get('price_to_affo'))
@@ -261,8 +272,11 @@ def calculate_scoring_reform(valuation_data, metrics):
         add_h("Current Ratio", cr, pts, 15, True)
 
         ebit_m = clean_percent(metrics.get('ebit_margin'))
-        pts = 15 if ebit_m > 20 else (7.5 if ebit_m >= 10 else 0)
-        add_h("EBIT Margin", ebit_m, pts, 15, False)
+        if ebit_m > 100.0 or ebit_m < -100.0:
+            add_h("EBIT Margin", "Anomaly Detected", 0, 15, "raw")
+        else:
+            pts = 15 if ebit_m > 20 else (7.5 if ebit_m >= 10 else 0)
+            add_h("EBIT Margin", ebit_m, pts, 15, False)
 
         roic = clean_percent(metrics.get('roic'))
         pts = 20 if roic > 15 else (10 if roic >= 8 else 0)
@@ -273,7 +287,7 @@ def calculate_scoring_reform(valuation_data, metrics):
         add_h("FCF Trend", fcf_trend, pts, 15, "raw")
 
         # BUY (100 pct)
-        pts = 30 if mos > 20 else (15 if mos >= 0 else 0)
+        pts = get_mos_points(mos, 30)
         add_b("Margin of Safety", mos, pts, 30, False)
         pts = 20 if rev_g > 15 else (10 if rev_g >= 5 else 0)
         add_b("Revenue Growth (Next 3Y)", rev_g, pts, 20, False)
