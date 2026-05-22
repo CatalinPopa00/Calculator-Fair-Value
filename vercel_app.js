@@ -4487,11 +4487,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             } else if (model === 'peter_lynch' && currentFormulaData.peter_lynch) {
                 const p = currentFormulaData.peter_lynch;
+                const prof = globalData.profile || {};
                 title.textContent = '📊 Forward Multiple — Data Transparency';
                 const epsLabel = p.valuation_eps !== p.trailing_eps ? 'EPS Base (Normalized)' : 'Trailing EPS (GAAP)';
                 html = row(epsLabel, '$' + fmt(p.valuation_eps || p.trailing_eps))
                      + row('Growth Estimate', fmtPct(p.dynamic_growth != null ? p.dynamic_growth : p.eps_growth_estimated))
                      + row('Forward EPS (3Y Projection)', '$' + fmt(p.dynamic_fwd_eps != null ? p.dynamic_fwd_eps : p.fwd_eps))
+                     + row('5Y Avg P/E', prof.historic_pe ? prof.historic_pe.toFixed(2) + 'x' : 'N/A')
                      + row('Fair Value (PE 20)', '$' + fmt(p.dynamic_fv != null ? p.dynamic_fv : p.fair_value_pe_20));
             } else if (model === 'peg' && currentFormulaData.peg) {
                 const g = currentFormulaData.peg;
