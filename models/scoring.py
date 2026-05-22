@@ -124,6 +124,11 @@ class HealthcareStrategy(DefaultScoringStrategy):
             pts = 0
         return pts, 15
 
+class IndustrialsStrategy(DefaultScoringStrategy):
+    def eval_ebit_margin(self, ebit_m):
+        pts = 15 if ebit_m >= 8 else (7 if ebit_m >= 5 else 0)
+        return pts, 15
+
 def get_scoring_strategy(sector, industry):
     s_low = str(sector).lower()
     i_low = str(industry).lower()
@@ -135,6 +140,8 @@ def get_scoring_strategy(sector, industry):
         return EnergyStrategy()
     elif 'health' in s_low or 'biotech' in i_low:
         return HealthcareStrategy()
+    elif 'industrials' in s_low or 'defense' in i_low or 'aerospace' in i_low:
+        return IndustrialsStrategy()
     return DefaultScoringStrategy()
 
 def calculate_scoring_reform(valuation_data, metrics):
@@ -391,6 +398,13 @@ def calculate_scoring_reform(valuation_data, metrics):
 
         # P/E Ratio (20 pct max)
         pts, max_pts = strategy.eval_pe_ratio(pe, target_pe, metrics)
+        
+        # Growth Override for P/E
+        if pts == 0 and pe > 0:
+            peg_val = clean_ratio(metrics.get('peg_ratio'))
+            if peg_val > 0 and peg_val <= 1.2 and rev_g >= 20.0:
+                pts = 10
+                
         add_b(pe_label, pe, pts, max_pts, True)
 
         ev_ebitda = clean_ratio(metrics.get('ev_to_ebitda'))
@@ -417,6 +431,12 @@ def calculate_scoring_reform(valuation_data, metrics):
             if ev_ebitda <= target_exc:
                 pts = 10
             elif ev_ebitda <= target_acc:
+                pts = 5
+                
+        # Growth Override for EV/EBITDA
+        if pts == 0 and ev_ebitda > 0:
+            peg_val = clean_ratio(metrics.get('peg_ratio'))
+            if peg_val > 0 and peg_val <= 1.2 and rev_g >= 20.0:
                 pts = 5
                 
         add_b("EV / EBITDA", ev_ebitda, pts, 10, True)
