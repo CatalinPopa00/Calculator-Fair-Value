@@ -1063,8 +1063,8 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         # PRIORITIZE CALCULATED RATIOS (ADBE/SMCI FIX)
         data["roe"] = data.get("roe") or 0
         data["roa"] = data.get("roa") or 0
-        data["ebit_margin"] = (data.get("operating_margin") or data.get("ebit_margin") or 0) * 100
-        data["net_margin"] = (data.get("net_margin") or 0) * 100
+        data["ebit_margin"] = (data.get("operating_margin") or data.get("ebit_margin") or 0)
+        data["net_margin"] = (data.get("net_margin") or 0)
         
         data["bvps_growth"] = data.get("historic_bvps_growth") or 0
         data["next_3y_rev_growth"] = data.get("revenue_growth") or 0
@@ -1087,7 +1087,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
 
         # RESTORE: Standard indicators for DEFAULT template (Respect Scraper Values)
         if not data.get("ebit_margin") or data["ebit_margin"] == 0:
-            data["ebit_margin"] = (data.get("ebit", 0) / (rev_val or 1)) * 100
+            data["ebit_margin"] = (data.get("ebit", 0) / (rev_val or 1))
         
         # Only overwrite ps_ratio if scraper provided 0
         if not data.get("ps_ratio") or data["ps_ratio"] == 0:
