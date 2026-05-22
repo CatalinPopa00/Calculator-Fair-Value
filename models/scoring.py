@@ -307,20 +307,16 @@ def calculate_scoring_reform(valuation_data, metrics):
         add_h("Interest Coverage", ic, pts, 15, True)
 
         nd_ebitda = clean_ratio(metrics.get('debt_to_ebitda'))
-        pts = 15 if (nd_ebitda > 0 and nd_ebitda < 5.5) else (7.5 if (nd_ebitda > 0 and nd_ebitda <= 7.0) else 0)
+        pts = 15 if (nd_ebitda > 0 and nd_ebitda < 6.0) else (7.5 if (nd_ebitda > 0 and nd_ebitda <= 7.5) else 0)
         add_h("Debt-to-EBITDA", nd_ebitda, pts, 15, True)
 
         affo_m = clean_percent(metrics.get('affo_margin'))
         pts = 15 if affo_m > 50 else (7.5 if affo_m >= 30 else 0)
         add_h("AFFO Margin", affo_m, pts, 15, False)
 
-        roe = clean_percent(metrics.get('roe'))
-        pts = 15 if roe > 10 else (7.5 if roe >= 5 else 0)
-        add_h("ROE", roe, pts, 15, False)
-
         affo_g = clean_percent(metrics.get('affo_growth'))
-        pts = 20 if affo_g > 5 else (10 if affo_g >= 2 else 0)
-        add_h("AFFO Growth", affo_g, pts, 20, False)
+        pts = 35 if affo_g > 5 else (17.5 if affo_g >= 2 else 0)
+        add_h("AFFO Growth", affo_g, pts, 35, False)
 
         # BUY (100 pct)
         pts = get_mos_points(mos, 30)

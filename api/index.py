@@ -954,7 +954,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         # Real Estate / REITs (mapping from scraper if available)
         # AFFO is often FCF for REITs if specific AFFO not parsed
         rev_val = data.get("revenue") or 0
-        data["affo_margin"] = data.get("affo_margin") or (fcf/rev_val*100 if fcf and rev_val > 0 else 0)
+        data["affo_margin"] = data.get("affo_margin") or (fcf/rev_val if fcf and rev_val > 0 else 0)
         data["affo_growth"] = data.get("historic_fcf_growth") or 0
         
         # Defensive Price to AFFO (avoid /0)
@@ -965,7 +965,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         
         # Defensive FCF Yield (avoid /0)
         mkt_cap_val = (current_price * shares) if (current_price and shares) else 0
-        data["fcf_yield"] = (fcf / mkt_cap_val * 100) if (fcf and mkt_cap_val > 0) else 0
+        data["fcf_yield"] = (fcf / mkt_cap_val) if (fcf and mkt_cap_val > 0) else 0
 
         # RESTORE: Standard indicators for DEFAULT template (Respect Scraper Values)
         if not data.get("ebit_margin") or data["ebit_margin"] == 0:
