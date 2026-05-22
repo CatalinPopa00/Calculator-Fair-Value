@@ -293,7 +293,31 @@ def calculate_scoring_reform(valuation_data, metrics):
         add_b(pe_label, pe, pts, 20, True)
 
         ev_ebitda = clean_ratio(metrics.get('ev_to_ebitda'))
-        pts = 10 if (ev_ebitda > 0 and ev_ebitda < 12.0) else (5 if (ev_ebitda > 0 and ev_ebitda <= 18.0) else 0)
+        
+        # Dynamic EV/EBITDA Target based on CapEx intensity and Growth
+        base_exc, base_acc = 16.0, 18.0 # Default / Low CapEx (Tech, Software, Discretionary)
+        
+        if any(x in sector_lower for x in ['utilities', 'energy', 'industrials', 'telecommunication', 'materials']):
+            base_exc, base_acc = 8.0, 10.0
+        elif any(x in sector_lower for x in ['consumer staples', 'health care', 'healthcare', 'defensive']):
+            base_exc, base_acc = 12.0, 14.0
+            
+        growth_mult = 1.0
+        if rev_g > 20.0:
+            growth_mult = 1.8
+        elif rev_g >= 10.0:
+            growth_mult = 1.3
+            
+        target_exc = base_exc * growth_mult
+        target_acc = base_acc * growth_mult
+        
+        pts = 0
+        if ev_ebitda > 0:
+            if ev_ebitda <= target_exc:
+                pts = 10
+            elif ev_ebitda <= target_acc:
+                pts = 5
+                
         add_b("EV / EBITDA", ev_ebitda, pts, 10, True)
 
         ps = clean_ratio(metrics.get('ps_ratio') or metrics.get('price_to_sales'))
