@@ -1739,6 +1739,7 @@ document.addEventListener('DOMContentLoaded', () => {
             currentFormulaData.peter_lynch.dynamic_growth = usedGrowth;
             currentFormulaData.peter_lynch.dynamic_fwd_eps = targetEps;
             currentFormulaData.peter_lynch.dynamic_fv = lynchVal;
+            currentFormulaData.peter_lynch.dynamic_mult = selectedMult;
         }
 
         setValuationStatus(lynchVal, globalData.current_price, 'lynch-status', 'lynch-fair-value');
@@ -4528,7 +4529,7 @@ document.addEventListener('DOMContentLoaded', () => {
                      + row('Growth Estimate', fmtPct(p.dynamic_growth != null ? p.dynamic_growth : p.eps_growth_estimated))
                      + row('Forward EPS (3Y Projection)', '$' + fmt(p.dynamic_fwd_eps != null ? p.dynamic_fwd_eps : p.fwd_eps))
                      + row('5Y Avg P/E', prof.historic_pe ? prof.historic_pe.toFixed(2) + 'x' : 'N/A')
-                     + row('Fair Value (PE 20)', '$' + fmt(p.dynamic_fv != null ? p.dynamic_fv : p.fair_value_pe_20));
+                     + row(`Fair Value (PE ${p.dynamic_mult != null ? (Number.isInteger(p.dynamic_mult) ? p.dynamic_mult : p.dynamic_mult.toFixed(2)) : 20})`, '$' + fmt(p.dynamic_fv != null ? p.dynamic_fv : p.fair_value_pe_20));
             } else if (model === 'peg' && currentFormulaData.peg) {
                 const g = currentFormulaData.peg;
                 title.textContent = '📊 PEG Valuation — Data Transparency';
