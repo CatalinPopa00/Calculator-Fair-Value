@@ -1664,6 +1664,26 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         except Exception:
             pass
 
+        # Calculate Historic BVPS Growth
+        historic_bvps_growth = None
+        if not fast_mode and bs is not None and not bs.empty:
+            try:
+                eq_idx = find_idx(bs, ['Total Equity', 'Stockholders Equity', 'Total Equity Gross Minority Interest'])
+                sh_idx = find_idx(bs, ['Ordinary Shares Number', 'Share Issued'])
+                if eq_idx and sh_idx:
+                    eq_row = bs.loc[eq_idx].dropna()
+                    sh_row = bs.loc[sh_idx].dropna()
+                    bvps_vals = []
+                    for d in eq_row.index:
+                        if d in sh_row.index and sh_row[d] > 0:
+                            bvps_vals.append(float(eq_row[d]) / float(sh_row[d]))
+                    if len(bvps_vals) >= 2:
+                        # bvps_vals[0] is the most recent
+                        growth = (bvps_vals[0] - bvps_vals[-1]) / bvps_vals[-1]
+                        # Annualize
+                        historic_bvps_growth = (1 + growth) ** (1 / (len(bvps_vals) - 1)) - 1
+            except: pass
+
         # 5Y Average P/E Calibration
         historic_pe_val = None
         if not fast_mode:
@@ -2904,6 +2924,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             "eps_growth_5y_consensus": normalize_growth(eps_growth_5y_consensus),
             "nasdaq_growth_3y": normalize_growth(nasdaq_growth_3y),
             "historic_eps_growth": normalize_growth(historic_eps_growth),
+            "historic_bvps_growth": normalize_growth(historic_bvps_growth),
             "historic_fcf_growth": normalize_growth(historic_fcf_growth),
             "historic_buyback_rate": normalize_growth(historic_buyback_rate),
             "pe_historic": historic_pe_val or info.get('trailingPE'),
@@ -2913,7 +2934,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             "business_summary": info.get('longBusinessSummary', 'N/A')[:200] + "...",
             "next_earnings_date": next_earnings_date,
             "netInterestMargin": info.get('netInterestMargin') or (float(financials.loc[find_idx(financials, 'Net Interest Income')].iloc[0]) / (float(bs.loc[find_idx(bs, 'Total Assets')].iloc[0]) if bs is not None and find_idx(bs, 'Total Assets') else (info.get('totalAssets') or 1)) if financials is not None and find_idx(financials, 'Net Interest Income') else None),
-            "cet1_ratio": info.get('commonEquityTier1Ratio') or (float(bs.loc[find_idx(bs, 'Common Equity Tier 1')].iloc[0]) if bs is not None and find_idx(bs, 'Common Equity Tier 1') else (float(bs.loc[find_idx(bs, 'Total Equity')].iloc[0]) / float(bs.loc[find_idx(bs, 'Total Assets')].iloc[0]) if bs is not None and find_idx(bs, 'Total Assets') and find_idx(bs, 'Total Equity') and float(bs.loc[find_idx(bs, 'Total Assets')].iloc[0]) > 0 else None)),
+            "cet1_ratio": info.get('commonEquityTier1Ratio') or (float(bs.loc[find_idx(bs, 'Common Equity Tier 1')].iloc[0]) if bs is not None and find_idx(bs, 'Common Equity Tier 1') else (float(bs.loc[find_idx(bs, ['Total Equity', 'Stockholders Equity', 'Total Equity Gross Minority Interest'])].iloc[0]) / float(bs.loc[find_idx(bs, 'Total Assets')].iloc[0]) if bs is not None and find_idx(bs, 'Total Assets') and find_idx(bs, ['Total Equity', 'Stockholders Equity', 'Total Equity Gross Minority Interest']) and float(bs.loc[find_idx(bs, 'Total Assets')].iloc[0]) > 0 else None)),
             "red_flags": red_flags,
             "company_overview_synthesis": get_company_synthesis(ticker_symbol, info, run_ai=False)
         }
