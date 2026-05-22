@@ -22,6 +22,121 @@ def get_target_pe(sector, industry):
     if 'financial' in s_low or 'bank' in i_low: return 13.0
     return 18.0
 
+def clean_ratio(val):
+    if val is None: return 0.0
+    if isinstance(val, str):
+        val = val.replace('%', '').replace('x', '').replace('$', '').replace(',', '')
+    try: return float(val)
+    except: return 0.0
+
+class DefaultScoringStrategy:
+    def eval_debt_to_equity(self, de, metrics):
+        pts = 20 if de < 0.8 else (10 if de <= 1.5 else 0)
+        return pts, 20
+
+    def eval_current_ratio(self, cr, metrics, cr_exempt, fcf_trend):
+        fcf_val = clean_ratio(metrics.get('fcf'))
+        pts = 0
+        if cr >= 1.5:
+            pts = 15
+        elif 0.7 <= cr < 1.5:
+            if cr_exempt or fcf_trend == "Growing":
+                pts = 15
+            else:
+                pts = 7.5
+        else:
+            if cr_exempt and fcf_val > 0:
+                pts = 7.5
+            else:
+                pts = 0
+        return pts, 15
+
+    def eval_ebit_margin(self, ebit_m):
+        pts = 15 if ebit_m > 20 else (7.5 if ebit_m >= 10 else 0)
+        return pts, 15
+
+    def eval_roic(self, roic, metrics):
+        pts = 20 if roic > 15 else (10 if roic >= 8 else 0)
+        return "ROIC", roic, pts, 20
+
+    def eval_pe_ratio(self, pe, target_pe, metrics):
+        pts = 0
+        if pe > 0:
+            if pe <= target_pe:
+                pts = 20
+            elif pe <= target_pe * 1.3:
+                peg_val = clean_ratio(metrics.get('peg_ratio'))
+                rev_g_val = clean_percent(metrics.get('revenue_growth'))
+                if rev_g_val > 15 or (0 < peg_val < 1.5):
+                    pts = 15
+                else:
+                    pts = 10
+        return pts, 20
+
+class UtilitiesStrategy(DefaultScoringStrategy):
+    def eval_debt_to_equity(self, de, metrics):
+        pts = 20 if de <= 2.0 else (10 if de <= 3.0 else 0)
+        return pts, 20
+
+    def eval_current_ratio(self, cr, metrics, cr_exempt, fcf_trend):
+        pts = 15 if cr >= 0.5 else 0
+        return pts, 15
+
+    def eval_roic(self, roic, metrics):
+        roe = clean_percent(metrics.get('roe'))
+        pts = 20 if roe >= 8 else (10 if roe >= 5 else 0)
+        return "ROE", roe, pts, 20
+
+class RetailStrategy(DefaultScoringStrategy):
+    def eval_debt_to_equity(self, de, metrics):
+        roic = clean_percent(metrics.get('roic'))
+        fcf_trend = metrics.get('fcf_trend', 'Flat')
+        equity = metrics.get('total_equity', 1) 
+        if (de > 3.0 or de < 0 or equity < 0) and roic > 15 and fcf_trend == "Growing":
+            return 20, 20
+        return super().eval_debt_to_equity(de, metrics)
+
+    def eval_ebit_margin(self, ebit_m):
+        pts = 15 if ebit_m >= 10 else (7.5 if ebit_m >= 5 else 0)
+        return pts, 15
+
+class EnergyStrategy(DefaultScoringStrategy):
+    def eval_ebit_margin(self, ebit_m):
+        pts = 15 if ebit_m >= 8 else (7.5 if ebit_m >= 4 else 0)
+        return pts, 15
+
+    def eval_pe_ratio(self, pe, target_pe, metrics):
+        pts = 0
+        if pe > 0:
+            if pe <= 12:
+                pts = 20
+            elif pe <= 15:
+                pts = 10
+        return pts, 20
+
+class HealthcareStrategy(DefaultScoringStrategy):
+    def eval_current_ratio(self, cr, metrics, cr_exempt, fcf_trend):
+        if cr >= 1.0:
+            pts = 15
+        elif cr >= 0.8:
+            pts = 10
+        else:
+            pts = 0
+        return pts, 15
+
+def get_scoring_strategy(sector, industry):
+    s_low = str(sector).lower()
+    i_low = str(industry).lower()
+    if 'utilities' in s_low:
+        return UtilitiesStrategy()
+    elif 'consumer discretionary' in s_low or 'retail' in i_low:
+        return RetailStrategy()
+    elif 'energy' in s_low:
+        return EnergyStrategy()
+    elif 'health' in s_low or 'biotech' in i_low:
+        return HealthcareStrategy()
+    return DefaultScoringStrategy()
+
 def calculate_scoring_reform(valuation_data, metrics):
     sector = metrics.get('sector', 'Technology')
     industry = str(metrics.get('industry', '')).lower()
@@ -71,13 +186,6 @@ def calculate_scoring_reform(valuation_data, metrics):
     rev_g = clean_percent(metrics.get('revenue_growth'))
     peg = clean_percent(metrics.get('peg_ratio')) 
     
-    def clean_ratio(val):
-        if val is None: return 0.0
-        if isinstance(val, str):
-            val = val.replace('%', '').replace('x', '').replace('$', '').replace(',', '')
-        try: return float(val)
-        except: return 0.0
-
     # v72: Sector-specific P/E source (Adjusted for Tech/Health, Trailing for others)
     sector_lower = sector.lower()
     industry_lower = industry.lower()
@@ -243,9 +351,11 @@ def calculate_scoring_reform(valuation_data, metrics):
     else:
         # --- ȘABLONUL 1: DEFAULT ---
         # HEALTH (100 pct)
+        strategy = get_scoring_strategy(sector, industry)
+
         de = clean_ratio(metrics.get('debt_to_equity'))
-        pts = 20 if de < 0.8 else (10 if de <= 1.5 else 0)
-        add_h("Debt-to-Equity", de, pts, 20, True)
+        pts, max_pts = strategy.eval_debt_to_equity(de, metrics)
+        add_h("Debt-to-Equity", de, pts, max_pts, True)
 
         ic = clean_ratio(metrics.get('interest_coverage'))
         pts = 15 if ic > 10 else (7.5 if ic >= 3 else 0)
@@ -254,33 +364,19 @@ def calculate_scoring_reform(valuation_data, metrics):
         cr = clean_ratio(metrics.get('current_ratio'))
         cr_exempt = any(x in sector_lower or x in industry_lower for x in ["software", "saas", "retail", "subscription", "consumer staples", "consumer defensive", "fmcg"])
         fcf_trend = metrics.get('fcf_trend', 'Flat')
-        fcf_val = clean_ratio(metrics.get('fcf'))
-        
-        pts = 0
-        if cr >= 1.5:
-            pts = 15
-        elif 0.7 <= cr < 1.5:
-            if cr_exempt or fcf_trend == "Growing":
-                pts = 15
-            else:
-                pts = 7.5
-        else:
-            if cr_exempt and fcf_val > 0:
-                pts = 7.5
-            else:
-                pts = 0
-        add_h("Current Ratio", cr, pts, 15, True)
+        pts, max_pts = strategy.eval_current_ratio(cr, metrics, cr_exempt, fcf_trend)
+        add_h("Current Ratio", cr, pts, max_pts, True)
 
         ebit_m = clean_percent(metrics.get('ebit_margin'))
         if ebit_m > 100.0 or ebit_m < -100.0:
             add_h("EBIT Margin", "Anomaly Detected", 0, 15, "raw")
         else:
-            pts = 15 if ebit_m > 20 else (7.5 if ebit_m >= 10 else 0)
-            add_h("EBIT Margin", ebit_m, pts, 15, False)
+            pts, max_pts = strategy.eval_ebit_margin(ebit_m)
+            add_h("EBIT Margin", ebit_m, pts, max_pts, False)
 
         roic = clean_percent(metrics.get('roic'))
-        pts = 20 if roic > 15 else (10 if roic >= 8 else 0)
-        add_h("ROIC", roic, pts, 20, False)
+        label, roic_val, pts, max_pts = strategy.eval_roic(roic, metrics)
+        add_h(label, roic_val, pts, max_pts, False)
 
         fcf_trend = metrics.get('fcf_trend', 'Flat')
         pts = 15 if fcf_trend == "Growing" else 0
@@ -289,22 +385,13 @@ def calculate_scoring_reform(valuation_data, metrics):
         # BUY (100 pct)
         pts = get_mos_points(mos, 30)
         add_b("Margin of Safety", mos, pts, 30, False)
+        
         pts = 20 if rev_g > 15 else (10 if rev_g >= 5 else 0)
         add_b("Revenue Growth (Next 3Y)", rev_g, pts, 20, False)
 
         # P/E Ratio (20 pct max)
-        pts = 0
-        if pe > 0:
-            if pe <= target_pe:
-                pts = 20
-            elif pe <= target_pe * 1.3:
-                peg_val = clean_ratio(metrics.get('peg_ratio'))
-                rev_g_val = clean_percent(metrics.get('revenue_growth'))
-                if rev_g_val > 15 or (0 < peg_val < 1.5):
-                    pts = 15
-                else:
-                    pts = 10
-        add_b(pe_label, pe, pts, 20, True)
+        pts, max_pts = strategy.eval_pe_ratio(pe, target_pe, metrics)
+        add_b(pe_label, pe, pts, max_pts, True)
 
         ev_ebitda = clean_ratio(metrics.get('ev_to_ebitda'))
         
