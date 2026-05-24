@@ -557,11 +557,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const sList = document.getElementById('top-strengths-list');
         if (sList) {
-            sList.innerHTML = strengths.slice(0, 3).map(s => `<li>${s.metric.split(' (')[0]}: ${s.value}</li>`).join('');
+            sList.innerHTML = strengths.slice(0, 3).map(s => `<li>${s.metric}: ${s.value}</li>`).join('');
         }
         const rList = document.getElementById('risk-factors-list');
         if (rList) {
-            rList.innerHTML = risks.slice(0, 3).map(r => `<li>${r.metric.split(' (')[0]}: ${r.value}</li>`).join('');
+            rList.innerHTML = risks.slice(0, 3).map(r => `<li>${r.metric}: ${r.value}</li>`).join('');
         }
     };
 
@@ -711,7 +711,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (topStrengths.length > 0) {
                 topStrengths.forEach(s => {
                     const li = document.createElement('li');
-                    li.innerHTML = `<strong>${s.metric.split(' (')[0]}:</strong> ${s.value}`;
+                    li.innerHTML = `<strong>${s.metric}:</strong> ${s.value}`;
                     strengthsList.appendChild(li);
                 });
             } else {
@@ -725,7 +725,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (topRisks.length > 0) {
                 topRisks.forEach(r => {
                     const li = document.createElement('li');
-                    li.innerHTML = `<strong>${r.metric.split(' (')[0]}:</strong> ${r.value}`;
+                    li.innerHTML = `<strong>${r.metric}:</strong> ${r.value}`;
                     risksList.appendChild(li);
                 });
             } else {
@@ -4742,9 +4742,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // Build rows - Grid: Label (flex) | Value (fixed) | Dot+Pts (fixed)
         breakdown.forEach(item => {
             let label = (item.metric || item.name || 'Unknown Metric');
-            if (!label.includes('(adj.)')) {
-                label = label.split(' (')[0];
-            }
             
             const pts = (item.points_awarded !== undefined) ? item.points_awarded : (item.points || 0);
             const maxPts = item.max_points || 0;
