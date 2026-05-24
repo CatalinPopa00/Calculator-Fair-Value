@@ -2823,6 +2823,34 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         }
 
+        
+        // Beneish M-Score UI Update
+        const bRow = document.getElementById('beneish-score-row');
+        const bVal = document.getElementById('beneish-score-value');
+        const bLab = document.getElementById('beneish-score-label');
+        if (bRow && bVal && bLab && data.health_score && data.health_score.beneish) {
+            const bData = data.health_score.beneish;
+            if (bData.m_score !== null) {
+                bVal.textContent = bData.m_score;
+                bLab.textContent = bData.label;
+                if (bData.status === 'pass') {
+                    bVal.style.color = 'var(--success)';
+                    bLab.style.color = 'var(--success)';
+                } else if (bData.status === 'fail') {
+                    bVal.style.color = 'var(--danger)';
+                    bLab.style.color = 'var(--danger)';
+                } else {
+                    bVal.style.color = 'var(--text-muted)';
+                    bLab.style.color = 'var(--text-muted)';
+                }
+            } else {
+                bVal.textContent = 'N/A';
+                bVal.style.color = 'var(--text-muted)';
+                bLab.textContent = bData.label || 'Data Unavailable';
+                bLab.style.color = 'var(--text-muted)';
+            }
+        }
+
         // Rule of 40 UI Update & Click Binding
         updateRule40UI(data.rule_of_40);
         const rule40Row = document.getElementById('rule40-score-row');
