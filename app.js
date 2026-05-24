@@ -2365,31 +2365,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 if (pe != null && pe > 0) {
                     if (pe > 45) {
-                        kpiHtml += `<span style="background: rgba(239, 68, 68, 0.12); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px;">🔴 PE Premium (${pe.toFixed(1)}x)</span>`;
+                        kpiHtml += `<span style="background: rgba(239, 68, 68, 0.12); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px;">🔴 Premium PE (${pe.toFixed(1)}x)</span>`;
                     } else if (pe < 18) {
-                        kpiHtml += `<span style="background: rgba(34, 197, 94, 0.12); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px;">🟢 PE Atractiv (${pe.toFixed(1)}x)</span>`;
+                        kpiHtml += `<span style="background: rgba(34, 197, 94, 0.12); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px;">🟢 Attractive PE (${pe.toFixed(1)}x)</span>`;
                     } else {
-                        kpiHtml += `<span style="background: rgba(245, 158, 11, 0.12); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px;">🟡 PE Moderat (${pe.toFixed(1)}x)</span>`;
+                        kpiHtml += `<span style="background: rgba(245, 158, 11, 0.12); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px;">🟡 Moderate PE (${pe.toFixed(1)}x)</span>`;
                     }
                 }
                 if (netMargin != null) {
                     if (netMargin > 1.0) {
-                        kpiHtml += `<span style="background: rgba(245, 158, 11, 0.12); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px;" title="Câștig excepțional non-recurent ce depășește 100% din venituri.">⚠️ Profit Excepțional (${(netMargin * 100).toFixed(0)}%)</span>`;
+                        kpiHtml += `<span style="background: rgba(245, 158, 11, 0.12); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px;" title="One-off exceptional gain exceeding 100% of revenue.">⚠️ Exceptional Profit (${(netMargin * 100).toFixed(0)}%)</span>`;
                     } else if (netMargin > 0.20) {
-                        kpiHtml += `<span style="background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px;">💎 Marje Ridicate (${(netMargin * 100).toFixed(0)}%)</span>`;
+                        kpiHtml += `<span style="background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px;">💎 High Margins (${(netMargin * 100).toFixed(0)}%)</span>`;
                     } else if (netMargin < 0.05) {
-                        kpiHtml += `<span style="background: rgba(239, 68, 68, 0.12); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px;">⚠️ Marje Reduse (${(netMargin * 100).toFixed(0)}%)</span>`;
+                        kpiHtml += `<span style="background: rgba(239, 68, 68, 0.12); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px;">⚠️ Low Margins (${(netMargin * 100).toFixed(0)}%)</span>`;
                     } else {
-                        kpiHtml += `<span style="background: rgba(255, 255, 255, 0.05); color: rgba(255,255,255,0.7); border: 1px solid rgba(255, 255, 255, 0.1); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px;">📊 Marje Sănătoase (${(netMargin * 100).toFixed(0)}%)</span>`;
+                        kpiHtml += `<span style="background: rgba(255, 255, 255, 0.05); color: rgba(255,255,255,0.7); border: 1px solid rgba(255, 255, 255, 0.1); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px;">📊 Healthy Margins (${(netMargin * 100).toFixed(0)}%)</span>`;
                     }
                 }
                 if (deRatio != null) {
                     if (deRatio < 40) {
-                        kpiHtml += `<span style="background: rgba(168, 85, 247, 0.12); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px;">🛡️ Grad Îndatorare Sigur</span>`;
+                        kpiHtml += `<span style="background: rgba(168, 85, 247, 0.12); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px;">🛡️ Safe Debt Level</span>`;
                     } else if (deRatio > 150) {
-                        kpiHtml += `<span style="background: rgba(239, 68, 68, 0.12); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px;">⚠️ Grad Îndatorare Ridicat (${deRatio.toFixed(0)}%)</span>`;
+                        kpiHtml += `<span style="background: rgba(239, 68, 68, 0.12); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px;">⚠️ High Debt Level (${deRatio.toFixed(0)}%)</span>`;
                     } else {
-                        kpiHtml += `<span style="background: rgba(255, 255, 255, 0.05); color: rgba(255,255,255,0.7); border: 1px solid rgba(255, 255, 255, 0.1); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px;">⚖️ Datorie Echilibrată</span>`;
+                        kpiHtml += `<span style="background: rgba(255, 255, 255, 0.05); color: rgba(255,255,255,0.7); border: 1px solid rgba(255, 255, 255, 0.1); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px;">⚖️ Balanced Debt</span>`;
                     }
                 }
 
@@ -2401,21 +2401,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     const hasSegment = /segment|division|revenue share|growth driver|business unit|segmentation|diviz/i.test(synthText);
                     
                     if (hasPharma) {
-                        kpiHtml += `<span class="insight-badge" style="background: rgba(16, 185, 129, 0.12); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px; animation: brief-pulse 2s infinite;" title="Pipeline clinic, decizie FDA sau fază de testare detectată.">🧪 Catalyst Clinic</span>`;
+                        kpiHtml += `<span class="insight-badge" style="background: rgba(16, 185, 129, 0.12); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px; animation: brief-pulse 2s infinite;" title="Clinical pipeline, FDA decision, or testing phase detected.">🧪 Clinical Catalyst</span>`;
                     }
                     if (hasMa) {
-                        kpiHtml += `<span class="insight-badge" style="background: rgba(245, 158, 11, 0.12); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px;" title="Activitate M&A, fuziuni sau costuri de integrare detectate.">🤝 Tranzacție M&A</span>`;
+                        kpiHtml += `<span class="insight-badge" style="background: rgba(245, 158, 11, 0.12); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px;" title="M&A activity, mergers, or integration costs detected.">🤝 M&A Transaction</span>`;
                     }
                     if (hasSegment) {
-                        kpiHtml += `<span class="insight-badge" style="background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px;" title="Analiză specifică pe segmente de activitate sau divizii.">📈 Focus pe Segmente</span>`;
+                        kpiHtml += `<span class="insight-badge" style="background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px;" title="Specific analysis on business segments or divisions.">📈 Segment Focus</span>`;
                     }
                 }
 
                 let badgeHtml = '';
                 if (isLoadingAI) {
-                    badgeHtml = `<div id="ai-synthesis-badge" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2); font-size: 0.6rem; padding: 3px 8px; border-radius: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; animation: skeleton-pulse 1.5s infinite;">⏳ SE GENEREAZĂ ANALIZA AI...</div>`;
+                    badgeHtml = `<div id="ai-synthesis-badge" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2); font-size: 0.6rem; padding: 3px 8px; border-radius: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; animation: skeleton-pulse 1.5s infinite;">⏳ GENERATING AI ANALYSIS...</div>`;
                 } else if (synthesisText) {
-                    badgeHtml = `<div id="ai-synthesis-badge" style="background: linear-gradient(135deg, #38bdf8, #818cf8); color: white; font-size: 0.6rem; padding: 3px 8px; border-radius: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">✨ ANALIZĂ AI</div>`;
+                    badgeHtml = `<div id="ai-synthesis-badge" style="background: linear-gradient(135deg, #38bdf8, #818cf8); color: white; font-size: 0.6rem; padding: 3px 8px; border-radius: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">✨ AI ANALYSIS</div>`;
                 }
 
                 descCard.innerHTML = `
@@ -2476,11 +2476,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     </style>
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
                         <div style="display: flex; align-items: center; gap: 8px;">
-                            <h3 style="font-size: 0.75rem; color: rgba(255,255,255,0.4); margin: 0; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 800; font-family: 'Outfit', sans-serif;">Rezumat Corporativ</h3>
+                            <h3 style="font-size: 0.75rem; color: rgba(255,255,255,0.4); margin: 0; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 800; font-family: 'Outfit', sans-serif;">Corporate Summary</h3>
                             ${badgeHtml}
                         </div>
-                        <button id="copy-brief-btn" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 4px 8px; color: rgba(255,255,255,0.7); cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 0.72rem; transition: all 0.2s; font-family: 'Outfit', sans-serif;" title="Copiază rezumatul în clipboard">
-                            <span style="font-size: 0.8rem;">📋</span> <span id="copy-brief-text">Copiază</span>
+                        <button id="copy-brief-btn" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 4px 8px; color: rgba(255,255,255,0.7); cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 0.72rem; transition: all 0.2s; font-family: 'Outfit', sans-serif;" title="Copy summary to clipboard">
+                            <span style="font-size: 0.8rem;">📋</span> <span id="copy-brief-text">Copy</span>
                         </button>
                     </div>
                     
@@ -2491,9 +2491,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     <!-- Tabs Navigation -->
                     <div style="display: flex; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; gap: 10px; overflow-x: auto; scrollbar-width: none;">
-                        <button class="brief-tab ${activeTab === 'overview' ? 'active' : ''}" data-tab="overview">🏢 Prezentare Generală</button>
-                        <button class="brief-tab ${activeTab === 'swot' ? 'active' : ''}" data-tab="swot">⚖️ Analiză SWOT</button>
-                        <button class="brief-tab ${activeTab === 'news' ? 'active' : ''}" data-tab="news">📰 Informații de Piață</button>
+                        <button class="brief-tab ${activeTab === 'overview' ? 'active' : ''}" data-tab="overview">🏢 Overview</button>
+                        <button class="brief-tab ${activeTab === 'swot' ? 'active' : ''}" data-tab="swot">⚖️ SWOT Analysis</button>
+                        <button class="brief-tab ${activeTab === 'news' ? 'active' : ''}" data-tab="news">📰 Market News</button>
                     </div>
 
                     <!-- Active Tab Content -->
@@ -2508,7 +2508,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (isLoadingAI) {
                             panel.innerHTML = `
                                 <div style="font-size: 0.95rem; font-weight: 700; margin-bottom: 8px; color: white;">
-                                    ${prof.name || 'Compania'} este clasificată în sectorul <span style="color:#38bdf8;">${prof.sector || 'N/A'}</span>, industria <span style="color:#38bdf8;">${prof.industry || 'N/A'}</span>.
+                                    ${prof.name || 'The company'} is classified in the <span style="color:#38bdf8;">${prof.sector || 'N/A'}</span> sector, <span style="color:#38bdf8;">${prof.industry || 'N/A'}</span> industry.
                                 </div>
                                 <div style="margin-top: 10px;">
                                     <div class="skeleton-text" style="width: 100%;"></div>
@@ -2520,10 +2520,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         } else {
                             panel.innerHTML = `
                                 <div style="font-size: 0.95rem; font-weight: 700; margin-bottom: 8px; color: white;">
-                                    ${prof.name || 'Compania'} este clasificată în sectorul <span style="color:#38bdf8;">${prof.sector || 'N/A'}</span>, industria <span style="color:#38bdf8;">${prof.industry || 'N/A'}</span>.
+                                    ${prof.name || 'The company'} is classified in the <span style="color:#38bdf8;">${prof.sector || 'N/A'}</span> sector, <span style="color:#38bdf8;">${prof.industry || 'N/A'}</span> industry.
                                 </div>
                                 <p style="margin: 0; color: rgba(255,255,255,0.8); line-height: 1.6; text-align: justify;">
-                                    ${parsed.executiveSummary || prof.business_summary || 'Nu există nicio descriere succintă disponibilă.'}
+                                    ${parsed.executiveSummary || prof.business_summary || 'No concise description available.'}
                                 </p>
                             `;
                         }
