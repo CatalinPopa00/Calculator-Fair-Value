@@ -2452,6 +2452,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 cachedWatchlistData.push({ ...data });
             }
+            sessionStorage.setItem(`valuation_${data.ticker.toUpperCase()}`, JSON.stringify({ data, ts: Date.now() }));
         }
 
         // DESCRIPTION CARD INJECTION
@@ -3203,6 +3204,8 @@ document.addEventListener('DOMContentLoaded', () => {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
+        }).then(() => {
+            sessionStorage.removeItem(`valuation_${ticker.toUpperCase()}`);
         }).catch(err => console.error('Override sync error:', err));
         
         pendingOverridePayload = null;
@@ -3290,6 +3293,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const deleteOverrideFromServer = (ticker) => {
         delete cachedOverrides[ticker];
         fetch(`/api/overrides/${ticker}`, { method: 'DELETE' })
+            .then(() => sessionStorage.removeItem(`valuation_${ticker.toUpperCase()}`))
             .catch(err => console.error('Override delete error:', err));
     };
 

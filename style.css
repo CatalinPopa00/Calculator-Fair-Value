@@ -2643,8 +2643,10 @@ body {
 
 .wl-scores-row {
     display: flex;
-    gap: 1rem;
+    gap: 0.8rem;
     width: 100%;
+    flex-wrap: wrap;
+    justify-content: center;
 }
 
 .wl-score-pill {
