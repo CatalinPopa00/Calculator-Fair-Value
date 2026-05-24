@@ -321,17 +321,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (metric.includes('P/E Ratio')) {
                     const target_pe = getTargetPe(sector, industry);
                     let pts = 0;
+                    const rev_g_val = cleanPercent(prof.revenue_growth || 0);
+                    const peg_val = (growthForScoring > 0) ? scoringPE / growthForScoring : 0;
                     if (scoringPE > 0) {
                         if (scoringPE <= target_pe) {
                             pts = 20;
                         } else if (scoringPE <= target_pe * 1.3) {
-                            const rev_g_val = cleanPercent(prof.revenue_growth || 0);
-                            const peg_val = (growthForScoring > 0) ? scoringPE / growthForScoring : 0;
                             if (rev_g_val > 15 || (peg_val > 0 && peg_val < 1.5)) {
                                 pts = 15;
                             } else {
                                 pts = 10;
                             }
+                        }
+                    }
+                    // Growth Override for P/E
+                    if (pts === 0 && scoringPE > 0) {
+                        if (peg_val > 0 && peg_val <= 1.2 && rev_g_val >= 20.0) {
+                            pts = 10;
                         }
                     }
                     newPts = pts;
@@ -358,7 +364,36 @@ document.addEventListener('DOMContentLoaded', () => {
                     newPts = pts;
                     item.value = newPS > 0 ? newPS.toFixed(2) + 'x' : '0.00x';
                 } else if (metric === 'EV / EBITDA') {
-                    newPts = (newEvEbitda > 0 && newEvEbitda < 12) ? 10 : ((newEvEbitda > 0 && newEvEbitda <= 18) ? 5 : 0);
+                    let base_exc = 16.0, base_acc = 18.0;
+                    if (['utilities', 'energy', 'industrials', 'telecommunication', 'materials'].some(x => sector.includes(x) || industry.includes(x))) {
+                        base_exc = 8.0; base_acc = 10.0;
+                    } else if (['consumer staples', 'health care', 'healthcare', 'defensive'].some(x => sector.includes(x) || industry.includes(x))) {
+                        base_exc = 12.0; base_acc = 14.0;
+                    }
+                    
+                    let growth_mult = 1.0;
+                    const rev_g_val = cleanPercent(prof.revenue_growth || 0);
+                    if (rev_g_val > 20.0) growth_mult = 1.8;
+                    else if (rev_g_val >= 10.0) growth_mult = 1.3;
+                    
+                    const target_exc = base_exc * growth_mult;
+                    const target_acc = base_acc * growth_mult;
+                    
+                    let pts = 0;
+                    if (newEvEbitda > 0) {
+                        if (newEvEbitda <= target_exc) pts = 10;
+                        else if (newEvEbitda <= target_acc) pts = 5;
+                    }
+                    
+                    // Growth Override
+                    if (pts === 0 && newEvEbitda > 0) {
+                        const peg_val = (growthForScoring > 0) ? scoringPE / growthForScoring : 0;
+                        if (peg_val > 0 && peg_val <= 1.2 && rev_g_val >= 20.0) {
+                            pts = 5;
+                        }
+                    }
+                    
+                    newPts = pts;
                     item.value = newEvEbitda > 0 ? newEvEbitda.toFixed(2) + 'x' : '0.00x';
                 } else if (metric === 'Price-to-Book' || metric === 'P/B Ratio') {
                     newPts = (newPB > 0 && newPB < 1.2) ? 15 : ((newPB > 0 && newPB <= 2.0) ? 7.5 : 0);
