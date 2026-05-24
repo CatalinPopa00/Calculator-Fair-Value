@@ -905,45 +905,45 @@ def get_company_synthesis(ticker: str, info: dict, run_ai: bool = False) -> str:
             debt_equity = info.get('debtToEquity')
             de_str = f"{debt_equity:.1f}%" if isinstance(debt_equity, (int, float)) else "N/A"
             
-            prompt = f"""Ești un analist financiar senior și cercetător de top în industrie.
-Analizează următoarele date despre compania {name} ({ticker_upper}), care activează în sectorul {sector} și industria {industry}.
+            prompt = f"""You are a senior financial analyst and top industry researcher.
+Analyze the following data for {name} ({ticker_upper}), which operates in the {sector} sector and {industry} industry.
 
-DESCRIEREA COMPANIEI:
+COMPANY DESCRIPTION:
 {summary}
 
-DATE FINANCIARE RELEVANTE:
-- Multiplu P/E: {pe_str}
-- Creșterea Veniturilor (YoY): {rev_str}
-- Marja Netă de Profit: {margin_str}
-- Raport Datorie/Capital Propriu (Debt to Equity): {de_str}
+RELEVANT FINANCIAL DATA:
+- P/E Multiple: {pe_str}
+- Revenue Growth (YoY): {rev_str}
+- Net Profit Margin: {margin_str}
+- Debt to Equity Ratio: {de_str}
 
-CELE MAI RECENTE ȘTIRI ȘI EVENIMENTE DE PIAȚĂ:
+LATEST NEWS AND MARKET EVENTS:
 {news_text}
 
-Oferă o sinteză analitică extrem de profesionistă, structurată și detaliată, redactată direct în limba română.
-Evită cu desăvârșire generalitățile inutile sau descrierile de tip șablon care nu oferă valoare reală (cum ar fi „este o companie de tehnologie de top...”). Fii extrem de specific, tehnic și axat pe cifre și detalii strategice.
+Provide a highly professional, structured, and detailed analytical synthesis written directly in English.
+Strictly avoid useless generalities or boilerplate descriptions that offer no real value (like "is a top tech company..."). Be extremely specific, technical, and focused on numbers and strategic details.
 
-Trebuie să structurezi răspunsul tău EXACT conform formatului de mai jos, folosind aceste headere markdown precise:
+You must structure your response EXACTLY according to the format below, using these precise markdown headers:
 
-**SINTEZĂ EXECUTIVĂ**
-[Oferă o sinteză extrem de valoroasă și densă, de 3-5 propoziții, despre modelul de business, dinamica financiară și poziționarea strategică. Identifică numele produselor cheie (de ex. Photoshop, Acrobat, Firefly în cazul Adobe) sau serviciilor de bază și segmentele operaționale cele mai importante, menționând care sunt motoarele principale de generare a banilor (cash-generating engines) și care sunt produsele cu cea mai rapidă creștere. Dacă este o companie din biotehnologie sau farmaceutică, identifică stadiul studiilor clinice relevante, fazele de dezvoltare (Faza I, II, III), deciziile FDA sau termenele PDUFA. Dacă profitabilitatea sau EPS-ul recent prezintă fluctuații temporare din cauza unor cheltuieli non-recurente, fuziuni/achiziții sau investiții masive de capital, explică clar acest context strategic.]
+**EXECUTIVE SUMMARY**
+[Provide a highly valuable and dense synthesis, 3-5 sentences long, about the business model, financial dynamics, and strategic positioning. Identify key product names (e.g. Photoshop, Acrobat, Firefly for Adobe) or core services and the most important operational segments, mentioning what the main cash-generating engines are and which products are growing fastest. If it is a biotech or pharma company, identify the stage of relevant clinical trials, development phases (Phase I, II, III), FDA decisions, or PDUFA dates. If recent profitability or EPS shows temporary fluctuations due to non-recurring expenses, M&A, or massive capital investments, clearly explain this strategic context.]
 
-**PUNCTE FORTE STRATEGICE**
-• [Bullet 1: Avantajul competitiv dominant sau „moat”-ul strategic specific al companiei (de ex. costuri mari de schimbare a furnizorului, efecte de rețea, putere de stabilire a prețurilor, brevete). Fii specific cu privire la produse și segmente.]
-• [Bullet 2: Punctul forte din punct de vedere financiar bazat pe datele oferite (PE, marjă, datorie sau creștere). Explică pe scurt de ce această cifră reprezintă o ancoră de stabilitate sau de performanță.]
-• [Bullet 3: Principalul motor de creștere viitoare sau catalizator operațional (de ex. integrarea tehnologiilor AI generative, extinderea geografică, noi produse strategice în curs de lansare).]
+**STRATEGIC STRENGTHS**
+• [Bullet 1: The dominant competitive advantage or specific strategic "moat" of the company (e.g. high switching costs, network effects, pricing power, patents). Be specific regarding products and segments.]
+• [Bullet 2: The financial strength based on the provided data (PE, margin, debt, or growth). Briefly explain why this figure represents an anchor of stability or performance.]
+• [Bullet 3: The main engine of future growth or operational catalyst (e.g. integration of generative AI technologies, geographical expansion, new strategic products launching).]
 
-**VULNERABILITĂȚI ȘI RISCURI**
-• [Bullet 1: Principala amenințare strategică sau presiune concurențială. Identifică concurenți specifici din piață care amenință cota de piață (de ex. Canva, Figma sau alternative open-source pentru Adobe) sau schimbări tehnologice disruptive.]
-• [Bullet 2: Riscul legat de evaluare sau de structura bilanțului (de ex. dacă multiplul PE este foarte mare, ce riscuri de corecție implică, sau cum afectează costul capitalului datoria ridicată).]
-• [Bullet 3: Riscuri de reglementare, riscuri operaționale specifice, eșecuri în studii clinice sau riscuri legate de integrarea achizițiilor recente.]
+**VULNERABILITIES & RISKS**
+• [Bullet 1: The main strategic threat or competitive pressure. Identify specific market competitors that threaten market share (e.g. Canva, Figma, or open-source alternatives for Adobe) or disruptive technological changes.]
+• [Bullet 2: The risk related to valuation or balance sheet structure (e.g. if the PE multiple is very high, what correction risks it implies, or how high debt affects the cost of capital).]
+• [Bullet 3: Regulatory risks, specific operational risks, clinical trial failures, or risks related to integrating recent acquisitions.]
 
-**ULTIMELE INFORMAȚII DE PIAȚĂ**
-• [Tradu prima știre relevantă în limba română (Sursa: Nume Publicație) - Oferă în maximum o propoziție o analiză scurtă a impactului financiar sau strategic al acestei știri asupra companiei.]
-• [Tradu a doua știre relevantă în limba română (Sursa: Nume Publicație) - Oferă în maximum o propoziție o analiză scurtă a impactului financiar sau strategic al acestei știri asupra companiei.]
-• [Tradu a treia știre relevantă în limba română (Sursa: Nume Publicație) - Oferă în maximum o propoziție o analiză scurtă a impactului financiar sau strategic al acestei știri asupra companiei.]
+**LATEST MARKET INTELLIGENCE**
+• [Translate the first relevant news into English (Source: Publication Name) - Provide a brief analysis of the financial or strategic impact of this news on the company in maximum one sentence.]
+• [Translate the second relevant news into English (Source: Publication Name) - Provide a brief analysis of the financial or strategic impact of this news on the company in maximum one sentence.]
+• [Translate the third relevant news into English (Source: Publication Name) - Provide a brief analysis of the financial or strategic impact of this news on the company in maximum one sentence.]
 
-Aderează strict la aceste headere markdown precise (scrise exact așa, cu litere mari și între asteriscuri duble). Nu folosi alte headere personalizate sau caractere suplimentare. Păstrează un ton sobru, analitic, demn de un raport de investment banking.
+Strictly adhere to these precise markdown headers (written exactly like this, in uppercase and between double asterisks). Do not use other custom headers or additional characters. Maintain a sober, analytical tone, worthy of an investment banking report.
 """
             url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
             headers = {"Content-Type": "application/json"}
@@ -1714,6 +1714,10 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                             int_val = abs(interest.iloc[0])
                             if int_val > 0:
                                 interest_coverage = ebit_val / int_val
+                            elif ebit_val > 0:
+                                interest_coverage = 999.0
+                    elif not ebit.empty and ebit.iloc[0] > 0:
+                        interest_coverage = 999.0
                 
                 # EBIT Margin
                 rev_idx = find_idx(financials, 'Total Revenue')

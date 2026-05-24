@@ -1,4 +1,4 @@
-from api.models.scoring import calculate_health_score, calculate_buy_score
+from models.scoring import calculate_health_score, calculate_buy_score
 
 def test_reit():
     print("TEST: Real Estate (REIT)")
@@ -16,12 +16,12 @@ def test_reit():
     }
     h = calculate_health_score(metrics)
     b = calculate_buy_score({'margin_of_safety': 20.0}, metrics)
+    print(f"Health Total: {h['total']}")
     for i in h['breakdown']:
-        if i['name'] in ['Debt-to-Equity (Solvency)', 'Operating Cash Flow (Quality)', 'EBIT Margin (Profitability)']:
-            print(f"Health - {i['name']}: {i['points']} pts ({i['value']})")
+        print(f"Health - {i['metric']}: {i['points_awarded']} pts ({i['value']})")
+    print(f"Buy Total: {b['total']}")
     for i in b['breakdown']:
-        if i['name'] == 'Dividend Yield (Cash Return)':
-            print(f"Buy - {i['name']}: {i['points']} pts ({i['value']})")
+        print(f"Buy - {i['metric']}: {i['points_awarded']} pts ({i['value']})")
 
 def test_utilities():
     print("\nTEST: Utilities")
@@ -39,12 +39,12 @@ def test_utilities():
     }
     h = calculate_health_score(metrics)
     b = calculate_buy_score({'margin_of_safety': 10.0}, metrics)
+    print(f"Health Total: {h['total']}")
     for i in h['breakdown']:
-        if i['name'] in ['Debt-to-Equity (Solvency)', 'Current Ratio (Liquidity)']:
-            print(f"Health - {i['name']}: {i['points']} pts ({i['value']})")
+        print(f"Health - {i['metric']}: {i['points_awarded']} pts ({i['value']})")
+    print(f"Buy Total: {b['total']}")
     for i in b['breakdown']:
-        if i['name'] == 'Dividend Yield (Cash Return)':
-            print(f"Buy - {i['name']}: {i['points']} pts ({i['value']})")
+        print(f"Buy - {i['metric']}: {i['points_awarded']} pts ({i['value']})")
 
 def test_consum_def():
     print("\nTEST: Consumer Defensive")
@@ -58,9 +58,9 @@ def test_consum_def():
         'interest_coverage': 10.0
     }
     h = calculate_health_score(metrics)
+    print(f"Health Total: {h['total']}")
     for i in h['breakdown']:
-        if i['name'] in ['EBIT Margin (Profitability)', 'ROIC (Efficiency)']:
-            print(f"Health - {i['name']}: {i['points']} pts ({i['value']})")
+        print(f"Health - {i['metric']}: {i['points_awarded']} pts ({i['value']})")
 
 def test_tech_growth():
     print("\nTEST: Technology Growth Bonus")
@@ -75,9 +75,9 @@ def test_tech_growth():
         'eps_growth': 0.20
     }
     b = calculate_buy_score({'margin_of_safety': -5.0}, metrics)
+    print(f"Buy Total: {b['total']}")
     for i in b['breakdown']:
-        if i['name'] == 'FWD P/S (Revenue Value)':
-            print(f"Buy - {i['name']}: {i['points']} pts ({i['value']})")
+        print(f"Buy - {i['metric']}: {i['points_awarded']} pts ({i['value']})")
 
 if __name__ == "__main__":
     test_reit()

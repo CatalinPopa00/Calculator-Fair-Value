@@ -434,11 +434,15 @@ def calculate_scoring_reform(valuation_data, metrics):
         target_ps = target_pe * (margin / 100.0)
         pts = 0
         if ps > 0:
-            if margin < 0:
-                if fwd_growth > 20 and ps <= 5.0: pts = 5
-            else:
+            if fwd_growth >= 20.0 and ps <= 15.0:
+                pts = 10
+            elif fwd_growth >= 10.0 and ps <= 8.0:
+                pts = 10
+            elif margin > 0:
                 if ps <= target_ps: pts = 10
                 elif ps <= target_ps * 1.5: pts = 5
+            elif margin < 0:
+                if fwd_growth > 20 and ps <= 5.0: pts = 5
         add_b("P/S Ratio", ps, pts, 10, True)
 
     else:
@@ -522,8 +526,9 @@ def calculate_beneish_m_score(metrics):
         
         # 7. LVGI = Leverage_current / Leverage_prev
         def get_leverage(cl, ltd, ta):
-            if cl is None or ltd is None or ta is None or ta == 0: return None
-            return (float(cl) + float(ltd)) / float(ta)
+            if cl is None or ta is None or ta == 0: return None
+            ltd_val = float(ltd) if ltd is not None else 0.0
+            return (float(cl) + ltd_val) / float(ta)
         lvgi = safe_div(get_leverage(curr['current_liabilities'], curr['long_term_debt'], curr['total_assets']), get_leverage(prev['current_liabilities'], prev['long_term_debt'], prev['total_assets']))
         
         # 8. TATA = (Net Income_current - CFO_current) / Total Assets_current

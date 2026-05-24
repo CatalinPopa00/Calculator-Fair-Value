@@ -2505,9 +2505,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 let kpiHtml = '';
                 const pe = prof.trailing_pe || prof.current_pe;
                 let netMargin = prof.net_margin || prof.operating_margin;
-                if (netMargin != null) {
-                    netMargin = netMargin / 100;
-                }
                 const deRatio = prof.debt_to_equity;
                 
                 if (pe != null && pe > 0) {
@@ -2815,12 +2812,10 @@ document.addEventListener('DOMContentLoaded', () => {
         updateWatchlistButtonState();
 
         const dcfCardMosRow = document.getElementById('dcf-card-mos-row');
-        const dcfCardPrice = document.getElementById('dcf-card-price');
         const dcfCardMos = document.getElementById('dcf-card-mos');
         if (dcfCardMosRow && data.formula_data && data.formula_data.dcf) {
             const dcf = data.formula_data.dcf;
             dcfCardMosRow.style.display = 'flex';
-            dcfCardPrice.textContent = `Price: ${formatCurrency(dcf.current_price)}`;
             if (dcf.margin_of_safety != null) {
                 const mos = dcf.margin_of_safety;
                 dcfCardMos.textContent = `MOS: ${formatPercent(mos)}`;

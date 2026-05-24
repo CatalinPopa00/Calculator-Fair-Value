@@ -2425,9 +2425,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 let kpiHtml = '';
                 const pe = prof.trailing_pe || prof.current_pe;
                 let netMargin = prof.net_margin || prof.operating_margin;
-                if (netMargin != null) {
-                    netMargin = netMargin / 100;
-                }
                 const deRatio = prof.debt_to_equity;
                 
                 if (pe != null && pe > 0) {
