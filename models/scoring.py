@@ -274,7 +274,7 @@ def calculate_scoring_reform(valuation_data, metrics):
         add_b("Price-to-Book", pb, pts, 20, True)
         div_y = clean_percent(metrics.get('fwd_dividend_yield') or metrics.get('dividend_yield'))
         add_b("Forward Dividend Yield", div_y, 15 if div_y > 4 else (7.5 if div_y >= 2 else 0), 15, False)
-        add_b("PEG Ratio (Fwd)", peg_val, 10 if (0 < peg_val < 1.0) else (5 if (0 < peg_val <= 1.5) else 0), 10, True)
+        add_b("PEG Ratio (Forward)", peg_val, 10 if (0 <= peg_val <= 1.2) else (5.33 if (1.2 < peg_val <= 1.8) else 0), 10, True)
 
     elif is_insurance:
         # Sector 3: Insurance
@@ -401,7 +401,7 @@ def calculate_scoring_reform(valuation_data, metrics):
         pts = 15 if (0 < ev_ebitda <= 14.0) else (7.5 if ev_ebitda <= 18.0 else 0)
         if pts == 0 and ev_ebitda > 0 and 0 < peg_val <= 1.2 and fwd_growth >= 15.0: pts = 7.5 # Growth Override
         add_b("EV / EBITDA (Fwd)", ev_ebitda, pts, 15, True)
-        add_b("PEG Ratio (Fwd)", peg_val, 20 if (0 < peg_val < 1.5) else (10 if peg_val <= 2.0 else 0), 20, True)
+        add_b("PEG Ratio (Forward)", peg_val, 20 if (0 <= peg_val <= 1.2) else (10.67 if (1.2 < peg_val <= 1.8) else 0), 20, True)
 
     elif is_tech:
         # Sector 1: Technology & Software
@@ -428,7 +428,7 @@ def calculate_scoring_reform(valuation_data, metrics):
         if pts == 0 and ev_ebitda > 0 and 0 < peg_val <= 1.2 and fwd_growth >= 20.0: pts = 5 # Growth Override
         add_b("EV / EBITDA (Fwd)", ev_ebitda, pts, 10, True)
         
-        add_b("PEG Ratio (Fwd)", peg_val, 10 if (0 < peg_val < 1.5) else (5 if peg_val <= 2.0 else 0), 10, True)
+        add_b("PEG Ratio (Forward)", peg_val, 10 if (0 <= peg_val <= 1.2) else (5.33 if (1.2 < peg_val <= 1.8) else 0), 10, True)
         
         margin = clean_percent(metrics.get('ebit_margin') or metrics.get('operating_margin'))
         target_ps = target_pe * (margin / 100.0)
@@ -465,7 +465,7 @@ def calculate_scoring_reform(valuation_data, metrics):
         if pts == 0 and ev_ebitda > 0 and 0 < peg_val <= 1.2 and fwd_growth >= 15.0: pts = 7.5 # Growth Override
         add_b("Forward EV/EBITDA", ev_ebitda, pts, 15, True)
         
-        add_b("PEG Ratio (Forward)", peg_val, 15 if (0 < peg_val < 1.0) else (7.5 if peg_val <= 1.5 else 0), 15, True)
+        add_b("PEG Ratio (Forward)", peg_val, 15 if (0 <= peg_val <= 1.2) else (8 if (1.2 < peg_val <= 1.8) else 0), 15, True)
 
     return {
         "health_score_total": min(int(h_score), 100),
