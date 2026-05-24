@@ -330,7 +330,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Precise growth rate calculation for simulation scoring to prevent drift
         const growthForScoring = pegUsedGrowth > 0 ? pegUsedGrowth * 100.0 : cleanPercent(prof.revenue_growth || 10);
 
-        // --- 4. Predictive Scoring Logic (v70: Matches backend scoring.py thresholds) ---
+                // --- 4. Predictive Scoring Logic (v70: Matches backend scoring.py thresholds) ---
         if (currentBuyBreakdown) {
             currentBuyBreakdown.forEach(item => {
                 const metric = item.metric || '';
@@ -339,55 +339,156 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Sector detection (matches scoring.py logic)
                 const industry = (prof.industry || '').toLowerCase();
                 const sector = (prof.sector || '').toLowerCase();
+                
+                const isBank = industry.includes('bank') || industry.includes('credit services') || industry.includes('savings');
                 const isFin = sector.includes('financial');
-                const isBank = (industry.includes('bank') || industry.includes('credit services') || industry.includes('savings'));
+                const isInsurance = industry.includes('insurance');
                 const isREIT = sector.includes('real estate') || sector.includes('reit');
+                const isEnergy = sector.includes('energy') || sector.includes('basic materials') || sector.includes('materials');
+                const isUtilities = sector.includes('utilities') || sector.includes('telecommunication') || industry.includes('telecom');
+                const isDefensive = sector.includes('consumer defensive') || sector.includes('staples') || sector.includes('healthcare') || sector.includes('health care');
+                const isTech = sector.includes('technology') || sector.includes('communication services') || industry.includes('software') || industry.includes('internet');
 
-                if (metric === 'Margin of Safety') {
+                // Extract simulation anchors
+                const eps_5yr_g = cleanPercent(globalData.company_profile.eps_growth_5y_consensus || globalData.company_profile.eps_5yr_growth);
+                const rev_g_val = cleanPercent(globalData.company_profile.revenue_growth || 0);
+                const fwd_growth = eps_5yr_g > 0 ? eps_5yr_g : rev_g_val;
+                
+                const fwd_pe = parseFloat(globalData.company_profile.forward_pe) || 0;
+                
+                // For live simulation, recalculate simulated P/E based on forward or trailing
+                let simulatedPE = scoringPE;
+                let simulatedFwdPE = 0;
+                if (fwd_pe > 0 && prof.adjusted_eps > 0) {
+                    // if they had forward PE, simulate it using the same implied forward EPS
+                    const implied_fwd_eps = _realApiPrice / fwd_pe;
+                    simulatedFwdPE = simPrice / implied_fwd_eps;
+                }
+                
+                let activePE = simulatedPE;
+                if (isTech || isDefensive) {
+                    if (simulatedFwdPE > 0) activePE = simulatedFwdPE;
+                } else {
+                    if (simulatedFwdPE > 0) activePE = simulatedFwdPE;
+                }
+                
+                // Guard Clause Universal
+                if ((metric.includes('P/E Ratio') || metric.includes('EV / EBITDA') || metric.includes('P/S Ratio') || metric.includes('Price-to-Book') || metric.includes('P/AFFO')) && (activePE < 0 || newEvEbitda < 0 || newPS < 0 || newPB < 0)) {
+                     // handled below per metric, but generally 0 pts
+                }
+
+                if (metric.includes('Margin of Safety')) {
                     if (isFin && isBank) {
-                        newPts = (newMos > 20) ? 25 : (newMos >= 0 ? 12.5 : 0);
+                        newPts = (newMos > 15) ? 25 : ((newMos > 5) ? 25*(14.9/25.0) : (newMos >= -5 ? 10 : 0));
+                    } else if (isInsurance || isREIT || isEnergy || isUtilities || isDefensive || isTech) {
+                        newPts = (newMos > 15) ? 30 : ((newMos > 5) ? 30*(14.9/25.0) : (newMos >= -5 ? 12 : 0));
                     } else {
-                        newPts = (newMos > 20) ? 30 : (newMos >= 0 ? 15 : 0);
+                        newPts = (newMos > 15) ? 30 : ((newMos > 5) ? 30*(14.9/25.0) : (newMos >= -5 ? 12 : 0));
                     }
                     item.value = formatPercent(newMos);
                 } else if (metric.includes('P/E Ratio')) {
-                    const target_pe = getTargetPe(sector, industry);
                     let pts = 0;
-                    const rev_g_val = cleanPercent(prof.revenue_growth || 0);
-                    const peg_val = (growthForScoring > 0) ? scoringPE / growthForScoring : 0;
-                    if (scoringPE > 0) {
-                        if (scoringPE <= target_pe) {
-                            pts = 20;
-                        } else if (scoringPE <= target_pe * 1.3) {
-                            if (rev_g_val > 15 || (peg_val > 0 && peg_val < 1.5)) {
-                                pts = 15;
-                            } else {
-                                pts = 10;
+                    if (activePE > 0) {
+                        if (isFin && isBank) {
+                            if (activePE <= 13) pts = 20;
+                            else if (activePE <= 15) pts = 10;
+                        } else if (isInsurance) {
+                            if (activePE <= 15) pts = 20;
+                            else if (activePE <= 18) pts = 10;
+                        } else if (isEnergy) {
+                            if (activePE < 6) pts = 5;
+                            else if (activePE <= 15) pts = 15;
+                            else if (activePE <= 20) pts = 10;
+                        } else if (isUtilities) {
+                            if (activePE <= 15) pts = 15;
+                            else if (activePE <= 18) pts = 7.5;
+                        } else if (isDefensive) {
+                            if (activePE <= 20) pts = 20;
+                            else if (activePE <= 25) pts = 10;
+                            if (pts === 0 && activePE > 0 && pegUsedGrowth > 0) {
+                                const peg = activePE / (fwd_growth);
+                                if (peg > 0 && peg <= 1.2 && fwd_growth >= 15.0) pts = 10;
+                            }
+                        } else if (isTech) {
+                            if (activePE <= 25.0) pts = 20;
+                            else if (activePE <= 25.0 * 1.3) pts = 10;
+                            if (pts === 0 && activePE > 0 && pegUsedGrowth > 0) {
+                                const peg = activePE / (fwd_growth);
+                                if (peg > 0 && peg <= 1.2 && fwd_growth >= 20.0) pts = 10;
+                            }
+                        } else {
+                            // Industrials
+                            if (activePE <= 18) pts = 20;
+                            else if (activePE <= 22) pts = 10;
+                            if (pts === 0 && activePE > 0 && pegUsedGrowth > 0) {
+                                const peg = activePE / (fwd_growth);
+                                if (peg > 0 && peg <= 1.2 && fwd_growth >= 15.0) pts = 10;
                             }
                         }
                     }
-                    // Growth Override for P/E
-                    if (pts === 0 && scoringPE > 0) {
-                        if (peg_val > 0 && peg_val <= 1.2 && rev_g_val >= 20.0) {
-                            pts = 10;
+                    newPts = pts;
+                    item.value = activePE > 0 ? activePE.toFixed(2) + 'x' : '0.00x';
+                } else if (metric.includes('EV / EBITDA')) {
+                    let pts = 0;
+                    if (newEvEbitda > 0) {
+                        if (isEnergy) {
+                            if (newEvEbitda <= 6.0) pts = 20;
+                            else if (newEvEbitda <= 9.0) pts = 10;
+                        } else if (isUtilities) {
+                            if (newEvEbitda <= 10.0) pts = 20;
+                            else if (newEvEbitda <= 14.0) pts = 10;
+                        } else if (isDefensive) {
+                            if (newEvEbitda <= 14.0) pts = 15;
+                            else if (newEvEbitda <= 18.0) pts = 7.5;
+                            if (pts === 0 && newEvEbitda > 0 && pegUsedGrowth > 0) {
+                                const peg = activePE / (fwd_growth);
+                                if (peg > 0 && peg <= 1.2 && fwd_growth >= 15.0) pts = 7.5;
+                            }
+                        } else if (isTech) {
+                            if (newEvEbitda <= 18.0) pts = 10;
+                            else if (newEvEbitda <= 25.0) pts = 5;
+                            if (pts === 0 && newEvEbitda > 0 && pegUsedGrowth > 0) {
+                                const peg = activePE / (fwd_growth);
+                                if (peg > 0 && peg <= 1.2 && fwd_growth >= 20.0) pts = 5;
+                            }
+                        } else {
+                            if (newEvEbitda <= 12.0) pts = 10;
+                            else if (newEvEbitda <= 16.0) pts = 5;
+                            if (pts === 0 && newEvEbitda > 0 && pegUsedGrowth > 0) {
+                                const peg = activePE / (fwd_growth);
+                                if (peg > 0 && peg <= 1.2 && fwd_growth >= 15.0) pts = 5;
+                            }
                         }
                     }
                     newPts = pts;
-                    
-                    // v72: Dynamic label based on simulation anchor (adj for Tech/Health)
-                    const isTech = (sector.includes('technology') || sector.includes('communication') || industry.includes('software') || industry.includes('internet'));
-                    const isHealth = sector.includes('healthcare');
-                    item.metric = (isTech || isHealth) ? "P/E Ratio (adj.)" : "P/E Ratio (Trailing)";
-                    item.value = scoringPE > 0 ? scoringPE.toFixed(2) + 'x' : '0.00x';
-                } else if (metric === 'P/S Ratio') {
+                    item.value = newEvEbitda > 0 ? newEvEbitda.toFixed(2) + 'x' : '0.00x';
+                } else if (metric.includes('Price-to-Book')) {
+                    let pts = 0;
+                    if (newPB > 0) {
+                        if (isFin && isBank) {
+                            if (newPB < 1.5) pts = 20;
+                            else if (newPB <= 2.0) pts = 10;
+                        } else if (isInsurance) {
+                            if (newPB < 1.5) pts = 25;
+                            else if (newPB <= 2.0) pts = 12.5;
+                        } else if (isEnergy) {
+                            if (newPB <= 1.5) pts = 20;
+                            else if (newPB <= 2.5) pts = 10;
+                        } else {
+                            if (newPB <= 2.0) pts = 10;
+                            else if (newPB <= 3.0) pts = 5;
+                        }
+                    }
+                    newPts = pts;
+                    item.value = newPB > 0 ? newPB.toFixed(2) + 'x' : '0.00x';
+                } else if (metric.includes('P/S Ratio')) {
                     const target_pe = getTargetPe(sector, industry);
                     const margin = cleanPercent(globalData.company_profile.ebit_margin || globalData.company_profile.operating_margin || 0); 
                     const target_ps = target_pe * (margin / 100.0);
                     let pts = 0;
                     if (newPS > 0) {
                         if (margin < 0) {
-                            const rev_g_val = cleanPercent(prof.revenue_growth || 0);
-                            if (rev_g_val > 20 && newPS <= 5.0) pts = 5;
+                            if (fwd_growth > 20 && newPS <= 5.0) pts = 5;
                         } else {
                             if (newPS <= target_ps) pts = 10;
                             else if (newPS <= target_ps * 1.5) pts = 5;
@@ -395,71 +496,35 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     newPts = pts;
                     item.value = newPS > 0 ? newPS.toFixed(2) + 'x' : '0.00x';
-                } else if (metric === 'EV / EBITDA') {
-                    let base_exc = 16.0, base_acc = 18.0;
-                    if (['utilities', 'energy', 'industrials', 'telecommunication', 'materials'].some(x => sector.includes(x) || industry.includes(x))) {
-                        base_exc = 8.0; base_acc = 10.0;
-                    } else if (['consumer staples', 'health care', 'healthcare', 'defensive'].some(x => sector.includes(x) || industry.includes(x))) {
-                        base_exc = 12.0; base_acc = 14.0;
-                    }
-                    
-                    let growth_mult = 1.0;
-                    const rev_g_val = cleanPercent(prof.revenue_growth || 0);
-                    if (rev_g_val > 20.0) growth_mult = 1.8;
-                    else if (rev_g_val >= 10.0) growth_mult = 1.3;
-                    
-                    const target_exc = base_exc * growth_mult;
-                    const target_acc = base_acc * growth_mult;
-                    
-                    let pts = 0;
-                    if (newEvEbitda > 0) {
-                        if (newEvEbitda <= target_exc) pts = 10;
-                        else if (newEvEbitda <= target_acc) pts = 5;
-                    }
-                    
-                    // Growth Override
-                    if (pts === 0 && newEvEbitda > 0) {
-                        const peg_val = (growthForScoring > 0) ? scoringPE / growthForScoring : 0;
-                        if (peg_val > 0 && peg_val <= 1.2 && rev_g_val >= 20.0) {
-                            pts = 5;
-                        }
-                    }
-                    
-                    newPts = pts;
-                    item.value = newEvEbitda > 0 ? newEvEbitda.toFixed(2) + 'x' : '0.00x';
-                } else if (metric === 'Price-to-Book' || metric === 'P/B Ratio') {
-                    newPts = (newPB > 0 && newPB < 1.2) ? 15 : ((newPB > 0 && newPB <= 2.0) ? 7.5 : 0);
-                    item.value = newPB > 0 ? newPB.toFixed(2) + 'x' : '0.00x';
-                } else if (metric === 'Dividend Yield') {
+                } else if (metric.includes('Dividend Yield')) {
                     const dyPct = newDivYield * 100;
                     if (isREIT) newPts = dyPct > 5 ? 15 : (dyPct >= 3 ? 7.5 : 0);
-                    else if (isFin) newPts = dyPct > 4 ? 15 : (dyPct >= 2 ? 7.5 : 0);
-                    else newPts = 0; // Default template doesn't use DY for scoring points usually
+                    else if (isFin && isBank) newPts = dyPct > 4 ? 15 : (dyPct >= 2 ? 7.5 : 0);
+                    else if (isInsurance) newPts = dyPct > 3 ? 15 : (dyPct >= 1.5 ? 7.5 : 0);
+                    else if (isEnergy) newPts = dyPct > 4 ? 15 : (dyPct >= 2 ? 7.5 : 0);
+                    else if (isUtilities) newPts = dyPct > 4 ? 25 : (dyPct >= 2.5 ? 12.5 : 0);
+                    else newPts = 0;
                     item.value = dyPct.toFixed(1) + '%';
-                } else if (metric === 'PEG Ratio') {
-                    const newPEG = (growthForScoring > 0) ? scoringPE / growthForScoring : 0;
-                    if (isFin) newPts = (newPEG > 0 && newPEG < 1.0) ? 15 : ((newPEG > 0 && newPEG <= 1.5) ? 7.5 : 0);
+                } else if (metric.includes('PEG Ratio')) {
+                    const newPEG = (fwd_growth > 0 && activePE > 0) ? activePE / fwd_growth : 0;
+                    if (isFin && isBank) newPts = (newPEG > 0 && newPEG < 1.0) ? 10 : ((newPEG > 0 && newPEG <= 1.5) ? 5 : 0);
+                    else if (isDefensive) newPts = (newPEG > 0 && newPEG < 1.5) ? 20 : ((newPEG > 0 && newPEG <= 2.0) ? 10 : 0);
+                    else if (isTech) newPts = (newPEG > 0 && newPEG < 1.5) ? 10 : ((newPEG > 0 && newPEG <= 2.0) ? 5 : 0);
                     else newPts = (newPEG > 0 && newPEG < 1.0) ? 10 : ((newPEG > 0 && newPEG <= 1.5) ? 5 : 0);
                     item.value = newPEG > 0 ? newPEG.toFixed(2) + 'x' : '0.00x';
-                } else if (metric === 'FCF Yield') {
-                    const fyPct = (fcfPerShare > 0) ? (fcfPerShare / simPrice) * 100 : 0;
-                    newPts = fyPct > 10 ? 15 : (fyPct >= 5 ? 7.5 : 0);
-                    item.value = fyPct.toFixed(1) + '%';
-                } else if (metric === 'P/AFFO') {
+                } else if (metric.includes('P/AFFO')) {
                     const affoPerShare = prof.price_to_affo > 0 ? (_originalPrice / prof.price_to_affo) : 0;
                     const newPAFFO = affoPerShare > 0 ? simPrice / affoPerShare : 0;
                     let pts = 0;
                     if (newPAFFO > 0) {
-                        if (newPAFFO <= 15) {
-                            pts = 20;
-                        } else if (newPAFFO <= 15 * 1.3) {
-                            const affo_g_val = prof.affo_growth || 0;
-                            if (affo_g_val > 15) pts = 15;
-                            else pts = 10;
-                        }
+                        if (newPAFFO <= 15) pts = 20;
+                        else if (newPAFFO <= 18) pts = 10;
                     }
                     newPts = pts;
                     item.value = newPAFFO > 0 ? newPAFFO.toFixed(2) + 'x' : '0.00x';
+                } else if (metric.includes('Rev Growth') || metric.includes('EPS Growth') || metric.includes('AFFO Growth')) {
+                    // Growth points are static in simulation since simulation only affects price derivatives
+                    item.value = fwd_growth > 0 ? fwd_growth.toFixed(1) + '%' : '0.0%';
                 }
 
                 item.points_awarded = Math.min(newPts, item.max_points);
