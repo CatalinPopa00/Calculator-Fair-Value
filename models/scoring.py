@@ -406,9 +406,9 @@ def calculate_scoring_reform(valuation_data, metrics):
     elif is_tech:
         # Sector 1: Technology & Software
         de = clean_ratio(metrics.get('debt_to_equity'))
-        add_h("Debt-to-Equity", de, 20 if (0 <= de < 0.5) else (10 if de < 1.0 else 0), 20, True)
+        add_h("Debt-to-Equity", de, 20 if (0 <= de <= 1.0) else (10 if de <= 2.0 else 0), 20, True)
         cr = clean_ratio(metrics.get('current_ratio'))
-        add_h("Current Ratio", cr, 20 if cr >= 1.5 else (10 if cr >= 1.0 else 0), 20, True)
+        add_h("Current Ratio", cr, 20 if cr >= 1.0 else (10 if cr >= 0.8 else 0), 20, True)
         ic = clean_ratio(metrics.get('interest_coverage'))
         add_h("Interest Coverage", ic, 20 if ic > 5.0 else (10 if ic >= 3.0 else 0), 20, True)
         roe = clean_percent(metrics.get('roe'))
