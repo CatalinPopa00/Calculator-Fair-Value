@@ -994,10 +994,13 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         safe_mos = margin_of_safety if margin_of_safety is not None else 0
         safe_median_peg = median_peer_peg if median_peer_peg is not None else 0
         
+        from models.scoring import calculate_health_score
         scoring_results = calculate_scoring_reform({"margin_of_safety": safe_mos, "sector_median_peg": safe_median_peg}, data)
         
-        health_score_total = scoring_results.get("health_score_total")
-        health_breakdown = scoring_results.get("health_breakdown")
+        health_results = calculate_health_score(data)
+        health_score_total = health_results.get("total")
+        health_breakdown = health_results.get("breakdown")
+        beneish_data = health_results.get("beneish")
         
         good_to_buy_total = scoring_results.get("good_to_buy_total")
         buy_breakdown = scoring_results.get("buy_breakdown")
@@ -1116,6 +1119,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             "company_overview_synthesis": data.get("company_overview_synthesis"),
             "health_score_total": health_score_total,
             "health_breakdown": health_breakdown,
+            "health_score": { "beneish": beneish_data },
             "good_to_buy_total": good_to_buy_total,
             "buy_breakdown": buy_breakdown,
             "piotroski": piotroski_result,
