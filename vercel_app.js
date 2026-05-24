@@ -341,7 +341,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 
                 // Guard Clause Universal
-                if ((metric.includes('P/E Ratio') || metric.includes('EV / EBITDA') || metric.includes('P/S Ratio') || metric.includes('Price-to-Book') || metric.includes('P/AFFO')) && (activePE < 0 || newEvEbitda < 0 || newPS < 0 || newPB < 0)) {
+                if ((metric.includes('P/E Ratio') || (metric.includes('EV/EBITDA') || metric.includes('EV / EBITDA')) || metric.includes('P/S Ratio') || metric.includes('Price-to-Book') || (metric.includes('P/AFFO') || metric.includes('P/AFFO'))) && (activePE < 0 || newEvEbitda < 0 || newPS < 0 || newPB < 0)) {
                      // handled below per metric, but generally 0 pts
                 }
 
@@ -396,7 +396,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     newPts = pts;
                     item.value = activePE > 0 ? activePE.toFixed(2) + 'x' : '0.00x';
-                } else if (metric.includes('EV / EBITDA')) {
+                } else if ((metric.includes('EV/EBITDA') || metric.includes('EV / EBITDA'))) {
                     let pts = 0;
                     if (newEvEbitda > 0) {
                         if (isEnergy) {
@@ -480,7 +480,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     else if (isTech) newPts = (newPEG > 0 && newPEG < 1.5) ? 10 : ((newPEG > 0 && newPEG <= 2.0) ? 5 : 0);
                     else newPts = (newPEG > 0 && newPEG < 1.0) ? 10 : ((newPEG > 0 && newPEG <= 1.5) ? 5 : 0);
                     item.value = newPEG > 0 ? newPEG.toFixed(2) + 'x' : '0.00x';
-                } else if (metric.includes('P/AFFO')) {
+                } else if ((metric.includes('P/AFFO') || metric.includes('P/AFFO'))) {
                     const affoPerShare = prof.price_to_affo > 0 ? (_originalPrice / prof.price_to_affo) : 0;
                     const newPAFFO = affoPerShare > 0 ? simPrice / affoPerShare : 0;
                     let pts = 0;
