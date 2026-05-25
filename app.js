@@ -2016,14 +2016,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const earnGrowth = prof.earnings_growth || 0;
             const fcfGrowth = prof.historic_fcf_growth || 0;
 
-            const company_eps = (rel.company_fwd_eps || 0) > 0 ? rel.company_fwd_eps : (rel.company_eps || 0) * (1 + earnGrowth);
-            const company_fcf_share = (rel.company_fcf_share || 0) * (1 + fcfGrowth);
+            const company_eps = (rel.company_fwd_eps || 0) > 0 ? rel.company_fwd_eps : (rel.company_eps || 0);
+            const company_fcf_share = (rel.company_fcf_share || 0);
             
             const explicit_fwd_ps = globalData.company_profile && globalData.company_profile.fwd_ps;
-            const company_sales_share = explicit_fwd_ps > 0 ? (globalData.current_price / explicit_fwd_ps) : (rel.company_sales_share || 0) * (1 + revGrowth);
+            const company_sales_share = explicit_fwd_ps > 0 ? (globalData.current_price / explicit_fwd_ps) : (rel.company_sales_share || 0);
             
             const company_book_share = rel.company_book_share || 0; // Book value remains TTM
-            const company_ebitda = (globalData.ebitda || 0) * (1 + earnGrowth);
+            const company_ebitda = (globalData.ebitda || 0);
             const company_debt = globalData.total_debt || 0;
             const company_cash = globalData.total_cash || 0;
             const company_shares = (globalData.company_profile && globalData.company_profile.shares_outstanding) || 1;
@@ -2158,7 +2158,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (mc) mc.textContent = multipleLabel;
             
             // --- Populate custom weight inputs on the card ---
-            const LABEL = { PE: 'Fwd P/E', PFCF: 'Fwd P/FCF', PS: 'Fwd P/S', PB: 'Current P/B', EV_EBITDA: 'Fwd EV/EBITDA', P_FFO: 'Fwd P/FFO', P_AFFO: 'Fwd P/AFFO' };
+            const LABEL = { PE: 'Fwd P/E', PFCF: 'Trailing P/FCF', PS: 'P/S', PB: 'Current P/B', EV_EBITDA: 'Trailing EV/EBITDA', P_FFO: 'Trailing P/FFO', P_AFFO: 'Trailing P/AFFO' };
             const activeKeys = Object.keys(weights).filter(k => weights[k] !== undefined);
             const cwPanel = document.getElementById('rel-custom-weights-card');
             if (cwPanel) {
@@ -4619,7 +4619,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const activeKeys = Object.keys(weightsToUse).filter(k => (weightsToUse[k] || 0) > 0);
                 
                 // Label map
-                const LABEL = { PE: 'Fwd P/E', PFCF: 'Fwd P/FCF', PS: 'Fwd P/S', PB: 'Current P/B', EV_EBITDA: 'Fwd EV/EBITDA', P_FFO: 'Fwd P/FFO', P_AFFO: 'Fwd P/AFFO' };
+                const LABEL = { PE: 'Fwd P/E', PFCF: 'Trailing P/FCF', PS: 'P/S', PB: 'Current P/B', EV_EBITDA: 'Trailing EV/EBITDA', P_FFO: 'Trailing P/FFO', P_AFFO: 'Trailing P/AFFO' };
                 const peerKeyMap = { PE: 'pe_ratio', PFCF: 'pfcf_ratio', PS: 'ps_ratio', PB: 'price_to_book', EV_EBITDA: 'ev_to_ebitda' };
 
                 // --- Competitor Table ---
@@ -4753,18 +4753,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const getImplied = (key, bench) => {
                     const prof = globalData.company_profile || {};
-                    const revGrowth = prof.revenue_growth || 0;
-                    const earnGrowth = prof.earnings_growth || 0;
-                    const fcfGrowth = prof.historic_fcf_growth || 0;
 
-                    const eps = (r.company_fwd_eps || 0) > 0 ? r.company_fwd_eps : (r.company_eps || 0) * (1 + earnGrowth);
-                    const fcfS = (r.company_fcf_share || 0) * (1 + fcfGrowth);
+                    const eps = (r.company_fwd_eps || 0) > 0 ? r.company_fwd_eps : (r.company_eps || 0);
+                    const fcfS = (r.company_fcf_share || 0);
                     
                     const explicit_fwd_ps = prof.fwd_ps;
-                    const salesS = explicit_fwd_ps > 0 ? (globalData.current_price / explicit_fwd_ps) : (r.company_sales_share || 0) * (1 + revGrowth);
+                    const salesS = explicit_fwd_ps > 0 ? (globalData.current_price / explicit_fwd_ps) : (r.company_sales_share || 0);
                     
                     const bookS = r.company_book_share || 0;
-                    const ebitda = (globalData.ebitda || 0) * (1 + earnGrowth);
+                    const ebitda = (globalData.ebitda || 0);
                     
                     const debt = globalData.total_debt || 0;
                     const cash = globalData.total_cash || 0;

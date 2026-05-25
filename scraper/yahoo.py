@@ -3189,7 +3189,7 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=5, inc
                         c_inf, ts = _peer_info_cache[t]
                         if now - ts < 86400: return c_inf
                     
-                    kv_key = f"peer_v7_{t}" 
+                    kv_key = f"peer_v8_{t}" 
                     kv_data = kv_get(kv_key)
                     if kv_data and isinstance(kv_data, dict):
                         _peer_info_cache[t] = (kv_data, now)
@@ -3259,17 +3259,7 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=5, inc
                         r1 = analysis['rev'].get('0y', {})
                         if r1.get('avg') and p_shares: fwd_ps_explicit = p_price / (r1['avg'] / p_shares)
                     except: pass
-                    fwd_ps = fwd_ps_explicit or (ttm_ps / (1 + rev_growth) if ttm_ps and rev_growth > -0.99 else ttm_ps)
-                    
-                    fwd_ev = ttm_ev / (1 + earn_growth) if ttm_ev and earn_growth > -0.99 else ttm_ev
-                    
-                    ttm_eps = inf.get('trailingEps')
-                    if fwd_eps_explicit and ttm_eps and ttm_eps > 0:
-                        implied_earn_growth = (fwd_eps_explicit / ttm_eps) - 1
-                        if implied_earn_growth > -0.99:
-                            fwd_ev = ttm_ev / (1 + implied_earn_growth) if ttm_ev else ttm_ev
-                    
-                    fwd_pfcf = ttm_pfcf / (1 + fcf_growth) if ttm_pfcf and fcf_growth > -0.99 else ttm_pfcf
+                    fwd_ps = fwd_ps_explicit or ttm_ps
                     
                     p_data = {
                         "ticker": t,
@@ -3278,12 +3268,12 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=5, inc
                         "pe_ratio": fwd_pe or ttm_pe,
                         "peg_ratio": inf.get('trailingPegRatio') or inf.get('pegRatio'),
                         "market_cap": mcap,
-                        "ps_ratio": fwd_ps or ttm_ps,
+                        "ps_ratio": fwd_ps,
                         "revenue": inf.get('totalRevenue') or inf.get('revenue'),
                         "fcf": fcf_val,
-                        "pfcf_ratio": fwd_pfcf or ttm_pfcf,
+                        "pfcf_ratio": ttm_pfcf,
                         "price_to_book": inf.get('priceToBook') or (p_price / inf.get('bookValue') if inf.get('bookValue') and inf.get('bookValue') > 0 else None),
-                        "ev_to_ebitda": fwd_ev or ttm_ev,
+                        "ev_to_ebitda": ttm_ev,
                         "eps": fwd_eps_explicit or inf.get('forwardEps') or inf.get('trailingEps'),
                         "operating_margin": inf.get('operatingMargins') or inf.get('ebitdaMargins'),
                         "industry": inf.get('industry') or target_industry,
