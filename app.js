@@ -2530,7 +2530,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 cachedWatchlistData.push({ ...data });
             }
-            sessionStorage.setItem(`valuation_${data.ticker.toUpperCase()}`, JSON.stringify({ data, ts: Date.now() }));
+            sessionStorage.setItem(`val_v2_${data.ticker.toUpperCase()}`, JSON.stringify({ data, ts: Date.now() }));
         }
 
         // DESCRIPTION CARD INJECTION
@@ -3279,7 +3279,7 @@ document.addEventListener('DOMContentLoaded', () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         }).then(() => {
-            sessionStorage.removeItem(`valuation_${ticker.toUpperCase()}`);
+            sessionStorage.removeItem(`val_v2_${ticker.toUpperCase()}`);
         }).catch(err => console.error('Override sync error:', err));
         
         pendingOverridePayload = null;
@@ -3367,7 +3367,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const deleteOverrideFromServer = (ticker) => {
         delete cachedOverrides[ticker];
         fetch(`/api/overrides/${ticker}`, { method: 'DELETE' })
-            .then(() => sessionStorage.removeItem(`valuation_${ticker.toUpperCase()}`))
+            .then(() => sessionStorage.removeItem(`val_v2_${ticker.toUpperCase()}`))
             .catch(err => console.error('Override delete error:', err));
     };
 
@@ -4301,7 +4301,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // v38: Call individual valuation endpoint. 
                 // skip_peers=false to ensure scores are 100% sync'd with dashboard.
                 // Check client-side cache first (15 min TTL)
-                const cacheKey = `valuation_${tUpper}`;
+                const cacheKey = `val_v2_${tUpper}`;
                 const cached = sessionStorage.getItem(cacheKey);
                 if (cached) {
                     const { data: cachedData, ts } = JSON.parse(cached);
