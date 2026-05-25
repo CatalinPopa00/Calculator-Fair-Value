@@ -1951,11 +1951,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
             let fvPE = 0, fvPFCF = 0, fvPS = 0, fvPB = 0, fvEVEBITDA = 0;
             
-            const company_eps = rel.company_eps || 0;
-            const company_fcf_share = rel.company_fcf_share || 0;
-            const company_sales_share = rel.company_sales_share || 0;
-            const company_book_share = rel.company_book_share || 0;
-            const company_ebitda = globalData.ebitda || 0;
+            const revGrowth = prof.revenue_growth || 0;
+            const earnGrowth = prof.earnings_growth || 0;
+            const fcfGrowth = prof.historic_fcf_growth || 0;
+
+            const company_eps = (rel.company_fwd_eps || 0) > 0 ? rel.company_fwd_eps : (rel.company_eps || 0) * (1 + earnGrowth);
+            const company_fcf_share = (rel.company_fcf_share || 0) * (1 + fcfGrowth);
+            const company_sales_share = (rel.company_sales_share || 0) * (1 + revGrowth);
+            const company_book_share = rel.company_book_share || 0; // Book value remains TTM
+            const company_ebitda = (globalData.ebitda || 0) * (1 + earnGrowth);
             const company_debt = globalData.total_debt || 0;
             const company_cash = globalData.total_cash || 0;
             const company_shares = (globalData.company_profile && globalData.company_profile.shares_outstanding) || 1;

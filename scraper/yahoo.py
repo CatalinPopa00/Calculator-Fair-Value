@@ -3206,29 +3206,47 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=5, inc
                         if candidate_scores.get(t, 0) <= 3:
                             return None
 
+                    rev_growth = inf.get('revenueGrowth') or inf.get('revenueQuarterlyGrowth') or 0
+                    earn_growth = inf.get('earningsGrowth') or inf.get('earningsQuarterlyGrowth') or 0
+                    fcf_growth = inf.get('freeCashflowGrowth') or inf.get('operatingCashflowGrowth') or 0
+
                     p_price = inf.get('regularMarketPrice') or inf.get('currentPrice')
+                    
+                    ttm_pe = inf.get('trailingPE')
+                    ttm_ps = inf.get('priceToSalesTrailing12Months') or inf.get('priceToSales')
+                    ttm_ev = inf.get('enterpriseToEbitda')
+                    
+                    fcf_val = inf.get('freeCashflow') or inf.get('operatingCashflow')
+                    mcap = inf.get('marketCap')
+                    ttm_pfcf = (mcap / fcf_val) if fcf_val and mcap else None
+                    
+                    fwd_pe = inf.get('forwardPE') or ttm_pe
+                    fwd_ps = ttm_ps / (1 + rev_growth) if ttm_ps and rev_growth > -0.99 else ttm_ps
+                    fwd_ev = ttm_ev / (1 + earn_growth) if ttm_ev and earn_growth > -0.99 else ttm_ev
+                    fwd_pfcf = ttm_pfcf / (1 + fcf_growth) if ttm_pfcf and fcf_growth > -0.99 else ttm_pfcf
+                    
                     p_data = {
                         "ticker": t,
                         "name": inf.get('shortName') or inf.get('longName') or t,
                         "price": p_price,
-                        "pe_ratio": inf.get('trailingPE') or inf.get('forwardPE'),
+                        "pe_ratio": fwd_pe or ttm_pe,
                         "peg_ratio": inf.get('trailingPegRatio') or inf.get('pegRatio'),
-                        "market_cap": inf.get('marketCap'),
-                        "ps_ratio": inf.get('priceToSalesTrailing12Months') or inf.get('priceToSales'),
+                        "market_cap": mcap,
+                        "ps_ratio": fwd_ps or ttm_ps,
                         "revenue": inf.get('totalRevenue') or inf.get('revenue'),
-                        "fcf": inf.get('freeCashflow') or inf.get('operatingCashflow'),
-                        "pfcf_ratio": (inf.get('marketCap') / inf.get('freeCashflow')) if inf.get('freeCashflow') and inf.get('marketCap') else (inf.get('marketCap') / inf.get('operatingCashflow') if inf.get('operatingCashflow') and inf.get('marketCap') else None),
+                        "fcf": fcf_val,
+                        "pfcf_ratio": fwd_pfcf or ttm_pfcf,
                         "price_to_book": inf.get('priceToBook') or (p_price / inf.get('bookValue') if inf.get('bookValue') and inf.get('bookValue') > 0 else None),
-                        "ev_to_ebitda": inf.get('enterpriseToEbitda'),
-                        "eps": inf.get('trailingEps') or inf.get('forwardEps'),
+                        "ev_to_ebitda": fwd_ev or ttm_ev,
+                        "eps": inf.get('forwardEps') or inf.get('trailingEps'),
                         "operating_margin": inf.get('operatingMargins') or inf.get('ebitdaMargins'),
                         "industry": inf.get('industry') or target_industry,
                         "sector": p_sector or sector
                     }
                     if include_growth:
-                        p_data["revenue_growth"] = inf.get('revenueGrowth') or inf.get('revenueQuarterlyGrowth')
-                        p_data["earnings_growth"] = inf.get('earningsGrowth') or inf.get('earningsQuarterlyGrowth')
-                        p_data["fcf_growth"] = inf.get('freeCashflowGrowth') or inf.get('operatingCashflowGrowth')
+                        p_data["revenue_growth"] = rev_growth
+                        p_data["earnings_growth"] = earn_growth
+                        p_data["fcf_growth"] = fcf_growth
                     
                     _peer_info_cache[t] = (p_data, now)
                     kv_set(kv_key, p_data, ex=86400)
