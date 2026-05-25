@@ -3262,6 +3262,13 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=5, inc
                     fwd_ps = fwd_ps_explicit or (ttm_ps / (1 + rev_growth) if ttm_ps and rev_growth > -0.99 else ttm_ps)
                     
                     fwd_ev = ttm_ev / (1 + earn_growth) if ttm_ev and earn_growth > -0.99 else ttm_ev
+                    
+                    ttm_eps = inf.get('trailingEps')
+                    if fwd_eps_explicit and ttm_eps and ttm_eps > 0:
+                        implied_earn_growth = (fwd_eps_explicit / ttm_eps) - 1
+                        if implied_earn_growth > -0.99:
+                            fwd_ev = ttm_ev / (1 + implied_earn_growth) if ttm_ev else ttm_ev
+                    
                     fwd_pfcf = ttm_pfcf / (1 + fcf_growth) if ttm_pfcf and fcf_growth > -0.99 else ttm_pfcf
                     
                     p_data = {
