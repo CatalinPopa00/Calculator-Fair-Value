@@ -138,6 +138,30 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentBuyBreakdown = null;
     let _originalBuyBreakdown = null;
     let _originalBuyScore = null;
+
+    // --- Dynamic Industry PEG Calculation (v320) ---
+    function recalcIndustryPeg(prof) {
+        if (!prof || !prof.competitor_metrics) return;
+        const validPegs = prof.competitor_metrics
+            .map(p => parseFloat(p.peg_ratio))
+            .filter(v => !isNaN(v) && v > 0);
+        
+        let median = 1.25; // Fallback
+        if (validPegs.length > 0) {
+            validPegs.sort((a, b) => a - b);
+            const mid = Math.floor(validPegs.length / 2);
+            if (validPegs.length % 2 === 0) {
+                median = (validPegs[mid - 1] + validPegs[mid]) / 2;
+            } else {
+                median = validPegs[mid];
+            }
+        }
+        if (globalData && globalData.formula_data && globalData.formula_data.peg) {
+            globalData.formula_data.peg.industry_peg = median;
+        }
+        return median;
+    }
+
     let currentPiotroskiBreakdown = null;
     let chartRevFcf = null;
     let chartEpsShares = null;
@@ -1142,8 +1166,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (prof.original_competitor_metrics) {
                     prof.competitor_metrics = JSON.parse(JSON.stringify(prof.original_competitor_metrics));
                     prof.competitors = prof.competitor_metrics.map(p => p.ticker);
+                    recalcIndustryPeg(prof);
                 }
                 renderComparisonModal(prof);
+                if (typeof updateFairValue === 'function') updateFairValue();
             };
         }
 
@@ -1194,6 +1220,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     if (!prof.competitors) prof.competitors = [];
                     if (!prof.competitors.includes(rawVal)) prof.competitors.push(rawVal);
+                    
+                    recalcIndustryPeg(prof);
                     
                     // Persist to local storage
                     localStorage.setItem('customPeers_' + (prof.ticker || currentTicker), JSON.stringify(prof.competitor_metrics));
@@ -2409,6 +2437,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 const peersList = JSON.parse(savedPeers);
                 data.company_profile.competitor_metrics = peersList;
                 data.company_profile.competitors = peersList.map(p => p.ticker);
+                
+                // Recalculate PEG Sector live based on custom peers
+                if (data.formula_data && data.formula_data.peg) {
+                    const validPegs = peersList.map(p => parseFloat(p.peg_ratio)).filter(v => !isNaN(v) && v > 0);
+                    if (validPegs.length > 0) {
+                        validPegs.sort((a, b) => a - b);
+                        const mid = Math.floor(validPegs.length / 2);
+                        data.formula_data.peg.industry_peg = (validPegs.length % 2 === 0) 
+                            ? (validPegs[mid - 1] + validPegs[mid]) / 2 
+                            : validPegs[mid];
+                    }
+                }
             } catch (e) {
                 console.error("Error loading custom peers", e);
             }
