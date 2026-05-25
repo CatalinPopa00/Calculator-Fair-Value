@@ -632,7 +632,21 @@ document.addEventListener('DOMContentLoaded', () => {
     // Load overrides from server on startup
     fetch('/api/overrides?t=' + Date.now(), { cache: 'no-store' }).then(r => r.json()).then(data => {
         cachedOverrides = data || {};
-    }).catch(() => { cachedOverrides = {}; });
+    }).catch(e => console.error('Overrides load error:', e));
+
+    // v315: Force clear old customPeers cache to apply new Forward-First backend logic
+    if (!localStorage.getItem('v315_peers_reset')) {
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && k.startsWith('customPeers_')) {
+                keysToRemove.push(k);
+            }
+        }
+        keysToRemove.forEach(k => localStorage.removeItem(k));
+        localStorage.setItem('v315_peers_reset', 'true');
+        console.log('Cleared old custom peers cache to apply new FWD logic.');
+    }
 
     const getSmartWeights = (sector) => {
         let w = { dcf: 25, peg: 25, relative: 25, lynch: 25 }; 
