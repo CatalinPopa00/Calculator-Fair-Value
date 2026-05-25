@@ -160,7 +160,7 @@ def calculate_scoring_reform(valuation_data, metrics):
     is_energy = 'energy' in sector or 'basic materials' in sector or 'materials' in sector
     is_utilities = 'utilities' in sector or 'telecommunication' in sector or 'telecom' in industry
     is_defensive = 'consumer defensive' in sector or 'staples' in sector or 'healthcare' in sector or 'health care' in sector
-    is_tech = 'technology' in sector or 'communication services' in sector or 'software' in industry or 'internet' in industry
+    is_tech = 'technology' in sector or 'communication services' in sector or 'software' in industry or 'internet' in industry or 'information services' in industry
     # Industrials & Consumer Discretionary is the default fallback if none of the above matches
 
     h_score = 0
@@ -455,14 +455,29 @@ def calculate_scoring_reform(valuation_data, metrics):
     else:
         # Sector 8: Industrials & Consumer Discretionary (Default fallback)
         de = clean_ratio(metrics.get('debt_to_equity'))
-        add_h("Debt-to-Equity", de, 20 if (0 <= de < 1.0) else (10 if de < 1.5 else 0), 20, True)
+        de_pts = 0
+        if 0 <= de < 1.0:
+            de_pts = 20
+        elif 0 <= de < 1.5:
+            de_pts = 10
+        elif de < 0:
+            ic_check = clean_ratio(metrics.get('interest_coverage'))
+            de_pts = 20 if ic_check > 4.0 else 0
+        add_h("Debt-to-Equity", de, de_pts, 20, True)
+        
         cr = clean_ratio(metrics.get('current_ratio'))
         add_h("Current Ratio", cr, 20 if cr >= 1.2 else (10 if cr >= 1.0 else 0), 20, True)
         ic = clean_ratio(metrics.get('interest_coverage'))
         add_h("Interest Coverage", ic, 20 if ic > 4.0 else (10 if ic >= 2.0 else 0), 20, True)
+        
         roe = clean_percent(metrics.get('roe'))
-        add_h("ROE", roe, 20 if roe > 12 else (10 if roe >= 8 else 0), 20, False)
         roic = clean_percent(metrics.get('roic'))
+        if roe <= 0 and roic > 10:
+            roe_pts = 20 if roic > 12 else 10
+            add_h("ROE (via ROIC Fallback)", roe, roe_pts, 20, False)
+        else:
+            add_h("ROE", roe, 20 if roe > 12 else (10 if roe >= 8 else 0), 20, False)
+            
         add_h("ROIC", roic, 20 if roic > 10 else (10 if roic >= 6 else 0), 20, False)
         
         add_b("Margin of Safety", mos, get_mos_points(mos, 30), 30, False)
@@ -501,6 +516,12 @@ def calculate_beneish_m_score(metrics):
         
     curr = beneish['current']
     prev = beneish['prev']
+    
+    # Fallback for Service/Tech companies with no explicitly reported "Gross Profit"
+    if curr.get('gross_profit') is None and curr.get('sales') is not None:
+        curr['gross_profit'] = curr['sales']
+    if prev.get('gross_profit') is None and prev.get('sales') is not None:
+        prev['gross_profit'] = prev['sales']
     
     def safe_div(n, d):
         if d is None or n is None or d == 0: return None
