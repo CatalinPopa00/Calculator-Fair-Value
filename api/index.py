@@ -1074,8 +1074,8 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 "operating_margin": sanitize(data.get("operating_margin")),
                 "ebit_margin": sanitize(data.get("ebit_margin")),
                 "net_margin": sanitize(data.get("net_margin")),
-                "revenue_growth": sanitize(stable_rev_growth), # Use calculated 1Y historical growth for stability
-                "earnings_growth": sanitize(consensus_growth), # Use Consensus/Nasdaq CAGRs for comparison instead of buggy Yahoo TTM
+                "revenue_growth": sanitize(next((float(e.get("growth")) for e in data.get("rev_estimates", []) if e.get("status") == "estimate" and e.get("growth") is not None), stable_rev_growth)),
+                "earnings_growth": sanitize(next((float(e.get("growth")) for e in data.get("eps_estimates", []) if e.get("status") == "estimate" and e.get("growth") is not None), consensus_growth)),
                 "rev_cagr_2y": sanitize(data.get("rev_cagr_2y")),
                 "business_summary": data.get("business_summary"),
                 "sector_median_pe": sanitize(median_peer_pe),

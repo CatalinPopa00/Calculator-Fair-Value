@@ -3206,8 +3206,32 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=5, inc
                         if candidate_scores.get(t, 0) <= 3:
                             return None
 
-                    rev_growth = inf.get('revenueGrowth') or inf.get('revenueQuarterlyGrowth') or 0
-                    earn_growth = inf.get('earningsGrowth') or inf.get('earningsQuarterlyGrowth') or 0
+                    # Use Explicit Analyst Estimates for Next FY Growth for Peers (Override Yahoo Defaults)
+                    analysis = get_yahoo_analysis_normalized(t, inf)
+                    try:
+                        r0 = analysis['rev'].get('0y', {})
+                        r1 = analysis['rev'].get('+1y', {})
+                        if r0.get('avg') and r0.get('yearAgo'):
+                            rev_growth = (r0['avg'] - r0['yearAgo']) / r0['yearAgo']
+                        elif r1.get('avg') and r0.get('avg'):
+                            rev_growth = (r1['avg'] - r0['avg']) / r0['avg']
+                        else:
+                            rev_growth = inf.get('revenueGrowth') or inf.get('revenueQuarterlyGrowth') or 0
+                    except:
+                        rev_growth = inf.get('revenueGrowth') or inf.get('revenueQuarterlyGrowth') or 0
+                        
+                    try:
+                        e0 = analysis['eps'].get('0y', {})
+                        e1 = analysis['eps'].get('+1y', {})
+                        if e0.get('avg') and e0.get('yearAgo'):
+                            earn_growth = (e0['avg'] - e0['yearAgo']) / e0['yearAgo']
+                        elif e1.get('avg') and e0.get('avg'):
+                            earn_growth = (e1['avg'] - e0['avg']) / e0['avg']
+                        else:
+                            earn_growth = inf.get('earningsGrowth') or inf.get('earningsQuarterlyGrowth') or 0
+                    except:
+                        earn_growth = inf.get('earningsGrowth') or inf.get('earningsQuarterlyGrowth') or 0
+                        
                     fcf_growth = inf.get('freeCashflowGrowth') or inf.get('operatingCashflowGrowth') or 0
 
                     p_price = inf.get('regularMarketPrice') or inf.get('currentPrice')
