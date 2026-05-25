@@ -1571,14 +1571,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 let baseRevenue = globalData.revenue;
                 
                 // Align base FCF and Revenue with the latest historical year (e.g. 2025 Base)
-                if (globalData.historical_data) {
+                if (globalData.historical_data && globalData.historical_data.years) {
                     const histFcf = globalData.historical_data.fcf;
                     const histRev = globalData.historical_data.revenue;
-                    if (histFcf && histFcf.length > 0 && histFcf[histFcf.length - 1] != null) {
-                        baseFcf = histFcf[histFcf.length - 1];
+                    const years = globalData.historical_data.years;
+                    
+                    let lastActualIdx = -1;
+                    for (let i = years.length - 1; i >= 0; i--) {
+                        if (!String(years[i]).includes('Est')) {
+                            lastActualIdx = i;
+                            break;
+                        }
                     }
-                    if (histRev && histRev.length > 0 && histRev[histRev.length - 1] != null) {
-                        baseRevenue = histRev[histRev.length - 1];
+                    
+                    if (lastActualIdx >= 0) {
+                        if (histFcf && histFcf.length > lastActualIdx && histFcf[lastActualIdx] != null) {
+                            baseFcf = histFcf[lastActualIdx];
+                        }
+                        if (histRev && histRev.length > lastActualIdx && histRev[lastActualIdx] != null) {
+                            baseRevenue = histRev[lastActualIdx];
+                        }
                     }
                 }
                 
@@ -4448,14 +4460,26 @@ document.addEventListener('DOMContentLoaded', () => {
                     let baseFcf = d.fcf || 0;
                     let baseRevenue = globalData.revenue || 0;
                     
-                    if (globalData.historical_data) {
+                    if (globalData.historical_data && globalData.historical_data.years) {
                         const histFcf = globalData.historical_data.fcf;
                         const histRev = globalData.historical_data.revenue;
-                        if (histFcf && histFcf.length > 0 && histFcf[histFcf.length - 1] != null) {
-                            baseFcf = histFcf[histFcf.length - 1];
+                        const years = globalData.historical_data.years;
+                        
+                        let lastActualIdx = -1;
+                        for (let i = years.length - 1; i >= 0; i--) {
+                            if (!String(years[i]).includes('Est')) {
+                                lastActualIdx = i;
+                                break;
+                            }
                         }
-                        if (histRev && histRev.length > 0 && histRev[histRev.length - 1] != null) {
-                            baseRevenue = histRev[histRev.length - 1];
+                        
+                        if (lastActualIdx >= 0) {
+                            if (histFcf && histFcf.length > lastActualIdx && histFcf[lastActualIdx] != null) {
+                                baseFcf = histFcf[lastActualIdx];
+                            }
+                            if (histRev && histRev.length > lastActualIdx && histRev[lastActualIdx] != null) {
+                                baseRevenue = histRev[lastActualIdx];
+                            }
                         }
                     }
                     
