@@ -1567,9 +1567,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     buybackRate = (rawVal === '' || isNaN(parseLocaleFloat(rawVal))) ? 0 : parseLocaleFloat(rawVal) / 100;
                 }
 
-                const baseFcf = currentFormulaData.dcf.fcf;
-                const baseRevenue = globalData.revenue || (prof.market_cap && prof.ps_ratio && prof.ps_ratio > 0 ? prof.market_cap / prof.ps_ratio : null) || 0;
+                let baseFcf = currentFormulaData.dcf.fcf;
+                let baseRevenue = globalData.revenue;
                 
+                // Align base FCF and Revenue with the latest historical year (e.g. 2025 Base)
+                if (globalData.historical_data) {
+                    const histFcf = globalData.historical_data.fcf;
+                    const histRev = globalData.historical_data.revenue;
+                    if (histFcf && histFcf.length > 0 && histFcf[histFcf.length - 1] != null) {
+                        baseFcf = histFcf[histFcf.length - 1];
+                    }
+                    if (histRev && histRev.length > 0 && histRev[histRev.length - 1] != null) {
+                        baseRevenue = histRev[histRev.length - 1];
+                    }
+                }
+                
+                baseRevenue = baseRevenue || (prof.market_cap && prof.ps_ratio && prof.ps_ratio > 0 ? prof.market_cap / prof.ps_ratio : null) || 0;
+
                 const customMarginEl = document.getElementById('dcf-custom-fcf-margin');
                 const customMargin = (customMarginEl && customMarginEl.value !== '') ? parseLocaleFloat(customMarginEl.value) : null;
                 
@@ -4431,8 +4445,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     const fcfYears = dataObj.fcf_projections || [];
                     const sensMatrix = method === 'perpetual' ? (dataObj.sensitivity_matrix || []) : [];
                     
-                    const baseFcf = d.fcf || 0;
-                    const baseRevenue = globalData.revenue || 0;
+                    let baseFcf = d.fcf || 0;
+                    let baseRevenue = globalData.revenue || 0;
+                    
+                    if (globalData.historical_data) {
+                        const histFcf = globalData.historical_data.fcf;
+                        const histRev = globalData.historical_data.revenue;
+                        if (histFcf && histFcf.length > 0 && histFcf[histFcf.length - 1] != null) {
+                            baseFcf = histFcf[histFcf.length - 1];
+                        }
+                        if (histRev && histRev.length > 0 && histRev[histRev.length - 1] != null) {
+                            baseRevenue = histRev[histRev.length - 1];
+                        }
+                    }
+                    
                     const customMarginEl = document.getElementById('dcf-custom-fcf-margin');
                     const customMargin = (customMarginEl && customMarginEl.value !== '') ? parseLocaleFloat(customMarginEl.value) : null;
                     let startingFcfMargin = 0.10;
@@ -4552,8 +4578,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     defaultWeights = SECTOR_WEIGHTS['Technology_Growth'];
                 }
                 
+                // --- Custom Weights Logic ---
+                const ticker = globalData.ticker;
+                const overrides = cachedOverrides[ticker]?.inputs || {};
+                const customW = {};
+                let hasCustomW = false;
+                ['w-pe', 'w-pfcf', 'w-ps', 'w-pb', 'w-evebitda'].forEach(id => {
+                    if (overrides[id] !== undefined) {
+                        const k = id.split('-')[1].toUpperCase().replace('EVEBITDA', 'EV_EBITDA');
+                        customW[k] = overrides[id] / 100;
+                        hasCustomW = true;
+                    }
+                });
+                const weightsToUse = hasCustomW ? customW : defaultWeights;
+                
                 // Active metric keys for this sector
-                const activeKeys = Object.keys(defaultWeights).filter(k => (defaultWeights[k] || 0) > 0);
+                const activeKeys = Object.keys(weightsToUse).filter(k => (weightsToUse[k] || 0) > 0);
                 
                 // Label map
                 const LABEL = { PE: 'Fwd P/E', PFCF: 'Fwd P/FCF', PS: 'Fwd P/S', PB: 'Current P/B', EV_EBITDA: 'Fwd EV/EBITDA', P_FFO: 'Fwd P/FFO', P_AFFO: 'Fwd P/AFFO' };
@@ -4713,7 +4753,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 activeKeys.forEach(k => {
                     const bench = getBenchmark(k);
                     const implied = getImplied(k, bench);
-                    const w = defaultWeights[k] || 0;
+                    const w = weightsToUse[k] || 0;
                     const safeImpl = implied > 0 ? implied : 0;
                     const implColor = safeImpl > 0 ? 'white' : 'var(--text-muted)';
                     breakdownRows += `
@@ -4730,7 +4770,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 activeKeys.forEach(k => {
                     const b = getBenchmark(k);
                     const impl = getImplied(k, b);
-                    const w = defaultWeights[k] || 0;
+                    const w = weightsToUse[k] || 0;
                     if (w > 0 && impl > 0) { _initSum += impl * w; _initTot += w; }
                 });
                 const modalFV = _initTot > 0 ? _initSum / _initTot : 0;
