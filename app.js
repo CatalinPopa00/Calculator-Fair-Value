@@ -2123,9 +2123,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const customWKey = 'rel-weight-mode-card';
             const modeCardEl = document.getElementById(customWKey);
             if (modeCardEl && modeCardEl.value === 'custom' && window._relCustomWeights) {
-                // Override weights with user's custom values
-                const cw = window._relCustomWeights;
-                Object.keys(cw).forEach(k => { if (weights[k] !== undefined) weights[k] = cw[k]; });
+                // Override weights with user's custom values completely
+                weights = window._relCustomWeights;
             }
 
             let weightedSum = 0;
@@ -4753,14 +4752,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
 
                 const getImplied = (key, bench) => {
-                    const eps = r.company_eps || 0;
-                    const fcfS = r.company_fcf_share || 0;
-                    const salesS = r.company_sales_share || 0;
+                    const prof = globalData.company_profile || {};
+                    const revGrowth = prof.revenue_growth || 0;
+                    const earnGrowth = prof.earnings_growth || 0;
+                    const fcfGrowth = prof.historic_fcf_growth || 0;
+
+                    const eps = (r.company_fwd_eps || 0) > 0 ? r.company_fwd_eps : (r.company_eps || 0) * (1 + earnGrowth);
+                    const fcfS = (r.company_fcf_share || 0) * (1 + fcfGrowth);
+                    
+                    const explicit_fwd_ps = prof.fwd_ps;
+                    const salesS = explicit_fwd_ps > 0 ? (globalData.current_price / explicit_fwd_ps) : (r.company_sales_share || 0) * (1 + revGrowth);
+                    
                     const bookS = r.company_book_share || 0;
-                    const ebitda = globalData.ebitda || 0;
+                    const ebitda = (globalData.ebitda || 0) * (1 + earnGrowth);
+                    
                     const debt = globalData.total_debt || 0;
                     const cash = globalData.total_cash || 0;
-                    const shares = (globalData.company_profile && globalData.company_profile.shares_outstanding) || 1;
+                    const shares = prof.shares_outstanding || 1;
                     
                     if (key === 'PE' || key === 'P_FFO') return eps * bench;
                     if (key === 'PFCF' || key === 'P_AFFO') return fcfS * bench;
