@@ -1076,13 +1076,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 <tr>
                     <th style="padding:12px; text-align:left; color:var(--text-muted); font-size:0.85rem; position: sticky; left: 0; background: #0f172a; z-index: 10; border-right: 1px solid rgba(255,255,255,0.1);">COMPETITOR</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 100px;">Market Cap</th>
-                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">P/E (Trailing)</th>
+                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">P/E (Forward)</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 100px;">PEG Ratio</th>
-                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">EPS (Trailing)</th>
-                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">P/S (Trailing)</th>
+                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">EPS (Forward)</th>
+                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">P/S (Forward)</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 120px;">Revenue (TTM)</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 100px;">P/FCF</th>
-                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">FCF (Trailing)</th>
+                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">FCF (Forward)</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 130px;">Operating Margin</th>
                 </tr>
             </thead>
@@ -2095,7 +2095,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (mc) mc.textContent = multipleLabel;
             
             // --- Populate custom weight inputs on the card ---
-            const LABEL = { PE: 'P/E', PFCF: 'P/FCF', PS: 'P/S', PB: 'P/B', EV_EBITDA: 'EV/EBITDA', P_FFO: 'P/FFO', P_AFFO: 'P/AFFO' };
+            const LABEL = { PE: 'Fwd P/E', PFCF: 'Fwd P/FCF', PS: 'Fwd P/S', PB: 'Current P/B', EV_EBITDA: 'Fwd EV/EBITDA', P_FFO: 'Fwd P/FFO', P_AFFO: 'Fwd P/AFFO' };
             const activeKeys = Object.keys(weights).filter(k => weights[k] !== undefined);
             const cwPanel = document.getElementById('rel-custom-weights-card');
             if (cwPanel) {
@@ -4506,7 +4506,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const activeKeys = Object.keys(defaultWeights).filter(k => (defaultWeights[k] || 0) > 0);
                 
                 // Label map
-                const LABEL = { PE: 'P/E', PFCF: 'P/FCF', PS: 'P/S', PB: 'P/B', EV_EBITDA: 'EV/EBITDA', P_FFO: 'P/FFO', P_AFFO: 'P/AFFO' };
+                const LABEL = { PE: 'Fwd P/E', PFCF: 'Fwd P/FCF', PS: 'Fwd P/S', PB: 'Current P/B', EV_EBITDA: 'Fwd EV/EBITDA', P_FFO: 'Fwd P/FFO', P_AFFO: 'Fwd P/AFFO' };
                 const peerKeyMap = { PE: 'pe_ratio', PFCF: 'pfcf_ratio', PS: 'ps_ratio', PB: 'price_to_book', EV_EBITDA: 'ev_to_ebitda' };
 
                 // --- Competitor Table ---
