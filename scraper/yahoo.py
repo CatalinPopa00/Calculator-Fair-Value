@@ -1746,11 +1746,11 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             pass
             
         # FWD P/S Estimate
-        fwd_ps = info.get('priceToSalesTrailing12Months') # fallback
+        fwd_ps = None
         try:
-            # Approximate forward P/S using current market cap and estimated forward revenue
-            # Or use trailing P/S if forward isn't directly available
-            fwd_ps = info.get('forwardPE') * (info.get('forwardEps') / (info.get('totalRevenue')/info.get('sharesOutstanding'))) if info.get('forwardPE') and info.get('forwardEps') and info.get('totalRevenue') and info.get('sharesOutstanding') else info.get('priceToSalesTrailing12Months')
+            ttm_ps = info.get('priceToSalesTrailing12Months')
+            rev_growth = info.get('revenueGrowth') or 0
+            fwd_ps = ttm_ps / (1 + rev_growth) if ttm_ps and rev_growth > -0.99 else ttm_ps
         except:
             pass
             
