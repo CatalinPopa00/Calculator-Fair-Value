@@ -1098,12 +1098,15 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                     "price": sanitize(p.get("price")),
                     "pe_ratio": sanitize(p.get("pe_ratio")),
                     "peg_ratio": sanitize(
-                        p.get("pe_ratio") / (p.get("earnings_growth") * 100.0)
-                        if p.get("pe_ratio") and p.get("earnings_growth") and p.get("earnings_growth") > 0
+                        p.get("peg_ratio") if p.get("peg_ratio") is not None
                         else (
-                            p.get("pe_ratio") / (p.get("revenue_growth") * 100.0)
-                            if p.get("pe_ratio") and p.get("revenue_growth") and p.get("revenue_growth") > 0
-                            else p.get("peg_ratio")
+                            p.get("pe_ratio") / (p.get("earnings_growth") * 100.0)
+                            if p.get("pe_ratio") and p.get("earnings_growth") and p.get("earnings_growth") > 0
+                            else (
+                                p.get("pe_ratio") / (p.get("revenue_growth") * 100.0)
+                                if p.get("pe_ratio") and p.get("revenue_growth") and p.get("revenue_growth") > 0
+                                else None
+                            )
                         )
                     ),
                     "pfcf_ratio": sanitize(p.get("pfcf_ratio")),
