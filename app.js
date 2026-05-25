@@ -1957,7 +1957,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const company_eps = (rel.company_fwd_eps || 0) > 0 ? rel.company_fwd_eps : (rel.company_eps || 0) * (1 + earnGrowth);
             const company_fcf_share = (rel.company_fcf_share || 0) * (1 + fcfGrowth);
-            const company_sales_share = (rel.company_sales_share || 0) * (1 + revGrowth);
+            
+            const explicit_fwd_ps = globalData.company_profile && globalData.company_profile.fwd_ps;
+            const company_sales_share = explicit_fwd_ps > 0 ? (globalData.current_price / explicit_fwd_ps) : (rel.company_sales_share || 0) * (1 + revGrowth);
+            
             const company_book_share = rel.company_book_share || 0; // Book value remains TTM
             const company_ebitda = (globalData.ebitda || 0) * (1 + earnGrowth);
             const company_debt = globalData.total_debt || 0;
