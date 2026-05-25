@@ -208,6 +208,10 @@ def calculate_scoring_reform(valuation_data, metrics):
     # Use 2Y/5Y CAGR if available, else TTM Rev Growth
     fwd_growth = eps_5yr_g if eps_5yr_g > 0 else rev_g
     
+    rev_fwd_growth = clean_percent(metrics.get('rev_cagr_2y'))
+    if rev_fwd_growth == 0 or rev_fwd_growth is None:
+        rev_fwd_growth = rev_g
+    
     # Forward-First Multiples Fallback
     fwd_pe = clean_ratio(metrics.get('forward_pe'))
     trail_pe = clean_ratio(metrics.get('trailing_pe') or metrics.get('pe_ratio') or metrics.get('current_pe'))
@@ -417,32 +421,35 @@ def calculate_scoring_reform(valuation_data, metrics):
         add_h("ROIC", roic, 20 if roic > 15 else (10 if roic >= 10 else 0), 20, False)
         
         add_b("Margin of Safety (DCF)", mos, get_mos_points(mos, 30), 30, False)
-        add_b("Revenue Growth (Fwd)", fwd_growth, 20 if fwd_growth > 15 else (10 if fwd_growth >= 8 else 0), 20, False)
+        add_b("Revenue Growth (Fwd)", rev_fwd_growth, 20 if rev_fwd_growth > 15 else (10 if rev_fwd_growth >= 8 else 0), 20, False)
         
         target_pe = 25.0
         pts = 20 if (0 < pe <= target_pe) else (10 if pe <= target_pe * 1.3 else 0)
-        if pts == 0 and pe > 0 and 0 < peg_val <= 1.2 and fwd_growth >= 20.0: pts = 10 # Growth Override
+        if pts == 0 and pe > 0 and 0 < peg_val <= 1.2 and rev_fwd_growth >= 20.0: pts = 10 # Growth Override
         add_b(pe_label, pe, pts, 20, True)
         
         pts = 10 if (0 < ev_ebitda <= 18.0) else (5 if ev_ebitda <= 25.0 else 0)
-        if pts == 0 and ev_ebitda > 0 and 0 < peg_val <= 1.2 and fwd_growth >= 20.0: pts = 5 # Growth Override
+        if pts == 0 and ev_ebitda > 0 and 0 < peg_val <= 1.2 and rev_fwd_growth >= 20.0: pts = 5 # Growth Override
         add_b("EV/EBITDA (Fwd)", ev_ebitda, pts, 10, True)
         
         add_b("PEG Ratio (Fwd)", peg_val, 10 if (0 <= peg_val <= 1.2) else (5.33 if (1.2 < peg_val <= 1.8) else 0), 10, True)
         
-        margin = clean_percent(metrics.get('ebit_margin') or metrics.get('operating_margin'))
+        ebit_m = clean_percent(metrics.get('ebit_margin'))
+        op_m = clean_percent(metrics.get('operating_margin'))
+        net_m = clean_percent(metrics.get('net_margin'))
+        margin = max(ebit_m, op_m, net_m)
         target_ps = target_pe * (margin / 100.0)
         pts = 0
         if ps > 0:
-            if fwd_growth >= 20.0 and ps <= 15.0:
+            if rev_fwd_growth >= 20.0 and ps <= 15.0:
                 pts = 10
-            elif fwd_growth >= 10.0 and ps <= 8.0:
+            elif rev_fwd_growth >= 10.0 and ps <= 8.0:
                 pts = 10
             elif margin > 0:
                 if ps <= target_ps: pts = 10
                 elif ps <= target_ps * 1.5: pts = 5
             elif margin < 0:
-                if fwd_growth > 20 and ps <= 5.0: pts = 5
+                if rev_fwd_growth > 20 and ps <= 5.0: pts = 5
         add_b("P/S Ratio", ps, pts, 10, True)
 
     else:
@@ -459,14 +466,14 @@ def calculate_scoring_reform(valuation_data, metrics):
         add_h("ROIC", roic, 20 if roic > 10 else (10 if roic >= 6 else 0), 20, False)
         
         add_b("Margin of Safety", mos, get_mos_points(mos, 30), 30, False)
-        add_b("Revenue Growth (Fwd)", fwd_growth, 20 if fwd_growth > 10 else (10 if fwd_growth >= 5 else 0), 20, False)
+        add_b("Revenue Growth (Fwd)", rev_fwd_growth, 20 if rev_fwd_growth > 10 else (10 if rev_fwd_growth >= 5 else 0), 20, False)
         
         pts = 20 if (0 < pe <= 18) else (10 if pe <= 22 else 0)
-        if pts == 0 and pe > 0 and 0 < peg_val <= 1.2 and fwd_growth >= 15.0: pts = 10 # Growth Override
+        if pts == 0 and pe > 0 and 0 < peg_val <= 1.2 and rev_fwd_growth >= 15.0: pts = 10 # Growth Override
         add_b(pe_label, pe, pts, 20, True)
         
         pts = 15 if (0 < ev_ebitda <= 12.0) else (7.5 if ev_ebitda <= 16.0 else 0)
-        if pts == 0 and ev_ebitda > 0 and 0 < peg_val <= 1.2 and fwd_growth >= 15.0: pts = 7.5 # Growth Override
+        if pts == 0 and ev_ebitda > 0 and 0 < peg_val <= 1.2 and rev_fwd_growth >= 15.0: pts = 7.5 # Growth Override
         add_b("EV/EBITDA (Fwd)", ev_ebitda, pts, 15, True)
         
         add_b("PEG Ratio (Fwd)", peg_val, 15 if (0 <= peg_val <= 1.2) else (8 if (1.2 < peg_val <= 1.8) else 0), 15, True)
@@ -564,9 +571,8 @@ def calculate_health_score(metrics):
     res = calculate_scoring_reform({"margin_of_safety": 0}, metrics)
     b_score = calculate_beneish_m_score(metrics)
     tot = res["health_score_total"]
-    if b_score.get("status") == "fail":
-        tot = max(0, tot - 20)
-    return {"total": tot, "breakdown": res["health_breakdown"], "beneish": b_score}
+    breakdown = res["health_breakdown"]
+    return {"total": tot, "breakdown": breakdown, "beneish": b_score}
 
 
 def calculate_buy_score(valuation_data, metrics):

@@ -270,7 +270,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const newNonGaapPE  = (prof.adjusted_eps > 0) ? simPrice / prof.adjusted_eps : 0;
         const scoringPE     = (eps > 0) ? simPrice / eps : 0; // Use anchored EPS for scoring (v72 logic)
 
-        const newPS = (revenue > 0 && shares > 0) ? simPrice / (revenue / shares) : 0;
+        const newPS = (revenue > 0 && shares > 0) ? simPrice / (revenue / shares) : ((prof.ps_ratio && current_price > 0) ? prof.ps_ratio * (simPrice / current_price) : 0);
         const newMktCap = simPrice * shares;
         const ev = newMktCap + (globalData.total_debt || 0) - (globalData.total_cash || 0);
         const newEvEbitda = (ebitda > 0) ? ev / ebitda : 0;
@@ -337,8 +337,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 let newPts = item.points_awarded;
 
                 // Sector detection (matches scoring.py logic)
-                const industry = (prof.industry || '').toLowerCase();
-                const sector = (prof.sector || '').toLowerCase();
+                const industry = (prof.industry || globalData.industry || '').toLowerCase();
+                const sector = (prof.sector || globalData.sector || '').toLowerCase();
                 
                 const isBank = industry.includes('bank') || industry.includes('credit services') || industry.includes('savings');
                 const isFin = sector.includes('financial');
@@ -353,6 +353,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 const eps_5yr_g = cleanPercent(globalData.company_profile.eps_growth_5y_consensus || globalData.company_profile.eps_5yr_growth);
                 const rev_g_val = cleanPercent(globalData.company_profile.revenue_growth || 0);
                 const fwd_growth = eps_5yr_g > 0 ? eps_5yr_g : rev_g_val;
+                
+                let rev_fwd_growth = 0;
+                const revGrowthItem = globalData.buy_breakdown?.find(i => i.metric && i.metric.includes('Revenue Growth'));
+                if (revGrowthItem && revGrowthItem.value) {
+                    rev_fwd_growth = parseFloat(revGrowthItem.value.replace('%', ''));
+                }
+                if (!rev_fwd_growth || isNaN(rev_fwd_growth)) {
+                    rev_fwd_growth = cleanPercent(globalData.rev_cagr_2y);
+                    if (!rev_fwd_growth || rev_fwd_growth === 0) rev_fwd_growth = rev_g_val;
+                }
                 
                 const fwd_pe = parseFloat(globalData.company_profile.forward_pe) || 0;
                 
@@ -414,7 +424,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             else if (activePE <= 25.0 * 1.3) pts = 10;
                             if (pts === 0 && activePE > 0 && pegUsedGrowth > 0) {
                                 const peg = activePE / (fwd_growth);
-                                if (peg > 0 && peg <= 1.2 && fwd_growth >= 20.0) pts = 10;
+                                if (peg > 0 && peg <= 1.2 && rev_fwd_growth >= 20.0) pts = 10;
                             }
                         } else {
                             // Industrials
@@ -422,7 +432,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             else if (activePE <= 22) pts = 10;
                             if (pts === 0 && activePE > 0 && pegUsedGrowth > 0) {
                                 const peg = activePE / (fwd_growth);
-                                if (peg > 0 && peg <= 1.2 && fwd_growth >= 15.0) pts = 10;
+                                if (peg > 0 && peg <= 1.2 && rev_fwd_growth >= 15.0) pts = 10;
                             }
                         }
                     }
@@ -449,14 +459,14 @@ document.addEventListener('DOMContentLoaded', () => {
                             else if (newEvEbitda <= 25.0) pts = 5;
                             if (pts === 0 && newEvEbitda > 0 && pegUsedGrowth > 0) {
                                 const peg = activePE / (fwd_growth);
-                                if (peg > 0 && peg <= 1.2 && fwd_growth >= 20.0) pts = 5;
+                                if (peg > 0 && peg <= 1.2 && rev_fwd_growth >= 20.0) pts = 5;
                             }
                         } else {
                             if (newEvEbitda <= 12.0) pts = 10;
                             else if (newEvEbitda <= 16.0) pts = 5;
                             if (pts === 0 && newEvEbitda > 0 && pegUsedGrowth > 0) {
                                 const peg = activePE / (fwd_growth);
-                                if (peg > 0 && peg <= 1.2 && fwd_growth >= 15.0) pts = 5;
+                                if (peg > 0 && peg <= 1.2 && rev_fwd_growth >= 15.0) pts = 5;
                             }
                         }
                     }
@@ -483,15 +493,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     item.value = newPB > 0 ? newPB.toFixed(2) + 'x' : '0.00x';
                 } else if (metric.includes('P/S Ratio')) {
                     const target_pe = getTargetPe(sector, industry);
-                    const margin = cleanPercent(globalData.company_profile.ebit_margin || globalData.company_profile.operating_margin || 0); 
+                    const ebitM = cleanPercent(globalData.company_profile.ebit_margin || 0);
+                    const opM = cleanPercent(globalData.company_profile.operating_margin || 0);
+                    const netM = cleanPercent(globalData.company_profile.net_margin || 0);
+                    const margin = Math.max(ebitM, opM, netM);
                     const target_ps = target_pe * (margin / 100.0);
                     let pts = 0;
                     if (newPS > 0) {
                         if (margin < 0) {
-                            if (fwd_growth > 20 && newPS <= 5.0) pts = 5;
+                            if (rev_fwd_growth > 20 && newPS <= 5.0) pts = 5;
                         } else {
-                            if (newPS <= target_ps) pts = 10;
-                            else if (newPS <= target_ps * 1.5) pts = 5;
+                            if (rev_fwd_growth >= 20.0 && newPS <= 15.0) {
+                                pts = 10;
+                            } else if (rev_fwd_growth >= 10.0 && newPS <= 8.0) {
+                                pts = 10;
+                            } else if (newPS <= target_ps) {
+                                pts = 10;
+                            } else if (newPS <= target_ps * 1.5) {
+                                pts = 5;
+                            }
                         }
                     }
                     newPts = pts;
@@ -522,9 +542,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     newPts = pts;
                     item.value = newPAFFO > 0 ? newPAFFO.toFixed(2) + 'x' : '0.00x';
-                } else if (metric.includes('Rev Growth') || metric.includes('EPS Growth') || metric.includes('AFFO Growth')) {
+                } else if (metric.includes('Rev Growth') || metric.includes('EPS Growth') || metric.includes('AFFO Growth') || metric.includes('Revenue Growth')) {
                     // Growth points are static in simulation since simulation only affects price derivatives
-                    item.value = fwd_growth > 0 ? fwd_growth.toFixed(1) + '%' : '0.0%';
+                    if (metric.includes('Revenue Growth')) {
+                        item.value = rev_fwd_growth > 0 ? rev_fwd_growth.toFixed(1) + '%' : '0.0%';
+                    } else {
+                        item.value = fwd_growth > 0 ? fwd_growth.toFixed(1) + '%' : '0.0%';
+                    }
                 }
 
                 item.points_awarded = Math.min(newPts, item.max_points);
@@ -2999,7 +3023,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="profile-section">
                             <div style="font-size: 0.8rem; color: var(--text-main); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 2px solid rgba(255,255,255,0.1); font-weight: 700;">Valuation & Earnings</div>
                             <div style="display: flex; flex-direction: column;">
-                                ${metricRow('P/E (Trailing)', prof.trailing_pe ? prof.trailing_pe.toFixed(2) + 'x' : 'N/A')}
+                                ${metricRow('P/E TTM', prof.trailing_pe ? prof.trailing_pe.toFixed(2) + 'x' : 'N/A')}
+                                ${metricRow('P/E GAAP', (prof.eps_last_year && prof.eps_last_year > 0 && _originalPrice) ? (_originalPrice / prof.eps_last_year).toFixed(2) + 'x' : 'N/A')}
                                 ${metricRow('P/E Non-GAAP', non_gaap_pe ? non_gaap_pe.toFixed(2) + 'x' : 'N/A')}
                                 ${metricRow('5Y Avg. P/E', prof.historic_pe ? prof.historic_pe.toFixed(2) + 'x' : 'N/A')}
                                 ${metricRow('PE FWD', prof.fwd_pe ? prof.fwd_pe.toFixed(2) + 'x' : 'N/A')}

@@ -1635,6 +1635,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         # Historic EPS growth (3Y and 5Y)
         historic_eps_growth_3y = None
         historic_eps_growth_5y = None
+        historic_eps_growth = None
+        eps_last_year = None
         try:
             if financials is not None and not financials.empty:
                 eps_idx = find_idx(financials, 'Diluted EPS') or find_idx(financials, 'Basic EPS')
@@ -1642,6 +1644,9 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                 
                 if eps_row is not None:
                     eps_vals = eps_row.dropna().tolist()
+                    if eps_vals:
+                        eps_last_year = eps_vals[0]
+                    
                     
                     def calc_yoy_avg(vals, num_years):
                         v = vals[:num_years]
@@ -2817,7 +2822,14 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                         
                         if rev_val > 0:
                             ebit_margin = op_inc_val / rev_val
-                            net_margin_calc = ni_val / rev_val
+                            hist_margin = None
+                            if historical_trends and len(historical_trends) > 0 and historical_trends[-1].get("net_margin") is not None:
+                                hist_margin = historical_trends[-1].get("net_margin")
+                            
+                            if hist_margin is not None:
+                                net_margin_calc = hist_margin
+                            else:
+                                net_margin_calc = ni_val / rev_val
                         
                         # 2. Balance Sheet Ratios
                         ca = get_f_metric(bs, ['Current Assets', 'Total Current Assets'], target_date)
@@ -2974,6 +2986,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             # This ensures UBER-like companies with tax credits show ~31% growth, not -28% or 33%
             "eps_growth": normalize_growth(eps_growth),
             "eps_growth_period": eps_growth_period + " (v223 Forensic)",
+            "eps_last_year": eps_last_year,
             "eps_growth_5y_consensus": normalize_growth(eps_growth_5y_consensus),
             "nasdaq_growth_3y": normalize_growth(nasdaq_growth_3y),
             "historic_eps_growth": normalize_growth(historic_eps_growth),

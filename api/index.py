@@ -990,6 +990,16 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             data["ev_to_ebitda"] = 0
             data["debt_to_ebitda"] = 0
 
+        # 2Y Revenue CAGR for Scoring Module
+        _trends = data.get("historical_trends") or []
+        _est_growths = [float(t["revenue_growth"]) for t in _trends if "Est" in str(t.get("year", "")) and t.get("revenue_growth") is not None]
+        if len(_est_growths) >= 2:
+            data["rev_cagr_2y"] = (_est_growths[0] + _est_growths[1]) / 2.0
+        elif len(_est_growths) == 1:
+            data["rev_cagr_2y"] = _est_growths[0]
+        else:
+            data["rev_cagr_2y"] = stable_rev_growth or 0.08
+            
         # Pass safety values to scoring
         safe_mos = margin_of_safety if margin_of_safety is not None else 0
         safe_median_peg = median_peer_peg if median_peer_peg is not None else 0
@@ -1066,6 +1076,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 "net_margin": sanitize(data.get("net_margin")),
                 "revenue_growth": sanitize(stable_rev_growth), # Use calculated 1Y historical growth for stability
                 "earnings_growth": sanitize(consensus_growth), # Use Consensus/Nasdaq CAGRs for comparison instead of buggy Yahoo TTM
+                "rev_cagr_2y": sanitize(data.get("rev_cagr_2y")),
                 "business_summary": data.get("business_summary"),
                 "sector_median_pe": sanitize(median_peer_pe),
                 "sector_median_peg": sanitize(median_peer_peg),

@@ -798,6 +798,16 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         
         data["revenue_growth"] = stable_rev_growth
         data["next_3y_rev_growth"] = stable_rev_growth
+
+        # 2Y Revenue CAGR for Scoring Module
+        _rev_ests = data.get("rev_estimates") or []
+        _est_growths = [float(e["growth"]) for e in _rev_ests if e and e.get("status") == "estimate" and e.get("growth") is not None]
+        if len(_est_growths) >= 2:
+            data["rev_cagr_2y"] = (_est_growths[0] + _est_growths[1]) / 2.0
+        elif len(_est_growths) == 1:
+            data["rev_cagr_2y"] = _est_growths[0]
+        else:
+            data["rev_cagr_2y"] = stable_rev_growth or 0.08
             
         # Stabilize Fair Value with Sector-Aware Weighting
         if overrides_weights:

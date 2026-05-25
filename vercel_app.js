@@ -322,6 +322,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const rev_g_val = cleanPercent(globalData.company_profile.revenue_growth || 0);
                 const fwd_growth = eps_5yr_g > 0 ? eps_5yr_g : rev_g_val;
                 
+                let rev_fwd_growth = cleanPercent(globalData.rev_cagr_2y);
+                if (!rev_fwd_growth || rev_fwd_growth === 0) rev_fwd_growth = rev_g_val;
+                
                 const fwd_pe = parseFloat(globalData.company_profile.forward_pe) || 0;
                 
                 // For live simulation, recalculate simulated P/E based on forward or trailing
@@ -382,7 +385,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             else if (activePE <= 25.0 * 1.3) pts = 10;
                             if (pts === 0 && activePE > 0 && pegUsedGrowth > 0) {
                                 const peg = activePE / (fwd_growth);
-                                if (peg > 0 && peg <= 1.2 && fwd_growth >= 20.0) pts = 10;
+                                if (peg > 0 && peg <= 1.2 && rev_fwd_growth >= 20.0) pts = 10;
                             }
                         } else {
                             // Industrials
@@ -390,7 +393,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             else if (activePE <= 22) pts = 10;
                             if (pts === 0 && activePE > 0 && pegUsedGrowth > 0) {
                                 const peg = activePE / (fwd_growth);
-                                if (peg > 0 && peg <= 1.2 && fwd_growth >= 15.0) pts = 10;
+                                if (peg > 0 && peg <= 1.2 && rev_fwd_growth >= 15.0) pts = 10;
                             }
                         }
                     }
@@ -417,14 +420,14 @@ document.addEventListener('DOMContentLoaded', () => {
                             else if (newEvEbitda <= 25.0) pts = 5;
                             if (pts === 0 && newEvEbitda > 0 && pegUsedGrowth > 0) {
                                 const peg = activePE / (fwd_growth);
-                                if (peg > 0 && peg <= 1.2 && fwd_growth >= 20.0) pts = 5;
+                                if (peg > 0 && peg <= 1.2 && rev_fwd_growth >= 20.0) pts = 5;
                             }
                         } else {
                             if (newEvEbitda <= 12.0) pts = 10;
                             else if (newEvEbitda <= 16.0) pts = 5;
                             if (pts === 0 && newEvEbitda > 0 && pegUsedGrowth > 0) {
                                 const peg = activePE / (fwd_growth);
-                                if (peg > 0 && peg <= 1.2 && fwd_growth >= 15.0) pts = 5;
+                                if (peg > 0 && peg <= 1.2 && rev_fwd_growth >= 15.0) pts = 5;
                             }
                         }
                     }
@@ -456,10 +459,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     let pts = 0;
                     if (newPS > 0) {
                         if (margin < 0) {
-                            if (fwd_growth > 20 && newPS <= 5.0) pts = 5;
+                            if (rev_fwd_growth > 20 && newPS <= 5.0) pts = 5;
                         } else {
-                            if (newPS <= target_ps) pts = 10;
-                            else if (newPS <= target_ps * 1.5) pts = 5;
+                            if (rev_fwd_growth >= 20.0 && newPS <= 15.0) {
+                                pts = 10;
+                            } else if (rev_fwd_growth >= 10.0 && newPS <= 8.0) {
+                                pts = 10;
+                            } else if (newPS <= target_ps) {
+                                pts = 10;
+                            } else if (newPS <= target_ps * 1.5) {
+                                pts = 5;
+                            }
                         }
                     }
                     newPts = pts;
@@ -490,9 +500,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     newPts = pts;
                     item.value = newPAFFO > 0 ? newPAFFO.toFixed(2) + 'x' : '0.00x';
-                } else if (metric.includes('Rev Growth') || metric.includes('EPS Growth') || metric.includes('AFFO Growth')) {
+                } else if (metric.includes('Rev Growth') || metric.includes('EPS Growth') || metric.includes('AFFO Growth') || metric.includes('Revenue Growth')) {
                     // Growth points are static in simulation since simulation only affects price derivatives
-                    item.value = fwd_growth > 0 ? fwd_growth.toFixed(1) + '%' : '0.0%';
+                    if (metric.includes('Revenue Growth')) {
+                        item.value = rev_fwd_growth > 0 ? rev_fwd_growth.toFixed(1) + '%' : '0.0%';
+                    } else {
+                        item.value = fwd_growth > 0 ? fwd_growth.toFixed(1) + '%' : '0.0%';
+                    }
                 }
 
                 item.points_awarded = Math.min(newPts, item.max_points);
@@ -2935,7 +2949,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="profile-section">
                             <div style="font-size: 0.8rem; color: var(--text-main); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 2px solid rgba(255,255,255,0.1); font-weight: 700;">Valuation & Earnings</div>
                             <div style="display: flex; flex-direction: column;">
-                                ${metricRow('P/E (Trailing)', prof.trailing_pe ? prof.trailing_pe.toFixed(2) + 'x' : 'N/A')}
+                                ${metricRow('P/E TTM', prof.trailing_pe ? prof.trailing_pe.toFixed(2) + 'x' : 'N/A')}
+                                ${metricRow('P/E GAAP', (prof.eps_last_year && prof.eps_last_year > 0 && _originalPrice) ? (_originalPrice / prof.eps_last_year).toFixed(2) + 'x' : 'N/A')}
                                 ${metricRow('P/E Non-GAAP', non_gaap_pe ? non_gaap_pe.toFixed(2) + 'x' : 'N/A')}
                                 ${metricRow('5Y Avg. P/E', prof.historic_pe ? prof.historic_pe.toFixed(2) + 'x' : 'N/A')}
                                 ${metricRow('PE FWD', prof.fwd_pe ? prof.fwd_pe.toFixed(2) + 'x' : 'N/A')}
