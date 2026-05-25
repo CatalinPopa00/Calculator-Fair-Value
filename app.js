@@ -4573,12 +4573,12 @@ document.addEventListener('DOMContentLoaded', () => {
                                     }
                                     else if (k === 'EV_EBITDA') {
                                         const earnGrowth = globalData.company_profile && globalData.company_profile.earnings_growth || 0;
-                                        const ev_ebitda_ttm = globalData.ev_to_ebitda || 0;
+                                        const ev_ebitda_ttm = (r && r.company_ev_ebitda) || 0;
                                         val = ev_ebitda_ttm > 0 ? ev_ebitda_ttm / (1 + earnGrowth) : null;
                                     }
                                     else if (k === 'PFCF' || k === 'P_AFFO') {
                                         const fcfGrowth = globalData.company_profile && globalData.company_profile.historic_fcf_growth || 0;
-                                        const pfcf_ttm = globalData.fcf_yield > 0 ? (1 / globalData.fcf_yield) : 0;
+                                        const pfcf_ttm = globalData.company_profile && globalData.company_profile.pfcf_ratio || 0;
                                         val = pfcf_ttm > 0 ? pfcf_ttm / (1 + fcfGrowth) : null;
                                     }
                                     

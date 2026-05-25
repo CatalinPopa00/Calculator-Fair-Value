@@ -3246,14 +3246,14 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=5, inc
                     
                     fwd_pe_explicit = None
                     try:
-                        e1 = analysis['eps'].get('+1y', {})
+                        e1 = analysis['eps'].get('0y', {})
                         if e1.get('avg'): fwd_pe_explicit = p_price / e1['avg']
                     except: pass
                     fwd_pe = fwd_pe_explicit or inf.get('forwardPE') or ttm_pe
                     
                     fwd_ps_explicit = None
                     try:
-                        r1 = analysis['rev'].get('+1y', {})
+                        r1 = analysis['rev'].get('0y', {})
                         if r1.get('avg') and p_shares: fwd_ps_explicit = p_price / (r1['avg'] / p_shares)
                     except: pass
                     fwd_ps = fwd_ps_explicit or (ttm_ps / (1 + rev_growth) if ttm_ps and rev_growth > -0.99 else ttm_ps)
