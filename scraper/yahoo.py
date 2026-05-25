@@ -3189,7 +3189,7 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=5, inc
                         c_inf, ts = _peer_info_cache[t]
                         if now - ts < 86400: return c_inf
                     
-                    kv_key = f"peer_v6_{t}" 
+                    kv_key = f"peer_v7_{t}" 
                     kv_data = kv_get(kv_key)
                     if kv_data and isinstance(kv_data, dict):
                         _peer_info_cache[t] = (kv_data, now)
@@ -3245,9 +3245,12 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=5, inc
                     ttm_pfcf = (mcap / fcf_val) if fcf_val and mcap else None
                     
                     fwd_pe_explicit = None
+                    fwd_eps_explicit = None
                     try:
                         e1 = analysis['eps'].get('0y', {})
-                        if e1.get('avg'): fwd_pe_explicit = p_price / e1['avg']
+                        if e1.get('avg'): 
+                            fwd_eps_explicit = e1['avg']
+                            fwd_pe_explicit = p_price / fwd_eps_explicit
                     except: pass
                     fwd_pe = fwd_pe_explicit or inf.get('forwardPE') or ttm_pe
                     
@@ -3274,7 +3277,7 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=5, inc
                         "pfcf_ratio": fwd_pfcf or ttm_pfcf,
                         "price_to_book": inf.get('priceToBook') or (p_price / inf.get('bookValue') if inf.get('bookValue') and inf.get('bookValue') > 0 else None),
                         "ev_to_ebitda": fwd_ev or ttm_ev,
-                        "eps": inf.get('forwardEps') or inf.get('trailingEps'),
+                        "eps": fwd_eps_explicit or inf.get('forwardEps') or inf.get('trailingEps'),
                         "operating_margin": inf.get('operatingMargins') or inf.get('ebitdaMargins'),
                         "industry": inf.get('industry') or target_industry,
                         "sector": p_sector or sector

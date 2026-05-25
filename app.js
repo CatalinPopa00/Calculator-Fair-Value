@@ -1111,10 +1111,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             </div>
                         </td>
                         <td style="padding:12px; font-weight:bold;">${formatBigNumber(mCap, '$')}</td>
-                        <td style="padding:12px; font-weight:bold;">${fmtPE(c.pe_ratio)}</td>
+                        <td style="padding:12px; font-weight:bold;">${fmtPE(c.fwd_pe || c.pe_ratio)}</td>
                         <td style="padding:12px; font-weight:bold;">${fmtPE(c.peg_ratio)}</td>
-                        <td style="padding:12px; font-weight:bold;">${fmtEPS(c.eps || c.trailing_eps)}</td>
-                        <td style="padding:12px; font-weight:bold;">${fmtPE(c.ps_ratio)}</td>
+                        <td style="padding:12px; font-weight:bold;">${fmtEPS(c.fwd_eps || c.eps || c.trailing_eps)}</td>
+                        <td style="padding:12px; font-weight:bold;">${fmtPE(c.fwd_ps || c.ps_ratio)}</td>
                         <td style="padding:12px; font-weight:bold;">${formatBigNumber(derivedRevenue, '$')}</td>
                         <td style="padding:12px; font-weight:bold;">${fmtPE(c.pfcf_ratio)}</td>
                         <td style="padding:12px; font-weight:bold;">${formatBigNumber(derivedFcf, '$')}</td>
