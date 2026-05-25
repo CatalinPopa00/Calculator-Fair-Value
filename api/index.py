@@ -179,11 +179,7 @@ def get_analyst(ticker: str, response: Response):
 def get_watchlist():
     try:
         data = kv_get("watchlist") or []
-        # Robust Recovery: Merge any tickers found in overrides
-        all_overrides = _load_overrides()
-        if all_overrides:
-            override_tickers = [t.upper() for t in all_overrides.keys()]
-            data = list(set(data + override_tickers))
+        # Overrides should not be forced into the watchlist. Watchlist should remain exactly as saved by the user.
         
         if not data and os.path.exists(WATCHLIST_FILE):
             try:

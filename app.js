@@ -604,21 +604,14 @@ document.addEventListener('DOMContentLoaded', () => {
         .then(serverData => {
             if (Array.isArray(serverData)) {
                 const localData = JSON.parse(localStorage.getItem('fairValueWatchlist')) || [];
-                // Combine both and remove duplicates
-                const combined = [...new Set([...localData, ...serverData])];
-                
-                const hasChanged = JSON.stringify(watchlist) !== JSON.stringify(combined);
-                watchlist = combined;
+                // Server is the single source of truth. Prevents deleted items from resurrecting across devices.
+                const hasChanged = JSON.stringify(watchlist) !== JSON.stringify(serverData);
+                watchlist = serverData;
                 localStorage.setItem('fairValueWatchlist', JSON.stringify(watchlist));
                 
-                // v37: If we merged new data, sync it back to server so other devices get it too
-                if (hasChanged) {
-                    fetch('/api/watchlist', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ tickers: watchlist })
-                    }).catch(e => console.error('Sync-back failed:', e));
-                }
+                // If the local device had an outdated list, we DO NOT sync back to the server.
+                // We just accepted the server's list.
+                // Sync-back is only triggered intentionally by user actions (add/remove).
                 
                 // v38: Always trigger an initial background fetch for watchlist data to ensure scores are sync'd
                 if (watchlist.length > 0) {
