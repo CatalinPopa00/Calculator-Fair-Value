@@ -4563,17 +4563,24 @@ document.addEventListener('DOMContentLoaded', () => {
                                 ${activeKeys.map(k => {
                                     let val = null;
                                     if (k === 'PE') {
-                                        const adjEps = globalData.company_profile && globalData.company_profile.adjusted_eps;
-                                        const curPrice = globalData.current_price || 0;
-                                        if (adjEps && adjEps > 0 && curPrice > 0) {
-                                            val = curPrice / adjEps;
-                                        } else {
-                                            val = (globalData.company_profile && (globalData.company_profile.trailing_pe || globalData.company_profile.current_pe));
-                                        }
+                                        val = globalData.company_profile && globalData.company_profile.fwd_pe;
                                     }
-                                    else if (k === 'PS') val = (globalData.company_profile && globalData.company_profile.ps_ratio);
-                                    else if (k === 'PB') val = (globalData.company_profile && globalData.company_profile.price_to_book);
-                                    else if (k === 'EV_EBITDA') val = (r && r.company_ev_ebitda);
+                                    else if (k === 'PS') {
+                                        val = globalData.company_profile && globalData.company_profile.fwd_ps;
+                                    }
+                                    else if (k === 'PB') {
+                                        val = (globalData.company_profile && globalData.company_profile.price_to_book);
+                                    }
+                                    else if (k === 'EV_EBITDA') {
+                                        const earnGrowth = globalData.company_profile && globalData.company_profile.earnings_growth || 0;
+                                        const ev_ebitda_ttm = globalData.ev_to_ebitda || 0;
+                                        val = ev_ebitda_ttm > 0 ? ev_ebitda_ttm / (1 + earnGrowth) : null;
+                                    }
+                                    else if (k === 'PFCF' || k === 'P_AFFO') {
+                                        const fcfGrowth = globalData.company_profile && globalData.company_profile.historic_fcf_growth || 0;
+                                        const pfcf_ttm = globalData.fcf_yield > 0 ? (1 / globalData.fcf_yield) : 0;
+                                        val = pfcf_ttm > 0 ? pfcf_ttm / (1 + fcfGrowth) : null;
+                                    }
                                     
                                     return `<td style="text-align:right; padding:6px; color:#28c76f; font-weight:700;">${val != null ? val.toFixed(1) + 'x' : '—'}</td>`;
                                 }).join('')}
