@@ -748,6 +748,15 @@
     </div>
 
     <script src="app.js?v=315"></script>
-</body>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js');
+    });
+  }
+</script>
+
+                            
+                            </body>
 
 </html>
