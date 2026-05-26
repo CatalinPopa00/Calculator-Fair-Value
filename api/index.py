@@ -1060,7 +1060,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 "ps_ratio": sanitize(data.get("ps_ratio")),
                 "price_to_book": sanitize(data.get("price_to_book")),
                 "fwd_ps": sanitize(data.get("fwd_ps")),
-                "pfcf_ratio": sanitize((data.get("shares_outstanding", 0) * current_price) / data.get("fcf")) if data.get("shares_outstanding") and current_price and data.get("fcf") else None,
+                "pfcf_ratio": sanitize((data.get("shares_outstanding", 0) * current_price) / data.get("fcf")) if data.get("shares_outstanding") and current_price and data.get("fcf") and data.get("fcf") > 0 else None,
                 "current_pe": sanitize(current_pe),
                 "trailing_pe": sanitize(ttm_pe),
                 "trailing_eps": sanitize(data.get("trailing_eps")),
