@@ -970,13 +970,13 @@ Strictly adhere to these precise markdown headers (written exactly like this, in
                 print(f"Error calling Gemini API for {ticker_upper}: {e}")
 
     # 2. HEURISTIC FALLBACK (Rule-based local generation) - Used if run_ai=False or Gemini API fails
-    presentation = f"{name} este o companie de vârf ce activează în sectorul {sector}, având ca focus principal segmentul {industry}."
+    presentation = f"{name} is a leading company operating in the {sector} sector, with a primary focus on the {industry} segment."
     if summary:
         # Extract first 2-3 sentences for a professional description
         sentences = re.split(r'(?<=[.!?])\s+', summary)
         activity = " ".join(sentences[:3])
     else:
-        activity = f"Compania operează la nivel global, oferind soluții specializate și servicii integrate în domeniul {industry}."
+        activity = f"The company operates globally, providing specialized solutions and integrated services in the {industry} domain."
 
     strengths = []
     weaknesses = []
@@ -984,43 +984,53 @@ Strictly adhere to these precise markdown headers (written exactly like this, in
     # Financial Performance & Growth
     rev_growth = info.get('revenueGrowth')
     if rev_growth and rev_growth > 0.15: 
-        strengths.append(f"Expansiune robustă a veniturilor (YoY: {rev_growth*100:.1f}%), indicând o cerere puternică în piață.")
+        strengths.append(f"Robust revenue expansion (YoY: {rev_growth*100:.1f}%), indicating strong market demand.")
     elif rev_growth and rev_growth < 0: 
-        weaknesses.append("Contractare observată a veniturilor, ceea ce sugerează presiuni ciclice sau pierderea cotei de piață.")
+        weaknesses.append("Observed revenue contraction, suggesting cyclical pressures or loss of market share.")
 
     # Profitability & Efficiency
     margin = info.get('profitMargins')
     if margin and margin > 0.20: 
-        strengths.append(f"Marje operaționale ridicate (Marjă Netă: {margin*100:.1f}%), reflectând putere de stabilire a prețurilor sau eficiență la scară.")
+        strengths.append(f"High operational margins (Net Margin: {margin*100:.1f}%), reflecting pricing power or economies of scale.")
     elif margin and margin < 0.05: 
-        weaknesses.append("Marje de profit reduse, potențial expuse la volatilitatea costurilor de producție.")
+        weaknesses.append("Low profit margins, potentially exposed to production cost volatility.")
 
     # Capital Structure
     debt_equity = info.get('debtToEquity')
     if debt_equity and debt_equity < 40: 
-        strengths.append("Structură conservatoare a capitalului cu grad scăzut de îndatorare, oferind o flexibilitate financiară semnificativă.")
+        strengths.append("Conservative capital structure with low leverage, providing significant financial flexibility.")
     elif debt_equity and debt_equity > 150: 
-        weaknesses.append("Raport datorie/capital propriu ridicat, sporind vulnerabilitatea la fluctuațiile ratelor dobânzilor.")
+        weaknesses.append("High debt-to-equity ratio, increasing vulnerability to interest rate fluctuations.")
 
     # Market Valuation Context
     pe = info.get('trailingPE')
     if pe and pe < 18: 
-        strengths.append(f"Evaluare atractivă în raport cu mediile istorice (P/E: {pe:.1f}x).")
+        strengths.append(f"Attractive valuation relative to historical averages (P/E: {pe:.1f}x).")
     elif pe and pe > 45: 
-        weaknesses.append(f"Evaluare premium (P/E: {pe:.1f}x), necesitând o creștere agresivă pentru a justifica nivelurile actuale.")
+        weaknesses.append(f"Premium valuation (P/E: {pe:.1f}x), requiring aggressive growth to justify current levels.")
 
     # Defaults for completeness
-    if not strengths: strengths.append("Prezență stabilă pe piață cu surse diversificate de venituri.")
-    if not weaknesses: weaknesses.append("Expunere la ciclurile macroeconomice generale și la modificările de reglementare.")
+    if not strengths: strengths.append("Stable market presence with diversified revenue sources.")
+    if not weaknesses: weaknesses.append("Exposure to general macroeconomic cycles and regulatory changes.")
 
     # Construct Structured Output (Heuristics Fallback)
-    output = f"**SINTEZĂ EXECUTIVĂ**\n{presentation}\n\n{activity}\n\n"
-    output += f"**PUNCTE FORTE STRATEGICE**\n" + "\n".join([f"• {s}" for s in strengths[:3]]) + "\n\n"
-    output += f"**VULNERABILITĂȚI ȘI RISCURI**\n" + "\n".join([f"• {w}" for w in weaknesses[:3]]) + "\n\n"
+    output = f"**EXECUTIVE SUMMARY**\n{presentation}\n\n{activity}\n\n"
+    output += f"**STRATEGIC STRENGTHS**\n" + "\n".join([f"• {s}" for s in strengths[:3]]) + "\n\n"
+    output += f"**VULNERABILITIES & RISKS**\n" + "\n".join([f"• {w}" for w in weaknesses[:3]]) + "\n\n"
     
     # Fast news placeholder for fallback
-    fallback_news = ["Generarea Analizei AI este activă. Secțiunea SWOT și informațiile detaliate vor fi afișate în scurt timp."]
-    output += f"**ULTIMELE INFORMAȚII DE PIAȚĂ**\n" + "\n".join([f"• {n}" for n in fallback_news])
+    fallback_news = ["AI Analysis generation is active. SWOT section and detailed information will be displayed shortly."]
+    if run_ai:
+        try:
+            raw_news = fetch_latest_news_v2(ticker_upper)
+            if raw_news:
+                fallback_news = raw_news[:3]
+            else:
+                fallback_news = ["No recent news or market developments available."]
+        except:
+            fallback_news = ["No recent news or market developments available."]
+
+    output += f"**LATEST MARKET INTELLIGENCE**\n" + "\n".join([f"• {n}" for n in fallback_news])
 
     return output
 
@@ -1403,8 +1413,9 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                                 log(f"DEBUG: ADR Currency Guard triggered for {ticker_symbol} ({gaap_eps:.2f} vs {reported_eps:.2f}). Trusting reported tag.")
                                 gaap_eps = reported_eps
 
-                        # Save the Non-GAAP version for display
-                        adjusted_eps = trailing_eps
+                        # Save the Non-GAAP version for display if we don't already have one
+                        if not adjusted_eps:
+                            adjusted_eps = trailing_eps
                         
                         # Use GAAP EPS for P/E calculation (actual reported earnings)
                         if gaap_eps and gaap_eps > 0:

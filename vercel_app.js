@@ -136,6 +136,32 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentTicker = null;
     let currentHealthBreakdown = null;
     let currentBuyBreakdown = null;
+    let _originalBuyBreakdown = null;
+    let _originalBuyScore = null;
+
+    // --- Dynamic Industry PEG Calculation (v320) ---
+    function recalcIndustryPeg(prof) {
+        if (!prof || !prof.competitor_metrics) return;
+        const validPegs = prof.competitor_metrics
+            .map(p => parseFloat(p.peg_ratio))
+            .filter(v => !isNaN(v) && v > 0);
+        
+        let median = 1.25; // Fallback
+        if (validPegs.length > 0) {
+            validPegs.sort((a, b) => a - b);
+            const mid = Math.floor(validPegs.length / 2);
+            if (validPegs.length % 2 === 0) {
+                median = (validPegs[mid - 1] + validPegs[mid]) / 2;
+            } else {
+                median = validPegs[mid];
+            }
+        }
+        if (globalData && globalData.formula_data && globalData.formula_data.peg) {
+            globalData.formula_data.peg.industry_peg = median;
+        }
+        return median;
+    }
+
     let currentPiotroskiBreakdown = null;
     let chartRevFcf = null;
     let chartEpsShares = null;
@@ -175,7 +201,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (globalData && _originalPrice != null) {
                     globalData.current_price = _originalPrice;
                     priceEl.textContent = formatCurrency(_originalPrice);
-                    recalcWithSimPrice(_originalPrice);
+                    
+                    // Restore original Buy Score and Breakdown to 100% exact original values (v308 Fix)
+                    if (_originalBuyBreakdown && _originalBuyScore !== null) {
+                        currentBuyBreakdown = JSON.parse(JSON.stringify(_originalBuyBreakdown));
+                        globalData.buy_breakdown = currentBuyBreakdown;
+                        globalData.good_to_buy_total = _originalBuyScore;
+                        
+                        // Re-render profile section (restores all DOM metric values and styling)
+                        if (window._renderProfile) {
+                            window._renderProfile();
+                        }
+                        
+                        // Update UI
+                        updateScoreUI(globalData.good_to_buy_total, 'buy-score-circle', 'buy-score-fill');
+                        
+                        // If score breakdown modal is open, refresh it
+                        const scoreModal = document.getElementById('score-modal');
+                        if (scoreModal && scoreModal.style.display === 'flex') {
+                            const titleEl = document.getElementById('score-modal-title');
+                            if (titleEl && titleEl.textContent.includes('Good to Buy')) {
+                                renderScoreBreakdown('Good to Buy Score Breakdown', globalData.good_to_buy_total, currentBuyBreakdown);
+                            }
+                        }
+                    } else {
+                        recalcWithSimPrice(_originalPrice);
+                    }
+                    
+                    // Trigger global recalculate callback if exists
+                    if (window.triggerRecalculate) {
+                        window.triggerRecalculate();
+                    }
                 }
             }
         };
@@ -238,7 +294,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const newNonGaapPE  = (prof.adjusted_eps > 0) ? simPrice / prof.adjusted_eps : 0;
         const scoringPE     = (eps > 0) ? simPrice / eps : 0; // Use anchored EPS for scoring (v72 logic)
 
-        const newPS = (revenue > 0 && shares > 0) ? simPrice / (revenue / shares) : 0;
+        const newPS = (revenue > 0 && shares > 0) ? simPrice / (revenue / shares) : ((prof.ps_ratio && current_price > 0) ? prof.ps_ratio * (simPrice / current_price) : 0);
         const newMktCap = simPrice * shares;
         const ev = newMktCap + (globalData.total_debt || 0) - (globalData.total_cash || 0);
         const newEvEbitda = (ebitda > 0) ? ev / ebitda : 0;
@@ -305,8 +361,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 let newPts = item.points_awarded;
 
                 // Sector detection (matches scoring.py logic)
-                const industry = (prof.industry || '').toLowerCase();
-                const sector = (prof.sector || '').toLowerCase();
+                const industry = (prof.industry || globalData.industry || '').toLowerCase();
+                const sector = (prof.sector || globalData.sector || '').toLowerCase();
                 
                 const isBank = industry.includes('bank') || industry.includes('credit services') || industry.includes('savings');
                 const isFin = sector.includes('financial');
@@ -322,8 +378,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 const rev_g_val = cleanPercent(globalData.company_profile.revenue_growth || 0);
                 const fwd_growth = eps_5yr_g > 0 ? eps_5yr_g : rev_g_val;
                 
-                let rev_fwd_growth = cleanPercent(globalData.rev_cagr_2y);
-                if (!rev_fwd_growth || rev_fwd_growth === 0) rev_fwd_growth = rev_g_val;
+                let rev_fwd_growth = 0;
+                const revGrowthItem = globalData.buy_breakdown?.find(i => i.metric && i.metric.includes('Revenue Growth'));
+                if (revGrowthItem && revGrowthItem.value) {
+                    rev_fwd_growth = parseFloat(revGrowthItem.value.replace('%', ''));
+                }
+                if (!rev_fwd_growth || isNaN(rev_fwd_growth)) {
+                    rev_fwd_growth = cleanPercent(globalData.rev_cagr_2y);
+                    if (!rev_fwd_growth || rev_fwd_growth === 0) rev_fwd_growth = rev_g_val;
+                }
                 
                 const fwd_pe = parseFloat(globalData.company_profile.forward_pe) || 0;
                 
@@ -454,7 +517,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     item.value = newPB > 0 ? newPB.toFixed(2) + 'x' : '0.00x';
                 } else if (metric.includes('P/S Ratio')) {
                     const target_pe = getTargetPe(sector, industry);
-                    const margin = cleanPercent(globalData.company_profile.ebit_margin || globalData.company_profile.operating_margin || 0); 
+                    const ebitM = cleanPercent(globalData.company_profile.ebit_margin || 0);
+                    const opM = cleanPercent(globalData.company_profile.operating_margin || 0);
+                    const netM = cleanPercent(globalData.company_profile.net_margin || 0);
+                    const margin = Math.max(ebitM, opM, netM);
                     const target_ps = target_pe * (margin / 100.0);
                     let pts = 0;
                     if (newPS > 0) {
@@ -539,11 +605,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const sList = document.getElementById('top-strengths-list');
         if (sList) {
-            sList.innerHTML = strengths.slice(0, 3).map(s => `<li>${s.metric.split(' (')[0]}: ${s.value}</li>`).join('');
+            sList.innerHTML = strengths.slice(0, 3).map(s => `<li>${s.metric}: ${s.value}</li>`).join('');
         }
         const rList = document.getElementById('risk-factors-list');
         if (rList) {
-            rList.innerHTML = risks.slice(0, 3).map(r => `<li>${r.metric.split(' (')[0]}: ${r.value}</li>`).join('');
+            rList.innerHTML = risks.slice(0, 3).map(r => `<li>${r.metric}: ${r.value}</li>`).join('');
         }
     };
 
@@ -562,21 +628,14 @@ document.addEventListener('DOMContentLoaded', () => {
         .then(serverData => {
             if (Array.isArray(serverData)) {
                 const localData = JSON.parse(localStorage.getItem('fairValueWatchlist')) || [];
-                // Combine both and remove duplicates
-                const combined = [...new Set([...localData, ...serverData])];
-                
-                const hasChanged = JSON.stringify(watchlist) !== JSON.stringify(combined);
-                watchlist = combined;
+                // Server is the single source of truth. Prevents deleted items from resurrecting across devices.
+                const hasChanged = JSON.stringify(watchlist) !== JSON.stringify(serverData);
+                watchlist = serverData;
                 localStorage.setItem('fairValueWatchlist', JSON.stringify(watchlist));
                 
-                // v37: If we merged new data, sync it back to server so other devices get it too
-                if (hasChanged) {
-                    fetch('/api/watchlist', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ tickers: watchlist })
-                    }).catch(e => console.error('Sync-back failed:', e));
-                }
+                // If the local device had an outdated list, we DO NOT sync back to the server.
+                // We just accepted the server's list.
+                // Sync-back is only triggered intentionally by user actions (add/remove).
                 
                 // v38: Always trigger an initial background fetch for watchlist data to ensure scores are sync'd
                 if (watchlist.length > 0) {
@@ -597,7 +656,21 @@ document.addEventListener('DOMContentLoaded', () => {
     // Load overrides from server on startup
     fetch('/api/overrides?t=' + Date.now(), { cache: 'no-store' }).then(r => r.json()).then(data => {
         cachedOverrides = data || {};
-    }).catch(() => { cachedOverrides = {}; });
+    }).catch(e => console.error('Overrides load error:', e));
+
+    // v315: Force clear old customPeers cache to apply new Forward-First backend logic
+    if (!localStorage.getItem('v315_peers_reset')) {
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && k.startsWith('customPeers_')) {
+                keysToRemove.push(k);
+            }
+        }
+        keysToRemove.forEach(k => localStorage.removeItem(k));
+        localStorage.setItem('v315_peers_reset', 'true');
+        console.log('Cleared old custom peers cache to apply new FWD logic.');
+    }
 
     const getSmartWeights = (sector) => {
         let w = { dcf: 25, peg: 25, relative: 25, lynch: 25 }; 
@@ -693,7 +766,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (topStrengths.length > 0) {
                 topStrengths.forEach(s => {
                     const li = document.createElement('li');
-                    li.innerHTML = `<strong>${s.metric.split(' (')[0]}:</strong> ${s.value}`;
+                    li.innerHTML = `<strong>${s.metric}:</strong> ${s.value}`;
                     strengthsList.appendChild(li);
                 });
             } else {
@@ -707,7 +780,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (topRisks.length > 0) {
                 topRisks.forEach(r => {
                     const li = document.createElement('li');
-                    li.innerHTML = `<strong>${r.metric.split(' (')[0]}:</strong> ${r.value}`;
+                    li.innerHTML = `<strong>${r.metric}:</strong> ${r.value}`;
                     risksList.appendChild(li);
                 });
             } else {
@@ -1034,13 +1107,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 <tr>
                     <th style="padding:12px; text-align:left; color:var(--text-muted); font-size:0.85rem; position: sticky; left: 0; background: #0f172a; z-index: 10; border-right: 1px solid rgba(255,255,255,0.1);">COMPETITOR</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 100px;">Market Cap</th>
-                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">P/E (Trailing)</th>
+                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">P/E (Forward)</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 100px;">PEG Ratio</th>
-                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">EPS (Trailing)</th>
-                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">P/S (Trailing)</th>
+                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">EPS (Forward)</th>
+                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">P/S (Forward)</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 120px;">Revenue (TTM)</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 100px;">P/FCF</th>
-                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">FCF (Trailing)</th>
+                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">FCF (Forward)</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 130px;">Operating Margin</th>
                 </tr>
             </thead>
@@ -1062,10 +1135,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             </div>
                         </td>
                         <td style="padding:12px; font-weight:bold;">${formatBigNumber(mCap, '$')}</td>
-                        <td style="padding:12px; font-weight:bold;">${fmtPE(c.pe_ratio)}</td>
+                        <td style="padding:12px; font-weight:bold;">${fmtPE(c.fwd_pe || c.pe_ratio)}</td>
                         <td style="padding:12px; font-weight:bold;">${fmtPE(c.peg_ratio)}</td>
-                        <td style="padding:12px; font-weight:bold;">${fmtEPS(c.eps || c.trailing_eps)}</td>
-                        <td style="padding:12px; font-weight:bold;">${fmtPE(c.ps_ratio)}</td>
+                        <td style="padding:12px; font-weight:bold;">${fmtEPS(c.fwd_eps || c.eps || c.trailing_eps)}</td>
+                        <td style="padding:12px; font-weight:bold;">${fmtPE(c.fwd_ps || c.ps_ratio)}</td>
                         <td style="padding:12px; font-weight:bold;">${formatBigNumber(derivedRevenue, '$')}</td>
                         <td style="padding:12px; font-weight:bold;">${fmtPE(c.pfcf_ratio)}</td>
                         <td style="padding:12px; font-weight:bold;">${formatBigNumber(derivedFcf, '$')}</td>
@@ -1093,8 +1166,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (prof.original_competitor_metrics) {
                     prof.competitor_metrics = JSON.parse(JSON.stringify(prof.original_competitor_metrics));
                     prof.competitors = prof.competitor_metrics.map(p => p.ticker);
+                    recalcIndustryPeg(prof);
                 }
                 renderComparisonModal(prof);
+                if (typeof updateFairValue === 'function') updateFairValue();
             };
         }
 
@@ -1126,11 +1201,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         ticker: peerProf.ticker.toUpperCase(),
                         name: peerProf.name || 'Competitor',
                         market_cap: peerProf.market_cap,
-                        pe_ratio: peerProf.trailing_pe,
+                        pe_ratio: peerProf.fwd_pe || peerProf.trailing_pe,
                         peg_ratio: peerData.formula_data?.peg?.current_peg,
                         trailing_eps: peerProf.trailing_eps,
-                        eps: peerProf.trailing_eps,
-                        ps_ratio: peerProf.ps_ratio,
+                        eps: peerProf.fwd_eps || peerProf.trailing_eps,
+                        ps_ratio: peerProf.fwd_ps || peerProf.ps_ratio,
                         price_to_book: peerProf.price_to_book,
                         ev_to_ebitda: peerData.formula_data?.relative?.company_ev_ebitda || peerProf.ev_to_ebitda,
                         revenue: peerProf.revenue,
@@ -1145,6 +1220,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     if (!prof.competitors) prof.competitors = [];
                     if (!prof.competitors.includes(rawVal)) prof.competitors.push(rawVal);
+                    
+                    recalcIndustryPeg(prof);
                     
                     // Persist to local storage
                     localStorage.setItem('customPeers_' + (prof.ticker || currentTicker), JSON.stringify(prof.competitor_metrics));
@@ -1256,6 +1333,52 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             circle.classList.add('score-red');
             fill.classList.add('bg-score-red');
+        }
+    };
+
+    // ── Beneish M-Score UI ────────────────────────────────────────────────────
+    const updateBeneishUI = (beneishData) => {
+        const circle = document.getElementById('beneish-score-circle');
+        const fill   = document.getElementById('beneish-score-fill');
+        const badge  = document.getElementById('beneish-label-badge');
+        if (!circle || !fill) return;
+
+        circle.className = 'score-circle';
+        fill.className = 'score-bar-fill';
+        circle.style.color = '';
+        fill.style.backgroundColor = '';
+        fill.style.width = '0%';
+
+        if (!beneishData || beneishData.m_score == null) {
+            circle.textContent = 'N/A';
+            circle.style.color = 'var(--text-muted)';
+            fill.style.backgroundColor = 'var(--text-muted)';
+            if (badge) { badge.textContent = '--'; badge.style.background = 'rgba(148,163,184,0.2)'; badge.style.color = 'var(--text-muted)'; }
+            return;
+        }
+
+        const scoreVal = beneishData.m_score;
+        circle.textContent = scoreVal;
+        
+        // Bar logic for Beneish. Let's map -4.00 to 100% safe, and 0.00 to 0%
+        let barPct = Math.round(((scoreVal - 0) / (-4.0 - 0)) * 100);
+        if (barPct < 0) barPct = 0;
+        if (barPct > 100) barPct = 100;
+        
+        setTimeout(() => { fill.style.width = `${barPct}%`; }, 50);
+
+        if (beneishData.status === 'pass') {
+            circle.classList.add('score-green');
+            fill.classList.add('bg-score-green');
+            if (badge) { badge.textContent = 'Safe'; badge.style.background = 'rgba(16,185,129,0.25)'; badge.style.color = 'var(--accent)'; }
+        } else if (beneishData.status === 'fail') {
+            circle.classList.add('score-red');
+            fill.classList.add('bg-score-red');
+            if (badge) { badge.textContent = 'Risk'; badge.style.background = 'rgba(239,68,68,0.2)'; badge.style.color = 'var(--danger)'; }
+        } else {
+            circle.style.color = 'var(--text-muted)';
+            fill.style.backgroundColor = 'var(--text-muted)';
+            if (badge) { badge.textContent = '--'; badge.style.background = 'rgba(148,163,184,0.2)'; badge.style.color = 'var(--text-muted)'; }
         }
     };
 
@@ -1444,9 +1567,35 @@ document.addEventListener('DOMContentLoaded', () => {
                     buybackRate = (rawVal === '' || isNaN(parseLocaleFloat(rawVal))) ? 0 : parseLocaleFloat(rawVal) / 100;
                 }
 
-                const baseFcf = currentFormulaData.dcf.fcf;
-                const baseRevenue = globalData.revenue || (prof.market_cap && prof.ps_ratio && prof.ps_ratio > 0 ? prof.market_cap / prof.ps_ratio : null) || 0;
+                let baseFcf = currentFormulaData.dcf.fcf;
+                let baseRevenue = globalData.revenue;
                 
+                // Align base FCF and Revenue with the latest historical year (e.g. 2025 Base)
+                if (globalData.historical_data && globalData.historical_data.years) {
+                    const histFcf = globalData.historical_data.fcf;
+                    const histRev = globalData.historical_data.revenue;
+                    const years = globalData.historical_data.years;
+                    
+                    let lastActualIdx = -1;
+                    for (let i = years.length - 1; i >= 0; i--) {
+                        if (!String(years[i]).includes('Est')) {
+                            lastActualIdx = i;
+                            break;
+                        }
+                    }
+                    
+                    if (lastActualIdx >= 0) {
+                        if (histFcf && histFcf.length > lastActualIdx && histFcf[lastActualIdx] != null) {
+                            baseFcf = histFcf[lastActualIdx];
+                        }
+                        if (histRev && histRev.length > lastActualIdx && histRev[lastActualIdx] != null) {
+                            baseRevenue = histRev[lastActualIdx];
+                        }
+                    }
+                }
+                
+                baseRevenue = baseRevenue || (prof.market_cap && prof.ps_ratio && prof.ps_ratio > 0 ? prof.market_cap / prof.ps_ratio : null) || 0;
+
                 const customMarginEl = document.getElementById('dcf-custom-fcf-margin');
                 const customMargin = (customMarginEl && customMarginEl.value !== '') ? parseLocaleFloat(customMarginEl.value) : null;
                 
@@ -1863,11 +2012,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
             let fvPE = 0, fvPFCF = 0, fvPS = 0, fvPB = 0, fvEVEBITDA = 0;
             
-            const company_eps = rel.company_eps || 0;
-            const company_fcf_share = rel.company_fcf_share || 0;
-            const company_sales_share = rel.company_sales_share || 0;
-            const company_book_share = rel.company_book_share || 0;
-            const company_ebitda = globalData.ebitda || 0;
+            const revGrowth = prof.revenue_growth || 0;
+            const earnGrowth = prof.earnings_growth || 0;
+            const fcfGrowth = prof.historic_fcf_growth || 0;
+
+            const company_eps = (rel.company_fwd_eps || 0) > 0 ? rel.company_fwd_eps : (rel.company_eps || 0);
+            const company_fcf_share = (rel.company_fcf_share || 0);
+            
+            const explicit_fwd_ps = globalData.company_profile && globalData.company_profile.fwd_ps;
+            const company_sales_share = explicit_fwd_ps > 0 ? (globalData.current_price / explicit_fwd_ps) : (rel.company_sales_share || 0);
+            
+            const company_book_share = rel.company_book_share || 0; // Book value remains TTM
+            const company_ebitda = (globalData.ebitda || 0);
             const company_debt = globalData.total_debt || 0;
             const company_cash = globalData.total_cash || 0;
             const company_shares = (globalData.company_profile && globalData.company_profile.shares_outstanding) || 1;
@@ -1967,9 +2123,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const customWKey = 'rel-weight-mode-card';
             const modeCardEl = document.getElementById(customWKey);
             if (modeCardEl && modeCardEl.value === 'custom' && window._relCustomWeights) {
-                // Override weights with user's custom values
-                const cw = window._relCustomWeights;
-                Object.keys(cw).forEach(k => { if (weights[k] !== undefined) weights[k] = cw[k]; });
+                // Override weights with user's custom values completely
+                weights = window._relCustomWeights;
             }
 
             let weightedSum = 0;
@@ -2003,7 +2158,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (mc) mc.textContent = multipleLabel;
             
             // --- Populate custom weight inputs on the card ---
-            const LABEL = { PE: 'P/E', PFCF: 'P/FCF', PS: 'P/S', PB: 'P/B', EV_EBITDA: 'EV/EBITDA', P_FFO: 'P/FFO', P_AFFO: 'P/AFFO' };
+            const LABEL = { PE: 'Fwd P/E', PFCF: 'Trailing P/FCF', PS: 'P/S', PB: 'Current P/B', EV_EBITDA: 'Trailing EV/EBITDA', P_FFO: 'Trailing P/FFO', P_AFFO: 'Trailing P/AFFO' };
             const activeKeys = Object.keys(weights).filter(k => weights[k] !== undefined);
             const cwPanel = document.getElementById('rel-custom-weights-card');
             if (cwPanel) {
@@ -2293,6 +2448,7 @@ document.addEventListener('DOMContentLoaded', () => {
         globalData = data; 
         currentFormulaData = data.formula_data;
         currentTicker = data.ticker;
+        const prof = data.company_profile || {};
 
         // Save original peers before custom overrides (v307)
         if (data.company_profile && data.company_profile.competitor_metrics && !data.company_profile.original_competitor_metrics) {
@@ -2306,6 +2462,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 const peersList = JSON.parse(savedPeers);
                 data.company_profile.competitor_metrics = peersList;
                 data.company_profile.competitors = peersList.map(p => p.ticker);
+                
+                // Recalculate PEG Sector live based on custom peers
+                if (data.formula_data && data.formula_data.peg) {
+                    const validPegs = peersList.map(p => parseFloat(p.peg_ratio)).filter(v => !isNaN(v) && v > 0);
+                    if (validPegs.length > 0) {
+                        validPegs.sort((a, b) => a - b);
+                        const mid = Math.floor(validPegs.length / 2);
+                        data.formula_data.peg.industry_peg = (validPegs.length % 2 === 0) 
+                            ? (validPegs[mid - 1] + validPegs[mid]) / 2 
+                            : validPegs[mid];
+                    }
+                }
             } catch (e) {
                 console.error("Error loading custom peers", e);
             }
@@ -2387,6 +2555,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 cachedWatchlistData.push({ ...data });
             }
+            sessionStorage.setItem(`val_v3_${data.ticker.toUpperCase()}`, JSON.stringify({ data, ts: Date.now() }));
         }
 
         // DESCRIPTION CARD INJECTION
@@ -2610,12 +2779,12 @@ document.addEventListener('DOMContentLoaded', () => {
                             panel.innerHTML = `
                                 <div style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 15px; width: 100%;">
                                     <div style="flex: 1 1 280px; min-width: 250px;">
-                                        <h4 style="color: #4ade80; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin-top: 0; margin-bottom: 10px; font-weight: 800;">Puncte Forte Strategice</h4>
+                                        <h4 style="color: #4ade80; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin-top: 0; margin-bottom: 10px; font-weight: 800;">Strategic Strengths</h4>
                                         <div class="skeleton-text" style="width: 100%; height: 35px; border-radius: 6px;"></div>
                                         <div class="skeleton-text" style="width: 100%; height: 35px; border-radius: 6px;"></div>
                                     </div>
                                     <div style="flex: 1 1 280px; min-width: 250px;">
-                                        <h4 style="color: #f87171; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin-top: 0; margin-bottom: 10px; font-weight: 800;">Vulnerabilități și Riscuri</h4>
+                                        <h4 style="color: #f87171; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin-top: 0; margin-bottom: 10px; font-weight: 800;">Vulnerabilities & Risks</h4>
                                         <div class="skeleton-text" style="width: 100%; height: 35px; border-radius: 6px;"></div>
                                         <div class="skeleton-text" style="width: 100%; height: 35px; border-radius: 6px;"></div>
                                     </div>
@@ -2628,7 +2797,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                         <span style="color: #4ade80; font-weight: bold; font-size: 0.9rem; flex-shrink:0;">✔️</span>
                                         <span style="color: rgba(255,255,255,0.85); font-size: 0.8rem;">${s}</span>
                                     </div>`).join('')
-                                : '<div style="color: rgba(255,255,255,0.5); font-size: 0.8rem; padding: 10px; font-style:italic;">Operațiuni comerciale diversificate.</div>';
+                                : '<div style="color: rgba(255,255,255,0.5); font-size: 0.8rem; padding: 10px; font-style:italic;">Diversified commercial operations.</div>';
                                 
                             const risksHtml = parsed.vulnerabilitiesRisks.length > 0 
                                 ? parsed.vulnerabilitiesRisks.map(r => `
@@ -2636,16 +2805,16 @@ document.addEventListener('DOMContentLoaded', () => {
                                         <span style="color: #f87171; font-weight: bold; font-size: 0.9rem; flex-shrink:0;">⚠️</span>
                                         <span style="color: rgba(255,255,255,0.85); font-size: 0.8rem;">${r}</span>
                                     </div>`).join('')
-                                : '<div style="color: rgba(255,255,255,0.5); font-size: 0.8rem; padding: 10px; font-style:italic;">Expunere la ciclurile de piață globale.</div>';
+                                : '<div style="color: rgba(255,255,255,0.5); font-size: 0.8rem; padding: 10px; font-style:italic;">Exposure to global market cycles.</div>';
 
                             panel.innerHTML = `
                                 <div style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 15px; width: 100%;">
                                     <div style="flex: 1 1 280px; min-width: 250px;">
-                                        <h4 style="color: #4ade80; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin-top: 0; margin-bottom: 10px; font-weight: 800;">Puncte Forte Strategice</h4>
+                                        <h4 style="color: #4ade80; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin-top: 0; margin-bottom: 10px; font-weight: 800;">Strategic Strengths</h4>
                                         ${strengthsHtml}
                                     </div>
                                     <div style="flex: 1 1 280px; min-width: 250px;">
-                                        <h4 style="color: #f87171; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin-top: 0; margin-bottom: 10px; font-weight: 800;">Vulnerabilități și Riscuri</h4>
+                                        <h4 style="color: #f87171; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin-top: 0; margin-bottom: 10px; font-weight: 800;">Vulnerabilities & Risks</h4>
                                         ${risksHtml}
                                     </div>
                                 </div>
@@ -2661,7 +2830,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             panel.innerHTML = parsed.latestMarketIntelligence.map(item => {
                                 const match = item.match(/^(.*?)\s*\(Source:\s*(.*?)\)$/i);
                                 const title = match ? match[1] : item;
-                                const source = match ? match[2] : "Știri de Piață";
+                                const source = match ? match[2] : "Market News";
                                 
                                 return `
                                     <div class="brief-news-item">
@@ -2673,7 +2842,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 `;
                             }).join('');
                         } else {
-                            panel.innerHTML = '<div style="color: rgba(255,255,255,0.5); font-size: 0.8rem; padding: 20px; text-align: center; font-style:italic;">Nu există știri recente sau evoluții de piață globale.</div>';
+                            panel.innerHTML = '<div style="color: rgba(255,255,255,0.5); font-size: 0.8rem; padding: 20px; text-align: center; font-style:italic;">No recent news or market developments available.</div>';
                         }
                     }
                 };
@@ -2699,12 +2868,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     copyBtn.onclick = () => {
                         const textToCopy = synthesisText || (prof.name + ' - ' + (prof.business_summary || ''));
                         navigator.clipboard.writeText(textToCopy).then(() => {
-                            copyText.textContent = 'Copiat!';
+                            copyText.textContent = 'Copied!';
                             copyBtn.style.background = 'rgba(34, 197, 94, 0.15)';
                             copyBtn.style.color = '#4ade80';
                             copyBtn.style.borderColor = 'rgba(34, 197, 94, 0.3)';
                             setTimeout(() => {
-                                copyText.textContent = 'Copiază';
+                                copyText.textContent = 'Copy';
                                 copyBtn.style.background = 'rgba(255,255,255,0.05)';
                                 copyBtn.style.color = 'rgba(255,255,255,0.7)';
                                 copyBtn.style.borderColor = 'rgba(255,255,255,0.1)';
@@ -2715,9 +2884,10 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             // Determine if the loaded synthesis is just a fallback (either empty, or containing our specific fallback marker)
+            const synthTextLower = (data.company_overview_synthesis || "").toLowerCase();
             const isFallback = !data.company_overview_synthesis || 
-                               data.company_overview_synthesis.includes("AI Insights generation is active") ||
-                               data.company_overview_synthesis.includes("Generarea analizei AI este activă");
+                               synthTextLower.includes("generation is active") ||
+                               synthTextLower.includes("generarea analizei ai este activ");
 
             // Fast rendering of local heuristic fallback initially. If fallback, show loading state
             renderCorporateBrief(data.company_overview_synthesis, isFallback);
@@ -2740,19 +2910,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         // Disable loading state and fallback permanently to heuristics
                         renderCorporateBrief(data.company_overview_synthesis, false);
                     });
-                };
             }
         }
 
         updateWatchlistButtonState();
 
         const dcfCardMosRow = document.getElementById('dcf-card-mos-row');
-        const dcfCardPrice = document.getElementById('dcf-card-price');
         const dcfCardMos = document.getElementById('dcf-card-mos');
         if (dcfCardMosRow && data.formula_data && data.formula_data.dcf) {
             const dcf = data.formula_data.dcf;
             dcfCardMosRow.style.display = 'flex';
-            dcfCardPrice.textContent = `Price: ${formatCurrency(dcf.current_price)}`;
             if (dcf.margin_of_safety != null) {
                 const mos = dcf.margin_of_safety;
                 dcfCardMos.textContent = `MOS: ${formatPercent(mos)}`;
@@ -2767,6 +2934,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         currentHealthBreakdown = data.health_breakdown;
         currentBuyBreakdown = data.buy_breakdown;
+        _originalBuyBreakdown = JSON.parse(JSON.stringify(data.buy_breakdown));
+        _originalBuyScore = data.good_to_buy_total;
         currentPiotroskiBreakdown = data.piotroski_breakdown || (data.piotroski && data.piotroski.breakdown) || [];
 
         updateScoreUI(data.health_score_total, 'health-score-circle', 'health-score-fill');
@@ -2802,30 +2971,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         
         // Beneish M-Score UI Update
+        const beneishData = data.health_score ? data.health_score.beneish : null;
+        updateBeneishUI(beneishData);
+        
         const bRow = document.getElementById('beneish-score-row');
-        const bVal = document.getElementById('beneish-score-value');
-        const bLab = document.getElementById('beneish-score-label');
-        if (bRow && bVal && bLab && data.health_score && data.health_score.beneish) {
-            const bData = data.health_score.beneish;
-            if (bData.m_score !== null) {
-                bVal.textContent = bData.m_score;
-                bLab.textContent = bData.label;
-                if (bData.status === 'pass') {
-                    bVal.style.color = 'var(--success)';
-                    bLab.style.color = 'var(--success)';
-                } else if (bData.status === 'fail') {
-                    bVal.style.color = 'var(--danger)';
-                    bLab.style.color = 'var(--danger)';
-                } else {
-                    bVal.style.color = 'var(--text-muted)';
-                    bLab.style.color = 'var(--text-muted)';
-                }
-            } else {
-                bVal.textContent = 'N/A';
-                bVal.style.color = 'var(--text-muted)';
-                bLab.textContent = bData.label || 'Data Unavailable';
-                bLab.style.color = 'var(--text-muted)';
-            }
+        if (bRow) {
+            bRow.style.cursor = 'pointer';
+            bRow.onclick = () => {
+                renderBeneishBreakdown(beneishData);
+            };
         }
 
         // Rule of 40 UI Update & Click Binding
@@ -2950,7 +3104,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div style="font-size: 0.8rem; color: var(--text-main); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 2px solid rgba(255,255,255,0.1); font-weight: 700;">Valuation & Earnings</div>
                             <div style="display: flex; flex-direction: column;">
                                 ${metricRow('P/E TTM', prof.trailing_pe ? prof.trailing_pe.toFixed(2) + 'x' : 'N/A')}
-                                ${metricRow('P/E GAAP', (prof.eps_last_year && prof.eps_last_year > 0 && _originalPrice) ? (_originalPrice / prof.eps_last_year).toFixed(2) + 'x' : 'N/A')}
+                                ${metricRow('P/E GAAP', (prof.trailing_eps && prof.trailing_eps > 0 && _originalPrice) ? (_originalPrice / prof.trailing_eps).toFixed(2) + 'x' : 'N/A')}
                                 ${metricRow('P/E Non-GAAP', non_gaap_pe ? non_gaap_pe.toFixed(2) + 'x' : 'N/A')}
                                 ${metricRow('5Y Avg. P/E', prof.historic_pe ? prof.historic_pe.toFixed(2) + 'x' : 'N/A')}
                                 ${metricRow('PE FWD', prof.fwd_pe ? prof.fwd_pe.toFixed(2) + 'x' : 'N/A')}
@@ -3150,6 +3304,8 @@ document.addEventListener('DOMContentLoaded', () => {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
+        }).then(() => {
+            sessionStorage.removeItem(`val_v3_${ticker.toUpperCase()}`);
         }).catch(err => console.error('Override sync error:', err));
         
         pendingOverridePayload = null;
@@ -3237,6 +3393,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const deleteOverrideFromServer = (ticker) => {
         delete cachedOverrides[ticker];
         fetch(`/api/overrides/${ticker}`, { method: 'DELETE' })
+            .then(() => sessionStorage.removeItem(`val_v3_${ticker.toUpperCase()}`))
             .catch(err => console.error('Override delete error:', err));
     };
 
@@ -4170,7 +4327,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // v38: Call individual valuation endpoint. 
                 // skip_peers=false to ensure scores are 100% sync'd with dashboard.
                 // Check client-side cache first (15 min TTL)
-                const cacheKey = `valuation_${tUpper}`;
+                const cacheKey = `val_v3_${tUpper}`;
                 const cached = sessionStorage.getItem(cacheKey);
                 if (cached) {
                     const { data: cachedData, ts } = JSON.parse(cached);
@@ -4300,8 +4457,32 @@ document.addEventListener('DOMContentLoaded', () => {
                     const fcfYears = dataObj.fcf_projections || [];
                     const sensMatrix = method === 'perpetual' ? (dataObj.sensitivity_matrix || []) : [];
                     
-                    const baseFcf = d.fcf || 0;
-                    const baseRevenue = globalData.revenue || 0;
+                    let baseFcf = d.fcf || 0;
+                    let baseRevenue = globalData.revenue || 0;
+                    
+                    if (globalData.historical_data && globalData.historical_data.years) {
+                        const histFcf = globalData.historical_data.fcf;
+                        const histRev = globalData.historical_data.revenue;
+                        const years = globalData.historical_data.years;
+                        
+                        let lastActualIdx = -1;
+                        for (let i = years.length - 1; i >= 0; i--) {
+                            if (!String(years[i]).includes('Est')) {
+                                lastActualIdx = i;
+                                break;
+                            }
+                        }
+                        
+                        if (lastActualIdx >= 0) {
+                            if (histFcf && histFcf.length > lastActualIdx && histFcf[lastActualIdx] != null) {
+                                baseFcf = histFcf[lastActualIdx];
+                            }
+                            if (histRev && histRev.length > lastActualIdx && histRev[lastActualIdx] != null) {
+                                baseRevenue = histRev[lastActualIdx];
+                            }
+                        }
+                    }
+                    
                     const customMarginEl = document.getElementById('dcf-custom-fcf-margin');
                     const customMargin = (customMarginEl && customMarginEl.value !== '') ? parseLocaleFloat(customMarginEl.value) : null;
                     let startingFcfMargin = 0.10;
@@ -4421,11 +4602,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     defaultWeights = SECTOR_WEIGHTS['Technology_Growth'];
                 }
                 
+                // --- Custom Weights Logic ---
+                const ticker = globalData.ticker;
+                const overrides = cachedOverrides[ticker]?.inputs || {};
+                const customW = {};
+                let hasCustomW = false;
+                ['w-pe', 'w-pfcf', 'w-ps', 'w-pb', 'w-evebitda'].forEach(id => {
+                    if (overrides[id] !== undefined) {
+                        const k = id.split('-')[1].toUpperCase().replace('EVEBITDA', 'EV_EBITDA');
+                        customW[k] = overrides[id] / 100;
+                        hasCustomW = true;
+                    }
+                });
+                const weightsToUse = hasCustomW ? customW : defaultWeights;
+                
                 // Active metric keys for this sector
-                const activeKeys = Object.keys(defaultWeights).filter(k => (defaultWeights[k] || 0) > 0);
+                const activeKeys = Object.keys(weightsToUse).filter(k => (weightsToUse[k] || 0) > 0);
                 
                 // Label map
-                const LABEL = { PE: 'P/E', PFCF: 'P/FCF', PS: 'P/S', PB: 'P/B', EV_EBITDA: 'EV/EBITDA', P_FFO: 'P/FFO', P_AFFO: 'P/AFFO' };
+                const LABEL = { PE: 'Fwd P/E', PFCF: 'Trailing P/FCF', PS: 'P/S', PB: 'Current P/B', EV_EBITDA: 'Trailing EV/EBITDA', P_FFO: 'Trailing P/FFO', P_AFFO: 'Trailing P/AFFO' };
                 const peerKeyMap = { PE: 'pe_ratio', PFCF: 'pfcf_ratio', PS: 'ps_ratio', PB: 'price_to_book', EV_EBITDA: 'ev_to_ebitda' };
 
                 // --- Competitor Table ---
@@ -4479,17 +4674,24 @@ document.addEventListener('DOMContentLoaded', () => {
                                 ${activeKeys.map(k => {
                                     let val = null;
                                     if (k === 'PE') {
-                                        const adjEps = globalData.company_profile && globalData.company_profile.adjusted_eps;
-                                        const curPrice = globalData.current_price || 0;
-                                        if (adjEps && adjEps > 0 && curPrice > 0) {
-                                            val = curPrice / adjEps;
-                                        } else {
-                                            val = (globalData.company_profile && (globalData.company_profile.trailing_pe || globalData.company_profile.current_pe));
-                                        }
+                                        val = globalData.company_profile && globalData.company_profile.fwd_pe;
                                     }
-                                    else if (k === 'PS') val = (globalData.company_profile && globalData.company_profile.ps_ratio);
-                                    else if (k === 'PB') val = (globalData.company_profile && globalData.company_profile.price_to_book);
-                                    else if (k === 'EV_EBITDA') val = (r && r.company_ev_ebitda);
+                                    else if (k === 'PS') {
+                                        val = globalData.company_profile && globalData.company_profile.fwd_ps;
+                                    }
+                                    else if (k === 'PB') {
+                                        val = (globalData.company_profile && globalData.company_profile.price_to_book);
+                                    }
+                                    else if (k === 'EV_EBITDA') {
+                                        const earnGrowth = globalData.company_profile && globalData.company_profile.earnings_growth || 0;
+                                        const ev_ebitda_ttm = (r && r.company_ev_ebitda) || 0;
+                                        val = ev_ebitda_ttm > 0 ? ev_ebitda_ttm / (1 + earnGrowth) : null;
+                                    }
+                                    else if (k === 'PFCF' || k === 'P_AFFO') {
+                                        const fcfGrowth = globalData.company_profile && globalData.company_profile.historic_fcf_growth || 0;
+                                        const pfcf_ttm = globalData.company_profile && globalData.company_profile.pfcf_ratio || 0;
+                                        val = pfcf_ttm > 0 ? pfcf_ttm / (1 + fcfGrowth) : null;
+                                    }
                                     
                                     return `<td style="text-align:right; padding:6px; color:#28c76f; font-weight:700;">${val != null ? val.toFixed(1) + 'x' : '—'}</td>`;
                                 }).join('')}
@@ -4551,14 +4753,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
 
                 const getImplied = (key, bench) => {
-                    const eps = r.company_eps || 0;
-                    const fcfS = r.company_fcf_share || 0;
-                    const salesS = r.company_sales_share || 0;
+                    const prof = globalData.company_profile || {};
+
+                    const eps = (r.company_fwd_eps || 0) > 0 ? r.company_fwd_eps : (r.company_eps || 0);
+                    const fcfS = (r.company_fcf_share || 0);
+                    
+                    const explicit_fwd_ps = prof.fwd_ps;
+                    const salesS = explicit_fwd_ps > 0 ? (globalData.current_price / explicit_fwd_ps) : (r.company_sales_share || 0);
+                    
                     const bookS = r.company_book_share || 0;
-                    const ebitda = globalData.ebitda || 0;
+                    const ebitda = (globalData.ebitda || 0);
+                    
                     const debt = globalData.total_debt || 0;
                     const cash = globalData.total_cash || 0;
-                    const shares = (globalData.company_profile && globalData.company_profile.shares_outstanding) || 1;
+                    const shares = prof.shares_outstanding || 1;
                     
                     if (key === 'PE' || key === 'P_FFO') return eps * bench;
                     if (key === 'PFCF' || key === 'P_AFFO') return fcfS * bench;
@@ -4575,7 +4783,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 activeKeys.forEach(k => {
                     const bench = getBenchmark(k);
                     const implied = getImplied(k, bench);
-                    const w = defaultWeights[k] || 0;
+                    const w = weightsToUse[k] || 0;
                     const safeImpl = implied > 0 ? implied : 0;
                     const implColor = safeImpl > 0 ? 'white' : 'var(--text-muted)';
                     breakdownRows += `
@@ -4592,7 +4800,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 activeKeys.forEach(k => {
                     const b = getBenchmark(k);
                     const impl = getImplied(k, b);
-                    const w = defaultWeights[k] || 0;
+                    const w = weightsToUse[k] || 0;
                     if (w > 0 && impl > 0) { _initSum += impl * w; _initTot += w; }
                 });
                 const modalFV = _initTot > 0 ? _initSum / _initTot : 0;
@@ -4689,9 +4897,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // Build rows - Grid: Label (flex) | Value (fixed) | Dot+Pts (fixed)
         breakdown.forEach(item => {
             let label = (item.metric || item.name || 'Unknown Metric');
-            if (!label.includes('(adj.)')) {
-                label = label.split(' (')[0];
-            }
             
             const pts = (item.points_awarded !== undefined) ? item.points_awarded : (item.points || 0);
             const maxPts = item.max_points || 0;
@@ -4704,12 +4909,14 @@ document.addEventListener('DOMContentLoaded', () => {
             else if (pct >= 0.4) { dotColor = '#fbbf24'; ptsColor = '#fbbf24'; }
 
             html += `
-                <div style="display:grid; grid-template-columns: 1fr auto auto; align-items:center; padding:10px 0; border-top:1px solid rgba(255,255,255,0.04); gap:15px;">
-                    <div style="font-weight:600; font-size:0.88rem; color:white; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${label}</div>
-                    <div style="font-weight:700; font-size:0.9rem; color:rgba(255,255,255,0.85); text-align:right; font-family:monospace; min-width:60px;">${item.value || 'N/A'}</div>
-                    <div style="display:flex; align-items:center; gap:8px; justify-content:flex-end; min-width:65px;">
-                        <span style="width:8px; height:8px; border-radius:50%; background:${dotColor}; display:inline-block; flex-shrink:0;"></span>
-                        <span style="font-weight:800; font-size:0.85rem; color:${ptsColor}; white-space:nowrap; font-family: 'Outfit', sans-serif;">${pts}/${maxPts}</span>
+                <div style="display:flex; flex-direction:column; padding:10px 0; border-top:1px solid rgba(255,255,255,0.04); gap:6px;">
+                    <div style="font-weight:600; font-size:0.88rem; color:white; line-height:1.4;">${label}</div>
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div style="font-weight:700; font-size:0.9rem; color:rgba(255,255,255,0.85); font-family:monospace;">${item.value || 'N/A'}</div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="width:8px; height:8px; border-radius:50%; background:${dotColor}; display:inline-block; flex-shrink:0;"></span>
+                            <div style="font-weight:800; font-size:0.85rem; color:${ptsColor}; font-family: 'Outfit', sans-serif; text-align:right; min-width:35px;">${pts}/${maxPts}</div>
+                        </div>
                     </div>
                 </div>
             `;
@@ -4719,6 +4926,60 @@ document.addEventListener('DOMContentLoaded', () => {
         body.innerHTML = html;
         modal.style.display = 'flex';
     };
+
+    // ── Beneish M-Score Breakdown Modal ──────────────────────
+    function renderBeneishBreakdown(beneishData) {
+        const modal = document.getElementById('score-modal');
+        const body = document.getElementById('score-modal-body-content');
+        const titleEl = document.getElementById('score-modal-title');
+        if (!modal || !body) return;
+
+        if (!beneishData || beneishData.m_score == null || !beneishData.breakdown || beneishData.breakdown.length === 0) {
+            if (titleEl) titleEl.textContent = 'Beneish M-Score';
+            body.innerHTML = '<p style="color:var(--text-muted);">No Beneish data available for this ticker.</p>';
+            modal.style.display = 'flex';
+            return;
+        }
+
+        const scoreVal = beneishData.m_score;
+        let html = `
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:5px; gap:15px;">
+                <h3 style="margin:0; font-size:1.05rem; color:white; font-weight:800;">Beneish M-Score</h3>
+                <div style="display:flex; align-items:baseline; gap:6px;">
+                    <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600; text-transform:uppercase;">Total:</span>
+                    <span style="font-size:1.3rem; font-weight:900; color:white;">${scoreVal}</span>
+                </div>
+            </div>
+            <div style="margin-bottom: 15px; font-size: 0.85rem; color: var(--text-muted);">
+                A score less than <b>-1.78</b> suggests a low risk of accounting manipulation. Higher scores indicate increased risk.
+            </div>
+        `;
+
+        beneishData.breakdown.forEach(item => {
+            const label = item.metric || 'Unknown';
+            const passed = item.status === 'pass';
+            const dotColor = passed ? 'var(--accent)' : (item.status === 'fail' ? 'var(--danger)' : 'var(--text-muted)');
+
+            html += `
+                <div style="display:flex; flex-direction:column; padding:8px 0; border-top:1px solid rgba(255,255,255,0.04); gap:6px;">
+                    <div>
+                        <div style="font-weight:600; font-size:0.85rem; color:white; line-height:1.4;">${label}</div>
+                        <div style="font-size:0.7rem; color:var(--text-muted); margin-top:2px;">${item.threshold}</div>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div style="font-weight:700; font-size:0.85rem; color:rgba(255,255,255,0.7); font-family:monospace;">${item.value !== null ? item.value : 'N/A'}</div>
+                        <div style="display:flex; align-items:center;">
+                            <span style="width:8px; height:8px; border-radius:50%; background:${dotColor}; display:inline-block; flex-shrink:0;"></span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+        if (titleEl) titleEl.textContent = '';
+        body.innerHTML = html;
+        modal.style.display = 'flex';
+    }
 
     // ── Piotroski F-Score Breakdown Modal ──────────────────────
     function renderPiotroskiBreakdown(totalScore, breakdown) {
@@ -4761,12 +5022,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const statusColor = passed === true ? 'var(--accent)' : (passed === false ? 'var(--danger)' : 'var(--text-muted)');
 
             html += `
-                <div style="display:grid; grid-template-columns: 1fr auto auto; align-items:center; padding:8px 0; border-top:1px solid rgba(255,255,255,0.04); gap:15px;">
-                    <div style="font-weight:600; font-size:0.85rem; color:white; overflow:hidden; text-overflow:ellipsis;">${label}</div>
-                    <div style="font-weight:700; font-size:0.85rem; color:rgba(255,255,255,0.7); text-align:right; font-family:monospace; min-width:80px;">${item.value || 'N/A'}</div>
-                    <div style="display:flex; align-items:center; gap:8px; justify-content:flex-end; min-width:60px;">
-                        <span style="width:8px; height:8px; border-radius:50%; background:${dotColor}; display:inline-block; flex-shrink:0;"></span>
-                        <span style="font-weight:800; font-size:0.85rem; color:${statusColor}; white-space:nowrap;">${statusText}</span>
+                <div style="display:flex; flex-direction:column; padding:8px 0; border-top:1px solid rgba(255,255,255,0.04); gap:6px;">
+                    <div style="font-weight:600; font-size:0.85rem; color:white; line-height:1.4;">${label}</div>
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div style="font-weight:700; font-size:0.85rem; color:rgba(255,255,255,0.7); font-family:monospace;">${item.value || 'N/A'}</div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="width:8px; height:8px; border-radius:50%; background:${dotColor}; display:inline-block; flex-shrink:0;"></span>
+                            <div style="font-weight:800; font-size:0.85rem; color:${statusColor}; white-space:nowrap; padding-left:4px; min-width:55px;">${statusText}</div>
+                        </div>
                     </div>
                 </div>
             `;

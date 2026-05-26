@@ -2555,7 +2555,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 cachedWatchlistData.push({ ...data });
             }
-            sessionStorage.setItem(`val_v2_${data.ticker.toUpperCase()}`, JSON.stringify({ data, ts: Date.now() }));
+            sessionStorage.setItem(`val_v3_${data.ticker.toUpperCase()}`, JSON.stringify({ data, ts: Date.now() }));
         }
 
         // DESCRIPTION CARD INJECTION
@@ -2779,12 +2779,12 @@ document.addEventListener('DOMContentLoaded', () => {
                             panel.innerHTML = `
                                 <div style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 15px; width: 100%;">
                                     <div style="flex: 1 1 280px; min-width: 250px;">
-                                        <h4 style="color: #4ade80; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin-top: 0; margin-bottom: 10px; font-weight: 800;">Puncte Forte Strategice</h4>
+                                        <h4 style="color: #4ade80; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin-top: 0; margin-bottom: 10px; font-weight: 800;">Strategic Strengths</h4>
                                         <div class="skeleton-text" style="width: 100%; height: 35px; border-radius: 6px;"></div>
                                         <div class="skeleton-text" style="width: 100%; height: 35px; border-radius: 6px;"></div>
                                     </div>
                                     <div style="flex: 1 1 280px; min-width: 250px;">
-                                        <h4 style="color: #f87171; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin-top: 0; margin-bottom: 10px; font-weight: 800;">Vulnerabilități și Riscuri</h4>
+                                        <h4 style="color: #f87171; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin-top: 0; margin-bottom: 10px; font-weight: 800;">Vulnerabilities & Risks</h4>
                                         <div class="skeleton-text" style="width: 100%; height: 35px; border-radius: 6px;"></div>
                                         <div class="skeleton-text" style="width: 100%; height: 35px; border-radius: 6px;"></div>
                                     </div>
@@ -2797,7 +2797,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                         <span style="color: #4ade80; font-weight: bold; font-size: 0.9rem; flex-shrink:0;">✔️</span>
                                         <span style="color: rgba(255,255,255,0.85); font-size: 0.8rem;">${s}</span>
                                     </div>`).join('')
-                                : '<div style="color: rgba(255,255,255,0.5); font-size: 0.8rem; padding: 10px; font-style:italic;">Operațiuni comerciale diversificate.</div>';
+                                : '<div style="color: rgba(255,255,255,0.5); font-size: 0.8rem; padding: 10px; font-style:italic;">Diversified commercial operations.</div>';
                                 
                             const risksHtml = parsed.vulnerabilitiesRisks.length > 0 
                                 ? parsed.vulnerabilitiesRisks.map(r => `
@@ -2805,16 +2805,16 @@ document.addEventListener('DOMContentLoaded', () => {
                                         <span style="color: #f87171; font-weight: bold; font-size: 0.9rem; flex-shrink:0;">⚠️</span>
                                         <span style="color: rgba(255,255,255,0.85); font-size: 0.8rem;">${r}</span>
                                     </div>`).join('')
-                                : '<div style="color: rgba(255,255,255,0.5); font-size: 0.8rem; padding: 10px; font-style:italic;">Expunere la ciclurile de piață globale.</div>';
+                                : '<div style="color: rgba(255,255,255,0.5); font-size: 0.8rem; padding: 10px; font-style:italic;">Exposure to global market cycles.</div>';
 
                             panel.innerHTML = `
                                 <div style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 15px; width: 100%;">
                                     <div style="flex: 1 1 280px; min-width: 250px;">
-                                        <h4 style="color: #4ade80; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin-top: 0; margin-bottom: 10px; font-weight: 800;">Puncte Forte Strategice</h4>
+                                        <h4 style="color: #4ade80; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin-top: 0; margin-bottom: 10px; font-weight: 800;">Strategic Strengths</h4>
                                         ${strengthsHtml}
                                     </div>
                                     <div style="flex: 1 1 280px; min-width: 250px;">
-                                        <h4 style="color: #f87171; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin-top: 0; margin-bottom: 10px; font-weight: 800;">Vulnerabilități și Riscuri</h4>
+                                        <h4 style="color: #f87171; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin-top: 0; margin-bottom: 10px; font-weight: 800;">Vulnerabilities & Risks</h4>
                                         ${risksHtml}
                                     </div>
                                 </div>
@@ -2830,7 +2830,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             panel.innerHTML = parsed.latestMarketIntelligence.map(item => {
                                 const match = item.match(/^(.*?)\s*\(Source:\s*(.*?)\)$/i);
                                 const title = match ? match[1] : item;
-                                const source = match ? match[2] : "Știri de Piață";
+                                const source = match ? match[2] : "Market News";
                                 
                                 return `
                                     <div class="brief-news-item">
@@ -2842,7 +2842,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 `;
                             }).join('');
                         } else {
-                            panel.innerHTML = '<div style="color: rgba(255,255,255,0.5); font-size: 0.8rem; padding: 20px; text-align: center; font-style:italic;">Nu există știri recente sau evoluții de piață disponibile.</div>';
+                            panel.innerHTML = '<div style="color: rgba(255,255,255,0.5); font-size: 0.8rem; padding: 20px; text-align: center; font-style:italic;">No recent news or market developments available.</div>';
                         }
                     }
                 };
@@ -2868,12 +2868,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     copyBtn.onclick = () => {
                         const textToCopy = synthesisText || (prof.name + ' - ' + (prof.business_summary || ''));
                         navigator.clipboard.writeText(textToCopy).then(() => {
-                            copyText.textContent = 'Copiat!';
+                            copyText.textContent = 'Copied!';
                             copyBtn.style.background = 'rgba(34, 197, 94, 0.15)';
                             copyBtn.style.color = '#4ade80';
                             copyBtn.style.borderColor = 'rgba(34, 197, 94, 0.3)';
                             setTimeout(() => {
-                                copyText.textContent = 'Copiază';
+                                copyText.textContent = 'Copy';
                                 copyBtn.style.background = 'rgba(255,255,255,0.05)';
                                 copyBtn.style.color = 'rgba(255,255,255,0.7)';
                                 copyBtn.style.borderColor = 'rgba(255,255,255,0.1)';
@@ -2884,9 +2884,10 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             // Determine if the loaded synthesis is just a fallback (either empty, or containing our specific fallback marker)
+            const synthTextLower = (data.company_overview_synthesis || "").toLowerCase();
             const isFallback = !data.company_overview_synthesis || 
-                               data.company_overview_synthesis.includes("AI Insights generation is active") ||
-                               data.company_overview_synthesis.includes("Generarea analizei AI este activă");
+                               synthTextLower.includes("generation is active") ||
+                               synthTextLower.includes("generarea analizei ai este activ");
 
             // Fast rendering of local heuristic fallback initially. If fallback, show loading state
             renderCorporateBrief(data.company_overview_synthesis, isFallback);
@@ -3304,7 +3305,7 @@ document.addEventListener('DOMContentLoaded', () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         }).then(() => {
-            sessionStorage.removeItem(`val_v2_${ticker.toUpperCase()}`);
+            sessionStorage.removeItem(`val_v3_${ticker.toUpperCase()}`);
         }).catch(err => console.error('Override sync error:', err));
         
         pendingOverridePayload = null;
@@ -3392,7 +3393,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const deleteOverrideFromServer = (ticker) => {
         delete cachedOverrides[ticker];
         fetch(`/api/overrides/${ticker}`, { method: 'DELETE' })
-            .then(() => sessionStorage.removeItem(`val_v2_${ticker.toUpperCase()}`))
+            .then(() => sessionStorage.removeItem(`val_v3_${ticker.toUpperCase()}`))
             .catch(err => console.error('Override delete error:', err));
     };
 
@@ -4326,7 +4327,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // v38: Call individual valuation endpoint. 
                 // skip_peers=false to ensure scores are 100% sync'd with dashboard.
                 // Check client-side cache first (15 min TTL)
-                const cacheKey = `val_v2_${tUpper}`;
+                const cacheKey = `val_v3_${tUpper}`;
                 const cached = sessionStorage.getItem(cacheKey);
                 if (cached) {
                     const { data: cachedData, ts } = JSON.parse(cached);
@@ -4908,11 +4909,15 @@ document.addEventListener('DOMContentLoaded', () => {
             else if (pct >= 0.4) { dotColor = '#fbbf24'; ptsColor = '#fbbf24'; }
 
             html += `
-                <div style="display:grid; grid-template-columns: 1fr 65px 15px 45px; align-items:center; padding:10px 0; border-top:1px solid rgba(255,255,255,0.04); gap:10px;">
-                    <div style="font-weight:600; font-size:0.88rem; color:white; line-height:1.3; padding-right:5px;">${label}</div>
-                    <div style="font-weight:700; font-size:0.9rem; color:rgba(255,255,255,0.85); text-align:right; font-family:monospace;">${item.value || 'N/A'}</div>
-                    <div style="display:flex; justify-content:flex-end;"><span style="width:8px; height:8px; border-radius:50%; background:${dotColor}; display:inline-block; flex-shrink:0;"></span></div>
-                    <div style="font-weight:800; font-size:0.85rem; color:${ptsColor}; white-space:nowrap; font-family: 'Outfit', sans-serif; text-align:right;">${pts}/${maxPts}</div>
+                <div style="display:flex; flex-direction:column; padding:10px 0; border-top:1px solid rgba(255,255,255,0.04); gap:6px;">
+                    <div style="font-weight:600; font-size:0.88rem; color:white; line-height:1.4;">${label}</div>
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div style="font-weight:700; font-size:0.9rem; color:rgba(255,255,255,0.85); font-family:monospace;">${item.value || 'N/A'}</div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="width:8px; height:8px; border-radius:50%; background:${dotColor}; display:inline-block; flex-shrink:0;"></span>
+                            <div style="font-weight:800; font-size:0.85rem; color:${ptsColor}; font-family: 'Outfit', sans-serif; text-align:right; min-width:35px;">${pts}/${maxPts}</div>
+                        </div>
+                    </div>
                 </div>
             `;
         });
@@ -4956,13 +4961,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const dotColor = passed ? 'var(--accent)' : (item.status === 'fail' ? 'var(--danger)' : 'var(--text-muted)');
 
             html += `
-                <div style="display:grid; grid-template-columns: 1fr 65px 15px; align-items:center; padding:8px 0; border-top:1px solid rgba(255,255,255,0.04); gap:10px;">
-                    <div style="padding-right:5px;">
-                        <div style="font-weight:600; font-size:0.85rem; color:white; line-height:1.3;">${label}</div>
+                <div style="display:flex; flex-direction:column; padding:8px 0; border-top:1px solid rgba(255,255,255,0.04); gap:6px;">
+                    <div>
+                        <div style="font-weight:600; font-size:0.85rem; color:white; line-height:1.4;">${label}</div>
                         <div style="font-size:0.7rem; color:var(--text-muted); margin-top:2px;">${item.threshold}</div>
                     </div>
-                    <div style="font-weight:700; font-size:0.85rem; color:rgba(255,255,255,0.7); text-align:right; font-family:monospace;">${item.value !== null ? item.value : 'N/A'}</div>
-                    <div style="display:flex; justify-content:flex-end;"><span style="width:8px; height:8px; border-radius:50%; background:${dotColor}; display:inline-block; flex-shrink:0;"></span></div>
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div style="font-weight:700; font-size:0.85rem; color:rgba(255,255,255,0.7); font-family:monospace;">${item.value !== null ? item.value : 'N/A'}</div>
+                        <div style="display:flex; align-items:center;">
+                            <span style="width:8px; height:8px; border-radius:50%; background:${dotColor}; display:inline-block; flex-shrink:0;"></span>
+                        </div>
+                    </div>
                 </div>
             `;
         });
@@ -5013,11 +5022,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const statusColor = passed === true ? 'var(--accent)' : (passed === false ? 'var(--danger)' : 'var(--text-muted)');
 
             html += `
-                <div style="display:grid; grid-template-columns: 1fr 65px 15px 50px; align-items:center; padding:8px 0; border-top:1px solid rgba(255,255,255,0.04); gap:10px;">
-                    <div style="font-weight:600; font-size:0.85rem; color:white; line-height:1.3; padding-right:5px;">${label}</div>
-                    <div style="font-weight:700; font-size:0.85rem; color:rgba(255,255,255,0.7); text-align:right; font-family:monospace;">${item.value || 'N/A'}</div>
-                    <div style="display:flex; justify-content:flex-end;"><span style="width:8px; height:8px; border-radius:50%; background:${dotColor}; display:inline-block; flex-shrink:0;"></span></div>
-                    <div style="font-weight:800; font-size:0.85rem; color:${statusColor}; white-space:nowrap; text-align:left; padding-left:4px;">${statusText}</div>
+                <div style="display:flex; flex-direction:column; padding:8px 0; border-top:1px solid rgba(255,255,255,0.04); gap:6px;">
+                    <div style="font-weight:600; font-size:0.85rem; color:white; line-height:1.4;">${label}</div>
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div style="font-weight:700; font-size:0.85rem; color:rgba(255,255,255,0.7); font-family:monospace;">${item.value || 'N/A'}</div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="width:8px; height:8px; border-radius:50%; background:${dotColor}; display:inline-block; flex-shrink:0;"></span>
+                            <div style="font-weight:800; font-size:0.85rem; color:${statusColor}; white-space:nowrap; padding-left:4px; min-width:55px;">${statusText}</div>
+                        </div>
+                    </div>
                 </div>
             `;
         });
