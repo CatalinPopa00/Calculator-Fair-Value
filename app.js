@@ -2894,7 +2894,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Fetch high-fidelity synthesis in the background if it's the heuristic fallback
             if (isFallback) {
-                fetch(`/api/valuation/${encodeURIComponent(data.ticker)}/synthesis`)
+                fetch(`/api/valuation/${encodeURIComponent(data.ticker)}/synthesis?v=3`)
                     .then(response => {
                         if (!response.ok) throw new Error('Failed to fetch synthesis');
                         return response.json();

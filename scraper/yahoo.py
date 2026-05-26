@@ -2965,6 +2965,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             "industry": industry,
             "trailing_eps": trailing_eps,
             "adjusted_eps": adjusted_eps,
+            "yahoo_trailing_pe": trailing_pe,
             "peg_ratio": peg_ratio,
             "pe_ratio": pe_ratio,
             "forward_pe": forward_pe,

@@ -903,7 +903,10 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
     }
 
         # Ensure we prioritize actual TTM multiple calculated using the most up-to-date price
-        if current_price and data.get("trailing_eps") and data.get("trailing_eps") > 0:
+        yahoo_ttm_pe = data.get("yahoo_trailing_pe")
+        if yahoo_ttm_pe and yahoo_ttm_pe > 0:
+            ttm_pe = yahoo_ttm_pe
+        elif current_price and data.get("trailing_eps") and data.get("trailing_eps") > 0:
             ttm_pe = current_price / data.get("trailing_eps")
         else:
             ttm_pe = data.get("pe_ratio") or 0
