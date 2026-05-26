@@ -1398,9 +1398,15 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                     
                     if ni_idx and shares_outstanding and shares_outstanding > 0:
                         ni_obj = financials.loc[ni_idx]
-                        net_inc = float(ni_obj.iloc[0]) if hasattr(ni_obj, 'iloc') else float(ni_obj)
-                        # Recalibrate GAAP EPS using fx_rate since financials are now raw (local currency)
-                        gaap_eps = (net_inc * fx_rate) / shares_outstanding
+                        # Fix: Ensure we get the last completed FY, not TTM
+                        col_idx = 0
+                        while col_idx < len(financials.columns) and str(financials.columns[col_idx]).lower() == 'ttm':
+                            col_idx += 1
+                        
+                        if col_idx < len(financials.columns):
+                            net_inc = float(ni_obj.iloc[col_idx]) if hasattr(ni_obj, 'iloc') else float(ni_obj)
+                            # Recalibrate GAAP EPS using fx_rate since financials are now raw (local currency)
+                            gaap_eps = (net_inc * fx_rate) / shares_outstanding
                         
                         # v294: ADR Currency Guard
                         # If price is USD and gaap_eps is orders of magnitude smaller than reported_eps,

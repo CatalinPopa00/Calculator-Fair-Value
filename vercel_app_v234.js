@@ -2244,6 +2244,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const pegTableVal = document.getElementById('metric-val-peg');
         if (pegTableVal && currentPegToDisplay != null && !_simulating) {
             pegTableVal.textContent = currentPegToDisplay.toFixed(2);
+            if (globalData && globalData.company_profile) {
+                globalData.company_profile.peg_ratio = currentPegToDisplay;
+            }
         }
     };
 
