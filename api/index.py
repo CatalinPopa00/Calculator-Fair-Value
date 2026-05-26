@@ -167,9 +167,6 @@ def get_analyst(ticker: str, response: Response):
     if cache_key in valuation_cache:
         return valuation_cache[cache_key]
     result = get_analyst_data(ticker_upper)
-    # v147 Visible Marker for Diagnostic
-    if result and "price_target" in result:
-        result["price_target"]["avg"] = str(result["price_target"].get("avg", "")) + " (v147)"
     valuation_cache[cache_key] = result
     return result
 
