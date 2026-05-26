@@ -1108,7 +1108,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <th style="padding:12px; text-align:left; color:var(--text-muted); font-size:0.85rem; position: sticky; left: 0; background: #0f172a; z-index: 10; border-right: 1px solid rgba(255,255,255,0.1);">COMPETITOR</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 100px;">Market Cap</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">P/E (Forward)</th>
-                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 100px;">PEG Ratio</th>
+                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 100px;">PEG (5Y)</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">EPS (Forward)</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">P/S (Forward)</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 120px;">Revenue (TTM)</th>
@@ -2244,9 +2244,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const pegTableVal = document.getElementById('metric-val-peg');
         if (pegTableVal && currentPegToDisplay != null && !_simulating) {
             pegTableVal.textContent = currentPegToDisplay.toFixed(2);
-            if (globalData && globalData.company_profile) {
-                globalData.company_profile.peg_ratio = currentPegToDisplay;
-            }
         }
     };
 
