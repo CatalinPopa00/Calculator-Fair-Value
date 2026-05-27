@@ -1474,5 +1474,17 @@ def get_synthesis(ticker: str, response: Response):
             content={"error": True, "detail": f"Synthesis failed: {str(e)}"}
         )
 
+@app.get("/api/firebase-config")
+def get_firebase_config():
+    # Firebase config hidden from frontend code
+    return JSONResponse(content={
+        "apiKey": os.environ.get("FIREBASE_API_KEY", "AIzaSyBqnECMrco2mrqLEyo-mTMdIYbaku-N0f4"),
+        "authDomain": os.environ.get("FIREBASE_AUTH_DOMAIN", "babi-calculator-inatorul.firebaseapp.com"),
+        "projectId": os.environ.get("FIREBASE_PROJECT_ID", "babi-calculator-inatorul"),
+        "storageBucket": os.environ.get("FIREBASE_STORAGE_BUCKET", "babi-calculator-inatorul.firebasestorage.app"),
+        "messagingSenderId": os.environ.get("FIREBASE_MESSAGING_SENDER_ID", "332002590695"),
+        "appId": os.environ.get("FIREBASE_APP_ID", "1:332002590695:web:ffaebc5eb3b62548cb8742")
+    })
+
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8000)

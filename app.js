@@ -30,15 +30,26 @@ document.addEventListener('DOMContentLoaded', () => {
     let _syncInProgress = false;
 
     if (window.firebase) {
+        const loginBtn = document.getElementById('login-btn');
+        if (loginBtn) {
+            loginBtn.innerHTML = `⏳ Sync Connecting...`;
+            loginBtn.style.color = 'rgba(255,255,255,0.5)';
+        }
+
         fetch('/api/firebase-config')
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) throw new Error("API returned " + res.status);
+                return res.json();
+            })
             .then(config => {
                 firebase.initializeApp(config);
+                return firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+            })
+            .then(() => {
                 db = firebase.firestore();
                 
                 firebase.auth().onAuthStateChanged((user) => {
                     currentUser = user;
-                    const loginBtn = document.getElementById('login-btn');
                     if (loginBtn) {
                         if (user) {
                             loginBtn.innerHTML = `👤 ${user.email ? user.email.split('@')[0] : 'User'} (Sync ON)`;
@@ -53,7 +64,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
             })
-            .catch(err => console.error("Could not load Firebase config:", err));
+            .catch(err => {
+                console.error("Could not initialize Firebase:", err);
+                if (loginBtn) {
+                    loginBtn.innerHTML = `⚠️ Sync Error (Check Server)`;
+                    loginBtn.style.color = '#f87171';
+                }
+            });
     }
 
     async function syncToCloud() {
@@ -3049,13 +3066,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             <h3 style="font-size: 0.75rem; color: rgba(255,255,255,0.4); margin: 0; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 800; font-family: 'Outfit', sans-serif;">Corporate Summary</h3>
                             ${badgeHtml}
                         </div>
-                        <button id="copy-brief-btn" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 4px 8px; color: rgba(255,255,255,0.7); cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 0.72rem; transition: all 0.2s; font-family: 'Outfit', sans-serif;" title="Copy summary to clipboard">
-                            <span style="font-size: 0.8rem;">📋</span> <span id="copy-brief-text">Copy</span>
-                        </button>
                     </div>
                     
                     <!-- KPI Row -->
-                    <div id="brief-kpis" style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 15px;">
+                    <div id="brief-kpis" style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; align-items: center; margin-bottom: 15px;">
                         ${kpiHtml}
                     </div>
 
@@ -3068,6 +3082,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     <!-- Active Tab Content -->
                     <div id="brief-panel-content" style="font-size: 0.9rem; line-height: 1.6; color: rgba(255,255,255,0.85); max-height: 250px; overflow-y: auto; padding-right: 6px; font-family: 'Outfit', sans-serif;"></div>
+                    
+                    <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
+                        <button id="copy-brief-btn" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 4px 8px; color: rgba(255,255,255,0.7); cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 0.72rem; transition: all 0.2s; font-family: 'Outfit', sans-serif;" title="Copy summary to clipboard">
+                            <span style="font-size: 0.8rem;">📋</span> <span id="copy-brief-text">Copy</span>
+                        </button>
+                    </div>
                 `;
 
                 const renderActivePanel = () => {
@@ -3415,7 +3435,6 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.04); align-items: center;">
                                     <span style="color: rgba(255,255,255,0.5); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Competitors</span>
                                     <div style="display: flex; align-items: center; gap: 8px; text-align: right; max-width: 65%;">
-                                        <span style="font-weight: 600; font-size: 0.95rem; color: white; word-wrap: break-word;">${prof.competitors && prof.competitors.length ? prof.competitors.join(', ') : 'None'}</span>
                                         <button id="compare-peers-btn" class="peer-btn" style="margin:0;">📊 PEERS</button>
                                     </div>
                                 </div>
@@ -4904,6 +4923,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             } else if (model === 'relative' && currentFormulaData.relative) {
                 const r = currentFormulaData.relative;
+                title.style.whiteSpace = 'nowrap';
                 title.textContent = '📊 Relative Valuation — Triangulation';
 
                 // --- Determine which metrics are active based on sector weights ---
@@ -4996,8 +5016,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
                         <thead>
                             <tr style="border-bottom:1px solid rgba(255,255,255,0.15);">
-                                <th style="text-align:left; padding:8px 6px; color:white;">Ticker</th>
-                                ${activeKeys.map(k => `<th style="text-align:right; padding:8px 6px; color:white;">${LABEL[k] || k}</th>`).join('')}
+                                <th style="text-align:left; padding:8px 6px; color:white; white-space:nowrap;">Ticker</th>
+                                ${activeKeys.map(k => `<th style="text-align:right; padding:8px 6px; color:white; white-space:nowrap;">${LABEL[k] || k}</th>`).join('')}
                             </tr>
                         </thead>
                         <tbody>

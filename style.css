@@ -581,9 +581,8 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 1.5rem;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
 }
 
 .score-modal-header h3 {
@@ -603,9 +602,8 @@ body {
     display: grid;
     grid-template-columns: 2fr 1.2fr auto;
     gap: 1rem;
-    padding: 1rem 0;
+    padding: 0.6rem 0;
     align-items: center;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .score-breakdown-row:last-child {
@@ -613,7 +611,8 @@ body {
 }
 
 .score-row-name {
-    color: var(--text-muted);
+    color: var(--text-main);
+    font-weight: 800;
 }
 
 .score-row-val {
@@ -627,7 +626,9 @@ body {
     align-items: center;
     justify-content: flex-end;
     gap: 0.5rem;
-    font-weight: bold;
+    font-weight: 800;
+    font-size: 1.2rem;
+    color: var(--text-main);
     white-space: nowrap;
 }
 
@@ -1086,14 +1087,15 @@ body {
 
     /* Score breakdown rows */
     .score-breakdown-row {
-        grid-template-columns: 1fr auto;
+        grid-template-columns: 1.5fr 1fr auto;
         gap: 0.4rem;
-        padding: 0.8rem 0;
+        padding: 0.6rem 0;
     }
 
     .score-row-name {
-        grid-column: 1 / span 2;
         font-size: 0.85rem;
+        font-weight: 800;
+        color: var(--text-main);
     }
 
     .score-row-val {
@@ -1624,15 +1626,17 @@ body {
 
 @media (max-width: 640px) {
     .modal-content {
-        padding: 1.5rem 1rem;
+        padding: 1.5rem 1rem 4rem 1rem;
     }
 
     .score-breakdown-row {
-        grid-template-columns: 1fr auto;
+        grid-template-columns: 1.5fr 1fr auto;
     }
 
     .score-row-name {
-        font-size: 0.8rem;
+        font-size: 0.85rem;
+        font-weight: 800;
+        color: var(--text-main);
     }
 }
 
