@@ -3264,7 +3264,7 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=5, inc
                     fwd_pe_explicit = None
                     fwd_eps_explicit = None
                     try:
-                        e1 = analysis['eps'].get('0y', {})
+                        e1 = analysis['eps'].get('+1y', {})
                         if e1.get('avg'): 
                             fwd_eps_explicit = e1['avg']
                             fwd_pe_explicit = p_price / fwd_eps_explicit
@@ -3272,9 +3272,14 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=5, inc
                     fwd_pe = fwd_pe_explicit or inf.get('forwardPE') or ttm_pe
                     
                     fwd_ps_explicit = None
+                    fwd_rev_explicit = None
+                    p_shares = inf.get('impliedSharesOutstanding') or inf.get('sharesOutstanding')
                     try:
-                        r1 = analysis['rev'].get('0y', {})
-                        if r1.get('avg') and p_shares: fwd_ps_explicit = p_price / (r1['avg'] / p_shares)
+                        r1 = analysis['rev'].get('+1y', {})
+                        if r1.get('avg'):
+                            fwd_rev_explicit = r1['avg']
+                            if p_shares and p_shares > 0:
+                                fwd_ps_explicit = p_price / (fwd_rev_explicit / p_shares)
                     except: pass
                     fwd_ps = fwd_ps_explicit or ttm_ps
                     
@@ -3294,7 +3299,14 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=5, inc
                         "eps": fwd_eps_explicit or inf.get('forwardEps') or inf.get('trailingEps'),
                         "operating_margin": inf.get('operatingMargins') or inf.get('ebitdaMargins'),
                         "industry": inf.get('industry') or target_industry,
-                        "sector": p_sector or sector
+                        "sector": p_sector or sector,
+                        "total_cash": inf.get('totalCash'),
+                        "total_debt": inf.get('totalDebt'),
+                        "ebitda": inf.get('ebitda'),
+                        "net_income": inf.get('netIncomeToCommon'),
+                        "shares_outstanding": p_shares,
+                        "forward_revenue": fwd_rev_explicit,
+                        "forward_eps": fwd_eps_explicit or inf.get('forwardEps')
                     }
                     if include_growth:
                         p_data["revenue_growth"] = rev_growth

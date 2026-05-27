@@ -1277,10 +1277,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (value == null || price == null) {
             if (statusElem) {
-                statusElem.textContent = "N/A";
+                statusElem.textContent = "null";
                 statusElem.style.color = "var(--text-muted)";
             }
-            if (valueElem) valueElem.textContent = "N/A";
+            if (valueElem) valueElem.textContent = "null";
             return;
         }
 
@@ -2441,7 +2441,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    const formatCurrency = (val) => val != null ? `$${val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'N/A';
+    const formatCurrency = (val) => val != null ? `$${val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'null';
     const formatPercent = (val) => val != null ? `${val.toFixed(2)}%` : '0%';
 
     const displayData = (data) => {
