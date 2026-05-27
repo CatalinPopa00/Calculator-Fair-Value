@@ -291,7 +291,8 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // v73: Distinct P/E calculations for GAAP and Non-GAAP transparency
         const newTrailingPE = (prof.trailing_eps > 0) ? simPrice / prof.trailing_eps : 0;
-        const newNonGaapPE  = (prof.adjusted_eps > 0) ? simPrice / prof.adjusted_eps : 0;
+        const newGaapPE     = (prof.gaap_eps_fy > 0) ? simPrice / prof.gaap_eps_fy : 0;
+        const newNonGaapPE  = (prof.nongaap_eps_fy > 0) ? simPrice / prof.nongaap_eps_fy : 0;
         const scoringPE     = (eps > 0) ? simPrice / eps : 0; // Use anchored EPS for scoring (v72 logic)
 
         const newPS = (revenue > 0 && shares > 0) ? simPrice / (revenue / shares) : ((prof.ps_ratio && current_price > 0) ? prof.ps_ratio * (simPrice / current_price) : 0);
@@ -313,6 +314,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Price-dependent metrics
         updateMetric('marketcap', formatBigNumber(newMktCap, '$'));
         updateMetric('petrailing', newTrailingPE > 0 ? newTrailingPE.toFixed(2) + 'x' : 'N/A');
+        updateMetric('pegaap', newGaapPE > 0 ? newGaapPE.toFixed(2) + 'x' : 'N/A');
         updateMetric('penongaap', newNonGaapPE > 0 ? newNonGaapPE.toFixed(2) + 'x' : 'N/A');
         
         const newPeFwd = prof.fwd_eps > 0 ? simPrice / prof.fwd_eps : 0;
@@ -2477,6 +2479,17 @@ document.addEventListener('DOMContentLoaded', () => {
         currentTicker = data.ticker;
         const prof = data.company_profile || {};
 
+        if (data.historical_anchors && data.historical_anchors.length > 0) {
+            const lastAnchor = data.historical_anchors[0];
+            prof.gaap_eps_fy = lastAnchor.eps;
+            if (data.historical_data && data.historical_data.years && data.historical_data.eps) {
+                const idx = data.historical_data.years.indexOf(lastAnchor.year);
+                if (idx !== -1 && idx < data.historical_data.eps.length) {
+                    prof.nongaap_eps_fy = data.historical_data.eps[idx];
+                }
+            }
+        }
+
         // Save original peers before custom overrides (v307)
         if (data.company_profile && data.company_profile.competitor_metrics && !data.company_profile.original_competitor_metrics) {
             data.company_profile.original_competitor_metrics = JSON.parse(JSON.stringify(data.company_profile.competitor_metrics));
@@ -3131,8 +3144,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div style="font-size: 0.8rem; color: var(--text-main); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 2px solid rgba(255,255,255,0.1); font-weight: 700;">Valuation & Earnings</div>
                             <div style="display: flex; flex-direction: column;">
                                 ${metricRow('P/E TTM', prof.trailing_pe ? prof.trailing_pe.toFixed(2) + 'x' : 'N/A')}
-                                ${metricRow('P/E GAAP', (prof.trailing_eps && prof.trailing_eps > 0 && _originalPrice) ? (_originalPrice / prof.trailing_eps).toFixed(2) + 'x' : 'N/A')}
-                                ${metricRow('P/E Non-GAAP', non_gaap_pe ? non_gaap_pe.toFixed(2) + 'x' : 'N/A')}
+                                ${metricRow('P/E GAAP', (prof.gaap_eps_fy && prof.gaap_eps_fy > 0 && _originalPrice) ? (_originalPrice / prof.gaap_eps_fy).toFixed(2) + 'x' : 'N/A')}
+                                ${metricRow('P/E Non-GAAP', (prof.nongaap_eps_fy && prof.nongaap_eps_fy > 0 && _originalPrice) ? (_originalPrice / prof.nongaap_eps_fy).toFixed(2) + 'x' : 'N/A')}
                                 ${metricRow('5Y Avg. P/E', prof.historic_pe ? prof.historic_pe.toFixed(2) + 'x' : 'N/A')}
                                 ${metricRow('PE FWD', prof.fwd_pe ? prof.fwd_pe.toFixed(2) + 'x' : 'N/A')}
                                 ${metricRow('EPS Diluted', prof.trailing_eps ? '$' + prof.trailing_eps.toFixed(2) : 'N/A')}
