@@ -2158,7 +2158,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (mc) mc.textContent = multipleLabel;
             
             // --- Populate custom weight inputs on the card ---
-            const LABEL = { PE: 'Fwd P/E', PFCF: 'Trailing P/FCF', PS: 'P/S', PB: 'Current P/B', EV_EBITDA: 'Trailing EV/EBITDA', P_FFO: 'Trailing P/FFO', P_AFFO: 'Trailing P/AFFO' };
+            const LABEL = { PE: 'FWD P/E', PFCF: 'P/FCF', PS: 'FWD P/S', PB: 'P/B', EV_EBITDA: 'FWD EV/EBITDA', P_FFO: 'FWD P/FFO', P_AFFO: 'FWD P/AFFO' };
             const activeKeys = Object.keys(weights).filter(k => weights[k] !== undefined);
             const cwPanel = document.getElementById('rel-custom-weights-card');
             if (cwPanel) {
@@ -4620,8 +4620,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const activeKeys = Object.keys(weightsToUse).filter(k => (weightsToUse[k] || 0) > 0);
                 
                 // Label map
-                const LABEL = { PE: 'Fwd P/E', PFCF: 'Trailing P/FCF', PS: 'P/S', PB: 'Current P/B', EV_EBITDA: 'Trailing EV/EBITDA', P_FFO: 'Trailing P/FFO', P_AFFO: 'Trailing P/AFFO' };
-                const peerKeyMap = { PE: 'pe_ratio', PFCF: 'pfcf_ratio', PS: 'ps_ratio', PB: 'price_to_book', EV_EBITDA: 'ev_to_ebitda' };
+                const LABEL = { PE: 'FWD P/E', PFCF: 'P/FCF', PS: 'FWD P/S', PB: 'P/B', EV_EBITDA: 'FWD EV/EBITDA', P_FFO: 'FWD P/FFO', P_AFFO: 'FWD P/AFFO' };
+                const peerKeyMap = { PE: 'forward_pe', PFCF: 'pfcf_ratio', PS: 'forward_ev_sales', PB: 'price_to_book', EV_EBITDA: 'forward_ev_ebitda' };
 
                 // --- Competitor Table ---
                 const peers = (globalData.company_profile && globalData.company_profile.competitor_metrics) || [];
@@ -4640,19 +4640,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
 
                 const dynamicMedians = {
-                    PE: getMedian(peers.map(p => p.pe_ratio)),
+                    PE: getMedian(peers.map(p => p.forward_pe != null ? p.forward_pe : p.pe_ratio)),
                     PFCF: getMedian(peers.map(p => p.pfcf_ratio)),
-                    PS: getMedian(peers.map(p => p.ps_ratio)),
+                    PS: getMedian(peers.map(p => p.forward_ev_sales != null ? p.forward_ev_sales : p.ps_ratio)),
                     PB: getMedian(peers.map(p => p.price_to_book)),
-                    EV_EBITDA: getMedian(peers.map(p => p.ev_to_ebitda))
+                    EV_EBITDA: getMedian(peers.map(p => p.forward_ev_ebitda != null ? p.forward_ev_ebitda : p.ev_to_ebitda))
                 };
 
                 const dynamicMeans = {
-                    PE: getMean(peers.map(p => p.pe_ratio)),
+                    PE: getMean(peers.map(p => p.forward_pe != null ? p.forward_pe : p.pe_ratio)),
                     PFCF: getMean(peers.map(p => p.pfcf_ratio)),
-                    PS: getMean(peers.map(p => p.ps_ratio)),
+                    PS: getMean(peers.map(p => p.forward_ev_sales != null ? p.forward_ev_sales : p.ps_ratio)),
                     PB: getMean(peers.map(p => p.price_to_book)),
-                    EV_EBITDA: getMean(peers.map(p => p.ev_to_ebitda))
+                    EV_EBITDA: getMean(peers.map(p => p.forward_ev_ebitda != null ? p.forward_ev_ebitda : p.ev_to_ebitda))
                 };
 
                 let peerTableHTML = '';
