@@ -536,10 +536,22 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 val = curr_ev / fwd_ebitda
                 return round(val, 4) if val > 0 else None
 
-            # --- Attempt 2: TTM EV/EBITDA adjusted for revenue growth ---
+            # --- Attempt 2: Estimate via Forward Revenue & EBITDA Margin ---
+            fwd_rev = comp_data.get("forward_revenue")
+            ttm_ebitda = comp_data.get("ebitda")
+            ttm_rev = comp_data.get("revenue")
+            
+            if fwd_rev and ttm_ebitda and ttm_rev and ttm_rev > 0:
+                ebitda_margin = ttm_ebitda / ttm_rev
+                estimated_fwd_ebitda = fwd_rev * ebitda_margin
+                if estimated_fwd_ebitda > 0 and curr_ev > 0:
+                    val = curr_ev / estimated_fwd_ebitda
+                    return round(val, 4)
+
+            # --- Attempt 3: TTM EV/EBITDA adjusted for revenue growth ---
             ttm_ev_ebitda = comp_data.get("ev_to_ebitda")
             if ttm_ev_ebitda and ttm_ev_ebitda > 0:
-                # Use revenue_growth as a much safer proxy for EBITDA growth than net income
+                # Use revenue_growth as a much safer proxy for EBITDA growth
                 rev_g = comp_data.get("revenue_growth") or 0
                 if rev_g > 0 and rev_g < 1.0: # Cap adjustment at 100%
                     # Forward = TTM / (1 + growth) 
