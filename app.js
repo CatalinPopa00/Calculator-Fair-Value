@@ -1351,9 +1351,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let html = `
         <div class="comparison-actions" style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center; justify-content: space-between; flex-wrap: wrap; background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
-            <div style="display: flex; gap: 8px; align-items: center; flex-grow: 1; max-width: 450px;">
+            <div style="display: flex; gap: 8px; align-items: center; flex-grow: 1; max-width: 550px; flex-wrap: wrap;">
                 <input id="add-peer-input" type="text" placeholder="Add Competitor (e.g. MSFT)" value="${window.fetchingPeerTicker || ''}" style="flex: 1 1 150px; padding: 8px 12px; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: white; text-transform: uppercase; font-size: 0.9rem;">
                 <button id="add-peer-btn" class="peer-btn" style="margin: 0; padding: 8px 16px; flex-shrink: 0;" ${window.isFetchingPeer ? 'disabled' : ''}>${window.isFetchingPeer ? 'Fetching...' : 'Add'}</button>
+                <button id="sector-peers-btn" class="peer-btn" style="margin: 0; padding: 8px 16px; flex-shrink: 0; background: rgba(56, 189, 248, 0.1); color: #38bdf8; border-color: rgba(56, 189, 248, 0.3);">🏢 Sector</button>
                 <button id="reset-peers-btn" class="peer-btn" style="margin: 0; padding: 8px 16px; background: rgba(239, 68, 68, 0.1); color: var(--danger); border-color: rgba(239, 68, 68, 0.3); flex-shrink: 0;">Reset</button>
             </div>
             <span id="add-peer-error" style="color: var(--danger); font-size: 0.85rem; font-weight: 500; display: none;"></span>
@@ -1460,6 +1461,108 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         }
 
+        // Sector Peers Button Handler
+        const sectorBtn = document.getElementById('sector-peers-btn');
+        if (sectorBtn) {
+            sectorBtn.onclick = async () => {
+                if (window.isFetchingSectorPeers) return;
+                window.isFetchingSectorPeers = true;
+                
+                sectorBtn.disabled = true;
+                sectorBtn.textContent = 'Loading...';
+                errSpan.style.display = 'none';
+                
+                try {
+                    const targetTicker = (prof.ticker || currentTicker || '').toUpperCase();
+                    const res = await fetch(`/api/sector-peers/${encodeURIComponent(targetTicker)}?t=${Date.now()}`);
+                    if (!res.ok) throw new Error('Failed to fetch sector peers');
+                    const sectorPeers = await res.json();
+                    
+                    if (!sectorPeers || sectorPeers.length === 0) {
+                        throw new Error('No sector peers found');
+                    }
+                    
+                    // Deduplicate against existing peers and target company
+                    const existingTickers = new Set(
+                        (prof.competitor_metrics || []).map(p => p.ticker.toUpperCase())
+                    );
+                    existingTickers.add(targetTicker);
+                    
+                    let addedCount = 0;
+                    for (const sp of sectorPeers) {
+                        const spTicker = (sp.ticker || '').toUpperCase();
+                        if (!spTicker || existingTickers.has(spTicker)) continue;
+                        
+                        // Build peer object with all required fields
+                        const newPeer = {
+                            ticker: spTicker,
+                            name: sp.name || spTicker,
+                            market_cap: sp.market_cap,
+                            pe_ratio: sp.forward_pe || sp.pe_ratio,
+                            forward_pe: sp.forward_pe,
+                            fwd_pe: sp.forward_pe,
+                            peg_ratio: sp.peg_ratio,
+                            eps: sp.eps,
+                            forward_eps: sp.forward_eps,
+                            fwd_eps: sp.forward_eps,
+                            ps_ratio: sp.ps_ratio,
+                            fwd_ps: sp.forward_ev_sales || sp.ps_ratio,
+                            forward_ev_sales: sp.forward_ev_sales,
+                            price_to_book: sp.price_to_book,
+                            ev_to_ebitda: sp.forward_ev_ebitda || sp.ev_to_ebitda,
+                            forward_ev_ebitda: sp.forward_ev_ebitda,
+                            revenue: sp.revenue,
+                            forward_revenue: sp.forward_revenue,
+                            pfcf_ratio: sp.pfcf_ratio,
+                            fcf: sp.fcf,
+                            operating_margin: sp.operating_margin,
+                            margin: sp.operating_margin,
+                            earnings_growth: sp.earnings_growth,
+                            eps_growth: sp.earnings_growth,
+                            revenue_growth: sp.revenue_growth,
+                            rev_growth: sp.revenue_growth,
+                            price: sp.price
+                        };
+                        
+                        if (!prof.competitor_metrics) prof.competitor_metrics = [];
+                        prof.competitor_metrics.push(newPeer);
+                        existingTickers.add(spTicker);
+                        addedCount++;
+                    }
+                    
+                    if (addedCount === 0) {
+                        throw new Error('All sector peers already in comparison');
+                    }
+                    
+                    // Update competitors list
+                    prof.competitors = prof.competitor_metrics.map(p => p.ticker);
+                    
+                    // Persist
+                    localStorage.setItem('customPeers_' + (prof.ticker || currentTicker), JSON.stringify(prof.competitor_metrics));
+                    
+                    // Recalculate
+                    recalcIndustryPeg(prof);
+                    updateFairValue();
+                    
+                    // Re-render
+                    renderComparisonModal(prof);
+                    displayData(globalData);
+                    document.getElementById('comparison-modal').style.display = 'flex';
+                    document.body.style.overflow = 'hidden';
+                    
+                } catch (e) {
+                    errSpan.textContent = e.message;
+                    errSpan.style.display = 'inline';
+                } finally {
+                    window.isFetchingSectorPeers = false;
+                    const btn = document.getElementById('sector-peers-btn');
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.textContent = '🏢 Sector';
+                    }
+                }
+            };
+        }
         if (addBtn && addInput) {
             addBtn.onclick = async () => {
                 const rawVal = addInput.value.trim().toUpperCase();

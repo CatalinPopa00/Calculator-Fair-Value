@@ -173,6 +173,145 @@ def get_analyst(ticker: str, response: Response):
     valuation_cache[cache_key] = result
     return result
 
+@app.get("/api/sector-peers/{ticker}")
+def get_sector_peers(ticker: str, response: Response):
+    """Fetches top 10 most relevant sector/industry peers with enriched forward metrics."""
+    response.headers["Cache-Control"] = "public, s-maxage=3600, stale-while-revalidate=86400"
+    
+    ticker_upper = ticker.upper()
+    cache_key = f"sector_peers_v1_{ticker_upper}_{CACHE_VERSION}"
+    
+    if cache_key in valuation_cache:
+        return valuation_cache[cache_key]
+    
+    try:
+        peers_data = get_competitors_data(ticker_upper, limit=10)
+        
+        if not peers_data:
+            return []
+        
+        # Enrich each peer with forward metrics (same logic as main valuation endpoint)
+        def _calculateForwardEvEbitda(comp_data):
+            mcap = comp_data.get("market_cap") or 0
+            if mcap <= 0:
+                shares = comp_data.get("shares_outstanding") or 0
+                price = comp_data.get("price") or comp_data.get("current_price") or 0
+                if shares > 0 and price > 0:
+                    mcap = shares * price
+            debt = comp_data.get("total_debt") or 0
+            cash = comp_data.get("total_cash") or 0
+            curr_ev = mcap + debt - cash if mcap > 0 else 0
+            yahoo_ev = comp_data.get("enterprise_value")
+            if yahoo_ev and yahoo_ev > 0:
+                curr_ev = yahoo_ev
+            if curr_ev <= 0:
+                curr_ev = mcap
+            fwd_ebitda = comp_data.get("forward_ebitda") or comp_data.get("forwardEbitda")
+            if fwd_ebitda and fwd_ebitda > 0 and curr_ev > 0:
+                val = curr_ev / fwd_ebitda
+                return round(val, 4) if val > 0 else None
+            fwd_rev = comp_data.get("forward_revenue")
+            ttm_ebitda = comp_data.get("ebitda")
+            ttm_rev = comp_data.get("revenue")
+            if fwd_rev and ttm_ebitda and ttm_rev and ttm_rev > 0:
+                ebitda_margin = ttm_ebitda / ttm_rev
+                estimated_fwd_ebitda = fwd_rev * ebitda_margin
+                if estimated_fwd_ebitda > 0 and curr_ev > 0:
+                    return round(curr_ev / estimated_fwd_ebitda, 4)
+            ttm_ev_ebitda = comp_data.get("ev_to_ebitda")
+            if ttm_ev_ebitda and ttm_ev_ebitda > 0:
+                rev_g = comp_data.get("revenue_growth") or 0
+                if rev_g > 0 and rev_g < 1.0:
+                    val = ttm_ev_ebitda / (1 + rev_g)
+                    return round(val, 4) if val > 0 else None
+                else:
+                    return round(ttm_ev_ebitda, 4)
+            return None
+
+        def _calculateForwardPE(comp_data):
+            fwd_eps = comp_data.get("forward_eps") or comp_data.get("fwd_eps")
+            price = comp_data.get("price") or comp_data.get("current_price")
+            if fwd_eps and price and fwd_eps > 0:
+                val = price / fwd_eps
+                return round(val, 4) if val > 0 else None
+            return None
+
+        def _calculateForwardEvSales(comp_data):
+            mcap = comp_data.get("market_cap") or 0
+            debt = comp_data.get("total_debt") or 0
+            cash = comp_data.get("total_cash") or 0
+            if mcap <= 0:
+                shares = comp_data.get("shares_outstanding") or 0
+                price = comp_data.get("price") or comp_data.get("current_price") or 0
+                if shares > 0 and price > 0:
+                    mcap = shares * price
+            if mcap <= 0:
+                return None
+            ev = mcap + debt - cash
+            if ev <= 0:
+                ev = mcap
+            fwd_rev = comp_data.get("forward_revenue")
+            if not fwd_rev or fwd_rev <= 0:
+                rev = comp_data.get("revenue")
+                g = comp_data.get("revenue_growth")
+                if rev and rev > 0 and g is not None:
+                    fwd_rev = rev * (1 + g)
+            if not fwd_rev or fwd_rev <= 0:
+                fwd_rev = comp_data.get("revenue")
+            if fwd_rev and fwd_rev > 0:
+                return ev / fwd_rev
+            return None
+
+        def sanitize(val):
+            if val is None:
+                return None
+            if isinstance(val, (int, float)):
+                if not math.isfinite(val):
+                    return None
+                return val
+            return val
+
+        enriched = []
+        for p in peers_data:
+            p['forward_ev_ebitda'] = _calculateForwardEvEbitda(p)
+            p['forward_pe'] = _calculateForwardPE(p)
+            p['forward_ev_sales'] = _calculateForwardEvSales(p)
+            
+            enriched.append({
+                "ticker": p.get("ticker"),
+                "name": p.get("name"),
+                "price": sanitize(p.get("price")),
+                "market_cap": sanitize(p.get("market_cap")),
+                "pe_ratio": sanitize(p.get("pe_ratio")),
+                "forward_pe": sanitize(p.get("forward_pe")),
+                "peg_ratio": sanitize(p.get("peg_ratio")),
+                "eps": sanitize(p.get("eps")),
+                "forward_eps": sanitize(p.get("forward_eps")),
+                "ps_ratio": sanitize(p.get("ps_ratio")),
+                "forward_ev_sales": sanitize(p.get("forward_ev_sales")),
+                "price_to_book": sanitize(p.get("price_to_book")),
+                "ev_to_ebitda": sanitize(p.get("ev_to_ebitda")),
+                "forward_ev_ebitda": sanitize(p.get("forward_ev_ebitda")),
+                "revenue": sanitize(p.get("revenue")),
+                "forward_revenue": sanitize(p.get("forward_revenue")),
+                "fcf": sanitize(p.get("fcf")),
+                "pfcf_ratio": sanitize(p.get("pfcf_ratio")),
+                "operating_margin": sanitize(p.get("operating_margin")),
+                "revenue_growth": sanitize(p.get("revenue_growth")),
+                "earnings_growth": sanitize(p.get("earnings_growth")),
+                "shares_outstanding": sanitize(p.get("shares_outstanding")),
+                "total_cash": sanitize(p.get("total_cash")),
+                "total_debt": sanitize(p.get("total_debt")),
+                "sector": p.get("sector"),
+                "industry": p.get("industry"),
+            })
+        
+        valuation_cache[cache_key] = enriched
+        return enriched
+    except Exception as e:
+        print(f"DEBUG: sector-peers error for {ticker_upper}: {e}")
+        return []
+
 # KV functions moved to .utils.kv
 
 @app.get("/api/watchlist")
