@@ -5014,17 +5014,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     peerTableHTML = `
                     <h4 style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:10px;">Peer Benchmarks</h4>
                     <div style="overflow-x:auto; margin-bottom:1.5rem;">
-                    <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+                    <table style="width:100%; border-collapse:collapse; font-size:0.65rem;">
                         <thead>
                             <tr style="border-bottom:1px solid rgba(255,255,255,0.15);">
-                                <th style="text-align:left; padding:8px 6px; color:white; white-space:nowrap;">Ticker</th>
-                                ${activeKeys.map(k => `<th style="text-align:right; padding:8px 6px; color:white; white-space:nowrap;">${LABEL[k] || k}</th>`).join('')}
+                                <th style="text-align:left; padding:4px 2px; color:white; white-space:nowrap;">Ticker</th>
+                                ${activeKeys.map(k => `<th style="text-align:right; padding:4px 2px; color:white; white-space:nowrap;">${LABEL[k] || k}</th>`).join('')}
                             </tr>
                         </thead>
                         <tbody>
                             <!-- Target Company Row -->
                             <tr style="border-bottom:1px solid rgba(255,255,255,0.1); background: rgba(40, 199, 111, 0.05);">
-                                <td style="padding:6px; color:#28c76f; font-weight:700;">${(globalData.ticker || 'TARGET').toUpperCase()}</td>
+                                <td style="padding:4px 2px; color:#28c76f; font-weight:700; white-space:nowrap;">${(globalData.ticker || 'TARGET').toUpperCase()}</td>
                                 ${activeKeys.map(k => {
                                     let val = null;
                                     if (k === 'PE' || k === 'P_FFO') {
@@ -5051,31 +5051,31 @@ document.addEventListener('DOMContentLoaded', () => {
                                         val = pfcf_ttm > 0 ? pfcf_ttm / (1 + fcfGrowth) : null;
                                     }
                                     
-                                    return `<td style="text-align:right; padding:6px; color:#28c76f; font-weight:700;">${val != null ? val.toFixed(1) + 'x' : '—'}</td>`;
+                                    return `<td style="text-align:right; padding:4px 2px; color:#28c76f; font-weight:700; white-space:nowrap;">${val != null ? val.toFixed(1) + 'x' : '—'}</td>`;
                                 }).join('')}
                             </tr>
                             
                             <!-- Peers Rows -->
                             ${peers.map(p => `
                                 <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
-                                    <td style="padding:6px; color:white; font-weight:600;">${p.ticker}</td>
+                                    <td style="padding:4px 2px; color:white; font-weight:600; white-space:nowrap;">${p.ticker}</td>
                                     ${activeKeys.map(k => {
                                         const dk = peerKeyMap[k];
                                         const val = dk ? p[dk] : null;
-                                        return `<td style="text-align:right; padding:6px; color:var(--text-main);">${val != null ? val.toFixed(1) + 'x' : '—'}</td>`;
+                                        return `<td style="text-align:right; padding:4px 2px; color:var(--text-main); white-space:nowrap;">${val != null ? val.toFixed(1) + 'x' : '—'}</td>`;
                                     }).join('')}
                                 </tr>
                             `).join('')}
                         </tbody>
                         <tfoot>
                             <tr style="border-top:1px solid rgba(255,255,255,0.15);">
-                                <td style="padding:8px 6px; color:white; font-weight:700;">Median</td>
+                                <td style="padding:4px 2px; color:white; font-weight:700; white-space:nowrap;">Median</td>
                                 ${activeKeys.map(k => {
                                     let medKey = k;
                                     if (k === 'P_FFO') medKey = 'PE';
                                     if (k === 'P_AFFO') medKey = 'PFCF';
                                     const v = dynamicMedians[medKey] ?? r['median_peer_' + medKey.toLowerCase()];
-                                    return `<td style="text-align:right; padding:8px 6px; color:white; font-weight:700;">${v != null ? v.toFixed(1) + 'x' : '—'}</td>`;
+                                    return `<td style="text-align:right; padding:4px 2px; color:white; font-weight:700; white-space:nowrap;">${v != null ? v.toFixed(1) + 'x' : '—'}</td>`;
                                 }).join('')}
                             </tr>
                         </tfoot>
@@ -5158,10 +5158,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     const implColor = safeImpl > 0 ? 'white' : 'var(--text-muted)';
                     breakdownRows += `
                         <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
-                            <td style="padding:8px 6px; color:var(--text-main);">${LABEL[k]}</td>
-                            <td style="text-align:right; padding:8px 6px; color:var(--text-main);">${(bench || 0).toFixed(1)}x</td>
-                            <td style="text-align:right; padding:8px 6px; color:${implColor}; font-weight:600;">${safeImpl > 0 ? '$' + fmt(safeImpl) : 'N/A'}</td>
-                            <td style="text-align:right; padding:8px 6px; color:var(--accent); font-weight:700;" class="rel-weight-cell" data-key="${k}">${(w * 100).toFixed(0)}%</td>
+                            <td style="padding:4px 2px; color:var(--text-main); white-space:nowrap;">${LABEL[k]}</td>
+                            <td style="text-align:right; padding:4px 2px; color:var(--text-main); white-space:nowrap;">${(bench || 0).toFixed(1)}x</td>
+                            <td style="text-align:right; padding:4px 2px; color:${implColor}; font-weight:600; white-space:nowrap;">${safeImpl > 0 ? '$' + fmt(safeImpl) : 'N/A'}</td>
+                            <td style="text-align:right; padding:4px 2px; color:var(--accent); font-weight:700; white-space:nowrap;" class="rel-weight-cell" data-key="${k}">${(w * 100).toFixed(0)}%</td>
                         </tr>`;
                 });
 
@@ -5180,13 +5180,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     ${peerTableHTML}
 
                     <h4 style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:10px;">Implied Values & Weights</h4>
-                    <table style="width:100%; border-collapse:collapse; font-size:0.8rem; margin-bottom:1rem;">
+                    <table style="width:100%; border-collapse:collapse; font-size:0.65rem; margin-bottom:1rem;">
                         <thead>
                             <tr style="border-bottom:1px solid rgba(255,255,255,0.15);">
-                                <th style="text-align:left; padding:8px 6px; color:white;">Metric</th>
-                                <th style="text-align:right; padding:8px 6px; color:white;">Benchmark</th>
-                                <th style="text-align:right; padding:8px 6px; color:white;">Implied FV</th>
-                                <th style="text-align:right; padding:8px 6px; color:white;">Weight</th>
+                                <th style="text-align:left; padding:4px 2px; color:white; white-space:nowrap;">Metric</th>
+                                <th style="text-align:right; padding:4px 2px; color:white; white-space:nowrap;">Benchmark</th>
+                                <th style="text-align:right; padding:4px 2px; color:white; white-space:nowrap;">Implied FV</th>
+                                <th style="text-align:right; padding:4px 2px; color:white; white-space:nowrap;">Weight</th>
                             </tr>
                         </thead>
                         <tbody>${breakdownRows}</tbody>
