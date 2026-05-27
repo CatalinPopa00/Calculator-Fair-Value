@@ -339,7 +339,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const fwd_rev_per_share = prof.fwd_ps > 0 ? (_realApiPrice / prof.fwd_ps) : 0;
         const newPsFwd = fwd_rev_per_share > 0 ? simPrice / fwd_rev_per_share : 0;
-        updateMetric('psfwd', newPsFwd > 0 ? newPsFwd.toFixed(2) + 'x' : 'N/A');
+        updateMetric('fwdps', newPsFwd > 0 ? newPsFwd.toFixed(2) + 'x' : 'N/A');
         
         const fcfPerShare = prof.pfcf_ratio > 0 ? (_realApiPrice / prof.pfcf_ratio) : 0;
         const newPfcf = fcfPerShare > 0 ? simPrice / fcfPerShare : 0;
@@ -1114,6 +1114,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">P/E (Forward)</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">EPS Growth</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 100px;">PEG (5Y)</th>
+                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 100px;">P/S</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">P/S (Forward)</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 120px;">Revenue Growth</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 100px;">P/FCF</th>
@@ -1161,6 +1162,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <td style="padding:12px; font-weight:bold;">${fmtPE(c.fwd_pe || c.pe_ratio)}</td>
                         <td style="padding:12px; font-weight:bold;">${fmtMargin(epsGrowth)}</td>
                         <td style="padding:12px; font-weight:bold;">${fmtPE(c.peg_ratio)}</td>
+                        <td style="padding:12px; font-weight:bold;">${fmtPE(c.ps_ratio || (mCap && derivedRevenue && derivedRevenue > 0 ? mCap / derivedRevenue : null))}</td>
                         <td style="padding:12px; font-weight:bold;">${fmtPE(fwdPs)}</td>
                         <td style="padding:12px; font-weight:bold;">${fmtMargin(revGrowth)}</td>
                         <td style="padding:12px; font-weight:bold;">${fmtPE(pfcf)}</td>
@@ -3174,7 +3176,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 ${metricRow('FWD EPS', prof.fwd_eps ? '$' + prof.fwd_eps.toFixed(2) : 'N/A')}
                                 ${metricRow('PEG', prof.peg_ratio ? prof.peg_ratio.toFixed(2) : 'N/A')}
                                 ${metricRow('P/S', prof.ps_ratio ? prof.ps_ratio.toFixed(2) + 'x' : 'N/A')}
-                                ${metricRow('FWD EV/Sales', prof.fwd_ps ? prof.fwd_ps.toFixed(2) + 'x' : 'N/A')}
+                                ${metricRow('FWD P/S', prof.fwd_ps ? prof.fwd_ps.toFixed(2) + 'x' : 'N/A')}
                                 ${metricRow('P/FCF', prof.pfcf_ratio ? prof.pfcf_ratio.toFixed(2) + 'x' : 'N/A')}
                             </div>
                         </div>
