@@ -5254,8 +5254,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Build header - 3-column grid to center the total and align with X
         const displayTitle = title.replace(' Breakdown', '');
         let html = `
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:5px; gap:15px; flex-wrap:nowrap;">
-                <h3 style="margin:0; font-size:1.05rem; color:white; font-weight:800; white-space:nowrap;">${displayTitle}</h3>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:5px; gap:15px; flex-wrap:nowrap; border-bottom:none;">
+                <h3 style="margin:0; font-size:1.05rem; color:white; font-weight:800; white-space:nowrap; border-bottom:none !important;">${displayTitle}</h3>
                 
                 <div style="display:flex; align-items:baseline; gap:6px; flex-shrink:0;">
                     <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600; text-transform:uppercase;">Total:</span>
@@ -5264,7 +5264,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `;
 
-        // Build rows - Grid: Label (flex) | Value (fixed) | Dot+Pts (fixed)
+        // Build rows - Label on left, Value and Score on right
         breakdown.forEach(item => {
             let label = (item.metric || item.name || 'Unknown Metric');
             
@@ -5279,11 +5279,12 @@ document.addEventListener('DOMContentLoaded', () => {
             else if (pct >= 0.4) { dotColor = '#fbbf24'; ptsColor = '#fbbf24'; }
 
             html += `
-                <div style="display:flex; flex-direction:column; padding:10px 0; border-top:1px solid rgba(255,255,255,0.04); gap:6px;">
-                    <div style="font-weight:600; font-size:0.88rem; color:white; line-height:1.4;">${label}</div>
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <div style="font-weight:700; font-size:0.9rem; color:rgba(255,255,255,0.85); font-family:monospace;">${item.value || 'N/A'}</div>
-                        <div style="display:flex; align-items:center; gap:8px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-top:1px solid rgba(255,255,255,0.04);">
+                    <div style="font-weight:600; font-size:0.88rem; color:white; flex:1; padding-right:10px; line-height:1.2;">${label}</div>
+                    
+                    <div style="display:flex; align-items:center; gap:12px; flex-shrink:0;">
+                        <div style="font-weight:700; font-size:0.9rem; color:rgba(255,255,255,0.85); font-family:monospace; text-align:right;">${item.value || 'N/A'}</div>
+                        <div style="display:flex; align-items:center; gap:6px; min-width:60px; justify-content:flex-end;">
                             <span style="width:8px; height:8px; border-radius:50%; background:${dotColor}; display:inline-block; flex-shrink:0;"></span>
                             <div style="font-weight:800; font-size:0.85rem; color:${ptsColor}; font-family: 'Outfit', sans-serif; text-align:right; min-width:35px;">${pts}/${maxPts}</div>
                         </div>
