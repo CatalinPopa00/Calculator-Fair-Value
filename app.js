@@ -34,8 +34,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window.firebase) {
         const loginBtn = document.getElementById('login-btn');
         if (loginBtn) {
-            loginBtn.innerHTML = `⏳ Sync Connecting...`;
-            loginBtn.style.color = 'rgba(255,255,255,0.5)';
+            loginBtn.title = `Sync Connecting...`;
+            loginBtn.classList.remove('logged-in');
         }
 
         fetch('/api/firebase-config')
@@ -64,14 +64,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     currentUser = user;
                     if (loginBtn) {
                         if (user) {
-                            loginBtn.innerHTML = `👤 ${user.email ? user.email.split('@')[0] : 'User'} (Sync ON)`;
-                            loginBtn.style.color = '#4ade80';
-                            loginBtn.style.borderColor = '#4ade80';
+                            loginBtn.classList.add('logged-in');
+                            loginBtn.title = `Sync ON: ${user.email ? user.email.split('@')[0] : 'User'}`;
                             syncFromCloud(); // Pull data from cloud on login
                         } else {
-                            loginBtn.innerHTML = `👤 Login to Sync`;
-                            loginBtn.style.color = 'white';
-                            loginBtn.style.borderColor = 'rgba(255,255,255,0.2)';
+                            loginBtn.classList.remove('logged-in');
+                            loginBtn.title = `Login to Sync`;
                         }
                     }
                 });
@@ -79,8 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .catch(err => {
                 console.error("Could not initialize Firebase:", err);
                 if (loginBtn) {
-                    loginBtn.innerHTML = `⚠️ Sync Error (Check Server)`;
-                    loginBtn.style.color = '#f87171';
+                    loginBtn.title = `⚠️ Sync Error (Check Server)`;
                 }
             });
     }
@@ -2672,6 +2669,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     const analyzeTicker = async (queryParam, forceRefresh = false, silent = false) => {
+        document.body.classList.add('has-searched');
         if (_simulating) {
             alert("Cannot search a new ticker while simulating. Resetting to real price first.");
             resetSimulation();
@@ -4659,10 +4657,11 @@ document.addEventListener('DOMContentLoaded', () => {
     tickerInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') analyzeTicker(); });
     
     logoBtn.addEventListener('click', () => {
-        if(currentTicker) {
-            watchlistView.style.display = 'none';
-            dashboard.style.display = 'block';
-        }
+        document.body.classList.remove('has-searched');
+        watchlistView.style.display = 'none';
+        dashboard.style.display = 'none';
+        currentTicker = null;
+        tickerInput.value = '';
     });
 
     const refreshWatchlistData = async () => {
@@ -4716,6 +4715,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     navWatchlistBtn.addEventListener('click', async () => {
+        document.body.classList.add('has-searched');
         dashboard.style.display = 'none';
         watchlistView.style.display = 'block';
         

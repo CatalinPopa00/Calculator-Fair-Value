@@ -3676,4 +3676,56 @@ body {
         word-break: break-word !important;
         max-width: 100% !important;
     }
+}/* Custom Header & Floating Login UI */
+.search-and-actions {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex: 1;
+    justify-content: flex-end;
+}
+
+@media (max-width: 767px) {
+    .search-and-actions {
+        flex-direction: column;
+        width: 100%;
+        gap: 15px;
+    }
+}
+
+.floating-login-btn {
+    position: fixed;
+    bottom: 25px;
+    right: 25px;
+    width: 65px;
+    height: 65px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: white;
+    font-size: 1.8rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    z-index: 1000;
+    transition: all 0.3s ease;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.floating-login-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: scale(1.05);
+}
+
+.floating-login-btn.logged-in {
+    box-shadow: 0 0 25px rgba(74, 222, 128, 0.5), inset 0 0 10px rgba(74, 222, 128, 0.2);
+    border-color: rgba(74, 222, 128, 0.5);
+    background: rgba(74, 222, 128, 0.1);
+}
+
+body.has-searched .floating-login-btn {
+    display: none;
 }
