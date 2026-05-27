@@ -3206,7 +3206,7 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=5, inc
                         c_inf, ts = _peer_info_cache[t]
                         if now - ts < 86400: return c_inf
                     
-                    kv_key = f"peer_v8_{t}" 
+                    kv_key = f"peer_v9_{t}" 
                     kv_data = kv_get(kv_key)
                     if kv_data and isinstance(kv_data, dict):
                         _peer_info_cache[t] = (kv_data, now)
