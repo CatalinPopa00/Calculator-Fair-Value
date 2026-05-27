@@ -23,6 +23,221 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Global selected lynch method
     const lynchMethodSelect = document.getElementById('lynch-method-select');
+
+    // --- FIREBASE CLOUD SYNC ---
+    const firebaseConfig = {
+        apiKey: "AIzaSyBqnECMrco2mrqLEyo-mTMdIYbaku-N0f4",
+        authDomain: "babi-calculator-inatorul.firebaseapp.com",
+        projectId: "babi-calculator-inatorul",
+        storageBucket: "babi-calculator-inatorul.firebasestorage.app",
+        messagingSenderId: "332002590695",
+        appId: "1:332002590695:web:ffaebc5eb3b62548cb8742"
+    };
+
+    let currentUser = null;
+    let db = null;
+    let _syncInProgress = false;
+
+    if (window.firebase) {
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.firestore();
+        
+        firebase.auth().onAuthStateChanged((user) => {
+            currentUser = user;
+            const loginBtn = document.getElementById('login-btn');
+            if (loginBtn) {
+                if (user) {
+                    loginBtn.innerHTML = `👤 ${user.email ? user.email.split('@')[0] : 'User'} (Sync ON)`;
+                    loginBtn.style.color = '#4ade80';
+                    loginBtn.style.borderColor = '#4ade80';
+                    syncFromCloud(); // Pull data from cloud on login
+                } else {
+                    loginBtn.innerHTML = `👤 Login to Sync`;
+                    loginBtn.style.color = 'white';
+                    loginBtn.style.borderColor = 'rgba(255,255,255,0.2)';
+                }
+            }
+        });
+    }
+
+    async function syncToCloud() {
+        if (!currentUser || !db || _syncInProgress) return;
+        _syncInProgress = true;
+        try {
+            // Gather data from localStorage
+            const watchListData = JSON.parse(localStorage.getItem('fairValueWatchlist')) || [];
+            const collapsedData = JSON.parse(localStorage.getItem('method_cards_collapsed')) || {};
+            
+            // Gather custom peers
+            const customPeersData = {};
+            for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (k && k.startsWith('customPeers_')) {
+                    try {
+                        customPeersData[k] = JSON.parse(localStorage.getItem(k));
+                    } catch(e) {}
+                }
+            }
+
+            const docRef = db.collection('users').doc(currentUser.uid);
+            await docRef.set({
+                fairValueWatchlist: watchListData,
+                method_cards_collapsed: collapsedData,
+                customPeers: customPeersData,
+                lastSync: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            
+        } catch (error) {
+            console.error("Cloud Sync Error (Push):", error);
+        } finally {
+            _syncInProgress = false;
+        }
+    }
+
+    async function syncFromCloud() {
+        if (!currentUser || !db || _syncInProgress) return;
+        _syncInProgress = true;
+        try {
+            const docRef = db.collection('users').doc(currentUser.uid);
+            const docSnap = await docRef.get();
+            if (docSnap.exists) {
+                const data = docSnap.data();
+                
+                if (data.fairValueWatchlist) {
+                    localStorage.setItem('fairValueWatchlist', JSON.stringify(data.fairValueWatchlist));
+                    if (typeof watchlist !== 'undefined') {
+                        watchlist = data.fairValueWatchlist; // Update global array
+                    }
+                }
+                if (data.method_cards_collapsed) {
+                    localStorage.setItem('method_cards_collapsed', JSON.stringify(data.method_cards_collapsed));
+                }
+                if (data.customPeers) {
+                    // Clear existing local custom peers to prevent stale data
+                    const keysToRemove = [];
+                    for (let i = 0; i < localStorage.length; i++) {
+                        const k = localStorage.key(i);
+                        if (k && k.startsWith('customPeers_')) keysToRemove.push(k);
+                    }
+                    keysToRemove.forEach(k => localStorage.removeItem(k));
+                    
+                    // Set new peers
+                    Object.keys(data.customPeers).forEach(k => {
+                        localStorage.setItem(k, JSON.stringify(data.customPeers[k]));
+                    });
+                }
+                
+                // Refresh UI Watchlist
+                if (typeof renderWatchlist === 'function') {
+                    renderWatchlist();
+                }
+            } else {
+                // First time user, push local data to cloud
+                _syncInProgress = false;
+                syncToCloud();
+                return;
+            }
+        } catch (error) {
+            console.error("Cloud Sync Error (Pull):", error);
+        } finally {
+            _syncInProgress = false;
+        }
+    }
+
+    // Modal UI Handlers
+    const loginBtn = document.getElementById('login-btn');
+    const authModal = document.getElementById('auth-modal');
+    const closeAuthBtn = document.getElementById('close-auth-modal');
+    const authEmail = document.getElementById('auth-email');
+    const authPass = document.getElementById('auth-password');
+    const authSubmit = document.getElementById('auth-submit-btn');
+    const authGoogle = document.getElementById('auth-google-btn');
+    const authError = document.getElementById('auth-error');
+
+    if (loginBtn) {
+        loginBtn.addEventListener('click', () => {
+            if (currentUser) {
+                if (confirm("Do you want to log out?")) {
+                    firebase.auth().signOut();
+                }
+            } else {
+                authModal.style.display = 'flex';
+                authError.style.display = 'none';
+            }
+        });
+    }
+
+    if (closeAuthBtn) {
+        closeAuthBtn.addEventListener('click', () => {
+            authModal.style.display = 'none';
+        });
+    }
+
+    if (authSubmit && window.firebase) {
+        authSubmit.addEventListener('click', async () => {
+            const e = authEmail.value.trim();
+            const p = authPass.value;
+            if (!e || !p) {
+                authError.textContent = "Enter email and password";
+                authError.style.display = 'block';
+                return;
+            }
+            authSubmit.disabled = true;
+            try {
+                // Try to sign in
+                try {
+                    await firebase.auth().signInWithEmailAndPassword(e, p);
+                } catch (err) {
+                    if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential' || err.code === 'auth/invalid-login-credentials') {
+                        // Attempt to create user if not found
+                        await firebase.auth().createUserWithEmailAndPassword(e, p);
+                    } else {
+                        throw err;
+                    }
+                }
+                authModal.style.display = 'none';
+                authEmail.value = '';
+                authPass.value = '';
+            } catch (err) {
+                authError.textContent = err.message;
+                authError.style.display = 'block';
+            } finally {
+                authSubmit.disabled = false;
+            }
+        });
+    }
+
+    if (authGoogle && window.firebase) {
+        authGoogle.addEventListener('click', async () => {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            try {
+                await firebase.auth().signInWithPopup(provider);
+                authModal.style.display = 'none';
+            } catch (err) {
+                authError.textContent = err.message;
+                authError.style.display = 'block';
+            }
+        });
+    }
+
+    // Wrap setItem to auto-sync
+    const originalSetItem = localStorage.setItem;
+    localStorage.setItem = function(key, value) {
+        originalSetItem.apply(this, arguments);
+        if (!_syncInProgress && (key === 'fairValueWatchlist' || key === 'method_cards_collapsed' || (key && key.startsWith('customPeers_')))) {
+            syncToCloud();
+        }
+    };
+    
+    const originalRemoveItem = localStorage.removeItem;
+    localStorage.removeItem = function(key) {
+        originalRemoveItem.apply(this, arguments);
+        if (!_syncInProgress && key && key.startsWith('customPeers_')) {
+            syncToCloud();
+        }
+    };
+    // --- END FIREBASE CLOUD SYNC ---
+
     let selectedLynchMethod = 'pe20'; // default
 
     // Watchlist elements
