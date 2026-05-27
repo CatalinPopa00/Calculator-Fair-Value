@@ -36,7 +36,7 @@ from models.scoring import calculate_scoring_reform, calculate_piotroski_score
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v305"
+CACHE_VERSION = "v306"
 def get_usd_fx_rate(currency: str) -> float:
     if not currency:
         return 1.0
@@ -449,6 +449,13 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             cash = comp_data.get("total_cash") or 0
             curr_ev = mcap + debt - cash
             fwd_rev = comp_data.get("forward_revenue")
+            
+            if fwd_rev is None or fwd_rev <= 0:
+                rev = comp_data.get("revenue")
+                g = comp_data.get("revenue_growth")
+                if rev and rev > 0 and g is not None:
+                    fwd_rev = rev * (1 + g)
+                    
             if fwd_rev is None or fwd_rev <= 0:
                 return None
             val = curr_ev / fwd_rev
@@ -460,15 +467,31 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             cash = comp_data.get("total_cash") or 0
             curr_ev = mcap + debt - cash
             
-            fwd_ebitda = comp_data.get("forward_ebitda")
+            fwd_ebitda = comp_data.get("forward_ebitda") or comp_data.get("forwardEbitda")
+            
+            if not fwd_ebitda or fwd_ebitda <= 0:
+                fwd_eps = comp_data.get("forward_eps") or comp_data.get("fwd_eps")
+                shares = comp_data.get("shares_outstanding")
+                if not shares or shares <= 0:
+                    price = comp_data.get("price") or comp_data.get("current_price")
+                    if mcap and price and price > 0:
+                        shares = mcap / price
+                        
+                if fwd_eps and shares and shares > 0:
+                    fwd_ni = fwd_eps * shares
+                    ebitda = comp_data.get("ebitda") or 0
+                    ni = comp_data.get("net_income") or 0
+                    tax_int_da = ebitda - ni
+                    fwd_ebitda = fwd_ni + tax_int_da
+                    
             if fwd_ebitda and fwd_ebitda > 0:
                 val = curr_ev / fwd_ebitda
                 return val if val > 0 else None
             return None
 
         def calculateForwardPE(comp_data):
-            fwd_eps = comp_data.get("forward_eps")
-            price = comp_data.get("price")
+            fwd_eps = comp_data.get("forward_eps") or comp_data.get("fwd_eps")
+            price = comp_data.get("price") or comp_data.get("current_price")
             if fwd_eps and price and fwd_eps > 0:
                 val = price / fwd_eps
                 return val if val > 0 else None
