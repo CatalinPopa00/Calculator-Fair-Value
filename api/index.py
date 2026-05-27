@@ -536,33 +536,14 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 val = curr_ev / fwd_ebitda
                 return round(val, 4) if val > 0 else None
 
-            # --- Attempt 2: Estimate from forward EPS ---
-            fwd_eps = comp_data.get("forward_eps") or comp_data.get("fwd_eps")
-            shares = comp_data.get("shares_outstanding")
-            if not shares or shares <= 0:
-                price = comp_data.get("price") or comp_data.get("current_price")
-                if mcap > 0 and price and price > 0:
-                    shares = mcap / price
-
-            if fwd_eps and shares and shares > 0:
-                ebitda_ttm = comp_data.get("ebitda") or 0
-                ni_ttm = comp_data.get("net_income") or 0
-                if ebitda_ttm > 0 and ni_ttm != 0:
-                    # EBITDA-to-NI spread (taxes + interest + D&A)
-                    spread = ebitda_ttm - ni_ttm
-                    fwd_ni = fwd_eps * shares
-                    fwd_ebitda = fwd_ni + spread
-                    if fwd_ebitda > 0 and curr_ev > 0:
-                        val = curr_ev / fwd_ebitda
-                        return round(val, 4) if val > 0 else None
-
-            # --- Attempt 3: TTM EV/EBITDA adjusted for earnings growth ---
+            # --- Attempt 2: TTM EV/EBITDA adjusted for revenue growth ---
             ttm_ev_ebitda = comp_data.get("ev_to_ebitda")
             if ttm_ev_ebitda and ttm_ev_ebitda > 0:
-                earn_g = comp_data.get("earnings_growth") or 0
-                if earn_g > 0:
-                    # Forward = TTM / (1 + growth) since higher earnings → lower multiple
-                    val = ttm_ev_ebitda / (1 + earn_g)
+                # Use revenue_growth as a much safer proxy for EBITDA growth than net income
+                rev_g = comp_data.get("revenue_growth") or 0
+                if rev_g > 0 and rev_g < 1.0: # Cap adjustment at 100%
+                    # Forward = TTM / (1 + growth) 
+                    val = ttm_ev_ebitda / (1 + rev_g)
                     return round(val, 4) if val > 0 else None
                 else:
                     return round(ttm_ev_ebitda, 4)
