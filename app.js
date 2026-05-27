@@ -4699,7 +4699,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // Label map
                 const LABEL = { PE: 'FWD P/E', PFCF: 'P/FCF', PS: 'FWD EV/Sales', PB: 'P/B', EV_EBITDA: 'FWD EV/EBITDA', P_FFO: 'FWD P/FFO', P_AFFO: 'FWD P/AFFO' };
-                const peerKeyMap = { PE: 'forward_pe', PFCF: 'pfcf_ratio', PS: 'forward_ev_sales', PB: 'price_to_book', EV_EBITDA: 'forward_ev_ebitda' };
+                const peerKeyMap = { PE: 'forward_pe', PFCF: 'pfcf_ratio', PS: 'forward_ev_sales', PB: 'price_to_book', EV_EBITDA: 'forward_ev_ebitda', P_FFO: 'forward_pe', P_AFFO: 'pfcf_ratio' };
 
                 // --- Competitor Table ---
                 const peers = (globalData.company_profile && globalData.company_profile.competitor_metrics) || [];
@@ -4751,7 +4751,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <td style="padding:6px; color:#28c76f; font-weight:700;">${(globalData.ticker || 'TARGET').toUpperCase()}</td>
                                 ${activeKeys.map(k => {
                                     let val = null;
-                                    if (k === 'PE') {
+                                    if (k === 'PE' || k === 'P_FFO') {
                                         val = globalData.company_profile && globalData.company_profile.fwd_pe;
                                     }
                                     else if (k === 'PS') {
@@ -4795,7 +4795,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             <tr style="border-top:1px solid rgba(255,255,255,0.15);">
                                 <td style="padding:8px 6px; color:white; font-weight:700;">Median</td>
                                 ${activeKeys.map(k => {
-                                    const v = dynamicMedians[k] ?? r['median_peer_' + k.toLowerCase()];
+                                    let medKey = k;
+                                    if (k === 'P_FFO') medKey = 'PE';
+                                    if (k === 'P_AFFO') medKey = 'PFCF';
+                                    const v = dynamicMedians[medKey] ?? r['median_peer_' + medKey.toLowerCase()];
                                     return `<td style="text-align:right; padding:8px 6px; color:white; font-weight:700;">${v != null ? v.toFixed(1) + 'x' : '—'}</td>`;
                                 }).join('')}
                             </tr>
