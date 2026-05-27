@@ -1241,6 +1241,8 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 "dividend_streak": data.get("dividend_streak"),
                 "dividend_cagr_5y": sanitize(data.get("dividend_cagr_5y")),
                 "fwd_pe": sanitize(data.get("fwd_pe")),
+                "forward_ev_sales": sanitize(data.get("forward_ev_sales")),
+                "forward_ev_ebitda": sanitize(data.get("forward_ev_ebitda")),
                 "competitors": [p.get("ticker") for p in peers_data] if peers_data else [],
                 "competitor_metrics": [{
                     "ticker": p.get("ticker"),
