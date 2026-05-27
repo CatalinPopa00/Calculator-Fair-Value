@@ -205,8 +205,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (authGoogle && window.firebase) {
         authGoogle.addEventListener('click', async () => {
+            if (authGoogle.disabled) return;
             const provider = new firebase.auth.GoogleAuthProvider();
             const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            
+            const originalText = authGoogle.innerHTML;
+            authGoogle.disabled = true;
+            authGoogle.style.opacity = '0.7';
+            authGoogle.innerHTML = `<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18" height="18"> Please wait...`;
+            
             try {
                 if (isMobile) {
                     await firebase.auth().signInWithRedirect(provider);
@@ -215,8 +222,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     authModal.style.display = 'none';
                 }
             } catch (err) {
-                authError.textContent = err.message;
-                authError.style.display = 'block';
+                if (err.code !== 'auth/popup-closed-by-user') {
+                    authError.textContent = err.message;
+                    authError.style.display = 'block';
+                }
+            } finally {
+                authGoogle.disabled = false;
+                authGoogle.style.opacity = '1';
+                authGoogle.innerHTML = originalText;
             }
         });
         
