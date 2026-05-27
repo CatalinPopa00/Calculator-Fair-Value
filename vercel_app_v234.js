@@ -4693,7 +4693,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                         val = pfcf_ttm > 0 ? pfcf_ttm / (1 + fcfGrowth) : null;
                                     }
                                     
-                                    return `<td style="text-align:right; padding:6px; color:#28c76f; font-weight:700;">${val != null ? val.toFixed(1) + 'x' : '—'}</td>`;
+                                    return `<td style="text-align:right; padding:6px; color:#28c76f; font-weight:700;">${val != null ? val.toFixed(1) + 'x' : 'null'}</td>`;
                                 }).join('')}
                             </tr>
                             
@@ -4704,7 +4704,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     ${activeKeys.map(k => {
                                         const dk = peerKeyMap[k];
                                         const val = dk ? p[dk] : null;
-                                        return `<td style="text-align:right; padding:6px; color:var(--text-main);">${val != null ? val.toFixed(1) + 'x' : '—'}</td>`;
+                                        return `<td style="text-align:right; padding:6px; color:var(--text-main);">${val != null ? val.toFixed(1) + 'x' : 'null'}</td>`;
                                     }).join('')}
                                 </tr>
                             `).join('')}
@@ -4714,7 +4714,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <td style="padding:8px 6px; color:white; font-weight:700;">Median</td>
                                 ${activeKeys.map(k => {
                                     const v = dynamicMedians[k] ?? r['median_peer_' + k.toLowerCase()];
-                                    return `<td style="text-align:right; padding:8px 6px; color:white; font-weight:700;">${v != null ? v.toFixed(1) + 'x' : '—'}</td>`;
+                                    return `<td style="text-align:right; padding:8px 6px; color:white; font-weight:700;">${v != null ? v.toFixed(1) + 'x' : 'null'}</td>`;
                                 }).join('')}
                             </tr>
                         </tfoot>
