@@ -101,10 +101,10 @@ document.addEventListener('DOMContentLoaded', () => {
         items.slice(0, 8).forEach(item => {
             const div = document.createElement('div');
             div.className = 'autocomplete-item';
-            div.style.cssText = 'padding: 10px 15px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.05); color: white; display: flex; justify-content: space-between;';
             div.innerHTML = `
-                <span style="font-weight: bold; color: var(--accent);">${item.ticker}</span>
-                <span style="font-size: 0.85em; color: var(--text-muted); text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 200px;">${item.name}</span>
+                <span class="ticker-match">${item.ticker}</span>
+                <span class="name-match">${item.name}</span>
+                <span class="exch-match">${item.exchange || ''}</span>
             `;
             div.onclick = () => {
                 tickerInput.value = item.ticker;
@@ -2048,19 +2048,19 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             const dynamicMedians = {
-                PE: getMedian(peers.map(p => p.pe_ratio)),
+                PE: getMedian(peers.map(p => p.forward_pe)),
                 PFCF: getMedian(peers.map(p => p.pfcf_ratio)),
-                PS: getMedian(peers.map(p => p.ps_ratio)),
+                PS: getMedian(peers.map(p => p.forward_ev_sales)),
                 PB: getMedian(peers.map(p => p.price_to_book)),
-                EV_EBITDA: getMedian(peers.map(p => p.ev_to_ebitda))
+                EV_EBITDA: getMedian(peers.map(p => p.forward_ev_ebitda))
             };
 
             const dynamicMeans = {
-                PE: getMean(peers.map(p => p.pe_ratio)),
+                PE: getMean(peers.map(p => p.forward_pe)),
                 PFCF: getMean(peers.map(p => p.pfcf_ratio)),
-                PS: getMean(peers.map(p => p.ps_ratio)),
+                PS: getMean(peers.map(p => p.forward_ev_sales)),
                 PB: getMean(peers.map(p => p.price_to_book)),
-                EV_EBITDA: getMean(peers.map(p => p.ev_to_ebitda))
+                EV_EBITDA: getMean(peers.map(p => p.forward_ev_ebitda))
             };
 
             let bPE = 20, bPFCF = 20, bPS = 2, bPB = 2, bEVEBITDA = 12;
@@ -4640,19 +4640,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
 
                 const dynamicMedians = {
-                    PE: getMedian(peers.map(p => p.forward_pe != null ? p.forward_pe : p.pe_ratio)),
+                    PE: getMedian(peers.map(p => p.forward_pe)),
                     PFCF: getMedian(peers.map(p => p.pfcf_ratio)),
-                    PS: getMedian(peers.map(p => p.forward_ev_sales != null ? p.forward_ev_sales : p.ps_ratio)),
+                    PS: getMedian(peers.map(p => p.forward_ev_sales)),
                     PB: getMedian(peers.map(p => p.price_to_book)),
-                    EV_EBITDA: getMedian(peers.map(p => p.forward_ev_ebitda != null ? p.forward_ev_ebitda : p.ev_to_ebitda))
+                    EV_EBITDA: getMedian(peers.map(p => p.forward_ev_ebitda))
                 };
 
                 const dynamicMeans = {
-                    PE: getMean(peers.map(p => p.forward_pe != null ? p.forward_pe : p.pe_ratio)),
+                    PE: getMean(peers.map(p => p.forward_pe)),
                     PFCF: getMean(peers.map(p => p.pfcf_ratio)),
-                    PS: getMean(peers.map(p => p.forward_ev_sales != null ? p.forward_ev_sales : p.ps_ratio)),
+                    PS: getMean(peers.map(p => p.forward_ev_sales)),
                     PB: getMean(peers.map(p => p.price_to_book)),
-                    EV_EBITDA: getMean(peers.map(p => p.forward_ev_ebitda != null ? p.forward_ev_ebitda : p.ev_to_ebitda))
+                    EV_EBITDA: getMean(peers.map(p => p.forward_ev_ebitda))
                 };
 
                 let peerTableHTML = '';

@@ -296,7 +296,8 @@ body {
 
 .autocomplete-item {
     display: grid;
-    grid-template-columns: 80px 1fr 100px;
+    grid-template-columns: minmax(80px, auto) 1fr minmax(60px, auto);
+    gap: 12px;
     padding: 12px 16px;
     cursor: pointer;
     transition: all 0.2s;

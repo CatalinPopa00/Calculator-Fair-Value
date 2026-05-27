@@ -36,7 +36,7 @@ from models.scoring import calculate_scoring_reform, calculate_piotroski_score
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v302"
+CACHE_VERSION = "v304"
 def get_usd_fx_rate(currency: str) -> float:
     if not currency:
         return 1.0
@@ -450,13 +450,6 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             curr_ev = mcap + debt - cash
             fwd_rev = comp_data.get("forward_revenue")
             if fwd_rev is None or fwd_rev <= 0:
-                rev = comp_data.get("revenue")
-                g = comp_data.get("revenue_growth")
-                if rev and g is None and comp_data.get("next_3y_rev_growth"):
-                    g = comp_data.get("next_3y_rev_growth")
-                if rev and rev > 0 and g is not None:
-                    fwd_rev = rev * (1 + g)
-            if fwd_rev is None or fwd_rev <= 0:
                 return None
             val = curr_ev / fwd_rev
             return val if val > 0 else None
@@ -466,26 +459,15 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             debt = comp_data.get("total_debt") or 0
             cash = comp_data.get("total_cash") or 0
             curr_ev = mcap + debt - cash
-            fwd_eps = comp_data.get("forward_eps") or comp_data.get("eps")
-            shares = comp_data.get("shares_outstanding")
-            if not shares or shares <= 0:
-                price = comp_data.get("price")
-                if mcap and price and price > 0:
-                    shares = mcap / price
-            if not fwd_eps or not shares or shares <= 0:
-                return None
-            fwd_ni = fwd_eps * shares
-            ebitda = comp_data.get("ebitda") or 0
-            ni = comp_data.get("net_income") or 0
-            tax_int_da = ebitda - ni
-            est_fwd_ebitda = fwd_ni + tax_int_da
-            if est_fwd_ebitda <= 0:
-                return None
-            val = curr_ev / est_fwd_ebitda
-            return val if val > 0 else None
+            
+            fwd_ebitda = comp_data.get("forward_ebitda")
+            if fwd_ebitda and fwd_ebitda > 0:
+                val = curr_ev / fwd_ebitda
+                return val if val > 0 else None
+            return None
 
         def calculateForwardPE(comp_data):
-            fwd_eps = comp_data.get("forward_eps") or comp_data.get("eps")
+            fwd_eps = comp_data.get("forward_eps")
             price = comp_data.get("price")
             if fwd_eps and price and fwd_eps > 0:
                 val = price / fwd_eps
@@ -1278,7 +1260,10 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                     "fcf": sanitize(p.get("fcf")),
                     "operating_margin": sanitize(p.get("operating_margin")),
                     "revenue_growth": sanitize(p.get("revenue_growth")),
-                    "earnings_growth": sanitize(p.get("earnings_growth"))
+                    "earnings_growth": sanitize(p.get("earnings_growth")),
+                    "forward_pe": sanitize(p.get("forward_pe")),
+                    "forward_ev_sales": sanitize(p.get("forward_ev_sales")),
+                    "forward_ev_ebitda": sanitize(p.get("forward_ev_ebitda"))
                 } for p in peers_data] if peers_data else []
             },
             "revenue": sanitize(data.get("revenue")),
