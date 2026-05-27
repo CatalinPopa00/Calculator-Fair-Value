@@ -1110,12 +1110,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     <th style="padding:12px; text-align:left; color:var(--text-muted); font-size:0.85rem; position: sticky; left: 0; background: #0f172a; z-index: 10; border-right: 1px solid rgba(255,255,255,0.1);">COMPETITOR</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 100px;">Market Cap</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">P/E (Forward)</th>
+                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">EPS Growth</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 100px;">PEG (5Y)</th>
-                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">EPS (Forward)</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">P/S (Forward)</th>
-                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 120px;">Revenue (TTM)</th>
+                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 120px;">Revenue Growth</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 100px;">P/FCF</th>
-                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">FCF (Forward)</th>
+                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">FWD P/FCF</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 130px;">Operating Margin</th>
                 </tr>
             </thead>
@@ -1128,6 +1128,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     const derivedRevenue = c.revenue || (mCap && c.ps_ratio && c.ps_ratio > 0 ? mCap / c.ps_ratio : null);
                     const derivedFcf = c.fcf || (mCap && c.pfcf_ratio && c.pfcf_ratio > 0 ? mCap / c.pfcf_ratio : null);
                     
+                    const epsGrowth = c.earnings_growth;
+                    const revGrowth = c.revenue_growth;
+                    
+                    const fcfMargin = derivedFcf && derivedRevenue && derivedRevenue > 0 ? derivedFcf / derivedRevenue : null;
+                    const fwdRevExplicit = c.forward_revenue || (mCap && c.fwd_ps && c.fwd_ps > 0 ? mCap / c.fwd_ps : null) || (mCap && c.ps_ratio && c.ps_ratio > 0 ? mCap / c.ps_ratio : null);
+                    const fwdFcf = fwdRevExplicit && fcfMargin ? fwdRevExplicit * fcfMargin : null;
+                    const fwdPfcf = mCap && fwdFcf && fwdFcf > 0 ? mCap / fwdFcf : null;
+                    
+                    const pfcf = c.pfcf_ratio || (mCap && derivedFcf && derivedFcf > 0 ? mCap / derivedFcf : null);
+                    
                     return `
                     <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: ${isMain ? 'rgba(56, 189, 248, 0.05)' : 'transparent'};">
                         <td style="padding:12px; text-align:left; font-weight:bold; color:${isMain ? 'var(--accent)' : 'white'}; position: sticky; left: 0; background: ${isMain ? '#122238' : '#0f172a'}; z-index: 10; border-right: 1px solid rgba(255,255,255,0.1); box-shadow: 2px 0 5px rgba(0,0,0,0.2);">
@@ -1138,12 +1148,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         </td>
                         <td style="padding:12px; font-weight:bold;">${formatBigNumber(mCap, '$')}</td>
                         <td style="padding:12px; font-weight:bold;">${fmtPE(c.fwd_pe || c.pe_ratio)}</td>
+                        <td style="padding:12px; font-weight:bold;">${fmtMargin(epsGrowth)}</td>
                         <td style="padding:12px; font-weight:bold;">${fmtPE(c.peg_ratio)}</td>
-                        <td style="padding:12px; font-weight:bold;">${fmtEPS(c.fwd_eps || c.eps || c.trailing_eps)}</td>
                         <td style="padding:12px; font-weight:bold;">${fmtPE(c.fwd_ps || c.ps_ratio)}</td>
-                        <td style="padding:12px; font-weight:bold;">${formatBigNumber(derivedRevenue, '$')}</td>
-                        <td style="padding:12px; font-weight:bold;">${fmtPE(c.pfcf_ratio)}</td>
-                        <td style="padding:12px; font-weight:bold;">${formatBigNumber(derivedFcf, '$')}</td>
+                        <td style="padding:12px; font-weight:bold;">${fmtMargin(revGrowth)}</td>
+                        <td style="padding:12px; font-weight:bold;">${fmtPE(pfcf)}</td>
+                        <td style="padding:12px; font-weight:bold;">${fmtPE(fwdPfcf)}</td>
                         <td style="padding:12px; font-weight:bold;">${fmtMargin(c.margin || c.operating_margin)}</td>
                     </tr>
                     `;
