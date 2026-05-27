@@ -1164,7 +1164,7 @@ document.addEventListener('DOMContentLoaded', () => {
             resetBtn.onclick = () => {
                 localStorage.removeItem('customPeers_' + (prof.ticker || currentTicker));
                 document.getElementById('comparison-modal').classList.remove('active'); // Close modal
-                searchTicker(prof.ticker || currentTicker, true);
+                analyzeTicker(prof.ticker || currentTicker, true);
             };
         }
 
@@ -2351,7 +2351,7 @@ document.addEventListener('DOMContentLoaded', () => {
         toggle.onchange = updateAndSave;
     });
 
-    const searchTicker = async (queryParam, forceRefresh = false) => {
+    const analyzeTicker = async (queryParam, forceRefresh = false) => {
         if (_simulating) {
             alert("Cannot search a new ticker while simulating. Resetting to real price first.");
             resetSimulation();
