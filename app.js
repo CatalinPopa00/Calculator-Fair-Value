@@ -1664,7 +1664,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     if (currentFormulaData.dcf) currentFormulaData.dcf.eps_growth_applied = g;
                     
-                    dcfValObj = calcLocalDcf(fcfParam, g, wAnalyst, pCustom, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em, globalData.current_price);
+                    dcfValObj = calcLocalDcf(fcfParam, g, wAnalyst, pCustom, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em, _realApiPrice);
                 }
                 else if (fcfSource === 'historical') {
                     const hg13 = Math.round((prof.historic_fcf_growth != null ? prof.historic_fcf_growth : 0.05) * 1000) / 1000;
@@ -1680,7 +1680,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     if (currentFormulaData.dcf) currentFormulaData.dcf.eps_growth_applied = hgArray;
                     const em = parseLocaleFloat(document.getElementById('input-exit-multiple')?.value) || (globalData.dcf_assumptions?.recommended_exit_multiple || 10.0);
-                    dcfValObj = calcLocalDcf(fcfParam, hgArray, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em, globalData.current_price);
+                    dcfValObj = calcLocalDcf(fcfParam, hgArray, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em, _realApiPrice);
                 } else if (fcfSource === 'custom') {
                     const getVal = (id) => {
                         const el = document.getElementById(id);
@@ -1724,7 +1724,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const pCustom = (pRaw === '' || isNaN(parseLocaleFloat(pRaw))) ? 0.025 : parseLocaleFloat(pRaw) / 100;
                         const em = (emRaw === '' || isNaN(parseLocaleFloat(emRaw))) ? (globalData.dcf_assumptions?.recommended_exit_multiple || 10.0) : parseLocaleFloat(emRaw);
 
-                        dcfValObj = calcLocalDcf(fcfParam, growthArr, wCustom, pCustom, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em, globalData.current_price);
+                        dcfValObj = calcLocalDcf(fcfParam, growthArr, wCustom, pCustom, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em, _realApiPrice);
                     }
                 }
 
@@ -2032,7 +2032,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const company_fcf_share = (rel.company_fcf_share || 0);
             
             const explicit_fwd_ps = globalData.company_profile && globalData.company_profile.fwd_ps;
-            const company_sales_share = explicit_fwd_ps > 0 ? (globalData.current_price / explicit_fwd_ps) : (rel.company_sales_share || 0);
+            const company_sales_share = explicit_fwd_ps > 0 ? (_realApiPrice / explicit_fwd_ps) : (rel.company_sales_share || 0);
             
             const company_book_share = rel.company_book_share || 0; // Book value remains TTM
             const company_ebitda = (globalData.ebitda || 0);
@@ -4800,7 +4800,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const fcfS = (r.company_fcf_share || 0);
                     
                     const explicit_fwd_ps = prof.fwd_ps;
-                    const salesS = explicit_fwd_ps > 0 ? (globalData.current_price / explicit_fwd_ps) : (r.company_sales_share || 0);
+                    const salesS = explicit_fwd_ps > 0 ? (_realApiPrice / explicit_fwd_ps) : (r.company_sales_share || 0);
                     
                     const bookS = r.company_book_share || 0;
                     const ebitda = (globalData.ebitda || 0);
@@ -4886,7 +4886,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             } else if (model === 'peter_lynch' && currentFormulaData.peter_lynch) {
                 const p = currentFormulaData.peter_lynch;
-                const prof = globalData.profile || {};
+                const prof = globalData.company_profile || {};
                 title.textContent = '📊 Forward Multiple — Data Transparency';
                 const epsLabel = p.valuation_eps !== p.trailing_eps ? 'EPS Base (Normalized)' : 'Trailing EPS (GAAP)';
                 html = row(epsLabel, '$' + fmt(p.valuation_eps || p.trailing_eps))
