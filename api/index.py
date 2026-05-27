@@ -451,6 +451,42 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 price = comp_data.get("price") or comp_data.get("current_price") or 0
                 if shares > 0 and price > 0:
                     mcap = shares * price
+            
+            if mcap <= 0:
+                return None
+            
+            fwd_rev = comp_data.get("forward_revenue")
+            if not fwd_rev or fwd_rev <= 0:
+                rev = comp_data.get("revenue")
+                g = comp_data.get("revenue_growth")
+                if rev and rev > 0 and g is not None:
+                    fwd_rev = rev * (1 + g)
+            
+            if not fwd_rev or fwd_rev <= 0:
+                fwd_rev = comp_data.get("revenue")
+            
+            if fwd_rev and fwd_rev > 0:
+                return mcap / fwd_rev
+            return None
+        def calculateForwardEvSales(comp_data):
+            """Forward EV-to-Sales: EV / forward_revenue"""
+            mcap = comp_data.get("market_cap") or 0
+            debt = comp_data.get("total_debt") or 0
+            cash = comp_data.get("total_cash") or 0
+            
+            if mcap <= 0:
+                shares = comp_data.get("shares_outstanding") or 0
+                price = comp_data.get("price") or comp_data.get("current_price") or 0
+                if shares > 0 and price > 0:
+                    mcap = shares * price
+            
+            if mcap <= 0:
+                return None
+                
+            ev = mcap + debt - cash
+            # If cash is massive, EV could be negative. Cap at mcap for sanity in multiples.
+            if ev <= 0:
+                ev = mcap
 
             fwd_rev = comp_data.get("forward_revenue")
             if not fwd_rev or fwd_rev <= 0:
@@ -461,8 +497,9 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             if not fwd_rev or fwd_rev <= 0:
                 fwd_rev = comp_data.get("revenue")
 
-            if fwd_rev and fwd_rev > 0 and mcap > 0:
-                return mcap / fwd_rev
+            
+            if fwd_rev and fwd_rev > 0:
+                return ev / fwd_rev
             return None
 
         def calculateForwardEvEbitda(comp_data):
@@ -537,13 +574,14 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 return round(val, 4) if val > 0 else None
             return None
 
-        # Dynamic peer P/E, PEG, and Forward calculations
-        data['forward_ev_sales'] = calculateForwardPS(data)
+        # Dynamic peer calculations
+        data['forward_ps'] = calculateForwardPS(data)
+        data['forward_ev_sales'] = calculateForwardEvSales(data)
         data['forward_ev_ebitda'] = calculateForwardEvEbitda(data)
         
-        # v309: Unify fwd_ps with forward_ev_sales so Profile & Relative Valuation match
-        if data.get('forward_ev_sales'):
-            data['fwd_ps'] = data['forward_ev_sales']
+        # Unify the profile's fwd_ps to use the robust Forward P/S
+        if data.get('forward_ps'):
+            data['fwd_ps'] = data['forward_ps']
         
         if peers_data:
             for p in peers_data:
@@ -557,7 +595,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                     p["peg_ratio"] = p_pe / (p_growth * 100.0)
                 
                 # Apply proxies for peers
-                p['forward_ev_sales'] = calculateForwardPS(p)
+                p['forward_ev_sales'] = calculateForwardEvSales(p)
                 p['forward_ev_ebitda'] = calculateForwardEvEbitda(p)
                 p['forward_pe'] = calculateForwardPE(p)
 

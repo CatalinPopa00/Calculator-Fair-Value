@@ -2161,7 +2161,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (mc) mc.textContent = multipleLabel;
             
             // --- Populate custom weight inputs on the card ---
-            const LABEL = { PE: 'FWD P/E', PFCF: 'P/FCF', PS: 'FWD P/S', PB: 'P/B', EV_EBITDA: 'FWD EV/EBITDA', P_FFO: 'FWD P/FFO', P_AFFO: 'FWD P/AFFO' };
+            const LABEL = { PE: 'FWD P/E', PFCF: 'P/FCF', PS: 'FWD EV/Sales', PB: 'P/B', EV_EBITDA: 'FWD EV/EBITDA', P_FFO: 'FWD P/FFO', P_AFFO: 'FWD P/AFFO' };
             const activeKeys = Object.keys(weights).filter(k => weights[k] !== undefined);
             const cwPanel = document.getElementById('rel-custom-weights-card');
             if (cwPanel) {
@@ -3116,7 +3116,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 ${metricRow('FWD EPS', prof.fwd_eps ? '$' + prof.fwd_eps.toFixed(2) : 'N/A')}
                                 ${metricRow('PEG', prof.peg_ratio ? prof.peg_ratio.toFixed(2) : 'N/A')}
                                 ${metricRow('P/S', prof.ps_ratio ? prof.ps_ratio.toFixed(2) + 'x' : 'N/A')}
-                                ${metricRow('P/S FWD', prof.fwd_ps ? prof.fwd_ps.toFixed(2) + 'x' : 'N/A')}
+                                ${metricRow('FWD EV/Sales', prof.fwd_ps ? prof.fwd_ps.toFixed(2) + 'x' : 'N/A')}
                                 ${metricRow('P/FCF', prof.pfcf_ratio ? prof.pfcf_ratio.toFixed(2) + 'x' : 'N/A')}
                             </div>
                         </div>
@@ -4623,7 +4623,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const activeKeys = Object.keys(weightsToUse).filter(k => (weightsToUse[k] || 0) > 0);
                 
                 // Label map
-                const LABEL = { PE: 'FWD P/E', PFCF: 'P/FCF', PS: 'FWD P/S', PB: 'P/B', EV_EBITDA: 'FWD EV/EBITDA', P_FFO: 'FWD P/FFO', P_AFFO: 'FWD P/AFFO' };
+                const LABEL = { PE: 'FWD P/E', PFCF: 'P/FCF', PS: 'FWD EV/Sales', PB: 'P/B', EV_EBITDA: 'FWD EV/EBITDA', P_FFO: 'FWD P/FFO', P_AFFO: 'FWD P/AFFO' };
                 const peerKeyMap = { PE: 'forward_pe', PFCF: 'pfcf_ratio', PS: 'forward_ev_sales', PB: 'price_to_book', EV_EBITDA: 'forward_ev_ebitda' };
 
                 // --- Competitor Table ---
@@ -4777,10 +4777,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     if (key === 'PE' || key === 'P_FFO') return eps * bench;
                     if (key === 'PFCF' || key === 'P_AFFO') return fcfS * bench;
-                    if (key === 'PS') return salesS * bench;
                     if (key === 'PB') return bookS * bench;
                     if (key === 'EV_EBITDA') {
                         const ev = ebitda * bench;
+                        return shares > 0 ? (ev - debt + cash) / shares : 0;
+                    }
+                    if (key === 'PS') {
+                        // bench is EV/Sales
+                        // We need forward revenue to compute EV
+                        let rev = (globalData.revenue || 0);
+                        if (prof.revenue_growth) {
+                            rev = rev * (1 + prof.revenue_growth);
+                        }
+                        const ev = rev * bench;
                         return shares > 0 ? (ev - debt + cash) / shares : 0;
                     }
                     return 0;
