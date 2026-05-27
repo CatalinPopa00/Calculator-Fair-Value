@@ -592,9 +592,6 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         
         # Calculate Industry Median PE for Peter Lynch fallback
         valid_pes = []
-        data['forward_ev_sales'] = calculateForwardEvSales(data)
-        data['forward_ev_ebitda'] = calculateForwardEvEbitda(data)
-        
         if peers_data:
             for p in peers_data:
                 v = p.get('pe_ratio')
