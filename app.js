@@ -1066,9 +1066,11 @@ document.addEventListener('DOMContentLoaded', () => {
             ticker: prof.ticker || currentTicker,
             name: prof.name || 'Current',
             market_cap: prof.market_cap,
-            pe_ratio: prof.trailing_pe,
-            peg_ratio: globalData?.formula_data?.peg?.current_peg,
+            pe_ratio: prof.fwd_eps > 0 ? (_realApiPrice / prof.fwd_eps) : prof.trailing_pe,
+            fwd_pe: prof.fwd_eps > 0 ? (_realApiPrice / prof.fwd_eps) : null,
+            peg_ratio: prof.peg_ratio,
             eps: prof.trailing_eps,
+            fwd_eps: prof.fwd_eps,
             ps_ratio: prof.ps_ratio,
             revenue: globalData.revenue || (prof.market_cap && prof.ps_ratio && prof.ps_ratio > 0 ? prof.market_cap / prof.ps_ratio : null),
             pfcf_ratio: mainPfcf,
@@ -1128,11 +1130,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     const derivedRevenue = c.revenue || (mCap && c.ps_ratio && c.ps_ratio > 0 ? mCap / c.ps_ratio : null);
                     const derivedFcf = c.fcf || (mCap && c.pfcf_ratio && c.pfcf_ratio > 0 ? mCap / c.pfcf_ratio : null);
                     
-                    const epsGrowth = c.earnings_growth;
-                    const revGrowth = c.revenue_growth;
+                    const epsGrowth = c.eps_growth ?? c.earnings_growth;
+                    const revGrowth = c.rev_growth ?? c.revenue_growth;
+                    
+                    let fwdRevExplicit = c.forward_revenue;
+                    if (!fwdRevExplicit && isMain && globalData.rev_estimates) {
+                        fwdRevExplicit = globalData.rev_estimates.find(e => e.period === 'FY 1' || e.period === 'FY1' || String(e.period).includes('Current Year'))?.avg;
+                    }
+                    if (!fwdRevExplicit && derivedRevenue && revGrowth != null) {
+                        fwdRevExplicit = derivedRevenue * (1 + revGrowth);
+                    }
+                    
+                    const fwdPs = fwdRevExplicit && fwdRevExplicit > 0 ? mCap / fwdRevExplicit : null;
                     
                     const fcfMargin = derivedFcf && derivedRevenue && derivedRevenue > 0 ? derivedFcf / derivedRevenue : null;
-                    const fwdRevExplicit = c.forward_revenue || (mCap && c.fwd_ps && c.fwd_ps > 0 ? mCap / c.fwd_ps : null) || (mCap && c.ps_ratio && c.ps_ratio > 0 ? mCap / c.ps_ratio : null);
                     const fwdFcf = fwdRevExplicit && fcfMargin ? fwdRevExplicit * fcfMargin : null;
                     const fwdPfcf = mCap && fwdFcf && fwdFcf > 0 ? mCap / fwdFcf : null;
                     
@@ -1150,7 +1161,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <td style="padding:12px; font-weight:bold;">${fmtPE(c.fwd_pe || c.pe_ratio)}</td>
                         <td style="padding:12px; font-weight:bold;">${fmtMargin(epsGrowth)}</td>
                         <td style="padding:12px; font-weight:bold;">${fmtPE(c.peg_ratio)}</td>
-                        <td style="padding:12px; font-weight:bold;">${fmtPE(c.fwd_ps || c.ps_ratio)}</td>
+                        <td style="padding:12px; font-weight:bold;">${fmtPE(fwdPs)}</td>
                         <td style="padding:12px; font-weight:bold;">${fmtMargin(revGrowth)}</td>
                         <td style="padding:12px; font-weight:bold;">${fmtPE(pfcf)}</td>
                         <td style="padding:12px; font-weight:bold;">${fmtPE(fwdPfcf)}</td>

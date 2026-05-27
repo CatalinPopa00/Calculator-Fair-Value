@@ -3317,10 +3317,9 @@ def get_competitors_data(target_ticker: str, limit: int = 4, custom_peers: list 
                         "forward_revenue": fwd_rev_explicit,
                         "forward_eps": fwd_eps_explicit or inf.get('forwardEps')
                     }
-                    if include_growth:
-                        p_data["revenue_growth"] = rev_growth
-                        p_data["earnings_growth"] = earn_growth
-                        p_data["fcf_growth"] = fcf_growth
+                    p_data["revenue_growth"] = rev_growth
+                    p_data["earnings_growth"] = earn_growth
+                    p_data["fcf_growth"] = fcf_growth
                     
                     _peer_info_cache[t] = (p_data, now)
                     kv_set(kv_key, p_data, ex=86400)
