@@ -25,39 +25,35 @@ document.addEventListener('DOMContentLoaded', () => {
     const lynchMethodSelect = document.getElementById('lynch-method-select');
 
     // --- FIREBASE CLOUD SYNC ---
-    const firebaseConfig = {
-        apiKey: "AIzaSyBqnECMrco2mrqLEyo-mTMdIYbaku-N0f4",
-        authDomain: "babi-calculator-inatorul.firebaseapp.com",
-        projectId: "babi-calculator-inatorul",
-        storageBucket: "babi-calculator-inatorul.firebasestorage.app",
-        messagingSenderId: "332002590695",
-        appId: "1:332002590695:web:ffaebc5eb3b62548cb8742"
-    };
-
     let currentUser = null;
     let db = null;
     let _syncInProgress = false;
 
     if (window.firebase) {
-        firebase.initializeApp(firebaseConfig);
-        db = firebase.firestore();
-        
-        firebase.auth().onAuthStateChanged((user) => {
-            currentUser = user;
-            const loginBtn = document.getElementById('login-btn');
-            if (loginBtn) {
-                if (user) {
-                    loginBtn.innerHTML = `👤 ${user.email ? user.email.split('@')[0] : 'User'} (Sync ON)`;
-                    loginBtn.style.color = '#4ade80';
-                    loginBtn.style.borderColor = '#4ade80';
-                    syncFromCloud(); // Pull data from cloud on login
-                } else {
-                    loginBtn.innerHTML = `👤 Login to Sync`;
-                    loginBtn.style.color = 'white';
-                    loginBtn.style.borderColor = 'rgba(255,255,255,0.2)';
-                }
-            }
-        });
+        fetch('/api/firebase-config')
+            .then(res => res.json())
+            .then(config => {
+                firebase.initializeApp(config);
+                db = firebase.firestore();
+                
+                firebase.auth().onAuthStateChanged((user) => {
+                    currentUser = user;
+                    const loginBtn = document.getElementById('login-btn');
+                    if (loginBtn) {
+                        if (user) {
+                            loginBtn.innerHTML = `👤 ${user.email ? user.email.split('@')[0] : 'User'} (Sync ON)`;
+                            loginBtn.style.color = '#4ade80';
+                            loginBtn.style.borderColor = '#4ade80';
+                            syncFromCloud(); // Pull data from cloud on login
+                        } else {
+                            loginBtn.innerHTML = `👤 Login to Sync`;
+                            loginBtn.style.color = 'white';
+                            loginBtn.style.borderColor = 'rgba(255,255,255,0.2)';
+                        }
+                    }
+                });
+            })
+            .catch(err => console.error("Could not load Firebase config:", err));
     }
 
     async function syncToCloud() {
@@ -210,12 +206,26 @@ document.addEventListener('DOMContentLoaded', () => {
     if (authGoogle && window.firebase) {
         authGoogle.addEventListener('click', async () => {
             const provider = new firebase.auth.GoogleAuthProvider();
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
             try {
-                await firebase.auth().signInWithPopup(provider);
-                authModal.style.display = 'none';
+                if (isMobile) {
+                    await firebase.auth().signInWithRedirect(provider);
+                } else {
+                    await firebase.auth().signInWithPopup(provider);
+                    authModal.style.display = 'none';
+                }
             } catch (err) {
                 authError.textContent = err.message;
                 authError.style.display = 'block';
+            }
+        });
+        
+        // Catch redirect errors on page load
+        firebase.auth().getRedirectResult().catch(err => {
+            if (authError && err.code !== 'auth/redirect-cancelled-by-user') {
+                authError.textContent = err.message;
+                authError.style.display = 'block';
+                if (authModal) authModal.style.display = 'flex';
             }
         });
     }
