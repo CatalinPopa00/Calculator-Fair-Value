@@ -213,7 +213,7 @@ def calculate_scoring_reform(valuation_data, metrics):
         rev_fwd_growth = rev_g
     
     # Forward-First Multiples Fallback
-    fwd_pe = clean_ratio(metrics.get('forward_pe'))
+    fwd_pe = clean_ratio(metrics.get('fwd_pe') or metrics.get('forward_pe'))
     trail_pe = clean_ratio(metrics.get('trailing_pe') or metrics.get('pe_ratio') or metrics.get('current_pe'))
     
     # For Non-GAAP / Tech

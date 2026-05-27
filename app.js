@@ -5167,8 +5167,13 @@ document.addEventListener('DOMContentLoaded', () => {
                                     <td style="padding:4px 2px; color:white; font-weight:600; white-space:nowrap;">${p.ticker}</td>
                                     ${activeKeys.map(k => {
                                         const dk = peerKeyMap[k];
-                                        const val = dk ? p[dk] : null;
-                                        return `<td style="text-align:right; padding:4px 2px; color:var(--text-main); white-space:nowrap;">${val != null ? val.toFixed(1) + 'x' : '—'}</td>`;
+                                        let val = dk ? p[dk] : null;
+                                        if (val == null || val === 'N/A' || val === '—' || val === 0) {
+                                            if (k === 'PE' || k === 'P_FFO') val = p.fwd_pe || p.pe_ratio;
+                                            else if (k === 'EV_EBITDA') val = p.ev_to_ebitda;
+                                            else if (k === 'PS') val = p.ps_ratio;
+                                        }
+                                        return `<td style="text-align:right; padding:4px 2px; color:var(--text-main); white-space:nowrap;">${val != null && val !== 0 ? val.toFixed(1) + 'x' : '—'}</td>`;
                                     }).join('')}
                                 </tr>
                             `).join('')}
