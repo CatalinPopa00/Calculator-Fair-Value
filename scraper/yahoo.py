@@ -2990,6 +2990,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             "earnings_growth": earnings_growth_val,
             "next_3y_rev_est": next_3y_rev_est,
             "ebitda": info.get('ebitda') or (float(financials.loc[find_idx(financials, 'EBITDA')].iloc[0]) if financials is not None and find_idx(financials, 'EBITDA') else None),
+            "forward_ebitda": info.get('forwardEbitda'),
             "operating_margin": info.get('operatingMargins') or ebit_margin,
             "ebit_margin": ebit_margin,
             "net_margin": net_margin_calc or info.get('profitMargins'),
@@ -3206,7 +3207,7 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=5, inc
                         c_inf, ts = _peer_info_cache[t]
                         if now - ts < 86400: return c_inf
                     
-                    kv_key = f"peer_v10_{t}" 
+                    kv_key = f"peer_v11_{t}" 
                     kv_data = kv_get(kv_key)
                     if kv_data and isinstance(kv_data, dict):
                         _peer_info_cache[t] = (kv_data, now)
@@ -3264,7 +3265,7 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=5, inc
                     fwd_pe_explicit = None
                     fwd_eps_explicit = None
                     try:
-                        e1 = analysis['eps'].get('+1y', {})
+                        e1 = analysis['eps'].get('0y', {})
                         if e1.get('avg'): 
                             fwd_eps_explicit = e1['avg']
                             fwd_pe_explicit = p_price / fwd_eps_explicit
@@ -3275,7 +3276,7 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=5, inc
                     fwd_rev_explicit = None
                     p_shares = inf.get('impliedSharesOutstanding') or inf.get('sharesOutstanding')
                     try:
-                        r1 = analysis['rev'].get('+1y', {})
+                        r1 = analysis['rev'].get('0y', {})
                         if r1.get('avg'):
                             fwd_rev_explicit = r1['avg']
                             if p_shares and p_shares > 0:
@@ -3765,6 +3766,7 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             "eps_growth_5y_consensus": eps_growth_5y_consensus,
             "eps_estimates":  unified_eps,
             "rev_estimates":  unified_rev,
+            "forward_revenue": fy1_rev,
             "eps_growth": normalize_growth(eps_forward_growth),
             "fwd_pe": (current_price / fy1_eps) if (current_price and fy1_eps and fy1_eps > 0) else None, # v260
             "eps_trend": eps_trend
