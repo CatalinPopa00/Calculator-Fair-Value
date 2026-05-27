@@ -241,14 +241,11 @@ document.addEventListener('DOMContentLoaded', () => {
             authGoogle.innerHTML = `<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18" height="18"> Please wait...`;
             
             try {
-                if (isMobile) {
-                    await firebase.auth().signInWithRedirect(provider);
-                } else {
-                    await firebase.auth().signInWithPopup(provider);
-                    authModal.style.display = 'none';
-                }
+                await firebase.auth().signInWithPopup(provider);
+                authModal.style.display = 'none';
             } catch (err) {
-                if (err.code !== 'auth/popup-closed-by-user') {
+                console.error("Google auth error:", err);
+                if (authError && err.code !== 'auth/popup-closed-by-user') {
                     authError.textContent = err.message;
                     authError.style.display = 'block';
                 }

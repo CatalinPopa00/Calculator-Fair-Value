@@ -3695,8 +3695,8 @@ body {
 
 .floating-login-btn {
     position: fixed;
-    bottom: 25px;
-    right: 25px;
+    bottom: 40px;
+    right: 20px;
     width: 65px;
     height: 65px;
     border-radius: 50%;
