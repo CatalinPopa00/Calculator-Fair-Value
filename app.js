@@ -1163,9 +1163,22 @@ document.addEventListener('DOMContentLoaded', () => {
         if (resetBtn) {
             resetBtn.onclick = () => {
                 localStorage.removeItem('customPeers_' + (prof.ticker || currentTicker));
-                document.getElementById('comparison-modal').style.display = 'none';
-                document.body.style.overflow = '';
-                analyzeTicker(prof.ticker || currentTicker, true);
+                if (prof.original_competitor_metrics) {
+                    prof.competitor_metrics = JSON.parse(JSON.stringify(prof.original_competitor_metrics));
+                    prof.competitors = prof.competitor_metrics.map(p => p.ticker);
+                } else {
+                    prof.competitor_metrics = [];
+                    prof.competitors = [];
+                }
+                
+                recalcIndustryPeg(prof);
+                updateFairValue();
+                
+                // Update UI instantly without closing modal or refreshing page
+                renderComparisonModal(prof);
+                displayData(globalData);
+                document.getElementById('comparison-modal').style.display = 'flex';
+                document.body.style.overflow = 'hidden';
             };
         }
 
@@ -2352,22 +2365,23 @@ document.addEventListener('DOMContentLoaded', () => {
         toggle.onchange = updateAndSave;
     });
 
-    const analyzeTicker = async (queryParam, forceRefresh = false) => {
+    const analyzeTicker = async (queryParam, forceRefresh = false, silent = false) => {
         if (_simulating) {
             alert("Cannot search a new ticker while simulating. Resetting to real price first.");
             resetSimulation();
         }
         
-        // v40: Instant UI feedback - Switch to loading state IMMEDIATELY
-        autocompleteList.style.display = 'none';
-        watchlistView.style.display = 'none';
-        dashboard.style.display = 'none';
-        loadingState.style.display = 'flex';
-        
-        // v59: Update button text to show progress
+        // v40: Instant UI feedback
+        if (!silent) {
+            autocompleteList.style.display = 'none';
+            watchlistView.style.display = 'none';
+            dashboard.style.display = 'none';
+            loadingState.style.display = 'flex';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
         if (searchBtn) {
             searchBtn.disabled = true;
-            searchBtn.textContent = 'Analyzing...';
+            searchBtn.textContent = silent ? 'Updating...' : 'Analyzing...';
         }
         
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -2446,6 +2460,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (searchBtn) {
                 searchBtn.disabled = false;
                 searchBtn.textContent = 'Analyze';
+            }
+            if (!silent) {
+                loadingState.style.display = 'none';
+                dashboard.style.display = 'block';
             }
         }
     };
@@ -3510,6 +3528,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (relVar) relVar.value = 'peers';
             const relWeight = document.getElementById('rel-weight-mode-card');
             if (relWeight) relWeight.value = 'default';
+            // Force a re-fetch and re-calculation from the backend for fresh multiples silently
+            analyzeTicker(currentTicker, true, true);
         } else if (method === 'peter_lynch') {
             const lMult = document.getElementById('lynch-multiple-source');
             if (lMult) lMult.value = 'pe20';
@@ -3531,7 +3551,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!button) return;
             const method = button.getAttribute('data-method');
             if (confirm(`Reset ${method.toUpperCase()} to defaults?`)) {
-                resetMethodDefaults(method);
+                if (method === 'peers') {
+                    if (globalData.company_profile && globalData.company_profile.original_competitor_metrics) {
+                        globalData.company_profile.competitor_metrics = JSON.parse(JSON.stringify(globalData.company_profile.original_competitor_metrics));
+                        localStorage.removeItem('customPeers_' + globalData.ticker);
+                        displayData(globalData);
+                    }
+                } else {
+                    resetMethodDefaults(method);
+                }
             }
         });
     });
