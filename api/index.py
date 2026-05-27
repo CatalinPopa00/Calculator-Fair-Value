@@ -641,9 +641,6 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         # Calculate Industry PEG from peers ONLY (v261: Remove target company to prevent circular bias)
         valid_pegs = []
         
-        data['forward_ev_sales'] = calculateForwardEvSales(data)
-        data['forward_ev_ebitda'] = calculateForwardEvEbitda(data)
-        
         if peers_data:
             for p in peers_data:
                 v = p.get('peg_ratio')
