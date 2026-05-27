@@ -170,8 +170,8 @@ body {
     }
 
     .search-container {
-        max-width: 500px;
-        flex: 1;
+        width: 450px;
+        max-width: 100%;
         margin: 0 1rem;
     }
 
@@ -192,6 +192,7 @@ body {
     .logo {
         width: 100%;
         margin-bottom: 0.5rem;
+        justify-content: center;
     }
 
     .logo h1 {
