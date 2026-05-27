@@ -24,6 +24,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Global selected lynch method
     const lynchMethodSelect = document.getElementById('lynch-method-select');
 
+    let watchlist = JSON.parse(localStorage.getItem('fairValueWatchlist')) || [];
+
     // --- FIREBASE CLOUD SYNC ---
     let currentUser = null;
     let db = null;
@@ -48,6 +50,16 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(() => {
                 db = firebase.firestore();
                 
+                firebase.auth().getRedirectResult().catch(err => {
+                    const authError = document.getElementById('auth-error');
+                    const authModal = document.getElementById('auth-modal');
+                    if (authError && err.code !== 'auth/redirect-cancelled-by-user') {
+                        authError.textContent = err.message;
+                        authError.style.display = 'block';
+                        if (authModal) authModal.style.display = 'flex';
+                    }
+                });
+
                 firebase.auth().onAuthStateChanged((user) => {
                     currentUser = user;
                     if (loginBtn) {
@@ -250,14 +262,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         
-        // Catch redirect errors on page load
-        firebase.auth().getRedirectResult().catch(err => {
-            if (authError && err.code !== 'auth/redirect-cancelled-by-user') {
-                authError.textContent = err.message;
-                authError.style.display = 'block';
-                if (authModal) authModal.style.display = 'flex';
-            }
-        });
+        // Redirect errors handled during initialization
     }
 
     // Wrap setItem to auto-sync
@@ -873,8 +878,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Custom Weights Logic (v34: Now ticker-specific via overrides)
     let customWeights = { dcf: 25, peg: 25, relative: 25, lynch: 25 }; 
 
-    // Watchlist State 
-    let watchlist = JSON.parse(localStorage.getItem('fairValueWatchlist')) || [];
+    // Watchlist State (already initialized at the top of the file)
     
     // Non-destructive Watchlist Merge (v37: Fixed sync-back loop and added error protection)
     fetch('/api/watchlist?t=' + new Date().getTime(), { cache: 'no-store' })
