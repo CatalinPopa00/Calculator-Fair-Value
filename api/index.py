@@ -36,7 +36,7 @@ from models.scoring import calculate_scoring_reform, calculate_piotroski_score
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v307"
+CACHE_VERSION = "v308"
 def get_usd_fx_rate(currency: str) -> float:
     if not currency:
         return 1.0
@@ -456,10 +456,14 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 if rev and rev > 0 and g is not None:
                     fwd_rev = rev * (1 + g)
                     
-            if fwd_rev is None or fwd_rev <= 0:
-                return None
-            val = curr_ev / fwd_rev
-            return val if val > 0 else None
+            mcap = comp_data.get("market_cap") or 0
+            
+            if not fwd_rev or fwd_rev <= 0:
+                fwd_rev = comp_data.get("revenue") # Fallback to TTM
+                
+            if fwd_rev and fwd_rev > 0 and mcap > 0:
+                return mcap / fwd_rev
+            return None
 
         def calculateForwardEvEbitda(comp_data):
             mcap = comp_data.get("market_cap") or 0
