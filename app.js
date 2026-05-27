@@ -1212,7 +1212,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         pfcf_ratio: pfcf,
                         fcf: mainFcf,
                         margin: peerProf.operating_margin,
-                        operating_margin: peerProf.operating_margin
+                        operating_margin: peerProf.operating_margin,
+                        forward_pe: peerProf.fwd_pe,
+                        forward_ev_sales: peerProf.forward_ev_sales,
+                        forward_ev_ebitda: peerProf.forward_ev_ebitda
                     };
                     
                     if (!prof.competitor_metrics) prof.competitor_metrics = [];
