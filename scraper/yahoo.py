@@ -2934,7 +2934,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
                             "current_liabilities": get_val(bs, ['Total Current Liabilities', 'Current Liabilities'], col_curr),
                             "long_term_debt": get_val(bs, ['Long Term Debt', 'Total Long Term Debt'], col_curr),
                             "cfo": get_val(cashflow, ['Operating Cash Flow', 'Total Cash From Operating Activities'], col_curr),
-                            "net_income_cont": get_val(financials, ['Net Income From Continuing Ops', 'Net Income', 'Net Income Common Stockholders'], col_curr)
+                            "net_income_cont": get_val(financials, ['Net Income From Continuing Ops', 'Net Income', 'Net Income Common Stockholders'], col_curr),
+                            "net_income": info.get('netIncomeToCommon') or get_val(financials, ['Net Income', 'Net Income Common Stockholders'], col_curr)
                         },
                         "prev": {
                             "net_receivables": get_val(bs, ['Net Receivables', 'Accounts Receivable'], col_prev),
@@ -2991,6 +2992,9 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
             "next_3y_rev_est": next_3y_rev_est,
             "ebitda": info.get('ebitda') or (float(financials.loc[find_idx(financials, 'EBITDA')].iloc[0]) if financials is not None and find_idx(financials, 'EBITDA') else None),
             "forward_ebitda": info.get('forwardEbitda'),
+            "net_income": info.get('netIncomeToCommon') or (float(financials.loc[find_idx(financials, 'Net Income')].iloc[0]) if financials is not None and find_idx(financials, 'Net Income') else None),
+            "ev_to_ebitda": info.get('enterpriseToEbitda'),
+            "enterprise_value": info.get('enterpriseValue'),
             "operating_margin": info.get('operatingMargins') or ebit_margin,
             "ebit_margin": ebit_margin,
             "net_margin": net_margin_calc or info.get('profitMargins'),
@@ -3207,7 +3211,7 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=5, inc
                         c_inf, ts = _peer_info_cache[t]
                         if now - ts < 86400: return c_inf
                     
-                    kv_key = f"peer_v12_{t}" 
+                    kv_key = f"peer_v13_{t}" 
                     kv_data = kv_get(kv_key)
                     if kv_data and isinstance(kv_data, dict):
                         _peer_info_cache[t] = (kv_data, now)
@@ -3373,6 +3377,7 @@ def get_lightweight_company_data(ticker_symbol: str):
                 "peg_ratio": info.get('trailingPegRatio') or info.get('pegRatio'),
                 "eps": info.get('trailingEps'),
                 "market_cap": info.get('marketCap'),
+                "net_income": info.get('netIncomeToCommon'),
                 "ps_ratio": info.get('priceToSalesTrailing12Months') or info.get('priceToSales'),
             }
             # v292: ADR Logic - Yahoo's info tags (price, eps, target) are ALREADY in the price currency (USD for ADRs).
@@ -3767,6 +3772,7 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             "eps_estimates":  unified_eps,
             "rev_estimates":  unified_rev,
             "forward_revenue": fy1_rev,
+            "forward_eps": fy1_eps if fy1_eps else (info.get('forwardEps') if info else None),
             "eps_growth": normalize_growth(eps_forward_growth),
             "fwd_pe": (current_price / fy1_eps) if (current_price and fy1_eps and fy1_eps > 0) else None, # v260
             "eps_trend": eps_trend

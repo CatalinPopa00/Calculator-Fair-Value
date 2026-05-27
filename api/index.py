@@ -36,7 +36,7 @@ from models.scoring import calculate_scoring_reform, calculate_piotroski_score
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v308"
+CACHE_VERSION = "v309"
 def get_usd_fx_rate(currency: str) -> float:
     if not currency:
         return 1.0
@@ -442,55 +442,91 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 print(f"DEBUG: Parallel peer fetch failed for {ticker_upper}: {e}")
                 peers_data = []
                 
-        # Strict Forward Proxy Functions
-        def calculateForwardEvSales(comp_data):
+        # Strict Forward Proxy Functions (v308: Robust multi-fallback)
+        def calculateForwardPS(comp_data):
+            """Forward Price-to-Sales: mcap / forward_revenue"""
             mcap = comp_data.get("market_cap") or 0
-            debt = comp_data.get("total_debt") or 0
-            cash = comp_data.get("total_cash") or 0
-            curr_ev = mcap + debt - cash
+            if mcap <= 0:
+                shares = comp_data.get("shares_outstanding") or 0
+                price = comp_data.get("price") or comp_data.get("current_price") or 0
+                if shares > 0 and price > 0:
+                    mcap = shares * price
+
             fwd_rev = comp_data.get("forward_revenue")
-            
-            if fwd_rev is None or fwd_rev <= 0:
+            if not fwd_rev or fwd_rev <= 0:
                 rev = comp_data.get("revenue")
                 g = comp_data.get("revenue_growth")
                 if rev and rev > 0 and g is not None:
                     fwd_rev = rev * (1 + g)
-                    
-            mcap = comp_data.get("market_cap") or 0
-            
             if not fwd_rev or fwd_rev <= 0:
-                fwd_rev = comp_data.get("revenue") # Fallback to TTM
-                
+                fwd_rev = comp_data.get("revenue")
+
             if fwd_rev and fwd_rev > 0 and mcap > 0:
                 return mcap / fwd_rev
             return None
 
         def calculateForwardEvEbitda(comp_data):
+            """Forward EV/EBITDA with 3-level fallback:
+               1) Use forward_ebitda if available
+               2) Estimate fwd EBITDA from forward_eps * shares + (EBITDA - NI) spread
+               3) Use Yahoo TTM ev_to_ebitda and adjust for earnings growth
+            """
             mcap = comp_data.get("market_cap") or 0
+            if mcap <= 0:
+                shares = comp_data.get("shares_outstanding") or 0
+                price = comp_data.get("price") or comp_data.get("current_price") or 0
+                if shares > 0 and price > 0:
+                    mcap = shares * price
+            
             debt = comp_data.get("total_debt") or 0
             cash = comp_data.get("total_cash") or 0
-            curr_ev = mcap + debt - cash
+            curr_ev = mcap + debt - cash if mcap > 0 else 0
+
+            # Use enterprise_value from Yahoo if available (more accurate)
+            yahoo_ev = comp_data.get("enterprise_value")
+            if yahoo_ev and yahoo_ev > 0:
+                curr_ev = yahoo_ev
             
+            if curr_ev <= 0:
+                curr_ev = mcap  # Last resort: use mcap as EV proxy
+
+            # --- Attempt 1: Direct forward_ebitda ---
             fwd_ebitda = comp_data.get("forward_ebitda") or comp_data.get("forwardEbitda")
-            
-            if not fwd_ebitda or fwd_ebitda <= 0:
-                fwd_eps = comp_data.get("forward_eps") or comp_data.get("fwd_eps")
-                shares = comp_data.get("shares_outstanding")
-                if not shares or shares <= 0:
-                    price = comp_data.get("price") or comp_data.get("current_price")
-                    if mcap and price and price > 0:
-                        shares = mcap / price
-                        
-                if fwd_eps and shares and shares > 0:
-                    fwd_ni = fwd_eps * shares
-                    ebitda = comp_data.get("ebitda") or 0
-                    ni = comp_data.get("net_income") or 0
-                    tax_int_da = ebitda - ni
-                    fwd_ebitda = fwd_ni + tax_int_da
-                    
-            if fwd_ebitda and fwd_ebitda > 0:
+            if fwd_ebitda and fwd_ebitda > 0 and curr_ev > 0:
                 val = curr_ev / fwd_ebitda
-                return val if val > 0 else None
+                return round(val, 4) if val > 0 else None
+
+            # --- Attempt 2: Estimate from forward EPS ---
+            fwd_eps = comp_data.get("forward_eps") or comp_data.get("fwd_eps")
+            shares = comp_data.get("shares_outstanding")
+            if not shares or shares <= 0:
+                price = comp_data.get("price") or comp_data.get("current_price")
+                if mcap > 0 and price and price > 0:
+                    shares = mcap / price
+
+            if fwd_eps and shares and shares > 0:
+                ebitda_ttm = comp_data.get("ebitda") or 0
+                ni_ttm = comp_data.get("net_income") or 0
+                if ebitda_ttm > 0 and ni_ttm != 0:
+                    # EBITDA-to-NI spread (taxes + interest + D&A)
+                    spread = ebitda_ttm - ni_ttm
+                    fwd_ni = fwd_eps * shares
+                    fwd_ebitda = fwd_ni + spread
+                    if fwd_ebitda > 0 and curr_ev > 0:
+                        val = curr_ev / fwd_ebitda
+                        return round(val, 4) if val > 0 else None
+
+            # --- Attempt 3: TTM EV/EBITDA adjusted for earnings growth ---
+            ttm_ev_ebitda = comp_data.get("ev_to_ebitda")
+            if ttm_ev_ebitda and ttm_ev_ebitda > 0:
+                earn_g = comp_data.get("earnings_growth") or 0
+                if earn_g > 0:
+                    # Forward = TTM / (1 + growth) since higher earnings → lower multiple
+                    val = ttm_ev_ebitda / (1 + earn_g)
+                    return round(val, 4) if val > 0 else None
+                else:
+                    return round(ttm_ev_ebitda, 4)
+
             return None
 
         def calculateForwardPE(comp_data):
@@ -498,11 +534,11 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             price = comp_data.get("price") or comp_data.get("current_price")
             if fwd_eps and price and fwd_eps > 0:
                 val = price / fwd_eps
-                return val if val > 0 else None
+                return round(val, 4) if val > 0 else None
             return None
 
         # Dynamic peer P/E, PEG, and Forward calculations
-        data['forward_ev_sales'] = calculateForwardEvSales(data)
+        data['forward_ev_sales'] = calculateForwardPS(data)
         data['forward_ev_ebitda'] = calculateForwardEvEbitda(data)
         
         if peers_data:
@@ -517,7 +553,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                     p["peg_ratio"] = p_pe / (p_growth * 100.0)
                 
                 # Apply proxies for peers
-                p['forward_ev_sales'] = calculateForwardEvSales(p)
+                p['forward_ev_sales'] = calculateForwardPS(p)
                 p['forward_ev_ebitda'] = calculateForwardEvEbitda(p)
                 p['forward_pe'] = calculateForwardPE(p)
 
