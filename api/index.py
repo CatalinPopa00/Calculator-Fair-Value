@@ -541,6 +541,10 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         data['forward_ev_sales'] = calculateForwardPS(data)
         data['forward_ev_ebitda'] = calculateForwardEvEbitda(data)
         
+        # v309: Unify fwd_ps with forward_ev_sales so Profile & Relative Valuation match
+        if data.get('forward_ev_sales'):
+            data['fwd_ps'] = data['forward_ev_sales']
+        
         if peers_data:
             for p in peers_data:
                 p_price = p.get("price")
