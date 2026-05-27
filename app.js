@@ -1163,7 +1163,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (resetBtn) {
             resetBtn.onclick = () => {
                 localStorage.removeItem('customPeers_' + (prof.ticker || currentTicker));
-                document.getElementById('comparison-modal').classList.remove('active'); // Close modal
+                document.getElementById('comparison-modal').style.display = 'none';
+                document.body.style.overflow = '';
                 analyzeTicker(prof.ticker || currentTicker, true);
             };
         }
@@ -3101,7 +3102,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     <span style="color: rgba(255,255,255,0.5); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Competitors</span>
                                     <div style="display: flex; align-items: center; gap: 8px; text-align: right; max-width: 65%;">
                                         <span style="font-weight: 600; font-size: 0.95rem; color: white; word-wrap: break-word;">${prof.competitors && prof.competitors.length ? prof.competitors.join(', ') : 'None'}</span>
-                                        ${prof.competitor_metrics && prof.competitor_metrics.length > 0 ? `<button id="compare-peers-btn" class="peer-btn" style="margin:0;">📊 PEERS</button>` : ''}
+                                        <button id="compare-peers-btn" class="peer-btn" style="margin:0;">📊 PEERS</button>
                                     </div>
                                 </div>
                             </div>
