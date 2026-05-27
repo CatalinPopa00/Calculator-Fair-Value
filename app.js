@@ -4680,7 +4680,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                         val = globalData.company_profile && globalData.company_profile.fwd_pe;
                                     }
                                     else if (k === 'PS') {
-                                        val = globalData.company_profile && globalData.company_profile.fwd_ps;
+                                        val = globalData.company_profile && globalData.company_profile.forward_ev_sales;
                                     }
                                     else if (k === 'PB') {
                                         val = (globalData.company_profile && globalData.company_profile.price_to_book);
