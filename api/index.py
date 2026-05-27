@@ -297,9 +297,12 @@ def deep_clean_data(val):
     return str(val)
 
 @app.get("/api/valuation/{ticker}")
-def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode: bool = False, skip_peers: bool = False):
+def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode: bool = False, skip_peers: bool = False, force_refresh: bool = False):
     # Set Vercel Edge Cache headers for pseudo-ISR (Cache 1hr, stale up to 24hr)
-    response.headers["Cache-Control"] = "public, s-maxage=3600, stale-while-revalidate=86400"
+    if force_refresh:
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    else:
+        response.headers["Cache-Control"] = "public, s-maxage=3600, stale-while-revalidate=86400"
     
     # GOD MODE: Pre-initialize all possible response keys to Safe Defaults (v55)
     ticker_upper = ticker.upper()
@@ -340,25 +343,25 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         
         # 0. Cache Elevation: If we are in any limited mode (Watchlist/SkipPeers), 
         # Always check if we have a full_mode cache (Complete Data) in memory first.
-        if fast_mode or skip_peers:
+        if (fast_mode or skip_peers) and not force_refresh:
             full_mode_key = f"valuation_{ticker.upper()}_False_False_{CACHE_VERSION}_{norm_wacc}"
             if full_mode_key in valuation_cache:
                 return valuation_cache[full_mode_key]
 
         # 2. Local Memory Cache check for the specific requested mode
-        if cache_key in valuation_cache:
+        if not force_refresh and cache_key in valuation_cache:
             return valuation_cache[cache_key]
 
         # v41: THE PARALLEL BLITZ
         # Run main scraping and peer fetching simultaneously to cut wait time in half.
         executor = concurrent.futures.ThreadPoolExecutor(max_workers=2)
         # 1. Start main scraper
-        main_task = executor.submit(get_company_data, ticker, fast_mode=fast_mode)
+        main_task = executor.submit(get_company_data, ticker_upper, fast_mode, force_refresh)
         
-        # 2. Start peer scraper (pass None for strings, yahoo.py handles ticker-based resolution)
-        peer_task = None
+        # Dynamic Peers Launch (Skip if skip_peers is True)
+        future_peers = None
         if not skip_peers:
-            peer_task = executor.submit(get_competitors_data, ticker, None, None, limit=3)
+            future_peers = executor.submit(get_competitors_data, ticker_upper, 4, None, force_refresh)
         
         # Wait for main data with robust error handling
         try:
@@ -435,9 +438,9 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
 
         # Get peer data with timeout protection
         peers_data = []
-        if peer_task:
+        if future_peers:
             try:
-                peers_data = peer_task.result(timeout=12) or []
+                peers_data = future_peers.result(timeout=12) or []
             except Exception as e:
                 print(f"DEBUG: Parallel peer fetch failed for {ticker_upper}: {e}")
                 peers_data = []

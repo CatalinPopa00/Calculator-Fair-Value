@@ -1163,13 +1163,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (resetBtn) {
             resetBtn.onclick = () => {
                 localStorage.removeItem('customPeers_' + (prof.ticker || currentTicker));
-                if (prof.original_competitor_metrics) {
-                    prof.competitor_metrics = JSON.parse(JSON.stringify(prof.original_competitor_metrics));
-                    prof.competitors = prof.competitor_metrics.map(p => p.ticker);
-                    recalcIndustryPeg(prof);
-                }
-                renderComparisonModal(prof);
-                if (typeof updateFairValue === 'function') updateFairValue();
+                document.getElementById('comparison-modal').classList.remove('active'); // Close modal
+                searchTicker(prof.ticker || currentTicker, true);
             };
         }
 
@@ -2356,7 +2351,12 @@ document.addEventListener('DOMContentLoaded', () => {
         toggle.onchange = updateAndSave;
     });
 
-    const analyzeTicker = async (queryParam) => {
+    const searchTicker = async (queryParam, forceRefresh = false) => {
+        if (_simulating) {
+            alert("Cannot search a new ticker while simulating. Resetting to real price first.");
+            resetSimulation();
+        }
+        
         // v40: Instant UI feedback - Switch to loading state IMMEDIATELY
         autocompleteList.style.display = 'none';
         watchlistView.style.display = 'none';
@@ -2417,8 +2417,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             // v305: Parallel fetch for valuation AND fresh overrides to prevent cross-device drift
+            let valUrl = `/api/valuation/${encodeURIComponent(query)}?t=${Date.now()}`;
+            if (forceRefresh) {
+                valUrl += `&force_refresh=true`;
+            }
+            
             const [valRes, ovRes] = await Promise.all([
-                fetch(`/api/valuation/${encodeURIComponent(query)}?t=${Date.now()}`),
+                fetch(valUrl),
                 fetch(`/api/overrides?t=${Date.now()}`, { cache: 'no-store' })
             ]);
 

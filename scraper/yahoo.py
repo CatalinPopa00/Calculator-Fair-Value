@@ -1036,7 +1036,7 @@ Strictly adhere to these precise markdown headers (written exactly like this, in
 
 
 
-def get_company_data(ticker_symbol: str, fast_mode: bool = False):
+def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh: bool = False):
     """
     Fetches comprehensive data from Yahoo Finance + Finnhub fallbacks for resilience.
     """
@@ -2423,7 +2423,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False):
         except Exception as e_bridge:
             log(f"DEBUG: Anchor Bridge failed: {e_bridge}")
 
-        # v246: THE ULTIMATE TRUTH (NON-DESTRUCTIVE SURGERY) removed in v277.
+        # v241: THE ULTIMATE TRUTH (NON-DESTRUCTIVE SURGERY) removed in v277.
         # Dynamic quarterly healing now handles all tickers without hard-coding.
 
         # 2. Add Projections (Next 2 FYs)
@@ -3109,29 +3109,29 @@ def ticker_search(q: str):
             
     return hits[:8]
 
-def get_competitors_data(target_ticker, sector=None, industry=None, limit=5, include_growth=True) -> list:
+def get_competitors_data(target_ticker: str, limit: int = 4, custom_peers: list = None, force_refresh: bool = False) -> list:
     """ 
     Fetches metrics for peer companies using Hybrid Scored Discovery (v305). 
     Combines Screener (Industry Match) + Analyst Recommendations (Yahoo/Finnhub).
     """
     try:
         target_ticker = target_ticker.upper()
-        target_industry = industry or ""
+        target_industry = ""
+        sector = None
         
         # 1. Resolve Sector/Industry if missing
-        if not sector:
-            kv_sec_key = f"sec_v1_{target_ticker}"
-            cached_meta = kv_get(kv_sec_key)
-            if cached_meta:
-                sector = cached_meta.get("sector")
-                target_industry = cached_meta.get("industry")
-            else:
-                main_yf = yf.Ticker(target_ticker)
-                inf = main_yf.info
-                sector = inf.get("sector")
-                target_industry = inf.get("industry")
-                if sector:
-                    kv_set(kv_sec_key, {"sector": sector, "industry": target_industry}, ex=604800)
+        kv_sec_key = f"sec_v1_{target_ticker}"
+        cached_meta = kv_get(kv_sec_key)
+        if cached_meta and not force_refresh:
+            sector = cached_meta.get("sector")
+            target_industry = cached_meta.get("industry")
+        else:
+            main_yf = yf.Ticker(target_ticker)
+            inf = main_yf.info
+            sector = inf.get("sector")
+            target_industry = inf.get("industry")
+            if sector:
+                kv_set(kv_sec_key, {"sector": sector, "industry": target_industry}, ex=604800)
 
         # 2. Helper: Base Ticker for deduplication (GOOG/GOOGL, etc.)
         def get_base_ticker(t):
@@ -3207,15 +3207,16 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=5, inc
             def fetch_peer_info(t):
                 try:
                     now = time.time()
-                    if t in _peer_info_cache:
+                    if not force_refresh and t in _peer_info_cache:
                         c_inf, ts = _peer_info_cache[t]
                         if now - ts < 86400: return c_inf
                     
                     kv_key = f"peer_v13_{t}" 
-                    kv_data = kv_get(kv_key)
-                    if kv_data and isinstance(kv_data, dict):
-                        _peer_info_cache[t] = (kv_data, now)
-                        return kv_data
+                    if not force_refresh:
+                        kv_data = kv_get(kv_key)
+                        if kv_data and isinstance(kv_data, dict):
+                            _peer_info_cache[t] = (kv_data, now)
+                            return kv_data
 
                     inf = batch.tickers[t].info
                     if not inf or not (inf.get('regularMarketPrice') or inf.get('currentPrice')):
@@ -3352,15 +3353,16 @@ def get_competitors_data(target_ticker, sector=None, industry=None, limit=5, inc
         print(f"Global competitors failure for {target_ticker}: {e}")
         return []
 
-def get_lightweight_company_data(ticker_symbol: str):
+def get_lightweight_company_data(ticker_symbol: str, force_refresh: bool = False):
     """Fetches a minimal set of data for competitor comparison using yfinance and Finnhub fallbacks."""
     ticker_symbol = ticker_symbol.upper()
     
     # Check KV Cache (Forced Bust v13 for Growth)
     cache_key = f"peer_v295_{ticker_symbol}"
-    cached = kv_get(cache_key)
-    if cached:
-        return cached
+    if not force_refresh:
+        cached = kv_get(cache_key)
+        if cached:
+            return cached
 
     data = None
     try:
