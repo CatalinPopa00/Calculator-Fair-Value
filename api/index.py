@@ -587,7 +587,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                     p["pe_ratio"] = p_price / p_eps
                 p_pe = p.get("pe_ratio")
                 p_growth = p.get("earnings_growth") or p.get("revenue_growth")
-                if p_pe and p_growth and p_growth > 0:
+                if not p.get("peg_ratio") and p_pe and p_growth and p_growth > 0:
                     p["peg_ratio"] = p_pe / (p_growth * 100.0)
                 
                 # Apply proxies for peers
@@ -1305,7 +1305,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 "market_cap": sanitize(data.get("shares_outstanding", 0) * current_price if data.get("shares_outstanding") and current_price else 0.0),
                 "adjusted_eps": sanitize(data.get("adjusted_eps")),
                 "fwd_eps": sanitize(next((e.get("avg") for e in data.get("eps_estimates", []) if e.get("status") == "estimate"), None)),
-                "peg_ratio": sanitize(company_peg if company_peg > 0 else None),
+                "peg_ratio": sanitize(data.get("peg_ratio") if data.get("peg_ratio") is not None else (company_peg if company_peg > 0 else None)),
                 "ps_ratio": sanitize(data.get("ps_ratio")),
                 "price_to_book": sanitize(data.get("price_to_book")),
                 "fwd_ps": sanitize(data.get("fwd_ps")),
