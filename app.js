@@ -1099,8 +1099,8 @@ document.addEventListener('DOMContentLoaded', () => {
         let html = `
         <div class="comparison-actions" style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center; justify-content: space-between; flex-wrap: wrap; background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
             <div style="display: flex; gap: 8px; align-items: center; flex-grow: 1; max-width: 450px;">
-                <input id="add-peer-input" type="text" placeholder="Add Competitor (e.g. MSFT)" style="flex: 1 1 150px; padding: 8px 12px; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: white; text-transform: uppercase; font-size: 0.9rem;">
-                <button id="add-peer-btn" class="peer-btn" style="margin: 0; padding: 8px 16px; flex-shrink: 0;">Add</button>
+                <input id="add-peer-input" type="text" placeholder="Add Competitor (e.g. MSFT)" value="${window.fetchingPeerTicker || ''}" style="flex: 1 1 150px; padding: 8px 12px; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: white; text-transform: uppercase; font-size: 0.9rem;">
+                <button id="add-peer-btn" class="peer-btn" style="margin: 0; padding: 8px 16px; flex-shrink: 0;" ${window.isFetchingPeer ? 'disabled' : ''}>${window.isFetchingPeer ? 'Fetching...' : 'Add'}</button>
                 <button id="reset-peers-btn" class="peer-btn" style="margin: 0; padding: 8px 16px; background: rgba(239, 68, 68, 0.1); color: var(--danger); border-color: rgba(239, 68, 68, 0.3); flex-shrink: 0;">Reset</button>
             </div>
             <span id="add-peer-error" style="color: var(--danger); font-size: 0.85rem; font-weight: 500; display: none;"></span>
@@ -1211,6 +1211,10 @@ document.addEventListener('DOMContentLoaded', () => {
             addBtn.onclick = async () => {
                 const rawVal = addInput.value.trim().toUpperCase();
                 if (!rawVal) return;
+                if (window.isFetchingPeer) return;
+                
+                window.isFetchingPeer = true;
+                window.fetchingPeerTicker = rawVal;
                 
                 errSpan.style.display = 'none';
                 addBtn.disabled = true;
@@ -1270,6 +1274,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     // Update calculations and UI
                     updateFairValue();
+                    
+                    window.isFetchingPeer = false;
+                    window.fetchingPeerTicker = '';
+                    
                     renderComparisonModal(prof);
                     
                     if (typeof window._renderProfile === 'function') {
@@ -1279,8 +1287,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     errSpan.textContent = e.message;
                     errSpan.style.display = 'inline';
                 } finally {
-                    addBtn.disabled = false;
-                    addBtn.textContent = '➕ Add Peer';
+                    window.isFetchingPeer = false;
+                    window.fetchingPeerTicker = '';
+                    const currentAddBtn = document.getElementById('add-peer-btn');
+                    if (currentAddBtn) {
+                        currentAddBtn.disabled = false;
+                        currentAddBtn.textContent = 'Add';
+                    }
+                    const currentAddInput = document.getElementById('add-peer-input');
+                    if (currentAddInput) {
+                        currentAddInput.value = '';
+                    }
                 }
             };
             
