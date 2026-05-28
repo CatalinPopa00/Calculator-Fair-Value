@@ -3267,12 +3267,15 @@ def get_competitors_data(target_ticker: str, limit: int = 4, custom_peers: list 
                     mcap = inf.get('marketCap')
                     ttm_pfcf = (mcap / fcf_val) if fcf_val and mcap else None
                     
+                    # FX Rate for Peer (convert from financialCurrency to price currency)
+                    peer_fx = get_fx_rate(inf)
+                    
                     fwd_pe_explicit = None
                     fwd_eps_explicit = None
                     try:
                         e1 = analysis['eps'].get('0y', {})
                         if e1.get('avg'): 
-                            fwd_eps_explicit = e1['avg']
+                            fwd_eps_explicit = e1['avg'] * peer_fx
                             fwd_pe_explicit = p_price / fwd_eps_explicit
                     except: pass
                     fwd_pe = fwd_pe_explicit or inf.get('forwardPE') or ttm_pe
@@ -3283,7 +3286,7 @@ def get_competitors_data(target_ticker: str, limit: int = 4, custom_peers: list 
                     try:
                         r1 = analysis['rev'].get('0y', {})
                         if r1.get('avg'):
-                            fwd_rev_explicit = r1['avg']
+                            fwd_rev_explicit = r1['avg'] * peer_fx
                             if p_shares and p_shares > 0:
                                 fwd_ps_explicit = p_price / (fwd_rev_explicit / p_shares)
                     except: pass
@@ -3297,25 +3300,25 @@ def get_competitors_data(target_ticker: str, limit: int = 4, custom_peers: list 
                         "peg_ratio": inf.get('trailingPegRatio') or inf.get('pegRatio'),
                         "market_cap": mcap,
                         "ps_ratio": fwd_ps,
-                        "revenue": inf.get('totalRevenue') or inf.get('revenue'),
+                        "revenue": (inf.get('totalRevenue') or inf.get('revenue') or 0) * peer_fx,
                         "forward_revenue": fwd_rev_explicit,
-                        "fcf": fcf_val,
+                        "fcf": (fcf_val or 0) * peer_fx if fcf_val else None,
                         "pfcf_ratio": ttm_pfcf,
                         "price_to_book": inf.get('priceToBook') or (p_price / inf.get('bookValue') if inf.get('bookValue') and inf.get('bookValue') > 0 else None),
                         "ev_to_ebitda": ttm_ev,
-                        "eps": fwd_eps_explicit or inf.get('forwardEps') or inf.get('trailingEps'),
-                        "forward_eps": fwd_eps_explicit or inf.get('forwardEps'),
+                        "eps": fwd_eps_explicit or (inf.get('forwardEps') or inf.get('trailingEps') or 0) * peer_fx,
+                        "forward_eps": fwd_eps_explicit or ((inf.get('forwardEps') or 0) * peer_fx if inf.get('forwardEps') else None),
                         "operating_margin": inf.get('operatingMargins') or inf.get('ebitdaMargins'),
                         "industry": inf.get('industry') or target_industry,
                         "sector": p_sector or sector,
-                        "total_cash": inf.get('totalCash'),
-                        "total_debt": inf.get('totalDebt'),
-                        "ebitda": inf.get('ebitda'),
-                        "forward_ebitda": inf.get('forwardEbitda') if 'forwardEbitda' in inf else None,
-                        "net_income": inf.get('netIncomeToCommon'),
+                        "total_cash": (inf.get('totalCash') or 0) * peer_fx,
+                        "total_debt": (inf.get('totalDebt') or 0) * peer_fx,
+                        "ebitda": (inf.get('ebitda') or 0) * peer_fx if inf.get('ebitda') else None,
+                        "forward_ebitda": (inf.get('forwardEbitda') or 0) * peer_fx if inf.get('forwardEbitda') else None,
+                        "net_income": (inf.get('netIncomeToCommon') or 0) * peer_fx if inf.get('netIncomeToCommon') else None,
                         "shares_outstanding": p_shares,
                         "forward_revenue": fwd_rev_explicit,
-                        "forward_eps": fwd_eps_explicit or inf.get('forwardEps')
+                        "forward_eps": fwd_eps_explicit or ((inf.get('forwardEps') or 0) * peer_fx if inf.get('forwardEps') else None)
                     }
                     p_data["revenue_growth"] = rev_growth
                     p_data["earnings_growth"] = earn_growth
@@ -3655,23 +3658,33 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         fy2_yr = fy1_yr + 1
         
         # FY 0 Data (Last Reported - Non-GAAP Anchor)
-        fy0_eps = analysis_data.get('eps', {}).get('0y', {}).get('yearAgo')
-        if not fy0_eps: 
-            # Fallback to historical Non-GAAP history if scraper failed
+        # CRITICAL: analysis_data values are in financialCurrency (e.g. DKK for NVO).
+        # We must apply fx_rate to convert to price currency (USD for US-listed ADRs).
+        # Fallback values from history_eps/base_eps are already FX-converted.
+        fy0_eps_raw = analysis_data.get('eps', {}).get('0y', {}).get('yearAgo')
+        if fy0_eps_raw:
+            fy0_eps = fy0_eps_raw * fx_rate
+        else:
+            # Fallback to historical Non-GAAP history if scraper failed (already in USD)
             fy0_eps = history_eps.get(f"FY {fy0_yr}") or base_eps
         
-        fy0_rev = analysis_data.get('rev', {}).get('0y', {}).get('yearAgo')
-        if not fy0_rev: 
+        fy0_rev_raw = analysis_data.get('rev', {}).get('0y', {}).get('yearAgo')
+        if fy0_rev_raw:
+            fy0_rev = fy0_rev_raw * fx_rate
+        else:
             fy0_rev = history_rev.get(f"FY {fy0_yr}") or base_rev
         
         # FY 1 Data (Current Year Avg Estimate)
-        # FY 1 Data (Current Year Avg Estimate)
-        fy1_eps = analysis_data.get('eps', {}).get('0y', {}).get('avg')
-        fy1_rev = analysis_data.get('rev', {}).get('0y', {}).get('avg')
+        fy1_eps_raw = analysis_data.get('eps', {}).get('0y', {}).get('avg')
+        fy1_eps = fy1_eps_raw * fx_rate if fy1_eps_raw else None
+        fy1_rev_raw = analysis_data.get('rev', {}).get('0y', {}).get('avg')
+        fy1_rev = fy1_rev_raw * fx_rate if fy1_rev_raw else None
         
         # FY 2 Data (Next Year Avg Estimate)
-        fy2_eps = analysis_data.get('eps', {}).get('+1y', {}).get('avg')
-        fy2_rev = analysis_data.get('rev', {}).get('+1y', {}).get('avg')
+        fy2_eps_raw = analysis_data.get('eps', {}).get('+1y', {}).get('avg')
+        fy2_eps = fy2_eps_raw * fx_rate if fy2_eps_raw else None
+        fy2_rev_raw = analysis_data.get('rev', {}).get('+1y', {}).get('avg')
+        fy2_rev = fy2_rev_raw * fx_rate if fy2_rev_raw else None
         
         # Nasdaq Data Fetch & Map
         nasdaq_rows = get_nasdaq_earnings_forecast(ticker_symbol)
@@ -3773,7 +3786,7 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             "eps_estimates":  unified_eps,
             "rev_estimates":  unified_rev,
             "forward_revenue": fy1_rev,
-            "forward_eps": fy1_eps if fy1_eps else (info.get('forwardEps') if info else None),
+            "forward_eps": fy1_eps if fy1_eps else ((info.get('forwardEps') or 0) * fx_rate if info else None),
             "eps_growth": normalize_growth(eps_forward_growth),
             "fwd_pe": (current_price / fy1_eps) if (current_price and fy1_eps and fy1_eps > 0) else None, # v260
             "eps_trend": eps_trend
