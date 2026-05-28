@@ -2794,8 +2794,6 @@ document.addEventListener('DOMContentLoaded', () => {
             searchBtn.disabled = true;
             searchBtn.textContent = silent ? 'Updating...' : 'Analyzing...';
         }
-        
-        window.scrollTo({ top: 0, behavior: 'smooth' });
 
         // Force flush any pending saves before clearing the DOM
         if (overrideSaveTimer && pendingOverrideTicker) {
