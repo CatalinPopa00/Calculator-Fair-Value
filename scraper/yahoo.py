@@ -1510,7 +1510,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                 rev_idx = find_idx(financials, 'Total Revenue')
                 if rev_idx:
                     rev_obj = financials.loc[rev_idx]
-                    revenue = float(rev_obj.iloc[0]) if hasattr(rev_obj, 'iloc') else float(rev_obj)
+                    revenue = (float(rev_obj.iloc[0]) if hasattr(rev_obj, 'iloc') else float(rev_obj)) * fx_rate
         except: pass
         
         if revenue is None:
@@ -1996,10 +1996,10 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                             dt = _pd.to_datetime(idx).tz_localize(None)
                             
                             # v257: Forensic Neutralizer for Deep History (Crucial for UBER 2023-2024)
-                            final_eps = float(val)
+                            final_eps = float(val) * (fx_rate or 1.0)
                             try:
                                 if fc_val is not None and not _pd.isna(fc_val) and float(fc_val) != 0:
-                                    f_fc = float(fc_val)
+                                    f_fc = float(fc_val) * (fx_rate or 1.0)
                                     diff = abs(final_eps - f_fc)
                                     # Threshold 25% or $0.15 identifies GAAP outliers
                                     if (diff / abs(f_fc) > 0.25) or diff > 0.15:
@@ -2032,11 +2032,10 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                             # The index 'quarter' might be datetime or string
                             dt = _pd.to_datetime(idx).tz_localize(None)
                             
-                            # v256: Apply Forensic Neutralizer to yfinance history too (Crucial for UBER past years)
-                            final_eps = float(val)
+                            final_eps = float(val) * (fx_rate or 1.0)
                             try:
                                 if fc_val is not None and not _pd.isna(fc_val) and float(fc_val) != 0:
-                                    f_fc = float(fc_val)
+                                    f_fc = float(fc_val) * (fx_rate or 1.0)
                                     diff = abs(final_eps - f_fc)
                                     if (diff / abs(f_fc) > 0.25) or diff > 0.15:
                                         log(f"DEBUG: v256 Neutralizing GAAP surprise in yfinance history for {ticker_symbol} ({final_eps} -> {f_fc})")
@@ -2067,7 +2066,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                         sbc_val = _quick_m(cashflow, 'Stock Based Compensation', yr_col)
                         sh_val = _quick_m(financials, 'Diluted Average Shares', yr_col) or _quick_m(financials, 'Basic Average Shares', yr_col)
                         
-                        norm_eps = (ni_val + sbc_val) / sh_val if sh_val else 0
+                        norm_eps = ((ni_val + sbc_val) * (fx_rate or 1.0)) / sh_val if sh_val else 0
                         log(f"DEBUG: Standard SBC Reconstruction for {ticker_symbol} {y_str}: {norm_eps:.2f}")
                         if norm_eps > 0:
                             is_g = any(x in str(info.get('sector', '')).lower() for x in ['tech', 'soft', 'comm', 'health', 'consumer'])
@@ -2165,9 +2164,9 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                             if found_qs >= 1:
                                 # v206: Hard Disable for AAPL to prevent double-counting SBC on top of already-adjusted Yahoo actuals.
                                 if ticker_symbol.upper() == "AAPL":
-                                    pass 
+                                    pass
                                 else:
-                                    scaled_ttm = super_norm_ttm * (4.0 / found_qs)
+                                    scaled_ttm = super_norm_ttm * (fx_rate or 1.0) * (4.0 / found_qs)
                                     target_y = str(datetime.datetime.now().year - 1)
                                     # v219: Do NOT overwrite if the Nasdaq Neutralizer already produced a LOWER (cleaner) value
                                     existing_val = adjusted_history.get(target_y)
@@ -2195,7 +2194,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                 y_trend_data = get_yahoo_eps_trend(ticker_symbol)
                 y_adj_val_raw = y_trend_data.get('0y', {}).get('yearAgoEps')
                 if y_adj_val_raw is not None and financials is not None:
-                    y_adj_val = float(y_adj_val_raw)
+                    y_adj_val = float(y_adj_val_raw) * (fx_rate or 1.0)
                     is_cols = [c for c in financials.columns if str(c).upper() != "TTM"]
                     if is_cols:
                          # Forensic Mapping: Find the current estimate year anchor (0y)
@@ -2268,7 +2267,9 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
         y_analysis_truth = get_yahoo_analysis_normalized(ticker_symbol, info)
         y_anchor_2025 = None
         if y_analysis_truth and 'eps' in y_analysis_truth:
-             y_anchor_2025 = y_analysis_truth['eps'].get('0y', {}).get('yearAgo')
+             y_anchor_raw = y_analysis_truth['eps'].get('0y', {}).get('yearAgo')
+             if y_anchor_raw is not None:
+                 y_anchor_2025 = float(y_anchor_raw) * (fx_rate or 1.0)
         
         # 2. Inject this truth into the historical records specifically for the anchor year
         # Determine the target anchor year dynamically (Current Year - 1)

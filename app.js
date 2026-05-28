@@ -2513,7 +2513,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
             fvPE = company_eps * bPE;
             fvPFCF = company_fcf_share * bPFCF;
-            fvPS = company_sales_share * bPS;
+            let rev = (globalData.revenue || 0);
+            if (globalData.company_profile && globalData.company_profile.revenue_growth) {
+                rev = rev * (1 + globalData.company_profile.revenue_growth);
+            }
+            const ev_sales = rev * bPS;
+            fvPS = company_shares > 0 ? (ev_sales - company_debt + company_cash) / company_shares : 0;
             fvPB = company_book_share * bPB;
             
             const impliedEV = company_ebitda * bEVEBITDA;
@@ -2776,6 +2781,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     const analyzeTicker = async (queryParam, forceRefresh = false, silent = false) => {
+        const savedScrollY = window.scrollY;
         document.body.classList.add('has-searched');
         if (_simulating) {
             alert("Cannot search a new ticker while simulating. Resetting to real price first.");
@@ -2873,6 +2879,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!silent) {
                 loadingState.style.display = 'none';
                 dashboard.style.display = 'block';
+            } else {
+                requestAnimationFrame(() => {
+                    window.scrollTo(0, savedScrollY);
+                });
             }
         }
     };
@@ -5037,7 +5047,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             } else if (model === 'relative' && currentFormulaData.relative) {
                 const r = currentFormulaData.relative;
-                title.style.whiteSpace = 'nowrap';
+                title.style.whiteSpace = 'normal';
+                title.style.fontSize = 'clamp(1rem, 4.5vw, 1.25rem)';
+                title.style.lineHeight = '1.3';
                 title.textContent = '📊 Relative Valuation — Triangulation';
 
                 // --- Determine which metrics are active based on sector weights ---
@@ -5391,17 +5403,26 @@ document.addEventListener('DOMContentLoaded', () => {
             if (pct >= 0.99) { dotColor = 'var(--accent)'; ptsColor = 'var(--accent)'; }
             else if (pct >= 0.4) { dotColor = '#fbbf24'; ptsColor = '#fbbf24'; }
 
-            html += `
-                <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-top:1px solid rgba(255,255,255,0.04);">
-                    <div style="font-weight:600; font-size:0.88rem; color:white; flex:1; padding-right:10px; line-height:1.2;">${label}</div>
+                    let valStr = String(item.value || 'N/A');
+                    let suffix = '';
+                    if (valStr.endsWith('%')) { suffix = '%'; valStr = valStr.slice(0, -1); }
+                    else if (valStr.toLowerCase().endsWith('x')) { suffix = 'x'; valStr = valStr.slice(0, -1); }
                     
-                    <div style="display:flex; align-items:center; gap:12px; flex-shrink:0;">
-                        <div style="font-weight:700; font-size:0.9rem; color:rgba(255,255,255,0.85); font-family:monospace; text-align:right;">${item.value || 'N/A'}</div>
-                        <div style="display:flex; align-items:center; gap:6px; min-width:60px; justify-content:flex-end;">
-                            <span style="width:8px; height:8px; border-radius:50%; background:${dotColor}; display:inline-block; flex-shrink:0;"></span>
-                            <div style="font-weight:800; font-size:0.85rem; color:${ptsColor}; font-family: 'Outfit', sans-serif; text-align:right; min-width:35px;">${pts}/${maxPts}</div>
-                        </div>
+                    const valueHtml = suffix 
+                        ? `<div style="display:flex; justify-content:flex-end;"><span style="text-align:right;">${valStr}</span><span style="display:inline-block; width:14px; text-align:left;">${suffix}</span></div>`
+                        : `<div style="text-align:right; padding-right:14px;">${valStr}</div>`;
+
+                    html += `
+                <div style="display:grid; grid-template-columns: 1fr 65px 12px 40px; align-items:center; padding:12px 0; border-top:1px solid rgba(255,255,255,0.04); gap:8px;">
+                    <div style="font-weight:600; font-size:clamp(0.75rem, 3vw, 0.88rem); color:white; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${label}</div>
+                    
+                    <div style="font-weight:700; font-size:clamp(0.8rem, 3vw, 0.9rem); color:rgba(255,255,255,0.85); font-family:monospace;">${valueHtml}</div>
+                    
+                    <div style="display:flex; justify-content:center;">
+                        <span style="width:8px; height:8px; border-radius:50%; background:${dotColor}; display:inline-block;"></span>
                     </div>
+                    
+                    <div style="font-weight:800; font-size:clamp(0.8rem, 3vw, 0.85rem); color:${ptsColor}; font-family: 'Outfit', sans-serif; text-align:right;">${pts}/${maxPts}</div>
                 </div>
             `;
         });
