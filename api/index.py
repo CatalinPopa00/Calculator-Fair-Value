@@ -815,12 +815,16 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         peg_period_label = data.get("eps_growth_period") or "2Y EPS CAGR"
         company_peg = current_pe / (eps_growth_rate_peg * 100) if eps_growth_rate_peg > 0 else 0
         
-        # Calculate Industry PEG from peers ONLY (v261: Remove target company to prevent circular bias)
+        # Calculate Industry PEG from peers using Forward PEG (2Y avg EPS growth based)
+        # Falls back to Yahoo's trailing PEG if forward_peg is unavailable
         valid_pegs = []
         
         if peers_data:
             for p in peers_data:
-                v = p.get('peg_ratio')
+                # Prefer forward_peg (2Y avg growth), fallback to Yahoo's peg_ratio
+                v = p.get('forward_peg')
+                if v is None or not isinstance(v, (int, float)) or not math.isfinite(v) or v <= 0:
+                    v = p.get('peg_ratio')
                 if v is not None and isinstance(v, (int, float)) and math.isfinite(v) and v > 0:
                     valid_pegs.append(float(v))
         

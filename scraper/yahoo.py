@@ -3246,14 +3246,31 @@ def get_competitors_data(target_ticker: str, limit: int = 4, custom_peers: list 
                     try:
                         e0 = analysis['eps'].get('0y', {})
                         e1 = analysis['eps'].get('+1y', {})
-                        if e0.get('avg') and e0.get('yearAgo'):
-                            earn_growth = (e0['avg'] - e0['yearAgo']) / e0['yearAgo']
-                        elif e1.get('avg') and e0.get('avg'):
-                            earn_growth = (e1['avg'] - e0['avg']) / e0['avg']
+                        # FY1 growth: yearAgo → current year estimate
+                        g_fy1 = None
+                        if e0.get('avg') and e0.get('yearAgo') and e0['yearAgo'] != 0:
+                            g_fy1 = (e0['avg'] - e0['yearAgo']) / abs(e0['yearAgo'])
+                        # FY2 growth: current year estimate → next year estimate
+                        g_fy2 = None
+                        if e1.get('avg') and e0.get('avg') and e0['avg'] != 0:
+                            g_fy2 = (e1['avg'] - e0['avg']) / abs(e0['avg'])
+                        
+                        # 2-year average EPS growth
+                        if g_fy1 is not None and g_fy2 is not None:
+                            avg_2y_growth = (g_fy1 + g_fy2) / 2
+                            earn_growth = g_fy1  # Use FY1 for display
+                        elif g_fy1 is not None:
+                            avg_2y_growth = g_fy1
+                            earn_growth = g_fy1
+                        elif g_fy2 is not None:
+                            avg_2y_growth = g_fy2
+                            earn_growth = g_fy2
                         else:
+                            avg_2y_growth = None
                             earn_growth = inf.get('earningsGrowth') or inf.get('earningsQuarterlyGrowth') or 0
                     except:
                         earn_growth = inf.get('earningsGrowth') or inf.get('earningsQuarterlyGrowth') or 0
+                        avg_2y_growth = None
                         
                     fcf_growth = inf.get('freeCashflowGrowth') or inf.get('operatingCashflowGrowth') or 0
 
@@ -3323,6 +3340,12 @@ def get_competitors_data(target_ticker: str, limit: int = 4, custom_peers: list 
                     p_data["revenue_growth"] = rev_growth
                     p_data["earnings_growth"] = earn_growth
                     p_data["fcf_growth"] = fcf_growth
+                    p_data["avg_2y_eps_growth"] = avg_2y_growth
+                    # Forward PEG: forward_pe / (avg 2Y EPS growth as %)
+                    if avg_2y_growth and avg_2y_growth > 0 and fwd_pe and fwd_pe > 0:
+                        p_data["forward_peg"] = fwd_pe / (avg_2y_growth * 100)
+                    else:
+                        p_data["forward_peg"] = None
                     
                     _peer_info_cache[t] = (p_data, now)
                     kv_set(kv_key, p_data, ex=86400)

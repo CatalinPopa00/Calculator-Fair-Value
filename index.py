@@ -468,7 +468,10 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         
         if peers_data:
             for p in peers_data:
-                v = p.get('peg_ratio')
+                # Prefer forward_peg (2Y avg growth), fallback to Yahoo's peg_ratio
+                v = p.get('forward_peg')
+                if v is None or not isinstance(v, (int, float)) or not math.isfinite(v) or v <= 0:
+                    v = p.get('peg_ratio')
                 if v is not None and isinstance(v, (int, float)) and math.isfinite(v) and v > 0:
                     valid_pegs.append(float(v))
         

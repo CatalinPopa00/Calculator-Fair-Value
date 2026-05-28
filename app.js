@@ -397,7 +397,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function recalcIndustryPeg(prof) {
         if (!prof || !prof.competitor_metrics) return;
         const validPegs = prof.competitor_metrics
-            .map(p => parseFloat(p.peg_ratio))
+            .map(p => {
+                const fwd = parseFloat(p.forward_peg);
+                if (!isNaN(fwd) && fwd > 0) return fwd;
+                return parseFloat(p.peg_ratio);
+            })
             .filter(v => !isNaN(v) && v > 0);
         
         let median = 1.25; // Fallback
@@ -2910,7 +2914,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // Recalculate PEG Sector live based on custom peers
                 if (data.formula_data && data.formula_data.peg) {
-                    const validPegs = peersList.map(p => parseFloat(p.peg_ratio)).filter(v => !isNaN(v) && v > 0);
+                    const validPegs = peersList.map(p => {
+                        const fwd = parseFloat(p.forward_peg);
+                        if (!isNaN(fwd) && fwd > 0) return fwd;
+                        return parseFloat(p.peg_ratio);
+                    }).filter(v => !isNaN(v) && v > 0);
                     if (validPegs.length > 0) {
                         validPegs.sort((a, b) => a - b);
                         const mid = Math.floor(validPegs.length / 2);
