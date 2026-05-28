@@ -519,13 +519,10 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
 
         # --- DYNAMIC FX CURRENCY CONVERSION TO USD ---
         price_currency = data.get("currency", "USD")
-        fin_currency = data.get("financial_currency", "USD")
-        
         price_fx = get_usd_fx_rate(price_currency)
-        fin_fx = get_usd_fx_rate(fin_currency)
         
-        # Convert price-dependent metrics
         if price_fx != 1.0:
+            # Convert price-dependent metrics
             if data.get("current_price"): 
                 data["current_price"] = data["current_price"] * price_fx
             if data.get("price_target"):
@@ -534,11 +531,10 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                     if pt.get(pt_key) is not None:
                         pt[pt_key] = pt[pt_key] * price_fx
             
-        # Convert financial-dependent metrics
-        if fin_fx != 1.0:
+            # Convert financial-dependent metrics (already normalized to price_currency by scraper)
             for key in ["adjusted_eps", "trailing_eps", "fwd_eps", "forward_eps", "fcf", "total_cash", "total_debt", "revenue", "forward_revenue", "ebitda", "eps_last_year"]:
                 if data.get(key) is not None:
-                    data[key] = data[key] * fin_fx
+                    data[key] = data[key] * price_fx
             
             # Convert eps_trend
             if data.get("eps_trend"):
@@ -546,25 +542,25 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                     if isinstance(trend, dict):
                         for metric in ["avg", "low", "high", "yearAgoEps", "current"]:
                             if trend.get(metric) is not None:
-                                trend[metric] = trend[metric] * fin_fx
+                                trend[metric] = trend[metric] * price_fx
             
             # Convert multi-year eps estimates
             if data.get("eps_estimates"):
                 for est in data["eps_estimates"]:
                     if est.get("avg") is not None:
-                        est["avg"] = est["avg"] * fin_fx
+                        est["avg"] = est["avg"] * price_fx
                         
             # Convert multi-year revenue estimates
             if data.get("rev_estimates"):
                 for est in data["rev_estimates"]:
                     if est.get("avg") is not None:
-                        est["avg"] = est["avg"] * fin_fx
+                        est["avg"] = est["avg"] * price_fx
             
             # Convert historical data
             if data.get("historical_data"):
                 for h_key in ["revenue", "eps", "diluted_eps", "fcf"]:
                     if data["historical_data"].get(h_key):
-                        data["historical_data"][h_key] = [v * fin_fx if v is not None else None for v in data["historical_data"][h_key]]
+                        data["historical_data"][h_key] = [v * price_fx if v is not None else None for v in data["historical_data"][h_key]]
                         
             # Convert raw_quarterly_history
             if data.get("raw_quarterly_history"):
@@ -572,7 +568,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                     if isinstance(quarters, dict):
                         for date, q_data in quarters.items():
                             if isinstance(q_data, list) and len(q_data) > 0 and q_data[0] is not None:
-                                q_data[0] = q_data[0] * fin_fx
+                                q_data[0] = q_data[0] * price_fx
         
         # Recalculate forward ratios in USD to prevent currency mismatch
         shares = data.get("shares_outstanding") or 1
