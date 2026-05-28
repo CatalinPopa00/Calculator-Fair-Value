@@ -3558,7 +3558,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div style="display: flex; flex-direction: column;">
                                 ${metricRow('P/E TTM', prof.trailing_pe ? prof.trailing_pe.toFixed(2) + 'x' : 'N/A')}
                                 ${metricRow('P/E GAAP', (prof.gaap_eps_fy && prof.gaap_eps_fy > 0 && _originalPrice) ? (_originalPrice / prof.gaap_eps_fy).toFixed(2) + 'x' : 'N/A')}
-                                ${metricRow('P/E Non-GAAP', (prof.nongaap_eps_fy && prof.nongaap_eps_fy > 0 && _originalPrice) ? (_originalPrice / prof.nongaap_eps_fy).toFixed(2) + 'x' : 'N/A')}
+                                ${metricRow('P/E Non-GAAP', (prof.adjusted_eps && prof.adjusted_eps > 0 && _originalPrice) ? (_originalPrice / prof.adjusted_eps).toFixed(2) + 'x' : 'N/A')}
                                 ${metricRow('5Y Avg. P/E', prof.historic_pe ? prof.historic_pe.toFixed(2) + 'x' : 'N/A')}
                                 ${metricRow('PE FWD', prof.fwd_pe ? prof.fwd_pe.toFixed(2) + 'x' : 'N/A')}
                                 ${metricRow('EPS Diluted', prof.trailing_eps ? '$' + prof.trailing_eps.toFixed(2) : 'N/A')}
@@ -3973,6 +3973,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.querySelectorAll('.reset-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
+            e.preventDefault();
             const button = e.target.closest('.reset-btn');
             if (!button) return;
             const method = button.getAttribute('data-method');
