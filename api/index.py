@@ -536,9 +536,17 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             
         # Convert financial-dependent metrics
         if fin_fx != 1.0:
-            for key in ["adjusted_eps", "trailing_eps", "fwd_eps", "fcf", "total_cash", "total_debt", "revenue", "ebitda"]:
+            for key in ["adjusted_eps", "trailing_eps", "fwd_eps", "forward_eps", "fcf", "total_cash", "total_debt", "revenue", "forward_revenue", "ebitda", "eps_last_year"]:
                 if data.get(key) is not None:
                     data[key] = data[key] * fin_fx
+            
+            # Convert eps_trend
+            if data.get("eps_trend"):
+                for period, trend in data["eps_trend"].items():
+                    if isinstance(trend, dict):
+                        for metric in ["avg", "low", "high", "yearAgoEps", "current"]:
+                            if trend.get(metric) is not None:
+                                trend[metric] = trend[metric] * fin_fx
             
             # Convert multi-year eps estimates
             if data.get("eps_estimates"):
@@ -557,6 +565,14 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 for h_key in ["revenue", "eps", "diluted_eps", "fcf"]:
                     if data["historical_data"].get(h_key):
                         data["historical_data"][h_key] = [v * fin_fx if v is not None else None for v in data["historical_data"][h_key]]
+                        
+            # Convert raw_quarterly_history
+            if data.get("raw_quarterly_history"):
+                for year, quarters in data["raw_quarterly_history"].items():
+                    if isinstance(quarters, dict):
+                        for date, q_data in quarters.items():
+                            if isinstance(q_data, list) and len(q_data) > 0 and q_data[0] is not None:
+                                q_data[0] = q_data[0] * fin_fx
         
         # Recalculate forward ratios in USD to prevent currency mismatch
         shares = data.get("shares_outstanding") or 1
@@ -816,15 +832,13 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         company_peg = current_pe / (eps_growth_rate_peg * 100) if eps_growth_rate_peg > 0 else 0
         
         # Calculate Industry PEG from peers using Forward PEG (2Y avg EPS growth based)
-        # Falls back to Yahoo's trailing PEG if forward_peg is unavailable
+        # Fallbacks have been removed per user request
         valid_pegs = []
         
         if peers_data:
             for p in peers_data:
-                # Prefer forward_peg (2Y avg growth), fallback to Yahoo's peg_ratio
+                # Use only forward_peg (2Y avg growth)
                 v = p.get('forward_peg')
-                if v is None or not isinstance(v, (int, float)) or not math.isfinite(v) or v <= 0:
-                    v = p.get('peg_ratio')
                 if v is not None and isinstance(v, (int, float)) and math.isfinite(v) and v > 0:
                     valid_pegs.append(float(v))
         

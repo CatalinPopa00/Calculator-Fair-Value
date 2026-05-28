@@ -1423,13 +1423,12 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                         if not adjusted_eps:
                             adjusted_eps = trailing_eps
                         
-                        # Use GAAP EPS for P/E calculation (actual reported earnings)
+                        # Use GAAP EPS for display and metrics, but DO NOT overwrite trailing_eps
+                        # trailing_eps should remain TTM, whereas this gaap_eps is FY based.
                         if gaap_eps and gaap_eps > 0:
-                            trailing_eps = gaap_eps
-                            # Final sync for Non-GAAP to prevent 1000x P/E artifacts
+                            # Final sync for Non-GAAP to prevent 1000x P/E artifacts if missing
                             if not adjusted_eps or abs(adjusted_eps/gaap_eps - 1) > 5:
                                 adjusted_eps = gaap_eps
-                            pe_ratio = current_price / gaap_eps if current_price else pe_ratio
             except Exception as e_gaap:
                 print(f"GAAP recalibration error: {e_gaap}")
 

@@ -400,7 +400,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .map(p => {
                 const fwd = parseFloat(p.forward_peg);
                 if (!isNaN(fwd) && fwd > 0) return fwd;
-                return parseFloat(p.peg_ratio);
+                return null;
             })
             .filter(v => !isNaN(v) && v > 0);
         
@@ -2917,7 +2917,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const validPegs = peersList.map(p => {
                         const fwd = parseFloat(p.forward_peg);
                         if (!isNaN(fwd) && fwd > 0) return fwd;
-                        return parseFloat(p.peg_ratio);
+                        return null;
                     }).filter(v => !isNaN(v) && v > 0);
                     if (validPegs.length > 0) {
                         validPegs.sort((a, b) => a - b);
@@ -5142,16 +5142,16 @@ document.addEventListener('DOMContentLoaded', () => {
                                 ${activeKeys.map(k => {
                                     let val = null;
                                     if (k === 'PE' || k === 'P_FFO') {
-                                        val = globalData.company_profile && globalData.company_profile.fwd_pe;
+                                        val = globalData.company_profile && (globalData.company_profile.fwd_pe || globalData.company_profile.forward_pe);
                                     }
                                     else if (k === 'PS') {
-                                        val = globalData.company_profile && globalData.company_profile.forward_ev_sales;
+                                        val = globalData.company_profile && (globalData.company_profile.fwd_ps || globalData.company_profile.forward_ev_sales);
                                     }
                                     else if (k === 'PB') {
                                         val = (globalData.company_profile && globalData.company_profile.price_to_book);
                                     }
                                     else if (k === 'EV_EBITDA') {
-                                        val = globalData.company_profile && globalData.company_profile.forward_ev_ebitda;
+                                        val = globalData.company_profile && (globalData.company_profile.forward_ev_ebitda || globalData.company_profile.ev_to_ebitda);
                                         if (val == null) {
                                             // Fallback: estimate from TTM if forward not available
                                             const earnGrowth = globalData.company_profile && globalData.company_profile.earnings_growth || 0;

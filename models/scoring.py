@@ -213,7 +213,7 @@ def calculate_scoring_reform(valuation_data, metrics):
         rev_fwd_growth = rev_g
     
     # Forward-First Multiples Fallback
-    fwd_pe = clean_ratio(metrics.get('fwd_pe') or metrics.get('forward_pe'))
+    fwd_pe = clean_ratio(metrics.get('forward_pe') or metrics.get('fwd_pe'))
     trail_pe = clean_ratio(metrics.get('trailing_pe') or metrics.get('pe_ratio') or metrics.get('current_pe'))
     
     # For Non-GAAP / Tech
@@ -244,9 +244,9 @@ def calculate_scoring_reform(valuation_data, metrics):
             pe_label = "Trailing P/E Ratio"
 
     # Other multiples
-    ev_ebitda = clean_ratio(metrics.get('ev_to_ebitda'))
+    ev_ebitda = clean_ratio(metrics.get('forward_ev_ebitda') or metrics.get('ev_to_ebitda'))
     pb = clean_ratio(metrics.get('price_to_book'))
-    ps = clean_ratio(metrics.get('ps_ratio') or metrics.get('price_to_sales'))
+    ps = clean_ratio(metrics.get('fwd_ps') or metrics.get('ps_ratio') or metrics.get('price_to_sales'))
     peg_val = clean_ratio(metrics.get('peg_ratio')) # Typically already forward
 
     def get_mos_points(mos_val, max_pts):
