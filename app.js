@@ -2482,8 +2482,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            if (_currentScenario === 'bear') selectedMult -= 3;
-            else if (_currentScenario === 'bull') selectedMult += 3;
+            if (multVal !== 'custom') {
+                if (_currentScenario === 'bear') selectedMult -= 3;
+                else if (_currentScenario === 'bull') selectedMult += 3;
+            }
 
             if (targetEps != null && targetEps > 0) {
                 // v46: Simple Future Project (no discounting per user preference)
