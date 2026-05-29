@@ -2414,12 +2414,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (multCustomInputs) multCustomInputs.style.display = multVal === 'custom' ? 'grid' : 'none';
 
             let selectedMult = 20; 
-            if (multVal === 'pe15') selectedMult = 15;
-            if (multVal === 'pe20') selectedMult = 20;
-            if (multVal === 'pe25') selectedMult = 25;
-            if (multVal === 'historical') selectedMult = pl.historic_pe || 20;
-            if (multVal === 'custom') {
+            if (multVal === 'system') {
+                selectedMult = usedGrowth * 100;
+            } else if (multVal === 'historical') {
+                selectedMult = pl.historic_pe || 20;
+            } else if (multVal === 'custom') {
                 selectedMult = parseFloat(document.getElementById('lynch-custom-mult').value) || 18;
+            } else {
+                // Fallback just in case
+                selectedMult = usedGrowth * 100;
             }
 
             if (_currentScenario === 'bear') selectedMult -= 3;
@@ -2741,6 +2744,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (pegTableVal && currentPegToDisplay != null && !_simulating) {
             pegTableVal.textContent = currentPegToDisplay.toFixed(2);
         }
+
+        // --- Dynamic UI Re-renders for Scenarios ---
+        if (window._renderProfile) window._renderProfile();
+        if (window._renderEstimatesTable) window._renderEstimatesTable();
     };
 
     window.triggerRecalculate = updateFairValue;
@@ -3655,18 +3662,39 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="profile-section">
                             <div style="font-size: 0.8rem; color: var(--text-main); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 2px solid rgba(255,255,255,0.1); font-weight: 700;">Valuation & Earnings</div>
                             <div style="display: flex; flex-direction: column;">
-                                ${metricRow('P/E TTM', prof.trailing_pe ? prof.trailing_pe.toFixed(2) + 'x' : 'N/A')}
-                                ${metricRow('P/E GAAP', (prof.gaap_eps_fy && prof.gaap_eps_fy > 0 && _originalPrice) ? (_originalPrice / prof.gaap_eps_fy).toFixed(2) + 'x' : 'N/A')}
-                                ${metricRow('P/E Non-GAAP', (prof.adjusted_eps && prof.adjusted_eps > 0 && _originalPrice) ? (_originalPrice / prof.adjusted_eps).toFixed(2) + 'x' : 'N/A')}
-                                ${metricRow('5Y Avg. P/E', prof.historic_pe ? prof.historic_pe.toFixed(2) + 'x' : 'N/A')}
-                                ${metricRow('PE FWD', prof.fwd_pe ? prof.fwd_pe.toFixed(2) + 'x' : 'N/A')}
-                                ${metricRow('EPS Diluted', prof.trailing_eps ? '$' + prof.trailing_eps.toFixed(2) : 'N/A')}
-                                ${metricRow('EPS Non-GAAP', prof.adjusted_eps ? '$' + prof.adjusted_eps.toFixed(2) : 'N/A')}
-                                ${metricRow('FWD EPS', prof.fwd_eps ? '$' + prof.fwd_eps.toFixed(2) : 'N/A')}
-                                ${metricRow('PEG', prof.peg_ratio ? prof.peg_ratio.toFixed(2) : 'N/A')}
-                                ${metricRow('P/S', prof.ps_ratio ? prof.ps_ratio.toFixed(2) + 'x' : 'N/A')}
-                                ${metricRow('FWD P/S', prof.fwd_ps ? prof.fwd_ps.toFixed(2) + 'x' : 'N/A')}
-                                ${metricRow('P/FCF', prof.pfcf_ratio ? prof.pfcf_ratio.toFixed(2) + 'x' : 'N/A')}
+                                ${(() => {
+                                    let dynFwdEps = prof.fwd_eps;
+                                    let dynFwdRev = prof.forward_revenue;
+                                    
+                                    if (globalData.eps_estimates && globalData.eps_estimates.length >= 2) {
+                                        const fwdEst = globalData.eps_estimates[1]; // FY1
+                                        if (_currentScenario === 'bear' && fwdEst.low) dynFwdEps = fwdEst.low;
+                                        if (_currentScenario === 'bull' && fwdEst.high) dynFwdEps = fwdEst.high;
+                                    }
+                                    if (globalData.rev_estimates && globalData.rev_estimates.length >= 2) {
+                                        const fwdEstRev = globalData.rev_estimates[1]; // FY1
+                                        if (_currentScenario === 'bear' && fwdEstRev.low) dynFwdRev = fwdEstRev.low;
+                                        if (_currentScenario === 'bull' && fwdEstRev.high) dynFwdRev = fwdEstRev.high;
+                                    }
+
+                                    let dynFwdPe = dynFwdEps && dynFwdEps > 0 && _originalPrice ? _originalPrice / dynFwdEps : prof.fwd_pe;
+                                    let dynFwdPs = dynFwdRev && dynFwdRev > 0 && prof.market_cap ? (prof.market_cap / dynFwdRev) : prof.fwd_ps;
+                                    
+                                    return `
+                                        ${metricRow('P/E TTM', prof.trailing_pe ? prof.trailing_pe.toFixed(2) + 'x' : 'N/A')}
+                                        ${metricRow('P/E GAAP', (prof.gaap_eps_fy && prof.gaap_eps_fy > 0 && _originalPrice) ? (_originalPrice / prof.gaap_eps_fy).toFixed(2) + 'x' : 'N/A')}
+                                        ${metricRow('P/E Non-GAAP', (prof.adjusted_eps && prof.adjusted_eps > 0 && _originalPrice) ? (_originalPrice / prof.adjusted_eps).toFixed(2) + 'x' : 'N/A')}
+                                        ${metricRow('5Y Avg. P/E', prof.historic_pe ? prof.historic_pe.toFixed(2) + 'x' : 'N/A')}
+                                        ${metricRow('PE FWD', dynFwdPe ? dynFwdPe.toFixed(2) + 'x' : 'N/A')}
+                                        ${metricRow('EPS Diluted', prof.trailing_eps ? '$' + prof.trailing_eps.toFixed(2) : 'N/A')}
+                                        ${metricRow('EPS Non-GAAP', prof.adjusted_eps ? '$' + prof.adjusted_eps.toFixed(2) : 'N/A')}
+                                        ${metricRow('FWD EPS', dynFwdEps ? '$' + dynFwdEps.toFixed(2) : 'N/A')}
+                                        ${metricRow('PEG', prof.peg_ratio ? prof.peg_ratio.toFixed(2) : 'N/A')}
+                                        ${metricRow('P/S', prof.ps_ratio ? prof.ps_ratio.toFixed(2) + 'x' : 'N/A')}
+                                        ${metricRow('FWD P/S', dynFwdPs ? dynFwdPs.toFixed(2) + 'x' : 'N/A')}
+                                        ${metricRow('P/FCF', prof.pfcf_ratio ? prof.pfcf_ratio.toFixed(2) + 'x' : 'N/A')}
+                                    `;
+                                })()}
                             </div>
                         </div>
 
@@ -4431,11 +4459,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('rec-mean').textContent = `Sentiment: ${sent.toFixed(1)}/100`;
             }
 
-            // Tables population
-            const eBody = document.querySelector('#eps-est-table tbody');
-            const rBody = document.querySelector('#rev-est-table tbody');
-            if (eBody) eBody.innerHTML = '';
-            if (rBody) rBody.innerHTML = '';
+            // Tables population exported for re-rendering on scenario switch
+            window._renderEstimatesTable = () => {
+                const eBody = document.querySelector('#eps-est-table tbody');
+                const rBody = document.querySelector('#rev-est-table tbody');
+                if (eBody) eBody.innerHTML = '';
+                if (rBody) rBody.innerHTML = '';
+                
+                const epsHead = document.querySelector('#eps-est-table thead tr');
+                const revHead = document.querySelector('#rev-est-table thead tr');
+                const headerLabel = _currentScenario === 'bear' ? 'Low' : (_currentScenario === 'bull' ? 'High' : 'Avg');
+                if (epsHead) epsHead.innerHTML = `<th>Period</th><th style="text-align:right">${headerLabel}</th><th style="text-align:right">Growth</th>`;
+                if (revHead) revHead.innerHTML = `<th>Period</th><th style="text-align:right">${headerLabel}</th><th style="text-align:right">Growth</th>`;
+
 
             const getColor = (item) => {
                 if (item.status !== 'reported') return 'var(--text-main)'; // neutral for estimates
@@ -4457,12 +4493,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!item) return;
                 const pLabel = item.period || '--';
                 const isAnchor = item.status === 'reported';
-                const aVal = (item.avg != null) ? formatLargeNumber(parseFloat(item.avg), '$') : '--';
+                
+                let scenarioVal = item.avg;
+                if (!isAnchor) {
+                    if (_currentScenario === 'bear' && item.low != null) scenarioVal = item.low;
+                    if (_currentScenario === 'bull' && item.high != null) scenarioVal = item.high;
+                }
+                
+                const aVal = (scenarioVal != null) ? formatLargeNumber(parseFloat(scenarioVal), '$') : '--';
                 let gVal = isAnchor ? '' : '--';
                 
                 if (!isAnchor) {
                     if (item.status === 'reported' && item.surprise_pct != null) {
                         gVal = (parseFloat(item.surprise_pct) * 100).toFixed(1) + '%';
+                    } else if (scenarioVal != null && item.yearAgo != null && item.yearAgo !== 0) {
+                        gVal = (((parseFloat(scenarioVal) / parseFloat(item.yearAgo)) - 1) * 100).toFixed(1) + '%';
                     } else if (item.growth != null) {
                         gVal = (parseFloat(item.growth) * 100).toFixed(1) + '%';
                     }
@@ -4482,11 +4527,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!item) return;
                 const pLabel = item.period || '--';
                 const isAnchor = item.status === 'reported';
-                const aVal = (item.avg != null) ? formatLargeNumber(parseFloat(item.avg), '$') : '--';
+                
+                let scenarioVal = item.avg;
+                if (!isAnchor) {
+                    if (_currentScenario === 'bear' && item.low != null) scenarioVal = item.low;
+                    if (_currentScenario === 'bull' && item.high != null) scenarioVal = item.high;
+                }
+                
+                const aVal = (scenarioVal != null) ? formatLargeNumber(parseFloat(scenarioVal), '$') : '--';
                 let gVal = isAnchor ? '' : '--';
                 
-                if (!isAnchor && item.growth != null) {
-                    gVal = (parseFloat(item.growth) * 100).toFixed(1) + '%';
+                if (!isAnchor) {
+                    if (scenarioVal != null && item.yearAgo != null && item.yearAgo !== 0) {
+                        gVal = (((parseFloat(scenarioVal) / parseFloat(item.yearAgo)) - 1) * 100).toFixed(1) + '%';
+                    } else if (item.growth != null) {
+                        gVal = (parseFloat(item.growth) * 100).toFixed(1) + '%';
+                    }
                 }
                 
                 const sColor = isAnchor ? 'white' : getColor(item);
@@ -4496,6 +4552,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 if (rBody) rBody.innerHTML += `<tr><td style="padding:4px 0;color:${labelColor};">${pLabel}</td><td style="text-align:right;color:${valColor};">${aVal}</td><td style="text-align:right;color:${sColor};font-weight:${weight};">${gVal}</td></tr>`;
             });
+
+            }; // End window._renderEstimatesTable
+            window._renderEstimatesTable(); // Call it immediately
 
             // v70: Reactive Chart Updates - Link Analyst Projections to the main Stability Chart
             // This ensures that even if the primary valuation fetch has stale or missing projections,
