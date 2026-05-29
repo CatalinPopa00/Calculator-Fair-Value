@@ -1978,21 +1978,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const updateFairValue = () => {
         const getDynamicEpsGrowth = () => {
             const eList = globalData.eps_estimates || [];
-            const ests = eList.filter(e => e && e.status !== 'reported');
+            const ests = eList.filter(e => e && e.status !== 'reported' && e.period && e.period.endsWith('y'));
             let growths = [];
             for (let i = 0; i < ests.length; i++) {
                 let g = NaN;
                 if (_currentScenario === 'bear') {
-                    if (i === 0 && ests[0].low != null && ests[0].yearAgo != null) {
-                        g = (ests[0].low - ests[0].yearAgo) / Math.abs(ests[0].yearAgo);
-                    } else if (i > 0 && ests[i].low != null && ests[i-1].low != null) {
-                        g = (ests[i].low - ests[i-1].low) / Math.abs(ests[i-1].low);
+                    if (ests[i].low != null && ests[i].yearAgoRevenue != null) {
+                        g = (ests[i].low - ests[i].yearAgoRevenue) / Math.abs(ests[i].yearAgoRevenue);
+                    } else if (ests[i].low != null && ests[i].yearAgo != null) {
+                        g = (ests[i].low - ests[i].yearAgo) / Math.abs(ests[i].yearAgo);
                     }
                 } else if (_currentScenario === 'bull') {
-                    if (i === 0 && ests[0].high != null && ests[0].yearAgo != null) {
-                        g = (ests[0].high - ests[0].yearAgo) / Math.abs(ests[0].yearAgo);
-                    } else if (i > 0 && ests[i].high != null && ests[i-1].high != null) {
-                        g = (ests[i].high - ests[i-1].high) / Math.abs(ests[i-1].high);
+                    if (ests[i].high != null && ests[i].yearAgoRevenue != null) {
+                        g = (ests[i].high - ests[i].yearAgoRevenue) / Math.abs(ests[i].yearAgoRevenue);
+                    } else if (ests[i].high != null && ests[i].yearAgo != null) {
+                        g = (ests[i].high - ests[i].yearAgo) / Math.abs(ests[i].yearAgo);
                     }
                 } else {
                     g = parseFloat(ests[i].growth);
@@ -2008,21 +2008,21 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const getDynamicRevGrowth = () => {
             const rList = globalData.rev_estimates || [];
-            const ests = rList.filter(e => e && e.status !== 'reported');
+            const ests = rList.filter(e => e && e.status !== 'reported' && e.period && e.period.endsWith('y'));
             let growths = [];
             for (let i = 0; i < ests.length; i++) {
                 let g = NaN;
                 if (_currentScenario === 'bear') {
-                    if (i === 0 && ests[0].low != null && ests[0].yearAgo != null) {
-                        g = (ests[0].low - ests[0].yearAgo) / Math.abs(ests[0].yearAgo);
-                    } else if (i > 0 && ests[i].low != null && ests[i-1].low != null) {
-                        g = (ests[i].low - ests[i-1].low) / Math.abs(ests[i-1].low);
+                    if (ests[i].low != null && ests[i].yearAgoRevenue != null) {
+                        g = (ests[i].low - ests[i].yearAgoRevenue) / Math.abs(ests[i].yearAgoRevenue);
+                    } else if (ests[i].low != null && ests[i].yearAgo != null) {
+                        g = (ests[i].low - ests[i].yearAgo) / Math.abs(ests[i].yearAgo);
                     }
                 } else if (_currentScenario === 'bull') {
-                    if (i === 0 && ests[0].high != null && ests[0].yearAgo != null) {
-                        g = (ests[0].high - ests[0].yearAgo) / Math.abs(ests[0].yearAgo);
-                    } else if (i > 0 && ests[i].high != null && ests[i-1].high != null) {
-                        g = (ests[i].high - ests[i-1].high) / Math.abs(ests[i-1].high);
+                    if (ests[i].high != null && ests[i].yearAgoRevenue != null) {
+                        g = (ests[i].high - ests[i].yearAgoRevenue) / Math.abs(ests[i].yearAgoRevenue);
+                    } else if (ests[i].high != null && ests[i].yearAgo != null) {
+                        g = (ests[i].high - ests[i].yearAgo) / Math.abs(ests[i].yearAgo);
                     }
                 } else {
                     g = parseFloat(ests[i].growth);
@@ -2274,7 +2274,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 usedGrowth = (rawG === '' || isNaN(parseFloat(rawG))) ? 0.20 : parseFloat(rawG) / 100;
             }
 
-            const eps = globalData.company_profile.adjusted_eps || globalData.company_profile.trailing_eps || 0;
+            let eps = globalData.company_profile.adjusted_eps || globalData.company_profile.trailing_eps || 0;
+            const pegEsts = globalData.eps_estimates?.filter(e => e && e.status !== 'reported' && e.period && e.period.endsWith('y'));
+            if (pegEsts && pegEsts.length >= 2) {
+                if (_currentScenario === 'bear') {
+                    eps = (pegEsts[0].low + pegEsts[1].low) / 2.0;
+                } else if (_currentScenario === 'bull') {
+                    eps = (pegEsts[0].high + pegEsts[1].high) / 2.0;
+                } else {
+                    eps = (pegEsts[0].avg + pegEsts[1].avg) / 2.0;
+                }
+            }
             // v299: Use _realApiPrice for valuation anchor to prevent Fair Value drift during simulation
             const currentPe = (eps > 0) ? (_realApiPrice / eps) : (currentFormulaData.peg.current_pe || (parseFloat(globalData.company_profile.current_pe) || parseFloat(globalData.company_profile.trailing_pe) || 0));
             // v61: Default to 1.25 if industry_peg is missing (e.g. no peers found)
@@ -2535,30 +2545,26 @@ document.addEventListener('DOMContentLoaded', () => {
             const explicit_fwd_ps = globalData.company_profile && globalData.company_profile.fwd_ps;
             let company_sales_share = explicit_fwd_ps > 0 ? (_realApiPrice / explicit_fwd_ps) : (rel.company_sales_share || 0);
             
-            if (_currentScenario === 'bear' || _currentScenario === 'bull') {
-                const eList = globalData.eps_estimates || [];
-                const eEsts = eList.filter(e => e && e.status !== 'reported');
-                if (eEsts.length >= 2) {
-                    const y1 = _currentScenario === 'bear' ? eEsts[0].low : eEsts[0].high;
-                    const y2 = _currentScenario === 'bear' ? eEsts[1].low : eEsts[1].high;
-                    if (y1 != null && y2 != null) company_eps = (y1 + y2) / 2.0;
-                    else if (y1 != null) company_eps = y1;
-                } else if (eEsts.length === 1) {
-                    const y1 = _currentScenario === 'bear' ? eEsts[0].low : eEsts[0].high;
-                    if (y1 != null) company_eps = y1;
+            const eEsts = globalData.eps_estimates?.filter(e => e && e.status !== 'reported' && e.period && e.period.endsWith('y'));
+            if (eEsts && eEsts.length >= 2) {
+                if (_currentScenario === 'bear') {
+                    company_eps = (eEsts[0].low + eEsts[1].low) / 2.0;
+                } else if (_currentScenario === 'bull') {
+                    company_eps = (eEsts[0].high + eEsts[1].high) / 2.0;
+                } else {
+                    company_eps = (eEsts[0].avg + eEsts[1].avg) / 2.0;
                 }
-                
-                const rList = globalData.rev_estimates || [];
-                const rEsts = rList.filter(e => e && e.status !== 'reported');
+            }
+            
+            const rEsts = globalData.rev_estimates?.filter(e => e && e.status !== 'reported' && e.period && e.period.endsWith('y'));
+            if (rEsts && rEsts.length >= 2) {
                 let avgRev = null;
-                if (rEsts.length >= 2) {
-                    const r1 = _currentScenario === 'bear' ? rEsts[0].low : rEsts[0].high;
-                    const r2 = _currentScenario === 'bear' ? rEsts[1].low : rEsts[1].high;
-                    if (r1 != null && r2 != null) avgRev = (r1 + r2) / 2.0;
-                    else if (r1 != null) avgRev = r1;
-                } else if (rEsts.length === 1) {
-                    const r1 = _currentScenario === 'bear' ? rEsts[0].low : rEsts[0].high;
-                    if (r1 != null) avgRev = r1;
+                if (_currentScenario === 'bear') {
+                    avgRev = (rEsts[0].low + rEsts[1].low) / 2.0;
+                } else if (_currentScenario === 'bull') {
+                    avgRev = (rEsts[0].high + rEsts[1].high) / 2.0;
+                } else {
+                    avgRev = (rEsts[0].avg + rEsts[1].avg) / 2.0;
                 }
                 if (avgRev != null && company_shares > 0) company_sales_share = avgRev / company_shares;
             }
