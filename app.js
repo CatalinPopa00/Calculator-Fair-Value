@@ -2192,6 +2192,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     const em = parseLocaleFloat(document.getElementById('input-exit-multiple')?.value) || (globalData.dcf_assumptions?.recommended_exit_multiple || 10.0);
                     dcfValObj = calcLocalDcf(fcfParam, hgArray, w, p, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em, _realApiPrice);
                 } else if (fcfSource === 'custom') {
+                    // v290: Force-sync growth inputs to current scenario before reading
+                    const scenarioGrowth = window.getDcfGrowthDefault(globalData);
+                    const g13Input = document.getElementById('dcf-growth-1-3');
+                    if (g13Input) {
+                        g13Input.value = formatCleanInputVal(scenarioGrowth);
+                        // Also cascade to dependent fields
+                        const g46Input = document.getElementById('dcf-growth-4-6');
+                        const g78Input = document.getElementById('dcf-growth-7-8');
+                        const g910Input = document.getElementById('dcf-growth-9-10');
+                        const sg = scenarioGrowth;
+                        if (g46Input && (g46Input.dataset.isDefault === 'true' || !g46Input.value || g46Input.value === '')) g46Input.value = formatCleanInputVal(sg * 0.75);
+                        if (g78Input && (g78Input.dataset.isDefault === 'true' || !g78Input.value || g78Input.value === '')) g78Input.value = formatCleanInputVal(sg * 0.50);
+                        if (g910Input && (g910Input.dataset.isDefault === 'true' || !g910Input.value || g910Input.value === '')) g910Input.value = formatCleanInputVal(sg * 0.25);
+                    }
+
                     const getVal = (id) => {
                         const el = document.getElementById(id);
                         if (!el || el.value === '') return null;
