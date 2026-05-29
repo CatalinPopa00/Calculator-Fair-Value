@@ -1979,28 +1979,29 @@ document.addEventListener('DOMContentLoaded', () => {
         const getDynamicEpsGrowth = () => {
             const eList = globalData.eps_estimates || [];
             const ests = eList.filter(e => e && e.status !== 'reported');
-            let g1 = NaN, g2 = NaN;
-            if (ests.length >= 2) {
-                if (_currentScenario === 'bear' && ests[0].low != null && ests[0].yearAgo != null && ests[1].low != null) {
-                    g1 = (ests[0].low - ests[0].yearAgo) / Math.abs(ests[0].yearAgo);
-                    g2 = (ests[1].low - ests[0].low) / Math.abs(ests[0].low);
-                } else if (_currentScenario === 'bull' && ests[0].high != null && ests[0].yearAgo != null && ests[1].high != null) {
-                    g1 = (ests[0].high - ests[0].yearAgo) / Math.abs(ests[0].yearAgo);
-                    g2 = (ests[1].high - ests[0].high) / Math.abs(ests[0].high);
+            let growths = [];
+            for (let i = 0; i < ests.length; i++) {
+                let g = NaN;
+                if (_currentScenario === 'bear') {
+                    if (i === 0 && ests[0].low != null && ests[0].yearAgo != null) {
+                        g = (ests[0].low - ests[0].yearAgo) / Math.abs(ests[0].yearAgo);
+                    } else if (i > 0 && ests[i].low != null && ests[i-1].low != null) {
+                        g = (ests[i].low - ests[i-1].low) / Math.abs(ests[i-1].low);
+                    }
+                } else if (_currentScenario === 'bull') {
+                    if (i === 0 && ests[0].high != null && ests[0].yearAgo != null) {
+                        g = (ests[0].high - ests[0].yearAgo) / Math.abs(ests[0].yearAgo);
+                    } else if (i > 0 && ests[i].high != null && ests[i-1].high != null) {
+                        g = (ests[i].high - ests[i-1].high) / Math.abs(ests[i-1].high);
+                    }
                 } else {
-                    g1 = parseFloat(ests[0].growth);
-                    g2 = parseFloat(ests[1].growth);
+                    g = parseFloat(ests[i].growth);
                 }
-                if (!isNaN(g1) && !isNaN(g2)) return (g1 + g2) / 2.0;
-            } else if (ests.length === 1) {
-                if (_currentScenario === 'bear' && ests[0].low != null && ests[0].yearAgo != null) {
-                    g1 = (ests[0].low - ests[0].yearAgo) / Math.abs(ests[0].yearAgo);
-                } else if (_currentScenario === 'bull' && ests[0].high != null && ests[0].yearAgo != null) {
-                    g1 = (ests[0].high - ests[0].yearAgo) / Math.abs(ests[0].yearAgo);
-                } else {
-                    g1 = parseFloat(ests[0].growth);
-                }
-                if (!isNaN(g1)) return g1;
+                if (!isNaN(g)) growths.push(g);
+            }
+            if (growths.length > 0) {
+                const sum = growths.reduce((a, b) => a + b, 0);
+                return sum / growths.length;
             }
             return currentFormulaData?.peg?.eps_growth_estimated || globalData?.company_profile?.earnings_growth || 0.05;
         };
@@ -2008,28 +2009,29 @@ document.addEventListener('DOMContentLoaded', () => {
         const getDynamicRevGrowth = () => {
             const rList = globalData.rev_estimates || [];
             const ests = rList.filter(e => e && e.status !== 'reported');
-            let g1 = NaN, g2 = NaN;
-            if (ests.length >= 2) {
-                if (_currentScenario === 'bear' && ests[0].low != null && ests[0].yearAgo != null && ests[1].low != null) {
-                    g1 = (ests[0].low - ests[0].yearAgo) / Math.abs(ests[0].yearAgo);
-                    g2 = (ests[1].low - ests[0].low) / Math.abs(ests[0].low);
-                } else if (_currentScenario === 'bull' && ests[0].high != null && ests[0].yearAgo != null && ests[1].high != null) {
-                    g1 = (ests[0].high - ests[0].yearAgo) / Math.abs(ests[0].yearAgo);
-                    g2 = (ests[1].high - ests[0].high) / Math.abs(ests[0].high);
+            let growths = [];
+            for (let i = 0; i < ests.length; i++) {
+                let g = NaN;
+                if (_currentScenario === 'bear') {
+                    if (i === 0 && ests[0].low != null && ests[0].yearAgo != null) {
+                        g = (ests[0].low - ests[0].yearAgo) / Math.abs(ests[0].yearAgo);
+                    } else if (i > 0 && ests[i].low != null && ests[i-1].low != null) {
+                        g = (ests[i].low - ests[i-1].low) / Math.abs(ests[i-1].low);
+                    }
+                } else if (_currentScenario === 'bull') {
+                    if (i === 0 && ests[0].high != null && ests[0].yearAgo != null) {
+                        g = (ests[0].high - ests[0].yearAgo) / Math.abs(ests[0].yearAgo);
+                    } else if (i > 0 && ests[i].high != null && ests[i-1].high != null) {
+                        g = (ests[i].high - ests[i-1].high) / Math.abs(ests[i-1].high);
+                    }
                 } else {
-                    g1 = parseFloat(ests[0].growth);
-                    g2 = parseFloat(ests[1].growth);
+                    g = parseFloat(ests[i].growth);
                 }
-                if (!isNaN(g1) && !isNaN(g2)) return (g1 + g2) / 2.0;
-            } else if (ests.length === 1) {
-                if (_currentScenario === 'bear' && ests[0].low != null && ests[0].yearAgo != null) {
-                    g1 = (ests[0].low - ests[0].yearAgo) / Math.abs(ests[0].yearAgo);
-                } else if (_currentScenario === 'bull' && ests[0].high != null && ests[0].yearAgo != null) {
-                    g1 = (ests[0].high - ests[0].yearAgo) / Math.abs(ests[0].yearAgo);
-                } else {
-                    g1 = parseFloat(ests[0].growth);
-                }
-                if (!isNaN(g1)) return g1;
+                if (!isNaN(g)) growths.push(g);
+            }
+            if (growths.length > 0) {
+                const sum = growths.reduce((a, b) => a + b, 0);
+                return sum / growths.length;
             }
             return globalData?.company_profile?.revenue_growth || 0.08;
         };
@@ -2564,9 +2566,12 @@ document.addEventListener('DOMContentLoaded', () => {
             rel.dynamic_company_sales_share = company_sales_share;
             
 
-            const company_fcf_share = (rel.company_fcf_share || 0);
+            const dynEpsG = window._getDynamicEpsGrowth ? window._getDynamicEpsGrowth() : (prof.earnings_growth || 0);
+            const dynRevG = window._getDynamicRevGrowth ? window._getDynamicRevGrowth() : (prof.revenue_growth || 0);
+            
+            const company_fcf_share = (rel.company_fcf_share || 0) * (1 + dynEpsG);
             const company_book_share = rel.company_book_share || 0; // Book value remains TTM
-            const company_ebitda = (globalData.ebitda || 0);
+            const company_ebitda = (globalData.ebitda || 0) * (1 + dynEpsG);
             const company_debt = globalData.total_debt || 0;
             const company_cash = globalData.total_cash || 0;
 
@@ -2633,9 +2638,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             fvPE = company_eps * bPE;
             fvPFCF = company_fcf_share * bPFCF;
-            let rev = (globalData.revenue || 0);
-            if (globalData.company_profile && globalData.company_profile.revenue_growth) {
-                rev = rev * (1 + globalData.company_profile.revenue_growth);
+            let rev = company_sales_share * company_shares;
+            if (!rev || rev === 0) {
+                rev = (globalData.revenue || 0) * (1 + dynRevG);
             }
             const ev_sales = rev * bPS;
             fvPS = company_shares > 0 ? (ev_sales - company_debt + company_cash) / company_shares : 0;
@@ -5391,11 +5396,21 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <td style="padding:4px 2px; color:#28c76f; font-weight:700; white-space:nowrap;">${(globalData.ticker || 'TARGET').toUpperCase()}</td>
                                 ${activeKeys.map(k => {
                                     let val = null;
+                                    const impliedPe = r.dynamic_company_eps > 0 ? (_realApiPrice / r.dynamic_company_eps) : (globalData.company_profile && (globalData.company_profile.fwd_pe || globalData.company_profile.forward_pe));
+                                    
+                                    const dynEpsG = window._getDynamicEpsGrowth ? window._getDynamicEpsGrowth() : (globalData.company_profile?.earnings_growth || 0);
+                                    const dynEbitda = (globalData.ebitda || 0) * (1 + dynEpsG);
+                                    const impliedEvEbitda = dynEbitda > 0 ? (globalData.market_cap + (globalData.total_debt || 0) - (globalData.total_cash || 0)) / dynEbitda : null;
+                                    
+                                    const dynRevG = window._getDynamicRevGrowth ? window._getDynamicRevGrowth() : (globalData.company_profile?.revenue_growth || 0);
+                                    const rev = r.dynamic_company_sales_share ? r.dynamic_company_sales_share * (globalData.company_profile?.shares_outstanding || 1) : ((globalData.revenue || 0) * (1 + dynRevG));
+                                    const impliedPs = rev > 0 ? (globalData.market_cap + (globalData.total_debt || 0) - (globalData.total_cash || 0)) / rev : null;
+                                    
                                     if (k === 'PE' || k === 'P_FFO') {
-                                        val = globalData.company_profile && (globalData.company_profile.fwd_pe || globalData.company_profile.forward_pe);
+                                        val = impliedPe;
                                     }
                                     else if (k === 'PS') {
-                                        val = globalData.company_profile && (globalData.company_profile.fwd_ps || globalData.company_profile.forward_ev_sales);
+                                        val = impliedPs || (globalData.company_profile && (globalData.company_profile.fwd_ps || globalData.company_profile.forward_ev_sales));
                                     }
                                     else if (k === 'PB') {
                                         val = (globalData.company_profile && globalData.company_profile.price_to_book);
