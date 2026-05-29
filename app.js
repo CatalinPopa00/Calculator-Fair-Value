@@ -2458,14 +2458,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
             let selectedMult = 20; 
             if (multVal === 'system') {
-                selectedMult = Math.min(Math.max(usedGrowth * 100, 15), 25);
+                let gRate = usedGrowth * 100;
+                if (gRate >= 50) {
+                    selectedMult = 40;
+                } else if (gRate >= 20) {
+                    selectedMult = 25 + ((gRate - 20) / 30) * 15;
+                } else {
+                    selectedMult = Math.max(gRate, 15);
+                }
             } else if (multVal === 'historical') {
                 selectedMult = pl.historic_pe || 20;
             } else if (multVal === 'custom') {
                 selectedMult = parseFloat(document.getElementById('lynch-custom-mult').value) || 18;
             } else {
                 // Fallback just in case
-                selectedMult = Math.min(Math.max(usedGrowth * 100, 15), 25);
+                let gRate = usedGrowth * 100;
+                if (gRate >= 50) {
+                    selectedMult = 40;
+                } else if (gRate >= 20) {
+                    selectedMult = 25 + ((gRate - 20) / 30) * 15;
+                } else {
+                    selectedMult = Math.max(gRate, 15);
+                }
             }
 
             if (_currentScenario === 'bear') selectedMult -= 3;
