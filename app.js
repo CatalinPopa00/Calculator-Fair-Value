@@ -653,7 +653,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 // For live simulation, recalculate simulated P/E based on forward or trailing
                 let simulatedPE = scoringPE;
                 let simulatedFwdPE = 0;
-                if (fwd_pe > 0 && prof.adjusted_eps > 0) {
+                if (prof.fwd_eps > 0) {
+                    simulatedFwdPE = simPrice / prof.fwd_eps;
+                } else if (fwd_pe > 0 && prof.adjusted_eps > 0) {
                     // if they had forward PE, simulate it using the same implied forward EPS
                     const implied_fwd_eps = _realApiPrice / fwd_pe;
                     simulatedFwdPE = simPrice / implied_fwd_eps;
