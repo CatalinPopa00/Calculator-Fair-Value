@@ -3021,7 +3021,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (el) el.value = 'analyst';
         });
         const fcfSourceEl = document.getElementById('fcf-source');
-        if (fcfSourceEl) fcfSourceEl.value = 'custom';
+        if (fcfSourceEl) fcfSourceEl.value = 'revenue';
         const fcfMarginEl = document.getElementById('dcf-custom-fcf-margin');
         if (fcfMarginEl) fcfMarginEl.value = '';
         const fcfMarginGrowthEl = document.getElementById('dcf-custom-margin-growth');
