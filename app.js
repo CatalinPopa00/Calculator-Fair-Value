@@ -423,7 +423,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentPiotroskiBreakdown = null;
     let chartRevFcf = null;
     let chartEpsShares = null;
-    let globalData = null; 
+    let globalData = null;
+    let _currentScenario = 'base'; 
     let _realApiPrice = null; // v299: Immutable anchor for Fair Value stability
     let _originalPrice = null; // Stores the restore point for simulation reset
     let _simulating = false;
@@ -2047,13 +2048,29 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (fcfSource === 'revenue') {
                         const getRevG = () => {
                             const rList = globalData.rev_estimates || [];
-                            const ests = rList.filter(e => e && e.status !== 'reported' && e.growth != null);
+                            const ests = rList.filter(e => e && e.status !== 'reported');
+                            let g1 = NaN, g2 = NaN;
+                            
                             if (ests.length >= 2) {
-                                const g1 = parseLocaleFloat(ests[0].growth);
-                                const g2 = parseLocaleFloat(ests[1].growth);
+                                if (_currentScenario === 'bear' && ests[0].low != null && ests[0].yearAgo != null && ests[1].low != null) {
+                                    g1 = (ests[0].low - ests[0].yearAgo) / Math.abs(ests[0].yearAgo);
+                                    g2 = (ests[1].low - ests[0].low) / Math.abs(ests[0].low);
+                                } else if (_currentScenario === 'bull' && ests[0].high != null && ests[0].yearAgo != null && ests[1].high != null) {
+                                    g1 = (ests[0].high - ests[0].yearAgo) / Math.abs(ests[0].yearAgo);
+                                    g2 = (ests[1].high - ests[0].high) / Math.abs(ests[0].high);
+                                } else {
+                                    g1 = parseLocaleFloat(ests[0].growth);
+                                    g2 = parseLocaleFloat(ests[1].growth);
+                                }
                                 if (!isNaN(g1) && !isNaN(g2)) return (g1 + g2) / 2.0;
                             } else if (ests.length === 1) {
-                                const g1 = parseLocaleFloat(ests[0].growth);
+                                if (_currentScenario === 'bear' && ests[0].low != null && ests[0].yearAgo != null) {
+                                    g1 = (ests[0].low - ests[0].yearAgo) / Math.abs(ests[0].yearAgo);
+                                } else if (_currentScenario === 'bull' && ests[0].high != null && ests[0].yearAgo != null) {
+                                    g1 = (ests[0].high - ests[0].yearAgo) / Math.abs(ests[0].yearAgo);
+                                } else {
+                                    g1 = parseLocaleFloat(ests[0].growth);
+                                }
                                 if (!isNaN(g1)) return g1;
                             }
                             if (prof && prof.revenue_growth != null) return prof.revenue_growth;
@@ -2189,7 +2206,27 @@ document.addEventListener('DOMContentLoaded', () => {
             if (pegInputs) pegInputs.style.display = pegSrc === 'custom' ? 'grid' : 'none';
 
             usedGrowth = currentFormulaData.peg.eps_growth_estimated || 0;
-            if (pegSrc === '5ycagr') {
+            if (pegSrc === 'analyst') {
+                const eList = globalData.eps_estimates || [];
+                const ests = eList.filter(e => e && e.status !== 'reported');
+                if (_currentScenario === 'bear') {
+                    if (ests.length >= 2 && ests[0].low != null && ests[0].yearAgo != null && ests[1].low != null) {
+                        const g1 = (ests[0].low - ests[0].yearAgo) / Math.abs(ests[0].yearAgo);
+                        const g2 = (ests[1].low - ests[0].low) / Math.abs(ests[0].low);
+                        usedGrowth = (g1 + g2) / 2.0;
+                    } else if (ests.length === 1 && ests[0].low != null && ests[0].yearAgo != null) {
+                        usedGrowth = (ests[0].low - ests[0].yearAgo) / Math.abs(ests[0].yearAgo);
+                    }
+                } else if (_currentScenario === 'bull') {
+                    if (ests.length >= 2 && ests[0].high != null && ests[0].yearAgo != null && ests[1].high != null) {
+                        const g1 = (ests[0].high - ests[0].yearAgo) / Math.abs(ests[0].yearAgo);
+                        const g2 = (ests[1].high - ests[0].high) / Math.abs(ests[0].high);
+                        usedGrowth = (g1 + g2) / 2.0;
+                    } else if (ests.length === 1 && ests[0].high != null && ests[0].yearAgo != null) {
+                        usedGrowth = (ests[0].high - ests[0].yearAgo) / Math.abs(ests[0].yearAgo);
+                    }
+                }
+            } else if (pegSrc === '5ycagr') {
                 usedGrowth = currentFormulaData.peg.eps_growth_5y_cagr || usedGrowth;
             } else if (pegSrc === 'custom') {
                 const rawG = document.getElementById('peg-custom-growth').value;
@@ -2385,6 +2422,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 selectedMult = parseFloat(document.getElementById('lynch-custom-mult').value) || 18;
             }
 
+            if (_currentScenario === 'bear') selectedMult -= 3;
+            else if (_currentScenario === 'bull') selectedMult += 3;
+
             if (targetEps != null && targetEps > 0) {
                 // v46: Simple Future Project (no discounting per user preference)
                 lynchVal = targetEps * selectedMult;
@@ -2440,17 +2480,44 @@ document.addEventListener('DOMContentLoaded', () => {
             const earnGrowth = prof.earnings_growth || 0;
             const fcfGrowth = prof.historic_fcf_growth || 0;
 
-            const company_eps = (rel.company_fwd_eps || 0) > 0 ? rel.company_fwd_eps : (rel.company_eps || 0);
-            const company_fcf_share = (rel.company_fcf_share || 0);
-            
+            const company_shares = (globalData.company_profile && globalData.company_profile.shares_outstanding) || 1;
+            let company_eps = (rel.company_fwd_eps || 0) > 0 ? rel.company_fwd_eps : (rel.company_eps || 0);
             const explicit_fwd_ps = globalData.company_profile && globalData.company_profile.fwd_ps;
-            const company_sales_share = explicit_fwd_ps > 0 ? (_realApiPrice / explicit_fwd_ps) : (rel.company_sales_share || 0);
+            let company_sales_share = explicit_fwd_ps > 0 ? (_realApiPrice / explicit_fwd_ps) : (rel.company_sales_share || 0);
             
+            if (_currentScenario === 'bear' || _currentScenario === 'bull') {
+                const eList = globalData.eps_estimates || [];
+                const eEsts = eList.filter(e => e && e.status !== 'reported');
+                if (eEsts.length >= 2) {
+                    const y1 = _currentScenario === 'bear' ? eEsts[0].low : eEsts[0].high;
+                    const y2 = _currentScenario === 'bear' ? eEsts[1].low : eEsts[1].high;
+                    if (y1 != null && y2 != null) company_eps = (y1 + y2) / 2.0;
+                    else if (y1 != null) company_eps = y1;
+                } else if (eEsts.length === 1) {
+                    const y1 = _currentScenario === 'bear' ? eEsts[0].low : eEsts[0].high;
+                    if (y1 != null) company_eps = y1;
+                }
+                
+                const rList = globalData.rev_estimates || [];
+                const rEsts = rList.filter(e => e && e.status !== 'reported');
+                let avgRev = null;
+                if (rEsts.length >= 2) {
+                    const r1 = _currentScenario === 'bear' ? rEsts[0].low : rEsts[0].high;
+                    const r2 = _currentScenario === 'bear' ? rEsts[1].low : rEsts[1].high;
+                    if (r1 != null && r2 != null) avgRev = (r1 + r2) / 2.0;
+                    else if (r1 != null) avgRev = r1;
+                } else if (rEsts.length === 1) {
+                    const r1 = _currentScenario === 'bear' ? rEsts[0].low : rEsts[0].high;
+                    if (r1 != null) avgRev = r1;
+                }
+                if (avgRev != null && company_shares > 0) company_sales_share = avgRev / company_shares;
+            }
+
+            const company_fcf_share = (rel.company_fcf_share || 0);
             const company_book_share = rel.company_book_share || 0; // Book value remains TTM
             const company_ebitda = (globalData.ebitda || 0);
             const company_debt = globalData.total_debt || 0;
             const company_cash = globalData.total_cash || 0;
-            const company_shares = (globalData.company_profile && globalData.company_profile.shares_outstanding) || 1;
 
             const variantEl = document.getElementById('relative-variant');
             const variant = variantEl ? variantEl.value : 'peers';
@@ -4797,6 +4864,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // Event Listeners
     searchBtn.addEventListener('click', analyzeTicker);
     tickerInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') analyzeTicker(); });
+    
+    // Scenario Toggles
+    const scenarioBtns = document.querySelectorAll('.scenario-btn');
+    scenarioBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            scenarioBtns.forEach(b => b.classList.remove('active'));
+            e.currentTarget.classList.add('active');
+            const scenario = e.currentTarget.dataset.scenario || 'base';
+            _currentScenario = scenario;
+            if (globalData) {
+                if (window.triggerRecalculate) window.triggerRecalculate();
+            }
+        });
+    });
     
     logoBtn.addEventListener('click', () => {
         document.body.classList.remove('has-searched');

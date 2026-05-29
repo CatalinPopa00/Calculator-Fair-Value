@@ -71,17 +71,59 @@ def get_yahoo_analysis_normalized(ticker, info=None):
                         if is_rev:
                             if val0: 
                                 res['rev']['0y'] = {'avg': parse_n(val0)}
-                                log(f"DEBUG: Scraper Pass 1 (HTML) Rev 0y: {res['rev']['0y']['avg']}")
                             if val1: 
                                 res['rev']['+1y'] = {'avg': parse_n(val1)}
-                                log(f"DEBUG: Scraper Pass 1 (HTML) Rev +1y: {res['rev']['+1y']['avg']}")
                         else:
                             if val0: 
                                 res['eps']['0y'] = {'avg': parse_n(val0)}
-                                log(f"DEBUG: Scraper Pass 1 (HTML) EPS 0y: {res['eps']['0y']['avg']}")
                             if val1: 
                                 res['eps']['+1y'] = {'avg': parse_n(val1)}
-                                log(f"DEBUG: Scraper Pass 1 (HTML) EPS +1y: {res['eps']['+1y']['avg']}")
+                                
+                    elif 'Low Estimate' in clean_row:
+                        m0 = re.search(r'data-testid-cell="0y".*?>\s*([^<]+)', row)
+                        m1 = re.search(r'data-testid-cell="\+1y".*?>\s*([^<]+)', row)
+                        val0 = m0.group(1).strip() if m0 else None
+                        val1 = m1.group(1).strip() if m1 else None
+                        
+                        is_rev = (val0 and ('B' in val0 or 'M' in val0)) or (val1 and ('B' in val1 or 'M' in val1))
+                        
+                        if is_rev:
+                            if val0:
+                                if '0y' not in res['rev']: res['rev']['0y'] = {}
+                                res['rev']['0y']['low'] = parse_n(val0)
+                            if val1:
+                                if '+1y' not in res['rev']: res['rev']['+1y'] = {}
+                                res['rev']['+1y']['low'] = parse_n(val1)
+                        else:
+                            if val0:
+                                if '0y' not in res['eps']: res['eps']['0y'] = {}
+                                res['eps']['0y']['low'] = parse_n(val0)
+                            if val1:
+                                if '+1y' not in res['eps']: res['eps']['+1y'] = {}
+                                res['eps']['+1y']['low'] = parse_n(val1)
+                                
+                    elif 'High Estimate' in clean_row:
+                        m0 = re.search(r'data-testid-cell="0y".*?>\s*([^<]+)', row)
+                        m1 = re.search(r'data-testid-cell="\+1y".*?>\s*([^<]+)', row)
+                        val0 = m0.group(1).strip() if m0 else None
+                        val1 = m1.group(1).strip() if m1 else None
+                        
+                        is_rev = (val0 and ('B' in val0 or 'M' in val0)) or (val1 and ('B' in val1 or 'M' in val1))
+                        
+                        if is_rev:
+                            if val0:
+                                if '0y' not in res['rev']: res['rev']['0y'] = {}
+                                res['rev']['0y']['high'] = parse_n(val0)
+                            if val1:
+                                if '+1y' not in res['rev']: res['rev']['+1y'] = {}
+                                res['rev']['+1y']['high'] = parse_n(val1)
+                        else:
+                            if val0:
+                                if '0y' not in res['eps']: res['eps']['0y'] = {}
+                                res['eps']['0y']['high'] = parse_n(val0)
+                            if val1:
+                                if '+1y' not in res['eps']: res['eps']['+1y'] = {}
+                                res['eps']['+1y']['high'] = parse_n(val1)
                             
                     elif 'Year Ago EPS' in clean_row:
                         m_ya = re.search(r'data-testid-cell="0y".*?>\s*([^<]+)', row)
@@ -119,6 +161,8 @@ def get_yahoo_analysis_normalized(ticker, info=None):
                         # v284: Non-nesting regex to prevent crossing object boundaries (Fix for ABNB crossover)
                         eps_avg_m = re.search(r'earningsEstimate(?:\"|\\"):\{[^{}]*?avg(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
                         eps_ya_m = re.search(r'yearAgoEps(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
+                        eps_low_m = re.search(r'earningsEstimate(?:\"|\\"):\{[^{}]*?low(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
+                        eps_high_m = re.search(r'earningsEstimate(?:\"|\\"):\{[^{}]*?high(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
                         
                         if eps_avg_m:
                             val = float(eps_avg_m.group(1))
@@ -126,6 +170,18 @@ def get_yahoo_analysis_normalized(ticker, info=None):
                             if is_nongaap or 'avg' not in res['eps'][p]:
                                 res['eps'][p]['avg'] = val
                                 log(f"DEBUG: Scraper Pass 2 (JSON) EPS {p}: {val} (nongaap={is_nongaap})")
+                                
+                        if eps_low_m:
+                            val = float(eps_low_m.group(1))
+                            if p not in res['eps']: res['eps'][p] = {}
+                            if is_nongaap or 'low' not in res['eps'][p]:
+                                res['eps'][p]['low'] = val
+                                
+                        if eps_high_m:
+                            val = float(eps_high_m.group(1))
+                            if p not in res['eps']: res['eps'][p] = {}
+                            if is_nongaap or 'high' not in res['eps'][p]:
+                                res['eps'][p]['high'] = val
                         
                         if eps_ya_m:
                             val = float(eps_ya_m.group(1))
@@ -136,13 +192,25 @@ def get_yahoo_analysis_normalized(ticker, info=None):
                         # Revenue extraction (Only if trend_key is revenueTrend)
                         rev_avg_m = re.search(r'revenueEstimate(?:\"|\\"):\{[^{}]*?avg(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
                         rev_ya_m = re.search(r'yearAgoSales(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
+                        rev_low_m = re.search(r'revenueEstimate(?:\"|\\"):\{[^{}]*?low(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
+                        rev_high_m = re.search(r'revenueEstimate(?:\"|\\"):\{[^{}]*?high(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
                         
                         if rev_avg_m:
                             val = float(rev_avg_m.group(1))
                             if p not in res['rev']: res['rev'][p] = {}
                             if 'avg' not in res['rev'][p]:
                                 res['rev'][p]['avg'] = val
-                                log(f"DEBUG: Scraper Pass 2 (JSON) Rev {p}: {val}")
+                        
+                        if rev_low_m:
+                            val = float(rev_low_m.group(1))
+                            if p not in res['rev']: res['rev'][p] = {}
+                            if 'low' not in res['rev'][p]: res['rev'][p]['low'] = val
+                            
+                        if rev_high_m:
+                            val = float(rev_high_m.group(1))
+                            if p not in res['rev']: res['rev'][p] = {}
+                            if 'high' not in res['rev'][p]: res['rev'][p]['high'] = val
+                            
                         if rev_ya_m:
                             val = float(rev_ya_m.group(1))
                             if p not in res['rev']: res['rev'][p] = {}
@@ -3700,14 +3768,32 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         # FY 1 Data (Current Year Avg Estimate)
         fy1_eps_raw = analysis_data.get('eps', {}).get('0y', {}).get('avg')
         fy1_eps = fy1_eps_raw * fx_rate if fy1_eps_raw else None
+        fy1_eps_low_raw = analysis_data.get('eps', {}).get('0y', {}).get('low')
+        fy1_eps_low = fy1_eps_low_raw * fx_rate if fy1_eps_low_raw else None
+        fy1_eps_high_raw = analysis_data.get('eps', {}).get('0y', {}).get('high')
+        fy1_eps_high = fy1_eps_high_raw * fx_rate if fy1_eps_high_raw else None
+        
         fy1_rev_raw = analysis_data.get('rev', {}).get('0y', {}).get('avg')
         fy1_rev = fy1_rev_raw * fx_rate if fy1_rev_raw else None
+        fy1_rev_low_raw = analysis_data.get('rev', {}).get('0y', {}).get('low')
+        fy1_rev_low = fy1_rev_low_raw * fx_rate if fy1_rev_low_raw else None
+        fy1_rev_high_raw = analysis_data.get('rev', {}).get('0y', {}).get('high')
+        fy1_rev_high = fy1_rev_high_raw * fx_rate if fy1_rev_high_raw else None
         
         # FY 2 Data (Next Year Avg Estimate)
         fy2_eps_raw = analysis_data.get('eps', {}).get('+1y', {}).get('avg')
         fy2_eps = fy2_eps_raw * fx_rate if fy2_eps_raw else None
+        fy2_eps_low_raw = analysis_data.get('eps', {}).get('+1y', {}).get('low')
+        fy2_eps_low = fy2_eps_low_raw * fx_rate if fy2_eps_low_raw else None
+        fy2_eps_high_raw = analysis_data.get('eps', {}).get('+1y', {}).get('high')
+        fy2_eps_high = fy2_eps_high_raw * fx_rate if fy2_eps_high_raw else None
+        
         fy2_rev_raw = analysis_data.get('rev', {}).get('+1y', {}).get('avg')
         fy2_rev = fy2_rev_raw * fx_rate if fy2_rev_raw else None
+        fy2_rev_low_raw = analysis_data.get('rev', {}).get('+1y', {}).get('low')
+        fy2_rev_low = fy2_rev_low_raw * fx_rate if fy2_rev_low_raw else None
+        fy2_rev_high_raw = analysis_data.get('rev', {}).get('+1y', {}).get('high')
+        fy2_rev_high = fy2_rev_high_raw * fx_rate if fy2_rev_high_raw else None
         
         # Nasdaq Data Fetch & Map
         nasdaq_rows = get_nasdaq_earnings_forecast(ticker_symbol)
@@ -3724,8 +3810,8 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         unified_rev = []
         
         # 1. FY 0 (Reported Anchor)
-        unified_eps.append({"period": f"FY {fy0_yr}", "avg": fy0_eps, "growth": None, "status": "reported", "num_estimates": None})
-        unified_rev.append({"period": f"FY {fy0_yr}", "avg": fy0_rev, "growth": None, "status": "reported"})
+        unified_eps.append({"period": f"FY {fy0_yr}", "avg": fy0_eps, "low": None, "high": None, "yearAgo": None, "growth": None, "status": "reported", "num_estimates": None})
+        unified_rev.append({"period": f"FY {fy0_yr}", "avg": fy0_rev, "low": None, "high": None, "yearAgo": None, "growth": None, "status": "reported"})
         
         # 2. FY 1 (Current Year Forecast)
         fy1_n = nasdaq_map.get(fy1_yr)
@@ -3735,10 +3821,10 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             fy1_num_est = fy1_n.get('noOfEstimates')
 
         g1 = normalize_growth(((fy1_eps - fy0_eps) / abs(fy0_eps)) if fy0_eps and fy0_eps != 0 and fy1_eps is not None else None)
-        unified_eps.append({"period": f"FY {fy1_yr}", "avg": fy1_eps, "growth": g1, "status": "estimate", "num_estimates": fy1_num_est})
+        unified_eps.append({"period": f"FY {fy1_yr}", "avg": fy1_eps, "low": fy1_eps_low, "high": fy1_eps_high, "yearAgo": fy0_eps, "growth": g1, "status": "estimate", "num_estimates": fy1_num_est})
         
         g1r = normalize_growth(((fy1_rev - fy0_rev) / abs(fy0_rev)) if fy0_rev and fy0_rev != 0 and fy1_rev is not None else None)
-        unified_rev.append({"period": f"FY {fy1_yr}", "avg": fy1_rev, "growth": g1r, "status": "estimate"})
+        unified_rev.append({"period": f"FY {fy1_yr}", "avg": fy1_rev, "low": fy1_rev_low, "high": fy1_rev_high, "yearAgo": fy0_rev, "growth": g1r, "status": "estimate"})
         
         # 3. FY 2 (Next Year Forecast)
         fy2_n = nasdaq_map.get(fy2_yr)
@@ -3748,10 +3834,10 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             fy2_num_est = fy2_n.get('noOfEstimates')
 
         g2 = normalize_growth(((fy2_eps - fy1_eps) / abs(fy1_eps)) if fy1_eps and fy1_eps != 0 and fy2_eps is not None else None)
-        unified_eps.append({"period": f"FY {fy2_yr}", "avg": fy2_eps, "growth": g2, "status": "estimate", "num_estimates": fy2_num_est})
+        unified_eps.append({"period": f"FY {fy2_yr}", "avg": fy2_eps, "low": fy2_eps_low, "high": fy2_eps_high, "yearAgo": fy1_eps, "growth": g2, "status": "estimate", "num_estimates": fy2_num_est})
         
         g2r = normalize_growth(((fy2_rev - fy1_rev) / abs(fy1_rev)) if fy1_rev and fy1_rev != 0 and fy2_rev is not None else None)
-        unified_rev.append({"period": f"FY {fy2_yr}", "avg": fy2_rev, "growth": g2r, "status": "estimate"})
+        unified_rev.append({"period": f"FY {fy2_yr}", "avg": fy2_rev, "low": fy2_rev_low, "high": fy2_rev_high, "yearAgo": fy1_rev, "growth": g2r, "status": "estimate"})
 
         # FY 3 block removed to stick only to 2 years (FY1, FY2) from Yahoo Finance.
 

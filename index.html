@@ -107,6 +107,13 @@
 
                         <div class="fair-value-box glass-card accent-card" style="height: 100%;">
                             <span class="label">Estimated Fair Value</span>
+                            
+                            <div class="scenario-toggles" style="display: flex; justify-content: center; gap: 8px; margin: 10px 0;">
+                                <button class="scenario-btn bear-btn" data-scenario="bear">Bear</button>
+                                <button class="scenario-btn base-btn active" data-scenario="base">Base</button>
+                                <button class="scenario-btn bull-btn" data-scenario="bull">Bull</button>
+                            </div>
+
                             <!-- The ID is moved inside a span so we can color JUST the text or keep it neutral -->
                             <div class="value" style="color: white;" id="fair-value">$0.00</div>
                             <div class="margin-safety" id="margin-safety">0% Margin of Safety</div>

@@ -3723,3 +3723,42 @@ body {
 body.has-searched .floating-login-btn {
     display: none;
 }
+
+/* SCENARIO TOGGLES */
+.scenario-toggles {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin: 10px 0;
+}
+.scenario-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: var(--text-muted);
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.scenario-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+}
+.scenario-btn.active.bear-btn {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: var(--danger);
+    color: var(--danger);
+}
+.scenario-btn.active.base-btn {
+    background: rgba(59, 130, 246, 0.2);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+.scenario-btn.active.bull-btn {
+    background: rgba(16, 185, 129, 0.2);
+    border-color: var(--success);
+    color: var(--success);
+}
+
