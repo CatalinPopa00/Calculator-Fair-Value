@@ -2060,9 +2060,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             return 0.08;
                         };
                         const g13 = Math.round(getRevG() * 1000) / 1000;
-                        const g46 = g13 - 0.02;
-                        const g78 = g46 - 0.02;
-                        const g910 = g78 - 0.02;
+                        const g46 = g13 * 0.75;
+                        const g78 = g13 * 0.50;
+                        const g910 = g13 * 0.25;
                         g = [];
                         for (let y = 1; y <= 10; y++) {
                             if (y <= 3) g.push(g13);
@@ -2080,9 +2080,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 else if (fcfSource === 'historical') {
                     const hg13 = Math.round((prof.historic_fcf_growth != null ? prof.historic_fcf_growth : 0.05) * 1000) / 1000;
-                    const hg46 = hg13 - 0.02;
-                    const hg78 = hg46 - 0.02;
-                    const hg910 = hg78 - 0.02;
+                    const hg46 = hg13 * 0.75;
+                    const hg78 = hg13 * 0.50;
+                    const hg910 = hg13 * 0.25;
                     const hgArray = [];
                     for (let y = 1; y <= 10; y++) {
                         if (y <= 3) hgArray.push(hg13);
@@ -2710,11 +2710,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 const val = parseLocaleFloat(g13.value);
                 if (isNaN(val) || window._isApplyingOverrides) return;
 
-                const pairs = [[g46, 2], [g78, 4], [g910, 6]];
-                pairs.forEach(([target, diff]) => {
+                const pairs = [[g46, 0.75], [g78, 0.50], [g910, 0.25]];
+                pairs.forEach(([target, mult]) => {
                     if (!target) return;
                     if (target.value === '' || target.dataset.isDefault === 'true') {
-                        target.value = formatCleanInputVal(val - diff);
+                        target.value = formatCleanInputVal(val * mult);
                         target.dataset.isDefault = 'true';
                         target.dispatchEvent(new Event('input', { bubbles: true }));
                     }
