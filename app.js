@@ -1332,7 +1332,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Get dynamic fwd eps based on scenario from eps_estimates (FY 1)
             const eList = globalData.eps_estimates || [];
-            const eEsts = eList.filter(e => e && e.status !== 'reported');
+            const eEsts = eList.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
             if (eEsts.length >= 2) {
                 if (window._currentScenario === 'bear') dynFwdEps = (eEsts[0].low + eEsts[1].low) / 2.0;
                 else if (window._currentScenario === 'bull') dynFwdEps = (eEsts[0].high + eEsts[1].high) / 2.0;
@@ -1984,60 +1984,76 @@ document.addEventListener('DOMContentLoaded', () => {
     const updateFairValue = () => {
         const getDynamicEpsGrowth = () => {
             const eList = globalData.eps_estimates || [];
-            const ests = eList.filter(e => e && e.status !== 'reported');
-            let growths = [];
-            for (let i = 0; i < ests.length; i++) {
-                let g = NaN;
+            const annualEsts = eList.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
+            
+            if (annualEsts.length >= 2) {
+                const fy1 = annualEsts[0];
+                const fy2 = annualEsts[1];
+                let g1 = NaN, g2 = NaN;
+                const base1 = fy1.yearAgoEps != null ? fy1.yearAgoEps : fy1.yearAgo;
+                
                 if (_currentScenario === 'bear') {
-                    if (ests[i].low != null && ests[i].yearAgoRevenue != null) {
-                        g = (ests[i].low - ests[i].yearAgoRevenue) / Math.abs(ests[i].yearAgoRevenue);
-                    } else if (ests[i].low != null && ests[i].yearAgo != null) {
-                        g = (ests[i].low - ests[i].yearAgo) / Math.abs(ests[i].yearAgo);
-                    }
+                    if (fy1.low != null && base1 != null) g1 = (fy1.low - base1) / Math.abs(base1);
+                    if (fy2.low != null && fy1.low != null) g2 = (fy2.low - fy1.low) / Math.abs(fy1.low);
                 } else if (_currentScenario === 'bull') {
-                    if (ests[i].high != null && ests[i].yearAgoRevenue != null) {
-                        g = (ests[i].high - ests[i].yearAgoRevenue) / Math.abs(ests[i].yearAgoRevenue);
-                    } else if (ests[i].high != null && ests[i].yearAgo != null) {
-                        g = (ests[i].high - ests[i].yearAgo) / Math.abs(ests[i].yearAgo);
-                    }
+                    if (fy1.high != null && base1 != null) g1 = (fy1.high - base1) / Math.abs(base1);
+                    if (fy2.high != null && fy1.high != null) g2 = (fy2.high - fy1.high) / Math.abs(fy1.high);
                 } else {
-                    g = parseFloat(ests[i].growth);
+                    g1 = parseFloat(fy1.growth);
+                    g2 = parseFloat(fy2.growth);
                 }
-                if (!isNaN(g)) growths.push(g);
-            }
-            if (growths.length > 0) {
-                const sum = growths.reduce((a, b) => a + b, 0);
-                return sum / growths.length;
+                if (!isNaN(g1) && !isNaN(g2)) return (g1 + g2) / 2.0;
+                if (!isNaN(g1)) return g1;
+            } else if (annualEsts.length === 1) {
+                const fy1 = annualEsts[0];
+                let g = NaN;
+                const base1 = fy1.yearAgoEps != null ? fy1.yearAgoEps : fy1.yearAgo;
+                if (_currentScenario === 'bear') {
+                    if (fy1.low != null && base1 != null) g = (fy1.low - base1) / Math.abs(base1);
+                } else if (_currentScenario === 'bull') {
+                    if (fy1.high != null && base1 != null) g = (fy1.high - base1) / Math.abs(base1);
+                } else {
+                    g = parseFloat(fy1.growth);
+                }
+                if (!isNaN(g)) return g;
             }
             return currentFormulaData?.peg?.eps_growth_estimated || globalData?.company_profile?.earnings_growth || 0.05;
         };
         
         const getDynamicRevGrowth = () => {
             const rList = globalData.rev_estimates || [];
-            const ests = rList.filter(e => e && e.status !== 'reported');
-            let growths = [];
-            for (let i = 0; i < ests.length; i++) {
-                let g = NaN;
+            const annualEsts = rList.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
+            
+            if (annualEsts.length >= 2) {
+                const fy1 = annualEsts[0];
+                const fy2 = annualEsts[1];
+                let g1 = NaN, g2 = NaN;
+                const base1 = fy1.yearAgoRevenue != null ? fy1.yearAgoRevenue : fy1.yearAgo;
+                
                 if (_currentScenario === 'bear') {
-                    if (ests[i].low != null && ests[i].yearAgoRevenue != null) {
-                        g = (ests[i].low - ests[i].yearAgoRevenue) / Math.abs(ests[i].yearAgoRevenue);
-                    } else if (ests[i].low != null && ests[i].yearAgo != null) {
-                        g = (ests[i].low - ests[i].yearAgo) / Math.abs(ests[i].yearAgo);
-                    }
+                    if (fy1.low != null && base1 != null) g1 = (fy1.low - base1) / Math.abs(base1);
+                    if (fy2.low != null && fy1.low != null) g2 = (fy2.low - fy1.low) / Math.abs(fy1.low);
                 } else if (_currentScenario === 'bull') {
-                    if (ests[i].high != null && ests[i].yearAgoRevenue != null) {
-                        g = (ests[i].high - ests[i].yearAgoRevenue) / Math.abs(ests[i].yearAgoRevenue);
-                    } else if (ests[i].high != null && ests[i].yearAgo != null) {
-                        g = (ests[i].high - ests[i].yearAgo) / Math.abs(ests[i].yearAgo);
-                    }
+                    if (fy1.high != null && base1 != null) g1 = (fy1.high - base1) / Math.abs(base1);
+                    if (fy2.high != null && fy1.high != null) g2 = (fy2.high - fy1.high) / Math.abs(fy1.high);
                 } else {
-                    g = parseFloat(ests[i].growth);
+                    g1 = parseFloat(fy1.growth);
+                    g2 = parseFloat(fy2.growth);
                 }
-                if (!isNaN(g)) growths.push(g);
-            }
-            if (growths.length > 0) {
-                const sum = growths.reduce((a, b) => a + b, 0);
-                return sum / growths.length;
+                if (!isNaN(g1) && !isNaN(g2)) return (g1 + g2) / 2.0;
+                if (!isNaN(g1)) return g1;
+            } else if (annualEsts.length === 1) {
+                const fy1 = annualEsts[0];
+                let g = NaN;
+                const base1 = fy1.yearAgoRevenue != null ? fy1.yearAgoRevenue : fy1.yearAgo;
+                if (_currentScenario === 'bear') {
+                    if (fy1.low != null && base1 != null) g = (fy1.low - base1) / Math.abs(base1);
+                } else if (_currentScenario === 'bull') {
+                    if (fy1.high != null && base1 != null) g = (fy1.high - base1) / Math.abs(base1);
+                } else {
+                    g = parseFloat(fy1.growth);
+                }
+                if (!isNaN(g)) return g;
             }
             return globalData?.company_profile?.revenue_growth || 0.08;
         };
@@ -2281,7 +2297,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             let eps = globalData.company_profile.adjusted_eps || globalData.company_profile.trailing_eps || 0;
-            const pegEsts = globalData.eps_estimates?.filter(e => e && e.status !== 'reported');
+            const pegEsts = globalData.eps_estimates?.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
             if (pegEsts && pegEsts.length >= 2) {
                 if (_currentScenario === 'bear') {
                     eps = (pegEsts[0].low + pegEsts[1].low) / 2.0;
@@ -2551,7 +2567,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const explicit_fwd_ps = globalData.company_profile && globalData.company_profile.fwd_ps;
             let company_sales_share = explicit_fwd_ps > 0 ? (_realApiPrice / explicit_fwd_ps) : (rel.company_sales_share || 0);
             
-            const eEsts = globalData.eps_estimates?.filter(e => e && e.status !== 'reported');
+            const eEsts = globalData.eps_estimates?.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
             if (eEsts && eEsts.length >= 2) {
                 if (_currentScenario === 'bear') {
                     company_eps = (eEsts[0].low + eEsts[1].low) / 2.0;
@@ -2562,7 +2578,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             
-            const rEsts = globalData.rev_estimates?.filter(e => e && e.status !== 'reported');
+            const rEsts = globalData.rev_estimates?.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
             if (rEsts && rEsts.length >= 2) {
                 let avgRev = null;
                 if (_currentScenario === 'bear') {
@@ -3759,7 +3775,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     let dynFwdRev = prof.forward_revenue;
                                     
                                     if (globalData.eps_estimates && globalData.eps_estimates.length >= 2) {
-                                        const eEsts = globalData.eps_estimates.filter(e => e && e.status !== 'reported');
+                                        const eEsts = globalData.eps_estimates.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
                                         if (eEsts.length >= 2) {
                                             if (_currentScenario === 'bear') dynFwdEps = (eEsts[0].low + eEsts[1].low) / 2.0;
                                             else if (_currentScenario === 'bull') dynFwdEps = (eEsts[0].high + eEsts[1].high) / 2.0;
@@ -3771,7 +3787,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                         }
                                     }
                                     if (globalData.rev_estimates && globalData.rev_estimates.length >= 2) {
-                                        const rEsts = globalData.rev_estimates.filter(e => e && e.status !== 'reported');
+                                        const rEsts = globalData.rev_estimates.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
                                         if (rEsts.length >= 2) {
                                             if (_currentScenario === 'bear') dynFwdRev = (rEsts[0].low + rEsts[1].low) / 2.0;
                                             else if (_currentScenario === 'bull') dynFwdRev = (rEsts[0].high + rEsts[1].high) / 2.0;
