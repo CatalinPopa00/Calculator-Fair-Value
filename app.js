@@ -2783,7 +2783,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const analyzeTicker = async (queryParam, forceRefresh = false, silent = false) => {
         const savedScrollY = window.scrollY;
         document.body.classList.add('has-searched');
-        if (_simulating) {
+        if (_simulating && !silent) {
             alert("Cannot search a new ticker while simulating. Resetting to real price first.");
             resetSimulation();
         }
@@ -2865,7 +2865,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Sync the global cache before rendering to ensure both mobile and desktop use same rules
             cachedOverrides = freshOverrides || {};
 
-            displayData(data);
+            displayData(data, silent);
 
         } catch (error) {
             console.error('Error fetching valuation:', error);
@@ -2890,7 +2890,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const formatCurrency = (val) => val != null ? `$${val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'null';
     const formatPercent = (val) => val != null ? `${val.toFixed(2)}%` : '0%';
 
-    const displayData = (data) => {
+    const displayData = (data, isSilentUpdate = false) => {
+        if (!data) return;
+        
+        // Preserve current simulator state locally before overriding globals
+        const wasSimulating = _simulating;
+        const currentSimInput = document.getElementById('simulate-price-input');
+        const currentSimPrice = currentSimInput && !isNaN(parseFloat(currentSimInput.value)) ? parseFloat(currentSimInput.value) : null; 
+        
         globalData = data; 
         currentFormulaData = data.formula_data;
         currentTicker = data.ticker;
@@ -2976,18 +2983,31 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.ticker.textContent = data.ticker;
         elements.currentPrice.textContent = formatCurrency(data.current_price);
 
-        // Reset Simulate Price mode on new ticker load
-        _simulating = false;
-        _realApiPrice = data.current_price;
-        _originalPrice = data.current_price;
-        const simInput = document.getElementById('simulate-price-input');
-        const simBtn = document.getElementById('simulate-price-btn');
-        const simLabel = document.getElementById('simulate-price-label');
-        if (simInput) simInput.style.display = 'none';
-        if (simBtn) { simBtn.classList.remove('active'); simBtn.title = 'Simulate a different price'; }
-        if (simLabel) simLabel.style.display = 'none';
-        elements.currentPrice.style.display = '';
-        initSimulatePrice();
+        // Reset Simulate Price mode ONLY if it's a completely new ticker search
+        if (!isSilentUpdate) {
+            _simulating = false;
+            _realApiPrice = data.current_price;
+            _originalPrice = data.current_price;
+            const simInput = document.getElementById('simulate-price-input');
+            const simBtn = document.getElementById('simulate-price-btn');
+            const simLabel = document.getElementById('simulate-price-label');
+            if (simInput) simInput.style.display = 'none';
+            if (simBtn) { simBtn.classList.remove('active'); simBtn.title = 'Simulate a different price'; }
+            if (simLabel) simLabel.style.display = 'none';
+            elements.currentPrice.style.display = '';
+            initSimulatePrice();
+        } else {
+            // It's a silent update (e.g. peers update).
+            // Update the underlying real prices, but DO NOT disable simulation!
+            _realApiPrice = data.current_price;
+            _originalPrice = data.current_price;
+            
+            // If we WERE simulating, re-apply the simulated price over the fresh data!
+            if (wasSimulating && currentSimPrice !== null) {
+                _simulating = true;
+                data.current_price = currentSimPrice;
+            }
+        }
 
         // RED FLAGS BANNER INJECTION
         const profileHeader = document.querySelector('.profile-header') || elements.currentPrice.parentElement;
@@ -5047,8 +5067,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             } else if (model === 'relative' && currentFormulaData.relative) {
                 const r = currentFormulaData.relative;
-                title.style.whiteSpace = 'normal';
-                title.style.fontSize = 'clamp(1rem, 4.5vw, 1.25rem)';
+                title.style.whiteSpace = 'nowrap';
+                title.style.overflow = 'hidden';
+                title.style.textOverflow = 'ellipsis';
+                title.style.fontSize = 'clamp(0.85rem, 3.5vw, 1.25rem)';
                 title.style.lineHeight = '1.3';
                 title.textContent = '📊 Relative Valuation — Triangulation';
 
