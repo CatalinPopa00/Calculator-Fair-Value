@@ -2552,10 +2552,41 @@ document.addEventListener('DOMContentLoaded', () => {
             rel.dynamic_company_eps = company_eps;
             rel.dynamic_company_sales_share = company_sales_share;
             
-
-            const dynEpsG = (globalData && globalData.computed_eps_growth != null) ? globalData.computed_eps_growth : (prof.earnings_growth || 0);
-            const dynRevG = (globalData && globalData.computed_dcf_growth != null) ? globalData.computed_dcf_growth : (prof.revenue_growth || 0);
+            // v307c: Compute scenario-aware growth inline (not from stale computed_eps_growth)
+            let dynEpsG = (prof.earnings_growth || 0);
+            if (eEsts && eEsts.length >= 2) {
+                // Growth = avg of FY1 growth and FY2 growth, scenario-aware
+                const reported = globalData.eps_estimates?.find(e => e && e.status === 'reported');
+                const baseEps = reported ? reported.avg : (rel.company_fwd_eps || rel.company_eps || 0);
+                if (baseEps > 0) {
+                    const fy1Val = _currentScenario === 'bear' ? eEsts[0].low : (_currentScenario === 'bull' ? eEsts[0].high : eEsts[0].avg);
+                    const fy2Val = _currentScenario === 'bear' ? eEsts[1].low : (_currentScenario === 'bull' ? eEsts[1].high : eEsts[1].avg);
+                    const g1 = (fy1Val / baseEps) - 1;
+                    const g2 = fy2Val > 0 && fy1Val > 0 ? (fy2Val / fy1Val) - 1 : g1;
+                    dynEpsG = (g1 + g2) / 2.0;
+                }
+            } else if (globalData && globalData.computed_eps_growth != null) {
+                dynEpsG = globalData.computed_eps_growth;
+            }
             
+            let dynRevG = (prof.revenue_growth || 0);
+            if (rEsts && rEsts.length >= 2) {
+                const reportedR = globalData.rev_estimates?.find(e => e && e.status === 'reported');
+                const baseRev = reportedR ? reportedR.avg : (globalData.revenue || 0);
+                if (baseRev > 0) {
+                    const rfy1 = _currentScenario === 'bear' ? rEsts[0].low : (_currentScenario === 'bull' ? rEsts[0].high : rEsts[0].avg);
+                    const rfy2 = _currentScenario === 'bear' ? rEsts[1].low : (_currentScenario === 'bull' ? rEsts[1].high : rEsts[1].avg);
+                    const rg1 = (rfy1 / baseRev) - 1;
+                    const rg2 = rfy2 > 0 && rfy1 > 0 ? (rfy2 / rfy1) - 1 : rg1;
+                    dynRevG = (rg1 + rg2) / 2.0;
+                }
+            } else if (globalData && globalData.computed_dcf_growth != null) {
+                dynRevG = globalData.computed_dcf_growth;
+            }
+            
+            // Store scenario-aware growth for showModal to use
+            rel.dynamic_eps_growth = dynEpsG;
+            rel.dynamic_rev_growth = dynRevG;
             const company_fcf_share = (rel.company_fcf_share || 0) * (1 + dynEpsG);
             const company_book_share = rel.company_book_share || 0; // Book value remains TTM
             const company_ebitda = (globalData.ebitda || 0) * (1 + dynEpsG);
@@ -5445,14 +5476,14 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <td style="padding:4px 2px; color:#28c76f; font-weight:700; white-space:nowrap;">${(globalData.ticker || 'TARGET').toUpperCase()}</td>
                                 ${activeKeys.map(k => {
                                     let val = null;
-                                    console.log(`[RelModal] Scenario=${_currentScenario} | dynamic_eps=${r.dynamic_company_eps} | dynamic_sales=${r.dynamic_company_sales_share} | computed_eps_g=${globalData.computed_eps_growth} | computed_dcf_g=${globalData.computed_dcf_growth}`);
+                                    console.log(`[RelModal] Scenario=${_currentScenario} | dynamic_eps=${r.dynamic_company_eps} | dynamic_sales=${r.dynamic_company_sales_share} | dyn_eps_g=${r.dynamic_eps_growth} | dyn_rev_g=${r.dynamic_rev_growth}`);
                                     const impliedPe = r.dynamic_company_eps > 0 ? (_realApiPrice / r.dynamic_company_eps) : (globalData.company_profile && (globalData.company_profile.fwd_pe || globalData.company_profile.forward_pe));
                                     
-                                    const dynEpsG = (globalData && globalData.computed_eps_growth != null) ? globalData.computed_eps_growth : (globalData.company_profile?.earnings_growth || 0);
+                                    const dynEpsG = r.dynamic_eps_growth != null ? r.dynamic_eps_growth : ((globalData && globalData.computed_eps_growth != null) ? globalData.computed_eps_growth : (globalData.company_profile?.earnings_growth || 0));
                                     const dynEbitda = (globalData.ebitda || 0) * (1 + dynEpsG);
                                     const impliedEvEbitda = dynEbitda > 0 ? ((globalData.company_profile?.market_cap || 0) + (globalData.total_debt || 0) - (globalData.total_cash || 0)) / dynEbitda : null;
                                     
-                                    const dynRevG = (globalData && globalData.computed_dcf_growth != null) ? globalData.computed_dcf_growth : (globalData.company_profile?.revenue_growth || 0);
+                                    const dynRevG = r.dynamic_rev_growth != null ? r.dynamic_rev_growth : ((globalData && globalData.computed_dcf_growth != null) ? globalData.computed_dcf_growth : (globalData.company_profile?.revenue_growth || 0));
                                     const rev = r.dynamic_company_sales_share ? r.dynamic_company_sales_share * (globalData.company_profile?.shares_outstanding || 1) : ((globalData.revenue || 0) * (1 + dynRevG));
                                     const impliedPs = rev > 0 ? ((globalData.company_profile?.market_cap || 0) + (globalData.total_debt || 0) - (globalData.total_cash || 0)) / rev : null;
                                     
@@ -5548,7 +5579,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const salesS = r.dynamic_company_sales_share != null ? r.dynamic_company_sales_share : (explicit_fwd_ps > 0 ? (_realApiPrice / explicit_fwd_ps) : (r.company_sales_share || 0));
                     
                     const bookS = r.company_book_share || 0;
-                    const dynEpsG = (globalData && globalData.computed_eps_growth != null) ? globalData.computed_eps_growth : (prof.earnings_growth || 0);
+                    const dynEpsG = r.dynamic_eps_growth != null ? r.dynamic_eps_growth : ((globalData && globalData.computed_eps_growth != null) ? globalData.computed_eps_growth : (prof.earnings_growth || 0));
                     const ebitda = (globalData.ebitda || 0) * (1 + dynEpsG);
                     
                     const debt = globalData.total_debt || 0;
@@ -5565,7 +5596,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (key === 'PS') {
                         let rev = salesS * shares;
                         if (!rev || rev === 0) {
-                            const dynRevG = (globalData && globalData.computed_dcf_growth != null) ? globalData.computed_dcf_growth : (prof.revenue_growth || 0);
+                            const dynRevG = r.dynamic_rev_growth != null ? r.dynamic_rev_growth : ((globalData && globalData.computed_dcf_growth != null) ? globalData.computed_dcf_growth : (prof.revenue_growth || 0));
                             rev = (globalData.revenue || 0) * (1 + dynRevG);
                         }
                         const ev = rev * bench;
