@@ -1983,33 +1983,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const updateFairValue = () => {
         const getDynamicEpsGrowth = () => {
-            const eItems = globalData.eps_estimates || [];
-            let growths = [];
-            let baseVal = null;
-            
-            eItems.forEach((item) => {
-                if (!item) return;
-                
-                let val = item.avg;
-                if (item.status !== 'reported') {
-                    if (_currentScenario === 'bear' && item.low != null) val = item.low;
-                    if (_currentScenario === 'bull' && item.high != null) val = item.high;
-                }
-                
-                if (val != null) {
-                    val = parseFloat(val);
-                    if (baseVal != null && baseVal !== 0 && item.status !== 'reported') {
-                        growths.push((val / baseVal) - 1);
-                    } else if (item.growth != null && item.status !== 'reported') {
-                        growths.push(parseFloat(item.growth));
-                    }
-                    baseVal = val;
-                }
-            });
-            
-            if (growths.length >= 2) return (growths[0] + growths[1]) / 2.0;
-            if (growths.length === 1) return growths[0];
-            
+            if (globalData && globalData.computed_eps_growth != null) {
+                return globalData.computed_eps_growth;
+            }
             const epsFallback = currentFormulaData?.peg?.eps_growth_estimated || globalData?.company_profile?.earnings_growth || 0.05;
             if (_currentScenario === 'bear') return epsFallback * 0.70;
             if (_currentScenario === 'bull') return epsFallback * 1.30;
@@ -2017,33 +1993,9 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         
         const getDynamicRevGrowth = () => {
-            const rItems = globalData.rev_estimates || [];
-            let growths = [];
-            let baseVal = null;
-            
-            rItems.forEach((item) => {
-                if (!item) return;
-                
-                let val = item.avg;
-                if (item.status !== 'reported') {
-                    if (_currentScenario === 'bear' && item.low != null) val = item.low;
-                    if (_currentScenario === 'bull' && item.high != null) val = item.high;
-                }
-                
-                if (val != null) {
-                    val = parseFloat(val);
-                    if (baseVal != null && baseVal !== 0 && item.status !== 'reported') {
-                        growths.push((val / baseVal) - 1);
-                    } else if (item.growth != null && item.status !== 'reported') {
-                        growths.push(parseFloat(item.growth));
-                    }
-                    baseVal = val;
-                }
-            });
-            
-            if (growths.length >= 2) return (growths[0] + growths[1]) / 2.0;
-            if (growths.length === 1) return growths[0];
-            
+            if (globalData && globalData.computed_dcf_growth != null) {
+                return globalData.computed_dcf_growth;
+            }
             const revFallback = globalData?.company_profile?.revenue_growth || 0.08;
             if (_currentScenario === 'bear') return revFallback * 0.70;
             if (_currentScenario === 'bull') return revFallback * 1.30;
@@ -3672,33 +3624,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // v290: Scenario-aware DCF Growth Logic
         window.getDcfGrowthDefault = (data) => {
             if (!data) return 10.0;
-            const rItems = data.rev_estimates || [];
-            let growths = [];
-            let baseVal = null;
-            
-            rItems.forEach((item) => {
-                if (!item) return;
-                
-                let val = item.avg;
-                if (item.status !== 'reported') {
-                    if (_currentScenario === 'bear' && item.low != null) val = item.low;
-                    if (_currentScenario === 'bull' && item.high != null) val = item.high;
-                }
-                
-                if (val != null) {
-                    val = parseFloat(val);
-                    if (baseVal != null && baseVal !== 0 && item.status !== 'reported') {
-                        growths.push((val / baseVal) - 1);
-                    } else if (item.growth != null && item.status !== 'reported') {
-                        growths.push(parseFloat(item.growth));
-                    }
-                    baseVal = val;
-                }
-            });
-            
-            if (growths.length >= 2) return Math.round(((growths[0] + growths[1]) / 2) * 1000) / 10;
-            if (growths.length === 1) return Math.round(growths[0] * 1000) / 10;
-            
+            if (data.computed_dcf_growth != null) {
+                return Math.round(data.computed_dcf_growth * 1000) / 10;
+            }
             if (data.company_profile && data.company_profile.revenue_growth != null) {
                 return Math.round(data.company_profile.revenue_growth * 1000) / 10;
             }
@@ -4630,6 +4558,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const eItems = data.eps_estimates || [];
             let prevEpsVal = null;
+            let epsGrowths = [];
+            
             eItems.forEach((item, idx) => {
                 if (!item) return;
                 const pLabel = item.period || '--';
@@ -4650,9 +4580,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (item.status === 'reported' && item.surprise_pct != null) {
                         gVal = (parseFloat(item.surprise_pct) * 100).toFixed(1) + '%';
                     } else if (scenarioVal != null && dynamicBase != null && dynamicBase !== 0) {
-                        gVal = (((parseFloat(scenarioVal) / parseFloat(dynamicBase)) - 1) * 100).toFixed(1) + '%';
+                        let gRaw = (parseFloat(scenarioVal) / parseFloat(dynamicBase)) - 1;
+                        epsGrowths.push(gRaw);
+                        gVal = (gRaw * 100).toFixed(1) + '%';
                     } else if (item.growth != null) {
-                        gVal = (parseFloat(item.growth) * 100).toFixed(1) + '%';
+                        let gRaw = parseFloat(item.growth);
+                        epsGrowths.push(gRaw);
+                        gVal = (gRaw * 100).toFixed(1) + '%';
                     }
                 }
                 
@@ -4667,8 +4601,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (eBody) eBody.innerHTML += `<tr><td style="padding:4px 0;color:${labelColor};">${pLabel}</td><td style="text-align:right;color:${valColor};">${aVal}</td><td style="text-align:right;color:${sColor};font-weight:${weight};">${gVal}</td></tr>`;
             });
 
+            if (globalData) {
+                if (epsGrowths.length >= 2) globalData.computed_eps_growth = (epsGrowths[0] + epsGrowths[1]) / 2.0;
+                else if (epsGrowths.length === 1) globalData.computed_eps_growth = epsGrowths[0];
+            }
+
             const rItems = data.rev_estimates || [];
             let prevRevVal = null;
+            let revGrowths = [];
+            
             rItems.forEach((item, idx) => {
                 if (!item) return;
                 const pLabel = item.period || '--';
@@ -4686,9 +4627,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!isAnchor) {
                     let dynamicBase = prevRevVal;
                     if (scenarioVal != null && dynamicBase != null && dynamicBase !== 0) {
-                        gVal = (((parseFloat(scenarioVal) / parseFloat(dynamicBase)) - 1) * 100).toFixed(1) + '%';
+                        let gRaw = (parseFloat(scenarioVal) / parseFloat(dynamicBase)) - 1;
+                        revGrowths.push(gRaw);
+                        gVal = (gRaw * 100).toFixed(1) + '%';
                     } else if (item.growth != null) {
-                        gVal = (parseFloat(item.growth) * 100).toFixed(1) + '%';
+                        let gRaw = parseFloat(item.growth);
+                        revGrowths.push(gRaw);
+                        gVal = (gRaw * 100).toFixed(1) + '%';
                     }
                 }
                 
@@ -4701,6 +4646,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 if (rBody) rBody.innerHTML += `<tr><td style="padding:4px 0;color:${labelColor};">${pLabel}</td><td style="text-align:right;color:${valColor};">${aVal}</td><td style="text-align:right;color:${sColor};font-weight:${weight};">${gVal}</td></tr>`;
             });
+
+            if (globalData) {
+                if (revGrowths.length >= 2) globalData.computed_dcf_growth = (revGrowths[0] + revGrowths[1]) / 2.0;
+                else if (revGrowths.length === 1) globalData.computed_dcf_growth = revGrowths[0];
+            }
 
             }; // End window._renderEstimatesTable
             window._renderEstimatesTable(); // Call it immediately
