@@ -413,7 +413,7 @@ document.addEventListener('DOMContentLoaded', () => {
             })
             .filter(v => !isNaN(v) && v > 0);
 
-        let median = 1.25; // Fallback
+        let median = null; // No fallback
         if (validPegs.length > 0) {
             validPegs.sort((a, b) => a - b);
             const mid = Math.floor(validPegs.length / 2);
@@ -2391,7 +2391,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             let targetPeg = 1.0;
             if (pegMode === 'industry') {
-                targetPeg = industryPegRaw || 1.25;
+                targetPeg = industryPegRaw;
             } else {
                 if (sector === "Technology" || (sector === "Communication Services" && !isTelecom)) {
                     targetPeg = 1.50;
@@ -2445,7 +2445,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 let targetPeg = 1.0;
                 if (pegMode === 'industry') {
-                    targetPeg = industryPeg || 1.25;
+                    targetPeg = industryPeg;
                 } else {
                     if (sector === "Technology" || (sector === "Communication Services" && !isTelecom)) {
                         targetPeg = 1.50;

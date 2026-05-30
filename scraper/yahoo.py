@@ -3363,6 +3363,8 @@ def get_competitors_data(target_ticker: str, limit: int = 4, custom_peers: list 
                         g_fy1 = None
                         if e0.get('avg') and e0.get('yearAgo') and e0['yearAgo'] != 0:
                             g_fy1 = (e0['avg'] - e0['yearAgo']) / abs(e0['yearAgo'])
+                        elif e0.get('avg') and inf.get('trailingEps') and inf.get('trailingEps') != 0:
+                            g_fy1 = (e0['avg'] - inf['trailingEps']) / abs(inf['trailingEps'])
                         # FY2 growth: current year estimate → next year estimate
                         g_fy2 = None
                         if e1.get('avg') and e0.get('avg') and e0['avg'] != 0:

@@ -840,8 +840,8 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 if v is not None and isinstance(v, (int, float)) and math.isfinite(v) and v > 0:
                     valid_pegs.append(float(v))
         
-        # v61: Improved industry PEG fallback to 1.25 if no peer data is available
-        industry_peg = statistics.median(valid_pegs) if valid_pegs else 1.25
+        # No fallback, return None if no valid peers
+        industry_peg = statistics.median(valid_pegs) if valid_pegs else None
         peg_value = calculate_peg_fair_value(current_price, company_peg, industry_peg)
         
         # Multi-Metric Sector-Weighted Relative Valuation (Strict Forward)
@@ -1258,7 +1258,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 "eps_growth_5y_cagr": sanitize(implied_5y_growth),
                 "eps_growth_period": peg_period_label,
                 "current_peg": sanitize(company_peg) if company_peg > 0 else None,
-                "industry_peg": sanitize(industry_peg) if industry_peg else 1.25,
+                "industry_peg": sanitize(industry_peg) if industry_peg else None,
                 "fair_value": sanitize(peg_value),
                 "margin_of_safety": sanitize(((peg_value - current_price) / peg_value * 100)) if peg_value and peg_value > 0 else None
             },
