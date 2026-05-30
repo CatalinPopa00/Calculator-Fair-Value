@@ -3570,7 +3570,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     
                     <!-- KPI Row -->
-                    <div id="brief-kpis" style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; align-items: center; margin-bottom: 15px;">
+                    <div id="brief-kpis" style="display: flex; gap: 10px 15px; flex-wrap: wrap; justify-content: center; align-items: center; margin-bottom: 20px;">
                         ${kpiHtml}
                     </div>
 
