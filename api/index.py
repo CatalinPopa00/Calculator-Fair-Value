@@ -1505,7 +1505,18 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                     "name": p.get("name"),
                     "price": sanitize(p.get("price")),
                     "pe_ratio": sanitize(p.get("pe_ratio")),
-                    "peg_ratio": sanitize(p.get("forward_peg")),
+                    "peg_ratio": sanitize(
+                        p.get("forward_peg") if p.get("forward_peg") is not None
+                        else (
+                            p.get("forward_pe") / (p.get("earnings_growth") * 100.0)
+                            if p.get("forward_pe") and p.get("earnings_growth") and p.get("earnings_growth") > 0
+                            else (
+                                p.get("pe_ratio") / (p.get("earnings_growth") * 100.0)
+                                if p.get("pe_ratio") and p.get("earnings_growth") and p.get("earnings_growth") > 0
+                                else None
+                            )
+                        )
+                    ),
                     "pfcf_ratio": sanitize(p.get("pfcf_ratio")),
                     "ps_ratio": sanitize(p.get("ps_ratio")),
                     "price_to_book": sanitize(p.get("price_to_book")),
