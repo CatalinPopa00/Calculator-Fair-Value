@@ -4451,11 +4451,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const analystCard = document.getElementById('analyst-estimates-card');
         if (!ticker || !analystCard) return;
         
+        // V304: Prevent previous company's closure from persisting if new company fails to load estimates
+        window._renderEstimatesTable = null;
+        
         analystCard.style.setProperty('display', 'block', 'important');
         document.getElementById('pt-avg').textContent = '...';
         document.getElementById('rec-status').textContent = '...';
-        document.querySelector('#eps-est-table tbody').innerHTML = '';
-        document.querySelector('#rev-est-table tbody').innerHTML = '';
+        const eBody = document.querySelector('#eps-est-table tbody');
+        const rBody = document.querySelector('#rev-est-table tbody');
+        if (eBody) eBody.innerHTML = '';
+        if (rBody) rBody.innerHTML = '';
 
         try {
             const res = await fetch(`/api/analyst/${ticker}?t=${Date.now()}`);
