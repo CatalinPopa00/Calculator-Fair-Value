@@ -450,7 +450,7 @@ def calculate_scoring_reform(valuation_data, metrics):
                 elif ps <= target_ps * 1.5: pts = 5
             elif margin < 0:
                 if rev_fwd_growth > 20 and ps <= 5.0: pts = 5
-        add_b("P/S Ratio", ps, pts, 10, True)
+        add_b("P/S Ratio (Fwd)", ps, pts, 10, True)
 
     else:
         # Sector 8: Industrials & Consumer Discretionary (Default fallback)
