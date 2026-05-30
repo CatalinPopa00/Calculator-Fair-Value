@@ -652,16 +652,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (globalData.eps_estimates) {
                     const eEstsTop = globalData.eps_estimates.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
                     if (eEstsTop.length >= 1) {
-                        if (window._currentScenario === 'bear') dynFwdEpsTop = eEstsTop[0].low;
-                        else if (window._currentScenario === 'bull') dynFwdEpsTop = eEstsTop[0].high;
+                        if (_currentScenario === 'bear') dynFwdEpsTop = eEstsTop[0].low;
+                        else if (_currentScenario === 'bull') dynFwdEpsTop = eEstsTop[0].high;
                         else dynFwdEpsTop = eEstsTop[0].avg;
                     }
                 }
                 if (globalData.rev_estimates) {
                     const rEstsTop = globalData.rev_estimates.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
                     if (rEstsTop.length >= 1) {
-                        if (window._currentScenario === 'bear') dynFwdRevTop = rEstsTop[0].low;
-                        else if (window._currentScenario === 'bull') dynFwdRevTop = rEstsTop[0].high;
+                        if (_currentScenario === 'bear') dynFwdRevTop = rEstsTop[0].low;
+                        else if (_currentScenario === 'bull') dynFwdRevTop = rEstsTop[0].high;
                         else dynFwdRevTop = rEstsTop[0].avg;
                     }
                 }
@@ -1306,7 +1306,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let dynRevGrowth = prof.revenue_growth;
         let dynEpsGrowth = prof.earnings_growth;
 
-        if (window._currentScenario === 'bear' || window._currentScenario === 'bull') {
+        if (_currentScenario === 'bear' || _currentScenario === 'bull') {
             if (window._getDynamicEpsGrowth) dynEpsGrowth = window._getDynamicEpsGrowth();
             if (window._getDynamicRevGrowth) dynRevGrowth = window._getDynamicRevGrowth();
 
@@ -1314,8 +1314,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const eList = globalData.eps_estimates || [];
             const eEsts = eList.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
             if (eEsts.length >= 1) {
-                if (window._currentScenario === 'bear') dynFwdEps = eEsts[0].low;
-                else if (window._currentScenario === 'bull') dynFwdEps = eEsts[0].high;
+                if (_currentScenario === 'bear') dynFwdEps = eEsts[0].low;
+                else if (_currentScenario === 'bull') dynFwdEps = eEsts[0].high;
                 else dynFwdEps = eEsts[0].avg;
             } else {
                 const trailingEps = prof.trailing_eps || prof.eps || 0;
@@ -2773,16 +2773,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (globalData.eps_estimates) {
             const eEstsTop = globalData.eps_estimates.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
             if (eEstsTop.length >= 1) {
-                if (window._currentScenario === 'bear') dynFwdEpsTop = eEstsTop[0].low;
-                else if (window._currentScenario === 'bull') dynFwdEpsTop = eEstsTop[0].high;
+                if (_currentScenario === 'bear') dynFwdEpsTop = eEstsTop[0].low;
+                else if (_currentScenario === 'bull') dynFwdEpsTop = eEstsTop[0].high;
                 else dynFwdEpsTop = eEstsTop[0].avg;
             }
         }
         if (globalData.rev_estimates) {
             const rEstsTop = globalData.rev_estimates.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
             if (rEstsTop.length >= 1) {
-                if (window._currentScenario === 'bear') dynFwdRevTop = rEstsTop[0].low;
-                else if (window._currentScenario === 'bull') dynFwdRevTop = rEstsTop[0].high;
+                if (_currentScenario === 'bear') dynFwdRevTop = rEstsTop[0].low;
+                else if (_currentScenario === 'bull') dynFwdRevTop = rEstsTop[0].high;
                 else dynFwdRevTop = rEstsTop[0].avg;
             }
         }
