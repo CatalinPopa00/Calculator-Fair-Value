@@ -4705,93 +4705,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }; // End window._renderEstimatesTable
             window._renderEstimatesTable(); // Call it immediately
 
-            // v70: Reactive Chart Updates - Link Analyst Projections to the main Stability Chart
-            // This ensures that even if the primary valuation fetch has stale or missing projections,
-            // the chart updates as soon as the fresher Analyst Consensus data arrives.
-            if ((chartEpsShares || chartRevFcf) && (eItems.length > 0 || rItems.length > 0)) {
-                console.log("[Analyst] Synchronizing projections to historical charts...");
-                
-                // 1. Sync EPS (Chart 2)
-                if (chartEpsShares && eItems.length > 0) {
-                    const labels = chartEpsShares.data.labels;
-                    const epsDs = chartEpsShares.data.datasets.find(d => d.label === 'EPS ($)');
-                    const sharesDs = chartEpsShares.data.datasets.find(d => d.label === 'Shares (B)');
-                    if (epsDs) {
-                        let updated = false;
-                        eItems.forEach(item => {
-                            if (item.status === 'estimate') {
-                                const yrMatch = item.period.match(/\d{4}/);
-                                if (yrMatch) {
-                                    const yearStr = yrMatch[0];
-                                    const idx = labels.findIndex(l => String(l).includes(yearStr) && String(l).includes('Est'));
-                                    if (idx !== -1 && item.avg != null) {
-                                        epsDs.data[idx] = +parseFloat(item.avg).toFixed(2);
-                                        // If shares are missing for estimates (often are), carry over the last known actual
-                                        if (sharesDs && (sharesDs.data[idx] === 0 || sharesDs.data[idx] == null)) {
-                                            let lastActualIdx = -1;
-                                            for (let i = labels.length - 1; i >= 0; i--) {
-                                                if (!String(labels[i]).includes('Est')) {
-                                                    lastActualIdx = i;
-                                                    break;
-                                                }
-                                            }
-                                            if (lastActualIdx !== -1) sharesDs.data[idx] = sharesDs.data[lastActualIdx];
-                                        }
-                                        updated = true;
-                                    }
-                                }
-                            }
-                        });
-                        if (updated) chartEpsShares.update('none');
-                    }
-                }
-                
-                // 2. Sync Revenue (Chart 1)
-                if (chartRevFcf && rItems.length > 0) {
-                    const labels = chartRevFcf.data.labels;
-                    const revDs = chartRevFcf.data.datasets.find(d => d.label === 'Revenue ($B)');
-                    const fcfDs = chartRevFcf.data.datasets.find(d => d.label === 'FCF ($B)');
-                    if (revDs) {
-                        let updated = false;
-                        rItems.forEach(item => {
-                            if (item.status === 'estimate') {
-                                const yrMatch = item.period.match(/\d{4}/);
-                                if (yrMatch) {
-                                    const yearStr = yrMatch[0];
-                                    const idx = labels.findIndex(l => String(l).includes(yearStr) && String(l).includes('Est'));
-                                    if (idx !== -1 && item.avg != null) {
-                                        const oldVal = revDs.data[idx];
-                                        const newVal = +(parseFloat(item.avg) / 1e9).toFixed(2);
-                                        
-                                        // Update revenue
-                                        revDs.data[idx] = newVal;
-                                        
-                                        // Update FCF if it's missing or zero using the last known margin
-                                        if (fcfDs && (fcfDs.data[idx] === 0 || fcfDs.data[idx] == null)) {
-                                            // Safari <15.4 compatibility: avoid findLastIndex
-                                            let lastActualIdx = -1;
-                                            for (let i = labels.length - 1; i >= 0; i--) {
-                                                if (!String(labels[i]).includes('Est')) {
-                                                    lastActualIdx = i;
-                                                    break;
-                                                }
-                                            }
-                                            if (lastActualIdx !== -1 && revDs.data[lastActualIdx] > 0) {
-                                                const margin = fcfDs.data[lastActualIdx] / revDs.data[lastActualIdx];
-                                                fcfDs.data[idx] = +(newVal * margin).toFixed(2);
-                                            }
-                                        }
-                                        updated = true;
-                                    }
-                                }
-                            }
-                        });
-                        if (updated) chartRevFcf.update('none');
-                    }
-                }
-            }
-
-            // Sync analyst estimates data to globalData
+            // -------------------------------------------------------------
+            // Sync analyst estimates data to globalData FIRST
+            // -------------------------------------------------------------
             if (globalData && ticker) {
                 globalData.rev_estimates = rItems;
                 globalData.eps_estimates = eItems;
@@ -4809,6 +4725,95 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // Re-calculate all fair values to reflect the fresh consensus growth
                 if (typeof updateFairValue === 'function') updateFairValue();
+            }
+
+            // -------------------------------------------------------------
+            // v70: Reactive Chart Updates - Link Analyst Projections to the main Stability Chart
+            // -------------------------------------------------------------
+            try {
+                if ((chartEpsShares || chartRevFcf) && (eItems.length > 0 || rItems.length > 0)) {
+                    console.log("[Analyst] Synchronizing projections to historical charts...");
+                    
+                    // 1. Sync EPS (Chart 2)
+                    if (chartEpsShares && eItems.length > 0 && chartEpsShares.data) {
+                        const labels = chartEpsShares.data.labels || [];
+                        const epsDs = (chartEpsShares.data.datasets || []).find(d => d.label === 'EPS ($)');
+                        const sharesDs = (chartEpsShares.data.datasets || []).find(d => d.label === 'Shares (B)');
+                        if (epsDs && epsDs.data) {
+                            let updated = false;
+                            eItems.forEach(item => {
+                                if (item.status === 'estimate') {
+                                    const yrMatch = item.period.match(/\d{4}/);
+                                    if (yrMatch) {
+                                        const yearStr = yrMatch[0];
+                                        const idx = labels.findIndex(l => String(l).includes(yearStr) && String(l).includes('Est'));
+                                        if (idx !== -1 && item.avg != null) {
+                                            epsDs.data[idx] = +parseFloat(item.avg).toFixed(2);
+                                            // If shares are missing for estimates (often are), carry over the last known actual
+                                            if (sharesDs && sharesDs.data && (sharesDs.data[idx] === 0 || sharesDs.data[idx] == null)) {
+                                                let lastActualIdx = -1;
+                                                for (let i = labels.length - 1; i >= 0; i--) {
+                                                    if (!String(labels[i]).includes('Est')) {
+                                                        lastActualIdx = i;
+                                                        break;
+                                                    }
+                                                }
+                                                if (lastActualIdx !== -1) sharesDs.data[idx] = sharesDs.data[lastActualIdx];
+                                            }
+                                            updated = true;
+                                        }
+                                    }
+                                }
+                            });
+                            if (updated) chartEpsShares.update('none');
+                        }
+                    }
+                    
+                    // 2. Sync Revenue (Chart 1)
+                    if (chartRevFcf && rItems.length > 0 && chartRevFcf.data) {
+                        const labels = chartRevFcf.data.labels || [];
+                        const revDs = (chartRevFcf.data.datasets || []).find(d => d.label === 'Revenue ($B)');
+                        const fcfDs = (chartRevFcf.data.datasets || []).find(d => d.label === 'FCF ($B)');
+                        if (revDs && revDs.data) {
+                            let updated = false;
+                            rItems.forEach(item => {
+                                if (item.status === 'estimate') {
+                                    const yrMatch = item.period.match(/\d{4}/);
+                                    if (yrMatch) {
+                                        const yearStr = yrMatch[0];
+                                        const idx = labels.findIndex(l => String(l).includes(yearStr) && String(l).includes('Est'));
+                                        if (idx !== -1 && item.avg != null) {
+                                            const oldVal = revDs.data[idx];
+                                            const newVal = +(parseFloat(item.avg) / 1e9).toFixed(2);
+                                            
+                                            // Update revenue
+                                            revDs.data[idx] = newVal;
+                                            
+                                            // Update FCF if it's missing or zero using the last known margin
+                                            if (fcfDs && fcfDs.data && (fcfDs.data[idx] === 0 || fcfDs.data[idx] == null)) {
+                                                let lastActualIdx = -1;
+                                                for (let i = labels.length - 1; i >= 0; i--) {
+                                                    if (!String(labels[i]).includes('Est')) {
+                                                        lastActualIdx = i;
+                                                        break;
+                                                    }
+                                                }
+                                                if (lastActualIdx !== -1 && revDs.data[lastActualIdx] > 0) {
+                                                    const margin = fcfDs.data[lastActualIdx] / revDs.data[lastActualIdx];
+                                                    fcfDs.data[idx] = +(newVal * margin).toFixed(2);
+                                                }
+                                            }
+                                            updated = true;
+                                        }
+                                    }
+                                }
+                            });
+                            if (updated) chartRevFcf.update('none');
+                        }
+                    }
+                }
+            } catch (chartErr) {
+                console.warn("[Analyst] Failed to sync to charts:", chartErr);
             }
         } catch (err) {
             console.error("Analyst major error:", err);
