@@ -277,7 +277,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     // --- END FIREBASE CLOUD SYNC ---
 
-    let selectedLynchMethod = 'pe20'; // default
+    let selectedLynchMethod = 'system'; // default
 
     // Watchlist elements
     const navWatchlistBtn = document.getElementById('nav-watchlist-btn');
@@ -2478,23 +2478,34 @@ document.addEventListener('DOMContentLoaded', () => {
             let targetEps = baseEps * Math.pow(1 + usedGrowth, 3);
 
             const multEl = document.getElementById('lynch-multiple-source');
-            const multVal = multEl ? multEl.value : 'pe20';
+            const multVal = multEl ? multEl.value : 'system';
             const multCustomInputs = document.getElementById('lynch-custom-multiple-inputs');
             if (multCustomInputs) multCustomInputs.style.display = multVal === 'custom' ? 'grid' : 'none';
 
             let selectedMult = 20;
             if (multVal === 'system') {
-                selectedMult = Math.min(Math.max(usedGrowth * 100, 15), 25);
+                let g = usedGrowth * 100;
+                if (g <= 0) {
+                    selectedMult = 8.5;
+                } else if (g <= 10) {
+                    selectedMult = 8.5 + (g / 10) * 6.5;
+                } else if (g <= 15) {
+                    selectedMult = 15 + ((g - 10) / 5) * 5;
+                } else if (g <= 20) {
+                    selectedMult = 20 + ((g - 15) / 5) * 5;
+                } else {
+                    selectedMult = 25;
+                }
             } else if (multVal === 'historical') {
                 selectedMult = pl.historic_pe || 20;
             } else if (multVal === 'custom') {
                 selectedMult = parseFloat(document.getElementById('lynch-custom-mult').value) || 18;
             } else {
                 // Fallback just in case
-                selectedMult = Math.min(Math.max(usedGrowth * 100, 15), 25);
+                selectedMult = 20;
             }
 
-            if (multVal !== 'custom') {
+            if (multVal === 'historical') {
                 if (_currentScenario === 'bear') selectedMult -= 3;
                 else if (_currentScenario === 'bull') selectedMult += 3;
             }
@@ -4267,7 +4278,7 @@ document.addEventListener('DOMContentLoaded', () => {
             analyzeTicker(currentTicker, true, true);
         } else if (method === 'peter_lynch') {
             const lMult = document.getElementById('lynch-multiple-source');
-            if (lMult) lMult.value = 'pe20';
+            if (lMult) lMult.value = 'system';
             const lEps = document.getElementById('lynch-eps-source');
             if (lEps) lEps.value = 'analyst';
         } else if (method === 'peg') {
