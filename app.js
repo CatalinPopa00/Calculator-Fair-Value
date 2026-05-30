@@ -2553,8 +2553,8 @@ document.addEventListener('DOMContentLoaded', () => {
             rel.dynamic_company_sales_share = company_sales_share;
             
 
-            const dynEpsG = window._getDynamicEpsGrowth ? window._getDynamicEpsGrowth() : (prof.earnings_growth || 0);
-            const dynRevG = window._getDynamicRevGrowth ? window._getDynamicRevGrowth() : (prof.revenue_growth || 0);
+            const dynEpsG = (globalData && globalData.computed_eps_growth != null) ? globalData.computed_eps_growth : (prof.earnings_growth || 0);
+            const dynRevG = (globalData && globalData.computed_dcf_growth != null) ? globalData.computed_dcf_growth : (prof.revenue_growth || 0);
             
             const company_fcf_share = (rel.company_fcf_share || 0) * (1 + dynEpsG);
             const company_book_share = rel.company_book_share || 0; // Book value remains TTM
@@ -5447,11 +5447,11 @@ document.addEventListener('DOMContentLoaded', () => {
                                     let val = null;
                                     const impliedPe = r.dynamic_company_eps > 0 ? (_realApiPrice / r.dynamic_company_eps) : (globalData.company_profile && (globalData.company_profile.fwd_pe || globalData.company_profile.forward_pe));
                                     
-                                    const dynEpsG = window._getDynamicEpsGrowth ? window._getDynamicEpsGrowth() : (globalData.company_profile?.earnings_growth || 0);
+                                    const dynEpsG = (globalData && globalData.computed_eps_growth != null) ? globalData.computed_eps_growth : (globalData.company_profile?.earnings_growth || 0);
                                     const dynEbitda = (globalData.ebitda || 0) * (1 + dynEpsG);
                                     const impliedEvEbitda = dynEbitda > 0 ? (globalData.market_cap + (globalData.total_debt || 0) - (globalData.total_cash || 0)) / dynEbitda : null;
                                     
-                                    const dynRevG = window._getDynamicRevGrowth ? window._getDynamicRevGrowth() : (globalData.company_profile?.revenue_growth || 0);
+                                    const dynRevG = (globalData && globalData.computed_dcf_growth != null) ? globalData.computed_dcf_growth : (globalData.company_profile?.revenue_growth || 0);
                                     const rev = r.dynamic_company_sales_share ? r.dynamic_company_sales_share * (globalData.company_profile?.shares_outstanding || 1) : ((globalData.revenue || 0) * (1 + dynRevG));
                                     const impliedPs = rev > 0 ? (globalData.market_cap + (globalData.total_debt || 0) - (globalData.total_cash || 0)) / rev : null;
                                     
@@ -5551,7 +5551,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     const salesS = r.dynamic_company_sales_share != null ? r.dynamic_company_sales_share : (explicit_fwd_ps > 0 ? (_realApiPrice / explicit_fwd_ps) : (r.company_sales_share || 0));
                     
                     const bookS = r.company_book_share || 0;
-                    const ebitda = (globalData.ebitda || 0);
+                    const dynEpsG = (globalData && globalData.computed_eps_growth != null) ? globalData.computed_eps_growth : (prof.earnings_growth || 0);
+                    const ebitda = (globalData.ebitda || 0) * (1 + dynEpsG);
                     
                     const debt = globalData.total_debt || 0;
                     const cash = globalData.total_cash || 0;
@@ -5565,11 +5566,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         return shares > 0 ? (ev - debt + cash) / shares : 0;
                     }
                     if (key === 'PS') {
-                        // bench is EV/Sales
-                        // We need forward revenue to compute EV
-                        let rev = (globalData.revenue || 0);
-                        if (prof.revenue_growth) {
-                            rev = rev * (1 + prof.revenue_growth);
+                        let rev = salesS * shares;
+                        if (!rev || rev === 0) {
+                            const dynRevG = (globalData && globalData.computed_dcf_growth != null) ? globalData.computed_dcf_growth : (prof.revenue_growth || 0);
+                            rev = (globalData.revenue || 0) * (1 + dynRevG);
                         }
                         const ev = rev * bench;
                         return shares > 0 ? (ev - debt + cash) / shares : 0;
