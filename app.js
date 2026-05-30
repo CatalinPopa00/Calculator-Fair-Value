@@ -515,7 +515,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return 18.0;
     };
 
-    const recalcWithSimPrice = (simPrice) => {
+    const recalcWithSimPrice = (simPrice, skipTrigger = false) => {
         if (!globalData || !globalData.company_profile) return;
 
         // Helper to convert growth/margins to percentage if they are raw decimals (matches backend clean_percent)
@@ -644,27 +644,47 @@ document.addEventListener('DOMContentLoaded', () => {
                 const isTech = sector.includes('technology') || sector.includes('communication services') || industry.includes('software') || industry.includes('internet');
 
                 // Extract simulation anchors
-                const eps_5yr_g = cleanPercent(globalData.company_profile.eps_growth_5y_consensus || globalData.company_profile.eps_5yr_growth);
-                const rev_g_val = cleanPercent(globalData.company_profile.revenue_growth || 0);
-                const fwd_growth = eps_5yr_g > 0 ? eps_5yr_g : rev_g_val;
+                let eps_5yr_g = cleanPercent(globalData.company_profile.eps_growth_5y_consensus || globalData.company_profile.eps_5yr_growth);
+                let rev_g_val = cleanPercent(globalData.company_profile.revenue_growth || 0);
 
-                let rev_fwd_growth = 0;
-                const revGrowthItem = globalData.buy_breakdown?.find(i => i.metric && i.metric.includes('Revenue Growth'));
-                if (revGrowthItem && revGrowthItem.value) {
-                    rev_fwd_growth = parseFloat(revGrowthItem.value.replace('%', ''));
+                let dynFwdEpsTop = prof.fwd_eps || 0;
+                let dynFwdRevTop = prof.forward_revenue || 0;
+                if (globalData.eps_estimates) {
+                    const eEstsTop = globalData.eps_estimates.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
+                    if (eEstsTop.length >= 1) {
+                        if (window._currentScenario === 'bear') dynFwdEpsTop = eEstsTop[0].low;
+                        else if (window._currentScenario === 'bull') dynFwdEpsTop = eEstsTop[0].high;
+                        else dynFwdEpsTop = eEstsTop[0].avg;
+                    }
                 }
-                if (!rev_fwd_growth || isNaN(rev_fwd_growth)) {
-                    rev_fwd_growth = cleanPercent(globalData.rev_cagr_2y);
-                    if (!rev_fwd_growth || rev_fwd_growth === 0) rev_fwd_growth = rev_g_val;
+                if (globalData.rev_estimates) {
+                    const rEstsTop = globalData.rev_estimates.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
+                    if (rEstsTop.length >= 1) {
+                        if (window._currentScenario === 'bear') dynFwdRevTop = rEstsTop[0].low;
+                        else if (window._currentScenario === 'bull') dynFwdRevTop = rEstsTop[0].high;
+                        else dynFwdRevTop = rEstsTop[0].avg;
+                    }
                 }
+
+                let dynamicEpsGrowth = eps_5yr_g;
+                if (prof.trailing_eps && prof.trailing_eps !== 0) {
+                    dynamicEpsGrowth = ((dynFwdEpsTop - prof.trailing_eps) / Math.abs(prof.trailing_eps)) * 100;
+                }
+                let dynamicRevGrowth = rev_g_val;
+                if (globalData.revenue && globalData.revenue !== 0) {
+                    dynamicRevGrowth = ((dynFwdRevTop - globalData.revenue) / Math.abs(globalData.revenue)) * 100;
+                }
+
+                const fwd_growth = dynamicEpsGrowth;
+                let rev_fwd_growth = dynamicRevGrowth;
 
                 const fwd_pe = parseFloat(globalData.company_profile.forward_pe) || 0;
 
                 // For live simulation, recalculate simulated P/E based on forward or trailing
                 let simulatedPE = scoringPE;
                 let simulatedFwdPE = 0;
-                if (prof.fwd_eps > 0) {
-                    simulatedFwdPE = simPrice / prof.fwd_eps;
+                if (dynFwdEpsTop > 0) {
+                    simulatedFwdPE = simPrice / dynFwdEpsTop;
                 } else if (fwd_pe > 0 && prof.adjusted_eps > 0) {
                     // if they had forward PE, simulate it using the same implied forward EPS
                     const implied_fwd_eps = _realApiPrice / fwd_pe;
@@ -839,11 +859,33 @@ document.addEventListener('DOMContentLoaded', () => {
                     newPts = pts;
                     item.value = newPAFFO > 0 ? newPAFFO.toFixed(2) + 'x' : '0.00x';
                 } else if (metric.includes('Rev Growth') || metric.includes('EPS Growth') || metric.includes('AFFO Growth') || metric.includes('Revenue Growth')) {
-                    // Growth points are static in simulation since simulation only affects price derivatives
                     if (metric.includes('Revenue Growth')) {
                         item.value = rev_fwd_growth > 0 ? rev_fwd_growth.toFixed(1) + '%' : '0.0%';
-                    } else {
+                        if (isTech || isDefensive) {
+                            if (rev_fwd_growth > 20) newPts = 15;
+                            else if (rev_fwd_growth >= 10) newPts = 7.5;
+                            else newPts = 0;
+                        }
+                    } else if (metric.includes('AFFO Growth')) {
                         item.value = fwd_growth > 0 ? fwd_growth.toFixed(1) + '%' : '0.0%';
+                        if (fwd_growth > 8) newPts = 20;
+                        else if (fwd_growth >= 3) newPts = 10;
+                        else newPts = 0;
+                    } else { // EPS Growth
+                        item.value = fwd_growth > 0 ? fwd_growth.toFixed(1) + '%' : '0.0%';
+                        if (isInsurance) {
+                            if (fwd_growth > 8) newPts = 10;
+                            else if (fwd_growth >= 4) newPts = 5;
+                            else newPts = 0;
+                        } else if (isTech || isDefensive) {
+                            if (fwd_growth > 15) newPts = 15;
+                            else if (fwd_growth >= 8) newPts = 7.5;
+                            else newPts = 0;
+                        } else {
+                            if (fwd_growth > 10) newPts = 10;
+                            else if (fwd_growth >= 5) newPts = 5;
+                            else newPts = 0;
+                        }
                     }
                 }
 
@@ -852,7 +894,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // --- 5. Global Visual Re-sync ---
-        if (window.triggerRecalculate) {
+        if (window.triggerRecalculate && !skipTrigger) {
             window.triggerRecalculate();
         }
 
@@ -987,94 +1029,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (lynInput) lynInput.value = w.lynch;
 
         return w;
-    };
-
-    // UPDATED: Sync both MOS and PEG to the Score Breakdown dynamically (v70)
-    const updateInsightsAndScores = (newMos, newPeg, simMetrics) => {
-        if (!currentBuyBreakdown || !globalData) return;
-
-        if (simMetrics) {
-            const updateItem = (nameMatch, valStr) => {
-                const it = currentBuyBreakdown.find(i => i.metric && (i.metric === nameMatch || i.metric.includes(nameMatch)));
-                if (it && valStr != null) it.value = valStr;
-            };
-            
-            if (simMetrics.peFwd != null && simMetrics.peFwd > 0) {
-                const peItem = currentBuyBreakdown.find(i => i.metric && (i.metric.includes("P/E Ratio (Fwd)") || i.metric === "P/E Ratio"));
-                if (peItem) peItem.value = `${simMetrics.peFwd.toFixed(2)}x`;
-            }
-            if (simMetrics.evEbitda != null && simMetrics.evEbitda > 0) updateItem("EV/EBITDA", `${simMetrics.evEbitda.toFixed(2)}x`);
-            if (simMetrics.pb != null && simMetrics.pb > 0) updateItem("Price-to-Book", `${simMetrics.pb.toFixed(2)}x`);
-            if (simMetrics.divYield != null && simMetrics.divYield > 0) updateItem("Dividend Yield (Fwd)", `${simMetrics.divYield.toFixed(2)}%`);
-            if (simMetrics.epsGrowth != null) updateItem("EPS Growth (Fwd)", `${simMetrics.epsGrowth.toFixed(1)}%`);
-            if (simMetrics.revGrowth != null) updateItem("Revenue Growth (Fwd)", `${simMetrics.revGrowth.toFixed(1)}%`);
-        }
-
-        // Ensure Buy Breakdown reflects the latest MOS and PEG from the primary engine
-        const mosItem = currentBuyBreakdown.find(i => i.metric && i.metric.includes("Margin of Safety"));
-        if (mosItem && newMos != null) {
-            mosItem.value = `${newMos.toFixed(1)}%`;
-            mosItem.points_awarded = (newMos > 20.0) ? 30 : (newMos >= 0.0 ? 15 : 0);
-        }
-
-        const pegItem = currentBuyBreakdown.find(i => i.metric && i.metric.includes("PEG Ratio"));
-        if (pegItem && newPeg != null) {
-            pegItem.value = `${newPeg.toFixed(2)}x`;
-            const industry = (globalData.company_profile?.industry || "").toLowerCase();
-            const sector = (globalData.company_profile?.sector || "").toLowerCase();
-            const isFin = sector.includes('financial');
-
-            if (isFin) pegItem.points_awarded = (newPeg > 0 && newPeg < 1.0) ? 15 : (newPeg > 0 && newPeg <= 1.5 ? 7.5 : 0);
-            else pegItem.points_awarded = (newPeg > 0 && newPeg < 1.0) ? 10 : (newPeg > 0 && newPeg <= 1.5 ? 5 : 0);
-        }
-
-        if (typeof globalData.good_to_buy_total === 'number') {
-            const rawTotal = currentBuyBreakdown.reduce((sum, item) => sum + (item.points_awarded || 0), 0);
-            globalData.good_to_buy_total = Math.min(Math.max(rawTotal, 0), 100);
-
-            // Re-sync all score circles during this pass
-            updateScoreUI(globalData.health_score_total, 'health-score-circle', 'health-score-fill');
-            updateScoreUI(globalData.good_to_buy_total, 'buy-score-circle', 'buy-score-fill');
-            updatePiotroskiUI(globalData.piotroski ? globalData.piotroski.score : null);
-            updateRule40UI(globalData.rule_of_40);
-        }
-
-        const allMetrics = [...(currentHealthBreakdown || []), ...(currentBuyBreakdown || [])];
-        const strengths = allMetrics.filter(m => m.points_awarded === m.max_points && m.max_points > 0);
-        strengths.sort((a, b) => b.max_points - a.max_points);
-        const topStrengths = strengths.slice(0, 3);
-
-        const risks = allMetrics.filter(m => m.points_awarded === 0 || (m.max_points > 0 && m.points_awarded <= (m.max_points / 3)));
-        risks.sort((a, b) => (a.points_awarded / a.max_points) - (b.points_awarded / b.max_points));
-        const topRisks = risks.slice(0, 3);
-
-        const strengthsList = document.getElementById('top-strengths-list');
-        if (strengthsList) {
-            strengthsList.innerHTML = '';
-            if (topStrengths.length > 0) {
-                topStrengths.forEach(s => {
-                    const li = document.createElement('li');
-                    li.innerHTML = `<strong>${s.metric}:</strong> ${s.value}`;
-                    strengthsList.appendChild(li);
-                });
-            } else {
-                strengthsList.innerHTML = '<li>No major strengths detected.</li>';
-            }
-        }
-
-        const risksList = document.getElementById('risk-factors-list');
-        if (risksList) {
-            risksList.innerHTML = '';
-            if (topRisks.length > 0) {
-                topRisks.forEach(r => {
-                    const li = document.createElement('li');
-                    li.innerHTML = `<strong>${r.metric}:</strong> ${r.value}`;
-                    risksList.appendChild(li);
-                });
-            } else {
-                risksList.innerHTML = '<li>No critical risks detected.</li>';
-            }
-        }
     };
 
     const calcLocalDcf = (fcfObj, growth, wacc, perp, shares, cash, debt, buybackRate = 0, years = 5, exitMult = 10.0, currentPrice = null) => {
@@ -2878,13 +2832,13 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 elements.marginSafety.style.background = 'rgba(239, 68, 68, 0.2)';
             }
-            updateInsightsAndScores(finalMos, currentPegToDisplay, simMetrics);
+            if (typeof recalcWithSimPrice === 'function') recalcWithSimPrice(globalData.current_price, true);
         } else {
             elements.fairValue.textContent = 'N/A';
             elements.marginSafety.textContent = 'Valuation not possible';
             elements.marginSafety.style.color = 'var(--text-muted)';
             elements.marginSafety.style.background = 'none';
-            updateInsightsAndScores(null, currentPegToDisplay, simMetrics);
+            if (typeof recalcWithSimPrice === 'function') recalcWithSimPrice(globalData.current_price, true);
         }
 
         // --- Sync Profile & Metrics Table PEG with Card PEG ---
