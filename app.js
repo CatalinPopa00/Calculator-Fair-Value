@@ -694,8 +694,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     dynamicRevGrowth = ((dynFwdRevTop - globalData.revenue) / Math.abs(globalData.revenue)) * 100;
                 }
 
-                const fwd_growth = dynamicEpsGrowth;
-                let rev_fwd_growth = dynamicRevGrowth;
+                let revUsedGrowth = 0;
+                if (window._getDynamicRevGrowth) {
+                    revUsedGrowth = window._getDynamicRevGrowth();
+                }
+
+                const fwd_growth = (pegUsedGrowth > 0) ? (pegUsedGrowth * 100) : dynamicEpsGrowth;
+                let rev_fwd_growth = (revUsedGrowth > 0) ? (revUsedGrowth * 100) : dynamicRevGrowth;
 
                 const fwd_pe = parseFloat(globalData.company_profile.forward_pe) || 0;
 
