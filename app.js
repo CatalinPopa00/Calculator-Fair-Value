@@ -5852,7 +5852,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const g = currentFormulaData.peg;
             title.textContent = '📊 PEG Valuation — Data Transparency';
             const periodLabel = g.eps_growth_period || '2Y EPS CAGR';
-            html = row('Current P/E (Adj.)', g.current_pe ? g.current_pe.toFixed(2) + 'x' : 'N/A')
+            html = row('P/E Ratio (Fwd)', g.current_pe ? g.current_pe.toFixed(2) + 'x' : 'N/A')
                 + row('Growth Estimate', fmtPct(g.dynamic_growth != null ? g.dynamic_growth : g.eps_growth_estimated))
                 + row('Current PEG', g.dynamic_peg ? g.dynamic_peg.toFixed(2) + 'x' : (g.current_peg ? g.current_peg.toFixed(2) + 'x' : 'N/A'))
                 + row('Industry PEG', g.industry_peg ? g.industry_peg.toFixed(2) + 'x' : 'N/A')

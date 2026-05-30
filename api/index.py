@@ -1167,7 +1167,6 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
  
         # v285: PEG MUST use Adjusted (Non-GAAP) PE to match Non-GAAP Growth Estimates
         adj_pe = current_price / data.get("adjusted_eps") if data.get("adjusted_eps") and data.get("adjusted_eps") > 0 else None
-        current_pe = adj_pe
  
         # 5. Build Formula Data for Transparency
         fair_value_sector_pe = None
@@ -1405,8 +1404,15 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         safe_median_peg = median_peer_peg if median_peer_peg is not None else 0
         
         from models.scoring import calculate_health_score
-        scoring_results = calculate_scoring_reform({"margin_of_safety": safe_mos, "sector_median_peg": safe_median_peg}, data)
-        
+        scoring_results = calculate_scoring_reform({
+            "margin_of_safety": safe_mos,
+            "sector_median_peg": safe_median_peg,
+            "sector_median_pe": median_peer_pe if median_peer_pe else 0,
+            "sector_median_ps": median_peer_ps if median_peer_ps else 0,
+            "sector_median_ev_ebitda": median_peer_ev_ebitda if median_peer_ev_ebitda else 0,
+            "sector_median_pb": median_peer_pb if median_peer_pb else 0
+        }, data)
+
         health_results = calculate_health_score(data)
         health_score_total = health_results.get("total")
         health_breakdown = health_results.get("breakdown")

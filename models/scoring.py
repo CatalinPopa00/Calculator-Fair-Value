@@ -161,7 +161,6 @@ def calculate_scoring_reform(valuation_data, metrics):
     is_utilities = 'utilities' in sector or 'telecommunication' in sector or 'telecom' in industry
     is_defensive = 'consumer defensive' in sector or 'staples' in sector or 'healthcare' in sector or 'health care' in sector
     is_tech = 'technology' in sector or 'communication services' in sector or 'software' in industry or 'internet' in industry or 'information services' in industry
-    # Industrials & Consumer Discretionary is the default fallback if none of the above matches
 
     h_score = 0
     h_breakdown = []
@@ -181,13 +180,12 @@ def calculate_scoring_reform(valuation_data, metrics):
         h_breakdown.append({
             "metric": metric,
             "value": format_val(value, is_ratio),
-            "points_awarded": int(pts),
+            "points_awarded": float(pts),
             "max_points": int(max_pts)
         })
 
     def add_b(metric, value, pts, max_pts, is_ratio=True):
         nonlocal b_score
-        # Guard clause: Multiples < 0 get 0 points immediately
         if is_ratio == True and value is not None and value < 0:
             pts = 0
         pts = min(pts, max_pts)
@@ -195,59 +193,9 @@ def calculate_scoring_reform(valuation_data, metrics):
         b_breakdown.append({
             "metric": metric,
             "value": format_val(value, is_ratio),
-            "points_awarded": int(pts),
+            "points_awarded": float(pts),
             "max_points": int(max_pts)
         })
-
-    # 2. Extract Base Metrics
-    mos = clean_percent(valuation_data.get('margin_of_safety'))
-    
-    # Forward-First Growth Fallback
-    eps_5yr_g = clean_percent(metrics.get('eps_growth_5y_consensus') or metrics.get('eps_5yr_growth'))
-    rev_g = clean_percent(metrics.get('revenue_growth')) # TTM
-    # Use 2Y/5Y CAGR if available, else TTM Rev Growth
-    fwd_growth = eps_5yr_g if eps_5yr_g > 0 else rev_g
-    
-    rev_fwd_growth = clean_percent(metrics.get('rev_cagr_2y'))
-    if rev_fwd_growth == 0 or rev_fwd_growth is None:
-        rev_fwd_growth = rev_g
-    
-    # Forward-First Multiples Fallback
-    fwd_pe = clean_ratio(metrics.get('forward_pe') or metrics.get('fwd_pe'))
-    trail_pe = clean_ratio(metrics.get('trailing_pe') or metrics.get('pe_ratio') or metrics.get('current_pe'))
-    
-    # For Non-GAAP / Tech
-    adj_eps = clean_ratio(metrics.get('adjusted_eps'))
-    curr_p = clean_ratio(metrics.get('current_price') or valuation_data.get('current_price', 0))
-    adj_pe = (curr_p / adj_eps) if (curr_p > 0 and adj_eps > 0) else 0
-
-    # Default P/E logic
-    pe = 0
-    pe_label = "P/E Ratio"
-    
-    if is_tech or 'healthcare' in sector:
-        if fwd_pe > 0:
-            pe = fwd_pe
-            pe_label = "P/E Ratio (Fwd)"
-        elif adj_pe > 0:
-            pe = adj_pe
-            pe_label = "P/E Ratio (adj.)"
-        else:
-            pe = trail_pe
-            pe_label = "Trailing P/E Ratio"
-    else:
-        if fwd_pe > 0:
-            pe = fwd_pe
-            pe_label = "P/E Ratio (Fwd)"
-        else:
-            pe = trail_pe
-            pe_label = "Trailing P/E Ratio"
-
-    # Other multiples
-    ev_ebitda = clean_ratio(metrics.get('forward_ev_ebitda') or metrics.get('ev_to_ebitda'))
-    pb = clean_ratio(metrics.get('price_to_book'))
-    ps = clean_ratio(metrics.get('fwd_ps') or metrics.get('ps_ratio') or metrics.get('price_to_sales'))
-    peg_val = clean_ratio(metrics.get('peg_ratio')) # Typically already forward
 
     def get_mos_points(mos_val, max_pts):
         if mos_val > 15.0: return max_pts
@@ -255,10 +203,65 @@ def calculate_scoring_reform(valuation_data, metrics):
         elif mos_val >= -5.0: return max_pts * (10.0 / 25.0)
         return 0.0
 
+    def get_rel_pts(val, median, max_pts, lower_is_better=True):
+        """Dynamic Sector Comparison. Returns max_pts if <= median, half if <= median*1.3, else 0."""
+        if val is None or val <= 0: return 0
+        if median is None or median <= 0:
+            # Fallback if sector median is missing or invalid
+            if lower_is_better:
+                if val <= 15: return max_pts
+                elif val <= 25: return max_pts / 2.0
+                return 0
+            else:
+                if val >= 10: return max_pts
+                elif val >= 5: return max_pts / 2.0
+                return 0
+            
+        if lower_is_better:
+            if val <= median: return max_pts
+            elif val <= median * 1.3: return max_pts / 2.0
+            return 0
+        else:
+            if val >= median: return max_pts
+            elif val >= median * 0.7: return max_pts / 2.0
+            return 0
+
+    # 2. Extract Base Metrics
+    mos = clean_percent(valuation_data.get('margin_of_safety'))
+    
+    # Sector Medians
+    sec_pe = clean_ratio(valuation_data.get('sector_median_pe'))
+    sec_ps = clean_ratio(valuation_data.get('sector_median_ps'))
+    sec_pb = clean_ratio(valuation_data.get('sector_median_pb'))
+    sec_ev_ebitda = clean_ratio(valuation_data.get('sector_median_ev_ebitda'))
+    sec_peg = clean_ratio(valuation_data.get('sector_median_peg'))
+    
+    # Strictly 2-Year CAGR for Growth
+    eps_2y_g = clean_percent(metrics.get('eps_growth'))
+    rev_2y_g = clean_percent(metrics.get('rev_cagr_2y')) or clean_percent(metrics.get('revenue_growth'))
+    
+    # Strict Forward 1Y Multiples
+    fwd_pe = clean_ratio(metrics.get('forward_pe') or metrics.get('fwd_pe'))
+    ev_ebitda = clean_ratio(metrics.get('forward_ev_ebitda') or metrics.get('ev_to_ebitda'))
+    ps = clean_ratio(metrics.get('forward_ev_sales') or metrics.get('fwd_ps') or metrics.get('ps_ratio'))
+    pb = clean_ratio(metrics.get('price_to_book'))
+    
+    # Calculate Hybrid PEG: Fwd PE 1Y / 2Y EPS Growth CAGR
+    hybrid_peg = 0.0
+    if fwd_pe > 0 and eps_2y_g > 0:
+        hybrid_peg = fwd_pe / eps_2y_g
+    
+    pe = fwd_pe
+    pe_label = "P/E Ratio (Fwd)"
+    if pe <= 0:
+        pe = clean_ratio(metrics.get('trailing_pe') or metrics.get('current_pe'))
+        pe_label = "P/E Ratio (TTM)"
+        
+    peg_val = hybrid_peg if hybrid_peg > 0 else clean_ratio(metrics.get('peg_ratio'))
+
     # --- ROUTING TO SECTOR TEMPLATES ---
     
     if is_financial and is_bank:
-        # Sector 2: Banks & Financials
         nim = clean_percent(metrics.get('nim'))
         add_h("Net Interest Margin", nim, 20 if nim > 3.0 else (10 if nim >= 1.5 else 0), 20, False)
         cet1 = clean_percent(metrics.get('cet1_ratio'))
@@ -266,22 +269,19 @@ def calculate_scoring_reform(valuation_data, metrics):
         roe = clean_percent(metrics.get('roe'))
         add_h("ROE", roe, 20 if roe > 15 else (10 if roe >= 8 else 0), 20, False)
         roa = clean_percent(metrics.get('roa'))
-        add_h("ROA", roa, 20 if roa >= 1.0 else (10 if roa >= 0.5 else 0), 20, False) # v72: Updated ROA threshold
+        add_h("ROA", roa, 20 if roa >= 1.0 else (10 if roa >= 0.5 else 0), 20, False)
         bvps = clean_percent(metrics.get('bvps_growth'))
         add_h("BVPS Growth", bvps, 20 if bvps > 8 else (10 if bvps >= 3 else 0), 20, False)
         
         add_b("Margin of Safety (DDM)", mos, get_mos_points(mos, 25), 25, False)
-        add_b("EPS Growth (Fwd)", fwd_growth, 10 if fwd_growth > 10 else (5 if fwd_growth >= 5 else 0), 10, False)
-        pts = 20 if (0 < pe <= 13) else (10 if pe <= 15 else 0)
-        add_b(pe_label, pe, pts, 20, True)
-        pts = 20 if (0 < pb < 1.5) else (10 if pb <= 2.0 else 0)
-        add_b("Price-to-Book", pb, pts, 20, True)
+        add_b("EPS Growth (Fwd)", eps_2y_g, 10 if eps_2y_g > 10 else (5 if eps_2y_g >= 5 else 0), 10, False)
+        add_b(pe_label, pe, get_rel_pts(pe, sec_pe, 20), 20, True)
+        add_b("Price-to-Book", pb, get_rel_pts(pb, sec_pb, 20), 20, True)
         div_y = clean_percent(metrics.get('fwd_dividend_yield') or metrics.get('dividend_yield'))
         add_b("Dividend Yield (Fwd)", div_y, 15 if div_y > 4 else (7.5 if div_y >= 2 else 0), 15, False)
-        add_b("PEG Ratio (Fwd)", peg_val, 10 if (0 <= peg_val <= 1.2) else (5.33 if (1.2 < peg_val <= 1.8) else 0), 10, True)
+        add_b("PEG Ratio (Fwd)", peg_val, get_rel_pts(peg_val, sec_peg, 10), 10, True)
 
     elif is_insurance:
-        # Sector 3: Insurance
         nim = clean_percent(metrics.get('nim'))
         add_h("Float / Net Interest", nim, 20 if nim > 3.0 else (10 if nim >= 1.5 else 0), 20, False)
         de = clean_ratio(metrics.get('debt_to_equity'))
@@ -294,18 +294,14 @@ def calculate_scoring_reform(valuation_data, metrics):
         add_h("BVPS Growth", bvps, 20 if bvps > 8 else (10 if bvps >= 3 else 0), 20, False)
         
         add_b("Margin of Safety", mos, get_mos_points(mos, 30), 30, False)
-        pts = 20 if (0 < pe <= 15) else (10 if pe <= 18 else 0)
-        add_b(pe_label, pe, pts, 20, True)
-        pts = 25 if (0 < pb < 1.5) else (12.5 if pb <= 2.0 else 0)
-        add_b("Price-to-Book", pb, pts, 25, True)
+        add_b(pe_label, pe, get_rel_pts(pe, sec_pe, 20), 20, True)
+        add_b("Price-to-Book", pb, get_rel_pts(pb, sec_pb, 25), 25, True)
         div_y = clean_percent(metrics.get('fwd_dividend_yield') or metrics.get('dividend_yield'))
         add_b("Dividend Yield (Fwd)", div_y, 15 if div_y > 3 else (7.5 if div_y >= 1.5 else 0), 15, False)
-        add_b("EPS Growth (Fwd)", fwd_growth, 10 if fwd_growth > 8 else (5 if fwd_growth >= 4 else 0), 10, False)
+        add_b("EPS Growth (Fwd)", eps_2y_g, 10 if eps_2y_g > 8 else (5 if eps_2y_g >= 4 else 0), 10, False)
 
     elif is_reit:
-        # Sector 4: Real Estate / REITs
         de = clean_ratio(metrics.get('debt_to_ebitda') or (clean_ratio(metrics.get('total_debt')) / clean_ratio(metrics.get('ebitda')) if clean_ratio(metrics.get('ebitda')) > 0 else 0))
-        # REITs can safely handle up to 6.0x Debt/EBITDA
         add_h("Debt-to-EBITDA", de, 25 if (0 <= de < 6.0) else (12.5 if de <= 7.5 else 0), 25, True)
         add_h("Interest Coverage", clean_ratio(metrics.get('interest_coverage')), 25 if clean_ratio(metrics.get('interest_coverage')) > 3.0 else (12.5 if clean_ratio(metrics.get('interest_coverage')) >= 1.5 else 0), 25, True)
         add_h("Current Ratio", clean_ratio(metrics.get('current_ratio')), 25 if clean_ratio(metrics.get('current_ratio')) >= 0.8 else 0, 25, True)
@@ -313,13 +309,13 @@ def calculate_scoring_reform(valuation_data, metrics):
         add_h("Dividend Track Record", div_track, 25 if div_track > 10 else (12.5 if div_track >= 5 else 0), 25, "raw")
         
         add_b("Margin of Safety (NAV)", mos, get_mos_points(mos, 30), 30, False)
-        affo_g = clean_percent(metrics.get('affo_growth') or fwd_growth)
+        affo_g = clean_percent(metrics.get('affo_growth') or eps_2y_g)
         add_b("AFFO Growth (Fwd)", affo_g, 20 if affo_g > 8 else (10 if affo_g >= 3 else 0), 20, False)
         
         p_affo = clean_ratio(metrics.get('price_to_affo'))
-        if p_affo <= 0: p_affo = pe # Fallback if AFFO missing
-        pts = 20 if (0 < p_affo <= 15) else (10 if p_affo <= 18 else 0)
-        add_b("P/AFFO (Fwd)", p_affo, pts, 20, True)
+        if p_affo <= 0: p_affo = pe # Fallback
+        # We don't have sec_p_affo, so we compare P/AFFO with Sector PE proxy
+        add_b("P/AFFO (Fwd)", p_affo, get_rel_pts(p_affo, sec_pe, 20), 20, True)
         
         affo_yield = clean_percent(metrics.get('affo_yield'))
         if affo_yield <= 0: affo_yield = clean_percent(metrics.get('fcf_yield'))
@@ -329,7 +325,6 @@ def calculate_scoring_reform(valuation_data, metrics):
         add_b("Dividend Yield (Fwd)", div_y, 15 if div_y > 5 else (7.5 if div_y >= 3 else 0), 15, False)
 
     elif is_energy:
-        # Sector 5: Energy & Materials
         de = clean_ratio(metrics.get('debt_to_equity'))
         add_h("Debt-to-Equity", de, 20 if (0 <= de < 0.6) else (10 if de < 1.0 else 0), 20, True)
         cr = clean_ratio(metrics.get('current_ratio'))
@@ -342,27 +337,19 @@ def calculate_scoring_reform(valuation_data, metrics):
         add_h("FCF Trend", fcf_trend, 15 if fcf_trend == "Growing" else 0, 15, "raw")
         
         add_b("Margin of Safety", mos, get_mos_points(mos, 30), 30, False)
-        # EV/EBITDA is king for energy
-        pts = 20 if (0 < ev_ebitda <= 6.0) else (10 if ev_ebitda <= 9.0 else 0)
-        add_b("EV/EBITDA (Fwd)", ev_ebitda, pts, 20, True)
-        # Inverted P/E logic for cyclical tops
-        pts = 0
-        if pe > 0:
-            if pe < 6: pts = 5 # Value trap / Peak cycle
-            elif 6 <= pe <= 15: pts = 15 # Healthy cycle
-            elif 15 < pe <= 20: pts = 10
-        add_b(pe_label, pe, pts, 15, True)
+        add_b("EV/EBITDA (Fwd)", ev_ebitda, get_rel_pts(ev_ebitda, sec_ev_ebitda, 20), 20, True)
         
-        pts = 20 if (0 < pb <= 1.5) else (10 if pb <= 2.5 else 0)
-        add_b("Price-to-Book", pb, pts, 20, True)
+        # Inverted P/E logic for cyclical tops is kept absolute, or maybe relative inverted?
+        # Energy: low P/E might be a trap. If we use relative, it might break cyclical logic.
+        # But we must apply sector logic. Let's use get_rel_pts with lower_is_better.
+        add_b(pe_label, pe, get_rel_pts(pe, sec_pe, 15), 15, True)
         
+        add_b("Price-to-Book", pb, get_rel_pts(pb, sec_pb, 20), 20, True)
         div_y = clean_percent(metrics.get('fwd_dividend_yield') or metrics.get('dividend_yield'))
         add_b("Dividend Yield (Fwd)", div_y, 15 if div_y > 4 else (7.5 if div_y >= 2 else 0), 15, False)
 
     elif is_utilities:
-        # Sector 6: Utilities & Telecom
         de = clean_ratio(metrics.get('debt_to_equity'))
-        # High leverage tolerated
         add_h("Debt-to-Equity", de, 20 if (0 <= de <= 2.0) else (10 if de <= 3.0 else 0), 20, True)
         cr = clean_ratio(metrics.get('current_ratio'))
         add_h("Current Ratio", cr, 20 if cr >= 0.7 else (10 if cr >= 0.5 else 0), 20, True)
@@ -374,17 +361,13 @@ def calculate_scoring_reform(valuation_data, metrics):
         add_h("ROIC", roic, 20 if roic > 6 else (10 if roic >= 4 else 0), 20, False)
         
         add_b("Margin of Safety", mos, get_mos_points(mos, 30), 30, False)
-        add_b("EPS Growth (Fwd)", fwd_growth, 10 if fwd_growth > 5 else (5 if fwd_growth >= 2 else 0), 10, False)
-        pts = 15 if (0 < pe <= 15) else (7.5 if pe <= 18 else 0)
-        add_b(pe_label, pe, pts, 15, True)
-        # EV/EBITDA isolates high D&A
-        pts = 20 if (0 < ev_ebitda <= 10.0) else (10 if ev_ebitda <= 14.0 else 0)
-        add_b("EV/EBITDA (Fwd)", ev_ebitda, pts, 20, True)
+        add_b("EPS Growth (Fwd)", eps_2y_g, 10 if eps_2y_g > 5 else (5 if eps_2y_g >= 2 else 0), 10, False)
+        add_b(pe_label, pe, get_rel_pts(pe, sec_pe, 15), 15, True)
+        add_b("EV/EBITDA (Fwd)", ev_ebitda, get_rel_pts(ev_ebitda, sec_ev_ebitda, 20), 20, True)
         div_y = clean_percent(metrics.get('fwd_dividend_yield') or metrics.get('dividend_yield'))
         add_b("Dividend Yield (Fwd)", div_y, 25 if div_y > 4 else (12.5 if div_y >= 2.5 else 0), 25, False)
 
     elif is_defensive:
-        # Sector 7: Defensive / Healthcare
         de = clean_ratio(metrics.get('debt_to_equity'))
         add_h("Debt-to-Equity", de, 20 if (0 <= de < 1.0) else (10 if de < 1.5 else 0), 20, True)
         cr = clean_ratio(metrics.get('current_ratio'))
@@ -397,18 +380,18 @@ def calculate_scoring_reform(valuation_data, metrics):
         add_h("ROIC", roic, 20 if roic > 12 else (10 if roic >= 8 else 0), 20, False)
         
         add_b("Margin of Safety", mos, get_mos_points(mos, 30), 30, False)
-        add_b("EPS Growth (Fwd)", fwd_growth, 15 if fwd_growth > 8 else (7.5 if fwd_growth >= 4 else 0), 15, False)
-        # Premium tolerated
-        pts = 20 if (0 < pe <= 20) else (10 if pe <= 25 else 0)
-        if pts == 0 and pe > 0 and 0 < peg_val <= 1.2 and fwd_growth >= 15.0: pts = 10 # Growth Override
+        add_b("EPS Growth (Fwd)", eps_2y_g, 15 if eps_2y_g > 8 else (7.5 if eps_2y_g >= 4 else 0), 15, False)
+        
+        pts = get_rel_pts(pe, sec_pe, 20)
+        if pts == 0 and pe > 0 and 0 < peg_val <= 1.2 and eps_2y_g >= 15.0: pts = 10 # Growth Override
         add_b(pe_label, pe, pts, 20, True)
-        pts = 15 if (0 < ev_ebitda <= 14.0) else (7.5 if ev_ebitda <= 18.0 else 0)
-        if pts == 0 and ev_ebitda > 0 and 0 < peg_val <= 1.2 and fwd_growth >= 15.0: pts = 7.5 # Growth Override
+        
+        pts = get_rel_pts(ev_ebitda, sec_ev_ebitda, 15)
+        if pts == 0 and ev_ebitda > 0 and 0 < peg_val <= 1.2 and eps_2y_g >= 15.0: pts = 7.5 # Growth Override
         add_b("EV/EBITDA (Fwd)", ev_ebitda, pts, 15, True)
-        add_b("PEG Ratio (Fwd)", peg_val, 20 if (0 <= peg_val <= 1.2) else (10.67 if (1.2 < peg_val <= 1.8) else 0), 20, True)
+        add_b("PEG Ratio (Fwd)", peg_val, get_rel_pts(peg_val, sec_peg, 20), 20, True)
 
     elif is_tech:
-        # Sector 1: Technology & Software
         de = clean_ratio(metrics.get('debt_to_equity'))
         add_h("Debt-to-Equity", de, 20 if (0 <= de <= 1.0) else (10 if de <= 2.0 else 0), 20, True)
         cr = clean_ratio(metrics.get('current_ratio'))
@@ -421,39 +404,23 @@ def calculate_scoring_reform(valuation_data, metrics):
         add_h("ROIC", roic, 20 if roic > 15 else (10 if roic >= 10 else 0), 20, False)
         
         add_b("Margin of Safety (DCF)", mos, get_mos_points(mos, 30), 30, False)
-        add_b("Revenue Growth (Fwd)", rev_fwd_growth, 20 if rev_fwd_growth > 15 else (10 if rev_fwd_growth >= 8 else 0), 20, False)
+        add_b("Revenue Growth (Fwd)", rev_2y_g, 20 if rev_2y_g > 15 else (10 if rev_2y_g >= 8 else 0), 20, False)
         
-        target_pe = 25.0
-        pts = 20 if (0 < pe <= target_pe) else (10 if pe <= target_pe * 1.3 else 0)
-        if pts == 0 and pe > 0 and 0 < peg_val <= 1.2 and rev_fwd_growth >= 20.0: pts = 10 # Growth Override
+        pts = get_rel_pts(pe, sec_pe, 20)
+        if pts == 0 and pe > 0 and 0 < peg_val <= 1.2 and rev_2y_g >= 20.0: pts = 10 # Growth Override
         add_b(pe_label, pe, pts, 20, True)
         
-        pts = 10 if (0 < ev_ebitda <= 18.0) else (5 if ev_ebitda <= 25.0 else 0)
-        if pts == 0 and ev_ebitda > 0 and 0 < peg_val <= 1.2 and rev_fwd_growth >= 20.0: pts = 5 # Growth Override
+        pts = get_rel_pts(ev_ebitda, sec_ev_ebitda, 10)
+        if pts == 0 and ev_ebitda > 0 and 0 < peg_val <= 1.2 and rev_2y_g >= 20.0: pts = 5 # Growth Override
         add_b("EV/EBITDA (Fwd)", ev_ebitda, pts, 10, True)
         
-        add_b("PEG Ratio (Fwd)", peg_val, 10 if (0 <= peg_val <= 1.2) else (5.33 if (1.2 < peg_val <= 1.8) else 0), 10, True)
+        add_b("PEG Ratio (Fwd)", peg_val, get_rel_pts(peg_val, sec_peg, 10), 10, True)
         
-        ebit_m = clean_percent(metrics.get('ebit_margin'))
-        op_m = clean_percent(metrics.get('operating_margin'))
-        net_m = clean_percent(metrics.get('net_margin'))
-        margin = max(ebit_m, op_m, net_m)
-        target_ps = target_pe * (margin / 100.0)
-        pts = 0
-        if ps > 0:
-            if rev_fwd_growth >= 20.0 and ps <= 15.0:
-                pts = 10
-            elif rev_fwd_growth >= 10.0 and ps <= 8.0:
-                pts = 10
-            elif margin > 0:
-                if ps <= target_ps: pts = 10
-                elif ps <= target_ps * 1.5: pts = 5
-            elif margin < 0:
-                if rev_fwd_growth > 20 and ps <= 5.0: pts = 5
-        add_b("P/S Ratio (Fwd)", ps, pts, 10, True)
+        # P/S Ratio
+        add_b("P/S Ratio (Fwd)", ps, get_rel_pts(ps, sec_ps, 10), 10, True)
 
     else:
-        # Sector 8: Industrials & Consumer Discretionary (Default fallback)
+        # Sector 8: Industrials & Consumer Discretionary
         de = clean_ratio(metrics.get('debt_to_equity'))
         de_pts = 0
         if 0 <= de < 1.0:
@@ -481,17 +448,17 @@ def calculate_scoring_reform(valuation_data, metrics):
         add_h("ROIC", roic, 20 if roic > 10 else (10 if roic >= 6 else 0), 20, False)
         
         add_b("Margin of Safety", mos, get_mos_points(mos, 30), 30, False)
-        add_b("Revenue Growth (Fwd)", rev_fwd_growth, 20 if rev_fwd_growth > 10 else (10 if rev_fwd_growth >= 5 else 0), 20, False)
+        add_b("Revenue Growth (Fwd)", rev_2y_g, 20 if rev_2y_g > 10 else (10 if rev_2y_g >= 5 else 0), 20, False)
         
-        pts = 20 if (0 < pe <= 18) else (10 if pe <= 22 else 0)
-        if pts == 0 and pe > 0 and 0 < peg_val <= 1.2 and rev_fwd_growth >= 15.0: pts = 10 # Growth Override
+        pts = get_rel_pts(pe, sec_pe, 20)
+        if pts == 0 and pe > 0 and 0 < peg_val <= 1.2 and rev_2y_g >= 15.0: pts = 10 # Growth Override
         add_b(pe_label, pe, pts, 20, True)
         
-        pts = 15 if (0 < ev_ebitda <= 12.0) else (7.5 if ev_ebitda <= 16.0 else 0)
-        if pts == 0 and ev_ebitda > 0 and 0 < peg_val <= 1.2 and rev_fwd_growth >= 15.0: pts = 7.5 # Growth Override
+        pts = get_rel_pts(ev_ebitda, sec_ev_ebitda, 15)
+        if pts == 0 and ev_ebitda > 0 and 0 < peg_val <= 1.2 and rev_2y_g >= 15.0: pts = 7.5 # Growth Override
         add_b("EV/EBITDA (Fwd)", ev_ebitda, pts, 15, True)
         
-        add_b("PEG Ratio (Fwd)", peg_val, 15 if (0 <= peg_val <= 1.2) else (8 if (1.2 < peg_val <= 1.8) else 0), 15, True)
+        add_b("PEG Ratio (Fwd)", peg_val, get_rel_pts(peg_val, sec_peg, 15), 15, True)
 
     return {
         "health_score_total": min(int(h_score), 100),
