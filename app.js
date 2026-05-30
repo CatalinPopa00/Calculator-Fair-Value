@@ -1985,27 +1985,26 @@ document.addEventListener('DOMContentLoaded', () => {
         const getDynamicEpsGrowth = () => {
             const eItems = globalData.eps_estimates || [];
             let growths = [];
-            let prevEpsVal = null;
+            let baseVal = null;
             
             eItems.forEach((item) => {
                 if (!item) return;
-                const isAnchor = item.status === 'reported';
-                let scenarioVal = item.avg;
-                if (!isAnchor) {
-                    if (_currentScenario === 'bear' && item.low != null) scenarioVal = item.low;
-                    if (_currentScenario === 'bull' && item.high != null) scenarioVal = item.high;
+                
+                let val = item.avg;
+                if (item.status !== 'reported') {
+                    if (_currentScenario === 'bear' && item.low != null) val = item.low;
+                    if (_currentScenario === 'bull' && item.high != null) val = item.high;
                 }
                 
-                if (!isAnchor) {
-                    let dynamicBase = prevEpsVal;
-                    if (scenarioVal != null && dynamicBase != null && dynamicBase !== 0) {
-                        let g = (parseFloat(scenarioVal) / parseFloat(dynamicBase)) - 1;
-                        growths.push(g);
-                    } else if (item.growth != null) {
+                if (val != null) {
+                    val = parseFloat(val);
+                    if (baseVal != null && baseVal !== 0 && item.status !== 'reported') {
+                        growths.push((val / baseVal) - 1);
+                    } else if (item.growth != null && item.status !== 'reported') {
                         growths.push(parseFloat(item.growth));
                     }
+                    baseVal = val;
                 }
-                prevEpsVal = scenarioVal;
             });
             
             if (growths.length >= 2) return (growths[0] + growths[1]) / 2.0;
@@ -2020,27 +2019,26 @@ document.addEventListener('DOMContentLoaded', () => {
         const getDynamicRevGrowth = () => {
             const rItems = globalData.rev_estimates || [];
             let growths = [];
-            let prevRevVal = null;
+            let baseVal = null;
             
             rItems.forEach((item) => {
                 if (!item) return;
-                const isAnchor = item.status === 'reported';
-                let scenarioVal = item.avg;
-                if (!isAnchor) {
-                    if (_currentScenario === 'bear' && item.low != null) scenarioVal = item.low;
-                    if (_currentScenario === 'bull' && item.high != null) scenarioVal = item.high;
+                
+                let val = item.avg;
+                if (item.status !== 'reported') {
+                    if (_currentScenario === 'bear' && item.low != null) val = item.low;
+                    if (_currentScenario === 'bull' && item.high != null) val = item.high;
                 }
                 
-                if (!isAnchor) {
-                    let dynamicBase = prevRevVal;
-                    if (scenarioVal != null && dynamicBase != null && dynamicBase !== 0) {
-                        let g = (parseFloat(scenarioVal) / parseFloat(dynamicBase)) - 1;
-                        growths.push(g);
-                    } else if (item.growth != null) {
+                if (val != null) {
+                    val = parseFloat(val);
+                    if (baseVal != null && baseVal !== 0 && item.status !== 'reported') {
+                        growths.push((val / baseVal) - 1);
+                    } else if (item.growth != null && item.status !== 'reported') {
                         growths.push(parseFloat(item.growth));
                     }
+                    baseVal = val;
                 }
-                prevRevVal = scenarioVal;
             });
             
             if (growths.length >= 2) return (growths[0] + growths[1]) / 2.0;
@@ -3676,27 +3674,26 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!data) return 10.0;
             const rItems = data.rev_estimates || [];
             let growths = [];
-            let prevRevVal = null;
+            let baseVal = null;
             
             rItems.forEach((item) => {
                 if (!item) return;
-                const isAnchor = item.status === 'reported';
-                let scenarioVal = item.avg;
-                if (!isAnchor) {
-                    if (_currentScenario === 'bear' && item.low != null) scenarioVal = item.low;
-                    if (_currentScenario === 'bull' && item.high != null) scenarioVal = item.high;
+                
+                let val = item.avg;
+                if (item.status !== 'reported') {
+                    if (_currentScenario === 'bear' && item.low != null) val = item.low;
+                    if (_currentScenario === 'bull' && item.high != null) val = item.high;
                 }
                 
-                if (!isAnchor) {
-                    let dynamicBase = prevRevVal;
-                    if (scenarioVal != null && dynamicBase != null && dynamicBase !== 0) {
-                        let g = (parseFloat(scenarioVal) / parseFloat(dynamicBase)) - 1;
-                        growths.push(g);
-                    } else if (item.growth != null) {
+                if (val != null) {
+                    val = parseFloat(val);
+                    if (baseVal != null && baseVal !== 0 && item.status !== 'reported') {
+                        growths.push((val / baseVal) - 1);
+                    } else if (item.growth != null && item.status !== 'reported') {
                         growths.push(parseFloat(item.growth));
                     }
+                    baseVal = val;
                 }
-                prevRevVal = scenarioVal;
             });
             
             if (growths.length >= 2) return Math.round(((growths[0] + growths[1]) / 2) * 1000) / 10;
@@ -4795,7 +4792,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // Sync analyst estimates data to globalData
-            if (globalData && globalData.ticker && globalData.ticker.toUpperCase() === ticker.toUpperCase()) {
+            if (globalData && ticker) {
                 globalData.rev_estimates = rItems;
                 globalData.eps_estimates = eItems;
                 
@@ -4805,13 +4802,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (!hadOverrides) {
                         const targetGrowth = window.getDcfGrowthDefault(globalData);
                         g13.value = formatCleanInputVal(targetGrowth);
-                        // Cascade to other inputs
-                        g13.dispatchEvent(new Event('input', { bubbles: true }));
+                        // Cascade to other inputs using 'change' as 'input' is not caught on text inputs
+                        g13.dispatchEvent(new Event('change', { bubbles: true }));
                     }
                 }
                 
                 // Re-calculate all fair values to reflect the fresh consensus growth
-                updateFairValue();
+                if (typeof updateFairValue === 'function') updateFairValue();
             }
         } catch (err) {
             console.error("Analyst major error:", err);
