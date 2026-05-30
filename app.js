@@ -2804,6 +2804,17 @@ document.addEventListener('DOMContentLoaded', () => {
             finalMos = globalData.margin_of_safety;
         }
 
+        let dynFwdEpsTop = globalData.company_profile?.fwd_eps || 0;
+        if (globalData.eps_estimates) {
+            const eEstsTop = globalData.eps_estimates.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
+            if (eEstsTop.length >= 1) {
+                if (window._currentScenario === 'bear') dynFwdEpsTop = eEstsTop[0].low;
+                else if (window._currentScenario === 'bull') dynFwdEpsTop = eEstsTop[0].high;
+                else dynFwdEpsTop = eEstsTop[0].avg;
+            }
+        }
+        const newPeFwd = dynFwdEpsTop > 0 ? globalData.current_price / dynFwdEpsTop : 0;
+
         if (finalFv != null) {
             elements.fairValue.textContent = formatCurrency(finalFv);
             elements.marginSafety.textContent = `${formatPercent(finalMos)} Margin of Safety`;
