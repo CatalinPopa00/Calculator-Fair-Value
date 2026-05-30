@@ -42,102 +42,148 @@ def get_yahoo_analysis_normalized(ticker, info=None):
                 res['eps']['0y'] = {'avg': float(info.get('epsCurrentYear', 0))}
                 res['eps']['+1y'] = {'avg': float(info.get('forwardEps') or info.get('epsForward') or 0)}
             except: pass
-
-        # 2. Forensic Scrape for the full Truth Table
-        url = f"https://finance.yahoo.com/quote/{t_upper}/analysis"
-        # v265: Force Googlebot UA for Forensic Scrapes to bypass Yahoo Consent (Guce)
-        headers = {'User-Agent': "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"}
-        
-        response = requests.get(url, headers=headers, timeout=5)
-        if response.status_code == 200:
-            html = response.text
             
-            # v267: Direct HTML Table Parsing
-            tables = re.findall(r'<table.*?</table>', html, re.DOTALL)
-            for table in tables:
-                rows = re.findall(r'<tr.*?</tr>', table, re.DOTALL)
-                for row in rows:
-                    clean_row = re.sub(r'<[^>]+>', ' ', row).strip()
-                    
-                    if 'Avg. Estimate' in clean_row:
-                        m0 = re.search(r'data-testid-cell="0y".*?>\s*([^<]+)', row)
-                        m1 = re.search(r'data-testid-cell="\+1y".*?>\s*([^<]+)', row)
-                        val0 = m0.group(1).strip() if m0 else None
-                        val1 = m1.group(1).strip() if m1 else None
+        # 1.5 yfinance native estimate fetch (Robust against Vercel IP blocking)
+        try:
+            import yfinance as yf
+            import pandas as pd
+            yf_ticker = yf.Ticker(t_upper)
+            
+            # Revenue Estimates
+            rev_est = yf_ticker.revenue_estimate
+            if rev_est is not None and not rev_est.empty:
+                for y in ['0y', '+1y']:
+                    if y in rev_est.index:
+                        if y not in res['rev']: res['rev'][y] = {}
+                        val_avg = rev_est.loc[y, 'avg']
+                        if pd.notna(val_avg): res['rev'][y]['avg'] = float(val_avg)
+                        val_low = rev_est.loc[y, 'low']
+                        if pd.notna(val_low): res['rev'][y]['low'] = float(val_low)
+                        val_high = rev_est.loc[y, 'high']
+                        if pd.notna(val_high): res['rev'][y]['high'] = float(val_high)
+                        if 'yearAgoRevenue' in rev_est.columns:
+                            val_ya = rev_est.loc[y, 'yearAgoRevenue']
+                            if pd.notna(val_ya): res['rev'][y]['yearAgo'] = float(val_ya)
                         
-                        # Determine if Revenue (B/M) or EPS (decimal)
-                        is_rev = (val0 and ('B' in val0 or 'M' in val0)) or (val1 and ('B' in val1 or 'M' in val1))
+            # EPS Estimates
+            eps_est = yf_ticker.earnings_estimate
+            if eps_est is not None and not eps_est.empty:
+                for y in ['0y', '+1y']:
+                    if y in eps_est.index:
+                        if y not in res['eps']: res['eps'][y] = {}
+                        val_avg = eps_est.loc[y, 'avg']
+                        if pd.notna(val_avg): res['eps'][y]['avg'] = float(val_avg)
+                        val_low = eps_est.loc[y, 'low']
+                        if pd.notna(val_low): res['eps'][y]['low'] = float(val_low)
+                        val_high = eps_est.loc[y, 'high']
+                        if pd.notna(val_high): res['eps'][y]['high'] = float(val_high)
+                        if 'yearAgoEps' in eps_est.columns:
+                            val_ya = eps_est.loc[y, 'yearAgoEps']
+                            if pd.notna(val_ya): res['eps'][y]['yearAgo'] = float(val_ya)
+        except Exception as e:
+            print(f"yfinance estimates fetch failed for {t_upper}: {e}")
+
+        # 2. Forensic Scrape for the full Truth Table (Only if yfinance failed)
+        has_yf = bool(res['rev'].get('0y', {}).get('avg') and res['eps'].get('0y', {}).get('avg'))
+        if not has_yf:
+            url = f"https://finance.yahoo.com/quote/{t_upper}/analysis"
+            # v265: Force Googlebot UA for Forensic Scrapes to bypass Yahoo Consent (Guce)
+            headers = {'User-Agent': "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"}
+            
+            response = requests.get(url, headers=headers, timeout=5)
+            if response.status_code == 200:
+                html = response.text
+                
+                # v267: Direct HTML Table Parsing
+                tables = re.findall(r'<table.*?</table>', html, re.DOTALL)
+                for table in tables:
+                    rows = re.findall(r'<tr.*?</tr>', table, re.DOTALL)
+                    for row in rows:
+                        clean_row = re.sub(r'<[^>]+>', ' ', row).strip()
                         
-                        if is_rev:
-                            if val0: 
-                                res['rev']['0y'] = {'avg': parse_n(val0)}
-                            if val1: 
-                                res['rev']['+1y'] = {'avg': parse_n(val1)}
-                        else:
-                            if val0: 
-                                res['eps']['0y'] = {'avg': parse_n(val0)}
-                            if val1: 
-                                res['eps']['+1y'] = {'avg': parse_n(val1)}
-                                
-                    elif 'Low Estimate' in clean_row:
-                        m0 = re.search(r'data-testid-cell="0y".*?>\s*([^<]+)', row)
-                        m1 = re.search(r'data-testid-cell="\+1y".*?>\s*([^<]+)', row)
-                        val0 = m0.group(1).strip() if m0 else None
-                        val1 = m1.group(1).strip() if m1 else None
-                        
-                        is_rev = (val0 and ('B' in val0 or 'M' in val0)) or (val1 and ('B' in val1 or 'M' in val1))
-                        
-                        if is_rev:
-                            if val0:
-                                if '0y' not in res['rev']: res['rev']['0y'] = {}
-                                res['rev']['0y']['low'] = parse_n(val0)
-                            if val1:
-                                if '+1y' not in res['rev']: res['rev']['+1y'] = {}
-                                res['rev']['+1y']['low'] = parse_n(val1)
-                        else:
-                            if val0:
-                                if '0y' not in res['eps']: res['eps']['0y'] = {}
-                                res['eps']['0y']['low'] = parse_n(val0)
-                            if val1:
-                                if '+1y' not in res['eps']: res['eps']['+1y'] = {}
-                                res['eps']['+1y']['low'] = parse_n(val1)
-                                
-                    elif 'High Estimate' in clean_row:
-                        m0 = re.search(r'data-testid-cell="0y".*?>\s*([^<]+)', row)
-                        m1 = re.search(r'data-testid-cell="\+1y".*?>\s*([^<]+)', row)
-                        val0 = m0.group(1).strip() if m0 else None
-                        val1 = m1.group(1).strip() if m1 else None
-                        
-                        is_rev = (val0 and ('B' in val0 or 'M' in val0)) or (val1 and ('B' in val1 or 'M' in val1))
-                        
-                        if is_rev:
-                            if val0:
-                                if '0y' not in res['rev']: res['rev']['0y'] = {}
-                                res['rev']['0y']['high'] = parse_n(val0)
-                            if val1:
-                                if '+1y' not in res['rev']: res['rev']['+1y'] = {}
-                                res['rev']['+1y']['high'] = parse_n(val1)
-                        else:
-                            if val0:
-                                if '0y' not in res['eps']: res['eps']['0y'] = {}
-                                res['eps']['0y']['high'] = parse_n(val0)
-                            if val1:
-                                if '+1y' not in res['eps']: res['eps']['+1y'] = {}
-                                res['eps']['+1y']['high'] = parse_n(val1)
+                        if 'Avg. Estimate' in clean_row:
+                            m0 = re.search(r'data-testid-cell="0y".*?>\s*([^<]+)', row)
+                            m1 = re.search(r'data-testid-cell="\+1y".*?>\s*([^<]+)', row)
+                            val0 = m0.group(1).strip() if m0 else None
+                            val1 = m1.group(1).strip() if m1 else None
                             
-                    elif 'Year Ago EPS' in clean_row:
-                        m_ya = re.search(r'data-testid-cell="0y".*?>\s*([^<]+)', row)
-                        if m_ya:
-                            ya_val = parse_n(m_ya.group(1).strip())
-                            if '0y' not in res['eps']: res['eps']['0y'] = {}
-                            res['eps']['0y']['yearAgo'] = ya_val # Use 'yearAgo' to match engine expectation
+                            # Determine if Revenue (B/M) or EPS (decimal)
+                            is_rev = (val0 and ('B' in val0 or 'M' in val0)) or (val1 and ('B' in val1 or 'M' in val1))
                             
-                    elif 'Year Ago Sales' in clean_row:
-                        m_ya = re.search(r'data-testid-cell="0y".*?>\s*([^<]+)', row)
-                        if m_ya:
-                            ya_val = parse_n(m_ya.group(1).strip())
-                            if '0y' not in res['rev']: res['rev']['0y'] = {}
-                            res['rev']['0y']['yearAgo'] = ya_val
+                            if is_rev:
+                                if val0: 
+                                    if '0y' not in res['rev']: res['rev']['0y'] = {}
+                                    res['rev']['0y']['avg'] = parse_n(val0)
+                                if val1: 
+                                    if '+1y' not in res['rev']: res['rev']['+1y'] = {}
+                                    res['rev']['+1y']['avg'] = parse_n(val1)
+                            else:
+                                if val0: 
+                                    if '0y' not in res['eps']: res['eps']['0y'] = {}
+                                    res['eps']['0y']['avg'] = parse_n(val0)
+                                if val1: 
+                                    if '+1y' not in res['eps']: res['eps']['+1y'] = {}
+                                    res['eps']['+1y']['avg'] = parse_n(val1)
+                                    
+                        elif 'Low Estimate' in clean_row:
+                            m0 = re.search(r'data-testid-cell="0y".*?>\s*([^<]+)', row)
+                            m1 = re.search(r'data-testid-cell="\+1y".*?>\s*([^<]+)', row)
+                            val0 = m0.group(1).strip() if m0 else None
+                            val1 = m1.group(1).strip() if m1 else None
+                        
+                            is_rev = (val0 and ('B' in val0 or 'M' in val0)) or (val1 and ('B' in val1 or 'M' in val1))
+                            
+                            if is_rev:
+                                if val0:
+                                    if '0y' not in res['rev']: res['rev']['0y'] = {}
+                                    res['rev']['0y']['low'] = parse_n(val0)
+                                if val1:
+                                    if '+1y' not in res['rev']: res['rev']['+1y'] = {}
+                                    res['rev']['+1y']['low'] = parse_n(val1)
+                            else:
+                                if val0:
+                                    if '0y' not in res['eps']: res['eps']['0y'] = {}
+                                    res['eps']['0y']['low'] = parse_n(val0)
+                                if val1:
+                                    if '+1y' not in res['eps']: res['eps']['+1y'] = {}
+                                    res['eps']['+1y']['low'] = parse_n(val1)
+                                
+                        elif 'High Estimate' in clean_row:
+                            m0 = re.search(r'data-testid-cell="0y".*?>\s*([^<]+)', row)
+                            m1 = re.search(r'data-testid-cell="\+1y".*?>\s*([^<]+)', row)
+                            val0 = m0.group(1).strip() if m0 else None
+                            val1 = m1.group(1).strip() if m1 else None
+                            
+                            is_rev = (val0 and ('B' in val0 or 'M' in val0)) or (val1 and ('B' in val1 or 'M' in val1))
+                            
+                            if is_rev:
+                                if val0:
+                                    if '0y' not in res['rev']: res['rev']['0y'] = {}
+                                    res['rev']['0y']['high'] = parse_n(val0)
+                                if val1:
+                                    if '+1y' not in res['rev']: res['rev']['+1y'] = {}
+                                    res['rev']['+1y']['high'] = parse_n(val1)
+                            else:
+                                if val0:
+                                    if '0y' not in res['eps']: res['eps']['0y'] = {}
+                                    res['eps']['0y']['high'] = parse_n(val0)
+                                if val1:
+                                    if '+1y' not in res['eps']: res['eps']['+1y'] = {}
+                                    res['eps']['+1y']['high'] = parse_n(val1)
+                                
+                        elif 'Year Ago EPS' in clean_row:
+                            m_ya = re.search(r'data-testid-cell="0y".*?>\s*([^<]+)', row)
+                            if m_ya:
+                                ya_val = parse_n(m_ya.group(1).strip())
+                                if '0y' not in res['eps']: res['eps']['0y'] = {}
+                                res['eps']['0y']['yearAgo'] = ya_val # Use 'yearAgo' to match engine expectation
+                                
+                        elif 'Year Ago Sales' in clean_row:
+                            m_ya = re.search(r'data-testid-cell="0y".*?>\s*([^<]+)', row)
+                            if m_ya:
+                                ya_val = parse_n(m_ya.group(1).strip())
+                                if '0y' not in res['rev']: res['rev']['0y'] = {}
+                                res['rev']['0y']['yearAgo'] = ya_val
 
             # v276: Priority Truth Pass (Non-GAAP takes precedence)
             for trend_key in ["revenueTrend", "earningsTrend", "earningsTrendNonGaap"]:
