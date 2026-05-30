@@ -2836,12 +2836,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const simPrice = globalData.current_price;
         const newPeFwd = dynFwdEpsTop > 0 ? simPrice / dynFwdEpsTop : 0;
         
-        const prof = globalData.company_profile || {};
+        const safeProf = globalData.company_profile || {};
         const revenue = globalData.revenue || 0;
         const ebitda = globalData.ebitda || 0;
         const pToB = globalData.price_to_book || 0;
         const dividendRate = globalData.dividend_rate || 0;
-        const shares = prof.shares_outstanding || 0;
+        const shares = safeProf.shares_outstanding || 0;
         const bookValuePerShare = (pToB > 0) ? (_realApiPrice / pToB) : 0;
         
         const newPB = (bookValuePerShare > 0) ? simPrice / bookValuePerShare : 0;
@@ -2852,8 +2852,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const newEvEbitda = (ebitda > 0) ? ev / ebitda : 0;
         
         let epsGrowth = null;
-        if (dynFwdEpsTop && prof.trailing_eps && prof.trailing_eps > 0) {
-            epsGrowth = ((dynFwdEpsTop - prof.trailing_eps) / Math.abs(prof.trailing_eps)) * 100;
+        if (dynFwdEpsTop && safeProf.trailing_eps && safeProf.trailing_eps > 0) {
+            epsGrowth = ((dynFwdEpsTop - safeProf.trailing_eps) / Math.abs(safeProf.trailing_eps)) * 100;
         }
         let revGrowth = null;
         if (dynFwdRevTop && revenue > 0) {
