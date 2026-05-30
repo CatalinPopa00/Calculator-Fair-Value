@@ -830,16 +830,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (metric.includes('P/S Ratio')) {
                     const target_pe = getTargetPe(sector, industry);
                     const ebitM = cleanPercent(globalData.company_profile.ebit_margin || 0);
-                                pts = 10;
-                            } else if (newPS <= target_ps) {
-                                pts = 10;
-                            } else if (newPS <= target_ps * 1.5) {
-                                pts = 5;
-                            }
+                    const ebitdaM = cleanPercent(globalData.company_profile.ebitda_margin || 0);
+                    const netM = cleanPercent(globalData.company_profile.net_profit_margin || 0);
+                    const margin = netM > 0 ? netM : (ebitM > 0 ? ebitM : ebitdaM);
+
+                    const target_ps = margin > 0 ? (target_pe * (margin / 100)) : 1.5;
+                    let pts = 0;
+                    if (dynPS > 0) {
+                        if (margin > 20) {
+                            if (dynPS <= target_ps) pts = 10;
+                            else if (dynPS <= target_ps * 1.5) pts = 5;
+                        } else if (margin > 0) {
+                            if (dynPS <= target_ps) pts = 10;
+                            else if (dynPS <= target_ps * 1.5) pts = 5;
+                        } else if (margin < 0) {
+                            if (rev_fwd_growth > 20 && dynPS <= 5.0) pts = 5;
                         }
                     }
                     newPts = pts;
-                    item.value = newPS > 0 ? newPS.toFixed(2) + 'x' : '0.00x';
+                    item.value = dynPS > 0 ? dynPS.toFixed(2) + 'x' : '0.00x';
                 } else if (metric.includes('Dividend Yield')) {
                     const dyPct = newDivYield * 100;
                     if (isREIT) newPts = dyPct > 5 ? 15 : (dyPct >= 3 ? 7.5 : 0);
