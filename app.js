@@ -2067,50 +2067,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const updateFairValue = () => {
         const getDynamicEpsGrowth = () => {
-            if (globalData.eps_estimates) {
-                const eEsts = globalData.eps_estimates.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
-                if (eEsts.length >= 2) {
-                    const reportedE = globalData.eps_estimates?.find(e => e && e.status === 'reported');
-                    const baseEps = reportedE ? reportedE.avg : (globalData.company_profile.adjusted_eps || globalData.company_profile.trailing_eps || 0);
-                    if (baseEps > 0) {
-                        let y1, y2;
-                        if (_currentScenario === 'bear') { y1 = eEsts[0].low; y2 = eEsts[1].low; }
-                        else if (_currentScenario === 'bull') { y1 = eEsts[0].high; y2 = eEsts[1].high; }
-                        else { y1 = eEsts[0].avg; y2 = eEsts[1].avg; }
-                        
-                        const g1 = (y1 / baseEps) - 1;
-                        const g2 = (y2 / y1) - 1;
-                        return (g1 + g2) / 2.0;
-                    }
-                }
+            if (globalData && globalData.computed_eps_growth != null && !isNaN(globalData.computed_eps_growth)) {
+                return globalData.computed_eps_growth;
             }
             let epsFallback = currentFormulaData?.peg?.eps_growth_estimated || globalData?.company_profile?.earnings_growth || 0.05;
-            if (globalData && globalData.computed_eps_growth != null) epsFallback = globalData.computed_eps_growth;
             if (_currentScenario === 'bear') return epsFallback * 0.70;
             if (_currentScenario === 'bull') return epsFallback * 1.30;
             return epsFallback;
         };
 
         const getDynamicRevGrowth = () => {
-            if (globalData.rev_estimates) {
-                const rEsts = globalData.rev_estimates.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
-                if (rEsts.length >= 2) {
-                    const reportedR = globalData.rev_estimates?.find(e => e && e.status === 'reported');
-                    const baseRev = reportedR ? reportedR.avg : (globalData.revenue || 0);
-                    if (baseRev > 0) {
-                        let y1, y2;
-                        if (_currentScenario === 'bear') { y1 = rEsts[0].low; y2 = rEsts[1].low; }
-                        else if (_currentScenario === 'bull') { y1 = rEsts[0].high; y2 = rEsts[1].high; }
-                        else { y1 = rEsts[0].avg; y2 = rEsts[1].avg; }
-                        
-                        const g1 = (y1 / baseRev) - 1;
-                        const g2 = (y2 / y1) - 1;
-                        return (g1 + g2) / 2.0;
-                    }
-                }
+            if (globalData && globalData.computed_dcf_growth != null && !isNaN(globalData.computed_dcf_growth)) {
+                return globalData.computed_dcf_growth;
             }
             let revFallback = globalData?.company_profile?.revenue_growth || 0.08;
-            if (globalData && globalData.computed_dcf_growth != null) revFallback = globalData.computed_dcf_growth;
             if (_currentScenario === 'bear') return revFallback * 0.70;
             if (_currentScenario === 'bull') return revFallback * 1.30;
             return revFallback;
