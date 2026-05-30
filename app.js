@@ -3836,7 +3836,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         if (globalData.eps_estimates) {
                             const eEsts = globalData.eps_estimates.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
-                            if (eEsts.length >= 1) {
+                            if (eEsts.length >= 2) {
+                                if (_currentScenario === 'bear') dynFwdEps = (eEsts[0].low + eEsts[1].low) / 2.0;
+                                else if (_currentScenario === 'bull') dynFwdEps = (eEsts[0].high + eEsts[1].high) / 2.0;
+                                else dynFwdEps = (eEsts[0].avg + eEsts[1].avg) / 2.0;
+                            } else if (eEsts.length >= 1) {
                                 if (_currentScenario === 'bear') dynFwdEps = eEsts[0].low;
                                 else if (_currentScenario === 'bull') dynFwdEps = eEsts[0].high;
                                 else dynFwdEps = eEsts[0].avg;
@@ -3844,7 +3848,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                         if (globalData.rev_estimates) {
                             const rEsts = globalData.rev_estimates.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
-                            if (rEsts.length >= 1) {
+                            if (rEsts.length >= 2) {
+                                if (_currentScenario === 'bear') dynFwdRev = (rEsts[0].low + rEsts[1].low) / 2.0;
+                                else if (_currentScenario === 'bull') dynFwdRev = (rEsts[0].high + rEsts[1].high) / 2.0;
+                                else dynFwdRev = (rEsts[0].avg + rEsts[1].avg) / 2.0;
+                            } else if (rEsts.length >= 1) {
                                 if (_currentScenario === 'bear') dynFwdRev = rEsts[0].low;
                                 else if (_currentScenario === 'bull') dynFwdRev = rEsts[0].high;
                                 else dynFwdRev = rEsts[0].avg;
