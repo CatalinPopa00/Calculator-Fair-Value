@@ -398,8 +398,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!prof || !prof.competitor_metrics) return;
         const validPegs = prof.competitor_metrics
             .map(p => {
+                // Strictly use Forward P/E and 2-Year CAGR
+                const fwdPe = parseFloat(p.forward_pe);
+                const cagr2y = parseFloat(p.avg_2y_eps_growth);
+                if (!isNaN(fwdPe) && fwdPe > 0 && !isNaN(cagr2y) && cagr2y > 0) {
+                    return fwdPe / (cagr2y * 100);
+                }
+                
+                // Fallback to API-provided forward_peg if explicitly calculated there
                 const fwd = parseFloat(p.forward_peg);
                 if (!isNaN(fwd) && fwd > 0) return fwd;
+                
                 return null;
             })
             .filter(v => !isNaN(v) && v > 0);
@@ -414,9 +423,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 median = validPegs[mid];
             }
         }
+        
         if (globalData && globalData.formula_data && globalData.formula_data.peg) {
             globalData.formula_data.peg.industry_peg = median;
         }
+        
+        // Cache the median for the sector
+        if (prof.sector) {
+            localStorage.setItem('sectorMedianPeg_' + prof.sector, median);
+        }
+        
         return median;
     }
 
@@ -590,11 +606,33 @@ document.addEventListener('DOMContentLoaded', () => {
         updateMetric('5yavgpe', prof.historic_pe ? prof.historic_pe.toFixed(2) + 'x' : 'N/A');
 
         let pegUsedGrowth = prof.earnings_growth || 0;
+        let strictCagrMode = false;
+        let fwdPe = null;
+
         const pegSrcEl = document.getElementById('peg-eps-source');
         if (pegSrcEl && pegSrcEl.value === 'custom') {
             const rawG = document.getElementById('peg-custom-growth').value;
             if (rawG !== '' && !isNaN(parseFloat(rawG))) {
                 pegUsedGrowth = parseFloat(rawG) / 100;
+            }
+        } else if (pegSrcEl && pegSrcEl.value === 'analyst') {
+            strictCagrMode = true;
+            pegUsedGrowth = null; // Enforce strict
+            const pegEsts = globalData.eps_estimates?.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
+            if (pegEsts && pegEsts.length >= 2) {
+                const reportedE = globalData.eps_estimates?.find(e => e && e.status === 'reported');
+                const baseEps = reportedE ? reportedE.avg : (globalData.company_profile.adjusted_eps || globalData.company_profile.trailing_eps || 0);
+                if (baseEps > 0) {
+                    let y1, y2;
+                    if (_currentScenario === 'bear') { y1 = pegEsts[0].low; y2 = pegEsts[1].low; }
+                    else if (_currentScenario === 'bull') { y1 = pegEsts[0].high; y2 = pegEsts[1].high; }
+                    else { y1 = pegEsts[0].avg; y2 = pegEsts[1].avg; }
+                    
+                    const g1 = (y1 / baseEps) - 1;
+                    const g2 = (y2 / y1) - 1;
+                    pegUsedGrowth = (g1 + g2) / 2.0;
+                    fwdPe = (y1 > 0) ? (simPrice / y1) : null;
+                }
             }
         } else {
             if (window._getDynamicEpsGrowth) {
@@ -883,9 +921,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (metric.includes('Rev Growth') || metric.includes('EPS Growth') || metric.includes('AFFO Growth') || metric.includes('Revenue Growth')) {
                     if (metric.includes('Revenue Growth')) {
                         item.value = rev_fwd_growth > 0 ? rev_fwd_growth.toFixed(1) + '%' : '0.0%';
-                        if (isTech || isDefensive) {
-                            if (rev_fwd_growth > 20) newPts = 15;
-                            else if (rev_fwd_growth >= 10) newPts = 7.5;
+                        if (isTech) {
+                            if (rev_fwd_growth > 15) newPts = 20;
+                            else if (rev_fwd_growth >= 8) newPts = 10;
+                            else newPts = 0;
+                        } else if (isDefensive) {
+                            if (rev_fwd_growth > 10) newPts = 20;
+                            else if (rev_fwd_growth >= 5) newPts = 10;
                             else newPts = 0;
                         }
                     } else if (metric.includes('AFFO Growth')) {
@@ -1553,7 +1595,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             eps_growth: sp.earnings_growth,
                             revenue_growth: sp.revenue_growth,
                             rev_growth: sp.revenue_growth,
-                            price: sp.price
+                            price: sp.price,
+                            avg_2y_eps_growth: sp.avg_2y_eps_growth,
+                            forward_peg: sp.forward_peg
                         };
 
                         if (!prof.competitor_metrics) prof.competitor_metrics = [];
@@ -1562,8 +1606,31 @@ document.addEventListener('DOMContentLoaded', () => {
                         addedCount++;
                     }
 
+                    // Calculate and cache Sector Median PEG from fresh API response
+                    const freshValidPegs = sectorPeers
+                        .filter(sp => (sp.ticker || '').toUpperCase() !== targetTicker)
+                        .map(sp => {
+                            const fwd = parseFloat(sp.forward_peg);
+                            if (!isNaN(fwd) && fwd > 0) return fwd;
+                            const fwdPe = parseFloat(sp.forward_pe);
+                            const cagr2y = parseFloat(sp.avg_2y_eps_growth);
+                            if (!isNaN(fwdPe) && fwdPe > 0 && !isNaN(cagr2y) && cagr2y > 0) {
+                                return fwdPe / (cagr2y * 100);
+                            }
+                            return null;
+                        })
+                        .filter(v => v !== null);
+                    
+                    if (freshValidPegs.length > 0 && prof.sector) {
+                        freshValidPegs.sort((a, b) => a - b);
+                        const mid = Math.floor(freshValidPegs.length / 2);
+                        const sectorMedian = freshValidPegs.length % 2 === 0 ? (freshValidPegs[mid - 1] + freshValidPegs[mid]) / 2 : freshValidPegs[mid];
+                        localStorage.setItem('sectorMedianPeg_' + prof.sector, sectorMedian);
+                    }
+
                     if (addedCount === 0) {
-                        throw new Error('All sector peers already in comparison');
+                        errSpan.textContent = 'All sector peers already in comparison, but Sector Median PEG was refreshed!';
+                        errSpan.style.display = 'inline';
                     }
 
                     // Update competitors list
@@ -2279,8 +2346,30 @@ document.addEventListener('DOMContentLoaded', () => {
             if (pegInputs) pegInputs.style.display = pegSrc === 'custom' ? 'grid' : 'none';
 
             usedGrowth = currentFormulaData.peg.eps_growth_estimated || 0;
+            let strictCagrMode = false;
+            let fwdPe = null;
+
             if (pegSrc === 'analyst') {
-                usedGrowth = getDynamicEpsGrowth();
+                strictCagrMode = true;
+                usedGrowth = null; // Default to null for strict 2-Year CAGR
+                const pegEsts = globalData.eps_estimates?.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
+                if (pegEsts && pegEsts.length >= 2) {
+                    const reportedE = globalData.eps_estimates?.find(e => e && e.status === 'reported');
+                    const baseEps = reportedE ? reportedE.avg : (globalData.company_profile.adjusted_eps || globalData.company_profile.trailing_eps || 0);
+                    if (baseEps > 0) {
+                        let y1, y2;
+                        if (_currentScenario === 'bear') { y1 = pegEsts[0].low; y2 = pegEsts[1].low; }
+                        else if (_currentScenario === 'bull') { y1 = pegEsts[0].high; y2 = pegEsts[1].high; }
+                        else { y1 = pegEsts[0].avg; y2 = pegEsts[1].avg; }
+                        
+                        const g1 = (y1 / baseEps) - 1;
+                        const g2 = (y2 / y1) - 1;
+                        usedGrowth = (g1 + g2) / 2.0;
+                        
+                        // Fwd P/E is based on FY1
+                        fwdPe = (y1 > 0) ? (_realApiPrice / y1) : null;
+                    }
+                }
             } else if (pegSrc === '5ycagr') {
                 usedGrowth = currentFormulaData.peg.eps_growth_5y_cagr || usedGrowth;
             } else if (pegSrc === 'custom') {
@@ -2289,25 +2378,16 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             let eps = globalData.company_profile.adjusted_eps || globalData.company_profile.trailing_eps || 0;
-            const pegEsts = globalData.eps_estimates?.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
-            if (pegEsts && pegEsts.length >= 2) {
-                if (_currentScenario === 'bear') {
-                    eps = (pegEsts[0].low + pegEsts[1].low) / 2.0;
-                } else if (_currentScenario === 'bull') {
-                    eps = (pegEsts[0].high + pegEsts[1].high) / 2.0;
-                } else {
-                    eps = (pegEsts[0].avg + pegEsts[1].avg) / 2.0;
-                }
-            }
-            // v299: Use _realApiPrice for valuation anchor to prevent Fair Value drift during simulation
-            const currentPe = (eps > 0) ? (_realApiPrice / eps) : (currentFormulaData.peg.current_pe || (parseFloat(globalData.company_profile.current_pe) || parseFloat(globalData.company_profile.trailing_pe) || 0));
-            // v61: Default to 1.25 if industry_peg is missing (e.g. no peers found)
-            const pegMode = document.getElementById('peg-mode')?.value || 'standard';
-            const industryPegRaw = currentFormulaData.peg.industry_peg;
+            const currentPe = fwdPe !== null ? fwdPe : (eps > 0 ? (_realApiPrice / eps) : (currentFormulaData.peg.current_pe || parseFloat(globalData.company_profile.current_pe) || parseFloat(globalData.company_profile.trailing_pe) || 0));
 
+            const pegMode = document.getElementById('peg-mode')?.value || 'standard';
             const sector = globalData.company_profile.sector || "";
             const industry = globalData.company_profile.industry || "";
             const isTelecom = industry.toLowerCase().includes("telecom");
+
+            // Sector Median Logic for PEG
+            const cachedSectorPeg = localStorage.getItem('sectorMedianPeg_' + sector);
+            const industryPegRaw = cachedSectorPeg ? parseFloat(cachedSectorPeg) : currentFormulaData.peg.industry_peg;
 
             let targetPeg = 1.0;
             if (pegMode === 'industry') {
@@ -2324,24 +2404,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            if (usedGrowth > 0 && currentPe > 0 && targetPeg > 0) {
+            if (strictCagrMode && (usedGrowth === null || usedGrowth <= 0 || currentPe <= 0)) {
+                // If strict mode and missing data, fail PEG
+                pegVal = null;
+                currentPegToDisplay = null;
+                pegMos = null;
+            } else if (usedGrowth > 0 && currentPe > 0 && targetPeg > 0) {
                 const originalPeg = currentPe / (usedGrowth * 100);
                 pegVal = _realApiPrice * (targetPeg / originalPeg);
 
-                // Calculate simulated PEG for display text only
-                // v302: Scale by currentPrice/realApiPrice ratio for reactive simulation on all tickers
-                const simPe = (eps > 0) ? (globalData.current_price / eps) : (currentPe * (globalData.current_price / _realApiPrice));
-                currentPegToDisplay = simPe / (usedGrowth * 100);
-
-                pegMos = ((pegVal - globalData.current_price) / globalData.current_price) * 100;
-            } else if (pegSrc === 'analyst') {
-                // Completely dynamic recalculation for Analyst PEG
-                const staticPe = currentFormulaData.peg.current_pe || (eps > 0 ? (globalData.current_price / eps) : 0);
-                const originalPeg = staticPe / (usedGrowth * 100);
-                // Calculate Dynamic Fair Value
-                pegVal = _realApiPrice * (targetPeg / originalPeg);
-
-                const simPe = (eps > 0) ? (globalData.current_price / eps) : (staticPe * (globalData.current_price / _realApiPrice));
+                const simPe = fwdPe !== null ? fwdPe * (globalData.current_price / _realApiPrice) : (eps > 0 ? (globalData.current_price / eps) : (currentPe * (globalData.current_price / _realApiPrice)));
                 currentPegToDisplay = simPe / (usedGrowth * 100);
 
                 if (pegVal != null) {
@@ -3847,11 +3919,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         if (globalData.eps_estimates) {
                             const eEsts = globalData.eps_estimates.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
-                            if (eEsts.length >= 2) {
-                                if (_currentScenario === 'bear') dynFwdEps = (eEsts[0].low + eEsts[1].low) / 2.0;
-                                else if (_currentScenario === 'bull') dynFwdEps = (eEsts[0].high + eEsts[1].high) / 2.0;
-                                else dynFwdEps = (eEsts[0].avg + eEsts[1].avg) / 2.0;
-                            } else if (eEsts.length >= 1) {
+                            if (eEsts.length >= 1) {
                                 if (_currentScenario === 'bear') dynFwdEps = eEsts[0].low;
                                 else if (_currentScenario === 'bull') dynFwdEps = eEsts[0].high;
                                 else dynFwdEps = eEsts[0].avg;
@@ -3859,11 +3927,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                         if (globalData.rev_estimates) {
                             const rEsts = globalData.rev_estimates.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
-                            if (rEsts.length >= 2) {
-                                if (_currentScenario === 'bear') dynFwdRev = (rEsts[0].low + rEsts[1].low) / 2.0;
-                                else if (_currentScenario === 'bull') dynFwdRev = (rEsts[0].high + rEsts[1].high) / 2.0;
-                                else dynFwdRev = (rEsts[0].avg + rEsts[1].avg) / 2.0;
-                            } else if (rEsts.length >= 1) {
+                            if (rEsts.length >= 1) {
                                 if (_currentScenario === 'bear') dynFwdRev = rEsts[0].low;
                                 else if (_currentScenario === 'bull') dynFwdRev = rEsts[0].high;
                                 else dynFwdRev = rEsts[0].avg;

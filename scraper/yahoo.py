@@ -1477,8 +1477,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
             
             # Massive speedups: No longer awaiting qfin, qcf, or heavy dividends histories.
 
-        # v201: Baseline adjusted_eps (will be refined later)
-        adjusted_eps = trailing_eps
+        # v201: Baseline adjusted_eps (already computed from anchors above)
         # v206: Prioritize Live/Refined Shares (Significant for massive buyback companies like AAPL)
         shares_outstanding = info.get('impliedSharesOutstanding') or info.get('sharesOutstanding') or 0
         
@@ -3374,10 +3373,10 @@ def get_competitors_data(target_ticker: str, limit: int = 4, custom_peers: list 
                             avg_2y_growth = (g_fy1 + g_fy2) / 2
                             earn_growth = g_fy1  # Use FY1 for display
                         elif g_fy1 is not None:
-                            avg_2y_growth = g_fy1
+                            avg_2y_growth = None
                             earn_growth = g_fy1
                         elif g_fy2 is not None:
-                            avg_2y_growth = g_fy2
+                            avg_2y_growth = None
                             earn_growth = g_fy2
                         else:
                             avg_2y_growth = None
@@ -3455,6 +3454,7 @@ def get_competitors_data(target_ticker: str, limit: int = 4, custom_peers: list 
                     p_data["earnings_growth"] = earn_growth
                     p_data["fcf_growth"] = fcf_growth
                     p_data["avg_2y_eps_growth"] = avg_2y_growth
+                    p_data["forward_pe"] = fwd_pe
                     # Forward PEG: forward_pe / (avg 2Y EPS growth as %)
                     if avg_2y_growth and avg_2y_growth > 0 and fwd_pe and fwd_pe > 0:
                         p_data["forward_peg"] = fwd_pe / (avg_2y_growth * 100)

@@ -304,6 +304,8 @@ def get_sector_peers(ticker: str, response: Response):
                 "total_debt": sanitize(p.get("total_debt")),
                 "sector": p.get("sector"),
                 "industry": p.get("industry"),
+                "avg_2y_eps_growth": sanitize(p.get("avg_2y_eps_growth")),
+                "forward_peg": sanitize(p.get("forward_peg")),
             })
         
         valuation_cache[cache_key] = enriched
@@ -1460,7 +1462,11 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 "market_cap": sanitize(data.get("shares_outstanding", 0) * current_price if data.get("shares_outstanding") and current_price else 0.0),
                 "adjusted_eps": sanitize(data.get("adjusted_eps")),
                 "fwd_eps": sanitize(next((e.get("avg") for e in data.get("eps_estimates", []) if e.get("status") == "estimate"), None)),
-                "peg_ratio": sanitize(data.get("peg_ratio") if data.get("peg_ratio") is not None else (company_peg if company_peg > 0 else None)),
+                # Force strict 2-year PEG based on Forward PE and 2Y EPS Growth instead of Yahoo 5y PEG. No fallbacks.
+                "peg_ratio": sanitize(
+                    data.get("fwd_pe") / (data.get("eps_growth") * 100.0) if data.get("fwd_pe") and data.get("eps_growth") and data.get("eps_growth") > 0 
+                    else None
+                ),
                 "ps_ratio": sanitize(data.get("ps_ratio")),
                 "price_to_book": sanitize(data.get("price_to_book")),
                 "fwd_ps": sanitize(data.get("fwd_ps")),
@@ -1499,18 +1505,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                     "name": p.get("name"),
                     "price": sanitize(p.get("price")),
                     "pe_ratio": sanitize(p.get("pe_ratio")),
-                    "peg_ratio": sanitize(
-                        p.get("peg_ratio") if p.get("peg_ratio") is not None
-                        else (
-                            p.get("pe_ratio") / (p.get("earnings_growth") * 100.0)
-                            if p.get("pe_ratio") and p.get("earnings_growth") and p.get("earnings_growth") > 0
-                            else (
-                                p.get("pe_ratio") / (p.get("revenue_growth") * 100.0)
-                                if p.get("pe_ratio") and p.get("revenue_growth") and p.get("revenue_growth") > 0
-                                else None
-                            )
-                        )
-                    ),
+                    "peg_ratio": sanitize(p.get("forward_peg")),
                     "pfcf_ratio": sanitize(p.get("pfcf_ratio")),
                     "ps_ratio": sanitize(p.get("ps_ratio")),
                     "price_to_book": sanitize(p.get("price_to_book")),
