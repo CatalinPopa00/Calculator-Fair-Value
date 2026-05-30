@@ -2796,10 +2796,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (dataModal && dataModal.style.display === 'flex') {
             const activeTitle = document.getElementById('modal-title')?.textContent || '';
             let btnSelector = null;
-            if (activeTitle.includes('Discounted Cash Flow')) btnSelector = 'button[data-method="dcf"]';
-            else if (activeTitle.includes('Triangulation')) btnSelector = 'button[data-method="relative"]';
-            else if (activeTitle.includes('Forward Multiple')) btnSelector = 'button[data-method="peter_lynch"]';
-            else if (activeTitle.includes('PEG Valuation')) btnSelector = 'button[data-method="peg"]';
+            if (activeTitle.includes('Discounted Cash Flow')) btnSelector = 'button.view-data-btn[data-method="dcf"]';
+            else if (activeTitle.includes('Triangulation')) btnSelector = 'button.view-data-btn[data-method="relative"]';
+            else if (activeTitle.includes('Forward Multiple')) btnSelector = 'button.view-data-btn[data-method="peter_lynch"]';
+            else if (activeTitle.includes('PEG Valuation')) btnSelector = 'button.view-data-btn[data-method="peg"]';
             
             if (btnSelector) {
                 const btn = document.querySelector(btnSelector);
@@ -5449,11 +5449,11 @@ document.addEventListener('DOMContentLoaded', () => {
                                     
                                     const dynEpsG = (globalData && globalData.computed_eps_growth != null) ? globalData.computed_eps_growth : (globalData.company_profile?.earnings_growth || 0);
                                     const dynEbitda = (globalData.ebitda || 0) * (1 + dynEpsG);
-                                    const impliedEvEbitda = dynEbitda > 0 ? (globalData.market_cap + (globalData.total_debt || 0) - (globalData.total_cash || 0)) / dynEbitda : null;
+                                    const impliedEvEbitda = dynEbitda > 0 ? ((globalData.company_profile?.market_cap || 0) + (globalData.total_debt || 0) - (globalData.total_cash || 0)) / dynEbitda : null;
                                     
                                     const dynRevG = (globalData && globalData.computed_dcf_growth != null) ? globalData.computed_dcf_growth : (globalData.company_profile?.revenue_growth || 0);
                                     const rev = r.dynamic_company_sales_share ? r.dynamic_company_sales_share * (globalData.company_profile?.shares_outstanding || 1) : ((globalData.revenue || 0) * (1 + dynRevG));
-                                    const impliedPs = rev > 0 ? (globalData.market_cap + (globalData.total_debt || 0) - (globalData.total_cash || 0)) / rev : null;
+                                    const impliedPs = rev > 0 ? ((globalData.company_profile?.market_cap || 0) + (globalData.total_debt || 0) - (globalData.total_cash || 0)) / rev : null;
                                     
                                     if (k === 'PE' || k === 'P_FFO') {
                                         val = impliedPe;
