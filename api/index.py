@@ -36,7 +36,7 @@ from models.scoring import calculate_scoring_reform, calculate_piotroski_score
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v312"
+CACHE_VERSION = "v313"
 def get_usd_fx_rate(currency: str) -> float:
     if not currency:
         return 1.0
@@ -1530,7 +1530,9 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                     "earnings_growth": sanitize(p.get("earnings_growth")),
                     "forward_pe": sanitize(p.get("forward_pe")),
                     "forward_ev_sales": sanitize(p.get("forward_ev_sales")),
-                    "forward_ev_ebitda": sanitize(p.get("forward_ev_ebitda"))
+                    "forward_ev_ebitda": sanitize(p.get("forward_ev_ebitda")),
+                    "avg_2y_eps_growth": sanitize(p.get("avg_2y_eps_growth")),
+                    "forward_peg": sanitize(p.get("forward_peg"))
                 } for p in peers_data] if peers_data else []
             },
             "revenue": sanitize(data.get("revenue")),
