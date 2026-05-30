@@ -2481,7 +2481,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentFormulaData.peg.dynamic_growth = usedGrowth;
                 currentFormulaData.peg.dynamic_fv = pegVal;
                 currentFormulaData.peg.dynamic_peg = currentPegToDisplay;
-                currentFormulaData.peg.dynamic_pe = simPe;
 
                 // ── SECTOR-SPECIFIC PEG THRESHOLDS (v291) ──
                 const peg = currentPegToDisplay;
