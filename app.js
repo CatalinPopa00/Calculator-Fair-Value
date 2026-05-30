@@ -1613,7 +1613,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         if (!prof.competitor_metrics) prof.competitor_metrics = [];
                         prof.competitor_metrics.push(newPeer);
-                        existingTickers.add(spTicker);
                         addedCount++;
                     }
 
