@@ -1556,16 +1556,27 @@ document.addEventListener('DOMContentLoaded', () => {
                         throw new Error('No sector peers found');
                     }
 
-                    // Deduplicate against existing peers and target company
-                    const existingTickers = new Set(
-                        (prof.competitor_metrics || []).map(p => p.ticker.toUpperCase())
+                    // Deduplicate against existing peers and target company using base tickers (e.g. GOOG vs GOOGL)
+                    const getBaseTicker = (t) => {
+                        t = (t || '').toUpperCase();
+                        if (t.startsWith('GOOG')) return 'GOOG';
+                        if (t.startsWith('BRK')) return 'BRK';
+                        if (t.startsWith('RDS')) return 'RDS';
+                        return t.split('.')[0].split('-')[0].replace(/L$/, '');
+                    };
+
+                    const existingBases = new Set(
+                        (prof.competitor_metrics || []).map(p => getBaseTicker(p.ticker))
                     );
-                    existingTickers.add(targetTicker);
+                    existingBases.add(getBaseTicker(targetTicker));
 
                     let addedCount = 0;
                     for (const sp of sectorPeers) {
                         const spTicker = (sp.ticker || '').toUpperCase();
-                        if (!spTicker || existingTickers.has(spTicker)) continue;
+                        const spBase = getBaseTicker(spTicker);
+                        if (!spTicker || existingBases.has(spBase)) continue;
+                        
+                        existingBases.add(spBase);
 
                         // Build peer object with all required fields
                         const newPeer = {
