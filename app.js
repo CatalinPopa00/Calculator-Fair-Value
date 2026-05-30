@@ -5445,6 +5445,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <td style="padding:4px 2px; color:#28c76f; font-weight:700; white-space:nowrap;">${(globalData.ticker || 'TARGET').toUpperCase()}</td>
                                 ${activeKeys.map(k => {
                                     let val = null;
+                                    console.log(`[RelModal] Scenario=${_currentScenario} | dynamic_eps=${r.dynamic_company_eps} | dynamic_sales=${r.dynamic_company_sales_share} | computed_eps_g=${globalData.computed_eps_growth} | computed_dcf_g=${globalData.computed_dcf_growth}`);
                                     const impliedPe = r.dynamic_company_eps > 0 ? (_realApiPrice / r.dynamic_company_eps) : (globalData.company_profile && (globalData.company_profile.fwd_pe || globalData.company_profile.forward_pe));
                                     
                                     const dynEpsG = (globalData && globalData.computed_eps_growth != null) ? globalData.computed_eps_growth : (globalData.company_profile?.earnings_growth || 0);
