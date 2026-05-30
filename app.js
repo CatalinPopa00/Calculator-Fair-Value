@@ -2532,25 +2532,25 @@ document.addEventListener('DOMContentLoaded', () => {
             let company_sales_share = explicit_fwd_ps > 0 ? (_realApiPrice / explicit_fwd_ps) : (rel.company_sales_share || 0);
             
             const eEsts = globalData.eps_estimates?.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
-            if (eEsts && eEsts.length >= 2) {
+            if (eEsts && eEsts.length >= 1) {
                 if (_currentScenario === 'bear') {
-                    company_eps = (eEsts[0].low + eEsts[1].low) / 2.0;
+                    company_eps = eEsts[0].low;
                 } else if (_currentScenario === 'bull') {
-                    company_eps = (eEsts[0].high + eEsts[1].high) / 2.0;
+                    company_eps = eEsts[0].high;
                 } else {
-                    company_eps = (eEsts[0].avg + eEsts[1].avg) / 2.0;
+                    company_eps = eEsts[0].avg;
                 }
             }
             
             const rEsts = globalData.rev_estimates?.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
-            if (rEsts && rEsts.length >= 2) {
+            if (rEsts && rEsts.length >= 1) {
                 let avgRev = null;
                 if (_currentScenario === 'bear') {
-                    avgRev = (rEsts[0].low + rEsts[1].low) / 2.0;
+                    avgRev = rEsts[0].low;
                 } else if (_currentScenario === 'bull') {
-                    avgRev = (rEsts[0].high + rEsts[1].high) / 2.0;
+                    avgRev = rEsts[0].high;
                 } else {
-                    avgRev = (rEsts[0].avg + rEsts[1].avg) / 2.0;
+                    avgRev = rEsts[0].avg;
                 }
                 if (avgRev != null && company_shares > 0) company_sales_share = avgRev / company_shares;
             }
@@ -2559,31 +2559,25 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // v307c: Compute scenario-aware growth inline (not from stale computed_eps_growth)
             let dynEpsG = (prof.earnings_growth || 0);
-            if (eEsts && eEsts.length >= 2) {
-                // Growth = avg of FY1 growth and FY2 growth, scenario-aware
+            if (eEsts && eEsts.length >= 1) {
+                // Growth = FY1 growth, scenario-aware
                 const reported = globalData.eps_estimates?.find(e => e && e.status === 'reported');
                 const baseEps = reported ? reported.avg : (rel.company_fwd_eps || rel.company_eps || 0);
                 if (baseEps > 0) {
                     const fy1Val = _currentScenario === 'bear' ? eEsts[0].low : (_currentScenario === 'bull' ? eEsts[0].high : eEsts[0].avg);
-                    const fy2Val = _currentScenario === 'bear' ? eEsts[1].low : (_currentScenario === 'bull' ? eEsts[1].high : eEsts[1].avg);
-                    const g1 = (fy1Val / baseEps) - 1;
-                    const g2 = fy2Val > 0 && fy1Val > 0 ? (fy2Val / fy1Val) - 1 : g1;
-                    dynEpsG = (g1 + g2) / 2.0;
+                    dynEpsG = (fy1Val / baseEps) - 1;
                 }
             } else if (globalData && globalData.computed_eps_growth != null) {
                 dynEpsG = globalData.computed_eps_growth;
             }
             
             let dynRevG = (prof.revenue_growth || 0);
-            if (rEsts && rEsts.length >= 2) {
+            if (rEsts && rEsts.length >= 1) {
                 const reportedR = globalData.rev_estimates?.find(e => e && e.status === 'reported');
                 const baseRev = reportedR ? reportedR.avg : (globalData.revenue || 0);
                 if (baseRev > 0) {
                     const rfy1 = _currentScenario === 'bear' ? rEsts[0].low : (_currentScenario === 'bull' ? rEsts[0].high : rEsts[0].avg);
-                    const rfy2 = _currentScenario === 'bear' ? rEsts[1].low : (_currentScenario === 'bull' ? rEsts[1].high : rEsts[1].avg);
-                    const rg1 = (rfy1 / baseRev) - 1;
-                    const rg2 = rfy2 > 0 && rfy1 > 0 ? (rfy2 / rfy1) - 1 : rg1;
-                    dynRevG = (rg1 + rg2) / 2.0;
+                    dynRevG = (rfy1 / baseRev) - 1;
                 }
             } else if (globalData && globalData.computed_dcf_growth != null) {
                 dynRevG = globalData.computed_dcf_growth;
