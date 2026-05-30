@@ -1983,41 +1983,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const updateFairValue = () => {
         const getDynamicEpsGrowth = () => {
-            const eList = globalData.eps_estimates || [];
-            const annualEsts = eList.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
+            const eItems = globalData.eps_estimates || [];
+            let growths = [];
+            let prevEpsVal = null;
             
-            if (annualEsts.length >= 2) {
-                const fy1 = annualEsts[0];
-                const fy2 = annualEsts[1];
-                let g1 = NaN, g2 = NaN;
-                const base1 = fy1.yearAgo;
-                
-                if (_currentScenario === 'bear') {
-                    if (fy1.low != null && base1 != null && base1 !== 0) g1 = (parseFloat(fy1.low) / parseFloat(base1)) - 1;
-                    if (fy2.low != null && fy1.low != null && fy1.low !== 0) g2 = (parseFloat(fy2.low) / parseFloat(fy1.low)) - 1;
-                } else if (_currentScenario === 'bull') {
-                    if (fy1.high != null && base1 != null && base1 !== 0) g1 = (parseFloat(fy1.high) / parseFloat(base1)) - 1;
-                    if (fy2.high != null && fy1.high != null && fy1.high !== 0) g2 = (parseFloat(fy2.high) / parseFloat(fy1.high)) - 1;
-                } else {
-                    if (fy1.avg != null && base1 != null && base1 !== 0) g1 = (parseFloat(fy1.avg) / parseFloat(base1)) - 1;
-                    if (fy2.avg != null && fy1.avg != null && fy1.avg !== 0) g2 = (parseFloat(fy2.avg) / parseFloat(fy1.avg)) - 1;
+            eItems.forEach((item) => {
+                if (!item) return;
+                const isAnchor = item.status === 'reported';
+                let scenarioVal = item.avg;
+                if (!isAnchor) {
+                    if (_currentScenario === 'bear' && item.low != null) scenarioVal = item.low;
+                    if (_currentScenario === 'bull' && item.high != null) scenarioVal = item.high;
                 }
                 
-                if (!isNaN(g1) && !isNaN(g2)) return (g1 + g2) / 2.0;
-                if (!isNaN(g1)) return g1;
-            } else if (annualEsts.length === 1) {
-                const fy1 = annualEsts[0];
-                let g = NaN;
-                const base1 = fy1.yearAgo;
-                if (_currentScenario === 'bear') {
-                    if (fy1.low != null && base1 != null && base1 !== 0) g = (parseFloat(fy1.low) / parseFloat(base1)) - 1;
-                } else if (_currentScenario === 'bull') {
-                    if (fy1.high != null && base1 != null && base1 !== 0) g = (parseFloat(fy1.high) / parseFloat(base1)) - 1;
-                } else {
-                    if (fy1.avg != null && base1 != null && base1 !== 0) g = (parseFloat(fy1.avg) / parseFloat(base1)) - 1;
+                if (!isAnchor) {
+                    let dynamicBase = prevEpsVal;
+                    if (scenarioVal != null && dynamicBase != null && dynamicBase !== 0) {
+                        let g = (parseFloat(scenarioVal) / parseFloat(dynamicBase)) - 1;
+                        growths.push(g);
+                    } else if (item.growth != null) {
+                        growths.push(parseFloat(item.growth));
+                    }
                 }
-                if (!isNaN(g)) return g;
-            }
+                prevEpsVal = scenarioVal;
+            });
+            
+            if (growths.length >= 2) return (growths[0] + growths[1]) / 2.0;
+            if (growths.length === 1) return growths[0];
+            
             const epsFallback = currentFormulaData?.peg?.eps_growth_estimated || globalData?.company_profile?.earnings_growth || 0.05;
             if (_currentScenario === 'bear') return epsFallback * 0.70;
             if (_currentScenario === 'bull') return epsFallback * 1.30;
@@ -2025,41 +2018,33 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         
         const getDynamicRevGrowth = () => {
-            const rList = globalData.rev_estimates || [];
-            const annualEsts = rList.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
+            const rItems = globalData.rev_estimates || [];
+            let growths = [];
+            let prevRevVal = null;
             
-            if (annualEsts.length >= 2) {
-                const fy1 = annualEsts[0];
-                const fy2 = annualEsts[1];
-                let g1 = NaN, g2 = NaN;
-                const base1 = fy1.yearAgo;
-                
-                if (_currentScenario === 'bear') {
-                    if (fy1.low != null && base1 != null && base1 !== 0) g1 = (parseFloat(fy1.low) / parseFloat(base1)) - 1;
-                    if (fy2.low != null && fy1.low != null && fy1.low !== 0) g2 = (parseFloat(fy2.low) / parseFloat(fy1.low)) - 1;
-                } else if (_currentScenario === 'bull') {
-                    if (fy1.high != null && base1 != null && base1 !== 0) g1 = (parseFloat(fy1.high) / parseFloat(base1)) - 1;
-                    if (fy2.high != null && fy1.high != null && fy1.high !== 0) g2 = (parseFloat(fy2.high) / parseFloat(fy1.high)) - 1;
-                } else {
-                    if (fy1.avg != null && base1 != null && base1 !== 0) g1 = (parseFloat(fy1.avg) / parseFloat(base1)) - 1;
-                    if (fy2.avg != null && fy1.avg != null && fy1.avg !== 0) g2 = (parseFloat(fy2.avg) / parseFloat(fy1.avg)) - 1;
+            rItems.forEach((item) => {
+                if (!item) return;
+                const isAnchor = item.status === 'reported';
+                let scenarioVal = item.avg;
+                if (!isAnchor) {
+                    if (_currentScenario === 'bear' && item.low != null) scenarioVal = item.low;
+                    if (_currentScenario === 'bull' && item.high != null) scenarioVal = item.high;
                 }
                 
-                if (!isNaN(g1) && !isNaN(g2)) return (g1 + g2) / 2.0;
-                if (!isNaN(g1)) return g1;
-            } else if (annualEsts.length === 1) {
-                const fy1 = annualEsts[0];
-                let g = NaN;
-                const base1 = fy1.yearAgo;
-                if (_currentScenario === 'bear') {
-                    if (fy1.low != null && base1 != null && base1 !== 0) g = (parseFloat(fy1.low) / parseFloat(base1)) - 1;
-                } else if (_currentScenario === 'bull') {
-                    if (fy1.high != null && base1 != null && base1 !== 0) g = (parseFloat(fy1.high) / parseFloat(base1)) - 1;
-                } else {
-                    if (fy1.avg != null && base1 != null && base1 !== 0) g = (parseFloat(fy1.avg) / parseFloat(base1)) - 1;
+                if (!isAnchor) {
+                    let dynamicBase = prevRevVal;
+                    if (scenarioVal != null && dynamicBase != null && dynamicBase !== 0) {
+                        let g = (parseFloat(scenarioVal) / parseFloat(dynamicBase)) - 1;
+                        growths.push(g);
+                    } else if (item.growth != null) {
+                        growths.push(parseFloat(item.growth));
+                    }
                 }
-                if (!isNaN(g)) return g;
-            }
+                prevRevVal = scenarioVal;
+            });
+            
+            if (growths.length >= 2) return (growths[0] + growths[1]) / 2.0;
+            if (growths.length === 1) return growths[0];
             
             const revFallback = globalData?.company_profile?.revenue_growth || 0.08;
             if (_currentScenario === 'bear') return revFallback * 0.70;
@@ -3689,47 +3674,37 @@ document.addEventListener('DOMContentLoaded', () => {
         // v290: Scenario-aware DCF Growth Logic
         window.getDcfGrowthDefault = (data) => {
             if (!data) return 10.0;
+            const rItems = data.rev_estimates || [];
+            let growths = [];
+            let prevRevVal = null;
             
-            const rList = data.rev_estimates || [];
-            const annualEsts = rList.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
-            
-            if (annualEsts.length >= 2) {
-                const fy1 = annualEsts[0];
-                const fy2 = annualEsts[1];
-                let g1 = NaN, g2 = NaN;
-                const base1 = fy1.yearAgo;
-                
-                if (_currentScenario === 'bear') {
-                    if (fy1.low != null && base1 != null && base1 !== 0) g1 = (parseFloat(fy1.low) / parseFloat(base1)) - 1;
-                    if (fy2.low != null && fy1.low != null && fy1.low !== 0) g2 = (parseFloat(fy2.low) / parseFloat(fy1.low)) - 1;
-                } else if (_currentScenario === 'bull') {
-                    if (fy1.high != null && base1 != null && base1 !== 0) g1 = (parseFloat(fy1.high) / parseFloat(base1)) - 1;
-                    if (fy2.high != null && fy1.high != null && fy1.high !== 0) g2 = (parseFloat(fy2.high) / parseFloat(fy1.high)) - 1;
-                } else {
-                    if (fy1.avg != null && base1 != null && base1 !== 0) g1 = (parseFloat(fy1.avg) / parseFloat(base1)) - 1;
-                    if (fy2.avg != null && fy1.avg != null && fy1.avg !== 0) g2 = (parseFloat(fy2.avg) / parseFloat(fy1.avg)) - 1;
+            rItems.forEach((item) => {
+                if (!item) return;
+                const isAnchor = item.status === 'reported';
+                let scenarioVal = item.avg;
+                if (!isAnchor) {
+                    if (_currentScenario === 'bear' && item.low != null) scenarioVal = item.low;
+                    if (_currentScenario === 'bull' && item.high != null) scenarioVal = item.high;
                 }
                 
-                if (!isNaN(g1) && !isNaN(g2)) return Math.round(((g1 + g2) / 2) * 1000) / 10;
-                if (!isNaN(g1)) return Math.round(g1 * 1000) / 10;
-            } else if (annualEsts.length === 1) {
-                const fy1 = annualEsts[0];
-                let g = NaN;
-                const base1 = fy1.yearAgo;
-                if (_currentScenario === 'bear') {
-                    if (fy1.low != null && base1 != null && base1 !== 0) g = (parseFloat(fy1.low) / parseFloat(base1)) - 1;
-                } else if (_currentScenario === 'bull') {
-                    if (fy1.high != null && base1 != null && base1 !== 0) g = (parseFloat(fy1.high) / parseFloat(base1)) - 1;
-                } else {
-                    if (fy1.avg != null && base1 != null && base1 !== 0) g = (parseFloat(fy1.avg) / parseFloat(base1)) - 1;
+                if (!isAnchor) {
+                    let dynamicBase = prevRevVal;
+                    if (scenarioVal != null && dynamicBase != null && dynamicBase !== 0) {
+                        let g = (parseFloat(scenarioVal) / parseFloat(dynamicBase)) - 1;
+                        growths.push(g);
+                    } else if (item.growth != null) {
+                        growths.push(parseFloat(item.growth));
+                    }
                 }
-                if (!isNaN(g)) return Math.round(g * 1000) / 10;
-            }
+                prevRevVal = scenarioVal;
+            });
+            
+            if (growths.length >= 2) return Math.round(((growths[0] + growths[1]) / 2) * 1000) / 10;
+            if (growths.length === 1) return Math.round(growths[0] * 1000) / 10;
             
             if (data.company_profile && data.company_profile.revenue_growth != null) {
                 return Math.round(data.company_profile.revenue_growth * 1000) / 10;
             }
-            
             return 8.0;
         };
 
@@ -4673,8 +4648,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 let gVal = isAnchor ? '' : '--';
                 
                 if (!isAnchor) {
-                    // Match sequential calculation logically
-                    let dynamicBase = (idx === 1 || prevEpsVal === null) ? item.yearAgo : prevEpsVal;
+                    let dynamicBase = prevEpsVal;
                     
                     if (item.status === 'reported' && item.surprise_pct != null) {
                         gVal = (parseFloat(item.surprise_pct) * 100).toFixed(1) + '%';
@@ -4713,7 +4687,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 let gVal = isAnchor ? '' : '--';
                 
                 if (!isAnchor) {
-                    let dynamicBase = (idx === 1 || prevRevVal === null) ? item.yearAgo : prevRevVal;
+                    let dynamicBase = prevRevVal;
                     if (scenarioVal != null && dynamicBase != null && dynamicBase !== 0) {
                         gVal = (((parseFloat(scenarioVal) / parseFloat(dynamicBase)) - 1) * 100).toFixed(1) + '%';
                     } else if (item.growth != null) {
