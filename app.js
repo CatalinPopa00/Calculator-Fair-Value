@@ -2017,7 +2017,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 if (!isNaN(g)) return g;
             }
-            return currentFormulaData?.peg?.eps_growth_estimated || globalData?.company_profile?.earnings_growth || 0.05;
+            const epsFallback = currentFormulaData?.peg?.eps_growth_estimated || globalData?.company_profile?.earnings_growth || 0.05;
+            if (_currentScenario === 'bear') return epsFallback * 0.70;
+            if (_currentScenario === 'bull') return epsFallback * 1.30;
+            return epsFallback;
         };
         
         const getDynamicRevGrowth = () => {
@@ -2055,7 +2058,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 if (!isNaN(g)) return g;
             }
-            return globalData?.company_profile?.revenue_growth || 0.08;
+            
+            const revFallback = globalData?.company_profile?.revenue_growth || 0.08;
+            if (_currentScenario === 'bear') return revFallback * 0.70;
+            if (_currentScenario === 'bull') return revFallback * 1.30;
+            return revFallback;
         };
         
         window._getDynamicEpsGrowth = getDynamicEpsGrowth;
