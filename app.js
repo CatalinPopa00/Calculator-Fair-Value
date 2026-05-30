@@ -2607,6 +2607,11 @@ document.addEventListener('DOMContentLoaded', () => {
             currentFormulaData.peter_lynch.dynamic_fwd_eps = targetEps;
             currentFormulaData.peter_lynch.dynamic_fv = lynchVal;
             currentFormulaData.peter_lynch.dynamic_mult = selectedMult;
+
+            const lynchCompareEl = document.getElementById('lynch-compare');
+            if (lynchCompareEl) {
+                lynchCompareEl.textContent = `FAIR P/E: ${selectedMult.toFixed(1)}X`;
+            }
         }
 
         setValuationStatus(lynchVal, globalData.current_price, 'lynch-status', 'lynch-fair-value');
@@ -2615,7 +2620,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (lynchCardMos && lynchVal != null) {
             const lynchMos = ((lynchVal - globalData.current_price) / globalData.current_price) * 100;
             lynchCardMos.textContent = `MOS: ${formatPercent(lynchMos)}`;
-            lynchCardMos.style.color = lynchMos > 0 ? 'var(--accent)' : 'var(--danger)';
+            lynchCardMos.style.color = lynchMos > 0 ? 'var(--accent)' : '#ef4444';
             lynchCardMos.style.display = 'block';
         } else if (lynchCardMos) {
             lynchCardMos.style.display = 'none';
