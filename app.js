@@ -990,14 +990,24 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // UPDATED: Sync both MOS and PEG to the Score Breakdown dynamically (v70)
-    const updateInsightsAndScores = (newMos, newPeg, newPeFwdVal) => {
+    const updateInsightsAndScores = (newMos, newPeg, simMetrics) => {
         if (!currentBuyBreakdown || !globalData) return;
 
-        if (newPeFwdVal != null) {
-            const peItem = currentBuyBreakdown.find(i => i.metric && (i.metric.includes("P/E Ratio (Fwd)") || i.metric === "P/E Ratio"));
-            if (peItem) {
-                peItem.value = `${newPeFwdVal.toFixed(2)}x`;
+        if (simMetrics) {
+            const updateItem = (nameMatch, valStr) => {
+                const it = currentBuyBreakdown.find(i => i.metric && (i.metric === nameMatch || i.metric.includes(nameMatch)));
+                if (it && valStr != null) it.value = valStr;
+            };
+            
+            if (simMetrics.peFwd != null && simMetrics.peFwd > 0) {
+                const peItem = currentBuyBreakdown.find(i => i.metric && (i.metric.includes("P/E Ratio (Fwd)") || i.metric === "P/E Ratio"));
+                if (peItem) peItem.value = `${simMetrics.peFwd.toFixed(2)}x`;
             }
+            if (simMetrics.evEbitda != null && simMetrics.evEbitda > 0) updateItem("EV/EBITDA", `${simMetrics.evEbitda.toFixed(2)}x`);
+            if (simMetrics.pb != null && simMetrics.pb > 0) updateItem("Price-to-Book", `${simMetrics.pb.toFixed(2)}x`);
+            if (simMetrics.divYield != null && simMetrics.divYield > 0) updateItem("Dividend Yield (Fwd)", `${simMetrics.divYield.toFixed(2)}%`);
+            if (simMetrics.epsGrowth != null) updateItem("EPS Growth (Fwd)", `${simMetrics.epsGrowth.toFixed(1)}%`);
+            if (simMetrics.revGrowth != null) updateItem("Revenue Growth (Fwd)", `${simMetrics.revGrowth.toFixed(1)}%`);
         }
 
         // Ensure Buy Breakdown reflects the latest MOS and PEG from the primary engine
@@ -2805,6 +2815,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         let dynFwdEpsTop = globalData.company_profile?.fwd_eps || 0;
+        let dynFwdRevTop = globalData.company_profile?.forward_revenue || 0;
         if (globalData.eps_estimates) {
             const eEstsTop = globalData.eps_estimates.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
             if (eEstsTop.length >= 1) {
@@ -2813,7 +2824,50 @@ document.addEventListener('DOMContentLoaded', () => {
                 else dynFwdEpsTop = eEstsTop[0].avg;
             }
         }
-        const newPeFwd = dynFwdEpsTop > 0 ? globalData.current_price / dynFwdEpsTop : 0;
+        if (globalData.rev_estimates) {
+            const rEstsTop = globalData.rev_estimates.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
+            if (rEstsTop.length >= 1) {
+                if (window._currentScenario === 'bear') dynFwdRevTop = rEstsTop[0].low;
+                else if (window._currentScenario === 'bull') dynFwdRevTop = rEstsTop[0].high;
+                else dynFwdRevTop = rEstsTop[0].avg;
+            }
+        }
+        
+        const simPrice = globalData.current_price;
+        const newPeFwd = dynFwdEpsTop > 0 ? simPrice / dynFwdEpsTop : 0;
+        
+        const prof = globalData.company_profile || {};
+        const revenue = globalData.revenue || 0;
+        const ebitda = globalData.ebitda || 0;
+        const pToB = globalData.price_to_book || 0;
+        const dividendRate = globalData.dividend_rate || 0;
+        const shares = prof.shares_outstanding || 0;
+        const bookValuePerShare = (pToB > 0) ? (_realApiPrice / pToB) : 0;
+        
+        const newPB = (bookValuePerShare > 0) ? simPrice / bookValuePerShare : 0;
+        const newDivYield = (simPrice > 0 && dividendRate > 0) ? (dividendRate / simPrice) * 100 : 0;
+        
+        const newMktCap = simPrice * shares;
+        const ev = newMktCap + (globalData.total_debt || 0) - (globalData.total_cash || 0);
+        const newEvEbitda = (ebitda > 0) ? ev / ebitda : 0;
+        
+        let epsGrowth = null;
+        if (dynFwdEpsTop && prof.trailing_eps && prof.trailing_eps > 0) {
+            epsGrowth = ((dynFwdEpsTop - prof.trailing_eps) / Math.abs(prof.trailing_eps)) * 100;
+        }
+        let revGrowth = null;
+        if (dynFwdRevTop && revenue > 0) {
+            revGrowth = ((dynFwdRevTop - revenue) / Math.abs(revenue)) * 100;
+        }
+        
+        const simMetrics = {
+            peFwd: newPeFwd,
+            evEbitda: newEvEbitda,
+            pb: newPB,
+            divYield: newDivYield,
+            epsGrowth: epsGrowth,
+            revGrowth: revGrowth
+        };
 
         if (finalFv != null) {
             elements.fairValue.textContent = formatCurrency(finalFv);
@@ -2824,13 +2878,13 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 elements.marginSafety.style.background = 'rgba(239, 68, 68, 0.2)';
             }
-            updateInsightsAndScores(finalMos, currentPegToDisplay, newPeFwd);
+            updateInsightsAndScores(finalMos, currentPegToDisplay, simMetrics);
         } else {
             elements.fairValue.textContent = 'N/A';
             elements.marginSafety.textContent = 'Valuation not possible';
             elements.marginSafety.style.color = 'var(--text-muted)';
             elements.marginSafety.style.background = 'none';
-            updateInsightsAndScores(null, currentPegToDisplay, newPeFwd);
+            updateInsightsAndScores(null, currentPegToDisplay, simMetrics);
         }
 
         // --- Sync Profile & Metrics Table PEG with Card PEG ---
