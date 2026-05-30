@@ -5459,19 +5459,15 @@ document.addEventListener('DOMContentLoaded', () => {
                                         val = impliedPe;
                                     }
                                     else if (k === 'PS') {
-                                        val = impliedPs || (globalData.company_profile && (globalData.company_profile.fwd_ps || globalData.company_profile.forward_ev_sales));
+                                        val = impliedPs;
+                                        if (val == null) val = (globalData.company_profile && (globalData.company_profile.fwd_ps || globalData.company_profile.forward_ev_sales));
                                     }
                                     else if (k === 'PB') {
                                         val = (globalData.company_profile && globalData.company_profile.price_to_book);
                                     }
                                     else if (k === 'EV_EBITDA') {
-                                        val = globalData.company_profile && (globalData.company_profile.forward_ev_ebitda || globalData.company_profile.ev_to_ebitda);
-                                        if (val == null) {
-                                            // Fallback: estimate from TTM if forward not available
-                                            const earnGrowth = globalData.company_profile && globalData.company_profile.earnings_growth || 0;
-                                            const ev_ebitda_ttm = (r && r.company_ev_ebitda) || 0;
-                                            val = ev_ebitda_ttm > 0 ? ev_ebitda_ttm / (1 + earnGrowth) : null;
-                                        }
+                                        val = impliedEvEbitda;
+                                        if (val == null) val = globalData.company_profile && (globalData.company_profile.forward_ev_ebitda || globalData.company_profile.ev_to_ebitda);
                                     }
                                     else if (k === 'PFCF' || k === 'P_AFFO') {
                                         const fcfGrowth = globalData.company_profile && globalData.company_profile.historic_fcf_growth || 0;
