@@ -3324,7 +3324,7 @@ def get_competitors_data(target_ticker: str, limit: int = 4, custom_peers: list 
                         c_inf, ts = _peer_info_cache[t]
                         if now - ts < 86400: return c_inf
                     
-                    kv_key = f"peer_v14_{t}" 
+                    kv_key = f"peer_v15_{t}" 
                     if not force_refresh:
                         kv_data = kv_get(kv_key)
                         if kv_data and isinstance(kv_data, dict):
@@ -3491,7 +3491,7 @@ def get_competitors_data(target_ticker: str, limit: int = 4, custom_peers: list 
         return unique[:limit]
 
     except Exception as e:
-        print(f"Global competitors failure for {target_ticker}: {e}")
+        import traceback; traceback.print_exc(); print(f"Global competitors failure for {target_ticker}: {e}")
         return []
 
 def get_lightweight_company_data(ticker_symbol: str, force_refresh: bool = False):
