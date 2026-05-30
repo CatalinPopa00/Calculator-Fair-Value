@@ -409,6 +409,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const fwd = parseFloat(p.forward_peg);
                 if (!isNaN(fwd) && fwd > 0) return fwd;
                 
+                // Fallback to strict PEG ratio (used by manually added peers via /api/calculate)
+                const basicPeg = parseFloat(p.peg_ratio);
+                if (!isNaN(basicPeg) && basicPeg > 0) return basicPeg;
+                
                 return null;
             })
             .filter(v => !isNaN(v) && v > 0);
