@@ -4731,7 +4731,13 @@ document.addEventListener('DOMContentLoaded', () => {
                                         epsDs.data[idx] = +parseFloat(item.avg).toFixed(2);
                                         // If shares are missing for estimates (often are), carry over the last known actual
                                         if (sharesDs && (sharesDs.data[idx] === 0 || sharesDs.data[idx] == null)) {
-                                            const lastActualIdx = labels.findLastIndex(l => !String(l).includes('Est'));
+                                            let lastActualIdx = -1;
+                                            for (let i = labels.length - 1; i >= 0; i--) {
+                                                if (!String(labels[i]).includes('Est')) {
+                                                    lastActualIdx = i;
+                                                    break;
+                                                }
+                                            }
                                             if (lastActualIdx !== -1) sharesDs.data[idx] = sharesDs.data[lastActualIdx];
                                         }
                                         updated = true;
@@ -4765,7 +4771,14 @@ document.addEventListener('DOMContentLoaded', () => {
                                         
                                         // Update FCF if it's missing or zero using the last known margin
                                         if (fcfDs && (fcfDs.data[idx] === 0 || fcfDs.data[idx] == null)) {
-                                            const lastActualIdx = labels.findLastIndex(l => !String(l).includes('Est'));
+                                            // Safari <15.4 compatibility: avoid findLastIndex
+                                            let lastActualIdx = -1;
+                                            for (let i = labels.length - 1; i >= 0; i--) {
+                                                if (!String(labels[i]).includes('Est')) {
+                                                    lastActualIdx = i;
+                                                    break;
+                                                }
+                                            }
                                             if (lastActualIdx !== -1 && revDs.data[lastActualIdx] > 0) {
                                                 const margin = fcfDs.data[lastActualIdx] / revDs.data[lastActualIdx];
                                                 fcfDs.data[idx] = +(newVal * margin).toFixed(2);
