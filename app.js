@@ -2376,9 +2376,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         else if (_currentScenario === 'bull') { y1 = pegEsts[0].high; y2 = pegEsts[1].high; }
                         else { y1 = pegEsts[0].avg; y2 = pegEsts[1].avg; }
                         
-                        const g1 = (y1 / baseEps) - 1;
-                        const g2 = (y2 / y1) - 1;
-                        usedGrowth = (g1 + g2) / 2.0;
+                        if (globalData.computed_eps_growth != null && !isNaN(globalData.computed_eps_growth)) {
+                            usedGrowth = globalData.computed_eps_growth;
+                        } else {
+                            const g1 = (y1 / baseEps) - 1;
+                            const g2 = (y2 / y1) - 1;
+                            usedGrowth = (g1 + g2) / 2.0;
+                        }
                         
                         // Fwd P/E is based on FY1
                         fwdPe = (y1 > 0) ? (_realApiPrice / y1) : null;
@@ -5264,7 +5268,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const scenario = e.currentTarget.dataset.scenario || 'base';
             _currentScenario = scenario;
             if (globalData) {
+                // v310: Re-render estimates table FIRST to dynamically compute the scenario growths
+                if (typeof window._renderEstimatesTable === 'function') window._renderEstimatesTable();
+
                 // v290: Auto-update DCF growth input to match scenario
+
                 const newGrowth = window.getDcfGrowthDefault(globalData);
                 const g13El = document.getElementById('dcf-growth-1-3');
                 if (g13El) {
