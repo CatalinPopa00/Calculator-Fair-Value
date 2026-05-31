@@ -14,10 +14,15 @@ def calculate_peter_lynch(current_price: float, trailing_eps: float, eps_growth_
     safe_pe_historic = pe_historic if pe_historic else 20.0
     safe_sector_pe = sector_median_pe if sector_median_pe else 20.0
     
-    # v288: Restored 3-Year Compounded EPS (Trailing * (1+G)^3)
-    fwd_eps = trailing_eps * ((1 + eps_growth_estimated) ** 3)
+    # v288: Restored 3-Year Compounded EPS
+    # v316: Handle negative trailing EPS so it trends to profitability instead of growing the deficit
+    fwd_eps = trailing_eps
+    for _ in range(3):
+        if fwd_eps < 0:
+            fwd_eps = fwd_eps + abs(fwd_eps) * eps_growth_estimated
+        else:
+            fwd_eps = fwd_eps * (1 + eps_growth_estimated)
     
-    if fwd_eps == 0:
         return {"fwd_pe": None, "fair_value": None, "status": "N/A"}
         
     fwd_pe = current_price / fwd_eps
@@ -82,7 +87,11 @@ def calculate_dcf(fcf: float, growth_rate: float, discount_rate: float, perpetua
             g = growth_rate[i - 1] if (i - 1) < len(growth_rate) else growth_rate[-1]
         else:
             g = growth_rate
-        current_fcf *= (1 + g)
+            
+        if current_fcf < 0:
+            current_fcf = current_fcf + abs(current_fcf) * g
+        else:
+            current_fcf *= (1 + g)
         
         # Method A: Deduct buyback cash cost from FCF
         buyback_cash_spent = 0

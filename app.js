@@ -1148,7 +1148,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const g = Array.isArray(growth) ? (growth[i - 1] !== undefined ? growth[i - 1] : growth[growth.length - 1]) : growth;
 
             // Revenue grows year-over-year
-            currentRevenue *= (1 + g);
+            if (currentRevenue < 0) {
+                currentRevenue = currentRevenue + Math.abs(currentRevenue) * g;
+            } else {
+                currentRevenue *= (1 + g);
+            }
 
             // FCF margin increases by configured growth rate each year in the background
             const yearMargin = startingFcfMargin + (i * marginGrowth);
@@ -2536,7 +2540,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 const rawG = document.getElementById('lynch-custom-growth').value;
                 usedGrowth = (rawG === '' || isNaN(parseFloat(rawG))) ? 0.20 : parseFloat(rawG) / 100;
             }
-            let targetEps = baseEps * Math.pow(1 + usedGrowth, 3);
+            let targetEps = baseEps;
+            for (let i = 0; i < 3; i++) {
+                if (targetEps < 0) {
+                    targetEps = targetEps + Math.abs(targetEps) * usedGrowth;
+                } else {
+                    targetEps *= (1 + usedGrowth);
+                }
+            }
 
             const multEl = document.getElementById('lynch-multiple-source');
             const multVal = multEl ? multEl.value : 'system';
