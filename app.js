@@ -2379,7 +2379,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Sector Median Logic for PEG
             const cachedSectorPeg = localStorage.getItem('sectorMedianPeg_' + sector);
-            const industryPegRaw = cachedSectorPeg ? parseFloat(cachedSectorPeg) : currentFormulaData.peg.industry_peg;
+            // Prioritize dynamically calculated median from custom peers over cached global sector median
+            const industryPegRaw = (currentFormulaData.peg && currentFormulaData.peg.industry_peg != null) 
+                ? currentFormulaData.peg.industry_peg 
+                : (cachedSectorPeg ? parseFloat(cachedSectorPeg) : 1.0);
 
             let targetPeg = 1.0;
             if (pegMode === 'industry') {
