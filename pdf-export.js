@@ -11,30 +11,22 @@ document.addEventListener('DOMContentLoaded', () => {
             exportBtn.innerHTML = '<div class="spinner" style="width: 20px; height: 20px; border-width: 2px;"></div> Exporting...';
             exportBtn.disabled = true;
 
-            // Save original scroll and scroll to top to prevent html2canvas bounds cropping
-            const originalScrollY = window.scrollY;
-            window.scrollTo(0, 0);
-
-            // Create loading overlay to cover the screen
+            // Create loading overlay
             const loadingOverlay = document.createElement('div');
             loadingOverlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #0f172a; z-index: 999999; display: flex; align-items: center; justify-content: center; flex-direction: column; color: white; font-family: "Outfit", sans-serif;';
             loadingOverlay.innerHTML = '<div class="spinner" style="width: 50px; height: 50px; margin-bottom: 20px;"></div><h2 style="margin:0;">Generating PDF Report...</h2><p style="color: #94a3b8; margin-top: 10px;">This may take a few seconds</p>';
             document.body.appendChild(loadingOverlay);
 
-            // Create container physically at top 0 left 0 so html2canvas finds it perfectly in the viewport
-            const container = document.createElement('div');
-            container.style.position = 'absolute';
-            container.style.top = '0px';
-            container.style.left = '0px';
-            container.style.width = '1200px';
-            container.style.background = '#0b1320';
-            container.style.color = '#f8fafc';
-            container.style.fontFamily = "'Outfit', sans-serif";
-            container.style.padding = '40px';
-            container.style.zIndex = '999998'; // Under the overlay
-            document.body.appendChild(container);
-
             try {
+                // Create container purely in memory (no DOM append)
+                // html2pdf will automatically render it in a hidden iframe with all stylesheets applied
+                const container = document.createElement('div');
+                container.style.width = '1200px';
+                container.style.background = '#0b1320';
+                container.style.color = '#f8fafc';
+                container.style.fontFamily = "'Outfit', sans-serif";
+                container.style.padding = '40px';
+
                 // Get Data
                 const d = window.globalData;
                 const p = d.company_profile || {};
@@ -60,7 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Build Row 1
                 const row1 = document.createElement('div');
-                row1.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 30px; background: rgba(30, 41, 59, 1); border-radius: 16px; margin-bottom: 25px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 10px 30px rgba(0,0,0,0.5);';
+                row1.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 30px; background: rgba(30, 41, 59, 1); border-radius: 16px; margin-bottom: 25px; border: 1px solid rgba(255,255,255,0.1);';
                 row1.innerHTML = `
                     <div>
                         <h2 style="margin: 0 0 15px 0; font-size: 2.5rem; font-weight: 800;">${name} <span style="color: #94a3b8; font-weight: 400;">${ticker}</span></h2>
@@ -84,7 +76,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <h3 style="margin: 0 0 15px 0; color: #94a3b8; font-size: 1.2rem; text-transform: uppercase; letter-spacing: 1px;">Bear Scenario</h3>
                         <div style="font-size: 2.2rem; font-weight: 800;">${bearVal}</div>
                     </div>
-                    <div style="flex: 1; text-align: center; padding: 30px; background: rgba(30, 41, 59, 1); border-radius: 16px; border: 2px solid #3b82f6; box-shadow: 0 0 30px rgba(59, 130, 246, 0.15); display: flex; flex-direction: column; justify-content: center;">
+                    <div style="flex: 1; text-align: center; padding: 30px; background: rgba(30, 41, 59, 1); border-radius: 16px; border: 2px solid #3b82f6; display: flex; flex-direction: column; justify-content: center;">
                         <h3 style="margin: 0 0 15px 0; color: #3b82f6; font-size: 1.3rem; text-transform: uppercase; letter-spacing: 1px;">Base Scenario</h3>
                         <div style="font-size: 2.8rem; font-weight: 800; color: #3b82f6;">${baseVal}</div>
                     </div>
@@ -133,22 +125,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 cloneAndAppend('#methods-container'); // Row 4
                 cloneAndAppend('#analyst-estimates-card'); // Row 5
 
-                // Small delay to allow browser to render the hidden elements before snapshotting
-                await new Promise(resolve => setTimeout(resolve, 800));
-
                 // Generate PDF
                 const opt = {
                     margin:       0,
                     filename:     `${ticker}_Fair_Value_Report.pdf`,
-                    image:        { type: 'jpeg', quality: 0.98 },
+                    image:        { type: 'jpeg', quality: 0.95 }, // slightly lower quality for smaller file size
                     html2canvas:  { 
-                        scale: 2, 
+                        scale: 1, // reduced from 2 to 1 to prevent memory exhaustion / corrupted PDF output
                         useCORS: true, 
                         logging: false, 
                         windowWidth: 1200,
+                        backgroundColor: '#0b1320', // Ensure background is dark blue
                         onclone: (clonedDoc) => {
-                            // Unconditionally strip backdrop-filter and assign background color.
-                            // Do not use window.getComputedStyle as it causes fatal cross-doc errors.
                             const allElements = clonedDoc.querySelectorAll('*');
                             allElements.forEach(el => {
                                 el.style.backdropFilter = 'none';
@@ -168,17 +156,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error("PDF Export Error:", e);
                 alert('Error generating PDF. Check console for details.');
             } finally {
-                // Cleanup
-                if (document.body.contains(container)) {
-                    document.body.removeChild(container);
-                }
-                
                 if (document.body.contains(loadingOverlay)) {
                     document.body.removeChild(loadingOverlay);
                 }
-                
-                // Restore scroll
-                window.scrollTo(0, originalScrollY);
                 
                 exportBtn.innerHTML = btnOriginalHtml;
                 exportBtn.disabled = false;
