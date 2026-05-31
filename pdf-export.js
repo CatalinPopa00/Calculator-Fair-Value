@@ -21,9 +21,11 @@ document.addEventListener('DOMContentLoaded', () => {
             
             try {
                 // Bring container into viewport but behind overlay so html2canvas renders it properly
+                // Setting top to scrollY ensures it is physically in the current viewport!
                 container.style.left = '0px';
-                container.style.top = '0px';
+                container.style.top = window.scrollY + 'px';
                 container.style.zIndex = '999998';
+                container.style.display = 'block';
                 container.innerHTML = ''; // clear
 
                 // Get Data
@@ -141,7 +143,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         useCORS: true, 
                         logging: false, 
                         windowWidth: 1200, // Forces the wide layout to trigger
-                        backgroundColor: '#0b1320'
+                        backgroundColor: '#0b1320',
+                        scrollY: window.scrollY,
+                        y: window.scrollY
                     },
                     jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
                 };
