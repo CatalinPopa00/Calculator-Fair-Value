@@ -252,7 +252,7 @@ def calculate_scoring_reform(valuation_data, metrics):
         hybrid_peg = fwd_pe / eps_2y_g
     
     pe = fwd_pe
-    pe_label = "P/E Ratio (Fwd)"
+    pe_label = "P/E Ratio (2y Avg Fwd)"
     if pe <= 0:
         pe = clean_ratio(metrics.get('trailing_pe') or metrics.get('current_pe'))
         pe_label = "P/E Ratio (TTM)"
@@ -337,7 +337,7 @@ def calculate_scoring_reform(valuation_data, metrics):
         add_h("FCF Trend", fcf_trend, 15 if fcf_trend == "Growing" else 0, 15, "raw")
         
         add_b("Margin of Safety", mos, get_mos_points(mos, 30), 30, False)
-        add_b("EV/EBITDA (Fwd)", ev_ebitda, get_rel_pts(ev_ebitda, sec_ev_ebitda, 20), 20, True)
+        add_b("EV/EBITDA (2y Avg Fwd)", ev_ebitda, get_rel_pts(ev_ebitda, sec_ev_ebitda, 20), 20, True)
         
         # Inverted P/E logic for cyclical tops is kept absolute, or maybe relative inverted?
         # Energy: low P/E might be a trap. If we use relative, it might break cyclical logic.
@@ -363,7 +363,7 @@ def calculate_scoring_reform(valuation_data, metrics):
         add_b("Margin of Safety", mos, get_mos_points(mos, 30), 30, False)
         add_b("EPS Growth (Fwd)", eps_2y_g, 10 if eps_2y_g > 5 else (5 if eps_2y_g >= 2 else 0), 10, False)
         add_b(pe_label, pe, get_rel_pts(pe, sec_pe, 15), 15, True)
-        add_b("EV/EBITDA (Fwd)", ev_ebitda, get_rel_pts(ev_ebitda, sec_ev_ebitda, 20), 20, True)
+        add_b("EV/EBITDA (2y Avg Fwd)", ev_ebitda, get_rel_pts(ev_ebitda, sec_ev_ebitda, 20), 20, True)
         div_y = clean_percent(metrics.get('fwd_dividend_yield') or metrics.get('dividend_yield'))
         add_b("Dividend Yield (Fwd)", div_y, 25 if div_y > 4 else (12.5 if div_y >= 2.5 else 0), 25, False)
 
@@ -388,7 +388,7 @@ def calculate_scoring_reform(valuation_data, metrics):
         
         pts = get_rel_pts(ev_ebitda, sec_ev_ebitda, 15)
         if pts == 0 and ev_ebitda > 0 and 0 < peg_val <= 1.2 and eps_2y_g >= 15.0: pts = 7.5 # Growth Override
-        add_b("EV/EBITDA (Fwd)", ev_ebitda, pts, 15, True)
+        add_b("EV/EBITDA (2y Avg Fwd)", ev_ebitda, pts, 15, True)
         add_b("PEG Ratio (Fwd)", peg_val, get_rel_pts(peg_val, sec_peg, 20), 20, True)
 
     elif is_tech:
@@ -404,7 +404,7 @@ def calculate_scoring_reform(valuation_data, metrics):
         add_h("ROIC", roic, 20 if roic > 15 else (10 if roic >= 10 else 0), 20, False)
         
         add_b("Margin of Safety (DCF)", mos, get_mos_points(mos, 30), 30, False)
-        add_b("Revenue Growth (Fwd)", rev_2y_g, 20 if rev_2y_g > 15 else (10 if rev_2y_g >= 8 else 0), 20, False)
+        add_b("Revenue Growth (2y Avg Fwd)", rev_2y_g, 20 if rev_2y_g > 15 else (10 if rev_2y_g >= 8 else 0), 20, False)
         
         pts = get_rel_pts(pe, sec_pe, 20)
         if pts == 0 and pe > 0 and 0 < peg_val <= 1.2 and rev_2y_g >= 20.0: pts = 10 # Growth Override
@@ -412,12 +412,12 @@ def calculate_scoring_reform(valuation_data, metrics):
         
         pts = get_rel_pts(ev_ebitda, sec_ev_ebitda, 10)
         if pts == 0 and ev_ebitda > 0 and 0 < peg_val <= 1.2 and rev_2y_g >= 20.0: pts = 5 # Growth Override
-        add_b("EV/EBITDA (Fwd)", ev_ebitda, pts, 10, True)
+        add_b("EV/EBITDA (2y Avg Fwd)", ev_ebitda, pts, 10, True)
         
         add_b("PEG Ratio (Fwd)", peg_val, get_rel_pts(peg_val, sec_peg, 10), 10, True)
         
         # P/S Ratio
-        add_b("P/S Ratio (Fwd)", ps, get_rel_pts(ps, sec_ps, 10), 10, True)
+        add_b("P/S Ratio (2y Avg Fwd)", ps, get_rel_pts(ps, sec_ps, 10), 10, True)
 
     else:
         # Sector 8: Industrials & Consumer Discretionary
@@ -448,7 +448,7 @@ def calculate_scoring_reform(valuation_data, metrics):
         add_h("ROIC", roic, 20 if roic > 10 else (10 if roic >= 6 else 0), 20, False)
         
         add_b("Margin of Safety", mos, get_mos_points(mos, 30), 30, False)
-        add_b("Revenue Growth (Fwd)", rev_2y_g, 20 if rev_2y_g > 10 else (10 if rev_2y_g >= 5 else 0), 20, False)
+        add_b("Revenue Growth (2y Avg Fwd)", rev_2y_g, 20 if rev_2y_g > 10 else (10 if rev_2y_g >= 5 else 0), 20, False)
         
         pts = get_rel_pts(pe, sec_pe, 20)
         if pts == 0 and pe > 0 and 0 < peg_val <= 1.2 and rev_2y_g >= 15.0: pts = 10 # Growth Override
@@ -456,7 +456,7 @@ def calculate_scoring_reform(valuation_data, metrics):
         
         pts = get_rel_pts(ev_ebitda, sec_ev_ebitda, 15)
         if pts == 0 and ev_ebitda > 0 and 0 < peg_val <= 1.2 and rev_2y_g >= 15.0: pts = 7.5 # Growth Override
-        add_b("EV/EBITDA (Fwd)", ev_ebitda, pts, 15, True)
+        add_b("EV/EBITDA (2y Avg Fwd)", ev_ebitda, pts, 15, True)
         
         add_b("PEG Ratio (Fwd)", peg_val, get_rel_pts(peg_val, sec_peg, 15), 15, True)
 

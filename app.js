@@ -3441,31 +3441,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (pe != null && pe > 0) {
                     if (pe > 45) {
-                        kpiHtml += `<span style="background: rgba(239, 68, 68, 0.12); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; width: 155px; box-sizing: border-box;">🔴 Premium PE (${pe.toFixed(1)}x)</span>`;
+                        kpiHtml += `<span style="background: rgba(239, 68, 68, 0.12); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; width: 100%; box-sizing: border-box;">🔴 Premium PE (${pe.toFixed(1)}x)</span>`;
                     } else if (pe < 18) {
-                        kpiHtml += `<span style="background: rgba(34, 197, 94, 0.12); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; width: 155px; box-sizing: border-box;">🟢 Attractive PE (${pe.toFixed(1)}x)</span>`;
+                        kpiHtml += `<span style="background: rgba(34, 197, 94, 0.12); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; width: 100%; box-sizing: border-box;">🟢 Attractive PE (${pe.toFixed(1)}x)</span>`;
                     } else {
-                        kpiHtml += `<span style="background: rgba(245, 158, 11, 0.12); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; width: 155px; box-sizing: border-box;">🟡 Moderate PE (${pe.toFixed(1)}x)</span>`;
+                        kpiHtml += `<span style="background: rgba(245, 158, 11, 0.12); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; width: 100%; box-sizing: border-box;">🟡 Moderate PE (${pe.toFixed(1)}x)</span>`;
                     }
                 }
                 if (netMargin != null) {
                     if (netMargin > 1.0) {
-                        kpiHtml += `<span style="background: rgba(245, 158, 11, 0.12); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; width: 155px; box-sizing: border-box;" title="One-off exceptional gain exceeding 100% of revenue.">⚠️ Exceptional Profit (${(netMargin * 100).toFixed(0)}%)</span>`;
+                        kpiHtml += `<span style="background: rgba(245, 158, 11, 0.12); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; width: 100%; box-sizing: border-box;" title="One-off exceptional gain exceeding 100% of revenue.">⚠️ Exceptional Profit (${(netMargin * 100).toFixed(0)}%)</span>`;
                     } else if (netMargin > 0.20) {
-                        kpiHtml += `<span style="background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; width: 155px; box-sizing: border-box;">💎 High Margins (${(netMargin * 100).toFixed(0)}%)</span>`;
+                        kpiHtml += `<span style="background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; width: 100%; box-sizing: border-box;">💎 High Margins (${(netMargin * 100).toFixed(0)}%)</span>`;
                     } else if (netMargin < 0.05) {
-                        kpiHtml += `<span style="background: rgba(239, 68, 68, 0.12); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; width: 155px; box-sizing: border-box;">⚠️ Low Margins (${(netMargin * 100).toFixed(0)}%)</span>`;
+                        kpiHtml += `<span style="background: rgba(239, 68, 68, 0.12); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; width: 100%; box-sizing: border-box;">⚠️ Low Margins (${(netMargin * 100).toFixed(0)}%)</span>`;
                     } else {
-                        kpiHtml += `<span style="background: rgba(255, 255, 255, 0.05); color: rgba(255,255,255,0.7); border: 1px solid rgba(255, 255, 255, 0.1); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; width: 155px; box-sizing: border-box;">📊 Healthy Margins (${(netMargin * 100).toFixed(0)}%)</span>`;
+                        kpiHtml += `<span style="background: rgba(255, 255, 255, 0.05); color: rgba(255,255,255,0.7); border: 1px solid rgba(255, 255, 255, 0.1); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; width: 100%; box-sizing: border-box;">📊 Healthy Margins (${(netMargin * 100).toFixed(0)}%)</span>`;
                     }
                 }
                 if (deRatio != null) {
                     if (deRatio < 40) {
-                        kpiHtml += `<span style="background: rgba(168, 85, 247, 0.12); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; width: 155px; box-sizing: border-box;">🛡️ Safe Debt Level</span>`;
+                        kpiHtml += `<span style="background: rgba(168, 85, 247, 0.12); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; width: 100%; box-sizing: border-box;">🛡️ Safe Debt Level</span>`;
                     } else if (deRatio > 150) {
-                        kpiHtml += `<span style="background: rgba(239, 68, 68, 0.12); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; width: 155px; box-sizing: border-box;">⚠️ High Debt Level (${deRatio.toFixed(0)}%)</span>`;
+                        kpiHtml += `<span style="background: rgba(239, 68, 68, 0.12); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; width: 100%; box-sizing: border-box;">⚠️ High Debt Level (${deRatio.toFixed(0)}%)</span>`;
                     } else {
-                        kpiHtml += `<span style="background: rgba(255, 255, 255, 0.05); color: rgba(255,255,255,0.7); border: 1px solid rgba(255, 255, 255, 0.1); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; width: 155px; box-sizing: border-box;">⚖️ Balanced Debt</span>`;
+                        kpiHtml += `<span style="background: rgba(255, 255, 255, 0.05); color: rgba(255,255,255,0.7); border: 1px solid rgba(255, 255, 255, 0.1); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; width: 100%; box-sizing: border-box;">⚖️ Balanced Debt</span>`;
                     }
                 }
 
@@ -3477,13 +3477,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     const hasSegment = /segment|division|revenue share|growth driver|business unit|segmentation|diviz/i.test(synthText);
 
                     if (hasPharma) {
-                        kpiHtml += `<span class="insight-badge" style="background: rgba(16, 185, 129, 0.12); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; width: 155px; box-sizing: border-box; animation: brief-pulse 2s infinite;" title="Clinical pipeline, FDA decision, or testing phase detected.">🧪 Clinical Catalyst</span>`;
+                        kpiHtml += `<span class="insight-badge" style="background: rgba(16, 185, 129, 0.12); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; width: 100%; box-sizing: border-box; animation: brief-pulse 2s infinite;" title="Clinical pipeline, FDA decision, or testing phase detected.">🧪 Clinical Catalyst</span>`;
                     }
                     if (hasMa) {
-                        kpiHtml += `<span class="insight-badge" style="background: rgba(245, 158, 11, 0.12); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; width: 155px; box-sizing: border-box;" title="M&A activity, mergers, or integration costs detected.">🤝 M&A Transaction</span>`;
+                        kpiHtml += `<span class="insight-badge" style="background: rgba(245, 158, 11, 0.12); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; width: 100%; box-sizing: border-box;" title="M&A activity, mergers, or integration costs detected.">🤝 M&A Transaction</span>`;
                     }
                     if (hasSegment) {
-                        kpiHtml += `<span class="insight-badge" style="background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; width: 155px; box-sizing: border-box;" title="Specific analysis on business segments or divisions.">📈 Segment Focus</span>`;
+                        kpiHtml += `<span class="insight-badge" style="background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.2); font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; width: 100%; box-sizing: border-box;" title="Specific analysis on business segments or divisions.">📈 Segment Focus</span>`;
                     }
                 }
 
@@ -3558,7 +3558,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     
                     <!-- KPI Row -->
-                    <div id="brief-kpis" style="display: flex; gap: 10px 15px; flex-wrap: wrap; justify-content: center; align-items: center; margin: 0 auto 20px auto; max-width: 350px;">
+                    <div id="brief-kpis" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; max-width: 350px; margin: 0 auto 20px auto; width: 100%;">
                         ${kpiHtml}
                     </div>
 

@@ -2924,7 +2924,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                     print(f"DEBUG: Synchronizing latest anchor shares ({latest_anchor.get('shares_out_b')}) to live value ({live_shares_b})")
                     latest_anchor["shares_out_b"] = round(live_shares_b, 3)
                     if len(historical_data["shares"]) > 0:
-                        historical_data["shares"][0] = shares_outstanding
+                        historical_data["shares"][-1] = shares_outstanding
 
             # --- SYSTEMIC RATIO AUDIT (Calculated > Reported) ---
             net_margin_calc = None
