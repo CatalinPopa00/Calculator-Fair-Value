@@ -11,23 +11,24 @@ document.addEventListener('DOMContentLoaded', () => {
             exportBtn.innerHTML = '<div class="spinner" style="width: 20px; height: 20px; border-width: 2px;"></div> Exporting...';
             exportBtn.disabled = true;
 
-            // Create loading overlay to cover the screen while we bring the pdf container into view
+            // Create loading overlay to cover the screen
             const loadingOverlay = document.createElement('div');
             loadingOverlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #0f172a; z-index: 999999; display: flex; align-items: center; justify-content: center; flex-direction: column; color: white; font-family: "Outfit", sans-serif;';
             loadingOverlay.innerHTML = '<div class="spinner" style="width: 50px; height: 50px; margin-bottom: 20px;"></div><h2 style="margin:0;">Generating PDF Report...</h2><p style="color: #94a3b8; margin-top: 10px;">This may take a few seconds</p>';
             document.body.appendChild(loadingOverlay);
 
-            const container = document.getElementById('pdf-export-container');
-            
-            try {
-                // Bring container into viewport but behind overlay so html2canvas renders it properly
-                // Setting top to scrollY ensures it is physically in the current viewport!
-                container.style.left = '0px';
-                container.style.top = window.scrollY + 'px';
-                container.style.zIndex = '999998';
-                container.style.display = 'block';
-                container.innerHTML = ''; // clear
+            // Create a completely fresh container at the bottom of the document flow
+            // This prevents html2canvas from cropping absolute positioned elements
+            const container = document.createElement('div');
+            container.style.width = '1200px';
+            container.style.background = '#0b1320';
+            container.style.color = '#f8fafc';
+            container.style.fontFamily = "'Outfit', sans-serif";
+            container.style.padding = '40px';
+            // It must be in the DOM to render properly. It will be added to the bottom of the body.
+            document.body.appendChild(container);
 
+            try {
                 // Get Data
                 const d = window.globalData;
                 const p = d.company_profile || {};
@@ -51,14 +52,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const wFwd = document.getElementById('fwd-weight')?.value || '40';
                 const wPeg = document.getElementById('peg-weight')?.value || '25';
 
-                // Build wrapper inside container to handle padding
-                const wrapper = document.createElement('div');
-                wrapper.style.padding = '40px';
-                wrapper.style.background = '#0b1320'; // Match site dark mode
-                wrapper.style.color = '#f8fafc';
-                wrapper.style.fontFamily = "'Outfit', sans-serif";
-                container.appendChild(wrapper);
-
                 // Build Row 1
                 const row1 = document.createElement('div');
                 row1.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 30px; background: rgba(30, 41, 59, 1); border-radius: 16px; margin-bottom: 25px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 10px 30px rgba(0,0,0,0.5);';
@@ -75,7 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div style="font-size: 1.4rem; font-weight: 600;">$${mktCap}</div>
                     </div>
                 `;
-                wrapper.appendChild(row1);
+                container.appendChild(row1);
 
                 // Build Row 2
                 const row2 = document.createElement('div');
@@ -103,7 +96,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     </div>
                 `;
-                wrapper.appendChild(row2);
+                container.appendChild(row2);
 
                 // Clone Rows 3, 4, 5
                 const cloneAndAppend = (selector) => {
@@ -122,7 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         clone.style.margin = '0 0 30px 0';
                         clone.style.width = '100%';
                         
-                        wrapper.appendChild(clone);
+                        container.appendChild(clone);
                     }
                 };
 
@@ -142,10 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         scale: 2, 
                         useCORS: true, 
                         logging: false, 
-                        windowWidth: 1200, // Forces the wide layout to trigger
-                        backgroundColor: '#0b1320',
-                        scrollY: window.scrollY,
-                        y: window.scrollY
+                        windowWidth: 1200
                     },
                     jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
                 };
@@ -157,10 +147,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert('Error generating PDF. Check console for details.');
             } finally {
                 // Cleanup
-                container.style.left = '-9999px';
-                container.style.top = '-9999px';
-                container.style.zIndex = '';
-                container.innerHTML = '';
+                if (document.body.contains(container)) {
+                    document.body.removeChild(container);
+                }
                 
                 if (document.body.contains(loadingOverlay)) {
                     document.body.removeChild(loadingOverlay);
