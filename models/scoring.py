@@ -427,7 +427,7 @@ def calculate_scoring_reform(valuation_data, metrics):
         add_b("PEG Ratio (Fwd)", peg_val, get_rel_pts(peg_val, sec_peg, 10), 10, True)
         
         # P/S Ratio
-        add_b("P/S Ratio (2y Avg Fwd)", ps, get_rel_pts(ps, sec_ps, 10), 10, True)
+        add_b("P/S Ratio (1Y Fwd)", ps, get_rel_pts(ps, sec_ps, 10), 10, True)
 
     else:
         # Sector 8: Industrials & Consumer Discretionary
