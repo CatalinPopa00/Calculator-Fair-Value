@@ -504,6 +504,15 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         if not skip_peers:
             future_peers = executor.submit(get_competitors_data, ticker_upper, 4, None, force_refresh)
         
+        # 6. Sector Metrics & Dynamic Benchmarks
+        try:
+            # get_market_averages takes no arguments (returns SPY PE)
+            market_averages = get_market_averages()
+            sector_metrics = {"market_pe": market_averages.get("trailing_pe") if isinstance(market_averages, dict) else 15.0}
+        except Exception as e:
+            print(f"Error computing sector metrics: {e}")
+            sector_metrics = {}
+        
         # Wait for main data with robust error handling
         try:
             data = main_task.result() or {}
@@ -1478,6 +1487,11 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 "fwd_ps": sanitize(data.get("fwd_ps")),
                 "pfcf_ratio": sanitize((data.get("shares_outstanding", 0) * current_price) / data.get("fcf")) if data.get("shares_outstanding") and current_price and data.get("fcf") else None,
                 "current_pe": sanitize(current_pe),
+                "gross_margins": sanitize(data.get("gross_margins")),
+                "quick_ratio": sanitize(data.get("quick_ratio")),
+                "ebitda_margins": sanitize(data.get("ebitda_margins")),
+                "total_revenue": sanitize(data.get("total_revenue")),
+                "forward_revenue": sanitize(data.get("forward_revenue")) or sanitize(next((e.get("avg") for e in data.get("rev_estimates", []) if e.get("status") == "estimate"), None)),
                 "trailing_pe": sanitize(ttm_pe),
                 "trailing_eps": sanitize(data.get("trailing_eps")),
                 "historic_eps_growth": sanitize(data.get("historic_eps_growth")),

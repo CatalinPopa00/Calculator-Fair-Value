@@ -3862,13 +3862,24 @@ document.addEventListener('DOMContentLoaded', () => {
                     evGpValStr = evGp.toFixed(2) + 'x';
                 }
                 
-                if (medEvGp > 0 && evGp > 0) {
+                // Absolute fallback if Sector Median is missing (which is common for EV/GP)
+                if (evGp > 0) {
+                    if (medEvGp <= 0) {
+                        medEvGp = 8.0; // Assume 8.0x as a solid baseline for High Growth EV/GP
+                        evGpValStr += ' (Sector: 8.0x)';
+                    }
                     if (evGp <= medEvGp) evGpPts = 25;
                     else if (evGp <= medEvGp * 1.2) evGpPts = 10;
                     else evGpPts = 0;
+                } else if (data.company_profile.ps_ratio > 0) {
+                    let ps = data.company_profile.ps_ratio;
+                    evGpValStr = `P/S: ${ps.toFixed(2)}x (Missing GM)`;
+                    if (ps <= 5.0) evGpPts = 25;
+                    else if (ps <= 10.0) evGpPts = 10;
+                    else evGpPts = 0;
                 } else {
-                    evGpValStr = evGp > 0 ? (evGpValStr + ' (No Sector Data)') : 'Pending Sector Data';
-                    evGpPts = 0; // 0 points temporarily until sector data is loaded
+                    evGpValStr = 'Pending Sector Data';
+                    evGpPts = 0;
                 }
 
                 currentBuyBreakdown = [

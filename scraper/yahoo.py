@@ -3117,6 +3117,11 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
             "operating_margin": info.get('operatingMargins') or ebit_margin,
             "ebit_margin": ebit_margin,
             "net_margin": net_margin_calc or info.get('profitMargins'),
+            "gross_margins": info.get('grossMargins'),
+            "quick_ratio": info.get('quickRatio'),
+            "ebitda_margins": info.get('ebitdaMargins'),
+            "total_revenue": info.get('totalRevenue') or revenue,
+            "forward_revenue": None, # Will be calculated via estimates if missing, but we export the slot
             "dividend_yield": dividend_yield,
             "dividend_rate": dividend_rate,
             "dividend_streak": dividend_streak,
