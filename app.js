@@ -741,8 +741,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     revUsedGrowth = window._getDynamicRevGrowth();
                 }
 
-                const fwd_growth = (pegUsedGrowth > 0) ? (pegUsedGrowth * 100) : dynamicEpsGrowth;
-                let rev_fwd_growth = (revUsedGrowth > 0) ? (revUsedGrowth * 100) : dynamicRevGrowth;
+                                const fwd_growth = (pegUsedGrowth > 0) ? (pegUsedGrowth < 1.0 ? pegUsedGrowth * 100 : pegUsedGrowth) : dynamicEpsGrowth;
+                let rev_fwd_growth = (revUsedGrowth > 0) ? (revUsedGrowth < 1.0 ? revUsedGrowth * 100 : revUsedGrowth) : dynamicRevGrowth;
 
                 const fwd_pe = parseFloat(globalData.company_profile.forward_pe) || 0;
 

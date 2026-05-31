@@ -248,11 +248,18 @@ def calculate_scoring_reform(valuation_data, metrics):
     
     # Calculate Hybrid PEG: Fwd PE 1Y / 2Y EPS Growth CAGR
     hybrid_peg = 0.0
-    if fwd_pe > 0 and eps_2y_g > 0:
-        hybrid_peg = fwd_pe / eps_2y_g
+    growth_rate = rev_2y_g if rev_2y_g > 0 else eps_2y_g
+    if fwd_pe > 0 and growth_rate > 0:
+        # User requested: (Forward P/E 1Y) / (Forward Growth Rate * 100)
+        # Note: clean_percent returns 15.0 for 15%.
+        # If it returns 15.0, dividing by 15.0 is the same as PE / (0.15 * 100).
+        # We explicitly enforce the logic mathematically as PE / (growth * 100) assuming growth is decimal.
+        # But since clean_percent scales decimals < 10.0 by 100, we check:
+        actual_growth_pct = growth_rate * 100.0 if growth_rate < 1.0 else growth_rate
+        hybrid_peg = fwd_pe / actual_growth_pct
     
     pe = fwd_pe
-    pe_label = "P/E Ratio (2y Avg Fwd)"
+    pe_label = "P/E Ratio (1Y Fwd)"
     if pe <= 0:
         pe = clean_ratio(metrics.get('trailing_pe') or metrics.get('current_pe'))
         pe_label = "P/E Ratio (TTM)"
@@ -337,7 +344,7 @@ def calculate_scoring_reform(valuation_data, metrics):
         add_h("FCF Trend", fcf_trend, 15 if fcf_trend == "Growing" else 0, 15, "raw")
         
         add_b("Margin of Safety", mos, get_mos_points(mos, 30), 30, False)
-        add_b("EV/EBITDA (2y Avg Fwd)", ev_ebitda, get_rel_pts(ev_ebitda, sec_ev_ebitda, 20), 20, True)
+        add_b("EV/EBITDA (1Y Fwd)", ev_ebitda, get_rel_pts(ev_ebitda, sec_ev_ebitda, 20), 20, True)
         
         # Inverted P/E logic for cyclical tops is kept absolute, or maybe relative inverted?
         # Energy: low P/E might be a trap. If we use relative, it might break cyclical logic.
@@ -354,7 +361,8 @@ def calculate_scoring_reform(valuation_data, metrics):
         cr = clean_ratio(metrics.get('current_ratio'))
         add_h("Current Ratio", cr, 20 if cr >= 0.7 else (10 if cr >= 0.5 else 0), 20, True)
         ic = clean_ratio(metrics.get('interest_coverage'))
-        add_h("Interest Coverage", ic, 20 if ic > 3.0 else (10 if ic >= 1.5 else 0), 20, True)
+        de_for_ic = clean_ratio(metrics.get('debt_to_equity'))
+        add_h("Interest Coverage", ic, 20 if de_for_ic == 0 else (20 if ic > 3.0 else (10 if ic >= 1.5 else 0)), 20, True)
         roe = clean_percent(metrics.get('roe'))
         add_h("ROE", roe, 20 if roe > 10 else (10 if roe >= 6 else 0), 20, False)
         roic = clean_percent(metrics.get('roic'))
@@ -363,7 +371,7 @@ def calculate_scoring_reform(valuation_data, metrics):
         add_b("Margin of Safety", mos, get_mos_points(mos, 30), 30, False)
         add_b("EPS Growth (Fwd)", eps_2y_g, 10 if eps_2y_g > 5 else (5 if eps_2y_g >= 2 else 0), 10, False)
         add_b(pe_label, pe, get_rel_pts(pe, sec_pe, 15), 15, True)
-        add_b("EV/EBITDA (2y Avg Fwd)", ev_ebitda, get_rel_pts(ev_ebitda, sec_ev_ebitda, 20), 20, True)
+        add_b("EV/EBITDA (1Y Fwd)", ev_ebitda, get_rel_pts(ev_ebitda, sec_ev_ebitda, 20), 20, True)
         div_y = clean_percent(metrics.get('fwd_dividend_yield') or metrics.get('dividend_yield'))
         add_b("Dividend Yield (Fwd)", div_y, 25 if div_y > 4 else (12.5 if div_y >= 2.5 else 0), 25, False)
 
@@ -373,7 +381,8 @@ def calculate_scoring_reform(valuation_data, metrics):
         cr = clean_ratio(metrics.get('current_ratio'))
         add_h("Current Ratio", cr, 20 if cr >= 1.2 else (10 if cr >= 0.9 else 0), 20, True)
         ic = clean_ratio(metrics.get('interest_coverage'))
-        add_h("Interest Coverage", ic, 20 if ic > 5.0 else (10 if ic >= 3.0 else 0), 20, True)
+        de_for_ic = clean_ratio(metrics.get('debt_to_equity'))
+        add_h("Interest Coverage", ic, 20 if de_for_ic == 0 else (20 if ic > 5.0 else (10 if ic >= 3.0 else 0)), 20, True)
         roe = clean_percent(metrics.get('roe'))
         add_h("ROE", roe, 20 if roe > 15 else (10 if roe >= 10 else 0), 20, False)
         roic = clean_percent(metrics.get('roic'))
@@ -388,7 +397,7 @@ def calculate_scoring_reform(valuation_data, metrics):
         
         pts = get_rel_pts(ev_ebitda, sec_ev_ebitda, 15)
         if pts == 0 and ev_ebitda > 0 and 0 < peg_val <= 1.2 and eps_2y_g >= 15.0: pts = 7.5 # Growth Override
-        add_b("EV/EBITDA (2y Avg Fwd)", ev_ebitda, pts, 15, True)
+        add_b("EV/EBITDA (1Y Fwd)", ev_ebitda, pts, 15, True)
         add_b("PEG Ratio (Fwd)", peg_val, get_rel_pts(peg_val, sec_peg, 20), 20, True)
 
     elif is_tech:
@@ -397,7 +406,8 @@ def calculate_scoring_reform(valuation_data, metrics):
         cr = clean_ratio(metrics.get('current_ratio'))
         add_h("Current Ratio", cr, 20 if cr >= 1.0 else (10 if cr >= 0.8 else 0), 20, True)
         ic = clean_ratio(metrics.get('interest_coverage'))
-        add_h("Interest Coverage", ic, 20 if ic > 5.0 else (10 if ic >= 3.0 else 0), 20, True)
+        de_for_ic = clean_ratio(metrics.get('debt_to_equity'))
+        add_h("Interest Coverage", ic, 20 if de_for_ic == 0 else (20 if ic > 5.0 else (10 if ic >= 3.0 else 0)), 20, True)
         roe = clean_percent(metrics.get('roe'))
         add_h("ROE", roe, 20 if roe > 15 else (10 if roe >= 10 else 0), 20, False)
         roic = clean_percent(metrics.get('roic'))
@@ -412,7 +422,7 @@ def calculate_scoring_reform(valuation_data, metrics):
         
         pts = get_rel_pts(ev_ebitda, sec_ev_ebitda, 10)
         if pts == 0 and ev_ebitda > 0 and 0 < peg_val <= 1.2 and rev_2y_g >= 20.0: pts = 5 # Growth Override
-        add_b("EV/EBITDA (2y Avg Fwd)", ev_ebitda, pts, 10, True)
+        add_b("EV/EBITDA (1Y Fwd)", ev_ebitda, pts, 10, True)
         
         add_b("PEG Ratio (Fwd)", peg_val, get_rel_pts(peg_val, sec_peg, 10), 10, True)
         
@@ -435,13 +445,13 @@ def calculate_scoring_reform(valuation_data, metrics):
         cr = clean_ratio(metrics.get('current_ratio'))
         add_h("Current Ratio", cr, 20 if cr >= 1.2 else (10 if cr >= 1.0 else 0), 20, True)
         ic = clean_ratio(metrics.get('interest_coverage'))
-        add_h("Interest Coverage", ic, 20 if ic > 4.0 else (10 if ic >= 2.0 else 0), 20, True)
+        de_for_ic = clean_ratio(metrics.get('debt_to_equity'))
+        add_h("Interest Coverage", ic, 20 if de_for_ic == 0 else (20 if ic > 4.0 else (10 if ic >= 2.0 else 0)), 20, True)
         
         roe = clean_percent(metrics.get('roe'))
         roic = clean_percent(metrics.get('roic'))
-        if roe <= 0 and roic > 10:
-            roe_pts = 20 if roic > 12 else 10
-            add_h("ROE (via ROIC Fallback)", roe, roe_pts, 20, False)
+        if roe < 0:
+            add_h(\"ROE\", roe, 0, 20, False)
         else:
             add_h("ROE", roe, 20 if roe > 12 else (10 if roe >= 8 else 0), 20, False)
             
@@ -456,7 +466,7 @@ def calculate_scoring_reform(valuation_data, metrics):
         
         pts = get_rel_pts(ev_ebitda, sec_ev_ebitda, 15)
         if pts == 0 and ev_ebitda > 0 and 0 < peg_val <= 1.2 and rev_2y_g >= 15.0: pts = 7.5 # Growth Override
-        add_b("EV/EBITDA (2y Avg Fwd)", ev_ebitda, pts, 15, True)
+        add_b("EV/EBITDA (1Y Fwd)", ev_ebitda, pts, 15, True)
         
         add_b("PEG Ratio (Fwd)", peg_val, get_rel_pts(peg_val, sec_peg, 15), 15, True)
 
