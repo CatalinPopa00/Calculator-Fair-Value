@@ -3257,6 +3257,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentSimPrice = currentSimInput && !isNaN(parseFloat(currentSimInput.value)) ? parseFloat(currentSimInput.value) : null;
 
         globalData = data;
+        window.globalData = data;
         currentFormulaData = data.formula_data;
         currentTicker = data.ticker;
         const prof = data.company_profile || {};
