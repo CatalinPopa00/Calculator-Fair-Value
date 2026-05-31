@@ -104,14 +104,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (el) {
                         const clone = el.cloneNode(true);
                         
-                        // Copy canvas data since cloneNode doesn't copy pixel data
+                        // Replace canvases with images to avoid html2canvas blank canvas bug
                         const sourceCanvases = el.querySelectorAll('canvas');
                         const clonedCanvases = clone.querySelectorAll('canvas');
                         sourceCanvases.forEach((canvas, i) => {
-                            clonedCanvases[i].getContext('2d').drawImage(canvas, 0, 0);
+                            const img = document.createElement('img');
+                            img.src = canvas.toDataURL('image/png');
+                            img.style.width = canvas.style.width || canvas.width + 'px';
+                            img.style.height = canvas.style.height || canvas.height + 'px';
+                            clonedCanvases[i].parentNode.replaceChild(img, clonedCanvases[i]);
                         });
                         
-                        // Force clone to stay in layout and not overflow or shrink weirdly
+                        // Force clone to stay in layout
                         clone.style.margin = '0 0 30px 0';
                         clone.style.width = '100%';
                         
@@ -134,8 +138,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     html2canvas:  { 
                         scale: 2, 
                         useCORS: true, 
-                        logging: false, 
-                        windowWidth: 1200
+                        logging: true, 
+                        windowWidth: 1200,
+                        onclone: (clonedDoc) => {
+                            // Remove backdrop-filter which is known to crash html2canvas completely
+                            const allElements = clonedDoc.querySelectorAll('*');
+                            allElements.forEach(el => {
+                                const style = window.getComputedStyle(el);
+                                if (style.backdropFilter && style.backdropFilter !== 'none') {
+                                    el.style.backdropFilter = 'none';
+                                    el.style.webkitBackdropFilter = 'none';
+                                    // Fallback background to dark so it doesn't become transparent
+                                    if (el.classList.contains('glass-card')) {
+                                        el.style.backgroundColor = '#1e293b'; 
+                                    }
+                                }
+                            });
+                        }
                     },
                     jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
                 };
