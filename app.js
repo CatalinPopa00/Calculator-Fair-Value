@@ -3839,13 +3839,13 @@ document.addEventListener('DOMContentLoaded', () => {
         // v290: Scenario-aware DCF Growth Logic
         window.getDcfGrowthDefault = (data) => {
             if (!data) return 10.0;
+            let val = 8.0;
             if (data.computed_dcf_growth != null) {
-                return Math.round(data.computed_dcf_growth * 1000) / 10;
+                val = Math.round(data.computed_dcf_growth * 1000) / 10;
+            } else if (data.company_profile && data.company_profile.revenue_growth != null) {
+                val = Math.round(data.company_profile.revenue_growth * 1000) / 10;
             }
-            if (data.company_profile && data.company_profile.revenue_growth != null) {
-                return Math.round(data.company_profile.revenue_growth * 1000) / 10;
-            }
-            return 8.0;
+            return Math.min(val, 50.0);
         };
 
         const targetGrowth = window.getDcfGrowthDefault(data);
