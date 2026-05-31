@@ -451,7 +451,7 @@ def calculate_scoring_reform(valuation_data, metrics):
         roe = clean_percent(metrics.get('roe'))
         roic = clean_percent(metrics.get('roic'))
         if roe < 0:
-            add_h(\"ROE\", roe, 0, 20, False)
+            add_h("ROE", roe, 0, 20, False)
         else:
             add_h("ROE", roe, 20 if roe > 12 else (10 if roe >= 8 else 0), 20, False)
             
