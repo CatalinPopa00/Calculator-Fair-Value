@@ -11,8 +11,19 @@ document.addEventListener('DOMContentLoaded', () => {
             exportBtn.innerHTML = '<div class="spinner" style="width: 20px; height: 20px; border-width: 2px;"></div> Exporting...';
             exportBtn.disabled = true;
 
+            // Create loading overlay to cover the screen while we bring the pdf container into view
+            const loadingOverlay = document.createElement('div');
+            loadingOverlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #0f172a; z-index: 999999; display: flex; align-items: center; justify-content: center; flex-direction: column; color: white; font-family: "Outfit", sans-serif;';
+            loadingOverlay.innerHTML = '<div class="spinner" style="width: 50px; height: 50px; margin-bottom: 20px;"></div><h2 style="margin:0;">Generating PDF Report...</h2><p style="color: #94a3b8; margin-top: 10px;">This may take a few seconds</p>';
+            document.body.appendChild(loadingOverlay);
+
+            const container = document.getElementById('pdf-export-container');
+            
             try {
-                const container = document.getElementById('pdf-export-container');
+                // Bring container into viewport but behind overlay so html2canvas renders it properly
+                container.style.left = '0px';
+                container.style.top = '0px';
+                container.style.zIndex = '999998';
                 container.innerHTML = ''; // clear
 
                 // Get Data
@@ -118,7 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 cloneAndAppend('#analyst-estimates-card'); // Row 5
 
                 // Small delay to allow browser to render the hidden elements before snapshotting
-                await new Promise(resolve => setTimeout(resolve, 500));
+                await new Promise(resolve => setTimeout(resolve, 800));
 
                 // Generate PDF
                 const opt = {
@@ -135,7 +146,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
                 };
                 
-                // Using Letter portrait is fine, html2pdf will scale it down to fit width by default
                 await html2pdf().set(opt).from(container).save();
 
             } catch(e) {
@@ -143,8 +153,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert('Error generating PDF. Check console for details.');
             } finally {
                 // Cleanup
-                const container = document.getElementById('pdf-export-container');
+                container.style.left = '-9999px';
+                container.style.top = '-9999px';
+                container.style.zIndex = '';
                 container.innerHTML = '';
+                
+                if (document.body.contains(loadingOverlay)) {
+                    document.body.removeChild(loadingOverlay);
+                }
+                
                 exportBtn.innerHTML = btnOriginalHtml;
                 exportBtn.disabled = false;
             }
