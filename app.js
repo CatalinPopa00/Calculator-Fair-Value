@@ -3882,22 +3882,26 @@ document.addEventListener('DOMContentLoaded', () => {
         updateScoreUI(data.health_score_total, 'health-score-circle', 'health-score-fill');
         updateScoreUI(data.good_to_buy_total, 'buy-score-circle', 'buy-score-fill');
 
-        const buyTitleWrap = document.querySelector('#buy-score-circle').closest('.score-card').querySelector('.card-header h2');
-        if (buyTitleWrap || document.querySelector('#buy-score-circle')) {
-            const container = buyTitleWrap || document.querySelector('#buy-score-circle').closest('.score-card').querySelector('span');
-            if (container) {
-                let badge = container.querySelector('.hg-badge');
-                if (window.isHighGrowthModel) {
-                    if (!badge) {
-                        badge = document.createElement('span');
-                        badge.className = 'hg-badge';
-                        badge.style = 'margin-left: 10px; font-size: 0.7rem; background: linear-gradient(90deg, #ec4899, #f43f5e); color: white; padding: 2px 8px; border-radius: 12px; font-weight: bold; vertical-align: middle;';
-                        badge.textContent = '🚀 High-Growth Model';
-                        container.appendChild(badge);
-                    }
-                } else if (badge) {
-                    badge.remove();
+        const container = document.querySelector('#buy-score-card span.label');
+        if (container) {
+            let badge = container.querySelector('.hg-badge');
+            if (window.isHighGrowthModel) {
+                if (!badge) {
+                    badge = document.createElement('span');
+                    badge.className = 'hg-badge';
+                    badge.style.marginLeft = '10px';
+                    badge.style.fontSize = '0.7rem';
+                    badge.style.background = 'linear-gradient(90deg, #ec4899, #f43f5e)';
+                    badge.style.color = 'white';
+                    badge.style.padding = '2px 8px';
+                    badge.style.borderRadius = '12px';
+                    badge.style.fontWeight = 'bold';
+                    badge.style.verticalAlign = 'middle';
+                    badge.textContent = '🚀 High-Growth Model';
+                    container.appendChild(badge);
                 }
+            } else if (badge) {
+                badge.remove();
             }
         }
         updatePiotroskiUI(data.piotroski ? data.piotroski.score : data.piotroski_score);
