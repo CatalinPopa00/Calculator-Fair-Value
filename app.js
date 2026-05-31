@@ -4768,7 +4768,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (item.status === 'reported' && item.surprise_pct != null) {
                             gVal = (parseFloat(item.surprise_pct) * 100).toFixed(1) + '%';
                         } else if (scenarioVal != null && dynamicBase != null && dynamicBase !== 0) {
-                            let gRaw = (parseFloat(scenarioVal) / parseFloat(dynamicBase)) - 1;
+                            let gRaw = (parseFloat(scenarioVal) - parseFloat(dynamicBase)) / Math.abs(parseFloat(dynamicBase));
                             epsGrowths.push(gRaw);
                             gVal = (gRaw * 100).toFixed(1) + '%';
                         } else if (item.growth != null) {
@@ -5864,6 +5864,35 @@ document.addEventListener('DOMContentLoaded', () => {
             body.innerHTML = '<p style="color:var(--text-muted);">No breakdown available.</p>';
             modal.style.display = 'flex';
             return;
+        }
+
+        // v315: Synchronize Good To Buy Modal values with dynamic frontend calculations
+        if (title.includes('Good to Buy') && typeof globalData !== 'undefined' && globalData) {
+            let dynFwdEps = globalData.company_profile ? globalData.company_profile.fwd_eps : null;
+            if (globalData.eps_estimates) {
+                const eEsts = globalData.eps_estimates.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
+                if (eEsts.length >= 1) {
+                    if (window._currentScenario === 'bear') dynFwdEps = eEsts[0].low;
+                    else if (window._currentScenario === 'bull') dynFwdEps = eEsts[0].high;
+                    else dynFwdEps = eEsts[0].avg;
+                }
+            }
+            const currentPrice = globalData.current_price || (globalData.company_profile ? globalData.company_profile.price : null);
+            const dynFwdPe = (dynFwdEps && dynFwdEps > 0 && currentPrice) ? currentPrice / dynFwdEps : null;
+
+            breakdown.forEach(item => {
+                if (item.metric.includes('P/E Ratio (Fwd)') && dynFwdPe) {
+                    item.value = dynFwdPe.toFixed(2) + 'x';
+                } else if (item.metric.includes('PEG Ratio (Fwd)')) {
+                    if (window.currentFormulaData && window.currentFormulaData.peg && window.currentFormulaData.peg.dynamic_peg) {
+                        item.value = window.currentFormulaData.peg.dynamic_peg.toFixed(2) + 'x';
+                    }
+                } else if (item.metric.includes('EPS Growth (Fwd)')) {
+                    if (globalData.computed_eps_growth != null && !isNaN(globalData.computed_eps_growth)) {
+                        item.value = (globalData.computed_eps_growth * 100).toFixed(1) + '%';
+                    }
+                }
+            });
         }
 
         let totalMax = 0;
