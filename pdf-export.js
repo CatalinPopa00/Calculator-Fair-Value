@@ -11,21 +11,26 @@ document.addEventListener('DOMContentLoaded', () => {
             exportBtn.innerHTML = '<div class="spinner" style="width: 20px; height: 20px; border-width: 2px;"></div> Exporting...';
             exportBtn.disabled = true;
 
-            // Create loading overlay
-            const loadingOverlay = document.createElement('div');
-            loadingOverlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #0f172a; z-index: 999999; display: flex; align-items: center; justify-content: center; flex-direction: column; color: white; font-family: "Outfit", sans-serif;';
-            loadingOverlay.innerHTML = '<div class="spinner" style="width: 50px; height: 50px; margin-bottom: 20px;"></div><h2 style="margin:0;">Generating PDF Report...</h2><p style="color: #94a3b8; margin-top: 10px;">This may take a few seconds</p>';
-            document.body.appendChild(loadingOverlay);
+            const originalScrollY = window.scrollY;
+            window.scrollTo(0, 0); // Reset scroll to avoid html2canvas clipping bugs
 
             try {
-                // Create container purely in memory (no DOM append)
-                // html2pdf will automatically render it in a hidden iframe with all stylesheets applied
+                // The container MUST be in the DOM to have its layout/height calculated properly.
                 const container = document.createElement('div');
                 container.style.width = '1200px';
                 container.style.background = '#0b1320';
                 container.style.color = '#f8fafc';
                 container.style.fontFamily = "'Outfit', sans-serif";
                 container.style.padding = '40px';
+                
+                // Show it explicitly on screen at the top so the browser paints it properly
+                container.style.position = 'absolute';
+                container.style.top = '0px';
+                container.style.left = '50%';
+                container.style.transform = 'translateX(-50%)';
+                container.style.zIndex = '999999';
+                
+                document.body.appendChild(container);
 
                 // Get Data
                 const d = window.globalData;
@@ -125,17 +130,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 cloneAndAppend('#methods-container'); // Row 4
                 cloneAndAppend('#analyst-estimates-card'); // Row 5
 
+                // Small delay to allow browser to calculate layout fully
+                await new Promise(resolve => setTimeout(resolve, 800));
+
                 // Generate PDF
                 const opt = {
                     margin:       0,
                     filename:     `${ticker}_Fair_Value_Report.pdf`,
-                    image:        { type: 'jpeg', quality: 0.95 }, // slightly lower quality for smaller file size
+                    image:        { type: 'jpeg', quality: 0.98 },
                     html2canvas:  { 
-                        scale: 1, // reduced from 2 to 1 to prevent memory exhaustion / corrupted PDF output
+                        scale: 2, // Reverted to 2x for crispness now that DOM layout handles sizing properly
                         useCORS: true, 
                         logging: false, 
                         windowWidth: 1200,
-                        backgroundColor: '#0b1320', // Ensure background is dark blue
+                        backgroundColor: '#0b1320',
                         onclone: (clonedDoc) => {
                             const allElements = clonedDoc.querySelectorAll('*');
                             allElements.forEach(el => {
@@ -152,14 +160,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 await html2pdf().set(opt).from(container).save();
 
+                // Cleanup
+                if (document.body.contains(container)) {
+                    document.body.removeChild(container);
+                }
+
             } catch(e) {
                 console.error("PDF Export Error:", e);
                 alert('Error generating PDF. Check console for details.');
             } finally {
-                if (document.body.contains(loadingOverlay)) {
-                    document.body.removeChild(loadingOverlay);
-                }
-                
+                window.scrollTo(0, originalScrollY);
                 exportBtn.innerHTML = btnOriginalHtml;
                 exportBtn.disabled = false;
             }
