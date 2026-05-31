@@ -4357,7 +4357,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const pEps = document.getElementById('peg-eps-source');
             if (pEps) pEps.value = 'analyst';
             const pMode = document.getElementById('peg-mode');
-            if (pMode) pMode.value = 'standard';
+            if (pMode) pMode.value = 'industry';
         }
 
         updateFairValue();
