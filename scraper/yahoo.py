@@ -2920,10 +2920,16 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
             if historical_anchors and shares_outstanding:
                 live_shares_b = shares_outstanding / 1e9
                 latest_anchor = historical_anchors[0]
-                if abs(latest_anchor.get("shares_out_b", 0) - live_shares_b) > 0.01:
-                    print(f"DEBUG: Synchronizing latest anchor shares ({latest_anchor.get('shares_out_b')}) to live value ({live_shares_b})")
+                old_val = latest_anchor.get("shares_out_b", 0)
+                if abs(old_val - live_shares_b) > 0.01:
+                    print(f"DEBUG: Synchronizing latest anchor shares ({old_val}) to live value ({live_shares_b})")
                     latest_anchor["shares_out_b"] = round(live_shares_b, 3)
-                    if len(historical_data["shares"]) > 0:
+                    anc_yr = str(latest_anchor.get("year", ""))
+                    if anc_yr in historical_data["years"]:
+                        start_idx = historical_data["years"].index(anc_yr)
+                        for i in range(start_idx, len(historical_data["shares"])):
+                            historical_data["shares"][i] = shares_outstanding
+                    elif len(historical_data["shares"]) > 0:
                         historical_data["shares"][-1] = shares_outstanding
 
             # --- SYSTEMIC RATIO AUDIT (Calculated > Reported) ---
