@@ -1,8 +1,19 @@
-// Service Worker minim pentru validarea PWA
-self.addEventListener('install', (event) => {
-    self.skipWaiting();
+self.addEventListener('install', (e) => {
+  self.skipWaiting();
 });
 
-self.addEventListener('fetch', (event) => {
-    // Lasă browserul să rezolve cererile în mod normal
+self.addEventListener('activate', (e) => {
+  e.waitUntil(
+    caches.keys().then((keyList) => {
+      return Promise.all(keyList.map((key) => {
+        return caches.delete(key);
+      }));
+    }).then(() => {
+      self.registration.unregister();
+    })
+  );
+});
+
+self.addEventListener('fetch', (e) => {
+  // Do nothing
 });

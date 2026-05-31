@@ -792,13 +792,23 @@ def calculate_rule_of_40(metrics):
         try: return float(val)
         except: return default
 
-    # v260: Sync with clean_percent logic to ensure 18.2% instead of 0.18
-    rev_growth_raw = safe_float(metrics.get('revenue_growth'))
-    # If growth is already scaled (e.g. 18.2), keep it. If decimal (0.18), scale it.
+    prof = metrics.get('company_profile', {})
+    fwd_rev = safe_float(prof.get('forward_revenue'))
+    ttm_rev = safe_float(prof.get('total_revenue') or metrics.get('revenue'))
+    
+    if fwd_rev > 0 and ttm_rev > 0:
+        rev_growth_raw = (fwd_rev / ttm_rev) - 1.0
+        rev_growth_label = "Fwd 1Y Revenue Growth"
+        rev_growth_desc = "Estimates for the next 12 months."
+    else:
+        rev_growth_raw = safe_float(metrics.get('revenue_growth'))
+        rev_growth_label = "Revenue Growth"
+        rev_growth_desc = "Most recent historical 1-year revenue growth."
+
     rev_growth = rev_growth_raw * 100.0 if (0 < abs(rev_growth_raw) < 1.0) else rev_growth_raw
     
     fcf = safe_float(metrics.get('fcf'))
-    rev = safe_float(metrics.get('revenue'))
+    rev = safe_float(metrics.get('revenue') or ttm_rev)
     fcf_margin = (fcf / rev * 100.0) if (fcf and rev and rev > 0) else 0.0
     
     total = rev_growth + fcf_margin
@@ -808,6 +818,8 @@ def calculate_rule_of_40(metrics):
         "fcf_margin": round(fcf_margin, 2),
         "total": round(total, 2),
         "passed": total >= 40,
-        "label": "Strong" if total >= 40 else ("Healthy" if total >= 30 else "Weak")
+        "label": "Strong" if total >= 40 else ("Healthy" if total >= 30 else "Weak"),
+        "rev_growth_label": rev_growth_label,
+        "rev_growth_desc": rev_growth_desc
     }
 

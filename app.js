@@ -2051,8 +2051,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div style="display:flex; align-items:flex-start; gap:10px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04);">
                     <span style="font-size:1.1rem; min-width:22px;">📈</span>
                     <div style="flex:1; min-width:0;">
-                        <div style="font-size:0.85rem; font-weight:700; color:white;">Revenue Growth</div>
-                        <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">Most recent historical 1-year revenue growth.</div>
+                        <div style="font-size:0.85rem; font-weight:700; color:white;">${rule40Data.rev_growth_label || 'Revenue Growth'}</div>
+                        <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">${rule40Data.rev_growth_desc || 'Most recent historical 1-year revenue growth.'}</div>
                     </div>
                     <span style="font-size:0.85rem; font-weight:700; color:var(--text-main); min-width:28px; text-align:right;">
                         ${(rule40Data.revenue_growth || 0).toFixed(1)}%
@@ -3803,7 +3803,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // Rule of 40
                 const ebitdaMargin = (data.company_profile.ebitda_margins || 0) * (data.company_profile.ebitda_margins > 1 ? 1 : 100);
-                const ruleOf40 = rev_growth + ebitdaMargin;
+                const ttmRev = data.company_profile.total_revenue || data.revenue || 0;
+                const fwdRev1Y = data.company_profile.forward_revenue || 0;
+                let rev_growth_for_r40 = rev_growth;
+                if (ttmRev > 0 && fwdRev1Y > 0) {
+                    rev_growth_for_r40 = ((fwdRev1Y / ttmRev) - 1) * 100;
+                }
+                const ruleOf40 = rev_growth_for_r40 + ebitdaMargin;
                 let r40Pts = 0;
                 if (ruleOf40 >= 40) r40Pts = 30;
                 else if (ruleOf40 >= 30) r40Pts = 15;
@@ -3866,15 +3872,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 currentBuyBreakdown = [
-                    { metric: "Rule of 40", value: ruleOf40.toFixed(1) + "%", points: r40Pts, max_points: 30, display_type: "raw" },
-                    { metric: "EV / Gross Profit (Fwd 1Y)", value: evGpValStr, points: evGpPts, max_points: 25, display_type: "raw" },
-                    { metric: "Gross Margin Trend", value: "TTM: " + gmTTM.toFixed(1) + "% vs Prev: " + gmPrev.toFixed(1) + "%", points: gmTrendPts, max_points: 25, display_type: "raw" },
-                    { metric: "Cash Runway / Quick Ratio", value: qRatio.toFixed(2) + "x", points: qrPts, max_points: 20, display_type: "raw" }
+                    { metric: "Rule of 40", value: ruleOf40.toFixed(1) + "%", points: r40Pts, points_awarded: r40Pts, max_points: 30, display_type: "raw" },
+                    { metric: "EV / Gross Profit (Fwd 1Y)", value: evGpValStr, points: evGpPts, points_awarded: evGpPts, max_points: 25, display_type: "raw" },
+                    { metric: "Gross Margin Trend", value: "TTM: " + gmTTM.toFixed(1) + "% vs Prev: " + gmPrev.toFixed(1) + "%", points: gmTrendPts, points_awarded: gmTrendPts, max_points: 25, display_type: "raw" },
+                    { metric: "Cash Runway / Quick Ratio", value: qRatio.toFixed(2) + "x", points: qrPts, points_awarded: qrPts, max_points: 20, display_type: "raw" }
                 ];
                 
                 data.good_to_buy_total = r40Pts + evGpPts + gmTrendPts + qrPts;
                 globalData.good_to_buy_total = data.good_to_buy_total;
                 globalData.buy_breakdown = currentBuyBreakdown;
+                _originalBuyBreakdown = JSON.parse(JSON.stringify(currentBuyBreakdown));
+                _originalBuyScore = data.good_to_buy_total;
             }
         }
         currentPiotroskiBreakdown = data.piotroski_breakdown || (data.piotroski && data.piotroski.breakdown) || [];
@@ -4862,6 +4870,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // Tables population exported for re-rendering on scenario switch
+            const eItems = data.eps_estimates || [];
+            const rItems = data.rev_estimates || [];
             window._renderEstimatesTable = () => {
                 const eBody = document.querySelector('#eps-est-table tbody');
                 const rBody = document.querySelector('#rev-est-table tbody');
@@ -4890,7 +4900,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     return 'var(--text-main)';
                 };
 
-                const eItems = data.eps_estimates || [];
                 let prevEpsVal = null;
                 let epsGrowths = [];
 
@@ -4940,7 +4949,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     else if (epsGrowths.length === 1) globalData.computed_eps_growth = epsGrowths[0];
                 }
 
-                const rItems = data.rev_estimates || [];
                 let prevRevVal = null;
                 let revGrowths = [];
 
