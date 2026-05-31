@@ -2179,10 +2179,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 let g;
                 if (fcfSource === 'revenue') {
-                    const g13 = Math.round(getDynamicRevGrowth() * 1000) / 1000;
-                    const g46 = g13 * 0.75;
-                    const g78 = g13 * 0.50;
-                    const g910 = g13 * 0.25;
+                    const revBase = getDynamicRevGrowth();
+                    const g13 = Math.min(Math.round(revBase * 1000) / 1000, 0.50);
+                    const g46 = Math.min(revBase * 0.75, 0.30);
+                    const g78 = Math.min(revBase * 0.50, 0.15);
+                    const g910 = Math.min(revBase * 0.25, 0.05);
                     g = [];
                     for (let y = 1; y <= 10; y++) {
                         if (y <= 3) g.push(g13);
@@ -2191,10 +2192,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         else g.push(g910);
                     }
                 } else {
-                    const epsG13 = Math.round(getDynamicEpsGrowth() * 1000) / 1000;
-                    const epsG46 = epsG13 * 0.75;
-                    const epsG78 = epsG13 * 0.50;
-                    const epsG910 = epsG13 * 0.25;
+                    const epsBase = getDynamicEpsGrowth();
+                    const epsG13 = Math.min(Math.round(epsBase * 1000) / 1000, 0.50);
+                    const epsG46 = Math.min(epsBase * 0.75, 0.30);
+                    const epsG78 = Math.min(epsBase * 0.50, 0.15);
+                    const epsG910 = Math.min(epsBase * 0.25, 0.05);
                     g = [];
                     for (let y = 1; y <= 10; y++) {
                         if (y <= 3) g.push(epsG13);
@@ -2209,10 +2211,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 dcfValObj = calcLocalDcf(fcfParam, g, wAnalyst, pCustom, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em, _realApiPrice);
             }
             else if (fcfSource === 'historical') {
-                const hg13 = Math.round((prof.historic_fcf_growth != null ? prof.historic_fcf_growth : 0.05) * 1000) / 1000;
-                const hg46 = hg13 * 0.75;
-                const hg78 = hg13 * 0.50;
-                const hg910 = hg13 * 0.25;
+                const histBase = (prof.historic_fcf_growth != null ? prof.historic_fcf_growth : 0.05);
+                const hg13 = Math.min(Math.round(histBase * 1000) / 1000, 0.50);
+                const hg46 = Math.min(histBase * 0.75, 0.30);
+                const hg78 = Math.min(histBase * 0.50, 0.15);
+                const hg910 = Math.min(histBase * 0.25, 0.05);
                 const hgArray = [];
                 for (let y = 1; y <= 10; y++) {
                     if (y <= 3) hgArray.push(hg13);
@@ -2228,15 +2231,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 const scenarioGrowth = window.getDcfGrowthDefault(globalData);
                 const g13Input = document.getElementById('dcf-growth-1-3');
                 if (g13Input) {
-                    g13Input.value = formatCleanInputVal(scenarioGrowth);
+                    const sg = Math.min(scenarioGrowth, 50);
+                    if (g13Input.dataset.isDefault === 'true' || !g13Input.value || g13Input.value === '') {
+                        g13Input.value = formatCleanInputVal(sg);
+                    }
                     // Also cascade to dependent fields
                     const g46Input = document.getElementById('dcf-growth-4-6');
                     const g78Input = document.getElementById('dcf-growth-7-8');
                     const g910Input = document.getElementById('dcf-growth-9-10');
-                    const sg = scenarioGrowth;
-                    if (g46Input && (g46Input.dataset.isDefault === 'true' || !g46Input.value || g46Input.value === '')) g46Input.value = formatCleanInputVal(sg * 0.75);
-                    if (g78Input && (g78Input.dataset.isDefault === 'true' || !g78Input.value || g78Input.value === '')) g78Input.value = formatCleanInputVal(sg * 0.50);
-                    if (g910Input && (g910Input.dataset.isDefault === 'true' || !g910Input.value || g910Input.value === '')) g910Input.value = formatCleanInputVal(sg * 0.25);
+                    if (g46Input && (g46Input.dataset.isDefault === 'true' || !g46Input.value || g46Input.value === '')) g46Input.value = formatCleanInputVal(Math.min(sg * 0.75, 30));
+                    if (g78Input && (g78Input.dataset.isDefault === 'true' || !g78Input.value || g78Input.value === '')) g78Input.value = formatCleanInputVal(Math.min(sg * 0.50, 15));
+                    if (g910Input && (g910Input.dataset.isDefault === 'true' || !g910Input.value || g910Input.value === '')) g910Input.value = formatCleanInputVal(Math.min(sg * 0.25, 5));
                 }
 
                 const getVal = (id) => {
@@ -3056,11 +3061,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 const val = parseLocaleFloat(g13.value);
                 if (isNaN(val) || window._isApplyingOverrides) return;
 
+                const limits = {
+                    0.75: 30,
+                    0.50: 15,
+                    0.25: 5
+                };
                 const pairs = [[g46, 0.75], [g78, 0.50], [g910, 0.25]];
                 pairs.forEach(([target, mult]) => {
                     if (!target) return;
                     if (target.value === '' || target.dataset.isDefault === 'true') {
-                        target.value = formatCleanInputVal(val * mult);
+                        target.value = formatCleanInputVal(Math.min(val * mult, limits[mult]));
                         target.dataset.isDefault = 'true';
                         target.dispatchEvent(new Event('input', { bubbles: true }));
                     }
@@ -3069,7 +3079,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Mark as NOT default if the user manually types in any box
-        [g46, g78, g910].forEach(target => {
+        [g13, g46, g78, g910].forEach(target => {
             if (target) {
                 target.addEventListener('keydown', () => {
                     target.dataset.isDefault = 'false';
