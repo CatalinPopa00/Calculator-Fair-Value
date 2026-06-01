@@ -1695,7 +1695,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 try {
                     const res = await fetch(`/api/valuation/${encodeURIComponent(rawVal)}?t=${Date.now()}&skip_peers=true`);
-                    if (!res.ok) throw new Error('Ticker not found or valuation missing');
+                    if (!res.ok) {
+                        let detail = 'Ticker not found or valuation missing';
+                        try { const errJson = await res.json(); detail = errJson.detail || detail; } catch(_) {}
+                        throw new Error(detail);
+                    }
                     const peerData = await res.json();
 
                     const peerProf = peerData.company_profile;
