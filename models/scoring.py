@@ -797,7 +797,6 @@ def calculate_rule_of_40(metrics):
     ttm_rev = safe_float(prof.get('total_revenue') or metrics.get('revenue'))
     
     anchors = metrics.get("historical_anchors") or []
-    est_anchors = [a for a in anchors if "(Est)" in str(a.get("year", ""))]
     reported = [a for a in anchors if "(Est)" not in str(a.get("year", ""))]
     
     def yr_num(a):
@@ -811,10 +810,15 @@ def calculate_rule_of_40(metrics):
     fy0_fcf = safe_float(anchor_fy0.get('fcf_b'))
     fy0_ebitda = safe_float(anchor_fy0.get('ebitda_b'))
     
+    # Extract estimates from historical_trends (since anchors skips them)
+    trends = metrics.get("historical_trends") or []
+    est_trends = [t for t in trends if "(Est)" in str(t.get("year", ""))]
+    fy1_rev_raw = safe_float(est_trends[0].get("revenue")) if len(est_trends) > 0 else 0
+    
     # 1. Forward Revenue Growth
-    if len(est_anchors) > 0 and fy0_rev > 0:
-        fy1_rev = safe_float(est_anchors[0].get('revenue_b'))
-        rev_growth_raw = (fy1_rev / fy0_rev) - 1.0
+    if fy1_rev_raw > 0 and fy0_rev > 0:
+        fy1_rev_b = fy1_rev_raw / 1e9
+        rev_growth_raw = (fy1_rev_b / fy0_rev) - 1.0
         rev_growth_label = "Fwd 1Y Revenue Growth"
         rev_growth_desc = "Estimates for the next 12 months."
     elif fwd_rev > 0 and ttm_rev > 0:
@@ -836,11 +840,18 @@ def calculate_rule_of_40(metrics):
         ebitda_margin = (fy0_ebitda / fy0_rev) * 100.0
     
     final_margin = fcf_margin
+    margin_label = "FCF Margin"
+    margin_desc = "Free Cash Flow relative to Total Revenue."
+    
     if fcf_margin < 0:
         if ebitda_margin > 0:
             final_margin = ebitda_margin
+            margin_label = "EBITDA Margin"
+            margin_desc = "EBITDA Margin used instead of negative FCF."
         else:
             final_margin = ebitda_margin
+            margin_label = "EBITDA Margin"
+            margin_desc = "EBITDA Margin used since both FCF and EBITDA are negative."
 
     total = rev_growth + final_margin
     
@@ -851,6 +862,8 @@ def calculate_rule_of_40(metrics):
         "passed": total >= 40,
         "label": "Strong" if total >= 40 else ("Healthy" if total >= 30 else "Weak"),
         "rev_growth_label": rev_growth_label,
-        "rev_growth_desc": rev_growth_desc
+        "rev_growth_desc": rev_growth_desc,
+        "margin_label": margin_label,
+        "margin_desc": margin_desc
     }
 

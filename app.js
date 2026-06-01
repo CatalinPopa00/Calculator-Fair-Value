@@ -2062,8 +2062,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div style="display:flex; align-items:flex-start; gap:10px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04);">
                     <span style="font-size:1.1rem; min-width:22px;">💰</span>
                     <div style="flex:1; min-width:0;">
-                        <div style="font-size:0.85rem; font-weight:700; color:white;">FCF Margin</div>
-                        <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">Free Cash Flow relative to Total Revenue.</div>
+                        <div style="font-size:0.85rem; font-weight:700; color:white;">${rule40Data.margin_label || 'FCF Margin'}</div>
+                        <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">${rule40Data.margin_desc || 'Free Cash Flow relative to Total Revenue.'}</div>
                     </div>
                     <span style="font-size:0.85rem; font-weight:700; color:var(--text-main); min-width:28px; text-align:right;">
                         ${(rule40Data.fcf_margin || 0).toFixed(1)}%
@@ -6114,7 +6114,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 : `<div style="text-align: right; width: 100%;">${valStr}</div>`;
 
             html += `
-                <div style="display:grid; grid-template-columns: 2fr 100px 12px 50px; align-items:center; padding:12px 0; border-top:1px solid rgba(255,255,255,0.04); gap:12px;">
+                <div style="display:grid; grid-template-columns: 2fr minmax(110px, max-content) 12px 50px; align-items:center; padding:12px 0; border-top:1px solid rgba(255,255,255,0.04); gap:12px;">
                     <div style="font-weight:600; font-size:clamp(0.75rem, 3vw, 0.88rem); color:white; line-height:1.2; white-space:normal; overflow:hidden; text-overflow:ellipsis;">${label}</div>
                     
                     <div style="font-weight:700; font-size:clamp(0.8rem, 3vw, 0.9rem); color:rgba(255,255,255,0.85); font-family:monospace; display: flex; justify-content: flex-end; white-space: nowrap;">${valueHtml}</div>
