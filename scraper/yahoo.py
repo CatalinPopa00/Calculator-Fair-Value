@@ -3452,6 +3452,8 @@ def get_competitors_data(target_ticker: str, limit: int = 4, custom_peers: list 
                         "eps": fwd_eps_explicit or (inf.get('forwardEps') or inf.get('trailingEps') or 0) * peer_fx,
                         "forward_eps": fwd_eps_explicit or ((inf.get('forwardEps') or 0) * peer_fx if inf.get('forwardEps') else None),
                         "operating_margin": inf.get('operatingMargins') or inf.get('ebitdaMargins'),
+                        "gross_margins": inf.get('grossMargins'),
+                        "enterprise_value": (inf.get('enterpriseValue') or 0) * peer_fx,
                         "industry": inf.get('industry') or target_industry,
                         "sector": p_sector or sector,
                         "total_cash": (inf.get('totalCash') or 0) * peer_fx,

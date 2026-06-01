@@ -3842,7 +3842,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         // Estimate Fwd Gross Profit for peers
                         let pRevGrow = (p.revenue_growth || 0) * (p.revenue_growth > 1 ? 1 : 100) / 100;
                         let pGm = (p.gross_margins || 0) * (p.gross_margins > 1 ? 1 : 100) / 100;
-                        let pFwdRev = (p.total_revenue || 0) * (1 + pRevGrow);
+                        let pFwdRev = (p.revenue || 0) * (1 + pRevGrow);
                         let pFwdGp = pFwdRev * pGm;
                         if (pFwdGp > 0 && p.enterprise_value > 0) {
                             evGps.push(p.enterprise_value / pFwdGp);
