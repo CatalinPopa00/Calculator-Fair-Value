@@ -3817,6 +3817,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (gmTTM > gmPrev + 2) gmTrendPts = 25;
                 else if (gmTTM >= gmPrev - 2) gmTrendPts = 10;
                 
+                const gmDelta = gmTTM - gmPrev;
+                const gmTrendValStr = (gmDelta > 0 ? '+' : '') + gmDelta.toFixed(1) + '% vs. LY';
+                
                 // Cash Runway / Quick Ratio (fallback to Current Ratio)
                 const qRatio = data.company_profile.quick_ratio || data.company_profile.current_ratio || 0;
                 let qrPts = 0;
@@ -3878,7 +3881,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentBuyBreakdown = [
                     { metric: "Rule of 40", value: ruleOf40.toFixed(1) + "%", points: r40Pts, points_awarded: r40Pts, max_points: 30, display_type: "raw" },
                     { metric: "EV / Gross Profit (Fwd 1Y)", value: evGpValStr, points: evGpPts, points_awarded: evGpPts, max_points: 25, display_type: "raw" },
-                    { metric: "Gross Margin Trend", value: "TTM: " + gmTTM.toFixed(1) + "% vs Prev: " + gmPrev.toFixed(1) + "%", points: gmTrendPts, points_awarded: gmTrendPts, max_points: 25, display_type: "raw" },
+                    { metric: "Gross Margin Trend", value: gmTrendValStr, points: gmTrendPts, points_awarded: gmTrendPts, max_points: 25, display_type: "raw" },
                     { metric: "Cash Runway / Quick Ratio", value: qRatio.toFixed(2) + "x", points: qrPts, points_awarded: qrPts, max_points: 20, display_type: "raw" }
                 ];
                 
@@ -6090,14 +6093,14 @@ document.addEventListener('DOMContentLoaded', () => {
             else if (valStr.toLowerCase().endsWith('x')) { suffix = 'x'; valStr = valStr.slice(0, -1); }
 
             const valueHtml = suffix
-                ? `<div style="display:flex; justify-content:flex-end;"><span style="text-align:right;">${valStr}</span><span style="display:inline-block; width:14px; text-align:left;">${suffix}</span></div>`
-                : `<div style="text-align:right; padding-right:14px;">${valStr}</div>`;
+                ? `<div style="text-align: right; width: 100%;">${valStr} <span style="font-size: 0.8em; color: rgba(255,255,255,0.7);">${suffix}</span></div>`
+                : `<div style="text-align: right; width: 100%;">${valStr}</div>`;
 
             html += `
-                <div style="display:grid; grid-template-columns: 1fr 65px 12px 40px; align-items:center; padding:12px 0; border-top:1px solid rgba(255,255,255,0.04); gap:8px;">
-                    <div style="font-weight:600; font-size:clamp(0.75rem, 3vw, 0.88rem); color:white; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${label}</div>
+                <div style="display:grid; grid-template-columns: 2fr 100px 12px 50px; align-items:center; padding:12px 0; border-top:1px solid rgba(255,255,255,0.04); gap:12px;">
+                    <div style="font-weight:600; font-size:clamp(0.75rem, 3vw, 0.88rem); color:white; line-height:1.2; white-space:normal; overflow:hidden; text-overflow:ellipsis;">${label}</div>
                     
-                    <div style="font-weight:700; font-size:clamp(0.8rem, 3vw, 0.9rem); color:rgba(255,255,255,0.85); font-family:monospace;">${valueHtml}</div>
+                    <div style="font-weight:700; font-size:clamp(0.8rem, 3vw, 0.9rem); color:rgba(255,255,255,0.85); font-family:monospace; display: flex; justify-content: flex-end; white-space: nowrap;">${valueHtml}</div>
                     
                     <div style="display:flex; justify-content:center;">
                         <span style="width:8px; height:8px; border-radius:50%; background:${dotColor}; display:inline-block;"></span>

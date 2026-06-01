@@ -796,6 +796,11 @@ def calculate_rule_of_40(metrics):
     fwd_rev = safe_float(prof.get('forward_revenue'))
     ttm_rev = safe_float(prof.get('total_revenue') or metrics.get('revenue'))
     
+    anchors = metrics.get("historical_anchors") or []
+    est_anchors = [a for a in anchors if "(Est)" in str(a.get("year", ""))]
+    if fwd_rev <= 0 and len(est_anchors) > 0:
+        fwd_rev = safe_float(est_anchors[0].get('revenue'))
+    
     if fwd_rev > 0 and ttm_rev > 0:
         rev_growth_raw = (fwd_rev / ttm_rev) - 1.0
         rev_growth_label = "Fwd 1Y Revenue Growth"
