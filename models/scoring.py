@@ -815,8 +815,16 @@ def calculate_rule_of_40(metrics):
     est_trends = [t for t in trends if "(Est)" in str(t.get("year", ""))]
     fy1_rev_raw = safe_float(est_trends[0].get("revenue")) if len(est_trends) > 0 else 0
     
+    # Check rev_estimates for the precise growth value first
+    rev_estimates = metrics.get("rev_estimates", [])
+    fy1_est = next((est for est in rev_estimates if est.get("status") == "estimate"), None)
+    
     # 1. Forward Revenue Growth
-    if fy1_rev_raw > 0 and fy0_rev > 0:
+    if fy1_est and fy1_est.get("growth") is not None:
+        rev_growth_raw = safe_float(fy1_est.get("growth"))
+        rev_growth_label = "Fwd 1Y Revenue Growth"
+        rev_growth_desc = "Estimates for the next 12 months."
+    elif fy1_rev_raw > 0 and fy0_rev > 0:
         fy1_rev_b = fy1_rev_raw / 1e9
         rev_growth_raw = (fy1_rev_b / fy0_rev) - 1.0
         rev_growth_label = "Fwd 1Y Revenue Growth"
