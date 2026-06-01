@@ -1152,6 +1152,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         mean_peer_pb = None
         median_peer_ev_ebitda = None
         mean_peer_ev_ebitda = None
+        median_peer_ev_gp = None
         
         if peers_data:
             def get_clean_median(key):
