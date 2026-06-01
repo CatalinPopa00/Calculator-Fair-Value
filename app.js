@@ -395,17 +395,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Dynamic Industry PEG Calculation (v320) ---
     function recalcIndustryPeg(prof) {
-
-        if (window.isHighGrowthModel && window._renderProfile) {
-            // Need to recalculate the EV/GP with new peers
-            // A simple hack is to re-run the High-Growth eval by forcing displayData (but that might loop).
-            // Better: just trigger displayData again but avoid loop by not calling recalcIndustryPeg inside it.
-            // Since displayData sets currentBuyBreakdown, let's just call a quick refresh if needed, 
-            // but actually we don't want to reload the whole page.
-            setTimeout(() => {
-               if (window.globalData) displayData(window.globalData);
-            }, 500);
-        }
         if (!prof || !prof.competitor_metrics) return;
         const validPegs = prof.competitor_metrics
             .map(p => {
@@ -1548,7 +1537,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Update UI instantly without closing modal or refreshing page
                 renderComparisonModal(prof);
-                displayData(globalData);
+                displayData(globalData, true);
                 document.getElementById('comparison-modal').style.display = 'flex';
                 document.body.style.overflow = 'hidden';
             };
@@ -1672,9 +1661,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     recalcIndustryPeg(prof);
                     updateFairValue();
 
-                    // Re-render
+                    // Re-render (silent to preserve DCF inputs)
                     renderComparisonModal(prof);
-                    displayData(globalData);
+                    displayData(globalData, true);
                     document.getElementById('comparison-modal').style.display = 'flex';
                     document.body.style.overflow = 'hidden';
 
@@ -3848,8 +3837,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 let evGpValStr = 'N/A';
                 
                 // Calculate Median EV / Gross Profit from peers if available
-                let medEvGp = 0;
-                if (data.company_profile.competitor_metrics && data.company_profile.competitor_metrics.length > 0) {
+                let medEvGp = data.company_profile.sector_median_ev_gp || 0;
+                if (medEvGp <= 0 && data.company_profile.competitor_metrics && data.company_profile.competitor_metrics.length > 0) {
                     let evGps = [];
                     data.company_profile.competitor_metrics.forEach(p => {
                         // Estimate Fwd Gross Profit for peers
@@ -4002,38 +3991,42 @@ document.addEventListener('DOMContentLoaded', () => {
             return Math.min(val, 50.0);
         };
 
-        const targetGrowth = window.getDcfGrowthDefault(data);
-        const g13 = document.getElementById('dcf-growth-1-3');
-        if (g13) {
-            const hadOverrides = (cachedOverrides[data.ticker] && cachedOverrides[data.ticker].inputs && cachedOverrides[data.ticker].inputs['dcf-growth-1-3']);
-            if (!hadOverrides) {
-                g13.value = formatCleanInputVal(targetGrowth);
-                g13.dispatchEvent(new Event('input', { bubbles: true }));
+        // Skip DCF input reinitialization on silent updates (peer changes)
+        // to preserve user-modified DCF parameters
+        if (!isSilentUpdate) {
+            const targetGrowth = window.getDcfGrowthDefault(data);
+            const g13 = document.getElementById('dcf-growth-1-3');
+            if (g13) {
+                const hadOverrides = (cachedOverrides[data.ticker] && cachedOverrides[data.ticker].inputs && cachedOverrides[data.ticker].inputs['dcf-growth-1-3']);
+                if (!hadOverrides) {
+                    g13.value = formatCleanInputVal(targetGrowth);
+                    g13.dispatchEvent(new Event('input', { bubbles: true }));
+                }
             }
-        }
 
-        // Initialize inputs to company's defaults before applying overrides
-        const dcf = data.formula_data?.dcf;
-        if (dcf) {
-            const waccInput = document.getElementById('dcf-custom-wacc');
-            if (waccInput) {
-                const defaultWacc = dcf.discount_rate_applied || (dcf.discount_rate ? dcf.discount_rate * 100 : 9.0);
-                waccInput.value = formatCleanInputVal(defaultWacc);
+            // Initialize inputs to company's defaults before applying overrides
+            const dcf = data.formula_data?.dcf;
+            if (dcf) {
+                const waccInput = document.getElementById('dcf-custom-wacc');
+                if (waccInput) {
+                    const defaultWacc = dcf.discount_rate_applied || (dcf.discount_rate ? dcf.discount_rate * 100 : 9.0);
+                    waccInput.value = formatCleanInputVal(defaultWacc);
+                }
+                const perpInput = document.getElementById('dcf-custom-perp');
+                if (perpInput) {
+                    const defaultPerp = dcf.perpetual_growth ? dcf.perpetual_growth * 100 : 2.5;
+                    perpInput.value = formatCleanInputVal(defaultPerp);
+                }
+                const exitInput = document.getElementById('input-exit-multiple');
+                if (exitInput) {
+                    const defaultExit = data.dcf_assumptions?.recommended_exit_multiple || 15.0;
+                    exitInput.value = formatCleanInputVal(defaultExit);
+                }
             }
-            const perpInput = document.getElementById('dcf-custom-perp');
-            if (perpInput) {
-                const defaultPerp = dcf.perpetual_growth ? dcf.perpetual_growth * 100 : 2.5;
-                perpInput.value = formatCleanInputVal(defaultPerp);
-            }
-            const exitInput = document.getElementById('input-exit-multiple');
-            if (exitInput) {
-                const defaultExit = data.dcf_assumptions?.recommended_exit_multiple || 15.0;
-                exitInput.value = formatCleanInputVal(defaultExit);
-            }
-        }
 
-        // Restore overrides BEFORE first updateFairValue
-        const hadOverrides = applyOverrides(currentTicker);
+            // Restore overrides BEFORE first updateFairValue
+            const hadOverrides = applyOverrides(currentTicker);
+        }
         updateFairValue();
 
         document.querySelectorAll('.valuation-toggle').forEach(toggle => {

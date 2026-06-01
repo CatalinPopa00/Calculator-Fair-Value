@@ -1128,11 +1128,17 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             
         # Add bounds handling to avoid infinite or NaN
         def sanitize(val):
-            if val is None or not isinstance(val, (int, float)):
+            if val is None:
                 return val
-            if not math.isfinite(val):
-                return None
-            return round(val, 4)
+            if isinstance(val, (int, float)):
+                if not math.isfinite(val):
+                    return None
+                return round(val, 4)
+            if isinstance(val, dict):
+                return {k: sanitize(v) for k, v in val.items()}
+            if isinstance(val, list):
+                return [sanitize(v) for v in val]
+            return val
             
         # Clean Median Rule for Peer Stats
         median_peer_pe = None
@@ -1166,13 +1172,29 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             median_peer_pfcf = get_clean_median('pfcf_ratio')
             
             valid_pegs = []
+            valid_ev_gps = []
             for p in peers_data:
                 if p.get('ticker') == ticker: continue
                 val = p.get('peg_ratio')
                 if val is not None and isinstance(val, (int, float)) and math.isfinite(val) and val > 0:
                     valid_pegs.append(float(val))
+                
+                # Calculate EV/GP
+                p_rev_grow = p.get('revenue_growth') or 0
+                if p_rev_grow > 1: p_rev_grow /= 100
+                p_gm = p.get('gross_margins') or 0
+                if p_gm > 1: p_gm /= 100
+                p_rev = p.get('revenue') or 0
+                p_fwd_rev = p_rev * (1 + p_rev_grow)
+                p_fwd_gp = p_fwd_rev * p_gm
+                p_ev = p.get('enterprise_value') or 0
+                if p_fwd_gp > 0 and p_ev > 0:
+                    valid_ev_gps.append(float(p_ev / p_fwd_gp))
+                    
             if valid_pegs:
                 median_peer_peg = statistics.median(valid_pegs)
+                
+            median_peer_ev_gp = statistics.median(valid_ev_gps) if valid_ev_gps else None
  
         # v285: PEG MUST use Adjusted (Non-GAAP) PE to match Non-GAAP Growth Estimates
         adj_pe = current_price / data.get("adjusted_eps") if data.get("adjusted_eps") and data.get("adjusted_eps") > 0 else None
@@ -1469,8 +1491,8 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             "lynch_status": lynch_status,
             "peg_value": sanitize(peg_value),
             "recommended_exit_multiple": sanitize(recommended_exit_multiple),
-            "eps_estimates": data.get("eps_estimates", []),
-            "rev_estimates": data.get("rev_estimates", []),
+            "eps_estimates": sanitize(data.get("eps_estimates", [])),
+            "rev_estimates": sanitize(data.get("rev_estimates", [])),
             "company_profile": {
                 "industry": data.get("industry") or "N/A",
                 "sector": data.get("sector") or "N/A",
@@ -1508,6 +1530,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 "business_summary": data.get("business_summary"),
                 "sector_median_pe": sanitize(median_peer_pe),
                 "sector_median_peg": sanitize(median_peer_peg),
+                "sector_median_ev_gp": sanitize(median_peer_ev_gp),
                 # Newly added fields (v59 Fix)
                 "next_earnings_date": data.get("next_earnings_date") or "N/A",
                 "historic_pe": sanitize(pe_historic),
