@@ -798,10 +798,26 @@ def calculate_rule_of_40(metrics):
     
     anchors = metrics.get("historical_anchors") or []
     est_anchors = [a for a in anchors if "(Est)" in str(a.get("year", ""))]
-    if fwd_rev <= 0 and len(est_anchors) > 0:
-        fwd_rev = safe_float(est_anchors[0].get('revenue'))
+    reported = [a for a in anchors if "(Est)" not in str(a.get("year", ""))]
     
-    if fwd_rev > 0 and ttm_rev > 0:
+    def yr_num(a):
+        y = str(a.get("year", "0"))
+        nums = "".join(filter(str.isdigit, y))
+        return int(nums) if nums else 0
+    reported.sort(key=yr_num)
+    
+    anchor_fy0 = reported[-1] if len(reported) > 0 else {}
+    fy0_rev = safe_float(anchor_fy0.get('revenue_b'))
+    fy0_fcf = safe_float(anchor_fy0.get('fcf_b'))
+    fy0_ebitda = safe_float(anchor_fy0.get('ebitda_b'))
+    
+    # 1. Forward Revenue Growth
+    if len(est_anchors) > 0 and fy0_rev > 0:
+        fy1_rev = safe_float(est_anchors[0].get('revenue_b'))
+        rev_growth_raw = (fy1_rev / fy0_rev) - 1.0
+        rev_growth_label = "Fwd 1Y Revenue Growth"
+        rev_growth_desc = "Estimates for the next 12 months."
+    elif fwd_rev > 0 and ttm_rev > 0:
         rev_growth_raw = (fwd_rev / ttm_rev) - 1.0
         rev_growth_label = "Fwd 1Y Revenue Growth"
         rev_growth_desc = "Estimates for the next 12 months."
@@ -812,37 +828,25 @@ def calculate_rule_of_40(metrics):
 
     rev_growth = rev_growth_raw * 100.0 if (0 < abs(rev_growth_raw) < 1.0) else rev_growth_raw
     
-    # User requested: FCF Margin from the most recently completed and reported FY0
-    anchors = metrics.get("historical_anchors") or []
-    reported = [a for a in anchors if "(Est)" not in str(a.get("year", ""))]
-    
-    def yr_num(a):
-        y = str(a.get("year", "0"))
-        nums = "".join(filter(str.isdigit, y))
-        return int(nums) if nums else 0
-    reported.sort(key=yr_num)
-    
-    anchor_fy0 = reported[-1] if len(reported) > 0 else {}
-    fy0_rev = safe_float(anchor_fy0.get('revenue'))
-    fy0_fcf = safe_float(anchor_fy0.get('fcf'))
-    fy0_ebitda = safe_float(anchor_fy0.get('ebitda'))
-    
+    # 2. Margin Selection (Waterfall Logic)
     fcf_margin = 0.0
+    ebitda_margin = 0.0
     if fy0_rev > 0:
-        if anchor_fy0.get('fcf') is not None and fy0_fcf != 0:
-            fcf_margin = (fy0_fcf / fy0_rev) * 100.0
-        elif anchor_fy0.get('ebitda') is not None:
-            fcf_margin = (fy0_ebitda / fy0_rev) * 100.0
-    elif ttm_rev > 0:
-        # Extreme Fallback
-        fcf = safe_float(metrics.get('fcf'))
-        fcf_margin = (fcf / ttm_rev) * 100.0
+        fcf_margin = (fy0_fcf / fy0_rev) * 100.0
+        ebitda_margin = (fy0_ebitda / fy0_rev) * 100.0
     
-    total = rev_growth + fcf_margin
+    final_margin = fcf_margin
+    if fcf_margin < 0:
+        if ebitda_margin > 0:
+            final_margin = ebitda_margin
+        else:
+            final_margin = ebitda_margin
+
+    total = rev_growth + final_margin
     
     return {
         "revenue_growth": round(rev_growth, 2),
-        "fcf_margin": round(fcf_margin, 2),
+        "fcf_margin": round(final_margin, 2),
         "total": round(total, 2),
         "passed": total >= 40,
         "label": "Strong" if total >= 40 else ("Healthy" if total >= 30 else "Weak"),

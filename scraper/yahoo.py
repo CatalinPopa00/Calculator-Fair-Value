@@ -2820,7 +2820,17 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                         val = bs.loc[idx, c_idx]
                         return float(val) if not pd.isna(val) else None
 
+                    def get_is_metric(field, target_date):
+                        if financials is None or financials.empty: return None
+                        idx = find_idx(financials, field)
+                        if not idx: return None
+                        c_idx = find_nearest_col(financials, target_date)
+                        if not c_idx: return None
+                        val = financials.loc[idx, c_idx]
+                        return float(val) if not pd.isna(val) else None
+
                     c_raw = get_bs_metric('Cash And Cash Equivalents', yr_col)
+                    gp_raw = get_is_metric('Gross Profit', yr_col) or 0
                     
                     # --- STRICT MAPPING (v171: LEVERAGE & LIQUIDITY) ---
                     # Rule 1: Total Debt = LT Debt + ST Debt (Interest Bearing ONLY)
@@ -2880,9 +2890,11 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                         "revenue_b": round(r_raw / 1e9, 2), # Already USD
                         "eps": round(e_raw, 2), # Already USD
                         "fcf_b": round(f_raw / 1e9, 2), # Already USD
+                        "ebitda_b": round(historical_trends[i].get("ebitda", 0) / 1e9, 2),
+                        "gross_profit_b": round(gp_raw / 1e9, 2),
                         "net_margin_pct": f"{margin_v:.1f}%" if margin_v is not None else "N/A",
                         "gaap_net_margin": gaap_v / 100.0 if gaap_v is not None else None, 
-                        "cash_b": round((c_raw * fx_rate) / 1e9, 2), 
+                        "cash_b": round((c_raw * fx_rate) / 1e9, 2) if c_raw else 0, 
                         "total_debt_b": round((d_raw * fx_rate) / 1e9, 2), 
                         "shares_out_b": round(s_raw / 1e9, 2), 
                         "roic_pct": f"{roic_v:.1f}%" if roic_v is not None else "N/A",

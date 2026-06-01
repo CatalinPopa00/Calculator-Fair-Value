@@ -3808,11 +3808,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 else if (ruleOf40 >= 30) r40Pts = 15;
                 
                 // Gross Margin Trend
-                const gmTTM = (data.company_profile.gross_margins || 0) * (data.company_profile.gross_margins > 1 ? 1 : 100);
+                let gmTTM = (data.company_profile.gross_margins || 0) * (data.company_profile.gross_margins > 1 ? 1 : 100);
                 let gmPrev = gmTTM;
-                if (data.health_score && data.health_score.beneish && data.health_score.beneish.prev && data.health_score.beneish.prev.sales > 0) {
-                    gmPrev = (data.health_score.beneish.prev.gross_profit / data.health_score.beneish.prev.sales) * 100;
+                
+                // Use robust historical anchors for GM Trend (FY0 vs FY-1)
+                if (data.historical_anchors && data.historical_anchors.length > 0) {
+                    const reported = data.historical_anchors.filter(a => !String(a.year).includes('(Est)'));
+                    const sortYr = (a) => parseInt(String(a).replace(/\D/g, '') || '0');
+                    reported.sort((a, b) => sortYr(a.year) - sortYr(b.year));
+                    
+                    if (reported.length >= 2) {
+                        const fy0 = reported[reported.length - 1];
+                        const fy1_hist = reported[reported.length - 2];
+                        
+                        if (fy0.revenue_b > 0 && fy0.gross_profit_b != null) {
+                            gmTTM = (fy0.gross_profit_b / fy0.revenue_b) * 100.0;
+                        }
+                        if (fy1_hist.revenue_b > 0 && fy1_hist.gross_profit_b != null) {
+                            gmPrev = (fy1_hist.gross_profit_b / fy1_hist.revenue_b) * 100.0;
+                        }
+                    }
                 }
+                
                 let gmTrendPts = 0;
                 if (gmTTM > gmPrev + 2) gmTrendPts = 25;
                 else if (gmTTM >= gmPrev - 2) gmTrendPts = 10;
@@ -3880,7 +3897,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 currentBuyBreakdown = [
                     { metric: "Rule of 40", value: ruleOf40.toFixed(1) + "%", points: r40Pts, points_awarded: r40Pts, max_points: 30, display_type: "raw" },
-                    { metric: "EV / Gross Profit (Fwd 1Y)", value: evGpValStr, points: evGpPts, points_awarded: evGpPts, max_points: 25, display_type: "raw" },
+                    { metric: "EV / Gross Profit (Fwd)", value: evGpValStr, points: evGpPts, points_awarded: evGpPts, max_points: 25, display_type: "raw" },
                     { metric: "Gross Margin Trend", value: gmTrendValStr, points: gmTrendPts, points_awarded: gmTrendPts, max_points: 25, display_type: "raw" },
                     { metric: "Cash Runway / Quick Ratio", value: qRatio.toFixed(2) + "x", points: qrPts, points_awarded: qrPts, max_points: 20, display_type: "raw" }
                 ];
