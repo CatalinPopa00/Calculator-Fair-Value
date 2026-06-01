@@ -2467,6 +2467,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                             e_raw = year_sum
 
                 f = get_metric(cashflow, ['Free Cash Flow', 'Free Cash Flow (USD)', 'Total Cash Flow From Operating Activities', 'Cash Flow From Operating Activities'], yr_col) or 0
+                eb = get_metric(financials, 'EBITDA', yr_col) or get_metric(financials, 'EBIT', yr_col) or 0
                 s = get_metric(financials, 'Diluted Average Shares', yr_col) or \
                     get_metric(financials, 'Basic Average Shares', yr_col) or 0
                 
@@ -2486,6 +2487,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                 ni_usd = ni * fx_rate
                 ni_gaap_usd = ni_gaap * fx_rate
                 f_usd = f * fx_rate
+                eb_usd = eb * fx_rate
                 
                 # Apply Non-GAAP Overlay
                 if year_label in adjusted_history:
@@ -2521,6 +2523,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                     "revenue": r_usd,
                     "eps": e,
                     "fcf": f_usd,
+                    "ebitda": eb_usd,
                     "net_margin": margin,
                     "gaap_net_margin": gaap_margin
                 })

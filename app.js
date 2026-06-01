@@ -3801,15 +3801,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if ((fwd_eps <= 0 || fwd_pe > 80) && rev_growth > 15) {
                 window.isHighGrowthModel = true;
                 
-                // Rule of 40
-                const ebitdaMargin = (data.company_profile.ebitda_margins || 0) * (data.company_profile.ebitda_margins > 1 ? 1 : 100);
-                const ttmRev = data.company_profile.total_revenue || data.revenue || 0;
-                const fwdRev1Y = data.company_profile.forward_revenue || 0;
-                let rev_growth_for_r40 = rev_growth;
-                if (ttmRev > 0 && fwdRev1Y > 0) {
-                    rev_growth_for_r40 = ((fwdRev1Y / ttmRev) - 1) * 100;
-                }
-                const ruleOf40 = rev_growth_for_r40 + ebitdaMargin;
+                // Rule of 40 (Unified to use Backend Logic)
+                const ruleOf40 = data.rule_of_40 ? data.rule_of_40.total : 0;
                 let r40Pts = 0;
                 if (ruleOf40 >= 40) r40Pts = 30;
                 else if (ruleOf40 >= 30) r40Pts = 15;

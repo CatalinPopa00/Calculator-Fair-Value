@@ -807,9 +807,31 @@ def calculate_rule_of_40(metrics):
 
     rev_growth = rev_growth_raw * 100.0 if (0 < abs(rev_growth_raw) < 1.0) else rev_growth_raw
     
-    fcf = safe_float(metrics.get('fcf'))
-    rev = safe_float(metrics.get('revenue') or ttm_rev)
-    fcf_margin = (fcf / rev * 100.0) if (fcf and rev and rev > 0) else 0.0
+    # User requested: FCF Margin from the most recently completed and reported FY0
+    anchors = metrics.get("historical_anchors") or []
+    reported = [a for a in anchors if "(Est)" not in str(a.get("year", ""))]
+    
+    def yr_num(a):
+        y = str(a.get("year", "0"))
+        nums = "".join(filter(str.isdigit, y))
+        return int(nums) if nums else 0
+    reported.sort(key=yr_num)
+    
+    anchor_fy0 = reported[-1] if len(reported) > 0 else {}
+    fy0_rev = safe_float(anchor_fy0.get('revenue'))
+    fy0_fcf = safe_float(anchor_fy0.get('fcf'))
+    fy0_ebitda = safe_float(anchor_fy0.get('ebitda'))
+    
+    fcf_margin = 0.0
+    if fy0_rev > 0:
+        if anchor_fy0.get('fcf') is not None and fy0_fcf != 0:
+            fcf_margin = (fy0_fcf / fy0_rev) * 100.0
+        elif anchor_fy0.get('ebitda') is not None:
+            fcf_margin = (fy0_ebitda / fy0_rev) * 100.0
+    elif ttm_rev > 0:
+        # Extreme Fallback
+        fcf = safe_float(metrics.get('fcf'))
+        fcf_margin = (fcf / ttm_rev) * 100.0
     
     total = rev_growth + fcf_margin
     
