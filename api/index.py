@@ -1094,42 +1094,12 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         ind_lower = str(industry).lower() if industry else ""
         safe_sector = str(sector) if sector else "Default"
         
-        # Metrics for classification
-        m_eps_g = (eps_growth_estimated * 100) if eps_growth_estimated else 0
         m_rev_g = (data.get("next_3y_rev_growth") or stable_rev_growth or 0) * 100
         
-        # Use net_margin with fallback to ebit_margin
-        m_margin = (data.get("net_margin") or data.get("ebit_margin") or 0) * 100
-        
-        # Ensure dividend yield is standard % (e.g. 2.5 means 2.5%)
-        # Some sources give 0.025, others give 2.5. Let's assume it's like 2.5 based on how it's usually returned in our API
-        # Wait, metrics.get('dividend_yield') in python usually returns 2.5 if it's 2.5%.
-        # Wait, let's verify if dividend_yield is raw float or pct. In yahoo.py it's usually a float percentage. Let's assume > 2 means 2%.
-        m_div = data.get("dividend_yield") or 0
-        m_fcf_trend = data.get("fcf_trend") or "Flat"
-        
-        # Previous EPS for Turnaround logic (trailing vs anchor or previous year)
-        eps_curr = data.get("trailing_eps") or data.get("adjusted_eps") or 0
-        eps_prev = None
-        if historical_trends and len(historical_trends) >= 2:
-            try:
-                def get_yr_num(h):
-                    y_str = str(h.get("year", "0"))
-                    nums = "".join(filter(str.isdigit, y_str))
-                    return int(nums) if nums else 0
-                sorted_trends = sorted(historical_trends, key=get_yr_num, reverse=True)
-                eps_reported = [h.get("eps") for h in sorted_trends if h.get("eps") and "(Est)" not in str(h.get("year"))]
-                if len(eps_reported) >= 2:
-                    eps_curr_hist = eps_reported[0]
-                    eps_prev = eps_reported[1]
-            except: pass
+        roic = data.get("roic") or 0
+        if roic > 0 and roic <= 1.0:
+            roic *= 100
             
-        is_turnaround = False
-        if eps_prev is not None and eps_curr < eps_prev and eps_curr > -100:
-            is_turnaround = True
-        elif eps_curr <= 0:
-            is_turnaround = True
-        
         # Pasul 1: Filtre Sectoriale Stricte (Overrides)
         is_fin_special = False
         if safe_sector == "Financial Services":
@@ -1145,26 +1115,24 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             data["archetype"] = "Real Estate (REIT)"
         else:
             # Pasul 2: Motorul de Arhetipuri
-            # 1. Hyper-Growth
-            if (m_rev_g > 20 or m_eps_g > 20) and m_margin < 10:
-                base_weights = {"peg": 0.40, "relative": 0.30, "dcf": 0.20, "lynch": 0.10}
+            # 1. Distressed
+            if targ_fwd_eps is not None and targ_fwd_eps <= 0:
+                base_weights = {"dcf": 1.0, "relative": 0.0, "lynch": 0.0, "peg": 0.0}
+                if not dcf_value:
+                    base_weights = {"dcf": 0.0, "relative": 1.0, "lynch": 0.0, "peg": 0.0}
+                data["archetype"] = "Distressed"
+            # 2. Value / Capital Intensive
+            elif roic < 10 or m_rev_g < 8:
+                base_weights = {"relative": 0.40, "dcf": 0.40, "lynch": 0.10, "peg": 0.10}
+                data["archetype"] = "Value / Capital Intensive"
+            # 3. Hyper-Growth
+            elif m_rev_g >= 20 and roic >= 10:
+                base_weights = {"lynch": 0.35, "peg": 0.35, "dcf": 0.20, "relative": 0.10}
                 data["archetype"] = "Hyper-Growth"
-            # 2. GARP (Growth at a Reasonable Price)
-            elif 10 <= m_eps_g <= 20 and m_margin > 15:
-                base_weights = {"lynch": 0.30, "peg": 0.30, "dcf": 0.25, "relative": 0.15}
-                data["archetype"] = "GARP"
-            # 3. Cash Cows
-            elif m_rev_g < 10 and m_div > 2.0 and fcf and fcf > 0 and (m_fcf_trend == "Growing" or m_fcf_trend == "Flat"):
-                base_weights = {"dcf": 0.40, "lynch": 0.30, "relative": 0.20, "peg": 0.10}
-                data["archetype"] = "Cash Cow"
-            # 4. Turnaround / Cyclical
-            elif is_turnaround and m_eps_g > 15:
-                base_weights = {"dcf": 0.35, "peg": 0.25, "relative": 0.25, "lynch": 0.15}
-                data["archetype"] = "Turnaround/Cyclical"
-            # 5. Default
+            # 4. Stable Moat
             else:
-                base_weights = {"dcf": 0.25, "lynch": 0.25, "relative": 0.25, "peg": 0.25}
-                data["archetype"] = "Standard"
+                base_weights = {"dcf": 0.35, "peg": 0.35, "lynch": 0.15, "relative": 0.15}
+                data["archetype"] = "Stable Moat"
  
         # Map methods to weight keys
         lynch_pe20_val = lynch_result.get("fair_value_pe_20")
