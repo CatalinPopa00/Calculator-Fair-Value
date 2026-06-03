@@ -494,6 +494,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         
                         // Handle formatting (e.g. standardizing for TV)
                         let tvSymbol = globalData.ticker.toUpperCase();
+                        if (tvSymbol.endsWith('.DE')) tvSymbol = 'XETR:' + tvSymbol.replace('.DE', '');
+                        else if (tvSymbol.endsWith('.L')) tvSymbol = 'LSE:' + tvSymbol.replace('.L', '');
+                        else if (tvSymbol.endsWith('.PA')) tvSymbol = 'EURONEXT:' + tvSymbol.replace('.PA', '');
+                        else if (tvSymbol.endsWith('.TO')) tvSymbol = 'TSX:' + tvSymbol.replace('.TO', '');
+                        else if (tvSymbol.endsWith('.AS')) tvSymbol = 'EURONEXT:' + tvSymbol.replace('.AS', '');
+                        else if (tvSymbol.endsWith('.MI')) tvSymbol = 'MIL:' + tvSymbol.replace('.MI', '');
+                        else if (tvSymbol.endsWith('.MC')) tvSymbol = 'BME:' + tvSymbol.replace('.MC', '');
+                        else if (tvSymbol.endsWith('.SW')) tvSymbol = 'SIX:' + tvSymbol.replace('.SW', '');
                         
                         script.innerHTML = JSON.stringify({
                             "symbols": [
@@ -3330,6 +3338,7 @@ document.addEventListener('DOMContentLoaded', () => {
             watchlistView.style.display = 'none';
             dashboard.style.display = 'none';
             loadingState.style.display = 'flex';
+            if (elements.fairValue) elements.fairValue.textContent = '$0.00';
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
         if (searchBtn) {
@@ -4553,7 +4562,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 delete ov.inputs[id];
             });
 
-            saveOverridesToServer(currentTicker);
+            saveOverridesToServer(currentTicker, ov);
         }
 
         // 2. Re-apply baseline overrides (if any left)
@@ -4602,8 +4611,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (relVar) relVar.value = 'peers';
             const relWeight = document.getElementById('rel-weight-mode-card');
             if (relWeight) relWeight.value = 'default';
-            // Force a re-fetch and re-calculation from the backend for fresh multiples silently
-            analyzeTicker(currentTicker, true, true);
+            if (relVar) relVar.dispatchEvent(new Event('change', { bubbles: true }));
+            if (relWeight) relWeight.dispatchEvent(new Event('change', { bubbles: true }));
         } else if (method === 'peter_lynch') {
             const lMult = document.getElementById('lynch-multiple-source');
             if (lMult) lMult.value = 'system';
@@ -5561,6 +5570,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     g13El.dispatchEvent(new Event('input', { bubbles: true }));
                 }
                 if (window.triggerRecalculate) window.triggerRecalculate();
+                if (window._renderProfile) window._renderProfile();
             }
         });
     });
