@@ -1573,9 +1573,9 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
             if fcf is None: fcf = info.get('operatingCashflow')
         # shares_outstanding already computed above
         
-        # --- STRICT MAPPING (v171: LEVERAGE & LIQUIDITY) ---
-        # Rule: Total Debt = LT Debt + ST Debt (Interest Bearing Only). EXCLUDE Leases.
-        def get_strict_debt(df):
+        # --- DEBT MAPPING (Updated to match Yahoo's Total Debt figure) ---
+        # Rule: Prioritize 'Total Debt' (which includes leases), fallback to LT + ST Debt.
+        def get_reported_debt(df):
             if df is None or df.empty: return 0
             
             def get_latest_valid(row_names):
@@ -1591,12 +1591,17 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                             if not pd.isna(series): return float(series)
                 return 0
 
-            # Rule: Sum interest-bearing components ONLY
+            # Prioritize explicitly reported Total Debt
+            total_d = get_latest_valid(['Total Debt'])
+            if total_d > 0:
+                return total_d
+
+            # Fallback
             lt = get_latest_valid(['Long Term Debt', 'Total Long Term Debt'])
             st = get_latest_valid(['Current Debt', 'Short Term Debt', 'Short Long Term Debt', 'Commercial Paper'])
             return (lt + st)
             
-        td_raw = get_strict_debt(q_bs) or get_strict_debt(bs)
+        td_raw = get_reported_debt(q_bs) or get_reported_debt(bs)
         
         # v171: Fallback only if strict mapping results in 0, but check against info['totalDebt']
         # to ensure we aren't using a bloated figure that includes leases.
@@ -2832,8 +2837,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                     c_raw = get_bs_metric('Cash And Cash Equivalents', yr_col)
                     gp_raw = get_is_metric('Gross Profit', yr_col) or 0
                     
-                    # --- STRICT MAPPING (v171: LEVERAGE & LIQUIDITY) ---
-                    # Rule 1: Total Debt = LT Debt + ST Debt (Interest Bearing ONLY)
+                    # --- DEBT MAPPING (Updated to match Yahoo's Total Debt figure) ---
+                    # Rule 1: Prioritize 'Total Debt', fallback to LT Debt + ST Debt
                     def get_hist_metric(fields, target_date):
                         for field in fields:
                             idx = find_idx(bs, field)
@@ -2844,9 +2849,11 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                             if not pd.isna(val): return float(val)
                         return None
 
-                    lt_debt = get_hist_metric(['Long Term Debt', 'Total Long Term Debt'], yr_col) or 0
-                    st_debt = get_hist_metric(['Current Debt', 'Short Term Debt', 'Short Long Term Debt', 'Commercial Paper'], yr_col) or 0
-                    d_raw = lt_debt + st_debt
+                    d_raw = get_hist_metric(['Total Debt'], yr_col)
+                    if d_raw is None:
+                        lt_debt = get_hist_metric(['Long Term Debt', 'Total Long Term Debt'], yr_col) or 0
+                        st_debt = get_hist_metric(['Current Debt', 'Short Term Debt', 'Short Long Term Debt', 'Commercial Paper'], yr_col) or 0
+                        d_raw = lt_debt + st_debt
                     
                     # Sanity Check (v168): Debt cannot exceed Total Liabilities (Quantitative Guardrail)
                     total_liab = get_bs_metric('Total Liabilities', yr_col) or get_bs_metric('Total Liabilities Net Minority Interest', yr_col)
