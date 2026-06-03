@@ -528,6 +528,18 @@ def get_yahoo_eps_trend(ticker: str) -> dict:
                         # compatibility fields for older code paths
                         'current': row.get('avg')
                     }
+            
+            # v295: Overwrite with Normalized estimates from info object if available (to fix GAAP vs Non-GAAP mismatch)
+            try:
+                info_obj = stock.info
+                if '0y' in mapping and info_obj.get('epsCurrentYear'):
+                    mapping['0y']['avg'] = float(info_obj.get('epsCurrentYear'))
+                    mapping['0y']['current'] = mapping['0y']['avg']
+                if '+1y' in mapping and (info_obj.get('epsForward') or info_obj.get('forwardEps')):
+                    mapping['+1y']['avg'] = float(info_obj.get('epsForward') or info_obj.get('forwardEps'))
+                    mapping['+1y']['current'] = mapping['+1y']['avg']
+            except: pass
+
             if mapping:
                 return mapping
     except: pass
@@ -3739,6 +3751,23 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
 
         # v199: Fetch detailed EPS Trend data (Current vs 7D, 30D, 90D Ago)
         eps_trend = get_yahoo_eps_trend(ticker_symbol)
+        
+        # v295: Sync eps_trend yearAgoEps with Normalized Historical Anchors
+        try:
+            if eps_trend and '0y' in eps_trend:
+                current_year_now = datetime.datetime.now().year
+                target_year = str(current_year_now - 1)
+                
+                # Check if we have a reconstructed Non-GAAP EPS for the year ago
+                if 'adjusted_history' in locals() and target_year in adjusted_history:
+                    eps_trend['0y']['yearAgoEps'] = adjusted_history[target_year]
+                elif yf_0y_anchor is not None and yf_0y_anchor > 0:
+                    eps_trend['0y']['yearAgoEps'] = yf_0y_anchor
+                
+                # Cascade the current year's average to next year's yearAgoEps
+                if '+1y' in eps_trend and eps_trend['0y'].get('avg'):
+                    eps_trend['+1y']['yearAgoEps'] = eps_trend['0y']['avg']
+        except: pass
 
         # ── v154: UNIFIED FISCAL YEAR DETECTION (CRITICAL SYNC) ────────────────
         now_dt = datetime.datetime.now()
