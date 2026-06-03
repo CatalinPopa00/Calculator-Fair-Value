@@ -1617,7 +1617,28 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
             print(f"CRITICAL DASHBOARD ERROR: Debt (${total_debt/1e9:.1f}B) >= Liabilities (${total_liab/1e9:.1f}B). Quantitative sanity check failed. Reverting to strict LT+ST mapping.")
             total_debt = td_raw * fx_rate
 
-        total_cash = (info.get('totalCash') or 0) * fx_rate
+        # --- CASH MAPPING ---
+        def get_reported_cash(df):
+            if df is None or df.empty: return 0
+            
+            def get_latest_valid(row_names):
+                if not row_names: return 0
+                for name in row_names:
+                    idx = find_idx(df, name)
+                    if idx is not None:
+                        series = df.loc[idx]
+                        if isinstance(series, pd.Series):
+                            valid = series.dropna()
+                            if not valid.empty: return float(valid.iloc[0])
+                        else:
+                            if not pd.isna(series): return float(series)
+                return 0
+                
+            return get_latest_valid(['Cash Cash Equivalents And Short Term Investments', 'Cash And Cash Equivalents'])
+            
+        tc_raw = get_reported_cash(q_bs) or get_reported_cash(bs)
+        info_cash = (info.get('totalCash') or 0) * fx_rate
+        total_cash = tc_raw * fx_rate if tc_raw > 0 else info_cash
 
         gross_margins = info.get('grossMargins') # Ratio
         profit_margins = info.get('profitMargins') # Ratio
@@ -2834,7 +2855,9 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                         val = financials.loc[idx, c_idx]
                         return float(val) if not pd.isna(val) else None
 
-                    c_raw = get_bs_metric('Cash And Cash Equivalents', yr_col)
+                    c_raw = get_bs_metric('Cash Cash Equivalents And Short Term Investments', yr_col)
+                    if c_raw is None:
+                        c_raw = get_bs_metric('Cash And Cash Equivalents', yr_col) or 0
                     gp_raw = get_is_metric('Gross Profit', yr_col) or 0
                     
                     # --- DEBT MAPPING (Updated to match Yahoo's Total Debt figure) ---
