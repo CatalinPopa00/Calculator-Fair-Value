@@ -1091,7 +1091,14 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         # Stabilize Fair Value with Sector-Aware Weighting
         # Define base sector weights using the pre-assigned sector variable
         if sector == "Financial Services":
-            base_weights = {"lynch": 0.45, "relative": 0.45, "peg": 0.10, "dcf": 0.0}
+            ind_lower = data.get("industry", "").lower()
+            fintech_keywords = ["credit services", "financial data", "stock exchange", "capital market"]
+            if any(k in ind_lower for k in fintech_keywords):
+                # Transaction Services / FinTech / Credit Services
+                base_weights = {"lynch": 0.25, "relative": 0.25, "peg": 0.25, "dcf": 0.25}
+            else:
+                # Traditional Financials (Banks & Insurance)
+                base_weights = {"lynch": 0.45, "relative": 0.45, "peg": 0.10, "dcf": 0.0}
         elif sector == "Real Estate":
             base_weights = {"lynch": 0.30, "relative": 0.40, "peg": 0.10, "dcf": 0.20}
         else:

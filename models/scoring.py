@@ -1,9 +1,12 @@
+import math
+
 def clean_percent(val):
     if val is None: return 0.0
     if isinstance(val, str):
         val = val.replace('%', '').replace('x', '').replace('$', '').replace(',', '')
     try:
         f_val = float(val)
+        if math.isnan(f_val) or math.isinf(f_val): return 0.0
         # Standardize decimal (0.05 -> 5%) before calculation and display.
         # v43: Threshold increased to 10.0 (1000%) to handle hyper-growth like SMCI (1.23 -> 123%).
         if 0 < abs(f_val) < 10.0:
@@ -26,7 +29,10 @@ def clean_ratio(val):
     if val is None: return 0.0
     if isinstance(val, str):
         val = val.replace('%', '').replace('x', '').replace('$', '').replace(',', '')
-    try: return float(val)
+    try: 
+        v = float(val)
+        if math.isnan(v) or math.isinf(v): return 0.0
+        return v
     except: return 0.0
 
 class DefaultScoringStrategy:
@@ -395,8 +401,20 @@ def calculate_scoring_reform(valuation_data, metrics):
         add_h("ROIC", roic, 20 if roic > 10 else (10 if roic >= 6 else 0), 20, False)
 
     # 4. Check High-Growth Module
+    raw_fwd_pe = metrics.get('forward_pe') or metrics.get('fwd_pe')
+    trigger_pe = 0
+    try:
+        if raw_fwd_pe is not None and str(raw_fwd_pe).strip() != "":
+            f_val = float(str(raw_fwd_pe).replace('%', '').replace('x', '').replace('$', '').replace(',', ''))
+            if not (math.isnan(f_val) or math.isinf(f_val)):
+                trigger_pe = f_val
+    except:
+        pass
+        
+    trigger_rev_g = rev_1y_g if rev_1y_g > 0 else rev_2y_g
+    
     is_high_growth = False
-    if (pe <= 0 or pe > 80) and rev_1y_g > 15.0 and not is_bank and not is_insurance and not is_reit:
+    if (trigger_pe <= 0 or trigger_pe > 80) and trigger_rev_g > 15.0 and not is_bank and not is_insurance and not is_reit:
         is_high_growth = True
         
     if is_high_growth:
