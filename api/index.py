@@ -1523,6 +1523,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 
             if fy1_rev_est and fy1_rev_est.get(rev_key) and fy1_rev_est.get(rev_key) > 0:
                 rev_val = fy1_rev_est[rev_key]
+                metrics_copy["forward_revenue"] = rev_val
                 if shares and shares > 0:
                     metrics_copy["fwd_ps"] = current_price / (rev_val / shares)
                     metrics_copy["ps_ratio"] = metrics_copy["fwd_ps"]
