@@ -428,18 +428,31 @@ def calculate_scoring_reform(valuation_data, metrics):
         
         # EV/Gross Profit
         ev_gp = clean_ratio(metrics.get('forward_ev_gross_profit') or metrics.get('ev_to_gross_profit'))
+        gm_ttm = clean_percent(metrics.get('gross_margins') or metrics.get('gross_margin'))
+        
+        if ev_gp == 0:
+            fwd_rev = clean_ratio(metrics.get('forward_revenue') or (metrics.get('revenue', 0) * (1 + rev_1y_g/100.0)))
+            if fwd_rev > 0 and gm_ttm > 0:
+                fwd_gp = fwd_rev * (gm_ttm / 100.0)
+                ev = clean_ratio(metrics.get('enterprise_value') or (metrics.get('market_cap', 0) + metrics.get('total_debt', 0) - metrics.get('total_cash', 0)))
+                if ev > 0 and fwd_gp > 0:
+                    ev_gp = ev / fwd_gp
+                    
         sec_ev_gp = clean_ratio(valuation_data.get('sector_median_ev_gross_profit') or sec_ps) # fallback to P/S if missing
         hist_ev_gp = clean_ratio(valuation_data.get('historic_ev_gross_profit') or hist_ps)
         pts = get_rel_pts(ev_gp, sec_ev_gp, hist_ev_gp, 25, True)
         add_b("EV/Gross Profit (1Y Fwd)", ev_gp, pts, 25, True)
         
         # Gross Margin Trend
-        gm_ttm = clean_percent(metrics.get('gross_margin'))
         anchors = metrics.get('historical_anchors', [])
         reported = sorted([a for a in anchors if "(Est)" not in str(a.get("year", ""))], key=lambda x: str(x.get("year", "")))
         gm_pri = gm_ttm
         if len(reported) >= 2:
-            gm_pri = clean_percent(reported[-2].get('gross_margin_pct') or reported[-2].get('gross_margin'))
+            prev = reported[-2]
+            gp_b = float(prev.get('gross_profit_b') or 0)
+            rev_b = float(prev.get('revenue_b') or 0)
+            if gp_b > 0 and rev_b > 0:
+                gm_pri = (gp_b / rev_b) * 100.0
             
         trend_diff = gm_ttm - gm_pri
         if trend_diff >= 2.0: pts = 25
