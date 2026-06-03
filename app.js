@@ -574,7 +574,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const newNonGaapPE = (prof.nongaap_eps_fy > 0) ? simPrice / prof.nongaap_eps_fy : 0;
         const scoringPE = (eps > 0) ? simPrice / eps : 0; // Use anchored EPS for scoring (v72 logic)
 
-        const newPS = (revenue > 0 && shares > 0) ? simPrice / (revenue / shares) : ((prof.ps_ratio && current_price > 0) ? prof.ps_ratio * (simPrice / current_price) : 0);
+        const newPS = (revenue > 0 && shares > 0) ? simPrice / (revenue / shares) : ((prof.ps_ratio && _realApiPrice > 0) ? prof.ps_ratio * (simPrice / _realApiPrice) : 0);
         const newMktCap = simPrice * shares;
         const ev = newMktCap + (globalData.total_debt || 0) - (globalData.total_cash || 0);
         const newEvEbitda = (ebitda > 0) ? ev / ebitda : 0;
