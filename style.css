@@ -1957,16 +1957,20 @@ body {
     flex: 1; /* Stretch to fill card space and push View Data button to bottom */
 }
 
-.method-card.collapsed {
+.method-card.collapsed,
+.research-card.collapsed {
     height: fit-content !important;
     align-self: start; /* Collapsed cards shrink to header size instead of stretching to match grid */
 }
 
-.method-card.collapsed .card-body-collapsible {
+.method-card.collapsed .card-body-collapsible,
+.research-card.collapsed .card-body-collapsible {
     max-height: 0 !important;
     opacity: 0 !important;
     pointer-events: none;
     flex: none !important;
+    margin-top: 0 !important;
+    padding-top: 0 !important;
 }
 
 .collapsible-trigger {
@@ -1990,7 +1994,8 @@ body {
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.method-card.collapsed .chevron-icon {
+.method-card.collapsed .chevron-icon,
+.research-card.collapsed .chevron-icon {
     transform: rotate(-90deg); /* Points to the right when collapsed */
 }
 

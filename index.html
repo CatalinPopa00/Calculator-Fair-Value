@@ -619,11 +619,111 @@
                         <!-- DEEP RESEARCH SECTION: Harmonized Unified Design -->
                         <section class="deep-research-section" style="margin-top: 3rem;">
                             
+                            <!-- 2. Analyst Consensus Segment -->
+                            <div class="research-card glass-card" id="analyst-estimates-card">
+                                <div class="research-header card-header" style="margin-bottom: 0;">
+                                    <div class="header-icon">📊</div>
+                                    <h3 class="research-title collapsible-trigger" data-card="analyst-estimates" style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin: 0; width: 100%;">Analyst Consensus & Projections<svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="margin-left: auto;"><polyline points="6 9 12 15 18 9"></polyline></svg></h3>
+                                </div>
+                                <div class="card-body-collapsible" style="padding-top: 1.5rem;">
+                                
+                                <div class="analyst-tabs-wrapper">
+                                    <div class="analyst-tabs-control">
+                                        <button class="analyst-tab-btn active" data-tab="pt">Target</button>
+                                        <button class="analyst-tab-btn" data-tab="rec">Ratings</button>
+                                        <button class="analyst-tab-btn" data-tab="eps">EPS Est.</button>
+                                        <button class="analyst-tab-btn" data-tab="rev">Rev Est.</button>
+                                    </div>
+                                </div>
+
+                                <div class="analyst-content-area">
+                                    <div class="analyst-grid">
+                                        <!-- Col 1: Price Target -->
+                                        <div class="analyst-tab-content active" id="tab-pt">
+                                            <div class="pt-module">
+                                                <span class="module-label">AVG PRICE TARGET</span>
+                                                <div id="pt-avg" class="pt-value">--</div>
+                                                <div id="pt-upside" class="pt-upside">--</div>
+                                                <div class="pt-range">
+                                                    <div class="range-line">
+                                                        <span>Low <b id="pt-low">--</b></span>
+                                                        <span>High <b id="pt-high">--</b></span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Col 2: Recommendation -->
+                                        <div class="analyst-tab-content" id="tab-rec">
+                                            <div class="rec-module">
+                                                <span class="module-label">ANALYST SENTIMENT</span>
+                                                <div id="rec-status" class="rec-value">--</div>
+                                                <div id="rec-mean" class="rec-sub">Score: --</div>
+                                                <div id="rec-bars" class="small-bars-stack"></div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Col 3: EPS Estimates -->
+                                        <div class="analyst-tab-content" id="tab-eps">
+                                            <div class="table-module">
+                                                <span class="module-label">EPS ESTIMATES</span>
+                                                <table id="eps-est-table" class="mini-research-table">
+                                                    <thead>
+                                                        <tr><th>Period</th><th style="text-align:right">Avg</th><th style="text-align:right">Growth</th></tr>
+                                                    </thead>
+                                                    <tbody></tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+
+                                        <!-- Col 4: Revenue Estimates -->
+                                        <div class="analyst-tab-content" id="tab-rev">
+                                            <div class="table-module">
+                                                <span class="module-label">REVENUE ESTIMATES</span>
+                                                <table id="rev-est-table" class="mini-research-table">
+                                                    <thead>
+                                                        <tr><th>Period</th><th style="text-align:right">Avg</th><th style="text-align:right">Growth</th></tr>
+                                                    </thead>
+                                                    <tbody></tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 2. Historical Trends Segment -->
+                            <div class="research-card glass-card" style="margin-top: 1.5rem;">
+                                <div class="research-header">
+                                    <div class="header-icon">⏳</div>
+                                    <h3 class="research-title">Historical Anchors & Trends</h3>
+                                </div>
+                                
+                                <div class="trends-scroll-area">
+                                    <div id="trends-scroll-wrapper" class="table-responsive">
+                                        <table class="trends-table" id="trends-table">
+                                            <tbody id="trends-body">
+                                                <tr><td colspan="5" style="text-align:center; padding:3rem;"><div class="spinner"></div></td></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div class="research-footer">
+                                    * EPS values represent Diluted EPS (GAAP) for historical accuracy.
+                                </div>
+                            </div>
+                            </div>
+
                             <!-- 1. Ownership Segment -->
                             <div class="research-card glass-card" id="ownership-card" style="margin-bottom: 2rem;">
-                                <div class="research-header">
+                                <div class="research-header card-header" style="margin-bottom: 0;">
                                     <div class="header-icon">👥</div>
-                                    <h3 class="research-title">Ownership</h3>
+                                    <h3 class="research-title collapsible-trigger" data-card="ownership" style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin: 0; width: 100%;">
+                                        Ownership
+                                        <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="margin-left: auto;"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                                    </h3>
+                                </div>
+                                <div class="card-body-collapsible" style="padding-top: 1.5rem;">
                                 </div>
                                 
                                 <div class="analyst-tabs-wrapper">
@@ -740,100 +840,8 @@
                                     </div>
                                 </div>
                             </div>
-                            
-                            <!-- 2. Analyst Consensus Segment -->
-                            <div class="research-card glass-card" id="analyst-estimates-card">
-                                <div class="research-header">
-                                    <div class="header-icon">📊</div>
-                                    <h3 class="research-title">Analyst Consensus & Projections</h3>
-                                </div>
-                                
-                                <div class="analyst-tabs-wrapper">
-                                    <div class="analyst-tabs-control">
-                                        <button class="analyst-tab-btn active" data-tab="pt">Target</button>
-                                        <button class="analyst-tab-btn" data-tab="rec">Ratings</button>
-                                        <button class="analyst-tab-btn" data-tab="eps">EPS Est.</button>
-                                        <button class="analyst-tab-btn" data-tab="rev">Rev Est.</button>
-                                    </div>
-                                </div>
-
-                                <div class="analyst-content-area">
-                                    <div class="analyst-grid">
-                                        <!-- Col 1: Price Target -->
-                                        <div class="analyst-tab-content active" id="tab-pt">
-                                            <div class="pt-module">
-                                                <span class="module-label">AVG PRICE TARGET</span>
-                                                <div id="pt-avg" class="pt-value">--</div>
-                                                <div id="pt-upside" class="pt-upside">--</div>
-                                                <div class="pt-range">
-                                                    <div class="range-line">
-                                                        <span>Low <b id="pt-low">--</b></span>
-                                                        <span>High <b id="pt-high">--</b></span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <!-- Col 2: Recommendation -->
-                                        <div class="analyst-tab-content" id="tab-rec">
-                                            <div class="rec-module">
-                                                <span class="module-label">ANALYST SENTIMENT</span>
-                                                <div id="rec-status" class="rec-value">--</div>
-                                                <div id="rec-mean" class="rec-sub">Score: --</div>
-                                                <div id="rec-bars" class="small-bars-stack"></div>
-                                            </div>
-                                        </div>
-
-                                        <!-- Col 3: EPS Estimates -->
-                                        <div class="analyst-tab-content" id="tab-eps">
-                                            <div class="table-module">
-                                                <span class="module-label">EPS ESTIMATES</span>
-                                                <table id="eps-est-table" class="mini-research-table">
-                                                    <thead>
-                                                        <tr><th>Period</th><th style="text-align:right">Avg</th><th style="text-align:right">Growth</th></tr>
-                                                    </thead>
-                                                    <tbody></tbody>
-                                                </table>
-                                            </div>
-                                        </div>
-
-                                        <!-- Col 4: Revenue Estimates -->
-                                        <div class="analyst-tab-content" id="tab-rev">
-                                            <div class="table-module">
-                                                <span class="module-label">REVENUE ESTIMATES</span>
-                                                <table id="rev-est-table" class="mini-research-table">
-                                                    <thead>
-                                                        <tr><th>Period</th><th style="text-align:right">Avg</th><th style="text-align:right">Growth</th></tr>
-                                                    </thead>
-                                                    <tbody></tbody>
-                                                </table>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
                             </div>
-
-                            <!-- 2. Historical Trends Segment -->
-                            <div class="research-card glass-card" style="margin-top: 1.5rem;">
-                                <div class="research-header">
-                                    <div class="header-icon">⏳</div>
-                                    <h3 class="research-title">Historical Anchors & Trends</h3>
-                                </div>
-                                
-                                <div class="trends-scroll-area">
-                                    <div id="trends-scroll-wrapper" class="table-responsive">
-                                        <table class="trends-table" id="trends-table">
-                                            <tbody id="trends-body">
-                                                <tr><td colspan="5" style="text-align:center; padding:3rem;"><div class="spinner"></div></td></tr>
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                                <div class="research-footer">
-                                    * EPS values represent Diluted EPS (GAAP) for historical accuracy.
-                                </div>
-                            </div>
-                        </section>
+</section>
 
                         <div style="text-align: center; margin-top: 3rem; margin-bottom: 2rem;">
                             <button id="export-pdf-btn" class="base-btn" style="padding: 12px 24px; font-size: 1rem; font-weight: 600; background: linear-gradient(135deg, #00d2ff 0%, #3a7bd5 100%); color: white; border: none; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 4px 15px rgba(0, 210, 255, 0.3); transition: all 0.3s ease;">
