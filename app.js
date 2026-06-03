@@ -3780,128 +3780,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         currentHealthBreakdown = data.health_breakdown;
+        
+        // Dynamically load the current scenario's Buy Score
+        if (data.scoring_results && data.scoring_results[_currentScenario]) {
+            data.good_to_buy_total = data.scoring_results[_currentScenario].good_to_buy_total;
+            data.buy_breakdown = data.scoring_results[_currentScenario].buy_breakdown;
+        }
+
         currentBuyBreakdown = data.buy_breakdown;
         _originalBuyBreakdown = JSON.parse(JSON.stringify(data.buy_breakdown));
         _originalBuyScore = data.good_to_buy_total;
 
-        // HIGH-GROWTH CONDITIONAL RENDERING LOGIC
-        window.isHighGrowthModel = false;
-        if (data.company_profile) {
-            const fwd_eps = data.company_profile.forward_eps || data.company_profile.fwd_eps || 0;
-            const fwd_pe = data.company_profile.forward_pe || 0;
-            const rev_growth = (data.company_profile.revenue_growth || data.company_profile.rev_cagr_2y || 0) * (data.company_profile.revenue_growth > 1 ? 1 : 100);
-            
-            if ((fwd_eps <= 0 || fwd_pe > 80) && rev_growth > 15) {
-                window.isHighGrowthModel = true;
-                
-                // Rule of 40 (Unified to use Backend Logic)
-                const ruleOf40 = data.rule_of_40 ? data.rule_of_40.total : 0;
-                let r40Pts = 0;
-                if (ruleOf40 >= 40) r40Pts = 30;
-                else if (ruleOf40 >= 30) r40Pts = 15;
-                
-                // Gross Margin Trend
-                let gmTTM = (data.company_profile.gross_margins || 0) * (data.company_profile.gross_margins > 1 ? 1 : 100);
-                let gmPrev = gmTTM;
-                
-                // Use robust historical anchors for GM Trend (FY0 vs FY-1)
-                if (data.historical_anchors && data.historical_anchors.length > 0) {
-                    const reported = data.historical_anchors.filter(a => !String(a.year).includes('(Est)'));
-                    const sortYr = (a) => parseInt(String(a).replace(/\D/g, '') || '0');
-                    reported.sort((a, b) => sortYr(a.year) - sortYr(b.year));
-                    
-                    if (reported.length >= 2) {
-                        const fy0 = reported[reported.length - 1];
-                        const fy1_hist = reported[reported.length - 2];
-                        
-                        if (fy0.revenue_b > 0 && fy0.gross_profit_b != null) {
-                            gmTTM = (fy0.gross_profit_b / fy0.revenue_b) * 100.0;
-                        }
-                        if (fy1_hist.revenue_b > 0 && fy1_hist.gross_profit_b != null) {
-                            gmPrev = (fy1_hist.gross_profit_b / fy1_hist.revenue_b) * 100.0;
-                        }
-                    }
-                }
-                
-                let gmTrendPts = 0;
-                if (gmTTM > gmPrev + 2) gmTrendPts = 25;
-                else if (gmTTM >= gmPrev - 2) gmTrendPts = 10;
-                
-                const gmDelta = gmTTM - gmPrev;
-                const gmTrendValStr = (gmDelta > 0 ? '+' : '') + gmDelta.toFixed(1) + '% vs. LY';
-                
-                // Cash Runway / Quick Ratio (fallback to Current Ratio)
-                const qRatio = data.company_profile.quick_ratio || data.company_profile.current_ratio || 0;
-                let qrPts = 0;
-                if (qRatio >= 1.5) qrPts = 20;
-                else if (qRatio >= 1.0) qrPts = 10;
-                
-                // EV / Gross Profit (Fwd 1Y)
-                let evGpPts = 0;
-                let evGpValStr = 'N/A';
-                
-                // Calculate Median EV / Gross Profit from peers if available
-                let medEvGp = data.company_profile.sector_median_ev_gp || 0;
-                if (medEvGp <= 0 && data.company_profile.competitor_metrics && data.company_profile.competitor_metrics.length > 0) {
-                    let evGps = [];
-                    data.company_profile.competitor_metrics.forEach(p => {
-                        // Estimate Fwd Gross Profit for peers
-                        let pRevGrow = (p.revenue_growth || 0) * (p.revenue_growth > 1 ? 1 : 100) / 100;
-                        let pGm = (p.gross_margins || 0) * (p.gross_margins > 1 ? 1 : 100) / 100;
-                        let pFwdRev = (p.revenue || 0) * (1 + pRevGrow);
-                        let pFwdGp = pFwdRev * pGm;
-                        if (pFwdGp > 0 && p.enterprise_value > 0) {
-                            evGps.push(p.enterprise_value / pFwdGp);
-                        }
-                    });
-                    if (evGps.length > 0) {
-                        evGps.sort((a, b) => a - b);
-                        medEvGp = evGps.length % 2 === 0 ? (evGps[evGps.length / 2 - 1] + evGps[evGps.length / 2]) / 2 : evGps[Math.floor(evGps.length / 2)];
-                    }
-                }
-                
-                const fwdRev = (data.company_profile.total_revenue || 0) * (1 + (rev_growth / 100));
-                const fwdGp = fwdRev * (gmTTM / 100);
-                let evGp = 0;
-                if (fwdGp > 0 && data.company_profile.enterprise_value) {
-                    evGp = data.company_profile.enterprise_value / fwdGp;
-                    evGpValStr = evGp.toFixed(2) + 'x';
-                }
-                
-                // Absolute fallback if Sector Median is missing (which is common for EV/GP)
-                if (evGp > 0) {
-                    if (medEvGp <= 0) {
-                        medEvGp = 8.0; // Assume 8.0x as a solid baseline for High Growth EV/GP
-                        evGpValStr += ' (Sector: 8.0x)';
-                    }
-                    if (evGp <= medEvGp) evGpPts = 25;
-                    else if (evGp <= medEvGp * 1.2) evGpPts = 10;
-                    else evGpPts = 0;
-                } else if (data.company_profile.ps_ratio > 0) {
-                    let ps = data.company_profile.ps_ratio;
-                    evGpValStr = `P/S: ${ps.toFixed(2)}x (Missing GM)`;
-                    if (ps <= 5.0) evGpPts = 25;
-                    else if (ps <= 10.0) evGpPts = 10;
-                    else evGpPts = 0;
-                } else {
-                    evGpValStr = 'Pending Sector Data';
-                    evGpPts = 0;
-                }
+        // Check if High Growth mode was activated by backend
+        window.isHighGrowthModel = currentBuyBreakdown && currentBuyBreakdown.some(item => item.metric && item.metric.includes("Rule of 40"));
 
-                currentBuyBreakdown = [
-                    { metric: "Rule of 40", value: ruleOf40.toFixed(1) + "%", points: r40Pts, points_awarded: r40Pts, max_points: 30, display_type: "raw" },
-                    { metric: "EV / Gross Profit (Fwd)", value: evGpValStr, points: evGpPts, points_awarded: evGpPts, max_points: 25, display_type: "raw" },
-                    { metric: "Gross Margin Trend", value: gmTrendValStr, points: gmTrendPts, points_awarded: gmTrendPts, max_points: 25, display_type: "raw" },
-                    { metric: "Cash Runway / Quick Ratio", value: qRatio.toFixed(2) + "x", points: qrPts, points_awarded: qrPts, max_points: 20, display_type: "raw" }
-                ];
-                
-                data.good_to_buy_total = r40Pts + evGpPts + gmTrendPts + qrPts;
-                globalData.good_to_buy_total = data.good_to_buy_total;
-                globalData.buy_breakdown = currentBuyBreakdown;
-                _originalBuyBreakdown = JSON.parse(JSON.stringify(currentBuyBreakdown));
-                _originalBuyScore = data.good_to_buy_total;
-            }
-        }
         currentPiotroskiBreakdown = data.piotroski_breakdown || (data.piotroski && data.piotroski.breakdown) || [];
 
         updateScoreUI(data.health_score_total, 'health-score-circle', 'health-score-fill');
@@ -5413,6 +5305,46 @@ document.addEventListener('DOMContentLoaded', () => {
             const scenario = e.currentTarget.dataset.scenario || 'base';
             _currentScenario = scenario;
             if (globalData) {
+                if (globalData.scoring_results && globalData.scoring_results[_currentScenario]) {
+                    globalData.good_to_buy_total = globalData.scoring_results[_currentScenario].good_to_buy_total;
+                    globalData.buy_breakdown = globalData.scoring_results[_currentScenario].buy_breakdown;
+                    currentBuyBreakdown = globalData.buy_breakdown;
+                    
+                    window.isHighGrowthModel = currentBuyBreakdown && currentBuyBreakdown.some(item => item.metric && item.metric.includes("Rule of 40"));
+                    updateScoreUI(globalData.good_to_buy_total, 'buy-score-circle', 'buy-score-fill');
+                    
+                    const container = document.querySelector('#buy-score-card span.label');
+                    if (container) {
+                        let badge = container.querySelector('.hg-badge');
+                        if (window.isHighGrowthModel) {
+                            if (!badge) {
+                                badge = document.createElement('span');
+                                badge.className = 'hg-badge';
+                                badge.style.marginLeft = '10px';
+                                badge.style.fontSize = '0.7rem';
+                                badge.style.background = 'linear-gradient(90deg, #ec4899, #f43f5e)';
+                                badge.style.color = 'white';
+                                badge.style.padding = '2px 8px';
+                                badge.style.borderRadius = '12px';
+                                badge.style.fontWeight = 'bold';
+                                badge.style.verticalAlign = 'middle';
+                                badge.textContent = '🚀 High-Growth Model';
+                                container.appendChild(badge);
+                            }
+                        } else if (badge) {
+                            badge.remove();
+                        }
+                    }
+                    
+                    const scoreModal = document.getElementById('score-modal');
+                    if (scoreModal && scoreModal.style.display === 'flex') {
+                        const titleEl = document.getElementById('score-modal-title');
+                        if (titleEl && titleEl.textContent.includes('Good to Buy')) {
+                            renderScoreBreakdown('Good to Buy Score Breakdown', globalData.good_to_buy_total, currentBuyBreakdown);
+                        }
+                    }
+                }
+
                 // v310: Re-render estimates table FIRST to dynamically compute the scenario growths
                 if (typeof window._renderEstimatesTable === 'function') window._renderEstimatesTable();
 

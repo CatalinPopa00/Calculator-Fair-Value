@@ -1429,30 +1429,85 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         elif len(_est_growths) == 1:
             data["rev_cagr_2y"] = _est_growths[0]
         else:
-            data["rev_cagr_2y"] = stable_rev_growth or 0.08
-            
-        # Pass safety values to scoring
+            data["rev_cagr_2y"] = stable_rev_growth or 0.08        # Pass safety values to scoring
         safe_mos = margin_of_safety if margin_of_safety is not None else 0
         safe_median_peg = median_peer_peg if median_peer_peg is not None else 0
         
-        from models.scoring import calculate_health_score
-        scoring_results = calculate_scoring_reform({
+        from models.scoring import calculate_health_score, calculate_scoring_reform
+        
+        valuation_data_for_scoring = {
             "margin_of_safety": safe_mos,
             "sector_median_peg": safe_median_peg,
             "sector_median_pe": median_peer_pe if median_peer_pe else 0,
             "sector_median_ps": median_peer_ps if median_peer_ps else 0,
             "sector_median_ev_ebitda": median_peer_ev_ebitda if median_peer_ev_ebitda else 0,
-            "sector_median_pb": median_peer_pb if median_peer_pb else 0
-        }, data)
+            "sector_median_pb": median_peer_pb if median_peer_pb else 0,
+            "historic_pe": pe_historic if pe_historic else 0,
+            "market_cap": data.get("shares_outstanding", 0) * current_price if data.get("shares_outstanding") and current_price else 0.0
+        }
+        
+        def calculate_scenario_score(scenario_type):
+            metrics_copy = data.copy()
+            eps_ests = metrics_copy.get("eps_estimates", [])
+            rev_ests = metrics_copy.get("rev_estimates", [])
+            
+            if scenario_type == "base":
+                eps_key = "avg"
+                rev_key = "avg"
+            elif scenario_type == "bear":
+                eps_key = "low"
+                rev_key = "low"
+            elif scenario_type == "bull":
+                eps_key = "high"
+                rev_key = "high"
+                
+            fy1_eps_est = next((e for e in eps_ests if e.get("period") in ["FY 1", "FY1"]), None)
+            fy1_rev_est = next((e for e in rev_ests if e.get("period") in ["FY 1", "FY1"]), None)
+            
+            if fy1_eps_est and fy1_eps_est.get(eps_key):
+                eps_val = fy1_eps_est[eps_key]
+                if eps_val != 0:
+                    metrics_copy["forward_pe"] = current_price / eps_val
+                    metrics_copy["fwd_pe"] = metrics_copy["forward_pe"]
+                
+            if fy1_rev_est and fy1_rev_est.get(rev_key) and fy1_rev_est.get(rev_key) > 0:
+                rev_val = fy1_rev_est[rev_key]
+                if shares and shares > 0:
+                    metrics_copy["fwd_ps"] = current_price / (rev_val / shares)
+                    metrics_copy["ps_ratio"] = metrics_copy["fwd_ps"]
+                    
+                base_rev = fy1_rev_est.get("avg")
+                if base_rev and base_rev > 0:
+                    ratio = rev_val / base_rev
+                    base_ev_ebitda = data.get("ev_to_ebitda") or 0
+                    if base_ev_ebitda > 0:
+                        metrics_copy["forward_ev_ebitda"] = base_ev_ebitda / ratio
+                        metrics_copy["ev_to_ebitda"] = metrics_copy["forward_ev_ebitda"]
+            
+            ttm_rev = data.get("revenue") or data.get("total_revenue")
+            if ttm_rev and ttm_rev > 0 and fy1_rev_est and fy1_rev_est.get(rev_key):
+                metrics_copy["forward_revenue_growth"] = (fy1_rev_est[rev_key] - ttm_rev) / ttm_rev
+                metrics_copy["fwd_rev_growth"] = metrics_copy["forward_revenue_growth"]
+            
+            ttm_eps = data.get("trailing_eps") or data.get("adjusted_eps")
+            if ttm_eps and ttm_eps > 0 and fy1_eps_est and fy1_eps_est.get(eps_key):
+                metrics_copy["eps_growth"] = (fy1_eps_est[eps_key] - ttm_eps) / ttm_eps
+                
+            return calculate_scoring_reform(valuation_data_for_scoring, metrics_copy)
 
+        scoring_base = calculate_scenario_score("base")
+        scoring_bear = calculate_scenario_score("bear")
+        scoring_bull = calculate_scenario_score("bull")
+        
         health_results = calculate_health_score(data)
         health_score_total = health_results.get("total")
         health_breakdown = health_results.get("breakdown")
         beneish_data = health_results.get("beneish")
         
-        good_to_buy_total = scoring_results.get("good_to_buy_total")
-        buy_breakdown = scoring_results.get("buy_breakdown")
-
+        # Fallback to base score for the old keys to prevent breaking changes
+        good_to_buy_total = scoring_base.get("good_to_buy_total")
+        buy_breakdown = scoring_base.get("buy_breakdown")
+        
         # Piotroski F-Score & Rule of 40
         from models.scoring import calculate_piotroski_score, calculate_rule_of_40
         piotroski_result = calculate_piotroski_score(data)
@@ -1597,6 +1652,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             "health_score": { "beneish": beneish_data },
             "good_to_buy_total": good_to_buy_total,
             "buy_breakdown": buy_breakdown,
+            "scoring_results": {"base": scoring_base, "bear": scoring_bear, "bull": scoring_bull},
             "piotroski": piotroski_result,
             "rule_of_40": rule_of_40_result,
             "formula_data": formula_data,
