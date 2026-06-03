@@ -1468,8 +1468,10 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 eps_key = "high"
                 rev_key = "high"
                 
-            fy1_eps_est = next((e for e in eps_ests if e.get("period") in ["FY 1", "FY1"]), None)
-            fy1_rev_est = next((e for e in rev_ests if e.get("period") in ["FY 1", "FY1"]), None)
+            
+            # Find the first estimate (which represents the current FY / FY1)
+            fy1_eps_est = next((e for e in eps_ests if e.get("status") == "estimate"), None)
+            fy1_rev_est = next((e for e in rev_ests if e.get("status") == "estimate"), None)
             
             if fy1_eps_est and fy1_eps_est.get(eps_key):
                 eps_val = fy1_eps_est[eps_key]

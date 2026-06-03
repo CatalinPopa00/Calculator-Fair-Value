@@ -1094,6 +1094,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } else if (s.includes('real estate') || s.includes('reit')) {
             w = { dcf: 20, peg: 10, relative: 40, lynch: 30 };
+        } else if (s.includes('technology') || s.includes('healthcare') || s.includes('health care') || s.includes('communication')) {
+            w = { dcf: 25, peg: 40, relative: 25, lynch: 10 };
+        } else if (s.includes('industrials') || s.includes('energy') || s.includes('basic materials') || s.includes('cyclical')) {
+            w = { dcf: 30, peg: 10, relative: 40, lynch: 20 };
         } else {
             w = { dcf: 25, peg: 25, relative: 25, lynch: 25 };
         }
