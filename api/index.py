@@ -1133,6 +1133,17 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             else:
                 base_weights = {"dcf": 0.35, "peg": 0.35, "lynch": 0.15, "relative": 0.15}
                 data["archetype"] = "Stable Moat"
+
+        # v316: Debug log for Archetype Engine transparency
+        print(f"ARCHETYPE ENGINE | Company: {ticker.upper()} | Rev Growth: {m_rev_g:.2f}% | ROIC: {roic:.2f}% | Archetype: {data.get('archetype')} | Weights: dcf={base_weights.get('dcf',0)*100:.0f}% lynch={base_weights.get('lynch',0)*100:.0f}% peg={base_weights.get('peg',0)*100:.0f}% relative={base_weights.get('relative',0)*100:.0f}%")
+
+        # Store archetype weights for frontend consumption
+        data["archetype_weights"] = {
+            "dcf": int(base_weights.get("dcf", 0) * 100),
+            "lynch": int(base_weights.get("lynch", 0) * 100),
+            "peg": int(base_weights.get("peg", 0) * 100),
+            "relative": int(base_weights.get("relative", 0) * 100)
+        }
  
         # Map methods to weight keys
         lynch_pe20_val = lynch_result.get("fair_value_pe_20")
@@ -1462,7 +1473,8 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         _rev_ests = data.get("rev_estimates") or []
         _est_growths = [float(t["growth"]) for t in _rev_ests if t.get("status") == "estimate" and t.get("growth") is not None]
         if len(_est_growths) >= 2:
-            data["rev_cagr_2y"] = (_est_growths[0] + _est_growths[1]) / 2.0
+            mult = (1 + _est_growths[0]) * (1 + _est_growths[1])
+            data["rev_cagr_2y"] = (mult ** 0.5 - 1) if mult >= 0 else ((_est_growths[0] + _est_growths[1]) / 2.0)
         elif len(_est_growths) == 1:
             data["rev_cagr_2y"] = _est_growths[0]
         else:
@@ -1705,7 +1717,9 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 "risk_factors": risk_factors
             },
             "red_flags": data.get("red_flags", []),
-            "overrides": ticker_overrides
+            "overrides": ticker_overrides,
+            "archetype": data.get("archetype"),
+            "archetype_weights": data.get("archetype_weights")
         }
     except Exception as e:
         import traceback

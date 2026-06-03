@@ -1063,6 +1063,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // Load overrides from server on startup
     fetch('/api/overrides?t=' + Date.now(), { cache: 'no-store' }).then(r => r.json()).then(data => {
         cachedOverrides = data || {};
+        // v316: One-time migration — mark all existing weight overrides as stale
+        // so the next ticker load picks up backend archetype weights instead
+        if (!localStorage.getItem('v316_weights_migrated')) {
+            for (const tk of Object.keys(cachedOverrides)) {
+                if (cachedOverrides[tk] && cachedOverrides[tk].weights) {
+                    cachedOverrides[tk]._v316_stale = true;
+                }
+            }
+            localStorage.setItem('v316_weights_migrated', 'true');
+            console.log('v316: Marked all existing weight overrides as stale for archetype migration.');
+        }
     }).catch(e => console.error('Overrides load error:', e));
 
     // v315: Force clear old customPeers cache to apply new Forward-First backend logic
@@ -1079,7 +1090,17 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('Cleared old custom peers cache to apply new FWD logic.');
     }
 
-    const getSmartWeights = (sector, industry) => {
+    const getSmartWeights = (sector, industry, archetypeWeights) => {
+        // v316: If backend provides archetype-determined weights, use them directly
+        if (archetypeWeights && typeof archetypeWeights === 'object') {
+            return {
+                dcf: archetypeWeights.dcf || 0,
+                peg: archetypeWeights.peg || 0,
+                relative: archetypeWeights.relative || 0,
+                lynch: archetypeWeights.lynch || 0
+            };
+        }
+        // Fallback: sector-based weights (legacy, only used if backend doesn't provide archetypeWeights)
         let w = { dcf: 25, peg: 25, relative: 25, lynch: 25 };
         const s = (sector || '').toLowerCase();
         const ind = (industry || '').toLowerCase();
@@ -1117,8 +1138,8 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     window.getActiveToggles = getActiveToggles;
 
-    const setSmartWeights = (sector, industry) => {
-        const w = getSmartWeights(sector, industry);
+    const setSmartWeights = (sector, industry, archetypeWeights) => {
+        const w = getSmartWeights(sector, industry, archetypeWeights);
         customWeights = w;
 
         // Sync UI
@@ -1337,7 +1358,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         document.getElementById('smart-weights-btn').addEventListener('click', () => {
             if (!globalData || !globalData.company_profile) return;
-            setSmartWeights(globalData.company_profile.sector, globalData.company_profile.industry);
+            setSmartWeights(globalData.company_profile.sector, globalData.company_profile.industry, globalData.archetype_weights);
             saveOverride(currentTicker); // Persist immediately when "Auto-Set" is clicked
             if (typeof window.triggerRecalculate === 'function') {
                 window.triggerRecalculate();
@@ -3345,13 +3366,20 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // Ticker-Specific Weights Logic (v34)
+        // Ticker-Specific Weights Logic (v316: Backend archetype weights take priority)
         const override = cachedOverrides[data.ticker] || {};
-        if (override.weights) {
+        const backendArchWeights = data.archetype_weights || null;
+        
+        if (override.weights && !override._v316_stale) {
             // Restore saved weights for this specific company
             customWeights = { ...override.weights };
+        } else if (backendArchWeights) {
+            // v316: Use backend archetype-determined weights (replaces old sector-based logic)
+            customWeights = setSmartWeights(data.company_profile.sector, data.company_profile.industry, backendArchWeights);
+            saveOverride(data.ticker);
+            console.log(`v316: Applied archetype weights for ${data.ticker}: ${data.archetype} -> DCF:${customWeights.dcf} Lynch:${customWeights.lynch} PEG:${customWeights.peg} Rel:${customWeights.relative}`);
         } else if (data.company_profile && data.company_profile.sector) {
-            // No saved weights -> Auto-Set by Sector and SAVE immediately
+            // Fallback: No backend weights -> Auto-Set by Sector
             customWeights = setSmartWeights(data.company_profile.sector, data.company_profile.industry);
             saveOverride(data.ticker);
         }

@@ -1419,8 +1419,9 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
         # Select the best available growth rate
         # v219: Always use the arithmetic mean of FY0 + FY1 growth for a balanced estimate
         if yf_0y_growth is not None and yf_1y_growth is not None:
-            eps_growth = (yf_0y_growth + yf_1y_growth) / 2
-            eps_growth_period = "Avg FY0+FY1 Growth (Yahoo Consensus)"
+            mult = (1 + yf_0y_growth) * (1 + yf_1y_growth)
+            eps_growth = (mult ** 0.5 - 1) if mult >= 0 else ((yf_0y_growth + yf_1y_growth) / 2)
+            eps_growth_period = "2Y EPS CAGR (Yahoo Consensus)"
         elif yf_0y_growth is not None and yf_0y_growth > 0.02:
             eps_growth = yf_0y_growth
             eps_growth_period = "Current FY Growth (Yahoo Consensus)"
@@ -2817,7 +2818,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
             valid_proj = [g for g in proj_growths if g is not None and g > 0.001]
             
             if len(valid_proj) >= 2:
-                eps_growth = (valid_proj[0] + valid_proj[1]) / 2
+                mult = (1 + valid_proj[0]) * (1 + valid_proj[1])
+                eps_growth = (mult ** 0.5 - 1) if mult >= 0 else ((valid_proj[0] + valid_proj[1]) / 2)
                 eps_growth_period = "2Y EPS CAGR (Yahoo Truth Sync)"
             elif len(valid_proj) == 1:
                 eps_growth = valid_proj[0]
@@ -3443,9 +3445,10 @@ def get_competitors_data(target_ticker: str, limit: int = 4, custom_peers: list 
                         if e1.get('avg') and e0.get('avg') and e0['avg'] != 0:
                             g_fy2 = (e1['avg'] - e0['avg']) / abs(e0['avg'])
                         
-                        # 2-year average EPS growth
+                        # 2-year average EPS growth -> changed to CAGR
                         if g_fy1 is not None and g_fy2 is not None:
-                            avg_2y_growth = (g_fy1 + g_fy2) / 2
+                            mult = (1 + g_fy1) * (1 + g_fy2)
+                            avg_2y_growth = (mult ** 0.5 - 1) if mult >= 0 else ((g_fy1 + g_fy2) / 2)
                             earn_growth = g_fy1  # Use FY1 for display
                         elif g_fy1 is not None:
                             avg_2y_growth = None
@@ -4004,7 +4007,8 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         # v258: Unified Growth detection from Reformed Table
         eps_forward_growth = info.get('earningsGrowth', 0.10)
         if g1 is not None and g2 is not None:
-            eps_forward_growth = (g1 + g2) / 2
+            mult = (1 + g1) * (1 + g2)
+            eps_forward_growth = (mult ** 0.5 - 1) if mult >= 0 else ((g1 + g2) / 2)
         elif g1 is not None:
             eps_forward_growth = g1
         elif g2 is not None:
