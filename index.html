@@ -88,52 +88,50 @@
                     <!-- Column 1: Identity & Fair Value -->
                     <div class="hero-left-col">
                         <div class="company-header glass-card"
-                            style="display: flex; flex-direction: column; align-items: center; text-align: center; position: relative; min-height: 120px;">
-                            
+                            style="display: flex; flex-direction: column; align-items: center; text-align: center;">
+                            <div class="name-watchlist-row"
+                                style="display: flex; justify-content: center; align-items: center; width: 100%; gap: 10px;">
+                                <h2 style="margin: 0;"><span id="company-name">Loading...</span> <span class="ticker"
+                                        id="company-ticker"></span></h2>
+                                <button id="add-to-watchlist-btn" class="star-btn" title="Toggle Watchlist">☆</button>
+                            </div>
+                            <div class="price-display" style="align-items: center; margin-top: 10px;">
+                                <span class="label">Current Price</span>
+                                <div style="display: flex; align-items: center; gap: 8px; justify-content: center;">
+                                    <span class="value" id="current-price">$0.00</span>
+                                    <input type="number" id="simulate-price-input" class="simulate-price-input" style="display:none;" step="0.01" min="0" placeholder="0.00">
+                                    <button id="simulate-price-btn" class="simulate-price-btn" title="Simulate a different price">⚡</button>
+                                </div>
+                                <div id="simulate-price-label" class="simulate-label" style="display:none;">Simulated Price</div>
+                            </div>
+                        </div>
+
+                        <div class="fair-value-box glass-card accent-card" style="height: 100%; position: relative;">
                             <!-- Toggle Button -->
-                            <button id="toggle-chart-btn" title="Toggle Price Chart" style="position: absolute; top: 12px; right: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 1.1rem; transition: 0.3s; z-index: 10;">
+                            <button id="toggle-chart-btn" title="Toggle Price Chart" style="position: absolute; top: 15px; left: 15px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 1.1rem; transition: 0.2s; z-index: 10;">
                                 📈
                             </button>
 
-                            <!-- VIEW A: Current Price -->
-                            <div id="view-current-price" style="width: 100%; transition: opacity 0.3s ease-in-out; opacity: 1;">
-                                <div class="name-watchlist-row"
-                                    style="display: flex; justify-content: center; align-items: center; width: 100%; gap: 10px; padding-top: 5px;">
-                                    <h2 style="margin: 0; padding-right: 30px;"><span id="company-name">Loading...</span> <span class="ticker"
-                                            id="company-ticker"></span></h2>
-                                    <button id="add-to-watchlist-btn" class="star-btn" title="Toggle Watchlist">☆</button>
+                            <div id="view-fair-value" style="width: 100%; transition: opacity 0.3s ease-in-out; opacity: 1; display: flex; flex-direction: column; align-items: center;">
+                                <span class="label">Estimated Fair Value</span>
+                                
+                                <div class="scenario-toggles" style="display: flex; justify-content: center; gap: 8px; margin: 10px 0;">
+                                    <button class="scenario-btn bear-btn" data-scenario="bear">Bear</button>
+                                    <button class="scenario-btn base-btn active" data-scenario="base">Base</button>
+                                    <button class="scenario-btn bull-btn" data-scenario="bull">Bull</button>
                                 </div>
-                                <div class="price-display" style="align-items: center; margin-top: 10px;">
-                                    <span class="label">Current Price</span>
-                                    <div style="display: flex; align-items: center; gap: 8px; justify-content: center;">
-                                        <span class="value" id="current-price">$0.00</span>
-                                        <input type="number" id="simulate-price-input" class="simulate-price-input" style="display:none;" step="0.01" min="0" placeholder="0.00">
-                                        <button id="simulate-price-btn" class="simulate-price-btn" title="Simulate a different price">⚡</button>
-                                    </div>
-                                    <div id="simulate-price-label" class="simulate-label" style="display:none;">Simulated Price</div>
-                                </div>
+
+                                <!-- The ID is moved inside a span so we can color JUST the text or keep it neutral -->
+                                <div class="value" style="color: white;" id="fair-value">$0.00</div>
+                                <div class="margin-safety" id="margin-safety">0% Margin of Safety</div>
                             </div>
 
                             <!-- VIEW B: TradingView Chart -->
-                            <div id="view-price-chart" style="width: 100%; height: 260px; display: none; opacity: 0; transition: opacity 0.3s ease-in-out; padding-top: 15px;">
+                            <div id="view-price-chart" style="width: 100%; height: 100%; min-height: 260px; display: none; opacity: 0; transition: opacity 0.3s ease-in-out;">
                                 <div class="tradingview-widget-container" style="width: 100%; height: 100%;">
                                   <div class="tradingview-widget-container__widget" id="tv-widget-container"></div>
                                 </div>
                             </div>
-                        </div>
-
-                        <div class="fair-value-box glass-card accent-card" style="height: 100%;">
-                            <span class="label">Estimated Fair Value</span>
-                            
-                            <div class="scenario-toggles" style="display: flex; justify-content: center; gap: 8px; margin: 10px 0;">
-                                <button class="scenario-btn bear-btn" data-scenario="bear">Bear</button>
-                                <button class="scenario-btn base-btn active" data-scenario="base">Base</button>
-                                <button class="scenario-btn bull-btn" data-scenario="bull">Bull</button>
-                            </div>
-
-                            <!-- The ID is moved inside a span so we can color JUST the text or keep it neutral -->
-                            <div class="value" style="color: white;" id="fair-value">$0.00</div>
-                            <div class="margin-safety" id="margin-safety">0% Margin of Safety</div>
                         </div>
                     </div>
 

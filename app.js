@@ -455,7 +455,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const initChartToggle = () => {
         const toggleBtn = document.getElementById('toggle-chart-btn');
-        const viewA = document.getElementById('view-current-price');
+        const viewA = document.getElementById('view-fair-value');
         const viewB = document.getElementById('view-price-chart');
         const container = document.getElementById('tv-widget-container');
 
@@ -3507,7 +3507,7 @@ document.addEventListener('DOMContentLoaded', () => {
             _chartViewActive = false;
             
             const toggleBtn = document.getElementById('toggle-chart-btn');
-            const viewA = document.getElementById('view-current-price');
+            const viewA = document.getElementById('view-fair-value');
             const viewB = document.getElementById('view-price-chart');
             if (toggleBtn && viewA && viewB) {
                 toggleBtn.style.background = 'rgba(255,255,255,0.05)';
