@@ -464,11 +464,14 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleBtn.onclick = () => {
             _chartViewActive = !_chartViewActive;
             
+            const openWeightsBtn = document.getElementById('open-weights-btn');
+            
             if (_chartViewActive) {
                 // Switch to Chart View
                 toggleBtn.style.background = 'rgba(251, 191, 36, 0.2)'; // Highlight active state
                 toggleBtn.style.borderColor = 'rgba(251, 191, 36, 0.5)';
                 viewA.style.opacity = '0';
+                if (openWeightsBtn) openWeightsBtn.style.display = 'none';
                 
                 setTimeout(() => {
                     viewA.style.display = 'none';
@@ -531,6 +534,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 toggleBtn.style.background = 'rgba(255,255,255,0.05)';
                 toggleBtn.style.borderColor = 'rgba(255,255,255,0.1)';
                 viewB.style.opacity = '0';
+                if (openWeightsBtn) openWeightsBtn.style.display = 'block';
                 
                 setTimeout(() => {
                     viewB.style.display = 'none';

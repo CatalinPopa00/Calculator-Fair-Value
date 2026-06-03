@@ -90,10 +90,11 @@
                         <div class="company-header glass-card"
                             style="display: flex; flex-direction: column; align-items: center; text-align: center;">
                             <div class="name-watchlist-row"
-                                style="display: flex; justify-content: center; align-items: center; width: 100%; gap: 10px;">
-                                <h2 style="margin: 0;"><span id="company-name">Loading...</span> <span class="ticker"
+                                style="display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 0 10px;">
+                                <button id="toggle-chart-btn" title="Toggle Price Chart" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 1.1rem; transition: 0.2s; z-index: 10;">📈</button>
+                                <h2 style="margin: 0; flex: 1; text-align: center;"><span id="company-name">Loading...</span> <span class="ticker"
                                         id="company-ticker"></span></h2>
-                                <button id="add-to-watchlist-btn" class="star-btn" title="Toggle Watchlist">☆</button>
+                                <button id="add-to-watchlist-btn" class="star-btn" title="Toggle Watchlist" style="margin-left: 0;">☆</button>
                             </div>
                             <div class="price-display" style="align-items: center; margin-top: 10px;">
                                 <span class="label">Current Price</span>
@@ -107,10 +108,6 @@
                         </div>
 
                         <div class="fair-value-box glass-card accent-card" style="flex: 1; position: relative;">
-                            <!-- Toggle Button -->
-                            <button id="toggle-chart-btn" title="Toggle Price Chart" style="position: absolute; top: 15px; left: 15px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 1.1rem; transition: 0.2s; z-index: 10;">
-                                📈
-                            </button>
 
                             <div id="view-fair-value" style="width: 100%; transition: opacity 0.3s ease-in-out; opacity: 1; display: flex; flex-direction: column; align-items: center;">
                                 <span class="label">Estimated Fair Value</span>
@@ -128,8 +125,6 @@
 
                             <!-- VIEW B: TradingView Chart -->
                             <div id="view-price-chart" style="width: 100%; height: 350px; display: none; opacity: 0; transition: opacity 0.3s ease-in-out; position: relative;">
-                                <!-- TV Logo Patch -->
-                                <div id="tv-logo-patch" style="position: absolute; left: 4px; bottom: 4px; width: 45px; height: 45px; background: #0f172a; border-radius: 50%; z-index: 100; box-shadow: 0 0 10px 5px #0f172a; cursor: default;"></div>
                                 <div class="tradingview-widget-container" style="width: 100%; height: 100%;">
                                   <div class="tradingview-widget-container__widget" id="tv-widget-container" style="width: 100%; height: 100%;"></div>
                                 </div>
