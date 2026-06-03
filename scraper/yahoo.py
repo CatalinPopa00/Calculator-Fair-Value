@@ -1821,14 +1821,23 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                         eps_last_year = eps_vals[0]
                     
                     
-                    def calc_yoy_avg(vals, num_years):
+                    def calc_cagr_or_avg(vals, num_years):
                         v = vals[:num_years]
                         if len(v) >= 2:
+                            new_val = v[0]
+                            old_val = v[-1]
+                            # Prioritize true CAGR if both endpoints are positive
+                            if old_val > 0 and new_val > 0:
+                                years = len(v) - 1
+                                cagr = (new_val / old_val) ** (1 / years) - 1
+                                return min(max(cagr, -0.20), 0.50)
+                            
+                            # Fallback to Average YoY for negative/volatile earnings
                             yoy_rates = []
                             for i in range(len(v)-1):
-                                new_val, old_val = v[i], v[i+1]
-                                if old_val != 0:
-                                    g = (new_val - old_val) / abs(old_val)
+                                n_v, o_v = v[i], v[i+1]
+                                if o_v != 0:
+                                    g = (n_v - o_v) / abs(o_v)
                                     g = min(max(g, -1.0), 1.0) # Clamp YoY extremes
                                     yoy_rates.append(g)
                             if yoy_rates:
@@ -1836,8 +1845,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                                 return min(max(avg_g, -0.20), 0.50) # Cap final average
                         return None
                         
-                    historic_eps_growth_3y = calc_yoy_avg(eps_vals, 3) # Last 3 years
-                    historic_eps_growth_5y = calc_yoy_avg(eps_vals, 5) # Last 5 years
+                    historic_eps_growth_3y = calc_cagr_or_avg(eps_vals, 4) # 3 years growth requires 4 data points
+                    historic_eps_growth_5y = calc_cagr_or_avg(eps_vals, 6) # 5 years growth requires 6 data points
                     historic_eps_growth = historic_eps_growth_5y or historic_eps_growth_3y
         except Exception:
             pass
