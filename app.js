@@ -449,6 +449,97 @@ document.addEventListener('DOMContentLoaded', () => {
     let _originalPrice = null; // Stores the restore point for simulation reset
     let _simulating = false;
 
+    // --- CHART TOGGLE ENGINE ---
+    let _chartViewActive = false;
+    let _tvWidgetCreatedFor = null;
+
+    const initChartToggle = () => {
+        const toggleBtn = document.getElementById('toggle-chart-btn');
+        const viewA = document.getElementById('view-current-price');
+        const viewB = document.getElementById('view-price-chart');
+        const container = document.getElementById('tv-widget-container');
+
+        if (!toggleBtn || !viewA || !viewB) return;
+
+        toggleBtn.onclick = () => {
+            _chartViewActive = !_chartViewActive;
+            
+            if (_chartViewActive) {
+                // Switch to Chart View
+                toggleBtn.style.background = 'rgba(251, 191, 36, 0.2)'; // Highlight active state
+                toggleBtn.style.borderColor = 'rgba(251, 191, 36, 0.5)';
+                viewA.style.opacity = '0';
+                
+                setTimeout(() => {
+                    viewA.style.display = 'none';
+                    viewB.style.display = 'block';
+                    // force reflow
+                    void viewB.offsetWidth;
+                    viewB.style.opacity = '1';
+
+                    // Inject TradingView widget if needed
+                    if (globalData && globalData.ticker && _tvWidgetCreatedFor !== globalData.ticker) {
+                        container.innerHTML = ''; // clear old widget
+                        const script = document.createElement('script');
+                        script.type = 'text/javascript';
+                        script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js';
+                        script.async = true;
+                        
+                        // Handle formatting (e.g. standardizing for TV)
+                        let tvSymbol = globalData.ticker.toUpperCase();
+                        
+                        script.innerHTML = JSON.stringify({
+                            "symbols": [
+                                [ tvSymbol, tvSymbol + "|1D" ]
+                            ],
+                            "chartOnly": false,
+                            "width": "100%",
+                            "height": "100%",
+                            "locale": "en",
+                            "colorTheme": "dark",
+                            "autosize": true,
+                            "showVolume": false,
+                            "showMA": false,
+                            "hideDateRanges": false,
+                            "hideMarketStatus": false,
+                            "hideSymbolLogo": true,
+                            "scalePosition": "right",
+                            "scaleMode": "Normal",
+                            "fontFamily": "-apple-system, BlinkMacSystemFont, Trebuchet MS, Roboto, Ubuntu, sans-serif",
+                            "fontSize": "10",
+                            "noTimeScale": false,
+                            "valuesTracking": "1",
+                            "changeMode": "price-and-percent",
+                            "chartType": "area",
+                            "maLineColor": "#2962FF",
+                            "maLineWidth": 1,
+                            "maLength": 9,
+                            "lineWidth": 2,
+                            "lineType": 0,
+                            "dateRanges": [ "1d|1", "1m|30", "3m|60", "12m|1D", "60m|1W", "all|1M" ],
+                            "backgroundColor": "rgba(0, 0, 0, 0)" // transparent
+                        });
+                        container.appendChild(script);
+                        _tvWidgetCreatedFor = globalData.ticker;
+                    }
+                }, 300);
+            } else {
+                // Switch to Current Price View
+                toggleBtn.style.background = 'rgba(255,255,255,0.05)';
+                toggleBtn.style.borderColor = 'rgba(255,255,255,0.1)';
+                viewB.style.opacity = '0';
+                
+                setTimeout(() => {
+                    viewB.style.display = 'none';
+                    viewA.style.display = 'block';
+                    // force reflow
+                    void viewA.offsetWidth;
+                    viewA.style.opacity = '1';
+                }, 300);
+            }
+        });
+    };
+
     // --- SIMULATE PRICE ENGINE ---
     const initSimulatePrice = () => {
         const btn = document.getElementById('simulate-price-btn');
@@ -3413,6 +3504,20 @@ document.addEventListener('DOMContentLoaded', () => {
         // Reset Simulate Price mode ONLY if it's a completely new ticker search
         if (!isSilentUpdate) {
             _simulating = false;
+            _chartViewActive = false;
+            
+            const toggleBtn = document.getElementById('toggle-chart-btn');
+            const viewA = document.getElementById('view-current-price');
+            const viewB = document.getElementById('view-price-chart');
+            if (toggleBtn && viewA && viewB) {
+                toggleBtn.style.background = 'rgba(255,255,255,0.05)';
+                toggleBtn.style.borderColor = 'rgba(255,255,255,0.1)';
+                viewA.style.display = 'block';
+                viewA.style.opacity = '1';
+                viewB.style.display = 'none';
+                viewB.style.opacity = '0';
+            }
+
             _realApiPrice = data.current_price;
             _originalPrice = data.current_price;
             const simInput = document.getElementById('simulate-price-input');
@@ -3423,6 +3528,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (simLabel) simLabel.style.display = 'none';
             elements.currentPrice.style.display = '';
             initSimulatePrice();
+            initChartToggle();
         } else {
             // Update the underlying real prices, but DO NOT disable simulation!
             if (!wasSimulating) {
