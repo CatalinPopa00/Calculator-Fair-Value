@@ -619,7 +619,129 @@
                         <!-- DEEP RESEARCH SECTION: Harmonized Unified Design -->
                         <section class="deep-research-section" style="margin-top: 3rem;">
                             
-                            <!-- 1. Analyst Consensus Segment -->
+                            <!-- 1. Ownership Segment -->
+                            <div class="research-card glass-card" id="ownership-card" style="margin-bottom: 2rem;">
+                                <div class="research-header">
+                                    <div class="header-icon">👥</div>
+                                    <h3 class="research-title">Ownership</h3>
+                                </div>
+                                
+                                <div class="analyst-tabs-wrapper">
+                                    <div class="analyst-tabs-control">
+                                        <button class="analyst-tab-btn ownership-tab-btn active" data-tab="holders">Holders</button>
+                                        <button class="analyst-tab-btn ownership-tab-btn" data-tab="top-holders">Top</button>
+                                        <button class="analyst-tab-btn ownership-tab-btn" data-tab="insiders">Insiders</button>
+                                        <button class="analyst-tab-btn ownership-tab-btn" data-tab="stats">Stats</button>
+                                    </div>
+                                </div>
+
+                                <div class="analyst-content-area ownership-content-area">
+                                    <div class="analyst-grid ownership-grid">
+                                        <!-- Col 1: Holders Radial Chart -->
+                                        <div class="analyst-tab-content ownership-tab-content active" id="tab-holders">
+                                            <div class="pt-module">
+                                                <span class="module-label">HOLDERS BREAKDOWN</span>
+                                                <div class="radial-chart-container" style="position: relative; width: 160px; height: 160px; margin: 15px auto;">
+                                                    <svg width="160" height="160" viewBox="0 0 160 160" style="transform: rotate(-90deg);">
+                                                        <!-- Insiders -->
+                                                        <circle cx="80" cy="80" r="70" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="12" />
+                                                        <circle cx="80" cy="80" r="70" fill="none" stroke="#eab308" stroke-width="12" stroke-linecap="round" id="ring-insiders" stroke-dasharray="439.8" stroke-dashoffset="439.8" style="transition: stroke-dashoffset 1s ease-out;" />
+                                                        
+                                                        <!-- Institutions -->
+                                                        <circle cx="80" cy="80" r="54" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="12" />
+                                                        <circle cx="80" cy="80" r="54" fill="none" stroke="#ec4899" stroke-width="12" stroke-linecap="round" id="ring-institutions" stroke-dasharray="339.3" stroke-dashoffset="339.3" style="transition: stroke-dashoffset 1s ease-out 0.2s;" />
+                                                        
+                                                        <!-- Float -->
+                                                        <circle cx="80" cy="80" r="38" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="12" />
+                                                        <circle cx="80" cy="80" r="38" fill="none" stroke="#38bdf8" stroke-width="12" stroke-linecap="round" id="ring-float" stroke-dasharray="238.8" stroke-dashoffset="238.8" style="transition: stroke-dashoffset 1s ease-out 0.4s;" />
+                                                    </svg>
+                                                    <div class="radial-center-text" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: white;">
+                                                        <div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase;">Float</div>
+                                                        <div id="float-pct-text" style="font-weight: 700; font-size: 1.1rem; color: #38bdf8;">--</div>
+                                                    </div>
+                                                </div>
+                                                <div class="holders-legend" style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px; font-size: 0.8rem;">
+                                                    <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);"><span style="color:#eab308">●</span> Insiders</span> <span id="leg-insiders" style="font-weight: bold;">--</span></div>
+                                                    <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);"><span style="color:#ec4899">●</span> Institutions</span> <span id="leg-institutions" style="font-weight: bold;">--</span></div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Col 2: Top Holders -->
+                                        <div class="analyst-tab-content ownership-tab-content" id="tab-top-holders">
+                                            <div class="rec-module" style="height: 100%;">
+                                                <span class="module-label">TOP 5 INSTITUTIONAL HOLDERS</span>
+                                                <div class="table-responsive" style="margin-top: 10px;">
+                                                    <table class="estimates-table" style="width: 100%; text-align: left; font-size: 0.8rem;">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>Holder</th>
+                                                                <th style="text-align: right;">Shares</th>
+                                                                <th style="text-align: right;">% Out</th>
+                                                                <th style="text-align: right;">Value</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody id="top-holders-body">
+                                                            <!-- JS Injected -->
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Col 3: Insiders -->
+                                        <div class="analyst-tab-content ownership-tab-content" id="tab-insiders">
+                                            <div class="eps-module" style="height: 100%;">
+                                                <span class="module-label" style="display: flex; justify-content: space-between; align-items: center;">
+                                                    INSIDER TRANSACTIONS
+                                                    <div class="insider-tabs" style="display: flex; gap: 4px;">
+                                                        <button class="insider-subtab active" data-type="buy" style="background: rgba(16,185,129,0.2); color: #10b981; border: 1px solid #10b981; border-radius: 4px; padding: 2px 8px; font-size: 0.7rem; cursor: pointer;">Buy</button>
+                                                        <button class="insider-subtab" data-type="sell" style="background: transparent; color: var(--text-muted); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; padding: 2px 8px; font-size: 0.7rem; cursor: pointer;">Sell</button>
+                                                    </div>
+                                                </span>
+                                                <div class="table-responsive" style="margin-top: 10px; max-height: 200px; overflow-y: auto;">
+                                                    <table class="estimates-table" style="width: 100%; text-align: left; font-size: 0.75rem;">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>Date</th>
+                                                                <th>Insider</th>
+                                                                <th style="text-align: right;">Shares</th>
+                                                                <th style="text-align: right;">Value</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody id="insider-tx-body">
+                                                            <!-- JS Injected -->
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Col 4: Statistics -->
+                                        <div class="analyst-tab-content ownership-tab-content" id="tab-stats">
+                                            <div class="rev-module" style="height: 100%;">
+                                                <span class="module-label">INSIDER PURCHASES (LAST 6M)</span>
+                                                <div class="table-responsive" style="margin-top: 10px;">
+                                                    <table class="estimates-table" style="width: 100%; text-align: left; font-size: 0.8rem;">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>Metric</th>
+                                                                <th style="text-align: right;">Shares</th>
+                                                                <th style="text-align: right;">Trans.</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody id="insider-stats-body">
+                                                            <!-- JS Injected -->
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 2. Analyst Consensus Segment -->
                             <div class="research-card glass-card" id="analyst-estimates-card">
                                 <div class="research-header">
                                     <div class="header-icon">📊</div>

@@ -296,13 +296,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const targetTab = btn.getAttribute('data-tab');
         if (!targetTab) return;
+        
+        const card = btn.closest('.research-card');
+        if (!card) return;
 
-        // Update buttons
-        document.querySelectorAll('.analyst-tab-btn').forEach(b => b.classList.remove('active'));
+        // Update buttons within the same card
+        card.querySelectorAll('.analyst-tab-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
 
-        // Update contents
-        document.querySelectorAll('.analyst-tab-content').forEach(content => {
+        // Update contents within the same card
+        card.querySelectorAll('.analyst-tab-content').forEach(content => {
             if (content.id === `tab-${targetTab}`) {
                 content.classList.add('active');
                 content.style.display = 'block';
@@ -3435,6 +3438,109 @@ document.addEventListener('DOMContentLoaded', () => {
     const formatCurrency = (val) => val != null ? `$${val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'null';
     const formatPercent = (val) => val != null ? `${val.toFixed(2)}%` : '0%';
 
+    const renderOwnership = (ownership) => {
+        const ownershipCard = document.getElementById('ownership-card');
+        if (!ownership || Object.keys(ownership).length === 0) {
+            if (ownershipCard) ownershipCard.style.display = 'none';
+            return;
+        }
+        if (ownershipCard) ownershipCard.style.display = 'block';
+
+        // 1. Holders
+        const mh = ownership.major_holders || {};
+        const ins = (mh.insiders || 0) * 100;
+        const inst = (mh.institutions || 0) * 100;
+        const flt = (mh.float || 0) * 100;
+        
+        document.getElementById('float-pct-text').textContent = flt.toFixed(1) + '%';
+        document.getElementById('leg-insiders').textContent = ins.toFixed(1) + '%';
+        document.getElementById('leg-institutions').textContent = inst.toFixed(1) + '%';
+        
+        setTimeout(() => {
+            document.getElementById('ring-insiders').style.strokeDashoffset = 439.8 - (439.8 * (ins / 100));
+            document.getElementById('ring-institutions').style.strokeDashoffset = 339.3 - (339.3 * (inst / 100));
+            document.getElementById('ring-float').style.strokeDashoffset = 238.8 - (238.8 * (flt / 100));
+        }, 100);
+
+        // 2. Top Holders
+        const thBody = document.getElementById('top-holders-body');
+        thBody.innerHTML = '';
+        if (ownership.top_institutional && ownership.top_institutional.length > 0) {
+            ownership.top_institutional.forEach(th => {
+                thBody.innerHTML += `<tr>
+                    <td>${th.holder}</td>
+                    <td style="text-align: right;">${formatBigNumber(th.shares, '')}</td>
+                    <td style="text-align: right;">${(th.pct_out * 100).toFixed(2)}%</td>
+                    <td style="text-align: right;">${formatBigNumber(th.value, '$')}</td>
+                </tr>`;
+            });
+        } else {
+            thBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No data available</td></tr>';
+        }
+
+        // 3. Insiders
+        const txBody = document.getElementById('insider-tx-body');
+        const renderTx = (type) => {
+            txBody.innerHTML = '';
+            const txs = ownership.insider_transactions ? ownership.insider_transactions[type] : [];
+            if (txs && txs.length > 0) {
+                txs.forEach(tx => {
+                    txBody.innerHTML += `<tr>
+                        <td>${tx.date}</td>
+                        <td>${tx.insider}<br><span style="color:var(--text-muted); font-size: 0.65rem;">${tx.position}</span></td>
+                        <td style="text-align: right; color: ${type === 'buy' ? 'var(--accent)' : 'var(--danger)'};">${formatBigNumber(tx.shares, '')}</td>
+                        <td style="text-align: right;">${formatBigNumber(tx.value, '$')}</td>
+                    </tr>`;
+                });
+            } else {
+                txBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No transactions found</td></tr>';
+            }
+        };
+        renderTx('buy');
+
+        // Bind sub-tabs for insiders
+        document.querySelectorAll('.insider-subtab').forEach(btn => {
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, newBtn); // Replace with clone to remove old listeners
+            newBtn.addEventListener('click', (e) => {
+                document.querySelectorAll('.insider-subtab').forEach(b => {
+                    b.classList.remove('active');
+                    b.style.background = 'transparent';
+                    b.style.color = 'var(--text-muted)';
+                    b.style.border = '1px solid rgba(255,255,255,0.2)';
+                });
+                
+                const type = e.target.getAttribute('data-type');
+                e.target.classList.add('active');
+                if (type === 'buy') {
+                    e.target.style.background = 'rgba(16,185,129,0.2)';
+                    e.target.style.color = '#10b981';
+                    e.target.style.border = '1px solid #10b981';
+                } else {
+                    e.target.style.background = 'rgba(239,68,68,0.2)';
+                    e.target.style.color = '#ef4444';
+                    e.target.style.border = '1px solid #ef4444';
+                }
+                renderTx(type);
+            });
+        });
+
+        // 4. Statistics
+        const stBody = document.getElementById('insider-stats-body');
+        stBody.innerHTML = '';
+        if (ownership.insider_purchases_6m && ownership.insider_purchases_6m.length > 0) {
+            ownership.insider_purchases_6m.forEach(st => {
+                stBody.innerHTML += `<tr>
+                    <td>${st.label}</td>
+                    <td style="text-align: right;">${formatBigNumber(st.shares, '')}</td>
+                    <td style="text-align: right;">${st.trans}</td>
+                </tr>`;
+            });
+        } else {
+            stBody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-muted);">No data available</td></tr>';
+        }
+    };
+
     const displayData = (data, isSilentUpdate = false) => {
         if (!data) return;
 
@@ -3535,6 +3641,8 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.name.textContent = data.name;
         elements.ticker.textContent = data.ticker;
         elements.currentPrice.textContent = formatCurrency(data.current_price);
+        
+        renderOwnership(data.ownership);
 
         // Reset Simulate Price mode ONLY if it's a completely new ticker search
         if (!isSilentUpdate) {

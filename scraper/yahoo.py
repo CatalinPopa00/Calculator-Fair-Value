@@ -1165,6 +1165,105 @@ Strictly adhere to these precise markdown headers (written exactly like this, in
 
     return output
 
+def get_ownership_data(ticker_symbol: str):
+    try:
+        stock = yf.Ticker(ticker_symbol)
+        
+        # 1. Major Holders
+        mh = {}
+        try:
+            major = stock.major_holders
+            if major is not None and not major.empty:
+                for idx, row in major.iterrows():
+                    bd = row.get('Breakdown', '')
+                    val = row.get('Value')
+                    if pd.notna(val):
+                        if 'insidersPercentHeld' in bd:
+                            mh['insiders'] = float(val)
+                        elif 'institutionsPercentHeld' in bd:
+                            mh['institutions'] = float(val)
+                # Calculate free float if we have both
+                if 'insiders' in mh and 'institutions' in mh:
+                    mh['float'] = max(0, 1.0 - mh['insiders'] - mh['institutions'])
+        except Exception as e:
+            log(f"Error fetching major_holders for {ticker_symbol}: {e}")
+
+        # 2. Top Institutional Holders
+        top_inst = []
+        try:
+            ih = stock.institutional_holders
+            if ih is not None and not ih.empty:
+                # Need sharesOutstanding to calculate % Out
+                so = stock.info.get('sharesOutstanding', 0)
+                for _, row in ih.head(5).iterrows():
+                    shares = float(row.get('Shares', 0)) if pd.notna(row.get('Shares')) else 0
+                    pct_out = (shares / so) if so > 0 else 0
+                    top_inst.append({
+                        "holder": str(row.get('Holder', '')),
+                        "shares": shares,
+                        "pct_out": pct_out,
+                        "value": float(row.get('Value', 0)) if pd.notna(row.get('Value')) else 0
+                    })
+        except Exception as e:
+            log(f"Error fetching institutional_holders for {ticker_symbol}: {e}")
+
+        # 3. Insider Transactions (Buy / Sell)
+        insider_buy = []
+        insider_sell = []
+        try:
+            it = stock.insider_transactions
+            if it is not None and not it.empty:
+                for _, row in it.iterrows():
+                    text = str(row.get('Text', '')).lower()
+                    if pd.isna(row.get('Text')): continue
+                    
+                    # Convert Timestamp to string
+                    date_val = row.get('Start Date')
+                    date_str = date_val.strftime('%b %d, %Y') if hasattr(date_val, 'strftime') else str(date_val)
+                    
+                    tx = {
+                        "insider": str(row.get('Insider', '')),
+                        "position": str(row.get('Position', '')),
+                        "date": date_str,
+                        "shares": float(row.get('Shares', 0)) if pd.notna(row.get('Shares')) else 0,
+                        "value": float(row.get('Value', 0)) if pd.notna(row.get('Value')) else 0,
+                        "text": str(row.get('Text', ''))
+                    }
+                    if 'purchase' in text or 'buy' in text:
+                        if len(insider_buy) < 10:
+                            insider_buy.append(tx)
+                    elif 'sale' in text or 'sell' in text:
+                        if len(insider_sell) < 10:
+                            insider_sell.append(tx)
+        except Exception as e:
+            log(f"Error fetching insider_transactions for {ticker_symbol}: {e}")
+
+        # 4. Insider Purchases (Statistics)
+        purchases_stats = []
+        try:
+            ip = stock.insider_purchases
+            if ip is not None and not ip.empty:
+                for _, row in ip.iterrows():
+                    purchases_stats.append({
+                        "label": str(row.get('Insider Purchases Last 6m', '')),
+                        "shares": float(row.get('Shares', 0)) if pd.notna(row.get('Shares')) else 0,
+                        "trans": int(row.get('Trans', 0)) if pd.notna(row.get('Trans')) else 0
+                    })
+        except Exception as e:
+            log(f"Error fetching insider_purchases for {ticker_symbol}: {e}")
+
+        return {
+            "major_holders": mh,
+            "top_institutional": top_inst,
+            "insider_transactions": {
+                "buy": insider_buy,
+                "sell": insider_sell
+            },
+            "insider_purchases_6m": purchases_stats
+        }
+    except Exception as e:
+        log(f"Error in get_ownership_data for {ticker_symbol}: {e}")
+        return {}
 
 
 def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh: bool = False):
@@ -4051,7 +4150,8 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             "forward_eps": fy1_eps if fy1_eps else ((info.get('forwardEps') or 0) * fx_rate if info else None),
             "eps_growth": normalize_growth(eps_forward_growth),
             "fwd_pe": (current_price / fy1_eps) if (current_price and fy1_eps and fy1_eps > 0) else None, # v260
-            "eps_trend": eps_trend
+            "eps_trend": eps_trend,
+            "ownership": get_ownership_data(ticker_symbol)
         }
 
 
