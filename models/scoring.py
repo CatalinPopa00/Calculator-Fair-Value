@@ -453,6 +453,11 @@ def calculate_scoring_reform(valuation_data, metrics):
         add_b("Quick Ratio", qr, pts, 20, True)
 
     else:
+        # Monopoly Rule: If ROIC > 20% and Health >= 80/100, compare P/E strictly against Historical P/E
+        is_monopoly = (roic > 20.0 and health_total >= 80.0)
+        if is_monopoly and hist_pe is not None and hist_pe > 0:
+            sec_pe = hist_pe
+
         # 5. Standard Sector Buy Score Routing
         if is_financial and is_bank:
             add_b("Margin of Safety (DDM)", mos, get_mos_points(mos, 25), 25, False)

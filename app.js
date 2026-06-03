@@ -794,8 +794,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     item.value = formatPercent(newMos);
                 } else if (metric.includes('P/E Ratio')) {
                     let pts = 0;
+                    const roicVal = cleanPercent(globalData.company_profile?.roic || 0);
+                    const healthScore = globalData.health_score_total || 0;
+                    const isMonopoly = (roicVal > 20.0 && healthScore >= 80);
+                    const histPE = parseFloat(globalData.valuation_data?.historic_pe) || 0;
+                    
                     if (activePE > 0) {
-                        if (isFin && isBank) {
+                        if (isMonopoly && histPE > 0) {
+                            const maxPts = item.max_points || 20;
+                            if (activePE <= histPE) pts = maxPts;
+                            else if (activePE <= histPE * 1.3) pts = maxPts / 2.0;
+                        } else if (isFin && isBank) {
                             if (activePE <= 13) pts = 20;
                             else if (activePE <= 15) pts = 10;
                         } else if (isInsurance) {
