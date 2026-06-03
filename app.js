@@ -1441,7 +1441,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const fvContainer = elements.fairValue.closest('.glass-card') || elements.fairValue.parentElement;
         if (fvContainer) {
             fvContainer.style.position = 'relative';
-            const btnHtml = `<button id="open-weights-btn" title="Adjust Valuation Weights" style="position:absolute; top:15px; right:15px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:4px; font-size:1.1rem; padding:4px 8px; cursor:pointer; transition:0.2s;">⚖️</button>`;
+            const btnHtml = `<button id="open-weights-btn" title="Adjust Valuation Weights" style="position:absolute; top:15px; right:15px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:4px; font-size:1.1rem; padding:4px 8px; cursor:pointer; transition:0.2s; display:block; z-index:50;">⚖️</button>`;
             fvContainer.insertAdjacentHTML('beforeend', btnHtml);
         }
 
@@ -3535,6 +3535,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 viewA.style.opacity = '1';
                 viewB.style.display = 'none';
                 viewB.style.opacity = '0';
+                const openWeightsBtn = document.getElementById('open-weights-btn');
+                if (openWeightsBtn) openWeightsBtn.style.display = 'block';
                 const fvBox = viewA.closest('.fair-value-box');
                 if (fvBox) fvBox.style.minHeight = '';
             }
@@ -6215,6 +6217,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Build rows - Label on left, Value and Score on right
         breakdown.forEach(item => {
             let label = (item.metric || item.name || 'Unknown Metric');
+            label = label.replace(/\s*\([^)]*\)/g, '').trim();
 
             const pts = (item.points_awarded !== undefined) ? item.points_awarded : (item.points || 0);
             const maxPts = item.max_points || 0;
@@ -6237,7 +6240,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             html += `
                 <div style="display:grid; grid-template-columns: 2fr minmax(110px, max-content) 12px 50px; align-items:center; padding:12px 0; border-top:1px solid rgba(255,255,255,0.04); gap:12px;">
-                    <div style="font-weight:600; font-size:clamp(0.75rem, 3vw, 0.88rem); color:white; line-height:1.2; white-space:normal; overflow:hidden; text-overflow:ellipsis;">${label}</div>
+                    <div style="font-weight:600; font-size:clamp(0.75rem, 3vw, 0.88rem); color:white; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${label}">${label}</div>
                     
                     <div style="font-weight:700; font-size:clamp(0.8rem, 3vw, 0.9rem); color:rgba(255,255,255,0.85); font-family:monospace; display: flex; justify-content: flex-end; white-space: nowrap;">${valueHtml}</div>
                     
