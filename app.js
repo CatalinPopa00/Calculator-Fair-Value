@@ -1053,18 +1053,23 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('Cleared old custom peers cache to apply new FWD logic.');
     }
 
-    const getSmartWeights = (sector) => {
+    const getSmartWeights = (sector, industry) => {
         let w = { dcf: 25, peg: 25, relative: 25, lynch: 25 };
-        const s = sector || '';
+        const s = (sector || '').toLowerCase();
+        const ind = (industry || '').toLowerCase();
 
-        if (s.includes('Financial') || s.includes('Real Estate')) {
-            w = { dcf: 0, peg: 10, relative: 60, lynch: 30 };
-        } else if (s.includes('Technology') || s.includes('Communication')) {
-            w = { dcf: 25, peg: 25, relative: 10, lynch: 40 };
-        } else if (s.includes('Healthcare') || s.includes('Defensive') || s.includes('Utilities')) {
-            w = { dcf: 50, peg: 10, relative: 20, lynch: 20 };
-        } else if (s.includes('Industrials') || s.includes('Energy') || s.includes('Basic Materials') || s.includes('Cyclical')) {
-            w = { dcf: 30, peg: 10, relative: 40, lynch: 20 };
+        if (s.includes('financial')) {
+            const fintechKeywords = ["credit services", "financial data", "stock exchange", "capital market"];
+            const isFintech = fintechKeywords.some(k => ind.includes(k));
+            if (isFintech) {
+                w = { dcf: 25, peg: 25, relative: 25, lynch: 25 };
+            } else {
+                w = { dcf: 0, peg: 10, relative: 45, lynch: 45 };
+            }
+        } else if (s.includes('real estate') || s.includes('reit')) {
+            w = { dcf: 20, peg: 10, relative: 40, lynch: 30 };
+        } else {
+            w = { dcf: 25, peg: 25, relative: 25, lynch: 25 };
         }
         return w;
     };
@@ -1082,8 +1087,8 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     window.getActiveToggles = getActiveToggles;
 
-    const setSmartWeights = (sector) => {
-        const w = getSmartWeights(sector);
+    const setSmartWeights = (sector, industry) => {
+        const w = getSmartWeights(sector, industry);
         customWeights = w;
 
         // Sync UI
@@ -1302,7 +1307,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         document.getElementById('smart-weights-btn').addEventListener('click', () => {
             if (!globalData || !globalData.company_profile) return;
-            setSmartWeights(globalData.company_profile.sector);
+            setSmartWeights(globalData.company_profile.sector, globalData.company_profile.industry);
             saveOverride(currentTicker); // Persist immediately when "Auto-Set" is clicked
             if (typeof window.triggerRecalculate === 'function') {
                 window.triggerRecalculate();
@@ -3317,7 +3322,7 @@ document.addEventListener('DOMContentLoaded', () => {
             customWeights = { ...override.weights };
         } else if (data.company_profile && data.company_profile.sector) {
             // No saved weights -> Auto-Set by Sector and SAVE immediately
-            customWeights = setSmartWeights(data.company_profile.sector);
+            customWeights = setSmartWeights(data.company_profile.sector, data.company_profile.industry);
             saveOverride(data.ticker);
         }
 
