@@ -467,7 +467,8 @@ def calculate_scoring_reform(valuation_data, metrics):
 
     else:
         # Monopoly Rule: If ROIC > 20% and Health >= 80/100, compare P/E strictly against Historical P/E
-        is_monopoly = (roic > 20.0 and h_score >= 80.0)
+        current_roic = clean_percent(metrics.get('roic'))
+        is_monopoly = (current_roic > 20.0 and h_score >= 80.0)
         if is_monopoly and hist_pe is not None and hist_pe > 0:
             sec_pe = hist_pe
 
