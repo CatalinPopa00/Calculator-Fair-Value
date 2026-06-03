@@ -473,6 +473,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 setTimeout(() => {
                     viewA.style.display = 'none';
                     viewB.style.display = 'block';
+                    // give the box enough height to render the chart properly
+                    const fvBox = viewA.closest('.fair-value-box');
+                    if (fvBox) fvBox.style.minHeight = '350px';
+                    
                     // force reflow
                     void viewB.offsetWidth;
                     viewB.style.opacity = '1';
@@ -531,7 +535,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 setTimeout(() => {
                     viewB.style.display = 'none';
-                    viewA.style.display = 'block';
+                    viewA.style.display = 'flex';
+                    const fvBox = viewA.closest('.fair-value-box');
+                    if (fvBox) fvBox.style.minHeight = '';
                     // force reflow
                     void viewA.offsetWidth;
                     viewA.style.opacity = '1';
@@ -3512,10 +3518,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (toggleBtn && viewA && viewB) {
                 toggleBtn.style.background = 'rgba(255,255,255,0.05)';
                 toggleBtn.style.borderColor = 'rgba(255,255,255,0.1)';
-                viewA.style.display = 'block';
+                viewA.style.display = 'flex';
                 viewA.style.opacity = '1';
                 viewB.style.display = 'none';
                 viewB.style.opacity = '0';
+                const fvBox = viewA.closest('.fair-value-box');
+                if (fvBox) fvBox.style.minHeight = '';
             }
 
             _realApiPrice = data.current_price;
