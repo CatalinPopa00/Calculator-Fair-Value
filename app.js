@@ -741,31 +741,44 @@ document.addEventListener('DOMContentLoaded', () => {
                     revUsedGrowth = window._getDynamicRevGrowth();
                 }
 
-                                const fwd_growth = (pegUsedGrowth > 0) ? (pegUsedGrowth < 1.0 ? pegUsedGrowth * 100 : pegUsedGrowth) : dynamicEpsGrowth;
+                const fwd_growth = (pegUsedGrowth > 0) ? (pegUsedGrowth < 1.0 ? pegUsedGrowth * 100 : pegUsedGrowth) : dynamicEpsGrowth;
                 let rev_fwd_growth = (revUsedGrowth > 0) ? (revUsedGrowth < 1.0 ? revUsedGrowth * 100 : revUsedGrowth) : dynamicRevGrowth;
 
-                const fwd_pe = parseFloat(globalData.company_profile.forward_pe) || 0;
-
-                // For live simulation, recalculate simulated P/E based on forward or trailing
-                let simulatedPE = scoringPE;
-                let simulatedFwdPE = 0;
-                if (dynFwdEpsTop > 0) {
-                    simulatedFwdPE = simPrice / dynFwdEpsTop;
-                } else if (fwd_pe > 0 && prof.adjusted_eps > 0) {
-                    // if they had forward PE, simulate it using the same implied forward EPS
-                    const implied_fwd_eps = _realApiPrice / fwd_pe;
-                    simulatedFwdPE = simPrice / implied_fwd_eps;
+                let activePE = 0;
+                let activeEV = 0;
+                let activePS = 0;
+                let activePB = 0;
+                let activePAFFO = 0;
+                
+                // Use backend's exact metric value, scaled mathematically by the price change!
+                let backendVal = parseFloat((item.value || '').replace(/[^\d.-]/g, ''));
+                if (isNaN(backendVal)) backendVal = 0;
+                
+                if (metric.includes('P/E Ratio')) {
+                    if (backendVal <= 0) backendVal = parseFloat(globalData.valuation_data?.pe_forward) || 0;
+                    if (backendVal > 0 && _realApiPrice > 0) activePE = backendVal * (simPrice / _realApiPrice);
+                } else if (metric.includes('EV/EBITDA') || metric.includes('EV / EBITDA')) {
+                    if (backendVal <= 0 && globalData.ebitda > 0) backendVal = (globalData.market_cap + (globalData.total_debt || 0) - (globalData.total_cash || 0)) / globalData.ebitda;
+                    if (backendVal > 0 && _realApiPrice > 0) activeEV = backendVal * (simPrice / _realApiPrice);
+                } else if (metric.includes('Price-to-Book')) {
+                    if (backendVal <= 0) backendVal = globalData.price_to_book || 0;
+                    if (backendVal > 0 && _realApiPrice > 0) activePB = backendVal * (simPrice / _realApiPrice);
+                } else if (metric.includes('P/S Ratio')) {
+                    if (backendVal <= 0) backendVal = globalData.company_profile?.ps_ratio || 0;
+                    if (backendVal > 0 && _realApiPrice > 0) activePS = backendVal * (simPrice / _realApiPrice);
+                } else if (metric.includes('P/AFFO')) {
+                    if (backendVal <= 0) backendVal = globalData.company_profile?.price_to_affo || 0;
+                    if (backendVal > 0 && _realApiPrice > 0) activePAFFO = backendVal * (simPrice / _realApiPrice);
                 }
-
-                let activePE = simulatedPE;
-                if (isTech || isDefensive) {
-                    if (simulatedFwdPE > 0) activePE = simulatedFwdPE;
-                } else {
-                    if (simulatedFwdPE > 0) activePE = simulatedFwdPE;
-                }
+                
+                // Fallbacks just in case
+                if (activePE === 0 && scoringPE > 0) activePE = scoringPE;
+                if (activeEV === 0 && newEvEbitda > 0) activeEV = newEvEbitda;
+                if (activePS === 0 && dynPS > 0) activePS = dynPS;
+                if (activePB === 0 && newPB > 0) activePB = newPB;
 
                 // Guard Clause Universal
-                if ((metric.includes('P/E Ratio') || (metric.includes('EV/EBITDA') || metric.includes('EV / EBITDA')) || metric.includes('P/S Ratio') || metric.includes('Price-to-Book') || (metric.includes('P/AFFO') || metric.includes('P/AFFO'))) && (activePE < 0 || newEvEbitda < 0 || newPS < 0 || newPB < 0)) {
+                if ((metric.includes('P/E Ratio') || (metric.includes('EV/EBITDA') || metric.includes('EV / EBITDA')) || metric.includes('P/S Ratio') || metric.includes('Price-to-Book') || (metric.includes('P/AFFO') || metric.includes('P/AFFO'))) && (activePE < 0 || activeEV < 0 || activePS < 0 || activePB < 0)) {
                     // handled below per metric, but generally 0 pts
                 }
 
@@ -823,57 +836,57 @@ document.addEventListener('DOMContentLoaded', () => {
                     item.value = activePE > 0 ? activePE.toFixed(2) + 'x' : '0.00x';
                 } else if ((metric.includes('EV/EBITDA') || metric.includes('EV / EBITDA'))) {
                     let pts = 0;
-                    if (newEvEbitda > 0) {
+                    if (activeEV > 0) {
                         if (isEnergy) {
-                            if (newEvEbitda <= 6.0) pts = 20;
-                            else if (newEvEbitda <= 9.0) pts = 10;
+                            if (activeEV <= 6.0) pts = 20;
+                            else if (activeEV <= 9.0) pts = 10;
                         } else if (isUtilities) {
-                            if (newEvEbitda <= 10.0) pts = 20;
-                            else if (newEvEbitda <= 14.0) pts = 10;
+                            if (activeEV <= 10.0) pts = 20;
+                            else if (activeEV <= 14.0) pts = 10;
                         } else if (isDefensive) {
-                            if (newEvEbitda <= 14.0) pts = 15;
-                            else if (newEvEbitda <= 18.0) pts = 7.5;
-                            if (pts === 0 && newEvEbitda > 0 && pegUsedGrowth > 0) {
+                            if (activeEV <= 14.0) pts = 15;
+                            else if (activeEV <= 18.0) pts = 7.5;
+                            if (pts === 0 && activeEV > 0 && pegUsedGrowth > 0) {
                                 const peg = activePE / (fwd_growth);
                                 if (peg > 0 && peg <= 1.2 && fwd_growth >= 15.0) pts = 7.5;
                             }
                         } else if (isTech) {
-                            if (newEvEbitda <= 18.0) pts = 10;
-                            else if (newEvEbitda <= 25.0) pts = 5;
-                            if (pts === 0 && newEvEbitda > 0 && pegUsedGrowth > 0) {
+                            if (activeEV <= 18.0) pts = 10;
+                            else if (activeEV <= 25.0) pts = 5;
+                            if (pts === 0 && activeEV > 0 && pegUsedGrowth > 0) {
                                 const peg = activePE / (fwd_growth);
                                 if (peg > 0 && peg <= 1.2 && rev_fwd_growth >= 20.0) pts = 5;
                             }
                         } else {
-                            if (newEvEbitda <= 12.0) pts = 10;
-                            else if (newEvEbitda <= 16.0) pts = 5;
-                            if (pts === 0 && newEvEbitda > 0 && pegUsedGrowth > 0) {
+                            if (activeEV <= 12.0) pts = 10;
+                            else if (activeEV <= 16.0) pts = 5;
+                            if (pts === 0 && activeEV > 0 && pegUsedGrowth > 0) {
                                 const peg = activePE / (fwd_growth);
                                 if (peg > 0 && peg <= 1.2 && rev_fwd_growth >= 15.0) pts = 5;
                             }
                         }
                     }
                     newPts = pts;
-                    item.value = newEvEbitda > 0 ? newEvEbitda.toFixed(2) + 'x' : '0.00x';
+                    item.value = activeEV > 0 ? activeEV.toFixed(2) + 'x' : '0.00x';
                 } else if (metric.includes('Price-to-Book')) {
                     let pts = 0;
-                    if (newPB > 0) {
+                    if (activePB > 0) {
                         if (isFin && isBank) {
-                            if (newPB < 1.5) pts = 20;
-                            else if (newPB <= 2.0) pts = 10;
+                            if (activePB < 1.5) pts = 20;
+                            else if (activePB <= 2.0) pts = 10;
                         } else if (isInsurance) {
-                            if (newPB < 1.5) pts = 25;
-                            else if (newPB <= 2.0) pts = 12.5;
+                            if (activePB < 1.5) pts = 25;
+                            else if (activePB <= 2.0) pts = 12.5;
                         } else if (isEnergy) {
-                            if (newPB <= 1.5) pts = 20;
-                            else if (newPB <= 2.5) pts = 10;
+                            if (activePB <= 1.5) pts = 20;
+                            else if (activePB <= 2.5) pts = 10;
                         } else {
-                            if (newPB <= 2.0) pts = 10;
-                            else if (newPB <= 3.0) pts = 5;
+                            if (activePB <= 2.0) pts = 10;
+                            else if (activePB <= 3.0) pts = 5;
                         }
                     }
                     newPts = pts;
-                    item.value = newPB > 0 ? newPB.toFixed(2) + 'x' : '0.00x';
+                    item.value = activePB > 0 ? activePB.toFixed(2) + 'x' : '0.00x';
                 } else if (metric.includes('P/S Ratio')) {
                     const target_pe = getTargetPe(sector, industry);
                     const ebitM = cleanPercent(globalData.company_profile.ebit_margin || 0);
@@ -883,19 +896,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     const target_ps = margin > 0 ? (target_pe * (margin / 100)) : 1.5;
                     let pts = 0;
-                    if (dynPS > 0) {
+                    if (activePS > 0) {
                         if (margin > 20) {
-                            if (dynPS <= target_ps) pts = 10;
-                            else if (dynPS <= target_ps * 1.5) pts = 5;
+                            if (activePS <= target_ps) pts = 10;
+                            else if (activePS <= target_ps * 1.5) pts = 5;
                         } else if (margin > 0) {
-                            if (dynPS <= target_ps) pts = 10;
-                            else if (dynPS <= target_ps * 1.5) pts = 5;
+                            if (activePS <= target_ps) pts = 10;
+                            else if (activePS <= target_ps * 1.5) pts = 5;
                         } else if (margin < 0) {
-                            if (rev_fwd_growth > 20 && dynPS <= 5.0) pts = 5;
+                            if (rev_fwd_growth > 20 && activePS <= 5.0) pts = 5;
                         }
                     }
                     newPts = pts;
-                    item.value = dynPS > 0 ? dynPS.toFixed(2) + 'x' : '0.00x';
+                    item.value = activePS > 0 ? activePS.toFixed(2) + 'x' : '0.00x';
                 } else if (metric.includes('Dividend Yield')) {
                     const dyPct = newDivYield * 100;
                     if (isREIT) newPts = dyPct > 5 ? 15 : (dyPct >= 3 ? 7.5 : 0);
@@ -906,22 +919,26 @@ document.addEventListener('DOMContentLoaded', () => {
                     else newPts = 0;
                     item.value = dyPct.toFixed(1) + '%';
                 } else if (metric.includes('PEG Ratio')) {
-                    const newPEG = (fwd_growth > 0 && activePE > 0) ? activePE / fwd_growth : 0;
+                    let newPEG = 0;
+                    if (backendVal <= 0) backendVal = globalData.formula_data?.peg?.dynamic_peg || globalData.company_profile?.peg_ratio || 0;
+                    if (backendVal > 0 && _realApiPrice > 0) {
+                        newPEG = backendVal * (simPrice / _realApiPrice);
+                    } else if (fwd_growth > 0 && activePE > 0) {
+                        newPEG = activePE / fwd_growth;
+                    }
                     if (isFin && isBank) newPts = (newPEG > 0 && newPEG < 1.0) ? 10 : ((newPEG > 0 && newPEG <= 1.5) ? 5 : 0);
                     else if (isDefensive) newPts = (newPEG > 0 && newPEG < 1.5) ? 20 : ((newPEG > 0 && newPEG <= 2.0) ? 10 : 0);
                     else if (isTech) newPts = (newPEG > 0 && newPEG < 1.5) ? 10 : ((newPEG > 0 && newPEG <= 2.0) ? 5 : 0);
                     else newPts = (newPEG > 0 && newPEG < 1.0) ? 10 : ((newPEG > 0 && newPEG <= 1.5) ? 5 : 0);
                     item.value = newPEG > 0 ? newPEG.toFixed(2) + 'x' : '0.00x';
                 } else if ((metric.includes('P/AFFO') || metric.includes('P/AFFO'))) {
-                    const affoPerShare = prof.price_to_affo > 0 ? (_originalPrice / prof.price_to_affo) : 0;
-                    const newPAFFO = affoPerShare > 0 ? simPrice / affoPerShare : 0;
                     let pts = 0;
-                    if (newPAFFO > 0) {
-                        if (newPAFFO <= 15) pts = 20;
-                        else if (newPAFFO <= 18) pts = 10;
+                    if (activePAFFO > 0) {
+                        if (activePAFFO <= 15) pts = 20;
+                        else if (activePAFFO <= 18) pts = 10;
                     }
                     newPts = pts;
-                    item.value = newPAFFO > 0 ? newPAFFO.toFixed(2) + 'x' : '0.00x';
+                    item.value = activePAFFO > 0 ? activePAFFO.toFixed(2) + 'x' : '0.00x';
                 } else if (metric.includes('Rev Growth') || metric.includes('EPS Growth') || metric.includes('AFFO Growth') || metric.includes('Revenue Growth')) {
                     if (metric.includes('Revenue Growth')) {
                         item.value = rev_fwd_growth > 0 ? rev_fwd_growth.toFixed(1) + '%' : '0.0%';
@@ -3365,10 +3382,11 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.currentPrice.style.display = '';
             initSimulatePrice();
         } else {
-            // It's a silent update (e.g. peers update).
             // Update the underlying real prices, but DO NOT disable simulation!
-            _realApiPrice = data.current_price;
-            _originalPrice = data.current_price;
+            if (!wasSimulating) {
+                _realApiPrice = data.current_price;
+                _originalPrice = data.current_price;
+            }
 
             // If we WERE simulating, re-apply the simulated price over the fresh data!
             if (wasSimulating && currentSimPrice !== null) {
