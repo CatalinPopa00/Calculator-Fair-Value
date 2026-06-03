@@ -3501,7 +3501,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Bind sub-tabs for insiders
         document.querySelectorAll('.insider-subtab').forEach(btn => {
             const newBtn = btn.cloneNode(true);
-            btn.parentNode.replaceChild(newBtn, newBtn); // Replace with clone to remove old listeners
+            btn.parentNode.replaceChild(newBtn, btn); // Replace with clone to remove old listeners
             newBtn.addEventListener('click', (e) => {
                 document.querySelectorAll('.insider-subtab').forEach(b => {
                     b.classList.remove('active');
