@@ -207,7 +207,7 @@ def calculate_scoring_reform(valuation_data, metrics):
         has_moat = False
         roic_val = clean_percent(metrics.get('roic'))
         health_total = min(int(h_score), 100)
-        if roic_val > 20 and health_total >= 80:
+        if roic_val > 20 and health_total >= 70:
             has_moat = True
             
         if has_moat:
@@ -478,9 +478,9 @@ def calculate_scoring_reform(valuation_data, metrics):
         add_b("Quick Ratio", qr, pts, 20, True)
 
     else:
-        # Monopoly Rule: If ROIC > 20% and Health >= 80/100, compare P/E strictly against Historical P/E
+        # Monopoly Rule: If ROIC > 20% and Health >= 70/100, compare P/E strictly against Historical P/E
         current_roic = clean_percent(metrics.get('roic'))
-        is_monopoly = (current_roic > 20.0 and h_score >= 80.0)
+        is_monopoly = (current_roic > 20.0 and h_score >= 70.0)
 
         # 5. Standard Sector Buy Score Routing
         if is_financial and is_bank:

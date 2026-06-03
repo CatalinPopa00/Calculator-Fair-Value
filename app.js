@@ -908,8 +908,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     let pts = 0;
                     const roicVal = cleanPercent(globalData.company_profile?.roic || 0);
                     const healthScore = globalData.health_score_total || 0;
-                    const isMonopoly = (roicVal > 20.0 && healthScore >= 80);
-                    const histPE = parseFloat(globalData.formula_data?.valuation_profile?.historic_pe) || parseFloat(globalData.pe_historic) || 0;
+                    const isMonopoly = (roicVal > 20.0 && healthScore >= 70);
+                    const histPE = parseFloat(globalData.company_profile?.historic_pe) || parseFloat(globalData.pe_historic) || 0;
                     
                     if (activePE > 0) {
                         if (isMonopoly && histPE > 0) {
