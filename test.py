@@ -4,7 +4,9 @@ from api.index import app
 
 client = TestClient(app)
 try:
-    r = client.get('/api/valuation/ADBE')
-    print(r.status_code, r.text[:500])
+    r = client.get('/api/valuation/V')
+    data = r.json()
+    print("Archetype:", data.get("archetype"))
+    print("Weights:", data.get("archetype_weights"))
 except Exception as e:
     traceback.print_exc()

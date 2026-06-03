@@ -1049,6 +1049,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     newPts = pts;
                     item.value = activePAFFO > 0 ? activePAFFO.toFixed(2) + 'x' : '0.00x';
+                } else if (metric.includes('Rule of 40')) {
+                    const currentScoring = globalData.scoring_results ? globalData.scoring_results[_currentScenario || 'base'] : null;
+                    const r40Data = (currentScoring && currentScoring.rule_of_40) ? currentScoring.rule_of_40 : globalData.rule_of_40;
+                    if (r40Data && r40Data.total !== undefined) {
+                        item.value = r40Data.total.toFixed(1) + '%';
+                        newPts = r40Data.total >= 40 ? 30 : (r40Data.total >= 30 ? 15 : 0);
+                    }
                 } else if (metric.includes('Rev Growth') || metric.includes('EPS Growth') || metric.includes('AFFO Growth') || metric.includes('Revenue Growth')) {
                     if (metric.includes('Revenue Growth')) {
                         item.value = rev_fwd_growth > 0 ? rev_fwd_growth.toFixed(1) + '%' : '0.0%';
@@ -4063,7 +4070,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (rule40Row) {
             rule40Row.style.cursor = 'pointer';
             rule40Row.onclick = () => {
-                renderRule40Breakdown(globalData.rule_of_40);
+                const currentScoring = globalData.scoring_results ? globalData.scoring_results[_currentScenario || 'base'] : null;
+                const r40Data = (currentScoring && currentScoring.rule_of_40) ? currentScoring.rule_of_40 : globalData.rule_of_40;
+                renderRule40Breakdown(r40Data);
             };
         }
 
@@ -6217,7 +6226,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Build rows - Label on left, Value and Score on right
         breakdown.forEach(item => {
             let label = (item.metric || item.name || 'Unknown Metric');
-            label = label.replace(/\s*\([^)]*\)/g, '').trim();
+            label = label.replace(/\s*\(.*\)/, '').trim();
 
             const pts = (item.points_awarded !== undefined) ? item.points_awarded : (item.points || 0);
             const maxPts = item.max_points || 0;
