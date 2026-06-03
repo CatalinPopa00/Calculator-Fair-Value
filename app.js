@@ -537,7 +537,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     viewA.style.opacity = '1';
                 }, 300);
             }
-        });
+        };
     };
 
     // --- SIMULATE PRICE ENGINE ---
