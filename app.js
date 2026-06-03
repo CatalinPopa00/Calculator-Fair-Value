@@ -4430,6 +4430,10 @@ document.addEventListener('DOMContentLoaded', () => {
         watchlistView.style.display = 'none';
         dashboard.style.display = 'block';
 
+        // Show deep research section (hidden by default to prevent empty state on page load)
+        const deepResearch = document.getElementById('deep-research-section');
+        if (deepResearch) deepResearch.style.display = '';
+
         renderHistoricalCharts(data);
         renderAnalystEstimatesInline(data.ticker);
 
