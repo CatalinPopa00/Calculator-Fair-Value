@@ -37,10 +37,13 @@ def get_yahoo_analysis_normalized(ticker, info=None):
 
     try:
         # 1. Preliminary fetch from info (Fastest)
+        # 1. Preliminary fetch from info (Fastest)
         if info:
             try:
-                res['eps']['0y'] = {'avg': float(info.get('epsCurrentYear', 0))}
-                res['eps']['+1y'] = {'avg': float(info.get('forwardEps') or info.get('epsForward') or 0)}
+                if info.get('epsCurrentYear'):
+                    res['eps']['0y'] = {'avg': float(info.get('epsCurrentYear'))}
+                if info.get('forwardEps') or info.get('epsForward'):
+                    res['eps']['+1y'] = {'avg': float(info.get('forwardEps') or info.get('epsForward'))}
             except: pass
             
         # 1.5 yfinance native estimate fetch (Robust against Vercel IP blocking)
@@ -72,7 +75,9 @@ def get_yahoo_analysis_normalized(ticker, info=None):
                     if y in eps_est.index:
                         if y not in res['eps']: res['eps'][y] = {}
                         val_avg = eps_est.loc[y, 'avg']
-                        if pd.notna(val_avg): res['eps'][y]['avg'] = float(val_avg)
+                        # v296: Do NOT overwrite info's Non-GAAP estimate with yfinance's GAAP estimate
+                        if pd.notna(val_avg) and not res['eps'][y].get('avg'): 
+                            res['eps'][y]['avg'] = float(val_avg)
                         val_low = eps_est.loc[y, 'low']
                         if pd.notna(val_low): res['eps'][y]['low'] = float(val_low)
                         val_high = eps_est.loc[y, 'high']
