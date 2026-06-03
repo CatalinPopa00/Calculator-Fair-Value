@@ -1376,11 +1376,11 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                 log(f"DEBUG: Nasdaq growth result timeout/fail: {e}")
                 pass
 
-        # Detect Normalized Anchor (Priority: Yahoo Trend -> Nasdaq Surprise -> Yahoo Info)
-        if yf_0y_anchor is not None:
-            adjusted_eps = yf_0y_anchor
-        elif nasdaq_actual_eps is not None:
+        # Detect Normalized Anchor (Priority: Nasdaq Surprise (TTM Non-GAAP) -> Yahoo Trend (FY) -> Yahoo Info (TTM GAAP))
+        if nasdaq_actual_eps is not None and nasdaq_actual_eps > 0:
             adjusted_eps = nasdaq_actual_eps
+        elif yf_0y_anchor is not None and yf_0y_anchor > 0:
+            adjusted_eps = yf_0y_anchor
         else:
             adjusted_eps = trailing_eps
 
