@@ -159,7 +159,7 @@ def calculate_scoring_reform(valuation_data, metrics):
     sector = (metrics.get('sector') or valuation_data.get('sector') or "").lower()
     
     # 1. Sector Definitions
-    is_bank = 'bank' in industry or 'credit services' in industry or 'savings' in industry
+    is_bank = ('bank' in industry or 'savings' in industry)
     is_financial = 'financial' in sector
     is_insurance = 'insurance' in industry
     is_reit = 'real estate' in sector or 'reit' in sector
