@@ -501,7 +501,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             "height": "100%",
                             "locale": "en",
                             "colorTheme": "dark",
-                            "autosize": true,
                             "showVolume": false,
                             "showMA": false,
                             "hideDateRanges": false,
