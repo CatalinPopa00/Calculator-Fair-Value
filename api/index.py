@@ -1720,7 +1720,8 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             "red_flags": data.get("red_flags", []),
             "overrides": ticker_overrides,
             "archetype": data.get("archetype"),
-            "archetype_weights": data.get("archetype_weights")
+            "archetype_weights": data.get("archetype_weights"),
+            "ownership": data.get("ownership")
         }
     except Exception as e:
         import traceback
