@@ -2519,9 +2519,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (globalData.computed_eps_growth != null && !isNaN(globalData.computed_eps_growth)) {
                             usedGrowth = globalData.computed_eps_growth;
                         } else {
-                            const g1 = (y1 / baseEps) - 1;
-                            const g2 = (y2 / y1) - 1;
-                            usedGrowth = (g1 + g2) / 2.0;
+                            if (baseEps > 0 && y2 > 0) {
+                                usedGrowth = Math.pow(y2 / baseEps, 0.5) - 1;
+                            } else {
+                                const g1 = (y1 / baseEps) - 1;
+                                const g2 = (y2 / y1) - 1;
+                                usedGrowth = (g1 + g2) / 2.0;
+                            }
                         }
                         
                         // Fwd P/E is based on FY1
@@ -3133,6 +3137,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         if (finalFv != null) {
+            window._lastFinalFv = finalFv;
             elements.fairValue.textContent = formatCurrency(finalFv);
             elements.marginSafety.textContent = `${formatPercent(finalMos)} Margin of Safety`;
             elements.marginSafety.style.color = finalMos > 0 ? 'var(--accent)' : 'var(--danger)';
@@ -3186,9 +3191,94 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderComparisonModal(prof);
             }
         }
+        renderFairValueGauge();
     };
 
     window.triggerRecalculate = updateFairValue;
+
+    let _isRenderingGauge = false;
+    const renderFairValueGauge = () => {
+        if (!globalData || !currentFormulaData || _isRenderingGauge) return;
+        _isRenderingGauge = true;
+        
+        const originalScenario = _currentScenario;
+        let bearFv, baseFv, bullFv;
+
+        // Mock heavy UI functions to prevent flicker and infinite loops
+        const origRecalc = window.recalcWithSimPrice;
+        const origRenderProfile = window._renderProfile;
+        const origRenderEst = window._renderEstimatesTable;
+        const origRenderComp = window.renderComparisonModal;
+        
+        window.recalcWithSimPrice = () => {};
+        window._renderProfile = () => {};
+        window._renderEstimatesTable = () => {};
+        window.renderComparisonModal = () => {};
+
+        try {
+            _currentScenario = 'bear';
+            updateFairValue();
+            bearFv = window._lastFinalFv;
+
+            _currentScenario = 'base';
+            updateFairValue();
+            baseFv = window._lastFinalFv;
+
+            _currentScenario = 'bull';
+            updateFairValue();
+            bullFv = window._lastFinalFv;
+        } catch (e) {
+            console.error("Gauge calculation error:", e);
+        } finally {
+            window.recalcWithSimPrice = origRecalc;
+            window._renderProfile = origRenderProfile;
+            window._renderEstimatesTable = origRenderEst;
+            window.renderComparisonModal = origRenderComp;
+            
+            _currentScenario = originalScenario;
+            updateFairValue(); 
+            _isRenderingGauge = false;
+        }
+        
+        // Draw the gauge using bearFv, baseFv, bullFv and current price
+        const gaugeContainer = document.getElementById('fv-gauge-container');
+        if (!gaugeContainer) return;
+        
+        if (!bearFv || !baseFv || !bullFv) {
+            gaugeContainer.style.display = 'none';
+            return;
+        }
+        
+        // Only show if chart is NOT active, or always show? The user wants it as a visual aid.
+        gaugeContainer.style.display = 'block';
+        
+        const currPrice = globalData.current_price || 0;
+        const allVals = [bearFv, baseFv, bullFv, currPrice];
+        const minVal = Math.min(...allVals) * 0.9;
+        const maxVal = Math.max(...allVals) * 1.1;
+        const range = maxVal - minVal;
+        
+        document.getElementById('fv-gauge-min-label').textContent = formatCurrency(minVal);
+        document.getElementById('fv-gauge-max-label').textContent = formatCurrency(maxVal);
+        
+        const setPos = (elId, val) => {
+            const el = document.getElementById(elId);
+            if (el) {
+                const pct = Math.max(0, Math.min(100, ((val - minVal) / range) * 100));
+                el.style.left = `${pct}%`;
+                // Add value to tooltip or span
+                const span = el.querySelector('span');
+                if (span) {
+                    span.textContent = `${span.textContent.split(' ')[0]} ${formatCurrency(val)}`;
+                }
+            }
+        };
+        
+        setPos('fv-gauge-bear', bearFv);
+        setPos('fv-gauge-base', baseFv);
+        setPos('fv-gauge-bull', bullFv);
+        setPos('fv-gauge-price', currPrice);
+    };
 
     const inputSelectors = [
         'fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple', 'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp',
