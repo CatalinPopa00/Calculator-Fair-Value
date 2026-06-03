@@ -914,8 +914,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (activePE > 0) {
                         if (isMonopoly && histPE > 0) {
                             const maxPts = item.max_points || 20;
-                            if (activePE <= histPE) pts = maxPts;
-                            else if (activePE <= histPE * 1.3) pts = maxPts / 2.0;
+                            const discount = ((histPE - activePE) / histPE) * 100.0;
+                            if (discount >= 25.0) pts = maxPts;
+                            else if (discount >= 15.0) pts = maxPts * 0.75;
+                            else if (discount >= 10.0) pts = maxPts * 0.50;
+                            else if (discount > 0.0) pts = maxPts * 0.25;
+                            else pts = 0;
                         } else if (isFin && isBank) {
                             if (activePE <= 13) pts = 20;
                             else if (activePE <= 15) pts = 10;
@@ -4323,13 +4327,13 @@ document.addEventListener('DOMContentLoaded', () => {
                                         ${metricRow('P/E GAAP', (prof.gaap_eps_fy && prof.gaap_eps_fy > 0 && _originalPrice) ? (_originalPrice / prof.gaap_eps_fy).toFixed(2) + 'x' : 'N/A')}
                                         ${metricRow('P/E Non-GAAP', (prof.adjusted_eps && prof.adjusted_eps > 0 && _originalPrice) ? (_originalPrice / prof.adjusted_eps).toFixed(2) + 'x' : 'N/A')}
                                         ${metricRow('5Y Avg. P/E', prof.historic_pe ? prof.historic_pe.toFixed(2) + 'x' : 'N/A')}
-                                        ${metricRow('PE FWD', dynFwdPe ? dynFwdPe.toFixed(2) + 'x' : 'N/A')}
+                                        ${metricRow('P/E FWD', dynFwdPe ? dynFwdPe.toFixed(2) + 'x' : 'N/A')}
                                         ${metricRow('EPS Diluted', prof.trailing_eps ? '$' + prof.trailing_eps.toFixed(2) : 'N/A')}
                                         ${metricRow('EPS Non-GAAP', prof.adjusted_eps ? '$' + prof.adjusted_eps.toFixed(2) : 'N/A')}
                                         ${metricRow('FWD EPS', dynFwdEps ? '$' + dynFwdEps.toFixed(2) : 'N/A')}
                                         ${metricRow('PEG', window._currentPegToDisplay != null ? window._currentPegToDisplay.toFixed(2) : (prof.peg_ratio ? prof.peg_ratio.toFixed(2) : 'N/A'))}
                                         ${metricRow('P/S', prof.ps_ratio ? prof.ps_ratio.toFixed(2) + 'x' : 'N/A')}
-                                        ${metricRow('FWD P/S', dynFwdPs ? dynFwdPs.toFixed(2) + 'x' : 'N/A')}
+                                        ${metricRow('P/S FWD', dynFwdPs ? dynFwdPs.toFixed(2) + 'x' : 'N/A')}
                                         ${metricRow('P/FCF', prof.pfcf_ratio ? prof.pfcf_ratio.toFixed(2) + 'x' : 'N/A')}
                                     `;
                     })()}
@@ -6266,7 +6270,7 @@ document.addEventListener('DOMContentLoaded', () => {
             title.textContent = '📊 PEG Valuation — Data Transparency';
             const periodLabel = g.eps_growth_period || '2Y EPS CAGR';
             const displayPe = g.dynamic_pe != null ? g.dynamic_pe : g.current_pe;
-            html = row('P/E Ratio (Fwd)', displayPe ? displayPe.toFixed(2) + 'x' : 'N/A')
+            html = row('P/E FWD', displayPe ? displayPe.toFixed(2) + 'x' : 'N/A')
                 + row('Growth Estimate', fmtPct(g.dynamic_growth != null ? g.dynamic_growth : g.eps_growth_estimated))
                 + row('Current PEG', g.dynamic_peg ? g.dynamic_peg.toFixed(2) + 'x' : (g.current_peg ? g.current_peg.toFixed(2) + 'x' : 'N/A'))
                 + row('Industry PEG', g.industry_peg ? g.industry_peg.toFixed(2) + 'x' : 'N/A')
@@ -6310,7 +6314,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const dynFwdPe = (dynFwdEps && dynFwdEps > 0 && currentPrice) ? currentPrice / dynFwdEps : null;
 
             breakdown.forEach(item => {
-                if (item.metric.includes('P/E Ratio (Fwd)') && dynFwdPe) {
+                if (item.metric.includes('P/E Ratio') && item.metric.includes('Fwd') && dynFwdPe) {
                     item.value = dynFwdPe.toFixed(2) + 'x';
                 } else if (item.metric.includes('PEG Ratio (Fwd)')) {
                     if (window.currentFormulaData && window.currentFormulaData.peg && window.currentFormulaData.peg.dynamic_peg) {
@@ -6344,7 +6348,19 @@ document.addEventListener('DOMContentLoaded', () => {
         // Build rows - Label on left, Value and Score on right
         breakdown.forEach(item => {
             let label = (item.metric || item.name || 'Unknown Metric');
+            const originalMetric = label;
             label = label.replace(/\s*\(.*\)/, '').trim();
+
+            if (originalMetric.includes('1Y Fwd') || originalMetric.includes('Fwd') || originalMetric.includes('FWD')) {
+                if (label.includes('P/E Ratio')) label = 'P/E FWD';
+                else if (label.includes('P/S Ratio')) label = 'P/S FWD';
+                else if (label.includes('EV/EBITDA') || label.includes('EV / EBITDA')) label = 'EV/EBITDA FWD';
+                else if (label.includes('Revenue Growth')) label = 'Revenue Growth FWD';
+                else if (label.includes('EPS Growth') || label.includes('AFFO/EPS Growth')) label = 'EPS Growth FWD';
+                else if (label.includes('Dividend Yield')) label = 'Dividend Yield FWD';
+                else if (label.includes('PEG Ratio')) label = 'PEG FWD';
+                else if (label.includes('P/AFFO')) label = 'P/AFFO FWD';
+            }
 
             const pts = (item.points_awarded !== undefined) ? item.points_awarded : (item.points || 0);
             const maxPts = item.max_points || 0;

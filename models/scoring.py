@@ -241,6 +241,20 @@ def calculate_scoring_reform(valuation_data, metrics):
             elif val >= target * 0.7: return max_pts / 2.0
             return 0
 
+    def get_monopoly_pe_pts(current_pe, historical_pe, max_pts):
+        if current_pe is None or current_pe <= 0 or historical_pe is None or historical_pe <= 0:
+            return 0
+        discount = ((historical_pe - current_pe) / historical_pe) * 100.0
+        if discount >= 25.0:
+            return max_pts
+        elif discount >= 15.0:
+            return max_pts * 0.75
+        elif discount >= 10.0:
+            return max_pts * 0.50
+        elif discount > 0.0:
+            return max_pts * 0.25
+        return 0
+
     market_cap = clean_ratio(metrics.get('market_cap') or valuation_data.get('market_cap'))
     is_mega_cap = market_cap > 100e9
     
@@ -467,14 +481,12 @@ def calculate_scoring_reform(valuation_data, metrics):
         # Monopoly Rule: If ROIC > 20% and Health >= 80/100, compare P/E strictly against Historical P/E
         current_roic = clean_percent(metrics.get('roic'))
         is_monopoly = (current_roic > 20.0 and h_score >= 80.0)
-        if is_monopoly and hist_pe is not None and hist_pe > 0:
-            sec_pe = hist_pe
 
         # 5. Standard Sector Buy Score Routing
         if is_financial and is_bank:
             add_b("Margin of Safety (DDM)", mos, get_mos_points(mos, 25), 25, False)
             add_b("EPS Growth (Fwd)", eps_2y_g, get_growth_pts(eps_2y_g, 10), 10, False)
-            add_b(pe_label, pe, get_rel_pts(pe, sec_pe, hist_pe, 20), 20, True)
+            add_b(pe_label, pe, get_monopoly_pe_pts(pe, hist_pe, 20) if is_monopoly else get_rel_pts(pe, sec_pe, hist_pe, 20), 20, True)
             add_b("Price-to-Book", pb, get_rel_pts(pb, sec_pb, hist_pb, 20), 20, True)
             div_y = clean_percent(metrics.get('fwd_dividend_yield') or metrics.get('dividend_yield'))
             add_b("Dividend Yield (Fwd)", div_y, 15 if div_y > 4 else (7.5 if div_y >= 2 else 0), 15, False)
@@ -482,7 +494,7 @@ def calculate_scoring_reform(valuation_data, metrics):
 
         elif is_insurance:
             add_b("Margin of Safety", mos, get_mos_points(mos, 30), 30, False)
-            add_b(pe_label, pe, get_rel_pts(pe, sec_pe, hist_pe, 20), 20, True)
+            add_b(pe_label, pe, get_monopoly_pe_pts(pe, hist_pe, 20) if is_monopoly else get_rel_pts(pe, sec_pe, hist_pe, 20), 20, True)
             add_b("Price-to-Book", pb, get_rel_pts(pb, sec_pb, hist_pb, 25), 25, True)
             div_y = clean_percent(metrics.get('fwd_dividend_yield') or metrics.get('dividend_yield'))
             add_b("Dividend Yield (Fwd)", div_y, 15 if div_y > 3 else (7.5 if div_y >= 1.5 else 0), 15, False)
@@ -519,7 +531,7 @@ def calculate_scoring_reform(valuation_data, metrics):
         elif is_utilities:
             add_b("Margin of Safety", mos, get_mos_points(mos, 30), 30, False)
             add_b("EPS Growth (Fwd)", eps_2y_g, get_growth_pts(eps_2y_g, 10), 10, False)
-            add_b(pe_label, pe, get_rel_pts(pe, sec_pe, hist_pe, 15), 15, True)
+            add_b(pe_label, pe, get_monopoly_pe_pts(pe, hist_pe, 15) if is_monopoly else get_rel_pts(pe, sec_pe, hist_pe, 15), 15, True)
             add_b("EV/EBITDA (1Y Fwd)", ev_ebitda, get_rel_pts(ev_ebitda, sec_ev_ebitda, hist_ev, 20), 20, True)
             div_y = clean_percent(metrics.get('fwd_dividend_yield') or metrics.get('dividend_yield'))
             add_b("Dividend Yield (Fwd)", div_y, 25 if div_y > 4 else (12.5 if div_y >= 2.5 else 0), 25, False)
@@ -527,14 +539,14 @@ def calculate_scoring_reform(valuation_data, metrics):
         elif is_defensive:
             add_b("Margin of Safety", mos, get_mos_points(mos, 30), 30, False)
             add_b("EPS Growth (Fwd)", eps_2y_g, get_growth_pts(eps_2y_g, 15), 15, False)
-            add_b(pe_label, pe, get_rel_pts(pe, sec_pe, hist_pe, 20), 20, True)
+            add_b(pe_label, pe, get_monopoly_pe_pts(pe, hist_pe, 20) if is_monopoly else get_rel_pts(pe, sec_pe, hist_pe, 20), 20, True)
             add_b("EV/EBITDA (1Y Fwd)", ev_ebitda, get_rel_pts(ev_ebitda, sec_ev_ebitda, hist_ev, 15), 15, True)
             add_b("PEG Ratio (Fwd)", peg_val, get_rel_pts(peg_val, sec_peg, None, 20), 20, True)
 
         elif is_tech:
             add_b("Margin of Safety (DCF)", mos, get_mos_points(mos, 30), 30, False)
             add_b("Revenue Growth (2y Avg Fwd)", rev_2y_g, get_growth_pts(rev_2y_g, 20), 20, False)
-            add_b(pe_label, pe, get_rel_pts(pe, sec_pe, hist_pe, 20), 20, True)
+            add_b(pe_label, pe, get_monopoly_pe_pts(pe, hist_pe, 20) if is_monopoly else get_rel_pts(pe, sec_pe, hist_pe, 20), 20, True)
             add_b("EV/EBITDA (1Y Fwd)", ev_ebitda, get_rel_pts(ev_ebitda, sec_ev_ebitda, hist_ev, 10), 10, True)
             add_b("PEG Ratio (Fwd)", peg_val, get_rel_pts(peg_val, sec_peg, None, 10), 10, True)
             add_b("P/S Ratio (1Y Fwd)", ps, get_rel_pts(ps, sec_ps, hist_ps, 10), 10, True)
@@ -542,7 +554,7 @@ def calculate_scoring_reform(valuation_data, metrics):
         else:
             add_b("Margin of Safety", mos, get_mos_points(mos, 30), 30, False)
             add_b("Revenue Growth (2y Avg Fwd)", rev_2y_g, get_growth_pts(rev_2y_g, 20), 20, False)
-            add_b(pe_label, pe, get_rel_pts(pe, sec_pe, hist_pe, 20), 20, True)
+            add_b(pe_label, pe, get_monopoly_pe_pts(pe, hist_pe, 20) if is_monopoly else get_rel_pts(pe, sec_pe, hist_pe, 20), 20, True)
             add_b("EV/EBITDA (1Y Fwd)", ev_ebitda, get_rel_pts(ev_ebitda, sec_ev_ebitda, hist_ev, 15), 15, True)
             add_b("PEG Ratio (Fwd)", peg_val, get_rel_pts(peg_val, sec_peg, None, 15), 15, True)
 
