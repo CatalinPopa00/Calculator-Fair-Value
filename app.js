@@ -672,7 +672,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // --- 4. Predictive Scoring Logic (v70: Matches backend scoring.py thresholds) ---
         if (currentBuyBreakdown) {
-            currentBuyBreakdown.forEach(item => {
+            currentBuyBreakdown.forEach((item, _idx) => {
                 const metric = item.metric || '';
                 let newPts = item.points_awarded;
 
@@ -751,7 +751,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 let activePAFFO = 0;
                 
                 // Use backend's exact metric value, scaled mathematically by the price change!
-                let backendVal = parseFloat((item.value || '').replace(/[^\d.-]/g, ''));
+                const origItem = (_originalBuyBreakdown && _originalBuyBreakdown[_idx]) ? _originalBuyBreakdown[_idx] : item;
+                let backendVal = parseFloat((origItem.value || '').replace(/[^\d.-]/g, ''));
                 if (isNaN(backendVal)) backendVal = 0;
                 
                 if (metric.includes('P/E Ratio')) {
@@ -5371,8 +5372,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (globalData) {
                 if (globalData.scoring_results && globalData.scoring_results[_currentScenario]) {
                     globalData.good_to_buy_total = globalData.scoring_results[_currentScenario].good_to_buy_total;
-                    globalData.buy_breakdown = globalData.scoring_results[_currentScenario].buy_breakdown;
+                    globalData.buy_breakdown = JSON.parse(JSON.stringify(globalData.scoring_results[_currentScenario].buy_breakdown));
                     currentBuyBreakdown = globalData.buy_breakdown;
+                    _originalBuyBreakdown = JSON.parse(JSON.stringify(globalData.buy_breakdown));
                     
                     window.isHighGrowthModel = currentBuyBreakdown && currentBuyBreakdown.some(item => item.metric && item.metric.includes("Rule of 40"));
                     updateScoreUI(globalData.good_to_buy_total, 'buy-score-circle', 'buy-score-fill');
