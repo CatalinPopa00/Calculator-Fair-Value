@@ -906,6 +906,10 @@ body {
     align-items: start;
 }
 
+.ownership-grid {
+    grid-template-columns: repeat(2, 1fr);
+}
+
 .method-card {
     display: flex;
     flex-direction: column;

@@ -1175,7 +1175,7 @@ def get_ownership_data(ticker_symbol: str):
             major = stock.major_holders
             if major is not None and not major.empty:
                 for idx, row in major.iterrows():
-                    bd = row.get('Breakdown', '')
+                    bd = str(idx)
                     val = row.get('Value')
                     if pd.notna(val):
                         if 'insidersPercentHeld' in bd:
