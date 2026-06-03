@@ -419,12 +419,10 @@ def calculate_scoring_reform(valuation_data, metrics):
         
     if is_high_growth:
         # Rule of 40
-        fcf_margin = clean_percent(metrics.get('fcf_margin'))
-        ebitda_margin = clean_percent(metrics.get('ebitda_margin'))
-        margin_used = fcf_margin if fcf_margin > 0 else ebitda_margin
-        rule40 = rev_1y_g + margin_used
+        r40 = calculate_rule_of_40(metrics)
+        rule40 = r40["total"]
         pts = 30 if rule40 >= 40 else (15 if rule40 >= 30 else 0)
-        add_b("Rule of 40 (1Y Fwd Rev + Margin)", rule40, pts, 30, False)
+        add_b(f"Rule of 40 ({r40['rev_growth_label']} + {r40['margin_label']})", rule40, pts, 30, False)
         
         # EV/Gross Profit
         ev_gp = clean_ratio(metrics.get('forward_ev_gross_profit') or metrics.get('ev_to_gross_profit'))
@@ -552,7 +550,8 @@ def calculate_scoring_reform(valuation_data, metrics):
         "health_score_total": min(int(h_score), 100),
         "good_to_buy_total": min(int(b_score), 100),
         "health_breakdown": h_breakdown,
-        "buy_breakdown": b_breakdown
+        "buy_breakdown": b_breakdown,
+        "rule_of_40": calculate_rule_of_40(metrics)
     }
 
 
@@ -898,7 +897,11 @@ def calculate_rule_of_40(metrics):
     fy1_est = next((est for est in rev_estimates if est.get("status") == "estimate"), None)
     
     # 1. Forward Revenue Growth
-    if fy1_est and fy1_est.get("growth") is not None:
+    if metrics.get('forward_revenue_growth') is not None:
+        rev_growth_raw = safe_float(metrics.get('forward_revenue_growth'))
+        rev_growth_label = "Fwd 1Y Revenue Growth (Scenario)"
+        rev_growth_desc = "Estimates adjusted for current scenario."
+    elif fy1_est and fy1_est.get("growth") is not None:
         rev_growth_raw = safe_float(fy1_est.get("growth"))
         rev_growth_label = "Fwd 1Y Revenue Growth"
         rev_growth_desc = "Estimates for the next 12 months."

@@ -3182,6 +3182,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (btn) btn.click();
             }
         }
+        
+        const currentScoring = globalData.scoring_results ? globalData.scoring_results[_currentScenario] : null;
+        if (currentScoring && currentScoring.rule_of_40) {
+            updateRule40UI(currentScoring.rule_of_40);
+        }
 
         // Refresh Comparison Modal if open
         const compModal = document.getElementById('comparison-modal');
@@ -3191,94 +3196,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderComparisonModal(prof);
             }
         }
-        renderFairValueGauge();
     };
 
     window.triggerRecalculate = updateFairValue;
-
-    let _isRenderingGauge = false;
-    const renderFairValueGauge = () => {
-        if (!globalData || !currentFormulaData || _isRenderingGauge) return;
-        _isRenderingGauge = true;
-        
-        const originalScenario = _currentScenario;
-        let bearFv, baseFv, bullFv;
-
-        // Mock heavy UI functions to prevent flicker and infinite loops
-        const origRecalc = window.recalcWithSimPrice;
-        const origRenderProfile = window._renderProfile;
-        const origRenderEst = window._renderEstimatesTable;
-        const origRenderComp = window.renderComparisonModal;
-        
-        window.recalcWithSimPrice = () => {};
-        window._renderProfile = () => {};
-        window._renderEstimatesTable = () => {};
-        window.renderComparisonModal = () => {};
-
-        try {
-            _currentScenario = 'bear';
-            updateFairValue();
-            bearFv = window._lastFinalFv;
-
-            _currentScenario = 'base';
-            updateFairValue();
-            baseFv = window._lastFinalFv;
-
-            _currentScenario = 'bull';
-            updateFairValue();
-            bullFv = window._lastFinalFv;
-        } catch (e) {
-            console.error("Gauge calculation error:", e);
-        } finally {
-            window.recalcWithSimPrice = origRecalc;
-            window._renderProfile = origRenderProfile;
-            window._renderEstimatesTable = origRenderEst;
-            window.renderComparisonModal = origRenderComp;
-            
-            _currentScenario = originalScenario;
-            updateFairValue(); 
-            _isRenderingGauge = false;
-        }
-        
-        // Draw the gauge using bearFv, baseFv, bullFv and current price
-        const gaugeContainer = document.getElementById('fv-gauge-container');
-        if (!gaugeContainer) return;
-        
-        if (!bearFv || !baseFv || !bullFv) {
-            gaugeContainer.style.display = 'none';
-            return;
-        }
-        
-        // Only show if chart is NOT active, or always show? The user wants it as a visual aid.
-        gaugeContainer.style.display = 'block';
-        
-        const currPrice = globalData.current_price || 0;
-        const allVals = [bearFv, baseFv, bullFv, currPrice];
-        const minVal = Math.min(...allVals) * 0.9;
-        const maxVal = Math.max(...allVals) * 1.1;
-        const range = maxVal - minVal;
-        
-        document.getElementById('fv-gauge-min-label').textContent = formatCurrency(minVal);
-        document.getElementById('fv-gauge-max-label').textContent = formatCurrency(maxVal);
-        
-        const setPos = (elId, val) => {
-            const el = document.getElementById(elId);
-            if (el) {
-                const pct = Math.max(0, Math.min(100, ((val - minVal) / range) * 100));
-                el.style.left = `${pct}%`;
-                // Add value to tooltip or span
-                const span = el.querySelector('span');
-                if (span) {
-                    span.textContent = `${span.textContent.split(' ')[0]} ${formatCurrency(val)}`;
-                }
-            }
-        };
-        
-        setPos('fv-gauge-bear', bearFv);
-        setPos('fv-gauge-base', baseFv);
-        setPos('fv-gauge-bull', bullFv);
-        setPos('fv-gauge-price', currPrice);
-    };
 
     const inputSelectors = [
         'fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple', 'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp',
