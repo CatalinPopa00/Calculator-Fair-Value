@@ -3506,12 +3506,18 @@ def get_competitors_data(target_ticker: str, limit: int = 4, custom_peers: list 
             if target_ticker in payment_networks:
                 for p in payment_networks:
                     if p != target_ticker: candidate_scores[p] = candidate_scores.get(p, 0) + 50
+                for p in fintechs:
+                    if p in candidate_scores: candidate_scores[p] = -999
             elif target_ticker in fintechs:
                 for p in fintechs:
                     if p != target_ticker: candidate_scores[p] = candidate_scores.get(p, 0) + 50
+                for p in payment_networks:
+                    if p in candidate_scores: candidate_scores[p] = -999
             elif target_ticker in trad_banks or ('bank' in target_industry_lower and target_ticker not in fintechs):
                 for p in trad_banks:
                     if p != target_ticker: candidate_scores[p] = candidate_scores.get(p, 0) + 50
+                for p in fintechs:
+                    if p in candidate_scores: candidate_scores[p] = -999
         except Exception as e:
             print(f"DEBUG: Custom Sector Override error: {e}")
 
@@ -3521,6 +3527,7 @@ def get_competitors_data(target_ticker: str, limit: int = 4, custom_peers: list 
         candidates = []
         seen_bases = {get_base_ticker(target_ticker)}
         for sym, score in sorted_candidates:
+            if score < 0: continue
             base = get_base_ticker(sym)
             if base not in seen_bases:
                 candidates.append(sym)
@@ -3718,7 +3725,7 @@ def get_lightweight_company_data(ticker_symbol: str, force_refresh: bool = False
     ticker_symbol = ticker_symbol.upper()
     
     # Check KV Cache (Forced Bust v13 for Growth)
-    cache_key = f"peer_v295_{ticker_symbol}"
+    cache_key = f"peer_v300_{ticker_symbol}"
     if not force_refresh:
         cached = kv_get(cache_key)
         if cached:
