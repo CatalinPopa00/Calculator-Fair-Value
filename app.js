@@ -26,6 +26,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let watchlist = JSON.parse(localStorage.getItem('fairValueWatchlist')) || [];
 
+    // --- STICKY BANNER LOGIC ---
+    const stickyBanner = document.getElementById('sticky-top-banner');
+    window.addEventListener('scroll', () => {
+        if (!stickyBanner) return;
+        if (window.scrollY > 250 && typeof globalData !== 'undefined' && globalData && globalData.ticker) {
+            stickyBanner.classList.add('visible');
+            document.body.classList.add('banner-visible');
+        } else {
+            stickyBanner.classList.remove('visible');
+            document.body.classList.remove('banner-visible');
+        }
+    });
+
     // --- FIREBASE CLOUD SYNC ---
     let currentUser = null;
     let db = null;
@@ -776,6 +789,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const priceEl = document.getElementById('current-price');
         if (priceEl && !_simulating) {
             priceEl.textContent = formatCurrency(simPrice);
+        }
+
+        const stickyPrice = document.getElementById('sticky-banner-price');
+        if (stickyPrice) {
+            stickyPrice.textContent = formatCurrency(simPrice);
+            stickyPrice.style.color = _simulating ? '#fbbf24' : 'var(--accent)';
         }
 
         // Precise growth rate calculation for simulation scoring to prevent drift
@@ -3672,6 +3691,9 @@ document.addEventListener('DOMContentLoaded', () => {
             eps: (anchorPEItem && parseFloat(anchorPEItem.value) > 0) ? (data.current_price / parseFloat(anchorPEItem.value)) : (baseEps || 0),
             growth: (anchorPEGItem && parseFloat(anchorPEGItem.value) > 0 && anchorPEItem) ? (parseFloat(anchorPEItem.value) / parseFloat(anchorPEGItem.value)) : (data.company_profile?.revenue_growth || 10)
         };
+
+        const stickyName = document.getElementById('sticky-banner-name');
+        if (stickyName) stickyName.textContent = data.name + " (" + data.ticker + ")";
 
         elements.name.textContent = data.name;
         elements.ticker.textContent = data.ticker;

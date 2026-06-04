@@ -1609,6 +1609,14 @@ body {
     z-index: 1000;
 }
 
+body.banner-visible .modal-overlay {
+    padding-top: 50px;
+}
+
+body.banner-visible .modal-content {
+    max-height: calc(90vh - 50px);
+}
+
 .modal-content {
     background: var(--card-bg);
     width: 95%;
