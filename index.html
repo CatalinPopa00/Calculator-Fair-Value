@@ -622,7 +622,7 @@
                         <section class="deep-research-section" id="deep-research-section" style="margin-top: 3rem; display: none;">
                             
                             <!-- 2. Analyst Consensus Segment -->
-                            <div class="research-card glass-card" id="analyst-estimates-card">
+                            <div class="research-card glass-card" id="analyst-estimates-card" style="margin-bottom: 2rem;">
                                 <div class="research-header card-header" style="margin-bottom: 0;">
                                     <div class="header-icon">📊</div>
                                     <h3 class="research-title collapsible-trigger" data-card="analyst-estimates" style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin: 0; width: 100%;">Analyst Consensus & Projections<svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="margin-left: auto;"><polyline points="6 9 12 15 18 9"></polyline></svg></h3>
@@ -717,8 +717,56 @@
                                 </div>
 
                                 <div class="analyst-content-area ownership-content-area">
-                                    <div class="analyst-grid ownership-grid">
-                                        <!-- Col 1: Holders Radial Chart -->
+                                    <style>
+                                        /* Desktop Carousel for Ownership */
+                                        .carousel-nav-btn { display: none; }
+                                        @media (min-width: 769px) {
+                                            .ownership-carousel-viewport {
+                                                overflow: hidden;
+                                                position: relative;
+                                                padding: 0 40px;
+                                            }
+                                            .ownership-grid.carousel-mode {
+                                                display: flex !important;
+                                                width: 200%;
+                                                transition: transform 0.4s ease-in-out;
+                                                gap: 0 !important;
+                                            }
+                                            .ownership-grid.carousel-mode > .analyst-tab-content {
+                                                flex: 0 0 25% !important;
+                                                max-width: 25% !important;
+                                                padding: 0 1.5rem !important;
+                                                box-sizing: border-box;
+                                            }
+                                            .carousel-nav-btn {
+                                                position: absolute;
+                                                top: 50%;
+                                                transform: translateY(-50%);
+                                                background: rgba(255,255,255,0.05);
+                                                border: 1px solid rgba(255,255,255,0.1);
+                                                color: white;
+                                                border-radius: 50%;
+                                                width: 36px;
+                                                height: 36px;
+                                                display: flex !important;
+                                                align-items: center;
+                                                justify-content: center;
+                                                cursor: pointer;
+                                                z-index: 10;
+                                                transition: all 0.2s ease;
+                                            }
+                                            .carousel-nav-btn:hover {
+                                                background: rgba(255,255,255,0.15);
+                                            }
+                                            .carousel-nav-btn.prev { left: 0; }
+                                            .carousel-nav-btn.next { right: 0; }
+                                        }
+                                    </style>
+                                    <div class="ownership-carousel-viewport">
+                                        <button class="carousel-nav-btn prev" id="ownership-prev">&#10094;</button>
+                                        <button class="carousel-nav-btn next" id="ownership-next">&#10095;</button>
+                                        <div class="analyst-grid ownership-grid carousel-mode" id="ownership-carousel-track">
+                                            <!-- Col 1: Holders Radial Chart -->
                                         <div class="analyst-tab-content ownership-tab-content active" id="tab-holders">
                                             <div class="pt-module">
                                                 <span class="module-label">HOLDERS BREAKDOWN</span>
@@ -819,6 +867,44 @@
                                             </div>
                                         </div>
                                     </div>
+                                    <script>
+                                    document.addEventListener('DOMContentLoaded', () => {
+                                        const track = document.getElementById('ownership-carousel-track');
+                                        const prevBtn = document.getElementById('ownership-prev');
+                                        const nextBtn = document.getElementById('ownership-next');
+                                        let currentSlide = 0; // 0 for part 1, 1 for part 2
+                                        
+                                        const updateCarousel = () => {
+                                            if(window.innerWidth >= 769) {
+                                                track.style.transform = `translateX(-${currentSlide * 50}%)`;
+                                                prevBtn.style.opacity = currentSlide === 0 ? '0.3' : '1';
+                                                prevBtn.style.pointerEvents = currentSlide === 0 ? 'none' : 'auto';
+                                                nextBtn.style.opacity = currentSlide === 1 ? '0.3' : '1';
+                                                nextBtn.style.pointerEvents = currentSlide === 1 ? 'none' : 'auto';
+                                            } else {
+                                                track.style.transform = 'none';
+                                            }
+                                        };
+                                        
+                                        if (prevBtn && nextBtn) {
+                                            prevBtn.addEventListener('click', () => {
+                                                if (currentSlide > 0) {
+                                                    currentSlide--;
+                                                    updateCarousel();
+                                                }
+                                            });
+                                            nextBtn.addEventListener('click', () => {
+                                                if (currentSlide < 1) {
+                                                    currentSlide++;
+                                                    updateCarousel();
+                                                }
+                                            });
+                                            // Initialize
+                                            setTimeout(updateCarousel, 100);
+                                            window.addEventListener('resize', updateCarousel);
+                                        }
+                                    });
+                                    </script>
                                 </div>
                             </div>
                             </div>
