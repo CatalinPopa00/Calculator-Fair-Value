@@ -661,6 +661,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const recalcWithSimPrice = (simPrice, skipTrigger = false) => {
         if (!globalData || !globalData.company_profile) return;
+        
+        if (_simulating) {
+            window._simulatedPriceActive = simPrice;
+        } else {
+            window._simulatedPriceActive = null;
+        }
 
         // Helper to convert growth/margins to percentage if they are raw decimals (matches backend clean_percent)
         const cleanPercent = (val) => {
@@ -915,6 +921,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (activeEV === 0 && newEvEbitda > 0) activeEV = newEvEbitda;
                 if (activePS === 0 && dynPS > 0) activePS = dynPS;
                 if (activePB === 0 && newPB > 0) activePB = newPB;
+
+        if (window._renderProfile) window._renderProfile();
 
                 // Guard Clause Universal
                 if ((metric.includes('P/E Ratio') || (metric.includes('EV/EBITDA') || metric.includes('EV / EBITDA')) || metric.includes('P/S Ratio') || metric.includes('Price-to-Book') || (metric.includes('P/AFFO') || metric.includes('P/AFFO'))) && (activePE < 0 || activeEV < 0 || activePS < 0 || activePB < 0)) {
@@ -4372,22 +4380,35 @@ document.addEventListener('DOMContentLoaded', () => {
                             }
                         }
 
-                        let dynFwdPe = dynFwdEps && dynFwdEps > 0 && _realApiPrice ? _realApiPrice / dynFwdEps : prof.fwd_pe;
-                        let dynFwdPs = dynFwdRev && dynFwdRev > 0 && prof.market_cap ? (prof.market_cap / dynFwdRev) : prof.fwd_ps;
+                        let simActive = (typeof window._simulatedPriceActive !== 'undefined' && window._simulatedPriceActive !== null);
+                        let p = simActive ? window._simulatedPriceActive : (_originalPrice || _realApiPrice);
+                        let mCap = simActive ? (p * prof.shares_outstanding) : prof.market_cap;
+                        let simStyle = simActive ? 'color: #fbbf24;' : '';
+                        
+                        let dynFwdPe = dynFwdEps && dynFwdEps > 0 && p ? p / dynFwdEps : prof.fwd_pe;
+                        let dynFwdPs = dynFwdRev && dynFwdRev > 0 && mCap ? (mCap / dynFwdRev) : prof.fwd_ps;
+                        let pegRatio = simActive && window._currentPegToDisplay != null ? window._currentPegToDisplay : (prof.peg_ratio || null);
+                        
+                        let peTtm = prof.trailing_eps && prof.trailing_eps > 0 ? (p / prof.trailing_eps) : prof.trailing_pe;
+                        let peGaap = prof.gaap_eps_fy && prof.gaap_eps_fy > 0 ? (p / prof.gaap_eps_fy) : null;
+                        let peNonGaap = prof.adjusted_eps && prof.adjusted_eps > 0 ? (p / prof.adjusted_eps) : null;
+                        
+                        let ps = globalData.revenue && globalData.revenue > 0 ? (mCap / globalData.revenue) : prof.ps_ratio;
+                        let pfcf = globalData.fcf && globalData.fcf > 0 ? (mCap / globalData.fcf) : prof.pfcf_ratio;
 
                         return `
-                                        ${metricRow('P/E TTM', prof.trailing_pe ? prof.trailing_pe.toFixed(2) + 'x' : 'N/A')}
-                                        ${metricRow('P/E GAAP', (prof.gaap_eps_fy && prof.gaap_eps_fy > 0 && _originalPrice) ? (_originalPrice / prof.gaap_eps_fy).toFixed(2) + 'x' : 'N/A')}
-                                        ${metricRow('P/E Non-GAAP', (prof.adjusted_eps && prof.adjusted_eps > 0 && _originalPrice) ? (_originalPrice / prof.adjusted_eps).toFixed(2) + 'x' : 'N/A')}
+                                        ${metricRow('P/E TTM', peTtm ? peTtm.toFixed(2) + 'x' : 'N/A', '', simStyle)}
+                                        ${metricRow('P/E GAAP', peGaap ? peGaap.toFixed(2) + 'x' : 'N/A', '', simStyle)}
+                                        ${metricRow('P/E Non-GAAP', peNonGaap ? peNonGaap.toFixed(2) + 'x' : 'N/A', '', simStyle)}
                                         ${metricRow('5Y Avg. P/E', prof.historic_pe ? prof.historic_pe.toFixed(2) + 'x' : 'N/A')}
-                                        ${metricRow('P/E FWD', dynFwdPe ? dynFwdPe.toFixed(2) + 'x' : 'N/A')}
+                                        ${metricRow('P/E FWD', dynFwdPe ? dynFwdPe.toFixed(2) + 'x' : 'N/A', '', simStyle)}
                                         ${metricRow('EPS Diluted', prof.trailing_eps ? '$' + prof.trailing_eps.toFixed(2) : 'N/A')}
                                         ${metricRow('EPS Non-GAAP', prof.adjusted_eps ? '$' + prof.adjusted_eps.toFixed(2) : 'N/A')}
                                         ${metricRow('FWD EPS', dynFwdEps ? '$' + dynFwdEps.toFixed(2) : 'N/A')}
-                                        ${metricRow('PEG', window._currentPegToDisplay != null ? window._currentPegToDisplay.toFixed(2) : (prof.peg_ratio ? prof.peg_ratio.toFixed(2) : 'N/A'))}
-                                        ${metricRow('P/S', prof.ps_ratio ? prof.ps_ratio.toFixed(2) + 'x' : 'N/A')}
-                                        ${metricRow('P/S FWD', dynFwdPs ? dynFwdPs.toFixed(2) + 'x' : 'N/A')}
-                                        ${metricRow('P/FCF', prof.pfcf_ratio ? prof.pfcf_ratio.toFixed(2) + 'x' : 'N/A')}
+                                        ${metricRow('PEG', pegRatio != null ? pegRatio.toFixed(2) : 'N/A', '', simStyle)}
+                                        ${metricRow('P/S', ps ? ps.toFixed(2) + 'x' : 'N/A', '', simStyle)}
+                                        ${metricRow('P/S FWD', dynFwdPs ? dynFwdPs.toFixed(2) + 'x' : 'N/A', '', simStyle)}
+                                        ${metricRow('P/FCF', pfcf ? pfcf.toFixed(2) + 'x' : 'N/A', '', simStyle)}
                                     `;
                     })()}
                             </div>
