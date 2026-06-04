@@ -3244,6 +3244,13 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
         except Exception as e_beneish:
             print(f"Error fetching Beneish Data: {e_beneish}")
 
+        # Extract extra banking/fintech variables for categorization & scoring
+        fintech_total_assets = get_metric(bs, 'Total Assets', 0) if bs is not None else (info.get('totalAssets') or None)
+        fintech_total_equity = get_metric(bs, ['Total Equity Gross Minority Interest', 'Stockholders Equity', 'Common Stock Equity'], 0) if bs is not None else None
+        fintech_net_interest_income = get_metric(financials, 'Net Interest Income', 0) if financials is not None else None
+        fintech_non_interest_expense = get_metric(financials, ['Other Non Interest Expense', 'Non Interest Expense', 'Operating Expense'], 0) if financials is not None else None
+        fintech_gross_profit = get_metric(financials, 'Gross Profit', 0) if financials is not None else info.get('grossProfits')
+
         # Final return object (Diagnostic-Rich v22)
         data = {
             "ticker": ticker_symbol.upper(),
@@ -3276,6 +3283,12 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
             "roe": roe,
             "roa": roa,
             "interest_coverage": interest_coverage,
+            "ebit_margin": ebit_margin,
+            "fintech_total_assets": fintech_total_assets,
+            "fintech_total_equity": fintech_total_equity,
+            "fintech_net_interest_income": fintech_net_interest_income,
+            "fintech_non_interest_expense": fintech_non_interest_expense,
+            "fintech_gross_profit": fintech_gross_profit,
             "price_to_book": price_to_book,
             "revenue": revenue,
             "revenue_growth": revenue_growth_val,

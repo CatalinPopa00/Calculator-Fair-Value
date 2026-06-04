@@ -168,6 +168,25 @@ def calculate_scoring_reform(valuation_data, metrics):
     is_defensive = 'consumer defensive' in sector or 'staples' in sector or 'healthcare' in sector or 'health care' in sector
     is_tech = 'technology' in sector or 'communication services' in sector or 'software' in industry or 'internet' in industry or 'information services' in industry
 
+    # Fintech / Payments Categorization
+    is_payment_network = False
+    is_fintech = False
+    if is_financial:
+        fintech_gross_profit = metrics.get('fintech_gross_profit')
+        # PASUL 1: Izolarea rețelelor de plăți (MA, V) folosind prezența Gross Profit
+        if fintech_gross_profit is not None and fintech_gross_profit > 0 and industry == 'credit services':
+            is_payment_network = True
+        else:
+            # PASUL 2: Identificarea Fintech-urilor și Emitenților puri de credit
+            if industry == 'credit services':
+                is_fintech = True
+            # PASUL 3: Trierea Băncilor (Tradițional vs Digital)
+            elif is_bank:
+                summary = str(metrics.get('business_summary') or "").lower()
+                if "digital banking" in summary or "neobank" in summary or "digital platform" in summary:
+                    is_fintech = True
+                    is_bank = False # Exclude from traditional bank routing
+
     h_score = 0
     h_breakdown = []
     b_score = 0
@@ -312,9 +331,39 @@ def calculate_scoring_reform(valuation_data, metrics):
             
     peg_val = hybrid_peg if hybrid_peg > 0 else clean_ratio(metrics.get('peg_ratio'))
 
-    # 3. Process Health Score (Sector Independent mostly, but structured per sector previously)
-    # We will run the exact same h_score rules as before
-    if is_financial and is_bank:
+    # 3. Process Health Score
+    if is_fintech:
+        # Fintech / Issuers (SOFI, NU, AXP)
+        total_assets = metrics.get('fintech_total_assets')
+        total_equity = metrics.get('fintech_total_equity')
+        levier = 0
+        if total_assets and total_equity and total_equity > 0:
+            levier = total_assets / total_equity
+        add_h("Bank Leverage (Assets/Eq)", levier, 20 if 7.0 <= levier <= 12.0 else (10 if (6.0 <= levier < 7.0) or (12.0 < levier <= 15.0) else 0), 20, is_ratio="raw")
+        
+        non_interest_exp = metrics.get('fintech_non_interest_expense')
+        total_rev = metrics.get('revenue') or valuation_data.get('revenue')
+        eff_ratio = 0
+        if non_interest_exp and total_rev and total_rev > 0:
+            eff_ratio = (non_interest_exp / total_rev) * 100.0
+        else:
+            ebm = clean_percent(metrics.get('ebit_margin'))
+            eff_ratio = 100.0 - ebm if ebm > 0 else 100.0
+        add_h("Efficiency Ratio", eff_ratio, 20 if eff_ratio < 55.0 else (10 if eff_ratio <= 70.0 else 0), 20, False)
+        
+        roa = clean_percent(metrics.get('roa'))
+        add_h("ROA", roa, 20 if roa > 1.5 else (10 if roa >= 0.5 else 0), 20, False)
+        
+        roe = clean_percent(metrics.get('roe'))
+        add_h("ROE", roe, 20 if roe > 15.0 else (10 if roe >= 5.0 else 0), 20, False)
+        
+        nii = metrics.get('fintech_net_interest_income')
+        nim = clean_percent(metrics.get('nim') or metrics.get('netInterestMargin'))
+        if nim == 0 and nii and total_assets and total_assets > 0:
+            nim = (nii / total_assets) * 100.0
+        add_h("NIM", nim, 20 if nim > 4.0 else (10 if nim >= 2.5 else 0), 20, False)
+        
+    elif is_financial and is_bank:
         nim = clean_percent(metrics.get('nim'))
         add_h("Net Interest Margin", nim, 20 if nim > 3.0 else (10 if nim >= 1.5 else 0), 20, False)
         cet1 = clean_percent(metrics.get('cet1_ratio'))
@@ -487,7 +536,17 @@ def calculate_scoring_reform(valuation_data, metrics):
             pe_label = pe_label + " ⚡"
 
         # 5. Standard Sector Buy Score Routing
-        if is_financial and is_bank:
+        if is_fintech:
+            add_b("Margin of Safety", mos, get_mos_points(mos, 30), 30, False)
+            add_b("Revenue Growth (Fwd)", rev_1y_g, get_growth_pts(rev_1y_g, 20), 20, False)
+            
+            fwd_pe_fintech = pe
+            add_b(pe_label, fwd_pe_fintech, 20 if fwd_pe_fintech > 0 and fwd_pe_fintech <= 25.0 else (10 if 25.0 < fwd_pe_fintech <= 40.0 else 0), 20, True)
+            
+            add_b("Price-to-Book", pb, 15 if pb > 0 and pb <= 3.5 else (7.5 if 3.5 < pb <= 6.0 else 0), 15, True)
+            add_b("PEG Ratio (Fwd)", peg_val, 15 if peg_val > 0 and peg_val <= 1.2 else (7.5 if 1.2 < peg_val <= 2.0 else 0), 15, True)
+
+        elif is_financial and is_bank:
             add_b("Margin of Safety (DDM)", mos, get_mos_points(mos, 25), 25, False)
             add_b("EPS Growth (Fwd)", eps_2y_g, get_growth_pts(eps_2y_g, 10), 10, False)
             add_b(pe_label, pe, get_monopoly_pe_pts(pe, hist_pe, 20) if is_monopoly else get_rel_pts(pe, sec_pe, hist_pe, 20), 20, True)
