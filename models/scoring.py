@@ -339,7 +339,7 @@ def calculate_scoring_reform(valuation_data, metrics):
         levier = 0
         if total_assets and total_equity and total_equity > 0:
             levier = total_assets / total_equity
-        add_h("Bank Leverage (Assets/Eq)", levier, 20 if 7.0 <= levier <= 12.0 else (10 if (6.0 <= levier < 7.0) or (12.0 < levier <= 15.0) else 0), 20, is_ratio="raw")
+        add_h("Bank Leverage (Assets/Eq)", levier, 20 if 7.0 <= levier <= 12.0 else (10 if (6.0 <= levier < 7.0) or (12.0 < levier <= 15.0) else 0), 20, True)
         
         non_interest_exp = metrics.get('fintech_non_interest_expense')
         total_rev = metrics.get('revenue') or valuation_data.get('revenue')

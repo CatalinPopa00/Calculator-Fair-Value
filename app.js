@@ -791,8 +791,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 const industry = (prof.industry || globalData.industry || '').toLowerCase();
                 const sector = (prof.sector || globalData.sector || '').toLowerCase();
 
-                const isBank = industry.includes('bank') || industry.includes('credit services') || industry.includes('savings');
+                let isBank = industry.includes('bank') || industry.includes('savings');
                 const isFin = sector.includes('financial');
+                
+                // Fintech Sync
+                const hasBankLeverage = (globalData.health_breakdown || []).some(m => m.metric.includes('Bank Leverage'));
+                const isFintech = hasBankLeverage;
+                if (isFintech) isBank = false;
                 const isInsurance = industry.includes('insurance');
                 const isREIT = sector.includes('real estate') || sector.includes('reit');
                 const isEnergy = sector.includes('energy') || sector.includes('basic materials') || sector.includes('materials');
@@ -896,7 +901,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (metric.includes('Margin of Safety')) {
                     item.metric = 'Margin of Safety (Fair Value)';
-                    if (isBank || isFin || isInsurance || isREIT) {
+                    if (isFintech) {
+                        newPts = (newMos > 25) ? 30 : ((newMos >= 0) ? 15 : 0);
+                    } else if (isBank || isFin || isInsurance || isREIT) {
                         newPts = (newMos > 20) ? 30 : ((newMos > 5) ? 15 : 0);
                     } else if (isTech || isDefensive) {
                         newPts = (newMos > 10) ? 30 : ((newMos > 0) ? 30 * (14.9 / 25.0) : (newMos >= -10 ? 12 : 0));
@@ -920,6 +927,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             else if (discount >= 10.0) pts = maxPts * 0.50;
                             else if (discount > 0.0) pts = maxPts * 0.25;
                             else pts = 0;
+                        } else if (isFintech) {
+                            if (activePE <= 25) pts = 20;
+                            else if (activePE <= 40) pts = 10;
                         } else if (isFin && isBank) {
                             if (activePE <= 13) pts = 20;
                             else if (activePE <= 15) pts = 10;
@@ -996,7 +1006,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (metric.includes('Price-to-Book')) {
                     let pts = 0;
                     if (activePB > 0) {
-                        if (isFin && isBank) {
+                        if (isFintech) {
+                            if (activePB <= 3.5) pts = 15;
+                            else if (activePB <= 6.0) pts = 7.5;
+                        } else if (isFin && isBank) {
                             if (activePB < 1.5) pts = 20;
                             else if (activePB <= 2.0) pts = 10;
                         } else if (isInsurance) {
@@ -1051,7 +1064,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     } else if (fwd_growth > 0 && activePE > 0) {
                         newPEG = activePE / fwd_growth;
                     }
-                    if (isFin && isBank) newPts = (newPEG > 0 && newPEG < 1.0) ? 10 : ((newPEG > 0 && newPEG <= 1.5) ? 5 : 0);
+                    if (isFintech) newPts = (newPEG > 0 && newPEG <= 1.2) ? 15 : ((newPEG > 0 && newPEG <= 2.0) ? 7.5 : 0);
+                    else if (isFin && isBank) newPts = (newPEG > 0 && newPEG < 1.0) ? 10 : ((newPEG > 0 && newPEG <= 1.5) ? 5 : 0);
                     else if (isDefensive) newPts = (newPEG > 0 && newPEG < 1.5) ? 20 : ((newPEG > 0 && newPEG <= 2.0) ? 10 : 0);
                     else if (isTech) newPts = (newPEG > 0 && newPEG < 1.5) ? 10 : ((newPEG > 0 && newPEG <= 2.0) ? 5 : 0);
                     else newPts = (newPEG > 0 && newPEG < 1.0) ? 10 : ((newPEG > 0 && newPEG <= 1.5) ? 5 : 0);
@@ -1074,7 +1088,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (metric.includes('Rev Growth') || metric.includes('EPS Growth') || metric.includes('AFFO Growth') || metric.includes('Revenue Growth')) {
                     if (metric.includes('Revenue Growth')) {
                         item.value = rev_fwd_growth > 0 ? rev_fwd_growth.toFixed(1) + '%' : '0.0%';
-                        if (isTech) {
+                        if (isFintech) {
+                            if (rev_fwd_growth > 25) newPts = 20;
+                            else if (rev_fwd_growth >= 10) newPts = 10;
+                            else newPts = 0;
+                        } else if (isTech) {
                             if (rev_fwd_growth > 15) newPts = 20;
                             else if (rev_fwd_growth >= 8) newPts = 10;
                             else newPts = 0;
