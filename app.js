@@ -3701,7 +3701,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         const stickyName = document.getElementById('sticky-banner-name');
-        if (stickyName) stickyName.textContent = data.name + " (" + data.ticker + ")";
+        if (stickyName) stickyName.textContent = data.ticker;
 
         elements.name.textContent = data.name;
         elements.ticker.textContent = data.ticker;
