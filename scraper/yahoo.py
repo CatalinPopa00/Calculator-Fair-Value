@@ -3495,6 +3495,26 @@ def get_competitors_data(target_ticker: str, limit: int = 4, custom_peers: list 
                             candidate_scores[sym] = candidate_scores.get(sym, 0) + 2
             except: pass
 
+        # D. Custom Sector Mapping Override (Ensures Fintechs, Payment Networks, and Banks don't mix)
+        try:
+            target_industry_lower = (target_industry or "").lower()
+            
+            payment_networks = ['V', 'MA', 'AXP', 'DFS', 'SYF', 'COF']
+            fintechs = ['SOFI', 'UPST', 'AFRM', 'HOOD', 'SQ', 'PYPL', 'NU', 'MQ', 'TOST', 'LC']
+            trad_banks = ['JPM', 'BAC', 'WFC', 'C', 'GS', 'MS', 'USB', 'PNC', 'TFC']
+            
+            if target_ticker in payment_networks:
+                for p in payment_networks:
+                    if p != target_ticker: candidate_scores[p] = candidate_scores.get(p, 0) + 50
+            elif target_ticker in fintechs:
+                for p in fintechs:
+                    if p != target_ticker: candidate_scores[p] = candidate_scores.get(p, 0) + 50
+            elif target_ticker in trad_banks or ('bank' in target_industry_lower and target_ticker not in fintechs):
+                for p in trad_banks:
+                    if p != target_ticker: candidate_scores[p] = candidate_scores.get(p, 0) + 50
+        except Exception as e:
+            print(f"DEBUG: Custom Sector Override error: {e}")
+
         # 4. Rank and Deduplicate by Base Ticker
         sorted_candidates = sorted(candidate_scores.items(), key=lambda x: x[1], reverse=True)
         
