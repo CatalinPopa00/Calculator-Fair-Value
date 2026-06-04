@@ -798,6 +798,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const hasBankLeverage = (globalData.health_breakdown || []).some(m => m.metric.includes('Bank Leverage'));
                 const isFintech = hasBankLeverage;
                 if (isFintech) isBank = false;
+                
+                const isPaymentNetwork = (industry.includes('credit services') && !isFintech && !isBank);
+
                 const isInsurance = industry.includes('insurance');
                 const isREIT = sector.includes('real estate') || sector.includes('reit');
                 const isEnergy = sector.includes('energy') || sector.includes('basic materials') || sector.includes('materials');
@@ -957,6 +960,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                 const peg = activePE / (fwd_growth);
                                 if (peg > 0 && peg <= 1.2 && rev_fwd_growth >= 20.0) pts = 10;
                             }
+                        } else if (isPaymentNetwork) {
+                            if (activePE <= 28) pts = 20;
+                            else if (activePE <= 35) pts = 10;
                         } else {
                             // Industrials
                             if (activePE <= 18) pts = 20;
@@ -992,9 +998,12 @@ document.addEventListener('DOMContentLoaded', () => {
                                 const peg = activePE / (fwd_growth);
                                 if (peg > 0 && peg <= 1.2 && rev_fwd_growth >= 20.0) pts = 5;
                             }
+                        } else if (isPaymentNetwork) {
+                            if (activeEV <= 20.0) pts = 15;
+                            else if (activeEV <= 25.0) pts = 7.5;
                         } else {
-                            if (activeEV <= 12.0) pts = 10;
-                            else if (activeEV <= 16.0) pts = 5;
+                            if (activeEV <= 12.0) pts = 15;
+                            else if (activeEV <= 16.0) pts = 7.5;
                             if (pts === 0 && activeEV > 0 && pegUsedGrowth > 0) {
                                 const peg = activePE / (fwd_growth);
                                 if (peg > 0 && peg <= 1.2 && rev_fwd_growth >= 15.0) pts = 5;
@@ -1050,7 +1059,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (metric.includes('Dividend Yield')) {
                     const dyPct = newDivYield * 100;
                     if (isREIT) newPts = dyPct > 5 ? 15 : (dyPct >= 3 ? 7.5 : 0);
-                    else if (isFin && isBank) newPts = dyPct > 4 ? 15 : (dyPct >= 2 ? 7.5 : 0);
+                    else if (isFin && isBank) newPts = dyPct > 3 ? 15 : (dyPct >= 1.5 ? 7.5 : 0);
                     else if (isInsurance) newPts = dyPct > 3 ? 15 : (dyPct >= 1.5 ? 7.5 : 0);
                     else if (isEnergy) newPts = dyPct > 4 ? 15 : (dyPct >= 2 ? 7.5 : 0);
                     else if (isUtilities) newPts = dyPct > 4 ? 25 : (dyPct >= 2.5 ? 12.5 : 0);
@@ -1065,7 +1074,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         newPEG = activePE / fwd_growth;
                     }
                     if (isFintech) newPts = (newPEG > 0 && newPEG <= 1.2) ? 15 : ((newPEG > 0 && newPEG <= 2.0) ? 7.5 : 0);
-                    else if (isFin && isBank) newPts = (newPEG > 0 && newPEG < 1.0) ? 10 : ((newPEG > 0 && newPEG <= 1.5) ? 5 : 0);
+                    else if (isPaymentNetwork) newPts = (newPEG > 0 && newPEG <= 1.6) ? 15 : ((newPEG > 0 && newPEG <= 2.2) ? 7.5 : 0);
                     else if (isDefensive) newPts = (newPEG > 0 && newPEG < 1.5) ? 20 : ((newPEG > 0 && newPEG <= 2.0) ? 10 : 0);
                     else if (isTech) newPts = (newPEG > 0 && newPEG < 1.5) ? 10 : ((newPEG > 0 && newPEG <= 2.0) ? 5 : 0);
                     else newPts = (newPEG > 0 && newPEG < 1.0) ? 10 : ((newPEG > 0 && newPEG <= 1.5) ? 5 : 0);
@@ -1108,7 +1117,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         else newPts = 0;
                     } else { // EPS Growth
                         item.value = fwd_growth > 0 ? fwd_growth.toFixed(1) + '%' : '0.0%';
-                        if (isInsurance) {
+                        if (isFin && isBank) {
+                            if (fwd_growth > 7) newPts = 10;
+                            else if (fwd_growth >= 3) newPts = 5;
+                            else newPts = 0;
+                        } else if (isInsurance) {
                             if (fwd_growth > 8) newPts = 10;
                             else if (fwd_growth >= 4) newPts = 5;
                             else newPts = 0;

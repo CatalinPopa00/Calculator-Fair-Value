@@ -365,7 +365,18 @@ def calculate_scoring_reform(valuation_data, metrics):
         
     elif is_financial and is_bank:
         nim = clean_percent(metrics.get('nim'))
-        add_h("Net Interest Margin", nim, 20 if nim > 3.0 else (10 if nim >= 1.5 else 0), 20, False)
+        add_h("Net Interest Margin", nim, 10 if nim > 2.8 else (5 if nim >= 2.0 else 0), 10, False)
+        
+        non_interest_exp = valuation_data.get('non_interest_expense')
+        total_rev = metrics.get('revenue') or valuation_data.get('revenue')
+        eff_ratio = 0
+        if non_interest_exp and total_rev and total_rev > 0:
+            eff_ratio = (non_interest_exp / total_rev) * 100.0
+        else:
+            ebm = clean_percent(metrics.get('ebit_margin'))
+            eff_ratio = 100.0 - ebm if ebm > 0 else 100.0
+        add_h("Efficiency Ratio", eff_ratio, 10 if eff_ratio < 55.0 else (5 if eff_ratio <= 65.0 else 0), 10, False)
+
         cet1 = clean_percent(metrics.get('cet1_ratio'))
         add_h("CET1 Ratio", cet1, 20 if cet1 >= 12 else (10 if cet1 >= 10 else 0), 20, False)
         roe = clean_percent(metrics.get('roe'))
@@ -548,12 +559,24 @@ def calculate_scoring_reform(valuation_data, metrics):
 
         elif is_financial and is_bank:
             add_b("Margin of Safety (DDM)", mos, get_mos_points(mos, 25), 25, False)
-            add_b("EPS Growth (Fwd)", eps_2y_g, get_growth_pts(eps_2y_g, 10), 10, False)
+            add_b("EPS Growth (Fwd)", eps_2y_g, 10 if eps_2y_g > 7.0 else (5 if eps_2y_g >= 3.0 else 0), 10, False)
             add_b(pe_label, pe, get_monopoly_pe_pts(pe, hist_pe, 20) if is_monopoly else get_rel_pts(pe, sec_pe, hist_pe, 20), 20, True)
             add_b("Price-to-Book", pb, get_rel_pts(pb, sec_pb, hist_pb, 20), 20, True)
+            
             div_y = clean_percent(metrics.get('fwd_dividend_yield') or metrics.get('dividend_yield'))
-            add_b("Dividend Yield (Fwd)", div_y, 15 if div_y > 4 else (7.5 if div_y >= 2 else 0), 15, False)
-            add_b("PEG Ratio (Fwd)", peg_val, get_rel_pts(peg_val, sec_peg, None, 10), 10, True)
+            add_b("Dividend Yield (Fwd)", div_y, 15 if div_y > 3.0 else (7.5 if div_y >= 1.5 else 0), 15, False)
+
+            payout_r = clean_percent(metrics.get('payout_ratio'))
+            if payout_r <= 0 and pe > 0:
+                payout_r = (clean_percent(metrics.get('dividend_yield')) / pe) * 100
+            
+            payout_pts = 0
+            if 20.0 <= payout_r <= 40.0:
+                payout_pts = 10
+            elif 40.0 < payout_r <= 60.0 or 10.0 <= payout_r < 20.0:
+                payout_pts = 5
+                
+            add_b("Dividend Payout Ratio", payout_r, payout_pts, 10, False)
 
         elif is_insurance:
             add_b("Margin of Safety", mos, get_mos_points(mos, 30), 30, False)
