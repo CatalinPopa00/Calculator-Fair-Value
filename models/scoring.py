@@ -481,6 +481,10 @@ def calculate_scoring_reform(valuation_data, metrics):
         # Monopoly Rule: If ROIC > 20% and Health >= 70/100, compare P/E strictly against Historical P/E
         current_roic = clean_percent(metrics.get('roic'))
         is_monopoly = (current_roic > 20.0 and h_score >= 70.0)
+        
+        # Override PE label to signal Monopoly scoring is active
+        if is_monopoly:
+            pe_label = pe_label + " ⚡"
 
         # 5. Standard Sector Buy Score Routing
         if is_financial and is_bank:
@@ -563,7 +567,8 @@ def calculate_scoring_reform(valuation_data, metrics):
         "good_to_buy_total": min(int(b_score), 100),
         "health_breakdown": h_breakdown,
         "buy_breakdown": b_breakdown,
-        "rule_of_40": calculate_rule_of_40(metrics)
+        "rule_of_40": calculate_rule_of_40(metrics),
+        "is_monopoly": is_monopoly if not is_high_growth else False
     }
 
 
