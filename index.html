@@ -725,10 +725,13 @@
                                         /* Desktop Carousel for Ownership */
                                         .carousel-nav-btn { display: none; }
                                         @media (min-width: 769px) {
-                                            .ownership-carousel-viewport {
-                                                overflow: hidden;
+                                            .ownership-carousel-wrapper {
                                                 position: relative;
                                                 padding: 0 40px;
+                                            }
+                                            .ownership-carousel-viewport {
+                                                overflow: hidden;
+                                                width: 100%;
                                             }
                                             .ownership-grid.carousel-mode {
                                                 display: flex !important;
@@ -766,12 +769,13 @@
                                             .carousel-nav-btn.next { right: 0; }
                                         }
                                     </style>
-                                    <div class="ownership-carousel-viewport">
+                                    <div class="ownership-carousel-wrapper">
                                         <button class="carousel-nav-btn prev" id="ownership-prev">&#10094;</button>
                                         <button class="carousel-nav-btn next" id="ownership-next">&#10095;</button>
-                                        <div class="analyst-grid ownership-grid carousel-mode" id="ownership-carousel-track">
-                                            <!-- Col 1: Holders Radial Chart -->
-                                        <div class="analyst-tab-content ownership-tab-content active" id="tab-holders">
+                                        <div class="ownership-carousel-viewport">
+                                            <div class="analyst-grid ownership-grid carousel-mode" id="ownership-carousel-track">
+                                                <!-- Col 1: Holders Radial Chart -->
+                                            <div class="analyst-tab-content ownership-tab-content active" id="tab-holders">
                                             <div class="pt-module">
                                                 <span class="module-label">HOLDERS BREAKDOWN</span>
                                                 <div class="radial-chart-container" style="position: relative; width: 160px; height: 160px; margin: 15px auto;">
@@ -881,10 +885,11 @@
                                         const updateCarousel = () => {
                                             if(window.innerWidth >= 769) {
                                                 track.style.transform = `translateX(-${currentSlide * 50}%)`;
-                                                prevBtn.style.opacity = currentSlide === 0 ? '0.3' : '1';
-                                                prevBtn.style.pointerEvents = currentSlide === 0 ? 'none' : 'auto';
-                                                nextBtn.style.opacity = currentSlide === 1 ? '0.3' : '1';
-                                                nextBtn.style.pointerEvents = currentSlide === 1 ? 'none' : 'auto';
+                                                // Looping logic means buttons are always active
+                                                prevBtn.style.opacity = '1';
+                                                prevBtn.style.pointerEvents = 'auto';
+                                                nextBtn.style.opacity = '1';
+                                                nextBtn.style.pointerEvents = 'auto';
                                             } else {
                                                 track.style.transform = 'none';
                                             }
@@ -894,14 +899,18 @@
                                             prevBtn.addEventListener('click', () => {
                                                 if (currentSlide > 0) {
                                                     currentSlide--;
-                                                    updateCarousel();
+                                                } else {
+                                                    currentSlide = 1;
                                                 }
+                                                updateCarousel();
                                             });
                                             nextBtn.addEventListener('click', () => {
                                                 if (currentSlide < 1) {
                                                     currentSlide++;
-                                                    updateCarousel();
+                                                } else {
+                                                    currentSlide = 0;
                                                 }
+                                                updateCarousel();
                                             });
                                             // Initialize
                                             setTimeout(updateCarousel, 100);
@@ -909,9 +918,12 @@
                                         }
                                     });
                                     </script>
+                                    </script>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                            </div>
+                        </div>
 
 <!-- 2. Historical Trends Segment -->
                             <div class="research-card glass-card" id="historical-anchors-card" style="margin-top: 1.5rem;">
