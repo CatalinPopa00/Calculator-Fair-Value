@@ -414,11 +414,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!prof || !prof.competitor_metrics) return;
         const validPegs = prof.competitor_metrics
             .map(p => {
-                // Strictly use Forward P/E and 2-Year CAGR
-                const fwdPe = parseFloat(p.forward_pe);
-                const cagr2y = parseFloat(p.avg_2y_eps_growth);
-                if (!isNaN(fwdPe) && fwdPe > 0 && !isNaN(cagr2y) && cagr2y > 0) {
-                    return fwdPe / (cagr2y * 100);
+                // Strictly use P/E Non-GAAP TTM and 2-Year CAGR
+                const price = parseFloat(p.price || p.current_price);
+                let eps = parseFloat(p.adjusted_eps);
+                if (isNaN(eps) || eps <= 0) eps = parseFloat(p.eps);
+                
+                const cagr2y = parseFloat(p.avg_2y_eps_growth || p.earnings_growth);
+                
+                if (!isNaN(price) && price > 0 && !isNaN(eps) && eps > 0 && !isNaN(cagr2y) && cagr2y > 0) {
+                    const peNonGaap = price / eps;
+                    return peNonGaap / (cagr2y * 100);
                 }
                 
                 // Fallback to API-provided forward_peg if explicitly calculated there
@@ -431,7 +436,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 return null;
             })
-            .filter(v => !isNaN(v) && v > 0);
+            .filter(v => v !== null && !isNaN(v) && v > 0);
 
         let median = null; // No fallback
         if (validPegs.length > 0) {
@@ -1634,6 +1639,27 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
+        const mainRev = globalData.revenue || (prof.market_cap && prof.ps_ratio && prof.ps_ratio > 0 ? prof.market_cap / prof.ps_ratio : null);
+        const mainFcfMargin = mainFcf && mainRev && mainRev > 0 ? (mainFcf / mainRev) : null;
+        
+        let mainCagr5y = null;
+        if (prof.fwd_pe && prof.fwd_pe > 0 && prof.peg_ratio && prof.peg_ratio > 0) {
+            mainCagr5y = (prof.fwd_pe / prof.peg_ratio) / 100.0;
+        }
+
+        const mainFwdPeCustom = dynFwdEps > 0 ? (_realApiPrice / dynFwdEps) : null;
+        const mainPegCustom = (mainFwdPeCustom && mainCagr5y && mainCagr5y > 0) ? (mainFwdPeCustom / (mainCagr5y * 100.0)) : null;
+
+        const mainPsFwdCustom = (prof.market_cap && prof.forward_revenue && prof.forward_revenue > 0) ? (prof.market_cap / prof.forward_revenue) : null;
+        
+        let mainPfcfFwdCustom = null;
+        if (mainFcfMargin && prof.forward_revenue && prof.forward_revenue > 0) {
+            const fcfFwd = mainFcfMargin * prof.forward_revenue;
+            if (prof.market_cap && prof.market_cap > 0 && fcfFwd > 0) {
+                mainPfcfFwdCustom = prof.market_cap / fcfFwd;
+            }
+        }
+
         const mainComp = {
             ticker: prof.ticker || currentTicker,
             name: prof.name || 'Current',
@@ -1645,14 +1671,22 @@ document.addEventListener('DOMContentLoaded', () => {
             pe_non_gaap: (prof.adjusted_eps && prof.adjusted_eps > 0) ? (_realApiPrice / prof.adjusted_eps) : (prof.trailing_eps > 0 ? _realApiPrice / prof.trailing_eps : null),
             eps: prof.trailing_eps,
             fwd_eps: dynFwdEps,
+            avg_2y_eps_growth: globalData?.formula_data?.peg?.used_growth || prof.earnings_growth,
+            peg_2y_ttm: globalData?.formula_data?.peg?.current_peg || prof.peg_ratio,
             ps_ratio: prof.ps_ratio,
-            revenue: globalData.revenue || (prof.market_cap && prof.ps_ratio && prof.ps_ratio > 0 ? prof.market_cap / prof.ps_ratio : null),
+            revenue: mainRev,
             pfcf_ratio: mainPfcf,
             fcf: mainFcf || (prof.market_cap && mainPfcf && mainPfcf > 0 ? prof.market_cap / mainPfcf : null),
             fcf_growth: prof.historic_fcf_growth,
             margin: prof.operating_margin,
             rev_growth: dynRevGrowth,
-            eps_growth: dynEpsGrowth
+            eps_growth: dynEpsGrowth,
+            forward_pe_custom: mainFwdPeCustom,
+            cagr_5y_custom: mainCagr5y,
+            peg_custom: mainPegCustom,
+            ps_forward_custom: mainPsFwdCustom,
+            fcf_margin_custom: mainFcfMargin,
+            pfcf_forward_custom: mainPfcfFwdCustom
         };
 
         const competitors = prof.competitor_metrics || [];
@@ -1686,16 +1720,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 <tr>
                     <th style="padding:12px; text-align:left; color:var(--text-muted); font-size:0.85rem; position: sticky; left: 0; background: #0f172a; z-index: 10; border-right: 1px solid rgba(255,255,255,0.1);">COMPETITOR</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 100px;">Market Cap</th>
-                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">P/E (Forward)</th>
-                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">EPS Growth</th>
-                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 140px;">P/E Non-gaap TTM</th>
-                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">2y EPS CAGR</th>
-                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 100px;">PEG (2Y TTM)</th>
+                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">P/E FWD</th>
+                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">5y EPS CAGR</th>
+                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 100px;">PEG</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 100px;">P/S</th>
-                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">P/S (Forward)</th>
-                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 120px;">Revenue Growth</th>
+                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">P/S FWD</th>
+                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 120px;">FCF Margin</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 100px;">P/FCF</th>
-                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">FWD P/FCF</th>
+                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">P/FCF FWD</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 130px;">Operating Margin</th>
                 </tr>
             </thead>
@@ -1703,29 +1735,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 ${all.map((c, i) => {
             const isMain = i === 0;
 
-            // Derive revenue and FCF from ratios if not directly available
             const mCap = c.market_cap || c.marketCap;
-            const derivedRevenue = c.revenue || (mCap && c.ps_ratio && c.ps_ratio > 0 ? mCap / c.ps_ratio : null);
-            const derivedFcf = c.fcf || (mCap && c.pfcf_ratio && c.pfcf_ratio > 0 ? mCap / c.pfcf_ratio : null);
-
-            const epsGrowth = c.eps_growth ?? c.earnings_growth;
-            const revGrowth = c.rev_growth ?? c.revenue_growth;
-
-            let fwdRevExplicit = c.forward_revenue;
-            if (!fwdRevExplicit && isMain && globalData.rev_estimates) {
-                fwdRevExplicit = globalData.rev_estimates.find(e => e.period === 'FY 1' || e.period === 'FY1' || String(e.period).includes('Current Year'))?.avg;
-            }
-            if (!fwdRevExplicit && derivedRevenue && revGrowth != null) {
-                fwdRevExplicit = derivedRevenue * (1 + revGrowth);
-            }
-
-            const fwdPs = fwdRevExplicit && fwdRevExplicit > 0 ? mCap / fwdRevExplicit : null;
-
-            const fcfMargin = derivedFcf && derivedRevenue && derivedRevenue > 0 ? derivedFcf / derivedRevenue : null;
-            const fwdFcf = fwdRevExplicit && fcfMargin ? fwdRevExplicit * fcfMargin : null;
-            const fwdPfcf = mCap && fwdFcf && fwdFcf > 0 ? mCap / fwdFcf : null;
-
-            const pfcf = c.pfcf_ratio || (mCap && derivedFcf && derivedFcf > 0 ? mCap / derivedFcf : null);
+            
+            // Fallbacks for Main if backend didn't provide custom fields
+            const peFwd = c.forward_pe_custom || c.fwd_pe || c.forward_pe || c.pe_ratio;
+            const cagr5y = c.cagr_5y_custom;
+            const peg = c.peg_custom;
+            
+            const ps = c.ps_ratio || (mCap && c.revenue && c.revenue > 0 ? mCap / c.revenue : null);
+            const psFwd = c.ps_forward_custom;
+            
+            const fcfMargin = c.fcf_margin_custom || (c.fcf && c.revenue && c.revenue > 0 ? c.fcf / c.revenue : null);
+            const pfcf = c.pfcf_ratio || (mCap && c.fcf && c.fcf > 0 ? mCap / c.fcf : null);
+            const pfcfFwd = c.pfcf_forward_custom;
+            
+            const opMargin = c.margin || c.operating_margin;
 
             return `
                     <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: ${isMain ? 'rgba(56, 189, 248, 0.05)' : 'transparent'};">
@@ -1736,17 +1760,15 @@ document.addEventListener('DOMContentLoaded', () => {
                             </div>
                         </td>
                         <td style="padding:12px; font-weight:bold;">${formatBigNumber(mCap, '$')}</td>
-                        <td style="padding:12px; font-weight:bold;">${fmtPE(c.fwd_pe || c.pe_ratio)}</td>
-                        <td style="padding:12px; font-weight:bold;">${fmtMargin(epsGrowth)}</td>
-                        <td style="padding:12px; font-weight:bold;">${fmtPE(c.pe_non_gaap || c.pe_ratio)}</td>
-                        <td style="padding:12px; font-weight:bold;">${fmtMargin(epsGrowth)}</td>
-                        <td style="padding:12px; font-weight:bold;">${fmtPE(c.peg_ratio)} <span style="font-size:0.7em;color:var(--text-muted); display:block;">${c.peg_eps_type === 'GAAP' ? '(GAAP)' : (c.peg_eps_type === 'Non-GAAP' ? '(Non-GAAP)' : '')}</span></td>
-                        <td style="padding:12px; font-weight:bold;">${fmtPE(c.ps_ratio || (mCap && derivedRevenue && derivedRevenue > 0 ? mCap / derivedRevenue : null))}</td>
-                        <td style="padding:12px; font-weight:bold;">${fmtPE(fwdPs)}</td>
-                        <td style="padding:12px; font-weight:bold;">${fmtMargin(revGrowth)}</td>
+                        <td style="padding:12px; font-weight:bold;">${fmtPE(peFwd)}</td>
+                        <td style="padding:12px; font-weight:bold;">${fmtMargin(cagr5y)}</td>
+                        <td style="padding:12px; font-weight:bold;">${fmtPE(peg)}</td>
+                        <td style="padding:12px; font-weight:bold;">${fmtPE(ps)}</td>
+                        <td style="padding:12px; font-weight:bold;">${fmtPE(psFwd)}</td>
+                        <td style="padding:12px; font-weight:bold;">${fmtMargin(fcfMargin)}</td>
                         <td style="padding:12px; font-weight:bold;">${fmtPE(pfcf)}</td>
-                        <td style="padding:12px; font-weight:bold;">${fmtPE(fwdPfcf)}</td>
-                        <td style="padding:12px; font-weight:bold;">${fmtMargin(c.margin || c.operating_margin)}</td>
+                        <td style="padding:12px; font-weight:bold;">${fmtPE(pfcfFwd)}</td>
+                        <td style="padding:12px; font-weight:bold;">${fmtMargin(opMargin)}</td>
                     </tr>
                     `;
         }).join('')}
@@ -1871,12 +1893,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     const freshValidPegs = sectorPeers
                         .filter(sp => (sp.ticker || '').toUpperCase() !== targetTicker)
                         .map(sp => {
-                            const fwd = parseFloat(sp.forward_peg);
-                            if (!isNaN(fwd) && fwd > 0) return fwd;
-                            const fwdPe = parseFloat(sp.forward_pe);
-                            const cagr2y = parseFloat(sp.avg_2y_eps_growth);
-                            if (!isNaN(fwdPe) && fwdPe > 0 && !isNaN(cagr2y) && cagr2y > 0) {
-                                return fwdPe / (cagr2y * 100);
+                            const price = parseFloat(sp.price || sp.current_price);
+                            let eps = parseFloat(sp.adjusted_eps);
+                            if (isNaN(eps) || eps <= 0) eps = parseFloat(sp.eps);
+                            
+                            const cagr2y = parseFloat(sp.avg_2y_eps_growth || sp.earnings_growth);
+                            
+                            if (!isNaN(price) && price > 0 && !isNaN(eps) && eps > 0 && !isNaN(cagr2y) && cagr2y > 0) {
+                                const peNonGaap = price / eps;
+                                return peNonGaap / (cagr2y * 100);
                             }
                             return null;
                         })
@@ -1903,6 +1928,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Recalculate
                     recalcIndustryPeg(prof);
                     updateFairValue();
+                    saveOverridesDebounced(currentTicker);
 
                     // Re-render (silent to preserve DCF inputs)
                     renderComparisonModal(prof);
@@ -4607,7 +4633,8 @@ document.addEventListener('DOMContentLoaded', () => {
             margin_of_safety: mos,
             health_score: hScore,
             buy_score: bScore,
-            piotroski_score: pScore
+            piotroski_score: pScore,
+            sector_median_peg: globalData?.formula_data?.peg?.industry_peg || null
         };
     };
 

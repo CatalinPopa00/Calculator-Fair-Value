@@ -3674,25 +3674,60 @@ def get_competitors_data(target_ticker: str, limit: int = 4, custom_peers: list 
                         "ebitda": (inf.get('ebitda') or 0) * peer_fx if inf.get('ebitda') else None,
                         "forward_ebitda": (inf.get('forwardEbitda') or 0) * peer_fx if inf.get('forwardEbitda') else None,
                         "net_income": (inf.get('netIncomeToCommon') or 0) * peer_fx if inf.get('netIncomeToCommon') else None,
-                        "shares_outstanding": p_shares,
-                        "forward_revenue": fwd_rev_explicit,
-                        "forward_eps": fwd_eps_explicit or ((inf.get('forwardEps') or 0) * peer_fx if inf.get('forwardEps') else None)
+                        "shares_outstanding": p_shares
                     }
-                    p_data["revenue_growth"] = rev_growth
-                    p_data["earnings_growth"] = earn_growth
-                    p_data["fcf_growth"] = fcf_growth
-                    p_data["avg_2y_eps_growth"] = avg_2y_growth
-                    p_data["forward_pe"] = fwd_pe
-                    # Forward PEG: forward_pe / (avg 2Y EPS growth as %)
-                    if avg_2y_growth and avg_2y_growth > 0 and fwd_pe and fwd_pe > 0:
-                        p_data["forward_peg"] = fwd_pe / (avg_2y_growth * 100)
+                    
+                    # 1. MCap
+                    # (already in p_data)
+                    
+                    # 2. P/E FWD (FY1)
+                    p_data["forward_pe_custom"] = fwd_pe_explicit if fwd_pe_explicit and fwd_pe_explicit > 0 else None
+                    
+                    # 3. 5y EPS CAGR (from Yahoo FWD P/E / 5y PEG)
+                    yahoo_fwd_pe = inf.get('forwardPE')
+                    yahoo_peg = inf.get('pegRatio')
+                    cagr_5y = None
+                    if yahoo_fwd_pe and yahoo_fwd_pe > 0 and yahoo_peg and yahoo_peg > 0:
+                        cagr_5y_pct = yahoo_fwd_pe / yahoo_peg
+                        cagr_5y = cagr_5y_pct / 100.0
+                    p_data["cagr_5y_custom"] = cagr_5y
+                    
+                    # 4. Custom PEG
+                    if p_data["forward_pe_custom"] and cagr_5y and cagr_5y > 0:
+                        p_data["peg_custom"] = p_data["forward_pe_custom"] / (cagr_5y * 100.0)
                     else:
-                        p_data["forward_peg"] = None
+                        p_data["peg_custom"] = None
+                        
+                    # 5. P/S FWD
+                    if mcap and mcap > 0 and fwd_rev_explicit and fwd_rev_explicit > 0:
+                        p_data["ps_forward_custom"] = mcap / fwd_rev_explicit
+                    else:
+                        p_data["ps_forward_custom"] = None
+                        
+                    # 6. FCF Margin
+                    total_rev = inf.get('totalRevenue') or inf.get('revenue')
+                    fcf_margin = None
+                    if fcf_val and total_rev and total_rev > 0:
+                        fcf_margin = fcf_val / total_rev
+                    p_data["fcf_margin_custom"] = fcf_margin
+                    
+                    # 7. P/FCF FWD
+                    fcf_fwd_val = None
+                    if fcf_margin and fwd_rev_explicit and fwd_rev_explicit > 0:
+                        fcf_fwd_val = fcf_margin * fwd_rev_explicit
+                        if mcap and mcap > 0 and fcf_fwd_val > 0:
+                            p_data["pfcf_forward_custom"] = mcap / fcf_fwd_val
+                        else:
+                            p_data["pfcf_forward_custom"] = None
+                    else:
+                        p_data["pfcf_forward_custom"] = None
                     
                     _peer_info_cache[t] = (p_data, now)
                     kv_set(kv_key, p_data, ex=86400)
                     return p_data
-                except: return None
+                except Exception as e:
+                    print(f"DEBUG: Error extracting {t}: {e}")
+                    return None
 
             ex = concurrent.futures.ThreadPoolExecutor(max_workers=min(len(candidates), 5))
             futs = {ex.submit(fetch_peer_info, t): t for t in candidates}

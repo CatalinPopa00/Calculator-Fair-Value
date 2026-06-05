@@ -306,6 +306,12 @@ def get_sector_peers(ticker: str, response: Response):
                 "industry": p.get("industry"),
                 "avg_2y_eps_growth": sanitize(p.get("avg_2y_eps_growth")),
                 "forward_peg": sanitize(p.get("forward_peg")),
+                "forward_pe_custom": sanitize(p.get("forward_pe_custom")),
+                "cagr_5y_custom": sanitize(p.get("cagr_5y_custom")),
+                "peg_custom": sanitize(p.get("peg_custom")),
+                "ps_forward_custom": sanitize(p.get("ps_forward_custom")),
+                "fcf_margin_custom": sanitize(p.get("fcf_margin_custom")),
+                "pfcf_forward_custom": sanitize(p.get("pfcf_forward_custom")),
             })
         
         valuation_cache[cache_key] = enriched
@@ -1704,11 +1710,17 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                     "operating_margin": sanitize(p.get("operating_margin")),
                     "revenue_growth": sanitize(p.get("revenue_growth")),
                     "earnings_growth": sanitize(p.get("earnings_growth")),
-                    "forward_pe": sanitize(p.get("forward_pe")),
+                    "forward_pe": sanitize(p.get("forward_pe_custom") if p.get("forward_pe_custom") is not None else p.get("forward_pe")),
                     "forward_ev_sales": sanitize(p.get("forward_ev_sales")),
                     "forward_ev_ebitda": sanitize(p.get("forward_ev_ebitda")),
                     "avg_2y_eps_growth": sanitize(p.get("avg_2y_eps_growth")),
-                    "forward_peg": sanitize(p.get("forward_peg"))
+                    "forward_peg": sanitize(p.get("forward_peg")),
+                    "forward_pe_custom": sanitize(p.get("forward_pe_custom")),
+                    "cagr_5y_custom": sanitize(p.get("cagr_5y_custom")),
+                    "peg_custom": sanitize(p.get("peg_custom")),
+                    "ps_forward_custom": sanitize(p.get("ps_forward_custom")),
+                    "fcf_margin_custom": sanitize(p.get("fcf_margin_custom")),
+                    "pfcf_forward_custom": sanitize(p.get("pfcf_forward_custom"))
                 } for p in peers_data] if peers_data else []
             },
             "revenue": sanitize(data.get("revenue")),
