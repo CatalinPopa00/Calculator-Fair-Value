@@ -264,14 +264,13 @@ def calculate_scoring_reform(valuation_data, metrics):
         if current_pe is None or current_pe <= 0 or historical_pe is None or historical_pe <= 0:
             return 0
         discount = ((historical_pe - current_pe) / historical_pe) * 100.0
-        if discount >= 25.0:
+        # Monopoly Rule: Monopolies rarely trade at a discount.
+        # Allow up to 10% premium (discount >= -10.0) for full points
+        # Allow up to 20% premium (discount >= -20.0) for half points
+        if discount >= -10.0:
             return max_pts
-        elif discount >= 15.0:
-            return max_pts * 0.75
-        elif discount >= 10.0:
-            return max_pts * 0.50
-        elif discount > 0.0:
-            return max_pts * 0.25
+        elif discount >= -20.0:
+            return max_pts * 0.5
         return 0
 
     market_cap = clean_ratio(metrics.get('market_cap') or valuation_data.get('market_cap'))
