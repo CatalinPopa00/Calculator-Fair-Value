@@ -776,7 +776,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        const newPeg = (pegUsedGrowth > 0 && newNonGaapPE > 0) ? newNonGaapPE / (pegUsedGrowth * 100) : 0;
+        // v319: Use Forward P/E for PEG simulation (consistent with backend's current_pe which is forward-based)
+        const newPeg = (pegUsedGrowth > 0 && newPeFwd > 0) ? newPeFwd / (pegUsedGrowth * 100) : 0;
         updateMetric('peg', newPeg > 0 ? newPeg.toFixed(2) : 'N/A');
 
         updateMetric('ps', newPS > 0 ? newPS.toFixed(2) + 'x' : 'N/A');
@@ -1244,16 +1245,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // Load overrides from server on startup
     fetch('/api/overrides?t=' + Date.now(), { cache: 'no-store' }).then(r => r.json()).then(data => {
         cachedOverrides = data || {};
-        // v316: One-time migration — mark all existing weight overrides as stale
-        // so the next ticker load picks up backend archetype weights instead
-        if (!localStorage.getItem('v316_weights_migrated')) {
+        // v319: Migration to clear stale weights for MA/V that got cached as 0 DCF before the backend fix
+        if (!localStorage.getItem('v319_weights_migrated')) {
             for (const tk of Object.keys(cachedOverrides)) {
                 if (cachedOverrides[tk] && cachedOverrides[tk].weights) {
-                    cachedOverrides[tk]._v316_stale = true;
+                    cachedOverrides[tk]._v319_stale = true;
                 }
             }
-            localStorage.setItem('v316_weights_migrated', 'true');
-            console.log('v316: Marked all existing weight overrides as stale for archetype migration.');
+            localStorage.setItem('v319_weights_migrated', 'true');
+            console.log('v319: Marked all existing weight overrides as stale for archetype migration.');
         }
     }).catch(e => console.error('Overrides load error:', e));
 
@@ -1640,7 +1640,7 @@ document.addEventListener('DOMContentLoaded', () => {
             market_cap: prof.market_cap,
             pe_ratio: prof.fwd_eps > 0 ? (_realApiPrice / prof.fwd_eps) : prof.trailing_pe,
             fwd_pe: dynFwdEps > 0 ? (_realApiPrice / dynFwdEps) : null,
-            peg_ratio: prof.peg_ratio,
+            peg_ratio: globalData?.formula_data?.peg?.current_peg || prof.peg_ratio,
             peg_eps_type: prof.peg_eps_type,
             pe_non_gaap: (prof.adjusted_eps && prof.adjusted_eps > 0) ? (_realApiPrice / prof.adjusted_eps) : (prof.trailing_eps > 0 ? _realApiPrice / prof.trailing_eps : null),
             eps: prof.trailing_eps,
@@ -3682,18 +3682,22 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // Ticker-Specific Weights Logic (v316: Backend archetype weights take priority)
+        // Ticker-Specific Weights Logic (v319: Backend archetype weights take priority)
         const override = cachedOverrides[data.ticker] || {};
         const backendArchWeights = data.archetype_weights || null;
         
-        if (override.weights && !override._v316_stale) {
+        // v319: Detect stale override for Payment Networks where backend identifies a stable moat but DB has 0 DCF
+        const storedDcf = override.weights ? (override.weights.dcf ?? 0) : null;
+        const isStaleFintechOverride = override.weights && storedDcf === 0 && backendArchWeights && backendArchWeights.dcf > 0;
+        
+        if (override.weights && !override._v319_stale && !isStaleFintechOverride) {
             // Restore saved weights for this specific company
             customWeights = { ...override.weights };
         } else if (backendArchWeights) {
-            // v316: Use backend archetype-determined weights (replaces old sector-based logic)
+            // v319: Use backend archetype-determined weights (replaces old sector-based logic)
             customWeights = setSmartWeights(data.company_profile.sector, data.company_profile.industry, backendArchWeights);
             saveOverride(data.ticker);
-            console.log(`v316: Applied archetype weights for ${data.ticker}: ${data.archetype} -> DCF:${customWeights.dcf} Lynch:${customWeights.lynch} PEG:${customWeights.peg} Rel:${customWeights.relative}`);
+            console.log(`v319: Applied archetype weights for ${data.ticker}: ${data.archetype} -> DCF:${customWeights.dcf} Lynch:${customWeights.lynch} PEG:${customWeights.peg} Rel:${customWeights.relative}`);
         } else if (data.company_profile && data.company_profile.sector) {
             // Fallback: No backend weights -> Auto-Set by Sector
             customWeights = setSmartWeights(data.company_profile.sector, data.company_profile.industry);
@@ -4408,7 +4412,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         
                         let dynFwdPe = dynFwdEps && dynFwdEps > 0 && p ? p / dynFwdEps : prof.fwd_pe;
                         let dynFwdPs = dynFwdRev && dynFwdRev > 0 && mCap ? (mCap / dynFwdRev) : prof.fwd_ps;
-                        let pegRatio = simActive && window._currentPegToDisplay != null ? window._currentPegToDisplay : (prof.peg_ratio || null);
+                        // v319: Use backend-calculated PEG (Non-GAAP based) instead of Yahoo's stale peg_ratio
+                        let backendPeg = globalData?.formula_data?.peg?.current_peg || prof.peg_ratio || null;
+                        let pegRatio = simActive && window._currentPegToDisplay != null ? window._currentPegToDisplay : backendPeg;
                         
                         let peTtm = prof.trailing_eps && prof.trailing_eps > 0 ? (p / prof.trailing_eps) : prof.trailing_pe;
                         let peGaap = prof.gaap_eps_fy && prof.gaap_eps_fy > 0 ? (p / prof.gaap_eps_fy) : null;

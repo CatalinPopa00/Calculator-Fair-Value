@@ -851,25 +851,31 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         
         if peers_data:
             for p in peers_data:
-                # Use Non-GAAP TTM P/E and 2y CAGR EPS
                 p_price = p.get('price')
-                # Try adjusted_eps first, fallback to eps
                 p_eps = p.get('adjusted_eps')
                 peer_peg_type = "Non-GAAP"
                 if p_eps is None or p_eps <= 0:
                     p_eps = p.get('eps')
                     peer_peg_type = "GAAP"
                     
-                p_growth = p.get('earnings_growth') or p.get('revenue_growth')
-                
-                if p_price and p_eps and p_eps > 0 and p_growth and p_growth > 0:
+                if p_price and p_eps and p_eps > 0:
                     p_pe = p_price / p_eps
+                    p['pe_non_gaap'] = p_pe
+                else:
+                    p_pe = None
+                    
+                p_growth = p.get("earnings_growth") or p.get("revenue_growth")
+                # Calculate peer PEG exactly like company PEG
+                if p_pe and p_pe > 0 and p_growth and p_growth > 0:
                     p_peg = p_pe / (p_growth * 100.0)
                     valid_pegs.append(float(p_peg))
-                    # Also save back to p so the frontend gets the updated individual PEG
-                    p['peg_ratio'] = p_peg
                     p['peg_eps_type'] = peer_peg_type
-                    p['pe_non_gaap'] = p_pe
+                else:
+                    # Fallback to Yahoo's 5Y PEG if we lack growth data
+                    p_peg = p.get('peg_ratio')
+                    if p_peg and p_peg > 0:
+                        valid_pegs.append(float(p_peg))
+                        p['peg_eps_type'] = peer_peg_type
         
         # No fallback, return None if no valid peers
         industry_peg = statistics.median(valid_pegs) if valid_pegs else None
@@ -1128,6 +1134,9 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             fin_keywords = ["bank", "insurance", "savings", "cooperative", "credit"]
             if any(k in ind_lower for k in fin_keywords):
                 is_fin_special = True
+                # Exclude Payment Networks (V, MA) which have very high ROIC from Traditional Financials
+                if "credit" in ind_lower and (roic >= 20 or ticker.upper() in ["V", "MA", "PYPL", "AXP", "FI", "FIS", "GPN", "HOOD"]):
+                    is_fin_special = False
                 
         if is_fin_special:
             base_weights = {"dcf": 0.0, "relative": 0.45, "lynch": 0.45, "peg": 0.10}
@@ -1681,18 +1690,9 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                     "name": p.get("name"),
                     "price": sanitize(p.get("price")),
                     "pe_ratio": sanitize(p.get("pe_ratio")),
-                    "peg_ratio": sanitize(
-                        p.get("forward_peg") if p.get("forward_peg") is not None
-                        else (
-                            p.get("forward_pe") / (p.get("earnings_growth") * 100.0)
-                            if p.get("forward_pe") and p.get("earnings_growth") and p.get("earnings_growth") > 0
-                            else (
-                                p.get("pe_ratio") / (p.get("earnings_growth") * 100.0)
-                                if p.get("pe_ratio") and p.get("earnings_growth") and p.get("earnings_growth") > 0
-                                else None
-                            )
-                        )
-                    ),
+                    "pe_non_gaap": sanitize(p.get("pe_non_gaap")),
+                    "peg_ratio": sanitize(p.get("peg_ratio")),
+                    "peg_eps_type": p.get("peg_eps_type"),
                     "pfcf_ratio": sanitize(p.get("pfcf_ratio")),
                     "ps_ratio": sanitize(p.get("ps_ratio")),
                     "price_to_book": sanitize(p.get("price_to_book")),
