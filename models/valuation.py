@@ -1,11 +1,10 @@
-def calculate_peter_lynch(current_price: float, trailing_eps: float, eps_growth_estimated: float, pe_historic: float, sector_median_pe: float = 20.0):
+def calculate_peter_lynch(current_price: float, trailing_eps: float, eps_growth_estimated: float, pe_historic: float, sector_median_pe: float = 20.0, discount_rate: float = 0.15):
     """
     Refined Peter Lynch Model (3Y Projection):
     1. FWD EPS (3Y) = trailing_eps * ((1 + eps_growth_estimated) ** 3)
     2. FWD PE = current_price / FWD EPS (3Y)
-    3. Fair Value (Company) = FWD EPS * pe_historic
-    4. Fair Value (PE 20) = FWD EPS * 20
-    5. Fair Value (Sector) = FWD EPS * sector_median_pe
+    3. FWD Price = FWD EPS * multiple
+    4. Fair Value = FWD Price / (1 + discount_rate)^3
     """
     if trailing_eps is None or trailing_eps <= 0 or eps_growth_estimated is None or current_price is None:
         return {"fwd_pe": None, "fair_value": None, "status": "N/A"}
@@ -26,9 +25,17 @@ def calculate_peter_lynch(current_price: float, trailing_eps: float, eps_growth_
         return {"fwd_pe": None, "fair_value": None, "status": "N/A"}
         
     fwd_pe = current_price / fwd_eps
-    fair_value = fwd_eps * safe_pe_historic
-    fair_value_pe_20 = fwd_eps * 20
-    fair_value_sector_pe = fwd_eps * safe_sector_pe
+    
+    # Base Forward Prices
+    fwd_price_historic = fwd_eps * safe_pe_historic
+    fwd_price_20 = fwd_eps * 20
+    fwd_price_sector = fwd_eps * safe_sector_pe
+    
+    # Discounted Fair Values
+    discount_factor = (1 + discount_rate) ** 3
+    fair_value = fwd_price_historic / discount_factor
+    fair_value_pe_20 = fwd_price_20 / discount_factor
+    fair_value_sector_pe = fwd_price_sector / discount_factor
     
     status = "Overvalued" if fwd_pe > 20 else "Undervalued"
     
@@ -40,6 +47,7 @@ def calculate_peter_lynch(current_price: float, trailing_eps: float, eps_growth_
         "fair_value": fair_value,
         "fair_value_pe_20": fair_value_pe_20,
         "fair_value_sector_pe": fair_value_sector_pe,
+        "discount_rate_applied": discount_rate,
         "status": status
     }
 

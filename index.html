@@ -519,6 +519,21 @@
                                             <label class="premium-label">Growth %</label>
                                             <input type="number" id="lynch-custom-growth" class="premium-input" placeholder="e.g. 15">
                                         </div>
+                                        
+                                        <div class="valuation-input-group">
+                                            <label class="premium-label">Return Rate</label>
+                                            <select class="premium-select" id="lynch-return-rate">
+                                                <option value="9">9%</option>
+                                                <option value="15" selected>15%</option>
+                                                <option value="custom">Custom</option>
+                                            </select>
+                                        </div>
+
+                                        <!-- Custom Return Rate Input (hidden by default) -->
+                                        <div class="valuation-input-group" id="lynch-custom-return-inputs" style="display:none;">
+                                            <label class="premium-label">Custom %</label>
+                                            <input type="number" id="lynch-custom-return" class="premium-input" placeholder="e.g. 12">
+                                        </div>
                                     </div>
                                 </div>
                             </div>

@@ -2836,9 +2836,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 else if (_currentScenario === 'bull') selectedMult += 3;
             }
 
+            // New Return Rate Logic
+            const returnRateEl = document.getElementById('lynch-return-rate');
+            const returnRateVal = returnRateEl ? returnRateEl.value : '15';
+            const returnCustomInputs = document.getElementById('lynch-custom-return-inputs');
+            if (returnCustomInputs) returnCustomInputs.style.display = returnRateVal === 'custom' ? 'grid' : 'none';
+
+            let discountRate = 0.15;
+            if (returnRateVal === 'custom') {
+                const rawR = document.getElementById('lynch-custom-return').value;
+                discountRate = (rawR === '' || isNaN(parseFloat(rawR))) ? 0.15 : parseFloat(rawR) / 100;
+            } else {
+                discountRate = parseFloat(returnRateVal) / 100;
+            }
+
             if (targetEps != null && targetEps > 0) {
-                // v46: Simple Future Project (no discounting per user preference)
-                lynchVal = targetEps * selectedMult;
+                const fwdPrice = targetEps * selectedMult;
+                lynchVal = fwdPrice / Math.pow(1 + discountRate, 3);
             }
 
             // Store dynamics for modal
@@ -2846,6 +2860,7 @@ document.addEventListener('DOMContentLoaded', () => {
             currentFormulaData.peter_lynch.dynamic_fwd_eps = targetEps;
             currentFormulaData.peter_lynch.dynamic_fv = lynchVal;
             currentFormulaData.peter_lynch.dynamic_mult = selectedMult;
+            currentFormulaData.peter_lynch.dynamic_discount = discountRate;
 
             const lynchCompareEl = document.getElementById('lynch-compare');
             if (lynchCompareEl) {
@@ -3284,7 +3299,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const inputSelectors = [
         'fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple', 'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp',
         'dcf-buyback-source', 'dcf-custom-buyback', 'relative-variant',
-        'lynch-multiple-source', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth',
+        'lynch-multiple-source', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth', 'lynch-return-rate', 'lynch-custom-return',
         'peg-eps-source', 'peg-custom-growth'
     ];
     const updateAndSave = () => {
@@ -4536,7 +4551,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple',
         'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp', 'dcf-custom-fcf-margin', 'dcf-custom-margin-growth',
         'dcf-buyback-source', 'dcf-custom-buyback', 'relative-variant',
-        'lynch-multiple-source', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth',
+        'lynch-multiple-source', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth', 'lynch-return-rate', 'lynch-custom-return',
         'peg-eps-source', 'peg-custom-growth', 'peg-mode'
     ];
     const overrideToggleIds = ['toggle-dcf', 'toggle-relative', 'toggle-peter_lynch', 'toggle-peg'];
@@ -4745,7 +4760,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const idsToReset = {
                 dcf: ['fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple', 'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp', 'dcf-custom-fcf-margin', 'dcf-custom-margin-growth', 'dcf-buyback-source', 'dcf-custom-buyback'],
                 relative: ['relative-variant', 'rel-weight-mode-card'],
-                peter_lynch: ['lynch-multiple-source', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth'],
+                peter_lynch: ['lynch-multiple-source', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth', 'lynch-return-rate', 'lynch-custom-return'],
                 peg: ['peg-eps-source', 'peg-custom-growth', 'peg-mode']
             };
 
@@ -6343,6 +6358,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 + row('Growth Estimate', fmtPct(p.dynamic_growth != null ? p.dynamic_growth : p.eps_growth_estimated))
                 + row('Forward EPS (3Y Projection)', '$' + fmt(p.dynamic_fwd_eps != null ? p.dynamic_fwd_eps : p.fwd_eps))
                 + row('5Y Avg P/E', prof.historic_pe ? prof.historic_pe.toFixed(2) + 'x' : 'N/A')
+                + row(`Discount Rate`, p.dynamic_discount != null ? fmtPct(p.dynamic_discount) : '15.0%')
                 + row(`Fair Value (PE ${p.dynamic_mult != null ? (Number.isInteger(p.dynamic_mult) ? p.dynamic_mult : p.dynamic_mult.toFixed(2)) : 20})`, '$' + fmt(p.dynamic_fv != null ? p.dynamic_fv : p.fair_value_pe_20));
         } else if (model === 'peg' && currentFormulaData.peg) {
             const g = currentFormulaData.peg;
