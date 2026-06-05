@@ -1437,20 +1437,31 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
 
         # 1. Try YF growth_estimates (Analysis tab - Next 5 Years) - TOP PRIORITY for PEG
         eps_growth_5y_consensus = None
-        if not fast_mode and executor is not None:
-            try:
-                ge = future_growth_est.result(timeout=2)
-                if ge is not None and not (hasattr(ge, 'empty') and ge.empty):
-                    # Find 'Next 5 Years' in index
-                    idx = find_idx(ge, 'Next 5 Years')
-                    if idx:
-                        val = ge.loc[idx, ge.columns[0]]
-                        if val is not None and not pd.isna(val):
-                            eps_growth_5y_consensus = normalize_growth(val)
-                            eps_growth = eps_growth_5y_consensus
-                            eps_growth_period = "Next 5 Years (Consensus)"
-            except Exception:
-                pass
+        if not fast_mode:
+            # Fallback for Next 5 Years: calculate from Forward P/E and PEG Ratio if available
+            _peg = info.get('trailingPegRatio') or info.get('pegRatio')
+            _fwd_pe = info.get('forwardPE')
+            if _fwd_pe and _peg and _peg > 0:
+                # PEG = Forward PE / (5Y CAGR * 100) -> 5Y CAGR = (Forward PE / PEG) / 100
+                _implied_growth = (_fwd_pe / _peg) / 100
+                eps_growth_5y_consensus = normalize_growth(_implied_growth)
+                eps_growth = eps_growth_5y_consensus
+                eps_growth_period = "Next 5 Years (Implied from PEG)"
+
+            # Still try to fetch from growth_estimates if they exist (though yfinance often returns NaN now)
+            if executor is not None:
+                try:
+                    ge = future_growth_est.result(timeout=2)
+                    if ge is not None and not (hasattr(ge, 'empty') and ge.empty):
+                        idx = find_idx(ge, 'Next 5 Years')
+                        if idx:
+                            val = ge.loc[idx, ge.columns[0]]
+                            if val is not None and not pd.isna(val):
+                                eps_growth_5y_consensus = normalize_growth(val)
+                                eps_growth = eps_growth_5y_consensus
+                                eps_growth_period = "Next 5 Years (Consensus)"
+                except Exception:
+                    pass
 
         # 2. Try YF earnings_estimate (Forward Years) - SECOND PRIORITY
         if eps_growth is None and not fast_mode and executor is not None:
@@ -1516,8 +1527,12 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
         except: pass
 
         # Select the best available growth rate
-        # v219: Always use the arithmetic mean of FY0 + FY1 growth for a balanced estimate
-        if yf_0y_growth is not None and yf_1y_growth is not None:
+        # v219: prioritize eps_growth_5y_consensus if available
+        if eps_growth_5y_consensus and eps_growth_5y_consensus > 0:
+            eps_growth = eps_growth_5y_consensus
+            # The eps_growth_period should remain whatever it was set to earlier (e.g. Next 5 Years Implied from PEG)
+            eps_growth_period = eps_growth_period or "Next 5 Years (Consensus)"
+        elif yf_0y_growth is not None and yf_1y_growth is not None:
             mult = (1 + yf_0y_growth) * (1 + yf_1y_growth)
             eps_growth = (mult ** 0.5 - 1) if mult >= 0 else ((yf_0y_growth + yf_1y_growth) / 2)
             eps_growth_period = "2Y EPS CAGR (Yahoo Consensus)"
@@ -1527,9 +1542,6 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
         elif yf_1y_growth is not None and yf_1y_growth > 0:
             eps_growth = yf_1y_growth
             eps_growth_period = "Next FY Growth (Yahoo Consensus)"
-        elif eps_growth_5y_consensus and eps_growth_5y_consensus > 0:
-            eps_growth = eps_growth_5y_consensus
-            eps_growth_period = "Next 5 Years (Consensus)"
         elif nasdaq_growth_3y and nasdaq_growth_3y > 0:
             eps_growth = nasdaq_growth_3y
             eps_growth_period = "3Y Avg Growth (Nasdaq)"
@@ -4149,6 +4161,14 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         # ── EPS growth from estimates ─────────────────────────────────────────────
         eps_forward_growth = info.get('earningsGrowth', 0.10)
         eps_growth_5y_consensus = None
+
+        # Calculate from Forward PE and PEG Ratio
+        _peg = info.get('trailingPegRatio') or info.get('pegRatio')
+        _fwd_pe = info.get('forwardPE')
+        if _fwd_pe and _peg and _peg > 0:
+            _implied_growth = (_fwd_pe / _peg) / 100
+            eps_growth_5y_consensus = normalize_growth(_implied_growth)
+
         try:
             ge = stock.growth_estimates
             if ge is not None and not ge.empty:
