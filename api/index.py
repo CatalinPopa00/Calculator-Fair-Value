@@ -1125,7 +1125,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         # Pasul 1: Filtre Sectoriale Stricte (Overrides)
         is_fin_special = False
         if safe_sector == "Financial Services":
-            fin_keywords = ["bank", "insurance", "savings", "cooperative"]
+            fin_keywords = ["bank", "insurance", "savings", "cooperative", "credit"]
             if any(k in ind_lower for k in fin_keywords):
                 is_fin_special = True
                 
