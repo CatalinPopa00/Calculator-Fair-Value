@@ -205,29 +205,155 @@ def calculate_reverse_dcf(current_price: float, current_fcf: float, discount_rat
     return implied_growth if implied_growth is not None else (low + high) / 2
 import statistics
 
-def calculate_relative_valuation(company_ticker: str, company_metrics: dict, competitors_metrics: list):
+import yfinance as yf
+import statistics
+import math
+
+def calculate_relative_valuation(company_ticker: str, peer_list: list):
     """
-    Averages P/E, P/S, Margins, FCF of competitors. Now uses Median with P/S fallback.
+    Multi-Metric Sector-Weighted Relative Valuation (Strict Forward) model.
     """
-    if not competitors_metrics:
+    
+    # 1. Peer Comparison & Clean Median Pipeline
+    peer_fwd_pe = []
+    peer_ev_ebitda = []
+    peer_ev_sales = []
+    peer_pb = []
+    
+    for peer in peer_list:
+        try:
+            pt = yf.Ticker(peer)
+            p_info = pt.info
+            
+            p_fwd_pe = p_info.get('forwardPE')
+            p_ev_ebitda = p_info.get('enterpriseToEbitda')
+            p_ev_sales = p_info.get('enterpriseToRevenue')
+            p_pb = p_info.get('priceToBook')
+            
+            if p_fwd_pe is not None and not math.isnan(p_fwd_pe) and p_fwd_pe > 0:
+                peer_fwd_pe.append(p_fwd_pe)
+            if p_ev_ebitda is not None and not math.isnan(p_ev_ebitda) and p_ev_ebitda > 0:
+                peer_ev_ebitda.append(p_ev_ebitda)
+            if p_ev_sales is not None and not math.isnan(p_ev_sales) and p_ev_sales > 0:
+                peer_ev_sales.append(p_ev_sales)
+            if p_pb is not None and not math.isnan(p_pb) and p_pb > 0:
+                peer_pb.append(p_pb)
+        except Exception:
+            pass
+
+    peer_median_fwd_pe = statistics.median(peer_fwd_pe) if peer_fwd_pe else None
+    peer_median_ev_ebitda = statistics.median(peer_ev_ebitda) if peer_ev_ebitda else None
+    peer_median_ev_sales = statistics.median(peer_ev_sales) if peer_ev_sales else None
+    peer_median_pb = statistics.median(peer_pb) if peer_pb else None
+    
+    # 2. Implied Fair Value Math (Enterprise-to-Equity Bridge)
+    try:
+        targ = yf.Ticker(company_ticker)
+        t_info = targ.info
+    except Exception:
         return None
         
-    # Phase 1: Try median P/E
-    valid_pes = [p.get('pe_ratio') if isinstance(p, dict) else None for p in competitors_metrics]
-    valid_pes = [v for v in valid_pes if v is not None and v > 0]
-    
-    company_eps = company_metrics.get('trailing_eps')
-    if valid_pes and company_eps and company_eps > 0:
-        median_pe = statistics.median(valid_pes)
-        return median_pe * company_eps
-        
-    # Phase 2: Fallback to median P/S ratio if P/E fails
-    valid_ps = [p.get('ps_ratio') if isinstance(p, dict) else None for p in competitors_metrics]
-    valid_ps = [v for v in valid_ps if v is not None and v > 0]
-    
-    company_revenue_per_share = company_metrics.get('revenue_per_share')
-    if valid_ps and company_revenue_per_share and company_revenue_per_share > 0:
-        median_ps = statistics.median(valid_ps)
-        return median_ps * company_revenue_per_share
+    company_fwd_eps = t_info.get('forwardEps')
+    fv_pe = None
+    if company_fwd_eps and peer_median_fwd_pe:
+        fv_pe = company_fwd_eps * peer_median_fwd_pe
 
-    return None
+    company_fwd_ebitda = t_info.get('forwardEbitda')
+    if company_fwd_ebitda is None:
+        company_fwd_ebitda = t_info.get('ebitda')
+
+    company_total_debt = t_info.get('totalDebt', 0) or 0
+    company_total_cash = t_info.get('totalCash', 0) or 0
+    company_shares_out = t_info.get('sharesOutstanding')
+    
+    fv_ev_ebitda = None
+    if company_fwd_ebitda and peer_median_ev_ebitda and company_shares_out and company_shares_out > 0:
+        implied_ev = company_fwd_ebitda * peer_median_ev_ebitda
+        implied_equity = implied_ev - company_total_debt + company_total_cash
+        fv_ev_ebitda = implied_equity / company_shares_out
+
+    company_fwd_revenue = t_info.get('totalRevenue')
+    fv_ev_sales = None
+    if company_fwd_revenue and peer_median_ev_sales and company_shares_out and company_shares_out > 0:
+        implied_ev_sales = company_fwd_revenue * peer_median_ev_sales
+        implied_equity_sales = implied_ev_sales - company_total_debt + company_total_cash
+        fv_ev_sales = implied_equity_sales / company_shares_out
+        
+    company_bvps = t_info.get('bookValue')
+    fv_pb = None
+    if company_bvps and peer_median_pb:
+        fv_pb = company_bvps * peer_median_pb
+        
+    # Proxy FFO and AFFO to PE
+    fv_ffo = fv_pe 
+    fv_affo = fv_pe 
+
+    # 3. Dynamic Sector Weighting Logic
+    sector = t_info.get('sector', 'Default')
+    
+    weighted_sum = 0.0
+    total_weight = 0.0
+    
+    def add_w(fv, w):
+        nonlocal weighted_sum, total_weight
+        if fv is not None and fv > 0 and w > 0:
+            weighted_sum += fv * w
+            total_weight += w
+
+    if sector in ['Technology', 'Information Technology']:
+        trailing_pe = t_info.get('trailingPE')
+        trailing_eps = t_info.get('trailingEps')
+        if (trailing_pe and trailing_pe > 50) or (trailing_eps and trailing_eps < 0):
+            add_w(fv_ev_sales, 1.0)
+        else:
+            add_w(fv_ev_ebitda, 0.50)
+            add_w(fv_pe, 0.35)
+            add_w(fv_ev_sales, 0.15)
+    elif sector in ['Financial Services', 'Financials', 'Banks']:
+        add_w(fv_pb, 0.60)
+        add_w(fv_pe, 0.40)
+    elif sector in ['Industrials', 'Energy', 'Basic Materials']:
+        add_w(fv_ev_ebitda, 0.80)
+        add_w(fv_pe, 0.20)
+    elif sector in ['Consumer Defensive', 'Consumer Staples']:
+        add_w(fv_pe, 0.50)
+        add_w(fv_ev_ebitda, 0.30)
+        add_w(fv_ev_sales, 0.20)
+    elif sector in ['Consumer Cyclical', 'Consumer Discretionary']:
+        add_w(fv_pe, 0.35)
+        add_w(fv_ev_ebitda, 0.35)
+        add_w(fv_ev_sales, 0.30)
+    elif sector in ['Healthcare', 'Health Care', 'Communication Services']:
+        add_w(fv_ev_ebitda, 0.40)
+        add_w(fv_pe, 0.35)
+        add_w(fv_ev_sales, 0.25)
+    elif sector in ['Utilities']:
+        add_w(fv_pe, 0.50)
+        add_w(fv_ev_ebitda, 0.50)
+    elif sector in ['Real Estate', 'REIT', 'REITs']:
+        add_w(fv_ffo, 0.80)
+        add_w(fv_affo, 0.20)
+    else:
+        add_w(fv_ev_ebitda, 0.40)
+        add_w(fv_pe, 0.40)
+        add_w(fv_ev_sales, 0.20)
+        
+    weighted_fair_value = weighted_sum / total_weight if total_weight > 0 else None
+    
+    return {
+        "calculated_fvs": {
+            "fv_pe": fv_pe,
+            "fv_ev_ebitda": fv_ev_ebitda,
+            "fv_ev_sales": fv_ev_sales,
+            "fv_pb": fv_pb,
+            "fv_ffo": fv_ffo,
+            "fv_affo": fv_affo
+        },
+        "peer_medians": {
+            "peer_median_fwd_pe": peer_median_fwd_pe,
+            "peer_median_ev_ebitda": peer_median_ev_ebitda,
+            "peer_median_ev_sales": peer_median_ev_sales,
+            "peer_median_pb": peer_median_pb
+        },
+        "Weighted_Fair_Value": weighted_fair_value
+    }
