@@ -829,7 +829,12 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         fair_value_sector_pe = res_sector.get("fair_value")
         
         # PEG Valuation (Sector-based)
-        eps_base = eps_for_valuation or 0
+        eps_base = data.get("adjusted_eps")
+        peg_eps_type = "Non-GAAP"
+        if eps_base is None or eps_base <= 0:
+            eps_base = data.get("trailing_eps", 0)
+            peg_eps_type = "GAAP"
+            
         current_pe = current_price / eps_base if eps_base > 0 else 0
         
         # Fallback logic handled by consensus_growth
@@ -838,16 +843,32 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         peg_period_label = data.get("eps_growth_period") or "2Y EPS CAGR"
         company_peg = current_pe / (eps_growth_rate_peg * 100) if eps_growth_rate_peg > 0 else 0
         
+        # Export the flag
+        data["peg_eps_type"] = peg_eps_type
+        
         # Calculate Industry PEG from peers using Forward PEG (2Y avg EPS growth based)
-        # Fallbacks have been removed per user request
         valid_pegs = []
         
         if peers_data:
             for p in peers_data:
-                # Use only forward_peg (2Y avg growth)
-                v = p.get('forward_peg')
-                if v is not None and isinstance(v, (int, float)) and math.isfinite(v) and v > 0:
-                    valid_pegs.append(float(v))
+                # Use Non-GAAP TTM P/E and 2y CAGR EPS
+                p_price = p.get('price')
+                # Try adjusted_eps first, fallback to eps
+                p_eps = p.get('adjusted_eps')
+                peer_peg_type = "Non-GAAP"
+                if p_eps is None or p_eps <= 0:
+                    p_eps = p.get('eps')
+                    peer_peg_type = "GAAP"
+                    
+                p_growth = p.get('earnings_growth') or p.get('revenue_growth')
+                
+                if p_price and p_eps and p_eps > 0 and p_growth and p_growth > 0:
+                    p_pe = p_price / p_eps
+                    p_peg = p_pe / (p_growth * 100.0)
+                    valid_pegs.append(float(p_peg))
+                    # Also save back to p so the frontend gets the updated individual PEG
+                    p['peg_ratio'] = p_peg
+                    p['peg_eps_type'] = peer_peg_type
         
         # No fallback, return None if no valid peers
         industry_peg = statistics.median(valid_pegs) if valid_pegs else None
@@ -1607,6 +1628,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 "market_cap": sanitize(data.get("shares_outstanding", 0) * current_price if data.get("shares_outstanding") and current_price else 0.0),
                 "adjusted_eps": sanitize(data.get("adjusted_eps")),
                 "fwd_eps": sanitize(next((e.get("avg") for e in data.get("eps_estimates", []) if e.get("status") == "estimate"), None)),
+                "peg_eps_type": data.get("peg_eps_type"),
                 # Force strict 2-year PEG based on Forward PE and 2Y EPS Growth instead of Yahoo 5y PEG. No fallbacks.
                 "peg_ratio": sanitize(
                     data.get("fwd_pe") / (data.get("eps_growth") * 100.0) if data.get("fwd_pe") and data.get("eps_growth") and data.get("eps_growth") > 0 

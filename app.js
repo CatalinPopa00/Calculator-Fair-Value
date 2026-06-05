@@ -1641,6 +1641,7 @@ document.addEventListener('DOMContentLoaded', () => {
             pe_ratio: prof.fwd_eps > 0 ? (_realApiPrice / prof.fwd_eps) : prof.trailing_pe,
             fwd_pe: dynFwdEps > 0 ? (_realApiPrice / dynFwdEps) : null,
             peg_ratio: prof.peg_ratio,
+            peg_eps_type: prof.peg_eps_type,
             eps: prof.trailing_eps,
             fwd_eps: dynFwdEps,
             ps_ratio: prof.ps_ratio,
@@ -1686,7 +1687,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 100px;">Market Cap</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">P/E (Forward)</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">EPS Growth</th>
-                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 100px;">PEG (5Y)</th>
+                    <th style="padding:12px; color:white; font-size:0.85rem; min-width: 100px;">PEG (2Y TTM)</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 100px;">P/S</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 110px;">P/S (Forward)</th>
                     <th style="padding:12px; color:white; font-size:0.85rem; min-width: 120px;">Revenue Growth</th>
@@ -1734,7 +1735,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <td style="padding:12px; font-weight:bold;">${formatBigNumber(mCap, '$')}</td>
                         <td style="padding:12px; font-weight:bold;">${fmtPE(c.fwd_pe || c.pe_ratio)}</td>
                         <td style="padding:12px; font-weight:bold;">${fmtMargin(epsGrowth)}</td>
-                        <td style="padding:12px; font-weight:bold;">${fmtPE(c.peg_ratio)}</td>
+                        <td style="padding:12px; font-weight:bold;">${fmtPE(c.peg_ratio)} <span style="font-size:0.7em;color:var(--text-muted); display:block;">${c.peg_eps_type === 'GAAP' ? '(GAAP)' : (c.peg_eps_type === 'Non-GAAP' ? '(Non-GAAP)' : '')}</span></td>
                         <td style="padding:12px; font-weight:bold;">${fmtPE(c.ps_ratio || (mCap && derivedRevenue && derivedRevenue > 0 ? mCap / derivedRevenue : null))}</td>
                         <td style="padding:12px; font-weight:bold;">${fmtPE(fwdPs)}</td>
                         <td style="padding:12px; font-weight:bold;">${fmtMargin(revGrowth)}</td>
@@ -6345,10 +6346,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 + row(`Fair Value (PE ${p.dynamic_mult != null ? (Number.isInteger(p.dynamic_mult) ? p.dynamic_mult : p.dynamic_mult.toFixed(2)) : 20})`, '$' + fmt(p.dynamic_fv != null ? p.dynamic_fv : p.fair_value_pe_20));
         } else if (model === 'peg' && currentFormulaData.peg) {
             const g = currentFormulaData.peg;
+            const prof = globalData.company_profile || {};
             title.textContent = '📊 PEG Valuation — Data Transparency';
             const periodLabel = g.eps_growth_period || '2Y EPS CAGR';
             const displayPe = g.dynamic_pe != null ? g.dynamic_pe : g.current_pe;
-            html = row('P/E FWD', displayPe ? displayPe.toFixed(2) + 'x' : 'N/A')
+            const epsTypeLabel = prof.peg_eps_type === 'GAAP' ? '(GAAP)' : '(Non-GAAP)';
+            
+            html = row(`P/E TTM ${epsTypeLabel}`, displayPe ? displayPe.toFixed(2) + 'x' : 'N/A')
                 + row('Growth Estimate', fmtPct(g.dynamic_growth != null ? g.dynamic_growth : g.eps_growth_estimated))
                 + row('Current PEG', g.dynamic_peg ? g.dynamic_peg.toFixed(2) + 'x' : (g.current_peg ? g.current_peg.toFixed(2) + 'x' : 'N/A'))
                 + row('Industry PEG', g.industry_peg ? g.industry_peg.toFixed(2) + 'x' : 'N/A')

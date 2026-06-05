@@ -3749,6 +3749,16 @@ def get_lightweight_company_data(ticker_symbol: str, force_refresh: bool = False
                 "net_income": info.get('netIncomeToCommon'),
                 "ps_ratio": info.get('priceToSalesTrailing12Months') or info.get('priceToSales'),
             }
+            
+            # Fetch Non-GAAP TTM EPS (adjusted_eps) to support the new PEG strict calculation
+            try:
+                y_trend = get_yahoo_eps_trend(ticker_symbol)
+                yf_0y_anchor = y_trend.get('0y', {}).get('yearAgoEps')
+                if yf_0y_anchor and yf_0y_anchor > 0:
+                    data['adjusted_eps'] = yf_0y_anchor
+            except Exception:
+                pass
+
             # v292: ADR Logic - Yahoo's info tags (price, eps, target) are ALREADY in the price currency (USD for ADRs).
             # ONLY multiply if we are 100% sure the tag is in local currency (rare for these tags).
             # We remove the global fx_rate application here and move it only to raw financials.
