@@ -277,6 +277,11 @@ def get_sector_peers(ticker: str, response: Response):
             p['forward_pe'] = _calculateForwardPE(p)
             p['forward_ev_sales'] = _calculateForwardEvSales(p)
             
+            if p.get('forward_pe'):
+                p['forward_pe_custom'] = p['forward_pe']
+            if p.get('forward_pe_custom') and p.get('peg_custom') and p['peg_custom'] > 0:
+                p['cagr_5y_custom'] = (p['forward_pe_custom'] / p['peg_custom']) / 100.0
+            
             enriched.append({
                 "ticker": p.get("ticker"),
                 "name": p.get("name"),
@@ -742,6 +747,12 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         data['forward_ps'] = calculateForwardPS(data)
         data['forward_ev_sales'] = calculateForwardEvSales(data)
         data['forward_ev_ebitda'] = calculateForwardEvEbitda(data)
+        data['forward_pe'] = calculateForwardPE(data)
+        
+        if data.get('forward_pe'):
+            data['forward_pe_custom'] = data['forward_pe']
+        if data.get('forward_pe_custom') and data.get('peg_custom') and data['peg_custom'] > 0:
+            data['cagr_5y_custom'] = (data['forward_pe_custom'] / data['peg_custom']) / 100.0
         
         # Unify the profile's fwd_ps to use the robust Forward P/S
         if data.get('forward_ps'):
@@ -762,6 +773,11 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 p['forward_ev_sales'] = calculateForwardEvSales(p)
                 p['forward_ev_ebitda'] = calculateForwardEvEbitda(p)
                 p['forward_pe'] = calculateForwardPE(p)
+
+                if p.get('forward_pe'):
+                    p['forward_pe_custom'] = p['forward_pe']
+                if p.get('forward_pe_custom') and p.get('peg_custom') and p['peg_custom'] > 0:
+                    p['cagr_5y_custom'] = (p['forward_pe_custom'] / p['peg_custom']) / 100.0
 
         executor.shutdown(wait=False)
 
@@ -1686,6 +1702,9 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 "dividend_streak": data.get("dividend_streak"),
                 "dividend_cagr_5y": sanitize(data.get("dividend_cagr_5y")),
                 "fwd_pe": sanitize(data.get("fwd_pe")),
+                "forward_pe_custom": sanitize(data.get("forward_pe_custom")),
+                "cagr_5y_custom": sanitize(data.get("cagr_5y_custom")),
+                "peg_custom": sanitize(data.get("peg_custom")),
                 "forward_ev_sales": sanitize(data.get("forward_ev_sales")),
                 "forward_ev_ebitda": sanitize(data.get("forward_ev_ebitda")),
                 "competitors": [p.get("ticker") for p in peers_data] if peers_data else [],

@@ -1670,6 +1670,16 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
         if not peg_ratio and pe_ratio and eps_growth and eps_growth > 0:
             peg_ratio = pe_ratio / (eps_growth * 100)
             
+        forward_pe_custom = info.get('forwardPE')
+        peg_custom = info.get('trailingPegRatio') or info.get('pegRatio')
+        cagr_5y_custom = None
+        if forward_pe_custom and peg_custom and peg_custom > 0:
+            cagr_5y_custom = forward_pe_custom / peg_custom
+            
+        ps_forward_custom = None
+        fcf_margin_custom = None
+        pfcf_forward_custom = None
+            
         # Financials for DCF & Margins (Prefer normalized DataFrames over info.get for ADR reliability)
         fcf = None
         try:
@@ -3325,6 +3335,12 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
             "historic_fcf_growth": normalize_growth(historic_fcf_growth),
             "historic_buyback_rate": normalize_growth(historic_buyback_rate),
             "pe_historic": historic_pe_val or info.get('trailingPE'),
+            "forward_pe_custom": forward_pe_custom,
+            "peg_custom": peg_custom,
+            "cagr_5y_custom": cagr_5y_custom,
+            "ps_forward_custom": ps_forward_custom,
+            "fcf_margin_custom": fcf_margin_custom,
+            "pfcf_forward_custom": pfcf_forward_custom,
             "historical_data": historical_data,
             "historical_trends": historical_trends,
             "raw_quarterly_history": raw_data_map,
@@ -3547,7 +3563,7 @@ def get_competitors_data(target_ticker: str, limit: int = 4, custom_peers: list 
                         c_inf, ts = _peer_info_cache[t]
                         if now - ts < 86400: return c_inf
                     
-                    kv_key = f"peer_v15_{t}" 
+                    kv_key = f"peer_v16_{t}" 
                     if not force_refresh:
                         kv_data = kv_get(kv_key)
                         if kv_data and isinstance(kv_data, dict):
@@ -3648,6 +3664,8 @@ def get_competitors_data(target_ticker: str, limit: int = 4, custom_peers: list 
                     except: pass
                     fwd_ps = fwd_ps_explicit or ttm_ps
                     
+                    fwd_eps_val = fwd_eps_explicit or ((inf.get('forwardEps') or 0) * peer_fx if inf.get('forwardEps') else None)
+                    
                     p_data = {
                         "ticker": t,
                         "name": inf.get('shortName') or inf.get('longName') or t,
@@ -3663,7 +3681,7 @@ def get_competitors_data(target_ticker: str, limit: int = 4, custom_peers: list 
                         "price_to_book": inf.get('priceToBook') or (p_price / inf.get('bookValue') if inf.get('bookValue') and inf.get('bookValue') > 0 else None),
                         "ev_to_ebitda": ttm_ev,
                         "eps": fwd_eps_explicit or (inf.get('forwardEps') or inf.get('trailingEps') or 0) * peer_fx,
-                        "forward_eps": fwd_eps_explicit or ((inf.get('forwardEps') or 0) * peer_fx if inf.get('forwardEps') else None),
+                        "forward_eps": fwd_eps_val,
                         "operating_margin": inf.get('operatingMargins') or inf.get('ebitdaMargins'),
                         "gross_margins": inf.get('grossMargins'),
                         "enterprise_value": (inf.get('enterpriseValue') or 0) * peer_fx,
@@ -3680,23 +3698,20 @@ def get_competitors_data(target_ticker: str, limit: int = 4, custom_peers: list 
                     # 1. MCap
                     # (already in p_data)
                     
-                    # 2. P/E FWD (FY1)
-                    p_data["forward_pe_custom"] = fwd_pe_explicit if fwd_pe_explicit and fwd_pe_explicit > 0 else None
+                    # 2. P/E FWD (Native Yahoo to match platform exactly)
+                    p_data["forward_pe_custom"] = inf.get('forwardPE')
                     
-                    # 3. 5y EPS CAGR (from Yahoo FWD P/E / 5y PEG)
-                    yahoo_fwd_pe = inf.get('forwardPE')
-                    yahoo_peg = inf.get('pegRatio')
+                    # 3. 5y EPS CAGR (from Yahoo FWD P/E / 5y PEG exactly as requested)
+                    yahoo_fwd_pe = p_data["forward_pe_custom"]
+                    yahoo_peg = inf.get('trailingPegRatio') or inf.get('pegRatio')
                     cagr_5y = None
                     if yahoo_fwd_pe and yahoo_fwd_pe > 0 and yahoo_peg and yahoo_peg > 0:
                         cagr_5y_pct = yahoo_fwd_pe / yahoo_peg
                         cagr_5y = cagr_5y_pct / 100.0
                     p_data["cagr_5y_custom"] = cagr_5y
                     
-                    # 4. Custom PEG
-                    if p_data["forward_pe_custom"] and cagr_5y and cagr_5y > 0:
-                        p_data["peg_custom"] = p_data["forward_pe_custom"] / (cagr_5y * 100.0)
-                    else:
-                        p_data["peg_custom"] = None
+                    # 4. Native PEG
+                    p_data["peg_custom"] = yahoo_peg
                         
                     # 5. P/S FWD
                     if mcap and mcap > 0 and fwd_rev_explicit and fwd_rev_explicit > 0:

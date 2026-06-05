@@ -1642,13 +1642,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const mainRev = globalData.revenue || (prof.market_cap && prof.ps_ratio && prof.ps_ratio > 0 ? prof.market_cap / prof.ps_ratio : null);
         const mainFcfMargin = mainFcf && mainRev && mainRev > 0 ? (mainFcf / mainRev) : null;
         
-        let mainCagr5y = null;
-        if (prof.fwd_pe && prof.fwd_pe > 0 && prof.peg_ratio && prof.peg_ratio > 0) {
-            mainCagr5y = (prof.fwd_pe / prof.peg_ratio) / 100.0;
+        const mainFwdPeCustom = prof.forward_pe_custom || (dynFwdEps > 0 ? (_realApiPrice / dynFwdEps) : null);
+        const mainPegCustom = prof.peg_custom || prof.peg_ratio;
+        
+        let mainCagr5y = prof.cagr_5y_custom;
+        if (mainCagr5y == null && mainFwdPeCustom && mainFwdPeCustom > 0 && mainPegCustom && mainPegCustom > 0) {
+            mainCagr5y = (mainFwdPeCustom / mainPegCustom) / 100.0;
         }
-
-        const mainFwdPeCustom = dynFwdEps > 0 ? (_realApiPrice / dynFwdEps) : null;
-        const mainPegCustom = (mainFwdPeCustom && mainCagr5y && mainCagr5y > 0) ? (mainFwdPeCustom / (mainCagr5y * 100.0)) : null;
 
         const mainPsFwdCustom = (prof.market_cap && prof.forward_revenue && prof.forward_revenue > 0) ? (prof.market_cap / prof.forward_revenue) : null;
         
