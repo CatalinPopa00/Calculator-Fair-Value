@@ -2,8 +2,12 @@
 Integration test that replicates the EXACT API flow from index.py get_valuation()
 for MA and V, to trace the Monopoly PE scoring end-to-end.
 """
+import json
 import sys
 import math
+
+# Ensure stdout supports UTF-8 for the lightning bolt symbol
+sys.stdout.reconfigure(encoding='utf-8')
 sys.path.insert(0, r'c:\Users\Snoozie\Downloads\Calculator-Fair-Value\Calculator-Fair-Value')
 
 from scraper.yahoo import get_company_data

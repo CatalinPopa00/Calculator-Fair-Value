@@ -4358,7 +4358,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
 
                 pBody.innerHTML = `
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 2.5rem;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 290px), 1fr)); gap: 2.5rem;">
                         <!-- Column 1: Company -->
                         <div class="profile-section">
                             <div style="font-size: 0.8rem; color: var(--text-main); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 2px solid rgba(255,255,255,0.1); font-weight: 700;">Company Summary</div>
