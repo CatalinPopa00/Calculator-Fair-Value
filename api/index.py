@@ -1333,13 +1333,11 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         # Derive implied 5Y EPS CAGR from Yahoo's PEG Ratio (5yr expected)
         # PEG = PE / Growth% => Growth% = PE / PEG => Growth (decimal) = PE / PEG / 100
         yahoo_peg_5yr = data.get("peg_ratio")
-        if current_price and data.get("trailing_eps") and data.get("trailing_eps") > 0:
-            trailing_pe_for_peg = current_price / data.get("trailing_eps")
-        else:
-            trailing_pe_for_peg = data.get("pe_ratio")
+        forward_pe = data.get("forward_pe")
+
         implied_5y_growth = None
-        if yahoo_peg_5yr and yahoo_peg_5yr > 0 and trailing_pe_for_peg and trailing_pe_for_peg > 0:
-            implied_5y_growth = (trailing_pe_for_peg / yahoo_peg_5yr) / 100.0
+        if yahoo_peg_5yr and yahoo_peg_5yr > 0 and forward_pe and forward_pe > 0:
+            implied_5y_growth = (forward_pe / yahoo_peg_5yr) / 100.0
             # Sanity: cap at 200% and floor at 0%
             if implied_5y_growth > 2.0: implied_5y_growth = 2.0
             if implied_5y_growth <= 0: implied_5y_growth = None
