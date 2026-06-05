@@ -869,6 +869,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                     # Also save back to p so the frontend gets the updated individual PEG
                     p['peg_ratio'] = p_peg
                     p['peg_eps_type'] = peer_peg_type
+                    p['pe_non_gaap'] = p_pe
         
         # No fallback, return None if no valid peers
         industry_peg = statistics.median(valid_pegs) if valid_pegs else None
