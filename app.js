@@ -754,6 +754,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (rawG !== '' && !isNaN(parseFloat(rawG))) {
                 pegUsedGrowth = parseFloat(rawG) / 100;
             }
+        } else if (pegSrcEl && pegSrcEl.value === '5ycagr') {
+            pegUsedGrowth = prof.cagr_5y_custom || (globalData.formula_data && globalData.formula_data.peg && globalData.formula_data.peg.eps_growth_5y_cagr) || 0;
         } else if (pegSrcEl && pegSrcEl.value === 'analyst') {
             strictCagrMode = true;
             pegUsedGrowth = null; // Enforce strict
@@ -2648,7 +2650,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             } else if (pegSrc === '5ycagr') {
-                usedGrowth = currentFormulaData.peg.eps_growth_5y_cagr || usedGrowth;
+                usedGrowth = globalData.company_profile.cagr_5y_custom || currentFormulaData.peg.eps_growth_5y_cagr || usedGrowth;
             } else if (pegSrc === 'custom') {
                 const rawG = document.getElementById('peg-custom-growth').value;
                 usedGrowth = (rawG === '' || isNaN(parseFloat(rawG))) ? 0.20 : parseFloat(rawG) / 100;
@@ -2664,10 +2666,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Sector Median Logic for PEG
             const cachedSectorPeg = localStorage.getItem('sectorMedianPeg_' + sector);
+            
+            // Calculate median of peg_custom from peers
+            let medianPegCustom = null;
+            if (globalData.company_profile && globalData.company_profile.competitor_metrics && globalData.company_profile.competitor_metrics.length > 0) {
+                const validPegs = globalData.company_profile.competitor_metrics
+                    .map(p => parseFloat(p.peg_custom))
+                    .filter(val => !isNaN(val) && val > 0)
+                    .sort((a, b) => a - b);
+                
+                if (validPegs.length > 0) {
+                    const mid = Math.floor(validPegs.length / 2);
+                    medianPegCustom = validPegs.length % 2 !== 0 ? validPegs[mid] : (validPegs[mid - 1] + validPegs[mid]) / 2;
+                }
+            }
+
             // Prioritize dynamically calculated median from custom peers over cached global sector median
-            const industryPegRaw = (currentFormulaData.peg && currentFormulaData.peg.industry_peg != null) 
+            const industryPegRaw = medianPegCustom != null ? medianPegCustom : ((currentFormulaData.peg && currentFormulaData.peg.industry_peg != null) 
                 ? currentFormulaData.peg.industry_peg 
-                : (cachedSectorPeg ? parseFloat(cachedSectorPeg) : 1.0);
+                : (cachedSectorPeg ? parseFloat(cachedSectorPeg) : 1.0));
 
             let targetPeg = 1.0;
             if (pegMode === 'industry') {
@@ -4871,7 +4888,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const pEps = document.getElementById('peg-eps-source');
             if (pEps) pEps.value = 'analyst';
             const pMode = document.getElementById('peg-mode');
-            if (pMode) pMode.value = 'industry';
+            if (pMode) pMode.value = 'standard';
         }
 
         updateFairValue();
