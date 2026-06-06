@@ -3162,7 +3162,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                         if current_price and shares_outstanding:
                             # Re-calibrate market cap and all dependent ratios
                             market_cap = float(current_price * shares_outstanding)
-                            if rev_val and rev_val > 0:
+                            if not ps_ratio and rev_val and rev_val > 0:
                                  ps_ratio = market_cap / rev_val
                             print(f"DEBUG: Hyper-Sync Market Cap: {market_cap/1e9:.2f}B using {shares_outstanding/1e6:.1f}M shares")
                             
@@ -3309,6 +3309,10 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
         elif fcf and tot_rev and tot_rev > 0:
             fcf_margin_custom = fcf / tot_rev
             
+        pfcf_ratio = None
+        if fcf_val_api and market_cap and market_cap > 0 and fcf_val_api > 0:
+            pfcf_ratio = market_cap / fcf_val_api
+            
         pfcf_forward_custom = None
         if fcf_margin_custom and fwd_rev_explicit and fwd_rev_explicit > 0:
             fcf_fwd_val = fcf_margin_custom * fwd_rev_explicit
@@ -3332,6 +3336,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
             "pe_ratio": pe_ratio,
             "forward_pe": forward_pe,
             "ps_ratio": ps_ratio,
+            "pfcf_ratio": pfcf_ratio,
             "fwd_ps": fwd_ps,
             "eps_growth": eps_growth,
             "fcf": fcf,
@@ -3603,6 +3608,42 @@ def get_competitors_data(target_ticker: str, limit: int = 4, custom_peers: list 
             def fetch_peer_info(t):
                 try:
                     now = time.time()
+                    
+                    # 1. ALWAYS PREFER MAIN CACHE IF AVAILABLE
+                    main_cache_key = f"val_data_v30_{t}"
+                    if not force_refresh:
+                        main_data = kv_get(main_cache_key)
+                        if main_data and isinstance(main_data, dict):
+                            p_data = {
+                                "ticker": t,
+                                "name": main_data.get("name") or t,
+                                "price": main_data.get("current_price"),
+                                "pe_ratio": main_data.get("current_pe"),
+                                "peg_ratio": main_data.get("peg_ratio"),
+                                "market_cap": main_data.get("market_cap"),
+                                "ps_ratio": main_data.get("ps_ratio"),
+                                "revenue": main_data.get("revenue"),
+                                "forward_revenue": main_data.get("forward_revenue"),
+                                "fcf": main_data.get("fcf"),
+                                "pfcf_ratio": main_data.get("pfcf_ratio"),
+                                "price_to_book": main_data.get("price_to_book"),
+                                "ev_to_ebitda": main_data.get("ev_to_ebitda"),
+                                "eps": main_data.get("trailing_eps"),
+                                "forward_eps": main_data.get("forward_eps"),
+                                "operating_margin": main_data.get("operating_margin"),
+                                "gross_margins": main_data.get("gross_margins"),
+                                "revenue_growth": main_data.get("revenue_growth"),
+                                "earnings_growth": main_data.get("earnings_growth"),
+                                "forward_pe_custom": main_data.get("forward_pe_custom"),
+                                "cagr_5y_custom": main_data.get("cagr_5y_custom"),
+                                "peg_custom": main_data.get("peg_custom"),
+                                "ps_forward_custom": main_data.get("ps_forward_custom"),
+                                "fcf_margin_custom": main_data.get("fcf_margin_custom"),
+                                "pfcf_forward_custom": main_data.get("pfcf_forward_custom")
+                            }
+                            _peer_info_cache[t] = (p_data, now)
+                            return p_data
+
                     if not force_refresh and t in _peer_info_cache:
                         c_inf, ts = _peer_info_cache[t]
                         if now - ts < 86400: return c_inf

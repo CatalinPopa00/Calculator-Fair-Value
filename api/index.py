@@ -1661,7 +1661,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 "ps_ratio": sanitize(data.get("ps_ratio")),
                 "price_to_book": sanitize(data.get("price_to_book")),
                 "fwd_ps": sanitize(data.get("fwd_ps")),
-                "pfcf_ratio": sanitize((data.get("shares_outstanding", 0) * current_price) / data.get("fcf")) if data.get("shares_outstanding") and current_price and data.get("fcf") else None,
+                "pfcf_ratio": sanitize(data.get("pfcf_ratio")),
                 "current_pe": sanitize(current_pe),
                 "gross_margins": sanitize(data.get("gross_margins")),
                 "quick_ratio": sanitize(data.get("quick_ratio")),
