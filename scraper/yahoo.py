@@ -2201,9 +2201,9 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
         # --- PHASE 0: PRE-CALCULATE NON-GAAP (ADJUSTED) EPS HISTORY ---
         # v87: Hyper-Robust Unified Aggregation (YF + Nasdaq)
         adjusted_history = {}
+        raw_data_map = {} # {year_str: {date_str: val}}
         try:
             import pandas as _pd
-            raw_data_map = {} # {year_str: {date_str: val}}
             
             # v95: Determine Fiscal Year End Month for correct mapping
             fy_end_month = 12
@@ -3042,6 +3042,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                     cr_v = (ca_hist / cl_hist) if (ca_hist and cl_hist and cl_hist > 0) else None
                     roic_v = (ni_raw / (assets - liabs) * 100.0) if (assets is not None and liabs is not None and (assets - liabs) > 0) else None
                     
+                    fcf_margin_v = (f_raw / r_raw * 100.0) if (r_raw and r_raw > 0 and f_raw is not None) else None
                     gaap_v = (historical_trends[i]["gaap_net_margin"] * 100.0) if (i < len(historical_trends) and "gaap_net_margin" in historical_trends[i]) else margin_v
                     
                     historical_anchors.append({
@@ -3049,6 +3050,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                         "revenue_b": round(r_raw / 1e9, 2), # Already USD
                         "eps": round(e_raw, 2), # Already USD
                         "fcf_b": round(f_raw / 1e9, 2), # Already USD
+                        "fcf_margin_pct": f"{fcf_margin_v:.1f}%" if fcf_margin_v is not None else "N/A",
+                        "net_income_b": round(ni_raw / 1e9, 2) if ni_raw is not None else 0,
                         "ebitda_b": round(historical_trends[i].get("ebitda", 0) / 1e9, 2),
                         "gross_profit_b": round(gp_raw / 1e9, 2),
                         "net_margin_pct": f"{margin_v:.1f}%" if margin_v is not None else "N/A",

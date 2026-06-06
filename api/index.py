@@ -282,11 +282,6 @@ def get_sector_peers(ticker: str, response: Response):
             if p.get('forward_pe_custom') and p.get('peg_custom') and p['peg_custom'] > 0:
                 p['cagr_5y_custom'] = (p['forward_pe_custom'] / p['peg_custom']) / 100.0
             
-            fcf_margin, pfcf_fwd, ps_fwd = _calculateCustomFCFMetrics(p)
-            p['fcf_margin_custom'] = fcf_margin
-            p['pfcf_forward_custom'] = pfcf_fwd
-            p['ps_forward_custom'] = ps_fwd
-            
             enriched.append({
                 "ticker": p.get("ticker"),
                 "name": p.get("name"),
@@ -758,11 +753,6 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             data['forward_pe_custom'] = data['forward_pe']
         # cagr_5y_custom and peg_custom for main company will be set after company_peg is calculated
             
-        fcf_margin, pfcf_fwd, ps_fwd = _calculateCustomFCFMetrics(data)
-        data['fcf_margin_custom'] = fcf_margin
-        data['pfcf_forward_custom'] = pfcf_fwd
-        data['ps_forward_custom'] = ps_fwd
-        
         # Unify the profile's fwd_ps to use the robust Forward P/S
         if data.get('forward_ps'):
             data['fwd_ps'] = data['forward_ps']
@@ -793,10 +783,6 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 if p.get('forward_pe_custom') and p.get('peg_custom') and p['peg_custom'] > 0:
                     p['cagr_5y_custom'] = (p['forward_pe_custom'] / p['peg_custom']) / 100.0
                 
-                p_fcf_margin, p_pfcf_fwd, p_ps_fwd = _calculateCustomFCFMetrics(p)
-                p['fcf_margin_custom'] = p_fcf_margin
-                p['pfcf_forward_custom'] = p_pfcf_fwd
-                p['ps_forward_custom'] = p_ps_fwd
 
         executor.shutdown(wait=False)
 
