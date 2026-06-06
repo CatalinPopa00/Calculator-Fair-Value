@@ -1614,7 +1614,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Helper: safe calculation of P/FCF for main company
         const mainFcf = globalData?.formula_data?.dcf?.fcf || prof.fcf;
-        const mainPfcf = prof.market_cap && mainFcf > 0 ? (prof.market_cap / mainFcf) : null;
+        const mainPfcf = prof.pfcf_ratio;
 
         let dynFwdEps = prof.fwd_eps;
         let dynRevGrowth = prof.revenue_growth;
@@ -1639,26 +1639,17 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        const mainRev = globalData.revenue || (prof.market_cap && prof.ps_ratio && prof.ps_ratio > 0 ? prof.market_cap / prof.ps_ratio : null);
-        const mainFcfMargin = mainFcf && mainRev && mainRev > 0 ? (mainFcf / mainRev) : null;
+        const mainRev = globalData.revenue || prof.revenue;
+        const mainFcfMargin = prof.fcf_margin_custom;
         
         const mainFwdPeCustom = prof.forward_pe_custom || (dynFwdEps > 0 ? (_realApiPrice / dynFwdEps) : null);
         const mainPegCustom = prof.peg_custom || prof.peg_ratio;
         
         let mainCagr5y = prof.cagr_5y_custom;
-        if (mainCagr5y == null && mainFwdPeCustom && mainFwdPeCustom > 0 && mainPegCustom && mainPegCustom > 0) {
-            mainCagr5y = (mainFwdPeCustom / mainPegCustom) / 100.0;
-        }
 
-        const mainPsFwdCustom = (prof.market_cap && prof.forward_revenue && prof.forward_revenue > 0) ? (prof.market_cap / prof.forward_revenue) : null;
+        const mainPsFwdCustom = prof.ps_forward_custom;
         
-        let mainPfcfFwdCustom = null;
-        if (mainFcfMargin && prof.forward_revenue && prof.forward_revenue > 0) {
-            const fcfFwd = mainFcfMargin * prof.forward_revenue;
-            if (prof.market_cap && prof.market_cap > 0 && fcfFwd > 0) {
-                mainPfcfFwdCustom = prof.market_cap / fcfFwd;
-            }
-        }
+        let mainPfcfFwdCustom = prof.pfcf_forward_custom;
 
         const mainComp = {
             ticker: prof.ticker || currentTicker,
@@ -1737,16 +1728,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const mCap = c.market_cap || c.marketCap;
             
-            // Fallbacks for Main if backend didn't provide custom fields
+            // Backend provides pre-calculated fields, we use them to ensure consistency
             const peFwd = c.forward_pe_custom || c.fwd_pe || c.forward_pe || c.pe_ratio;
             const cagr5y = c.cagr_5y_custom;
             const peg = c.peg_custom;
             
-            const ps = c.ps_ratio || (mCap && c.revenue && c.revenue > 0 ? mCap / c.revenue : null);
+            const ps = c.ps_ratio;
             const psFwd = c.ps_forward_custom;
             
-            const fcfMargin = c.fcf_margin_custom || (c.fcf && c.revenue && c.revenue > 0 ? c.fcf / c.revenue : null);
-            const pfcf = c.pfcf_ratio || (mCap && c.fcf && c.fcf > 0 ? mCap / c.fcf : null);
+            const fcfMargin = c.fcf_margin_custom;
+            const pfcf = c.pfcf_ratio;
             const pfcfFwd = c.pfcf_forward_custom;
             
             const opMargin = c.margin || c.operating_margin;
@@ -1881,7 +1872,13 @@ document.addEventListener('DOMContentLoaded', () => {
                             rev_growth: sp.revenue_growth,
                             price: sp.price,
                             avg_2y_eps_growth: sp.avg_2y_eps_growth,
-                            forward_peg: sp.forward_peg
+                            forward_peg: sp.forward_peg,
+                            forward_pe_custom: sp.forward_pe_custom,
+                            cagr_5y_custom: sp.cagr_5y_custom,
+                            peg_custom: sp.peg_custom,
+                            ps_forward_custom: sp.ps_forward_custom,
+                            fcf_margin_custom: sp.fcf_margin_custom,
+                            pfcf_forward_custom: sp.pfcf_forward_custom
                         };
 
                         if (!prof.competitor_metrics) prof.competitor_metrics = [];
@@ -1979,7 +1976,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (exists) throw new Error('Peer is already in comparison');
 
                     const mainFcf = peerData.formula_data?.dcf?.fcf || peerProf.fcf;
-                    const pfcf = peerProf.market_cap && mainFcf > 0 ? (peerProf.market_cap / mainFcf) : null;
+                    const pfcf = peerProf.pfcf_ratio;
 
                     const newPeerObj = {
                         ticker: peerProf.ticker.toUpperCase(),
@@ -2007,7 +2004,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         rev_growth: peerProf.revenue_growth,
                         earnings_growth: peerProf.earnings_growth,
                         revenue_growth: peerProf.revenue_growth,
-                        forward_revenue: peerProf.forward_revenue
+                        forward_revenue: peerProf.forward_revenue,
+                        forward_pe_custom: peerProf.forward_pe_custom || (peerProf.fwd_eps > 0 ? (peerData.current_price / peerProf.fwd_eps) : null),
+                        cagr_5y_custom: peerProf.cagr_5y_custom,
+                        peg_custom: peerProf.peg_custom || peerProf.peg_ratio,
+                        ps_forward_custom: peerProf.ps_forward_custom,
+                        fcf_margin_custom: peerProf.fcf_margin_custom,
+                        pfcf_forward_custom: peerProf.pfcf_forward_custom
                     };
 
                     if (!prof.competitor_metrics) prof.competitor_metrics = [];

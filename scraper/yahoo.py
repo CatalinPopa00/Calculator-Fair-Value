@@ -1670,15 +1670,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
         if not peg_ratio and pe_ratio and eps_growth and eps_growth > 0:
             peg_ratio = pe_ratio / (eps_growth * 100)
             
-        forward_pe_custom = info.get('forwardPE')
-        peg_custom = info.get('trailingPegRatio') or info.get('pegRatio')
-        cagr_5y_custom = None
-        if forward_pe_custom and peg_custom and peg_custom > 0:
-            cagr_5y_custom = forward_pe_custom / peg_custom
-            
-        ps_forward_custom = None
-        fcf_margin_custom = None
-        pfcf_forward_custom = None
+        # Moved to end of function where market_cap and fcf are available
             
         # Financials for DCF & Margins (Prefer normalized DataFrames over info.get for ADR reliability)
         fcf = None
@@ -3261,6 +3253,64 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
         fintech_non_interest_expense = get_metric(financials, ['Other Non Interest Expense', 'Non Interest Expense', 'Operating Expense'], 0) if financials is not None else None
         fintech_gross_profit = get_metric(financials, 'Gross Profit', 0) if financials is not None else info.get('grossProfits')
 
+        # Initialize mappings for analyst consensus synchronization
+        history_eps = {}
+        history_rev = {}
+        if historical_data and "years" in historical_data:
+            for i, yr in enumerate(historical_data["years"]):
+                if not str(yr).strip().endswith("(Est)"):
+                    history_eps[f"FY {yr}"] = historical_data["eps"][i]
+                    history_rev[f"FY {yr}"] = historical_data["revenue"][i]
+
+        # v137: Correctly integrated Analyst fetch (Moving it here ensures it runs for every ticker)
+        analyst_data = get_analyst_data(stock, ticker_symbol, info, history_eps, history_rev, fx_rate, historical_data, q_history=raw_data_map)
+
+        # --- SYNCHRONIZE PEER CUSTOM METRICS FOR MAIN COMPANY ---
+        api_fwd_pe = info.get('forwardPE')
+        api_peg = info.get('trailingPegRatio') or info.get('pegRatio')
+        
+        cagr_5y_custom = None
+        if api_fwd_pe and api_fwd_pe > 0 and api_peg and api_peg > 0:
+            cagr_5y_custom = (api_fwd_pe / api_peg) / 100.0
+        elif eps_growth and eps_growth > 0:
+            cagr_5y_custom = eps_growth
+            
+        platform_fwd_pe = api_fwd_pe
+        if analyst_data and analyst_data.get('forward_eps') and analyst_data['forward_eps'] > 0 and current_price:
+            platform_fwd_pe = current_price / analyst_data['forward_eps']
+            
+        peg_custom = None
+        if cagr_5y_custom and cagr_5y_custom > 0 and platform_fwd_pe and platform_fwd_pe > 0:
+            peg_custom = platform_fwd_pe / (cagr_5y_custom * 100.0)
+        else:
+            peg_custom = api_peg
+            
+        forward_pe_custom = api_fwd_pe
+
+        fwd_rev_explicit = None
+        try:
+            analysis = get_yahoo_analysis_normalized(ticker_symbol, info)
+            r1 = analysis['rev'].get('0y', {})
+            if r1.get('avg'):
+                fwd_rev_explicit = r1['avg'] * fx_rate
+        except Exception:
+            pass
+
+        ps_forward_custom = None
+        if market_cap and market_cap > 0 and fwd_rev_explicit and fwd_rev_explicit > 0:
+            ps_forward_custom = market_cap / fwd_rev_explicit
+            
+        fcf_margin_custom = None
+        tot_rev = info.get('totalRevenue') or info.get('revenue') or revenue
+        if fcf and tot_rev and tot_rev > 0:
+            fcf_margin_custom = fcf / tot_rev
+            
+        pfcf_forward_custom = None
+        if fcf_margin_custom and fwd_rev_explicit and fwd_rev_explicit > 0:
+            fcf_fwd_val = fcf_margin_custom * fwd_rev_explicit
+            if market_cap and market_cap > 0 and fcf_fwd_val > 0:
+                pfcf_forward_custom = market_cap / fcf_fwd_val
+
         # Final return object (Diagnostic-Rich v22)
         data = {
             "ticker": ticker_symbol.upper(),
@@ -3357,17 +3407,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
         if ticker_symbol and isinstance(info, dict):
             _company_info_cache[ticker_symbol.upper()] = info
         
-        # Initialize mappings for analyst consensus synchronization
-        history_eps = {}
-        history_rev = {}
-        if historical_data and "years" in historical_data:
-            for i, yr in enumerate(historical_data["years"]):
-                if not str(yr).strip().endswith("(Est)"):
-                    history_eps[f"FY {yr}"] = historical_data["eps"][i]
-                    history_rev[f"FY {yr}"] = historical_data["revenue"][i]
-
-        # v137: Correctly integrated Analyst fetch (Moving it here ensures it runs for every ticker)
-        analyst_data = get_analyst_data(stock, ticker_symbol, info, history_eps, history_rev, fx_rate, historical_data, q_history=raw_data_map)
+        # Analyst fetch moved up for custom metrics calculation
 
 
         
@@ -3708,10 +3748,15 @@ def get_competitors_data(target_ticker: str, limit: int = 4, custom_peers: list 
                     if yahoo_fwd_pe and yahoo_fwd_pe > 0 and yahoo_peg and yahoo_peg > 0:
                         cagr_5y_pct = yahoo_fwd_pe / yahoo_peg
                         cagr_5y = cagr_5y_pct / 100.0
+                    elif earn_growth and earn_growth > 0:
+                        cagr_5y = earn_growth
                     p_data["cagr_5y_custom"] = cagr_5y
                     
-                    # 4. Native PEG
-                    p_data["peg_custom"] = yahoo_peg
+                    # 4. Intern PEG (Platform FWD PE / API 5y CAGR)
+                    if cagr_5y and cagr_5y > 0 and fwd_pe and fwd_pe > 0:
+                        p_data["peg_custom"] = fwd_pe / (cagr_5y * 100.0)
+                    else:
+                        p_data["peg_custom"] = yahoo_peg
                         
                     # 5. P/S FWD
                     if mcap and mcap > 0 and fwd_rev_explicit and fwd_rev_explicit > 0:
