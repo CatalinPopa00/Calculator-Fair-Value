@@ -497,6 +497,18 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             if full_mode_key in valuation_cache:
                 return valuation_cache[full_mode_key]
 
+        # 1. Persistent Cache Check
+        persistent_cache_key = f"val_data_v30_{ticker.upper()}"
+        cached_data = kv_get(persistent_cache_key)
+        if cached_data and not force_refresh:
+            return cached_data
+            
+        persistent_skip_key = f"val_data_v30_skip_{ticker.upper()}"
+        if skip_peers:
+            cached_skip = kv_get(persistent_skip_key)
+            if cached_skip and not force_refresh:
+                return cached_skip
+
         # 2. Local Memory Cache check for the specific requested mode
         if not force_refresh and cache_key in valuation_cache:
             return valuation_cache[cache_key]
@@ -1788,7 +1800,10 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
     # 3.5 Save to persistent KV cache so that `get_competitors_data` can intercept and sync parity
     try:
         from utils.kv import kv_set
-        kv_set(f"val_data_v30_{ticker_upper}", response_data, ex=86400)
+        if not skip_peers and not fast_mode:
+            kv_set(f"val_data_v30_{ticker_upper}", response_data, ex=86400)
+        elif skip_peers and not fast_mode:
+            kv_set(f"val_data_v30_skip_{ticker_upper}", response_data, ex=86400)
     except Exception as e:
         print(f"Failed to cache main profile to KV for {ticker_upper}: {e}")
 
