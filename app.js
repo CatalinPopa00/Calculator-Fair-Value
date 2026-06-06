@@ -3055,19 +3055,19 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             const dynamicMedians = {
-                PE: getMedian(peers.map(p => p.forward_pe)),
+                PE: getMedian(peers.map(p => p.pe_ratio)),
                 PFCF: getMedian(peers.map(p => p.pfcf_ratio)),
-                PS: getMedian(peers.map(p => p.forward_ev_sales)),
+                PS: getMedian(peers.map(p => p.ps_ratio)),
                 PB: getMedian(peers.map(p => p.price_to_book)),
-                EV_EBITDA: getMedian(peers.map(p => p.forward_ev_ebitda))
+                EV_EBITDA: getMedian(peers.map(p => p.ev_to_ebitda))
             };
 
             const dynamicMeans = {
-                PE: getMean(peers.map(p => p.forward_pe)),
+                PE: getMean(peers.map(p => p.pe_ratio)),
                 PFCF: getMean(peers.map(p => p.pfcf_ratio)),
-                PS: getMean(peers.map(p => p.forward_ev_sales)),
+                PS: getMean(peers.map(p => p.ps_ratio)),
                 PB: getMean(peers.map(p => p.price_to_book)),
-                EV_EBITDA: getMean(peers.map(p => p.forward_ev_ebitda))
+                EV_EBITDA: getMean(peers.map(p => p.ev_to_ebitda))
             };
 
             let bPE = 20, bPFCF = 20, bPS = 2, bPB = 2, bEVEBITDA = 12;
@@ -6205,19 +6205,19 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             const dynamicMedians = {
-                PE: getMedian(peers.map(p => p.forward_pe)),
+                PE: getMedian(peers.map(p => p.pe_ratio)),
                 PFCF: getMedian(peers.map(p => p.pfcf_ratio)),
-                PS: getMedian(peers.map(p => p.forward_ev_sales)),
+                PS: getMedian(peers.map(p => p.ps_ratio)),
                 PB: getMedian(peers.map(p => p.price_to_book)),
-                EV_EBITDA: getMedian(peers.map(p => p.forward_ev_ebitda))
+                EV_EBITDA: getMedian(peers.map(p => p.ev_to_ebitda))
             };
 
             const dynamicMeans = {
-                PE: getMean(peers.map(p => p.forward_pe)),
+                PE: getMean(peers.map(p => p.pe_ratio)),
                 PFCF: getMean(peers.map(p => p.pfcf_ratio)),
-                PS: getMean(peers.map(p => p.forward_ev_sales)),
+                PS: getMean(peers.map(p => p.ps_ratio)),
                 PB: getMean(peers.map(p => p.price_to_book)),
-                EV_EBITDA: getMean(peers.map(p => p.forward_ev_ebitda))
+                EV_EBITDA: getMean(peers.map(p => p.ev_to_ebitda))
             };
 
             let peerTableHTML = '';

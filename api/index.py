@@ -945,9 +945,9 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 return None
             return statistics.median(vals)
 
-        bPE = get_clean_median_local('forward_pe')
-        bEVSALES = get_clean_median_local('forward_ev_sales')
-        bEVEBITDA = get_clean_median_local('forward_ev_ebitda')
+        bPE = get_clean_median_local('pe_ratio')
+        bEVSALES = get_clean_median_local('ps_ratio')
+        bEVEBITDA = get_clean_median_local('ev_to_ebitda')
         bPB = get_clean_median_local('price_to_book')
         
         # 1. Forward P/E Fair Value
@@ -1273,9 +1273,9 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 return statistics.median(vals)
                 
             # Compute Strict Forward Medians
-            median_peer_pe = get_clean_median('forward_pe')
-            median_peer_ps = get_clean_median('forward_ev_sales')
-            median_peer_ev_ebitda = get_clean_median('forward_ev_ebitda')
+            median_peer_pe = get_clean_median('pe_ratio')
+            median_peer_ps = get_clean_median('ps_ratio')
+            median_peer_ev_ebitda = get_clean_median('ev_to_ebitda')
             median_peer_pb = get_clean_median('price_to_book')
             median_peer_pfcf = get_clean_median('pfcf_ratio')
             
@@ -1880,4 +1880,4 @@ def get_firebase_config():
     })
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run(app, host="127.0.0.1", port=8000)
