@@ -2758,7 +2758,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const displayCurrent = currentPegToDisplay;
                 const displayTarget = targetPeg;
-                pegCompareElem.textContent = `PEG = ${displayCurrent.toFixed(2)} vs PEG ${pegMode === 'industry' ? 'Sector' : 'Std'} = ${displayTarget.toFixed(2)}`;
+                if (displayCurrent != null && displayTarget != null) {
+                    pegCompareElem.textContent = `PEG = ${displayCurrent.toFixed(2)} vs PEG ${pegMode === 'industry' ? 'Sector' : 'Std'} = ${displayTarget.toFixed(2)}`;
+                } else {
+                    pegCompareElem.textContent = `PEG = N/A vs PEG ${pegMode === 'industry' ? 'Sector' : 'Std'} = ${displayTarget ? displayTarget.toFixed(2) : 'N/A'}`;
+                }
 
                 // Store dynamics for modal
                 currentFormulaData.peg.dynamic_growth = usedGrowth;
@@ -6418,6 +6422,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 + row('Growth Estimate', fmtPct(p.dynamic_growth != null ? p.dynamic_growth : p.eps_growth_estimated))
                 + row('Forward EPS (3Y Projection)', '$' + fmt(p.dynamic_fwd_eps != null ? p.dynamic_fwd_eps : p.fwd_eps))
                 + row('5Y Avg P/E', prof.historic_pe ? prof.historic_pe.toFixed(2) + 'x' : 'N/A')
+                + row('Target Price (Year 3)', (p.dynamic_fwd_eps != null ? p.dynamic_fwd_eps : p.fwd_eps) != null ? '$' + fmt((p.dynamic_fwd_eps != null ? p.dynamic_fwd_eps : p.fwd_eps) * (p.dynamic_mult != null ? p.dynamic_mult : 20)) : 'N/A')
                 + row(`Return Rate (Discount)`, p.dynamic_discount != null ? fmtPct(p.dynamic_discount) : '15.0%')
                 + row(`Fair Value (PE ${p.dynamic_mult != null ? (Number.isInteger(p.dynamic_mult) ? p.dynamic_mult : p.dynamic_mult.toFixed(2)) : 20})`, '$' + fmt(p.dynamic_fv != null ? p.dynamic_fv : p.fair_value_pe_20));
         } else if (model === 'peg' && currentFormulaData.peg) {
