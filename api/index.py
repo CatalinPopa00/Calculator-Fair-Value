@@ -277,10 +277,7 @@ def get_sector_peers(ticker: str, response: Response):
             p['forward_pe'] = _calculateForwardPE(p)
             p['forward_ev_sales'] = _calculateForwardEvSales(p)
             
-            if p.get('forward_pe'):
-                p['forward_pe_custom'] = p['forward_pe']
-            if p.get('forward_pe_custom') and p.get('peg_custom') and p['peg_custom'] > 0:
-                p['cagr_5y_custom'] = (p['forward_pe_custom'] / p['peg_custom']) / 100.0
+            # cagr_5y_custom and peg_custom are preserved from scraper
             
             enriched.append({
                 "ticker": p.get("ticker"),
@@ -749,9 +746,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         data['forward_ev_ebitda'] = calculateForwardEvEbitda(data)
         data['forward_pe'] = calculateForwardPE(data)
         
-        if data.get('forward_pe'):
-            data['forward_pe_custom'] = data['forward_pe']
-        # cagr_5y_custom and peg_custom for main company will be set after company_peg is calculated
+        # cagr_5y_custom and peg_custom are preserved from scraper
             
         # Unify the profile's fwd_ps to use the robust Forward P/S
         if data.get('forward_ps'):
@@ -773,15 +768,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 p['forward_ev_ebitda'] = calculateForwardEvEbitda(p)
                 p['forward_pe'] = calculateForwardPE(p)
 
-                if p.get('forward_pe'):
-                    p['forward_pe_custom'] = p['forward_pe']
-                
-                p_peg_for_custom = p.get('peg_custom') or p.get('peg_ratio')
-                if p_peg_for_custom:
-                    p['peg_custom'] = p_peg_for_custom
-                
-                if p.get('forward_pe_custom') and p.get('peg_custom') and p['peg_custom'] > 0:
-                    p['cagr_5y_custom'] = (p['forward_pe_custom'] / p['peg_custom']) / 100.0
+                # custom metrics are preserved from scraper
                 
 
         executor.shutdown(wait=False)
@@ -872,9 +859,8 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         
         # Export the flag and custom metrics
         data["peg_eps_type"] = peg_eps_type
-        data["peg_custom"] = company_peg
-        if data.get('forward_pe_custom') and company_peg > 0:
-            data['cagr_5y_custom'] = (data['forward_pe_custom'] / company_peg) / 100.0
+        # company_peg is preserved or used only for backwards compat
+        data["peg_custom"] = data.get('peg_custom') or company_peg
         
         # Calculate Industry PEG from peers using Forward PEG (2Y avg EPS growth based)
         valid_pegs = []

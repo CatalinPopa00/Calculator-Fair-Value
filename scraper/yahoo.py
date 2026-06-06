@@ -3278,17 +3278,15 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
         elif eps_growth and eps_growth > 0:
             cagr_5y_custom = eps_growth
             
-        platform_fwd_pe = api_fwd_pe
+        forward_pe_custom = api_fwd_pe
         if analyst_data and analyst_data.get('forward_eps') and analyst_data['forward_eps'] > 0 and current_price:
-            platform_fwd_pe = current_price / analyst_data['forward_eps']
+            forward_pe_custom = current_price / analyst_data['forward_eps']
             
         peg_custom = None
-        if cagr_5y_custom and cagr_5y_custom > 0 and platform_fwd_pe and platform_fwd_pe > 0:
-            peg_custom = platform_fwd_pe / (cagr_5y_custom * 100.0)
+        if cagr_5y_custom and cagr_5y_custom > 0 and forward_pe_custom and forward_pe_custom > 0:
+            peg_custom = forward_pe_custom / (cagr_5y_custom * 100.0)
         else:
             peg_custom = api_peg
-            
-        forward_pe_custom = api_fwd_pe
 
         fwd_rev_explicit = None
         try:
@@ -3305,7 +3303,10 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
             
         fcf_margin_custom = None
         tot_rev = info.get('totalRevenue') or info.get('revenue') or revenue
-        if fcf and tot_rev and tot_rev > 0:
+        fcf_val_api = info.get('freeCashflow')
+        if fcf_val_api and tot_rev and tot_rev > 0:
+            fcf_margin_custom = fcf_val_api / tot_rev
+        elif fcf and tot_rev and tot_rev > 0:
             fcf_margin_custom = fcf / tot_rev
             
         pfcf_forward_custom = None
@@ -3741,25 +3742,28 @@ def get_competitors_data(target_ticker: str, limit: int = 4, custom_peers: list 
                     # 1. MCap
                     # (already in p_data)
                     
-                    # 2. P/E FWD (Native Yahoo to match platform exactly)
-                    p_data["forward_pe_custom"] = inf.get('forwardPE')
+                    # 2. P/E FWD and 5y EPS CAGR
+                    api_fwd_pe = inf.get('forwardPE')
+                    api_peg = inf.get('trailingPegRatio') or inf.get('pegRatio')
                     
-                    # 3. 5y EPS CAGR (from Yahoo FWD P/E / 5y PEG exactly as requested)
-                    yahoo_fwd_pe = p_data["forward_pe_custom"]
-                    yahoo_peg = inf.get('trailingPegRatio') or inf.get('pegRatio')
                     cagr_5y = None
-                    if yahoo_fwd_pe and yahoo_fwd_pe > 0 and yahoo_peg and yahoo_peg > 0:
-                        cagr_5y_pct = yahoo_fwd_pe / yahoo_peg
-                        cagr_5y = cagr_5y_pct / 100.0
+                    if api_fwd_pe and api_fwd_pe > 0 and api_peg and api_peg > 0:
+                        cagr_5y = (api_fwd_pe / api_peg) / 100.0
                     elif earn_growth and earn_growth > 0:
                         cagr_5y = earn_growth
                     p_data["cagr_5y_custom"] = cagr_5y
                     
+                    # 3. Intern P/E FWD
+                    fwd_pe_custom = api_fwd_pe
+                    if p_data.get("forward_eps") and p_data["forward_eps"] > 0 and p_data.get("price") and p_data["price"] > 0:
+                        fwd_pe_custom = p_data["price"] / p_data["forward_eps"]
+                    p_data["forward_pe_custom"] = fwd_pe_custom
+                    
                     # 4. Intern PEG (Platform FWD PE / API 5y CAGR)
-                    if cagr_5y and cagr_5y > 0 and fwd_pe and fwd_pe > 0:
-                        p_data["peg_custom"] = fwd_pe / (cagr_5y * 100.0)
+                    if cagr_5y and cagr_5y > 0 and fwd_pe_custom and fwd_pe_custom > 0:
+                        p_data["peg_custom"] = fwd_pe_custom / (cagr_5y * 100.0)
                     else:
-                        p_data["peg_custom"] = yahoo_peg
+                        p_data["peg_custom"] = api_peg
                         
                     # 5. P/S FWD
                     if mcap and mcap > 0 and fwd_rev_explicit and fwd_rev_explicit > 0:
