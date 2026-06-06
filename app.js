@@ -6447,11 +6447,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const displayPe = g.dynamic_pe != null ? g.dynamic_pe : g.current_pe;
             const epsTypeLabel = prof.peg_eps_type === 'GAAP' ? '(GAAP)' : '(Non-GAAP)';
             
-            const pegSrcElem = document.getElementById('peg-eps-basis');
-            const pegSrcMode = pegSrcElem ? pegSrcElem.value : 'historical';
+            const pegSrcElem = document.getElementById('peg-eps-source');
+            const pegSrcMode = pegSrcElem ? pegSrcElem.value : 'analyst';
             let peLabel = `P/E TTM ${epsTypeLabel}`;
-            if (pegSrcMode === '5ycagr') {
-                peLabel = 'P/E FWD (Analyst)';
+            if (pegSrcMode === '5ycagr' || pegSrcMode === 'analyst') {
+                peLabel = 'P/E FWD';
             }
 
             html = row(peLabel, displayPe ? displayPe.toFixed(2) + 'x' : 'N/A')
