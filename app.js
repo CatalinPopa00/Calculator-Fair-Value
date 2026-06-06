@@ -2637,6 +2637,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } else if (pegSrc === '5ycagr') {
                 usedGrowth = globalData.company_profile.cagr_5y_custom || currentFormulaData.peg.eps_growth_5y_cagr || usedGrowth;
+                fwdPe = globalData.company_profile.forward_pe_custom || currentFormulaData.peg.fwd_pe || null;
             } else if (pegSrc === 'custom') {
                 const rawG = document.getElementById('peg-custom-growth').value;
                 usedGrowth = (rawG === '' || isNaN(parseFloat(rawG))) ? 0.20 : parseFloat(rawG) / 100;
@@ -2721,7 +2722,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (pegStatusElem && pegCompareElem) {
             const pegMode = document.getElementById('peg-mode')?.value || 'standard';
-            const industryPeg = currentFormulaData.peg ? currentFormulaData.peg.industry_peg : null;
+            
+            // Prefer dynamically calculated sector median based on current peers in table
+            let industryPeg = null;
+            if (globalData && globalData.company_profile) {
+                industryPeg = recalcIndustryPeg(globalData.company_profile);
+            }
+            if (industryPeg == null && currentFormulaData.peg) {
+                industryPeg = currentFormulaData.peg.industry_peg || currentFormulaData.peg.sector_median_peg;
+            }
+            
             if (pegVal != null && currentPegToDisplay != null) {
                 const sector = globalData.company_profile.sector || "";
                 const industry = globalData.company_profile.industry || "";
@@ -6427,8 +6437,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const periodLabel = g.eps_growth_period || '2Y EPS CAGR';
             const displayPe = g.dynamic_pe != null ? g.dynamic_pe : g.current_pe;
             const epsTypeLabel = prof.peg_eps_type === 'GAAP' ? '(GAAP)' : '(Non-GAAP)';
+            
+            const pegSrcElem = document.getElementById('peg-eps-basis');
+            const pegSrcMode = pegSrcElem ? pegSrcElem.value : 'historical';
+            let peLabel = `P/E TTM ${epsTypeLabel}`;
+            if (pegSrcMode === '5ycagr') {
+                peLabel = 'P/E FWD (Analyst)';
+            }
 
-            html = row(`P/E TTM ${epsTypeLabel}`, displayPe ? displayPe.toFixed(2) + 'x' : 'N/A')
+            html = row(peLabel, displayPe ? displayPe.toFixed(2) + 'x' : 'N/A')
                 + row('Growth Estimate', fmtPct(g.dynamic_growth != null ? g.dynamic_growth : g.eps_growth_estimated))
                 + row('Current PEG', g.dynamic_peg ? g.dynamic_peg.toFixed(2) + 'x' : (g.current_peg ? g.current_peg.toFixed(2) + 'x' : 'N/A'))
                 + row('Industry PEG', g.industry_peg ? g.industry_peg.toFixed(2) + 'x' : 'N/A')
