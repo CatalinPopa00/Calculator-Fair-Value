@@ -1,2 +1,1 @@
-﻿import scraper.yahoo as sy
-print(sy.get_competitors_data('ADBE', 2, force_refresh=True))
+﻿import api.index as idx; from fastapi import Response; print(idx.get_valuation('MSFT', Response(), skip_peers=True, force_refresh=False).keys())
