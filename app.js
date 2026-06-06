@@ -2838,7 +2838,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 usedGrowth = getDynamicEpsGrowth();
             }
             if (epsSource === '5ycagr') {
-                usedGrowth = pl.eps_growth_5y_cagr || usedGrowth;
+                usedGrowth = globalData.company_profile.cagr_5y_custom || pl.eps_growth_5y_cagr || usedGrowth;
             } else if (epsSource === 'historical') {
                 usedGrowth = prof.historic_eps_growth != null ? prof.historic_eps_growth : 0.05;
             } else if (epsSource === 'custom') {
