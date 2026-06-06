@@ -1087,8 +1087,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     else newPts = 0;
                     item.value = dyPct.toFixed(1) + '%';
                 } else if (metric.includes('PEG Ratio')) {
-                    let newPEG = (window.currentFormulaData && window.currentFormulaData.peg && window.currentFormulaData.peg.dynamic_peg != null) 
-                        ? window.currentFormulaData.peg.dynamic_peg 
+                    let newPEG = (typeof currentFormulaData !== 'undefined' && currentFormulaData && currentFormulaData.peg && currentFormulaData.peg.dynamic_peg != null) 
+                        ? currentFormulaData.peg.dynamic_peg 
                         : 0;
 
                     if (newPEG <= 0) {
@@ -6501,8 +6501,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (item.metric.includes('P/E Ratio') && item.metric.includes('Fwd') && dynFwdPe) {
                     item.value = dynFwdPe.toFixed(2) + 'x';
                 } else if (item.metric.includes('PEG Ratio (Fwd)')) {
-                    if (window.currentFormulaData && window.currentFormulaData.peg && window.currentFormulaData.peg.dynamic_peg) {
-                        item.value = window.currentFormulaData.peg.dynamic_peg.toFixed(2) + 'x';
+                    if (typeof currentFormulaData !== 'undefined' && currentFormulaData && currentFormulaData.peg && currentFormulaData.peg.dynamic_peg) {
+                        item.value = currentFormulaData.peg.dynamic_peg.toFixed(2) + 'x';
                     }
                 } else if (item.metric.includes('EPS Growth (Fwd)')) {
                     if (globalData.computed_eps_growth != null && !isNaN(globalData.computed_eps_growth)) {
