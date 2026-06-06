@@ -3614,32 +3614,33 @@ def get_competitors_data(target_ticker: str, limit: int = 4, custom_peers: list 
                     if not force_refresh:
                         main_data = kv_get(main_cache_key)
                         if main_data and isinstance(main_data, dict):
+                            prof = main_data.get("company_profile", {})
                             p_data = {
                                 "ticker": t,
                                 "name": main_data.get("name") or t,
                                 "price": main_data.get("current_price"),
-                                "pe_ratio": main_data.get("current_pe"),
-                                "peg_ratio": main_data.get("peg_ratio"),
-                                "market_cap": main_data.get("market_cap"),
-                                "ps_ratio": main_data.get("ps_ratio"),
-                                "revenue": main_data.get("revenue"),
-                                "forward_revenue": main_data.get("forward_revenue"),
-                                "fcf": main_data.get("fcf"),
-                                "pfcf_ratio": main_data.get("pfcf_ratio"),
-                                "price_to_book": main_data.get("price_to_book"),
-                                "ev_to_ebitda": main_data.get("ev_to_ebitda"),
-                                "eps": main_data.get("trailing_eps"),
-                                "forward_eps": main_data.get("forward_eps"),
-                                "operating_margin": main_data.get("operating_margin"),
-                                "gross_margins": main_data.get("gross_margins"),
-                                "revenue_growth": main_data.get("revenue_growth"),
-                                "earnings_growth": main_data.get("earnings_growth"),
-                                "forward_pe_custom": main_data.get("forward_pe_custom"),
-                                "cagr_5y_custom": main_data.get("cagr_5y_custom"),
-                                "peg_custom": main_data.get("peg_custom"),
-                                "ps_forward_custom": main_data.get("ps_forward_custom"),
-                                "fcf_margin_custom": main_data.get("fcf_margin_custom"),
-                                "pfcf_forward_custom": main_data.get("pfcf_forward_custom")
+                                "pe_ratio": prof.get("current_pe") or prof.get("trailing_pe"),
+                                "peg_ratio": prof.get("peg_ratio"),
+                                "market_cap": prof.get("market_cap"),
+                                "ps_ratio": prof.get("ps_ratio"),
+                                "revenue": prof.get("total_revenue") or main_data.get("revenue"),
+                                "forward_revenue": prof.get("forward_revenue"),
+                                "fcf": main_data.get("fcf") or prof.get("fcf"),
+                                "pfcf_ratio": prof.get("pfcf_ratio"),
+                                "price_to_book": prof.get("price_to_book"),
+                                "ev_to_ebitda": prof.get("ev_to_ebitda"),
+                                "eps": prof.get("trailing_eps"),
+                                "forward_eps": prof.get("forward_eps"),
+                                "operating_margin": prof.get("operating_margin"),
+                                "gross_margins": prof.get("gross_margins"),
+                                "revenue_growth": prof.get("revenue_growth"),
+                                "earnings_growth": prof.get("earnings_growth"),
+                                "forward_pe_custom": prof.get("forward_pe_custom"),
+                                "cagr_5y_custom": prof.get("cagr_5y_custom"),
+                                "peg_custom": prof.get("peg_custom"),
+                                "ps_forward_custom": prof.get("ps_forward_custom"),
+                                "fcf_margin_custom": prof.get("fcf_margin_custom"),
+                                "pfcf_forward_custom": prof.get("pfcf_forward_custom")
                             }
                             _peer_info_cache[t] = (p_data, now)
                             return p_data

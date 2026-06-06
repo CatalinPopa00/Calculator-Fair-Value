@@ -1784,6 +1784,13 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
 
     # 3. Save to memory cache (v38: Fix for slowness and desync)
     valuation_cache[cache_key] = response_data
+    
+    # 3.5 Save to persistent KV cache so that `get_competitors_data` can intercept and sync parity
+    try:
+        from utils.kv import kv_set
+        kv_set(f"val_data_v30_{ticker_upper}", response_data, ex=86400)
+    except Exception as e:
+        print(f"Failed to cache main profile to KV for {ticker_upper}: {e}")
 
     # LIQUID DEFENSE: Deep clean before sending
     return deep_clean_data(response_data)
