@@ -309,7 +309,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const targetTab = btn.getAttribute('data-tab');
         if (!targetTab) return;
-        
+
         const card = btn.closest('.research-card');
         if (!card) return;
 
@@ -414,23 +414,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!prof || !prof.competitor_metrics) return;
         const validPegs = prof.competitor_metrics
             .map(p => {
-                // Strictly use P/E Non-GAAP TTM and 2-Year CAGR
-                const price = parseFloat(p.price || p.current_price);
-                let eps = parseFloat(p.adjusted_eps);
-                if (isNaN(eps) || eps <= 0) eps = parseFloat(p.eps);
+                const custom = parseFloat(p.peg_custom);
+                if (!isNaN(custom) && custom > 0) return custom;
                 
-                const cagr2y = parseFloat(p.avg_2y_eps_growth || p.earnings_growth);
-                
-                if (!isNaN(price) && price > 0 && !isNaN(eps) && eps > 0 && !isNaN(cagr2y) && cagr2y > 0) {
-                    const peNonGaap = price / eps;
-                    return peNonGaap / (cagr2y * 100);
-                }
-                
-                // Fallback to API-provided forward_peg if explicitly calculated there
-                const fwd = parseFloat(p.forward_peg);
-                if (!isNaN(fwd) && fwd > 0) return fwd;
-                
-                // Fallback to strict PEG ratio (used by manually added peers via /api/calculate)
                 const basicPeg = parseFloat(p.peg_ratio);
                 if (!isNaN(basicPeg) && basicPeg > 0) return basicPeg;
                 
@@ -448,16 +434,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 median = validPegs[mid];
             }
         }
-        
+
         if (globalData && globalData.formula_data && globalData.formula_data.peg) {
             globalData.formula_data.peg.industry_peg = median;
         }
-        
+
         // Cache the median for the sector
         if (prof.sector) {
             localStorage.setItem('sectorMedianPeg_' + prof.sector, median);
         }
-        
+
         return median;
     }
 
@@ -484,23 +470,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
         toggleBtn.onclick = () => {
             _chartViewActive = !_chartViewActive;
-            
+
             const openWeightsBtn = document.getElementById('open-weights-btn');
-            
+
             if (_chartViewActive) {
                 // Switch to Chart View
                 toggleBtn.style.background = 'rgba(251, 191, 36, 0.2)'; // Highlight active state
                 toggleBtn.style.borderColor = 'rgba(251, 191, 36, 0.5)';
                 viewA.style.opacity = '0';
                 if (openWeightsBtn) openWeightsBtn.style.display = 'none';
-                
+
                 setTimeout(() => {
                     viewA.style.display = 'none';
                     viewB.style.display = 'block';
                     // give the box enough height to render the chart properly
                     const fvBox = viewA.closest('.fair-value-box');
                     if (fvBox) fvBox.style.minHeight = '350px';
-                    
+
                     // force reflow
                     void viewB.offsetWidth;
                     viewB.style.opacity = '1';
@@ -512,7 +498,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         script.type = 'text/javascript';
                         script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js';
                         script.async = true;
-                        
+
                         // Handle formatting (e.g. standardizing for TV)
                         let tvSymbol = globalData.ticker.toUpperCase();
                         if (tvSymbol.endsWith('.DE')) tvSymbol = 'XETR:' + tvSymbol.replace('.DE', '');
@@ -523,10 +509,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         else if (tvSymbol.endsWith('.MI')) tvSymbol = 'MIL:' + tvSymbol.replace('.MI', '');
                         else if (tvSymbol.endsWith('.MC')) tvSymbol = 'BME:' + tvSymbol.replace('.MC', '');
                         else if (tvSymbol.endsWith('.SW')) tvSymbol = 'SIX:' + tvSymbol.replace('.SW', '');
-                        
+
                         script.innerHTML = JSON.stringify({
                             "symbols": [
-                                [ tvSymbol, tvSymbol + "|1D" ]
+                                [tvSymbol, tvSymbol + "|1D"]
                             ],
                             "chartOnly": false,
                             "width": "100%",
@@ -551,7 +537,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             "maLength": 9,
                             "lineWidth": 2,
                             "lineType": 0,
-                            "dateRanges": [ "1d|1", "1m|30", "3m|60", "12m|1D", "60m|1W", "all|1M" ],
+                            "dateRanges": ["1d|1", "1m|30", "3m|60", "12m|1D", "60m|1W", "all|1M"],
                             "backgroundColor": "rgba(0, 0, 0, 0)" // transparent
                         });
                         container.appendChild(script);
@@ -564,7 +550,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 toggleBtn.style.borderColor = 'rgba(255,255,255,0.1)';
                 viewB.style.opacity = '0';
                 if (openWeightsBtn) openWeightsBtn.style.display = 'block';
-                
+
                 setTimeout(() => {
                     viewB.style.display = 'none';
                     viewA.style.display = 'flex';
@@ -666,7 +652,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const recalcWithSimPrice = (simPrice, skipTrigger = false) => {
         if (!globalData || !globalData.company_profile) return;
-        
+
         if (_simulating) {
             window._simulatedPriceActive = simPrice;
         } else {
@@ -768,7 +754,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (_currentScenario === 'bear') { y1 = pegEsts[0].low; y2 = pegEsts[1].low; }
                     else if (_currentScenario === 'bull') { y1 = pegEsts[0].high; y2 = pegEsts[1].high; }
                     else { y1 = pegEsts[0].avg; y2 = pegEsts[1].avg; }
-                    
+
                     const g1 = (y1 / baseEps) - 1;
                     const g2 = (y2 / y1) - 1;
                     pegUsedGrowth = (g1 + g2) / 2.0;
@@ -826,12 +812,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 let isBank = industry.includes('bank') || industry.includes('savings');
                 const isFin = sector.includes('financial');
-                
+
                 // Fintech Sync
                 const hasBankLeverage = (globalData.health_breakdown || []).some(m => m.metric.includes('Bank Leverage'));
                 const isFintech = hasBankLeverage;
                 if (isFintech) isBank = false;
-                
+
                 const isPaymentNetwork = (industry.includes('credit services') && !isFintech && !isBank);
 
                 const isInsurance = industry.includes('insurance');
@@ -901,12 +887,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 let activePS = 0;
                 let activePB = 0;
                 let activePAFFO = 0;
-                
+
                 // Use backend's exact metric value, scaled mathematically by the price change!
                 const origItem = (_originalBuyBreakdown && _originalBuyBreakdown[_idx]) ? _originalBuyBreakdown[_idx] : item;
                 let backendVal = parseFloat((origItem.value || '').replace(/[^\d.-]/g, ''));
                 if (isNaN(backendVal)) backendVal = 0;
-                
+
                 if (metric.includes('P/E Ratio')) {
                     if (backendVal <= 0) backendVal = parseFloat(globalData.fwd_pe) || parseFloat(globalData.forward_pe) || 0;
                     if (backendVal > 0 && _realApiPrice > 0) activePE = backendVal * (simPrice / _realApiPrice);
@@ -923,14 +909,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (backendVal <= 0) backendVal = globalData.company_profile?.price_to_affo || 0;
                     if (backendVal > 0 && _realApiPrice > 0) activePAFFO = backendVal * (simPrice / _realApiPrice);
                 }
-                
+
                 // Fallbacks just in case
                 if (activePE === 0 && scoringPE > 0) activePE = scoringPE;
                 if (activeEV === 0 && newEvEbitda > 0) activeEV = newEvEbitda;
                 if (activePS === 0 && dynPS > 0) activePS = dynPS;
                 if (activePB === 0 && newPB > 0) activePB = newPB;
 
-        if (window._renderProfile) window._renderProfile();
+                if (window._renderProfile) window._renderProfile();
 
                 // Guard Clause Universal
                 if ((metric.includes('P/E Ratio') || (metric.includes('EV/EBITDA') || metric.includes('EV / EBITDA')) || metric.includes('P/S Ratio') || metric.includes('Price-to-Book') || (metric.includes('P/AFFO') || metric.includes('P/AFFO'))) && (activePE < 0 || activeEV < 0 || activePS < 0 || activePB < 0)) {
@@ -955,7 +941,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const healthScore = globalData.health_score_total || 0;
                     const isMonopoly = (roicVal > 20.0 && healthScore >= 70);
                     const histPE = parseFloat(globalData.company_profile?.historic_pe) || parseFloat(globalData.pe_historic) || 0;
-                    
+
                     if (activePE > 0) {
                         if (isMonopoly && histPE > 0) {
                             const maxPts = item.max_points || 20;
@@ -1643,14 +1629,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const mainRev = globalData.revenue || prof.revenue;
         const mainFcfMargin = prof.fcf_margin_custom;
-        
+
         const mainFwdPeCustom = prof.forward_pe_custom || (dynFwdEps > 0 ? (_realApiPrice / dynFwdEps) : null);
         const mainPegCustom = prof.peg_custom || prof.peg_ratio;
-        
+
         let mainCagr5y = prof.cagr_5y_custom;
 
         const mainPsFwdCustom = prof.ps_forward_custom;
-        
+
         let mainPfcfFwdCustom = prof.pfcf_forward_custom;
 
         const mainComp = {
@@ -1729,19 +1715,19 @@ document.addEventListener('DOMContentLoaded', () => {
             const isMain = i === 0;
 
             const mCap = c.market_cap || c.marketCap;
-            
+
             // Backend provides pre-calculated fields, we use them to ensure consistency
             const peFwd = c.forward_pe_custom || c.fwd_pe || c.forward_pe || c.pe_ratio;
             const cagr5y = c.cagr_5y_custom;
             const peg = c.peg_custom;
-            
+
             const ps = c.ps_ratio;
             const psFwd = c.ps_forward_custom;
-            
+
             const fcfMargin = c.fcf_margin_custom;
             const pfcf = c.pfcf_ratio;
             const pfcfFwd = c.pfcf_forward_custom;
-            
+
             const opMargin = c.margin || c.operating_margin;
 
             return `
@@ -1841,7 +1827,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const spTicker = (sp.ticker || '').toUpperCase();
                         const spBase = getBaseTicker(spTicker);
                         if (!spTicker || existingBases.has(spBase)) continue;
-                        
+
                         existingBases.add(spBase);
 
                         // Build peer object with all required fields
@@ -1895,9 +1881,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             const price = parseFloat(sp.price || sp.current_price);
                             let eps = parseFloat(sp.adjusted_eps);
                             if (isNaN(eps) || eps <= 0) eps = parseFloat(sp.eps);
-                            
+
                             const cagr2y = parseFloat(sp.avg_2y_eps_growth || sp.earnings_growth);
-                            
+
                             if (!isNaN(price) && price > 0 && !isNaN(eps) && eps > 0 && !isNaN(cagr2y) && cagr2y > 0) {
                                 const peNonGaap = price / eps;
                                 return peNonGaap / (cagr2y * 100);
@@ -1905,7 +1891,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             return null;
                         })
                         .filter(v => v !== null);
-                    
+
                     if (freshValidPegs.length > 0 && prof.sector) {
                         freshValidPegs.sort((a, b) => a - b);
                         const mid = Math.floor(freshValidPegs.length / 2);
@@ -1965,7 +1951,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const res = await fetch(`/api/valuation/${encodeURIComponent(rawVal)}?t=${Date.now()}&skip_peers=true`);
                     if (!res.ok) {
                         let detail = 'Ticker not found or valuation missing';
-                        try { const errJson = await res.json(); detail = errJson.detail || detail; } catch(_) {}
+                        try { const errJson = await res.json(); detail = errJson.detail || detail; } catch (_) { }
                         throw new Error(detail);
                     }
                     const peerData = await res.json();
@@ -2632,7 +2618,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (_currentScenario === 'bear') { y1 = pegEsts[0].low; y2 = pegEsts[1].low; }
                         else if (_currentScenario === 'bull') { y1 = pegEsts[0].high; y2 = pegEsts[1].high; }
                         else { y1 = pegEsts[0].avg; y2 = pegEsts[1].avg; }
-                        
+
                         if (globalData.computed_eps_growth != null && !isNaN(globalData.computed_eps_growth)) {
                             usedGrowth = globalData.computed_eps_growth;
                         } else {
@@ -2644,7 +2630,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 usedGrowth = (g1 + g2) / 2.0;
                             }
                         }
-                        
+
                         // Fwd P/E is based on FY1
                         fwdPe = (y1 > 0) ? (_realApiPrice / y1) : null;
                     }
@@ -2666,7 +2652,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Sector Median Logic for PEG
             const cachedSectorPeg = localStorage.getItem('sectorMedianPeg_' + sector);
-            
+
             // Calculate median of peg_custom from peers
             let medianPegCustom = null;
             if (globalData.company_profile && globalData.company_profile.competitor_metrics && globalData.company_profile.competitor_metrics.length > 0) {
@@ -2674,7 +2660,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     .map(p => parseFloat(p.peg_custom))
                     .filter(val => !isNaN(val) && val > 0)
                     .sort((a, b) => a - b);
-                
+
                 if (validPegs.length > 0) {
                     const mid = Math.floor(validPegs.length / 2);
                     medianPegCustom = validPegs.length % 2 !== 0 ? validPegs[mid] : (validPegs[mid - 1] + validPegs[mid]) / 2;
@@ -2682,8 +2668,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // Prioritize dynamically calculated median from custom peers over cached global sector median
-            const industryPegRaw = medianPegCustom != null ? medianPegCustom : ((currentFormulaData.peg && currentFormulaData.peg.industry_peg != null) 
-                ? currentFormulaData.peg.industry_peg 
+            const industryPegRaw = medianPegCustom != null ? medianPegCustom : ((currentFormulaData.peg && currentFormulaData.peg.industry_peg != null)
+                ? currentFormulaData.peg.industry_peg
                 : (cachedSectorPeg ? parseFloat(cachedSectorPeg) : 1.0));
 
             let targetPeg = 1.0;
@@ -2758,11 +2744,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const displayCurrent = currentPegToDisplay;
                 const displayTarget = targetPeg;
-                if (displayCurrent != null && displayTarget != null) {
-                    pegCompareElem.textContent = `PEG = ${displayCurrent.toFixed(2)} vs PEG ${pegMode === 'industry' ? 'Sector' : 'Std'} = ${displayTarget.toFixed(2)}`;
-                } else {
-                    pegCompareElem.textContent = `PEG = N/A vs PEG ${pegMode === 'industry' ? 'Sector' : 'Std'} = ${displayTarget ? displayTarget.toFixed(2) : 'N/A'}`;
-                }
+                pegCompareElem.textContent = `PEG = ${displayCurrent.toFixed(2)} vs PEG ${pegMode === 'industry' ? 'Sector' : 'Std'} = ${displayTarget.toFixed(2)}`;
 
                 // Store dynamics for modal
                 currentFormulaData.peg.dynamic_growth = usedGrowth;
@@ -3250,10 +3232,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 else dynFwdRevTop = rEstsTop[0].avg;
             }
         }
-        
+
         const simPrice = globalData.current_price;
         const newPeFwd = dynFwdEpsTop > 0 ? simPrice / dynFwdEpsTop : 0;
-        
+
         const safeProf = globalData.company_profile || {};
         const revenue = globalData.revenue || 0;
         const ebitda = globalData.ebitda || 0;
@@ -3261,14 +3243,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const dividendRate = globalData.dividend_rate || 0;
         const shares = safeProf.shares_outstanding || 0;
         const bookValuePerShare = (pToB > 0) ? (_realApiPrice / pToB) : 0;
-        
+
         const newPB = (bookValuePerShare > 0) ? simPrice / bookValuePerShare : 0;
         const newDivYield = (simPrice > 0 && dividendRate > 0) ? (dividendRate / simPrice) * 100 : 0;
-        
+
         const newMktCap = simPrice * shares;
         const ev = newMktCap + (globalData.total_debt || 0) - (globalData.total_cash || 0);
         const newEvEbitda = (ebitda > 0) ? ev / ebitda : 0;
-        
+
         let epsGrowth = null;
         if (dynFwdEpsTop && safeProf.trailing_eps && safeProf.trailing_eps > 0) {
             epsGrowth = ((dynFwdEpsTop - safeProf.trailing_eps) / Math.abs(safeProf.trailing_eps)) * 100;
@@ -3277,7 +3259,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (dynFwdRevTop && revenue > 0) {
             revGrowth = ((dynFwdRevTop - revenue) / Math.abs(revenue)) * 100;
         }
-        
+
         const simMetrics = {
             peFwd: newPeFwd,
             evEbitda: newEvEbitda,
@@ -3333,7 +3315,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (btn) btn.click();
             }
         }
-        
+
         const currentScoring = globalData.scoring_results ? globalData.scoring_results[_currentScenario] : null;
         if (currentScoring && currentScoring.rule_of_40) {
             updateRule40UI(currentScoring.rule_of_40);
@@ -3548,6 +3530,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
             displayData(data, silent);
 
+            // Auto-load sector peers if none exist
+            const prof = globalData.company_profile;
+            if (prof && (!prof.competitor_metrics || prof.competitor_metrics.length === 0)) {
+                const sectorBtn = document.getElementById('sector-peers-btn');
+                if (sectorBtn && !window.isFetchingSectorPeers) {
+                    // Slight delay to ensure modal logic is fully settled
+                    setTimeout(() => sectorBtn.click(), 50);
+                }
+            }
         } catch (error) {
             console.error('Error fetching valuation:', error);
             alert('Error: ' + error.message + '\nStack: ' + error.stack);
@@ -3584,11 +3575,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const ins = (mh.insiders || 0) * 100;
         const inst = (mh.institutions || 0) * 100;
         const flt = (mh.float || 0) * 100;
-        
+
         document.getElementById('float-pct-text').textContent = flt.toFixed(1) + '%';
         document.getElementById('leg-insiders').textContent = ins.toFixed(1) + '%';
         document.getElementById('leg-institutions').textContent = inst.toFixed(1) + '%';
-        
+
         setTimeout(() => {
             document.getElementById('ring-insiders').style.strokeDashoffset = 439.8 - (439.8 * (ins / 100));
             document.getElementById('ring-institutions').style.strokeDashoffset = 339.3 - (339.3 * (inst / 100));
@@ -3642,7 +3633,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     b.style.color = 'var(--text-muted)';
                     b.style.border = '1px solid rgba(255,255,255,0.2)';
                 });
-                
+
                 const type = e.target.getAttribute('data-type');
                 e.target.classList.add('active');
                 if (type === 'buy') {
@@ -3735,11 +3726,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // Ticker-Specific Weights Logic (v319: Backend archetype weights take priority)
         const override = cachedOverrides[data.ticker] || {};
         const backendArchWeights = data.archetype_weights || null;
-        
+
         // v319: Detect stale override for Payment Networks where backend identifies a stable moat but DB has 0 DCF
         const storedDcf = override.weights ? (override.weights.dcf ?? 0) : null;
         const isStaleFintechOverride = override.weights && storedDcf === 0 && backendArchWeights && backendArchWeights.dcf > 0;
-        
+
         if (override.weights && !override._v319_stale && !isStaleFintechOverride) {
             // Restore saved weights for this specific company
             customWeights = { ...override.weights };
@@ -3781,14 +3772,14 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.name.textContent = data.name;
         elements.ticker.textContent = data.ticker;
         elements.currentPrice.textContent = formatCurrency(data.current_price);
-        
+
         renderOwnership(data.ownership);
 
         // Reset Simulate Price mode ONLY if it's a completely new ticker search
         if (!isSilentUpdate) {
             _simulating = false;
             _chartViewActive = false;
-            
+
             const toggleBtn = document.getElementById('toggle-chart-btn');
             const viewA = document.getElementById('view-fair-value');
             const viewB = document.getElementById('view-price-chart');
@@ -4238,7 +4229,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         currentHealthBreakdown = data.health_breakdown;
-        
+
         // Dynamically load the current scenario's Buy Score
         if (data.scoring_results && data.scoring_results[_currentScenario]) {
             data.good_to_buy_total = data.scoring_results[_currentScenario].good_to_buy_total;
@@ -4459,17 +4450,17 @@ document.addEventListener('DOMContentLoaded', () => {
                         let p = simActive ? window._simulatedPriceActive : (_originalPrice || _realApiPrice);
                         let mCap = simActive ? (p * prof.shares_outstanding) : prof.market_cap;
                         let simStyle = simActive ? 'color: #fbbf24;' : '';
-                        
+
                         let dynFwdPe = dynFwdEps && dynFwdEps > 0 && p ? p / dynFwdEps : prof.fwd_pe;
                         let dynFwdPs = dynFwdRev && dynFwdRev > 0 && mCap ? (mCap / dynFwdRev) : prof.fwd_ps;
                         // v319: Use backend-calculated PEG (Non-GAAP based) instead of Yahoo's stale peg_ratio
                         let backendPeg = globalData?.formula_data?.peg?.current_peg || prof.peg_ratio || null;
                         let pegRatio = simActive && window._currentPegToDisplay != null ? window._currentPegToDisplay : backendPeg;
-                        
+
                         let peTtm = prof.trailing_eps && prof.trailing_eps > 0 ? (p / prof.trailing_eps) : prof.trailing_pe;
                         let peGaap = prof.gaap_eps_fy && prof.gaap_eps_fy > 0 ? (p / prof.gaap_eps_fy) : null;
                         let peNonGaap = prof.adjusted_eps && prof.adjusted_eps > 0 ? (p / prof.adjusted_eps) : null;
-                        
+
                         let ps = globalData.revenue && globalData.revenue > 0 ? (mCap / globalData.revenue) : prof.ps_ratio;
                         let pfcf = globalData.fcf && globalData.fcf > 0 ? (mCap / globalData.fcf) : prof.pfcf_ratio;
 
@@ -5792,10 +5783,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     globalData.buy_breakdown = JSON.parse(JSON.stringify(globalData.scoring_results[_currentScenario].buy_breakdown));
                     currentBuyBreakdown = globalData.buy_breakdown;
                     _originalBuyBreakdown = JSON.parse(JSON.stringify(globalData.buy_breakdown));
-                    
+
                     window.isHighGrowthModel = currentBuyBreakdown && currentBuyBreakdown.some(item => item.metric && item.metric.includes("Rule of 40"));
                     updateScoreUI(globalData.good_to_buy_total, 'buy-score-circle', 'buy-score-fill');
-                    
+
                     const container = document.querySelector('#buy-score-card span.label');
                     if (container) {
                         let badge = container.querySelector('.hg-badge');
@@ -5818,7 +5809,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             badge.remove();
                         }
                     }
-                    
+
                     const scoreModal = document.getElementById('score-modal');
                     if (scoreModal && scoreModal.style.display === 'flex') {
                         const titleEl = document.getElementById('score-modal-title');
@@ -6422,7 +6413,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 + row('Growth Estimate', fmtPct(p.dynamic_growth != null ? p.dynamic_growth : p.eps_growth_estimated))
                 + row('Forward EPS (3Y Projection)', '$' + fmt(p.dynamic_fwd_eps != null ? p.dynamic_fwd_eps : p.fwd_eps))
                 + row('5Y Avg P/E', prof.historic_pe ? prof.historic_pe.toFixed(2) + 'x' : 'N/A')
-                + row('Target Price (Year 3)', (p.dynamic_fwd_eps != null ? p.dynamic_fwd_eps : p.fwd_eps) != null ? '$' + fmt((p.dynamic_fwd_eps != null ? p.dynamic_fwd_eps : p.fwd_eps) * (p.dynamic_mult != null ? p.dynamic_mult : 20)) : 'N/A')
                 + row(`Return Rate (Discount)`, p.dynamic_discount != null ? fmtPct(p.dynamic_discount) : '15.0%')
                 + row(`Fair Value (PE ${p.dynamic_mult != null ? (Number.isInteger(p.dynamic_mult) ? p.dynamic_mult : p.dynamic_mult.toFixed(2)) : 20})`, '$' + fmt(p.dynamic_fv != null ? p.dynamic_fv : p.fair_value_pe_20));
         } else if (model === 'peg' && currentFormulaData.peg) {
@@ -6432,7 +6422,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const periodLabel = g.eps_growth_period || '2Y EPS CAGR';
             const displayPe = g.dynamic_pe != null ? g.dynamic_pe : g.current_pe;
             const epsTypeLabel = prof.peg_eps_type === 'GAAP' ? '(GAAP)' : '(Non-GAAP)';
-            
+
             html = row(`P/E TTM ${epsTypeLabel}`, displayPe ? displayPe.toFixed(2) + 'x' : 'N/A')
                 + row('Growth Estimate', fmtPct(g.dynamic_growth != null ? g.dynamic_growth : g.eps_growth_estimated))
                 + row('Current PEG', g.dynamic_peg ? g.dynamic_peg.toFixed(2) + 'x' : (g.current_peg ? g.current_peg.toFixed(2) + 'x' : 'N/A'))

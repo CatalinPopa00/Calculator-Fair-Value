@@ -312,11 +312,12 @@ def calculate_scoring_reform(valuation_data, metrics):
     ps = clean_ratio(metrics.get('forward_ev_sales') or metrics.get('fwd_ps') or metrics.get('ps_ratio'))
     pb = clean_ratio(metrics.get('price_to_book'))
     
-    hybrid_peg = 0.0
-    growth_rate = eps_2y_g if eps_2y_g > 0 else rev_2y_g
-    if fwd_pe > 0 and growth_rate > 0:
-        actual_growth_pct = growth_rate * 100.0 if growth_rate < 1.0 else growth_rate
-        hybrid_peg = fwd_pe / actual_growth_pct
+    hybrid_peg = clean_ratio(metrics.get('peg_custom'))
+    if hybrid_peg <= 0:
+        growth_rate = eps_2y_g if eps_2y_g > 0 else rev_2y_g
+        if fwd_pe > 0 and growth_rate > 0:
+            actual_growth_pct = growth_rate * 100.0 if growth_rate < 1.0 else growth_rate
+            hybrid_peg = fwd_pe / actual_growth_pct
     
     pe = fwd_pe
     pe_label = "P/E Ratio (1Y Fwd)"
