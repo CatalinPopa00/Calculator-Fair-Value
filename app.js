@@ -2646,6 +2646,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (pegSrc === 'custom') {
                 const rawG = document.getElementById('peg-custom-growth').value;
                 usedGrowth = (rawG === '' || isNaN(parseFloat(rawG))) ? 0.20 : parseFloat(rawG) / 100;
+                fwdPe = globalData.company_profile.forward_pe_custom || currentFormulaData.peg.fwd_pe || null;
             }
 
             let eps = globalData.company_profile.adjusted_eps || globalData.company_profile.trailing_eps || 0;
