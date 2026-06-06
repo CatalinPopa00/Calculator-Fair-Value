@@ -2744,7 +2744,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const displayCurrent = currentPegToDisplay;
                 const displayTarget = targetPeg;
-                pegCompareElem.textContent = `PEG = ${displayCurrent.toFixed(2)} vs PEG ${pegMode === 'industry' ? 'Sector' : 'Std'} = ${displayTarget.toFixed(2)}`;
+                
+                if (displayCurrent != null && displayTarget != null) {
+                    pegCompareElem.textContent = `PEG = ${displayCurrent.toFixed(2)} vs PEG ${pegMode === 'industry' ? 'Sector' : 'Std'} = ${displayTarget.toFixed(2)}`;
+                } else {
+                    pegCompareElem.textContent = `PEG = N/A vs PEG ${pegMode === 'industry' ? 'Sector' : 'Std'} = N/A`;
+                }
 
                 // Store dynamics for modal
                 currentFormulaData.peg.dynamic_growth = usedGrowth;
