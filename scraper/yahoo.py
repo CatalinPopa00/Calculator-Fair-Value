@@ -1397,22 +1397,6 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
             current_price = anchor_price
             data_source = "yahoo_info_fallback"
 
-        # Finnhub Price Correction (v318: Fix Yahoo Finance glitched prices)
-        try:
-            fh_key = os.environ.get('FINNHUB_API_KEY')
-            if fh_key and current_price:
-                q_url = f"https://finnhub.io/api/v1/quote?symbol={ticker_symbol.upper()}&token={fh_key}"
-                q_resp = requests.get(q_url, timeout=5)
-                if q_resp.status_code == 200:
-                    fh_price = q_resp.json().get('c')
-                    # If Yahoo is off by more than 15% from Finnhub live quote, override it.
-                    if fh_price and abs(fh_price - current_price) / current_price > 0.15:
-                        print(f"DEBUG: Finnhub price correction for {ticker_symbol.upper()}: {current_price} -> {fh_price}")
-                        current_price = float(fh_price)
-                        data_source = "finnhub_correction"
-        except Exception as e:
-            print(f"Finnhub price correction error: {e}")
-
         # 0. FX Normalization (Dynamic conversion for ADRs)
         fx_rate = get_fx_rate(info)
 
