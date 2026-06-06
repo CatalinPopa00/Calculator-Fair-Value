@@ -1087,12 +1087,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     else newPts = 0;
                     item.value = dyPct.toFixed(1) + '%';
                 } else if (metric.includes('PEG Ratio')) {
-                    let newPEG = 0;
-                    if (backendVal <= 0) backendVal = globalData.formula_data?.peg?.dynamic_peg || globalData.company_profile?.peg_ratio || 0;
-                    if (backendVal > 0 && _realApiPrice > 0) {
-                        newPEG = backendVal * (simPrice / _realApiPrice);
-                    } else if (fwd_growth > 0 && activePE > 0) {
-                        newPEG = activePE / fwd_growth;
+                    let newPEG = (window.currentFormulaData && window.currentFormulaData.peg && window.currentFormulaData.peg.dynamic_peg != null) 
+                        ? window.currentFormulaData.peg.dynamic_peg 
+                        : 0;
+
+                    if (newPEG <= 0) {
+                        if (backendVal <= 0) backendVal = globalData.company_profile?.peg_ratio || 0;
+                        if (backendVal > 0 && _realApiPrice > 0) {
+                            newPEG = backendVal * (simPrice / _realApiPrice);
+                        } else if (fwd_growth > 0 && activePE > 0) {
+                            newPEG = activePE / fwd_growth;
+                        }
                     }
                     if (isFintech) newPts = (newPEG > 0 && newPEG <= 1.2) ? 15 : ((newPEG > 0 && newPEG <= 2.0) ? 7.5 : 0);
                     else if (isPaymentNetwork) newPts = (newPEG > 0 && newPEG <= 1.6) ? 15 : ((newPEG > 0 && newPEG <= 2.2) ? 7.5 : 0);
@@ -3334,6 +3339,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentScoring = globalData.scoring_results ? globalData.scoring_results[_currentScenario] : null;
         if (currentScoring && currentScoring.rule_of_40) {
             updateRule40UI(currentScoring.rule_of_40);
+        }
+        
+        if (typeof updateScoresDynamic === 'function' && typeof globalData !== 'undefined' && globalData) {
+            updateScoresDynamic(globalData.current_price, true);
         }
 
         // Refresh Comparison Modal if open
