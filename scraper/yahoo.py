@@ -1507,12 +1507,16 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
         yf_1y_growth = None
         try:
             ee = stock.earnings_estimate
-            if ee is not None and not ee.empty:
-                for idx, row in ee.iterrows():
-                    g = row.get('growth')
-                    if g is not None and not pd.isna(g):
-                        if str(idx) == '0y': yf_0y_growth = normalize_growth(g)
-                        elif str(idx) == '+1y': yf_1y_growth = normalize_growth(g)
+            if ee is not None and not ee.empty and 'growth' in ee.columns:
+                try:
+                    g0 = ee.at['0y', 'growth']
+                    if g0 is not None and not pd.isna(g0): yf_0y_growth = normalize_growth(g0)
+                except (KeyError, TypeError, ValueError): pass
+
+                try:
+                    g1 = ee.at['+1y', 'growth']
+                    if g1 is not None and not pd.isna(g1): yf_1y_growth = normalize_growth(g1)
+                except (KeyError, TypeError, ValueError): pass
         except: pass
 
         # Select the best available growth rate
