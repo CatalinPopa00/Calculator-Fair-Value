@@ -46,6 +46,194 @@ def get_yahoo_analysis_normalized(ticker, info=None):
                     res['eps']['+1y'] = {'avg': float(info.get('forwardEps') or info.get('epsForward'))}
             except: pass
             
+        # 2. Forensic Scrape for the full Truth Table (Only if yfinance failed)
+        url = f"https://finance.yahoo.com/quote/{t_upper}/analysis"
+        # v265: Force Googlebot UA for Forensic Scrapes to bypass Yahoo Consent (Guce)
+        headers = {'User-Agent': "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"}
+
+        response = requests.get(url, headers=headers, timeout=5)
+        if response.status_code == 200:
+            html = response.text
+
+            # v267: Direct HTML Table Parsing
+            tables = re.findall(r'<table.*?</table>', html, re.DOTALL)
+            for table in tables:
+                rows = re.findall(r'<tr.*?</tr>', table, re.DOTALL)
+                for row in rows:
+                    clean_row = re.sub(r'<[^>]+>', ' ', row).strip()
+
+                    if 'Avg. Estimate' in clean_row:
+                        m0 = re.search(r'data-testid-cell="0y".*?>\s*([^<]+)', row)
+                        m1 = re.search(r'data-testid-cell="\+1y".*?>\s*([^<]+)', row)
+                        val0 = m0.group(1).strip() if m0 else None
+                        val1 = m1.group(1).strip() if m1 else None
+
+                        # Determine if Revenue (B/M) or EPS (decimal)
+                        is_rev = (val0 and ('B' in val0 or 'M' in val0)) or (val1 and ('B' in val1 or 'M' in val1))
+
+                        if is_rev:
+                            if val0:
+                                if '0y' not in res['rev']: res['rev']['0y'] = {}
+                                res['rev']['0y']['avg'] = parse_n(val0)
+                            if val1:
+                                if '+1y' not in res['rev']: res['rev']['+1y'] = {}
+                                res['rev']['+1y']['avg'] = parse_n(val1)
+                        else:
+                            if val0:
+                                if '0y' not in res['eps']: res['eps']['0y'] = {}
+                                res['eps']['0y']['avg'] = parse_n(val0)
+                            if val1:
+                                if '+1y' not in res['eps']: res['eps']['+1y'] = {}
+                                res['eps']['+1y']['avg'] = parse_n(val1)
+
+                    elif 'Low Estimate' in clean_row:
+                        m0 = re.search(r'data-testid-cell="0y".*?>\s*([^<]+)', row)
+                        m1 = re.search(r'data-testid-cell="\+1y".*?>\s*([^<]+)', row)
+                        val0 = m0.group(1).strip() if m0 else None
+                        val1 = m1.group(1).strip() if m1 else None
+
+                        is_rev = (val0 and ('B' in val0 or 'M' in val0)) or (val1 and ('B' in val1 or 'M' in val1))
+
+                        if is_rev:
+                            if val0:
+                                if '0y' not in res['rev']: res['rev']['0y'] = {}
+                                res['rev']['0y']['low'] = parse_n(val0)
+                            if val1:
+                                if '+1y' not in res['rev']: res['rev']['+1y'] = {}
+                                res['rev']['+1y']['low'] = parse_n(val1)
+                        else:
+                            if val0:
+                                if '0y' not in res['eps']: res['eps']['0y'] = {}
+                                res['eps']['0y']['low'] = parse_n(val0)
+                            if val1:
+                                if '+1y' not in res['eps']: res['eps']['+1y'] = {}
+                                res['eps']['+1y']['low'] = parse_n(val1)
+
+                    elif 'High Estimate' in clean_row:
+                        m0 = re.search(r'data-testid-cell="0y".*?>\s*([^<]+)', row)
+                        m1 = re.search(r'data-testid-cell="\+1y".*?>\s*([^<]+)', row)
+                        val0 = m0.group(1).strip() if m0 else None
+                        val1 = m1.group(1).strip() if m1 else None
+
+                        is_rev = (val0 and ('B' in val0 or 'M' in val0)) or (val1 and ('B' in val1 or 'M' in val1))
+
+                        if is_rev:
+                            if val0:
+                                if '0y' not in res['rev']: res['rev']['0y'] = {}
+                                res['rev']['0y']['high'] = parse_n(val0)
+                            if val1:
+                                if '+1y' not in res['rev']: res['rev']['+1y'] = {}
+                                res['rev']['+1y']['high'] = parse_n(val1)
+                        else:
+                            if val0:
+                                if '0y' not in res['eps']: res['eps']['0y'] = {}
+                                res['eps']['0y']['high'] = parse_n(val0)
+                            if val1:
+                                if '+1y' not in res['eps']: res['eps']['+1y'] = {}
+                                res['eps']['+1y']['high'] = parse_n(val1)
+
+                    elif 'Year Ago EPS' in clean_row:
+                        m_ya = re.search(r'data-testid-cell="0y".*?>\s*([^<]+)', row)
+                        if m_ya:
+                            ya_val = parse_n(m_ya.group(1).strip())
+                            if '0y' not in res['eps']: res['eps']['0y'] = {}
+                            res['eps']['0y']['yearAgo'] = ya_val # Use 'yearAgo' to match engine expectation
+
+                    elif 'Year Ago Sales' in clean_row:
+                        m_ya = re.search(r'data-testid-cell="0y".*?>\s*([^<]+)', row)
+                        if m_ya:
+                            ya_val = parse_n(m_ya.group(1).strip())
+                            if '0y' not in res['rev']: res['rev']['0y'] = {}
+                            res['rev']['0y']['yearAgo'] = ya_val
+
+        # v276: Priority Truth Pass (Non-GAAP takes precedence)
+        for trend_key in ["revenueTrend", "earningsTrend", "earningsTrendNonGaap"]:
+            parts = html.split(f'"{trend_key}"')
+            if len(parts) < 2: parts = html.split(f'\\"{trend_key}\\"')
+            if len(parts) < 2: continue
+
+            chunk = parts[1][:150000]
+            is_nongaap = (trend_key == "earningsTrendNonGaap")
+            is_rev_trend = (trend_key == "revenueTrend")
+
+            for p in ['0y', '+1y']:
+                p_target = f'"{p}"'
+                if p_target not in chunk: p_target = f'\\"{p}\\"'
+                if p_target not in chunk: continue
+
+                p_idx = chunk.find(p_target)
+                sub_chunk = chunk[p_idx:p_idx+3000]
+
+                if not is_rev_trend:
+                    # v284: Non-nesting regex to prevent crossing object boundaries (Fix for ABNB crossover)
+                    eps_avg_m = re.search(r'earningsEstimate(?:\"|\\"):\{[^{}]*?avg(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
+                    eps_ya_m = re.search(r'yearAgoEps(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
+                    eps_low_m = re.search(r'earningsEstimate(?:\"|\\"):\{.*?low(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
+                    eps_high_m = re.search(r'earningsEstimate(?:\"|\\"):\{.*?high(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
+
+                    if eps_avg_m:
+                        val = float(eps_avg_m.group(1))
+                        if p not in res['eps']: res['eps'][p] = {}
+                        if is_nongaap or 'avg' not in res['eps'][p]:
+                            res['eps'][p]['avg'] = val
+                            log(f"DEBUG: Scraper Pass 2 (JSON) EPS {p}: {val} (nongaap={is_nongaap})")
+
+                    if eps_low_m:
+                        val = float(eps_low_m.group(1))
+                        if p not in res['eps']: res['eps'][p] = {}
+                        if is_nongaap or 'low' not in res['eps'][p]:
+                            res['eps'][p]['low'] = val
+
+                    if eps_high_m:
+                        val = float(eps_high_m.group(1))
+                        if p not in res['eps']: res['eps'][p] = {}
+                        if is_nongaap or 'high' not in res['eps'][p]:
+                            res['eps'][p]['high'] = val
+
+                    if eps_ya_m:
+                        val = float(eps_ya_m.group(1))
+                        if p not in res['eps']: res['eps'][p] = {}
+                        if is_nongaap or 'yearAgo' not in res['eps'][p]:
+                            res['eps'][p]['yearAgo'] = val
+                else:
+                    # Revenue extraction (Only if trend_key is revenueTrend)
+                    rev_avg_m = re.search(r'revenueEstimate(?:\"|\\"):\{[^{}]*?avg(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
+                    rev_ya_m = re.search(r'yearAgoSales(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
+                    rev_low_m = re.search(r'revenueEstimate(?:\"|\\"):\{.*?low(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
+                    rev_high_m = re.search(r'revenueEstimate(?:\"|\\"):\{.*?high(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
+
+                    if rev_avg_m:
+                        val = float(rev_avg_m.group(1))
+                        if p not in res['rev']: res['rev'][p] = {}
+                        if 'avg' not in res['rev'][p]:
+                            res['rev'][p]['avg'] = val
+
+                    if rev_low_m:
+                        val = float(rev_low_m.group(1))
+                        if p not in res['rev']: res['rev'][p] = {}
+                        if 'low' not in res['rev'][p]: res['rev'][p]['low'] = val
+
+                    if rev_high_m:
+                        val = float(rev_high_m.group(1))
+                        if p not in res['rev']: res['rev'][p] = {}
+                        if 'high' not in res['rev'][p]: res['rev'][p]['high'] = val
+
+                    if rev_ya_m:
+                        val = float(rev_ya_m.group(1))
+                        if p not in res['rev']: res['rev'][p] = {}
+                        if 'yearAgo' not in res['rev'][p]:
+                            res['rev'][p]['yearAgo'] = val
+
+        # v260: Price Target Scraping
+            match_pt = re.search(r'"targetMeanPrice":\{"raw":([\d\.\-]+)', html)
+            if match_pt: res['target_mean'] = float(match_pt.group(1))
+            match_pt_low = re.search(r'"targetLowPrice":\{"raw":([\d\.\-]+)', html)
+            if match_pt_low: res['target_low'] = float(match_pt_low.group(1))
+            match_pt_high = re.search(r'"targetHighPrice":\{"raw":([\d\.\-]+)', html)
+            if match_pt_high: res['target_high'] = float(match_pt_high.group(1))
+            match_pt_median = re.search(r'"targetMedianPrice":\{"raw":([\d\.\-]+)', html)
+            if match_pt_median: res['target_median'] = float(match_pt_median.group(1))
+
         # 1.5 yfinance native estimate fetch (Robust against Vercel IP blocking)
         try:
             import yfinance as yf
@@ -61,12 +249,12 @@ def get_yahoo_analysis_normalized(ticker, info=None):
                         val_avg = rev_est.loc[y, 'avg']
                         if pd.notna(val_avg): res['rev'][y]['avg'] = float(val_avg)
                         val_low = rev_est.loc[y, 'low']
-                        if pd.notna(val_low): res['rev'][y]['low'] = float(val_low)
+                        if pd.notna(val_low) and not res['rev'][y].get('low'): res['rev'][y]['low'] = float(val_low)
                         val_high = rev_est.loc[y, 'high']
-                        if pd.notna(val_high): res['rev'][y]['high'] = float(val_high)
+                        if pd.notna(val_high) and not res['rev'][y].get('high'): res['rev'][y]['high'] = float(val_high)
                         if 'yearAgoRevenue' in rev_est.columns:
                             val_ya = rev_est.loc[y, 'yearAgoRevenue']
-                            if pd.notna(val_ya): res['rev'][y]['yearAgo'] = float(val_ya)
+                            if pd.notna(val_ya) and not res['rev'][y].get('yearAgo'): res['rev'][y]['yearAgo'] = float(val_ya)
                         
             # EPS Estimates
             eps_est = yf_ticker.earnings_estimate
@@ -79,204 +267,14 @@ def get_yahoo_analysis_normalized(ticker, info=None):
                         if pd.notna(val_avg) and not res['eps'][y].get('avg'): 
                             res['eps'][y]['avg'] = float(val_avg)
                         val_low = eps_est.loc[y, 'low']
-                        if pd.notna(val_low): res['eps'][y]['low'] = float(val_low)
+                        if pd.notna(val_low) and not res['eps'][y].get('low'): res['eps'][y]['low'] = float(val_low)
                         val_high = eps_est.loc[y, 'high']
-                        if pd.notna(val_high): res['eps'][y]['high'] = float(val_high)
+                        if pd.notna(val_high) and not res['eps'][y].get('high'): res['eps'][y]['high'] = float(val_high)
                         if 'yearAgoEps' in eps_est.columns:
                             val_ya = eps_est.loc[y, 'yearAgoEps']
-                            if pd.notna(val_ya): res['eps'][y]['yearAgo'] = float(val_ya)
+                            if pd.notna(val_ya) and not res['eps'][y].get('yearAgo'): res['eps'][y]['yearAgo'] = float(val_ya)
         except Exception as e:
             print(f"yfinance estimates fetch failed for {t_upper}: {e}")
-
-        # 2. Forensic Scrape for the full Truth Table (Only if yfinance failed)
-        has_yf = bool(res['rev'].get('0y', {}).get('avg') and res['eps'].get('0y', {}).get('avg'))
-        if not has_yf:
-            url = f"https://finance.yahoo.com/quote/{t_upper}/analysis"
-            # v265: Force Googlebot UA for Forensic Scrapes to bypass Yahoo Consent (Guce)
-            headers = {'User-Agent': "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"}
-            
-            response = requests.get(url, headers=headers, timeout=5)
-            if response.status_code == 200:
-                html = response.text
-                
-                # v267: Direct HTML Table Parsing
-                tables = re.findall(r'<table.*?</table>', html, re.DOTALL)
-                for table in tables:
-                    rows = re.findall(r'<tr.*?</tr>', table, re.DOTALL)
-                    for row in rows:
-                        clean_row = re.sub(r'<[^>]+>', ' ', row).strip()
-                        
-                        if 'Avg. Estimate' in clean_row:
-                            m0 = re.search(r'data-testid-cell="0y".*?>\s*([^<]+)', row)
-                            m1 = re.search(r'data-testid-cell="\+1y".*?>\s*([^<]+)', row)
-                            val0 = m0.group(1).strip() if m0 else None
-                            val1 = m1.group(1).strip() if m1 else None
-                            
-                            # Determine if Revenue (B/M) or EPS (decimal)
-                            is_rev = (val0 and ('B' in val0 or 'M' in val0)) or (val1 and ('B' in val1 or 'M' in val1))
-                            
-                            if is_rev:
-                                if val0: 
-                                    if '0y' not in res['rev']: res['rev']['0y'] = {}
-                                    res['rev']['0y']['avg'] = parse_n(val0)
-                                if val1: 
-                                    if '+1y' not in res['rev']: res['rev']['+1y'] = {}
-                                    res['rev']['+1y']['avg'] = parse_n(val1)
-                            else:
-                                if val0: 
-                                    if '0y' not in res['eps']: res['eps']['0y'] = {}
-                                    res['eps']['0y']['avg'] = parse_n(val0)
-                                if val1: 
-                                    if '+1y' not in res['eps']: res['eps']['+1y'] = {}
-                                    res['eps']['+1y']['avg'] = parse_n(val1)
-                                    
-                        elif 'Low Estimate' in clean_row:
-                            m0 = re.search(r'data-testid-cell="0y".*?>\s*([^<]+)', row)
-                            m1 = re.search(r'data-testid-cell="\+1y".*?>\s*([^<]+)', row)
-                            val0 = m0.group(1).strip() if m0 else None
-                            val1 = m1.group(1).strip() if m1 else None
-                        
-                            is_rev = (val0 and ('B' in val0 or 'M' in val0)) or (val1 and ('B' in val1 or 'M' in val1))
-                            
-                            if is_rev:
-                                if val0:
-                                    if '0y' not in res['rev']: res['rev']['0y'] = {}
-                                    res['rev']['0y']['low'] = parse_n(val0)
-                                if val1:
-                                    if '+1y' not in res['rev']: res['rev']['+1y'] = {}
-                                    res['rev']['+1y']['low'] = parse_n(val1)
-                            else:
-                                if val0:
-                                    if '0y' not in res['eps']: res['eps']['0y'] = {}
-                                    res['eps']['0y']['low'] = parse_n(val0)
-                                if val1:
-                                    if '+1y' not in res['eps']: res['eps']['+1y'] = {}
-                                    res['eps']['+1y']['low'] = parse_n(val1)
-                                
-                        elif 'High Estimate' in clean_row:
-                            m0 = re.search(r'data-testid-cell="0y".*?>\s*([^<]+)', row)
-                            m1 = re.search(r'data-testid-cell="\+1y".*?>\s*([^<]+)', row)
-                            val0 = m0.group(1).strip() if m0 else None
-                            val1 = m1.group(1).strip() if m1 else None
-                            
-                            is_rev = (val0 and ('B' in val0 or 'M' in val0)) or (val1 and ('B' in val1 or 'M' in val1))
-                            
-                            if is_rev:
-                                if val0:
-                                    if '0y' not in res['rev']: res['rev']['0y'] = {}
-                                    res['rev']['0y']['high'] = parse_n(val0)
-                                if val1:
-                                    if '+1y' not in res['rev']: res['rev']['+1y'] = {}
-                                    res['rev']['+1y']['high'] = parse_n(val1)
-                            else:
-                                if val0:
-                                    if '0y' not in res['eps']: res['eps']['0y'] = {}
-                                    res['eps']['0y']['high'] = parse_n(val0)
-                                if val1:
-                                    if '+1y' not in res['eps']: res['eps']['+1y'] = {}
-                                    res['eps']['+1y']['high'] = parse_n(val1)
-                                
-                        elif 'Year Ago EPS' in clean_row:
-                            m_ya = re.search(r'data-testid-cell="0y".*?>\s*([^<]+)', row)
-                            if m_ya:
-                                ya_val = parse_n(m_ya.group(1).strip())
-                                if '0y' not in res['eps']: res['eps']['0y'] = {}
-                                res['eps']['0y']['yearAgo'] = ya_val # Use 'yearAgo' to match engine expectation
-                                
-                        elif 'Year Ago Sales' in clean_row:
-                            m_ya = re.search(r'data-testid-cell="0y".*?>\s*([^<]+)', row)
-                            if m_ya:
-                                ya_val = parse_n(m_ya.group(1).strip())
-                                if '0y' not in res['rev']: res['rev']['0y'] = {}
-                                res['rev']['0y']['yearAgo'] = ya_val
-
-            # v276: Priority Truth Pass (Non-GAAP takes precedence)
-            for trend_key in ["revenueTrend", "earningsTrend", "earningsTrendNonGaap"]:
-                parts = html.split(f'"{trend_key}"')
-                if len(parts) < 2: parts = html.split(f'\\"{trend_key}\\"')
-                if len(parts) < 2: continue
-                
-                chunk = parts[1][:150000]
-                is_nongaap = (trend_key == "earningsTrendNonGaap")
-                is_rev_trend = (trend_key == "revenueTrend")
-                
-                for p in ['0y', '+1y']:
-                    p_target = f'"{p}"'
-                    if p_target not in chunk: p_target = f'\\"{p}\\"'
-                    if p_target not in chunk: continue 
-                    
-                    p_idx = chunk.find(p_target)
-                    sub_chunk = chunk[p_idx:p_idx+3000] 
-                    
-                    if not is_rev_trend:
-                        # v284: Non-nesting regex to prevent crossing object boundaries (Fix for ABNB crossover)
-                        eps_avg_m = re.search(r'earningsEstimate(?:\"|\\"):\{[^{}]*?avg(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
-                        eps_ya_m = re.search(r'yearAgoEps(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
-                        eps_low_m = re.search(r'earningsEstimate(?:\"|\\"):\{[^{}]*?low(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
-                        eps_high_m = re.search(r'earningsEstimate(?:\"|\\"):\{[^{}]*?high(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
-                        
-                        if eps_avg_m:
-                            val = float(eps_avg_m.group(1))
-                            if p not in res['eps']: res['eps'][p] = {}
-                            if is_nongaap or 'avg' not in res['eps'][p]:
-                                res['eps'][p]['avg'] = val
-                                log(f"DEBUG: Scraper Pass 2 (JSON) EPS {p}: {val} (nongaap={is_nongaap})")
-                                
-                        if eps_low_m:
-                            val = float(eps_low_m.group(1))
-                            if p not in res['eps']: res['eps'][p] = {}
-                            if is_nongaap or 'low' not in res['eps'][p]:
-                                res['eps'][p]['low'] = val
-                                
-                        if eps_high_m:
-                            val = float(eps_high_m.group(1))
-                            if p not in res['eps']: res['eps'][p] = {}
-                            if is_nongaap or 'high' not in res['eps'][p]:
-                                res['eps'][p]['high'] = val
-                        
-                        if eps_ya_m:
-                            val = float(eps_ya_m.group(1))
-                            if p not in res['eps']: res['eps'][p] = {}
-                            if is_nongaap or 'yearAgo' not in res['eps'][p]:
-                                res['eps'][p]['yearAgo'] = val
-                    else:
-                        # Revenue extraction (Only if trend_key is revenueTrend)
-                        rev_avg_m = re.search(r'revenueEstimate(?:\"|\\"):\{[^{}]*?avg(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
-                        rev_ya_m = re.search(r'yearAgoSales(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
-                        rev_low_m = re.search(r'revenueEstimate(?:\"|\\"):\{[^{}]*?low(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
-                        rev_high_m = re.search(r'revenueEstimate(?:\"|\\"):\{[^{}]*?high(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
-                        
-                        if rev_avg_m:
-                            val = float(rev_avg_m.group(1))
-                            if p not in res['rev']: res['rev'][p] = {}
-                            if 'avg' not in res['rev'][p]:
-                                res['rev'][p]['avg'] = val
-                        
-                        if rev_low_m:
-                            val = float(rev_low_m.group(1))
-                            if p not in res['rev']: res['rev'][p] = {}
-                            if 'low' not in res['rev'][p]: res['rev'][p]['low'] = val
-                            
-                        if rev_high_m:
-                            val = float(rev_high_m.group(1))
-                            if p not in res['rev']: res['rev'][p] = {}
-                            if 'high' not in res['rev'][p]: res['rev'][p]['high'] = val
-                            
-                        if rev_ya_m:
-                            val = float(rev_ya_m.group(1))
-                            if p not in res['rev']: res['rev'][p] = {}
-                            if 'yearAgo' not in res['rev'][p]:
-                                res['rev'][p]['yearAgo'] = val
-
-            # v260: Price Target Scraping
-            match_pt = re.search(r'"targetMeanPrice":\{"raw":([\d\.\-]+)', html)
-            if match_pt: res['target_mean'] = float(match_pt.group(1))
-            match_pt_low = re.search(r'"targetLowPrice":\{"raw":([\d\.\-]+)', html)
-            if match_pt_low: res['target_low'] = float(match_pt_low.group(1))
-            match_pt_high = re.search(r'"targetHighPrice":\{"raw":([\d\.\-]+)', html)
-            if match_pt_high: res['target_high'] = float(match_pt_high.group(1))
-            match_pt_median = re.search(r'"targetMedianPrice":\{"raw":([\d\.\-]+)', html)
-            if match_pt_median: res['target_median'] = float(match_pt_median.group(1))
 
         # Nasdaq Fallback for EPS Anchor (Only if Yahoo Truth is missing)
         if 'yearAgo' not in res['eps'].get('0y', {}):
@@ -1278,6 +1276,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
     data_source = "unknown"
     trailing_eps = 0
     adjusted_eps = 0
+    gaap_eps_fy = None
     forward_eps = 0
     pe_ratio = None
     forward_pe = None
@@ -1648,6 +1647,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                             net_inc = float(ni_obj.iloc[col_idx]) if hasattr(ni_obj, 'iloc') else float(ni_obj)
                             # Recalibrate GAAP EPS using fx_rate since financials are now raw (local currency)
                             gaap_eps = (net_inc * fx_rate) / shares_outstanding
+                            gaap_eps_fy = gaap_eps
                         
                         # v294: ADR Currency Guard
                         # If price is USD and gaap_eps is orders of magnitude smaller than reported_eps,
@@ -3333,6 +3333,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
             "industry": industry,
             "trailing_eps": trailing_eps,
             "adjusted_eps": adjusted_eps,
+            "gaap_eps": gaap_eps_fy,
             "peg_ratio": peg_ratio,
             "pe_ratio": pe_ratio,
             "forward_pe": forward_pe,

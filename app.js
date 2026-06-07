@@ -4483,7 +4483,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         let pegRatio = simActive && window._currentPegToDisplay != null ? window._currentPegToDisplay : backendPeg;
 
                         let peTtm = prof.trailing_eps && prof.trailing_eps > 0 ? (p / prof.trailing_eps) : prof.trailing_pe;
-                        let peGaap = prof.gaap_eps_fy && prof.gaap_eps_fy > 0 ? (p / prof.gaap_eps_fy) : null;
+                        let peGaap = prof.gaap_eps && prof.gaap_eps > 0 ? (p / prof.gaap_eps) : null;
                         let peNonGaap = prof.adjusted_eps && prof.adjusted_eps > 0 ? (p / prof.adjusted_eps) : null;
 
                         let ps = globalData.revenue && globalData.revenue > 0 ? (mCap / globalData.revenue) : prof.ps_ratio;
@@ -4495,7 +4495,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                         ${metricRow('P/E Non-GAAP', peNonGaap ? peNonGaap.toFixed(2) + 'x' : 'N/A', '', simStyle)}
                                         ${metricRow('5Y Avg. P/E', prof.historic_pe ? prof.historic_pe.toFixed(2) + 'x' : 'N/A')}
                                         ${metricRow('P/E FWD', dynFwdPe ? dynFwdPe.toFixed(2) + 'x' : 'N/A', '', simStyle)}
-                                        ${metricRow('EPS Diluted', prof.trailing_eps ? '$' + prof.trailing_eps.toFixed(2) : 'N/A')}
+                                        ${metricRow('EPS Diluted', prof.gaap_eps ? '$' + prof.gaap_eps.toFixed(2) : (prof.trailing_eps ? '$' + prof.trailing_eps.toFixed(2) : 'N/A'))}
                                         ${metricRow('EPS Non-GAAP', prof.adjusted_eps ? '$' + prof.adjusted_eps.toFixed(2) : 'N/A')}
                                         ${metricRow('FWD EPS', dynFwdEps ? '$' + dynFwdEps.toFixed(2) : 'N/A')}
                                         ${metricRow('PEG', pegRatio != null ? pegRatio.toFixed(2) : 'N/A', '', simStyle)}
