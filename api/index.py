@@ -339,7 +339,8 @@ def get_watchlist():
         return list(set([t.upper() for t in data]))
     except Exception as e:
         # v37 Fix: If database errors, do NOT return []. Return 500.
-        raise HTTPException(status_code=500, detail=f"Database unreachable: {str(e)}")
+        print(f"Database error in get_watchlist: {e}")
+        raise HTTPException(status_code=500, detail="Database unreachable")
 
 @app.post("/api/watchlist")
 def save_watchlist(req: WatchlistRequest):
@@ -352,7 +353,8 @@ def save_watchlist(req: WatchlistRequest):
             pass
         return {"status": "success"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"Error saving watchlist: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 # --- Overrides API (cross-device sync) ---
 def _load_overrides() -> dict:
@@ -393,7 +395,8 @@ def save_override(req: OverrideRequest):
         _save_overrides(all_overrides)
         return {"status": "success"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"Error saving override: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @app.delete("/api/overrides/{ticker}")
 def delete_override(ticker: str):
@@ -405,7 +408,8 @@ def delete_override(ticker: str):
             _save_overrides(all_overrides)
         return {"status": "success"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"Error deleting override: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 def get_recommended_exit_multiple(sector: str, industry: str) -> float:
@@ -538,7 +542,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             data = main_task.result() or {}
         except Exception as e:
             print(f"DEBUG: Main scraper task failed for {ticker_upper}: {e}")
-            data = {"ticker": ticker_upper, "error": f"Ticker analysis failed: {str(e)}"}
+            data = {"ticker": ticker_upper, "error": "Ticker analysis failed due to an internal error."}
         
         # v296: Early exit if ticker is definitively not found (Bypasses 500 crashes)
         if not data or data.get("error") or (not data.get("current_price") and not data.get("name")):
@@ -1791,7 +1795,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         print(traceback.format_exc())
         return JSONResponse(
             status_code=500,
-            content={"error": True, "detail": error_msg, "traceback": traceback.format_exc()}
+            content={"error": True, "detail": "An internal error occurred during valuation."}
         )
 
     # 3. Save to memory cache (v38: Fix for slowness and desync)
@@ -1864,7 +1868,7 @@ def get_synthesis(ticker: str, response: Response):
         print(traceback.format_exc())
         return JSONResponse(
             status_code=500,
-            content={"error": True, "detail": f"Synthesis failed: {str(e)}"}
+            content={"error": True, "detail": "Synthesis failed due to an internal server error."}
         )
 
 @app.get("/api/firebase-config")
