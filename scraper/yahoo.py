@@ -3425,6 +3425,9 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
         # Merge analyst data into the final response packet
         if analyst_data and "error" not in analyst_data:
              data.update(analyst_data)
+             # Force strictly using FY0 Non-GAAP from analyst_data (if available) for adjusted_eps
+             if analyst_data.get("adjusted_eps_fy0") is not None:
+                 data["adjusted_eps"] = analyst_data["adjusted_eps_fy0"]
              
         return data
 
@@ -4323,6 +4326,7 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
 
         return {
             "ticker": ticker_symbol.upper(),
+            "adjusted_eps_fy0": fy0_eps,
             "price_target": {
                 "current": current_price,
                 "low":    target_low,

@@ -692,7 +692,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // v73: Distinct P/E calculations for GAAP and Non-GAAP transparency
         const newTrailingPE = (prof.trailing_eps > 0) ? simPrice / prof.trailing_eps : 0;
         const newGaapPE = (prof.gaap_eps_fy > 0) ? simPrice / prof.gaap_eps_fy : 0;
-        const newNonGaapPE = (prof.nongaap_eps_fy > 0) ? simPrice / prof.nongaap_eps_fy : 0;
+        const newNonGaapPE = (prof.adjusted_eps > 0) ? simPrice / prof.adjusted_eps : 0;
         const scoringPE = (eps > 0) ? simPrice / eps : 0; // Use anchored EPS for scoring (v72 logic)
 
         const newPS = (revenue > 0 && shares > 0) ? simPrice / (revenue / shares) : ((prof.ps_ratio && _realApiPrice > 0) ? prof.ps_ratio * (simPrice / _realApiPrice) : 0);
@@ -721,8 +721,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (globalData.eps_estimates) {
             const eEstsTop = globalData.eps_estimates.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
             if (eEstsTop.length >= 1) {
-                if (_currentScenario === 'bear') dynFwdEpsTop = eEstsTop[0].low;
-                else if (_currentScenario === 'bull') dynFwdEpsTop = eEstsTop[0].high;
+                if (_currentScenario === 'bear') dynFwdEpsTop = eEstsTop[0].low ?? eEstsTop[0].avg;
+                else if (_currentScenario === 'bull') dynFwdEpsTop = eEstsTop[0].high ?? eEstsTop[0].avg;
                 else dynFwdEpsTop = eEstsTop[0].avg;
             }
         }
@@ -751,8 +751,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const baseEps = reportedE ? reportedE.avg : (globalData.company_profile.adjusted_eps || globalData.company_profile.trailing_eps || 0);
                 if (baseEps > 0) {
                     let y1, y2;
-                    if (_currentScenario === 'bear') { y1 = pegEsts[0].low; y2 = pegEsts[1].low; }
-                    else if (_currentScenario === 'bull') { y1 = pegEsts[0].high; y2 = pegEsts[1].high; }
+                    if (_currentScenario === 'bear') { y1 = pegEsts[0].low ?? pegEsts[0].avg; y2 = pegEsts[1].low ?? pegEsts[1].avg; }
+                    else if (_currentScenario === 'bull') { y1 = pegEsts[0].high ?? pegEsts[0].avg; y2 = pegEsts[1].high ?? pegEsts[1].avg; }
                     else { y1 = pegEsts[0].avg; y2 = pegEsts[1].avg; }
 
                     const g1 = (y1 / baseEps) - 1;
@@ -836,24 +836,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (globalData.eps_estimates) {
                     const eEstsTop = globalData.eps_estimates.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
                     if (eEstsTop.length >= 2) {
-                        if (_currentScenario === 'bear') dynFwdEpsTop = (eEstsTop[0].low + eEstsTop[1].low) / 2.0;
-                        else if (_currentScenario === 'bull') dynFwdEpsTop = (eEstsTop[0].high + eEstsTop[1].high) / 2.0;
+                        if (_currentScenario === 'bear') dynFwdEpsTop = ((eEstsTop[0].low ?? eEstsTop[0].avg) + (eEstsTop[1].low ?? eEstsTop[1].avg)) / 2.0;
+                        else if (_currentScenario === 'bull') dynFwdEpsTop = ((eEstsTop[0].high ?? eEstsTop[0].avg) + (eEstsTop[1].high ?? eEstsTop[1].avg)) / 2.0;
                         else dynFwdEpsTop = (eEstsTop[0].avg + eEstsTop[1].avg) / 2.0;
                     } else if (eEstsTop.length === 1) {
-                        if (_currentScenario === 'bear') dynFwdEpsTop = eEstsTop[0].low;
-                        else if (_currentScenario === 'bull') dynFwdEpsTop = eEstsTop[0].high;
+                        if (_currentScenario === 'bear') dynFwdEpsTop = eEstsTop[0].low ?? eEstsTop[0].avg;
+                        else if (_currentScenario === 'bull') dynFwdEpsTop = eEstsTop[0].high ?? eEstsTop[0].avg;
                         else dynFwdEpsTop = eEstsTop[0].avg;
                     }
                 }
                 if (globalData.rev_estimates) {
                     const rEstsTop = globalData.rev_estimates.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
                     if (rEstsTop.length >= 2) {
-                        if (_currentScenario === 'bear') dynFwdRevTop = (rEstsTop[0].low + rEstsTop[1].low) / 2.0;
-                        else if (_currentScenario === 'bull') dynFwdRevTop = (rEstsTop[0].high + rEstsTop[1].high) / 2.0;
+                        if (_currentScenario === 'bear') dynFwdRevTop = ((rEstsTop[0].low ?? rEstsTop[0].avg) + (rEstsTop[1].low ?? rEstsTop[1].avg)) / 2.0;
+                        else if (_currentScenario === 'bull') dynFwdRevTop = ((rEstsTop[0].high ?? rEstsTop[0].avg) + (rEstsTop[1].high ?? rEstsTop[1].avg)) / 2.0;
                         else dynFwdRevTop = (rEstsTop[0].avg + rEstsTop[1].avg) / 2.0;
                     } else if (rEstsTop.length === 1) {
-                        if (_currentScenario === 'bear') dynFwdRevTop = rEstsTop[0].low;
-                        else if (_currentScenario === 'bull') dynFwdRevTop = rEstsTop[0].high;
+                        if (_currentScenario === 'bear') dynFwdRevTop = rEstsTop[0].low ?? rEstsTop[0].avg;
+                        else if (_currentScenario === 'bull') dynFwdRevTop = rEstsTop[0].high ?? rEstsTop[0].avg;
                         else dynFwdRevTop = rEstsTop[0].avg;
                     }
                 }
@@ -1621,8 +1621,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const eList = globalData.eps_estimates || [];
             const eEsts = eList.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
             if (eEsts.length >= 1) {
-                if (_currentScenario === 'bear') dynFwdEps = eEsts[0].low;
-                else if (_currentScenario === 'bull') dynFwdEps = eEsts[0].high;
+                if (_currentScenario === 'bear') dynFwdEps = eEsts[0].low ?? eEsts[0].avg;
+                else if (_currentScenario === 'bull') dynFwdEps = eEsts[0].high ?? eEsts[0].avg;
                 else dynFwdEps = eEsts[0].avg;
             } else {
                 const trailingEps = prof.trailing_eps || prof.eps || 0;
@@ -2620,8 +2620,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     const baseEps = reportedE ? reportedE.avg : (globalData.company_profile.adjusted_eps || globalData.company_profile.trailing_eps || 0);
                     if (baseEps > 0) {
                         let y1, y2;
-                        if (_currentScenario === 'bear') { y1 = pegEsts[0].low; y2 = pegEsts[1].low; }
-                        else if (_currentScenario === 'bull') { y1 = pegEsts[0].high; y2 = pegEsts[1].high; }
+                        if (_currentScenario === 'bear') { y1 = pegEsts[0].low ?? pegEsts[0].avg; y2 = pegEsts[1].low ?? pegEsts[1].avg; }
+                        else if (_currentScenario === 'bull') { y1 = pegEsts[0].high ?? pegEsts[0].avg; y2 = pegEsts[1].high ?? pegEsts[1].avg; }
                         else { y1 = pegEsts[0].avg; y2 = pegEsts[1].avg; }
 
                         if (globalData.computed_eps_growth != null && !isNaN(globalData.computed_eps_growth)) {
@@ -2977,9 +2977,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const eEsts = globalData.eps_estimates?.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
             if (eEsts && eEsts.length >= 1) {
                 if (_currentScenario === 'bear') {
-                    company_eps = eEsts[0].low;
+                    company_eps = eEsts[0].low ?? eEsts[0].avg;
                 } else if (_currentScenario === 'bull') {
-                    company_eps = eEsts[0].high;
+                    company_eps = eEsts[0].high ?? eEsts[0].avg;
                 } else {
                     company_eps = eEsts[0].avg;
                 }
@@ -2989,9 +2989,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (rEsts && rEsts.length >= 1) {
                 let avgRev = null;
                 if (_currentScenario === 'bear') {
-                    avgRev = rEsts[0].low;
+                    avgRev = rEsts[0].low ?? rEsts[0].avg;
                 } else if (_currentScenario === 'bull') {
-                    avgRev = rEsts[0].high;
+                    avgRev = rEsts[0].high ?? rEsts[0].avg;
                 } else {
                     avgRev = rEsts[0].avg;
                 }
@@ -3007,7 +3007,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const reported = globalData.eps_estimates?.find(e => e && e.status === 'reported');
                 const baseEps = reported ? reported.avg : (rel.company_fwd_eps || rel.company_eps || 0);
                 if (baseEps > 0) {
-                    const fy1Val = _currentScenario === 'bear' ? eEsts[0].low : (_currentScenario === 'bull' ? eEsts[0].high : eEsts[0].avg);
+                    const fy1Val = _currentScenario === 'bear' ? (eEsts[0].low ?? eEsts[0].avg) : (_currentScenario === 'bull' ? (eEsts[0].high ?? eEsts[0].avg) : eEsts[0].avg);
                     dynEpsG = (fy1Val / baseEps) - 1;
                 }
             } else if (globalData && globalData.computed_eps_growth != null) {
@@ -3019,7 +3019,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const reportedR = globalData.rev_estimates?.find(e => e && e.status === 'reported');
                 const baseRev = reportedR ? reportedR.avg : (globalData.revenue || 0);
                 if (baseRev > 0) {
-                    const rfy1 = _currentScenario === 'bear' ? rEsts[0].low : (_currentScenario === 'bull' ? rEsts[0].high : rEsts[0].avg);
+                    const rfy1 = _currentScenario === 'bear' ? (rEsts[0].low ?? rEsts[0].avg) : (_currentScenario === 'bull' ? (rEsts[0].high ?? rEsts[0].avg) : rEsts[0].avg);
                     dynRevG = (rfy1 / baseRev) - 1;
                 }
             } else if (globalData && globalData.computed_dcf_growth != null) {
@@ -3240,16 +3240,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (globalData.eps_estimates) {
             const eEstsTop = globalData.eps_estimates.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
             if (eEstsTop.length >= 1) {
-                if (_currentScenario === 'bear') dynFwdEpsTop = eEstsTop[0].low;
-                else if (_currentScenario === 'bull') dynFwdEpsTop = eEstsTop[0].high;
+                if (_currentScenario === 'bear') dynFwdEpsTop = eEstsTop[0].low ?? eEstsTop[0].avg;
+                else if (_currentScenario === 'bull') dynFwdEpsTop = eEstsTop[0].high ?? eEstsTop[0].avg;
                 else dynFwdEpsTop = eEstsTop[0].avg;
             }
         }
         if (globalData.rev_estimates) {
             const rEstsTop = globalData.rev_estimates.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
             if (rEstsTop.length >= 1) {
-                if (_currentScenario === 'bear') dynFwdRevTop = rEstsTop[0].low;
-                else if (_currentScenario === 'bull') dynFwdRevTop = rEstsTop[0].high;
+                if (_currentScenario === 'bear') dynFwdRevTop = rEstsTop[0].low ?? rEstsTop[0].avg;
+                else if (_currentScenario === 'bull') dynFwdRevTop = rEstsTop[0].high ?? rEstsTop[0].avg;
                 else dynFwdRevTop = rEstsTop[0].avg;
             }
         }
@@ -4457,16 +4457,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (globalData.eps_estimates) {
                             const eEsts = globalData.eps_estimates.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
                             if (eEsts.length >= 1) {
-                                if (_currentScenario === 'bear') dynFwdEps = eEsts[0].low;
-                                else if (_currentScenario === 'bull') dynFwdEps = eEsts[0].high;
+                                if (_currentScenario === 'bear') dynFwdEps = eEsts[0].low ?? eEsts[0].avg;
+                                else if (_currentScenario === 'bull') dynFwdEps = eEsts[0].high ?? eEsts[0].avg;
                                 else dynFwdEps = eEsts[0].avg;
                             }
                         }
                         if (globalData.rev_estimates) {
                             const rEsts = globalData.rev_estimates.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
                             if (rEsts.length >= 1) {
-                                if (_currentScenario === 'bear') dynFwdRev = rEsts[0].low;
-                                else if (_currentScenario === 'bull') dynFwdRev = rEsts[0].high;
+                                if (_currentScenario === 'bear') dynFwdRev = rEsts[0].low ?? rEsts[0].avg;
+                                else if (_currentScenario === 'bull') dynFwdRev = rEsts[0].high ?? rEsts[0].avg;
                                 else dynFwdRev = rEsts[0].avg;
                             }
                         }
@@ -4483,7 +4483,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         let pegRatio = simActive && window._currentPegToDisplay != null ? window._currentPegToDisplay : backendPeg;
 
                         let peTtm = prof.trailing_eps && prof.trailing_eps > 0 ? (p / prof.trailing_eps) : prof.trailing_pe;
-                        let peGaap = prof.gaap_eps && prof.gaap_eps > 0 ? (p / prof.gaap_eps) : null;
+                        let peGaap = prof.gaap_eps_fy && prof.gaap_eps_fy > 0 ? (p / prof.gaap_eps_fy) : null;
                         let peNonGaap = prof.adjusted_eps && prof.adjusted_eps > 0 ? (p / prof.adjusted_eps) : null;
 
                         let ps = globalData.revenue && globalData.revenue > 0 ? (mCap / globalData.revenue) : prof.ps_ratio;
@@ -4495,7 +4495,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                         ${metricRow('P/E Non-GAAP', peNonGaap ? peNonGaap.toFixed(2) + 'x' : 'N/A', '', simStyle)}
                                         ${metricRow('5Y Avg. P/E', prof.historic_pe ? prof.historic_pe.toFixed(2) + 'x' : 'N/A')}
                                         ${metricRow('P/E FWD', dynFwdPe ? dynFwdPe.toFixed(2) + 'x' : 'N/A', '', simStyle)}
-                                        ${metricRow('EPS Diluted', prof.gaap_eps ? '$' + prof.gaap_eps.toFixed(2) : (prof.trailing_eps ? '$' + prof.trailing_eps.toFixed(2) : 'N/A'))}
+                                        ${metricRow('EPS Diluted', prof.gaap_eps_fy ? '$' + prof.gaap_eps_fy.toFixed(2) : (prof.gaap_eps ? '$' + prof.gaap_eps.toFixed(2) : (prof.trailing_eps ? '$' + prof.trailing_eps.toFixed(2) : 'N/A')))}
                                         ${metricRow('EPS Non-GAAP', prof.adjusted_eps ? '$' + prof.adjusted_eps.toFixed(2) : 'N/A')}
                                         ${metricRow('FWD EPS', dynFwdEps ? '$' + dynFwdEps.toFixed(2) : 'N/A')}
                                         ${metricRow('PEG', pegRatio != null ? pegRatio.toFixed(2) : 'N/A', '', simStyle)}
@@ -5321,8 +5321,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     let scenarioVal = item.avg;
                     if (!isAnchor) {
-                        if (_currentScenario === 'bear' && item.low != null) scenarioVal = item.low;
-                        if (_currentScenario === 'bull' && item.high != null) scenarioVal = item.high;
+                        if (_currentScenario === 'bear' && item.low != null) scenarioVal = item.low ?? item.avg;
+                        if (_currentScenario === 'bull' && item.high != null) scenarioVal = item.high ?? item.avg;
                     }
 
                     const aVal = (scenarioVal != null) ? formatLargeNumber(parseFloat(scenarioVal), '$') : '--';
@@ -5370,8 +5370,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     let scenarioVal = item.avg;
                     if (!isAnchor) {
-                        if (_currentScenario === 'bear' && item.low != null) scenarioVal = item.low;
-                        if (_currentScenario === 'bull' && item.high != null) scenarioVal = item.high;
+                        if (_currentScenario === 'bear' && item.low != null) scenarioVal = item.low ?? item.avg;
+                        if (_currentScenario === 'bull' && item.high != null) scenarioVal = item.high ?? item.avg;
                     }
 
                     const aVal = (scenarioVal != null) ? formatLargeNumber(parseFloat(scenarioVal), '$') : '--';
@@ -6490,8 +6490,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (globalData.eps_estimates) {
                 const eEsts = globalData.eps_estimates.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
                 if (eEsts.length >= 1) {
-                    if (window._currentScenario === 'bear') dynFwdEps = eEsts[0].low;
-                    else if (window._currentScenario === 'bull') dynFwdEps = eEsts[0].high;
+                    if (window._currentScenario === 'bear') dynFwdEps = eEsts[0].low ?? eEsts[0].avg;
+                    else if (window._currentScenario === 'bull') dynFwdEps = eEsts[0].high ?? eEsts[0].avg;
                     else dynFwdEps = eEsts[0].avg;
                 }
             }
