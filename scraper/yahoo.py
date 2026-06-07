@@ -836,8 +836,8 @@ def get_period_labels(ticker_info: dict, historical_data: dict = None, current_f
                     hist_years = [int(y) for y in historical_data["years"] if str(y).isdigit()]
                     if hist_years:
                         max_hist = max(hist_years)
-                        if current_fy <= max_hist:
-                            current_fy = max_hist + 1
+                        # if current_fy <= max_hist:
+                        #     current_fy = max_hist + 1
                 except: pass
 
 
@@ -1583,10 +1583,21 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                     dividends_raw = getattr(stock, 'dividends', pd.Series())
             except Exception as e:
                 log(f"DEBUG: Financials fetch error: {e}")
-                financials = financials or {}
-                cashflow = cashflow or {}
-                bs = bs or {}
-                q_bs = q_bs or {}
+                try:
+                    if hasattr(financials, 'empty') and financials.empty: financials = {}
+                except: pass
+                try:
+                    if hasattr(cashflow, 'empty') and cashflow.empty: cashflow = {}
+                except: pass
+                try:
+                    if hasattr(bs, 'empty') and bs.empty: bs = {}
+                except: pass
+                try:
+                    if hasattr(q_bs, 'empty') and q_bs.empty: q_bs = {}
+                except: pass
+
+
+
                 dividends_raw = dividends_raw if not dividends_raw.empty else pd.Series()
             
             if executor is not None:
@@ -1695,7 +1706,9 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
         # --- DEBT MAPPING (Updated to match Yahoo's Total Debt figure) ---
         # Rule: Prioritize 'Total Debt' (which includes leases), fallback to LT + ST Debt.
         def get_reported_debt(df):
-            if df is None or df.empty: return 0
+            try:
+                if df is None or (hasattr(df, 'empty') and df.empty) or not df: return 0
+            except: pass
             
             def get_latest_valid(row_names):
                 if not row_names: return 0
@@ -4095,8 +4108,8 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
                 hist_years = [int(y) for y in historical_data["years"] if str(y).isdigit()]
                 if hist_years:
                     max_hist = max(hist_years)
-                    if current_fy_num <= max_hist:
-                        current_fy_num = max_hist + 1
+                    # if current_fy_num <= max_hist:
+                    #     current_fy_num = max_hist + 1
             except: pass
 
         # Now generate labels based on the SYNCHRONIZED current_fy_num
@@ -4281,6 +4294,8 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         g2 = normalize_growth(((fy2_eps - fy1_eps) / abs(fy1_eps)) if fy1_eps and fy1_eps != 0 and fy2_eps is not None else None)
         unified_eps.append({"period": f"FY {fy2_yr}", "avg": fy2_eps, "low": fy2_eps_low, "high": fy2_eps_high, "yearAgo": fy1_eps, "growth": g2, "status": "estimate", "num_estimates": fy2_num_est})
         
+        # FY 3 block removed to stick only to 2 years (FY1, FY2) from Yahoo Finance.
+
         g2r = normalize_growth(((fy2_rev - fy1_rev) / abs(fy1_rev)) if fy1_rev and fy1_rev != 0 and fy2_rev is not None else None)
         unified_rev.append({"period": f"FY {fy2_yr}", "avg": fy2_rev, "low": fy2_rev_low, "high": fy2_rev_high, "yearAgo": fy1_rev, "growth": g2r, "status": "estimate"})
 
