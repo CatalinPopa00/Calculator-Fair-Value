@@ -589,12 +589,20 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 for est in data["eps_estimates"]:
                     if est.get("avg") is not None:
                         est["avg"] = est["avg"] * price_fx
+                    if est.get("low") is not None:
+                        est["low"] = est["low"] * price_fx
+                    if est.get("high") is not None:
+                        est["high"] = est["high"] * price_fx
                         
             # Convert multi-year revenue estimates
             if data.get("rev_estimates"):
                 for est in data["rev_estimates"]:
                     if est.get("avg") is not None:
                         est["avg"] = est["avg"] * price_fx
+                    if est.get("low") is not None:
+                        est["low"] = est["low"] * price_fx
+                    if est.get("high") is not None:
+                        est["high"] = est["high"] * price_fx
             
             # Convert historical data
             if data.get("historical_data"):
