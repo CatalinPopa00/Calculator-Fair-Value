@@ -2541,35 +2541,23 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
             except Exception as e_tax:
                 log(f"DEBUG: Anchor processing error: {e_tax}")
         
-        # v241: BRUTAL TRUTH TIMELINE SYNC
         # 1. Try Brutal Scrape for the Normalized Anchor (e.g. 29.68 for Meta)
-        # This is the 2025 Non-GAAP Truth.
+        # However, we only inject it into adjusted_history if it is fundamentally missing or
+        # extremely off from our internal calculated Non-GAAP EPS.
+        # We NO LONGER blindly overwrite our painstakingly reconstructed Non-GAAP history with yfinance GAAP garbage.
         y_analysis_truth = get_yahoo_analysis_normalized(ticker_symbol, info)
         y_anchor_2025 = None
         if y_analysis_truth and 'eps' in y_analysis_truth:
              y_anchor_raw = y_analysis_truth['eps'].get('0y', {}).get('yearAgo')
              if y_anchor_raw is not None:
                  y_anchor_2025 = float(y_anchor_raw) * (fx_rate or 1.0)
-        
-        # 2. Inject this truth into the historical records specifically for the anchor year
-        # Determine the target anchor year dynamically (Current Year - 1)
-        current_year_now = datetime.datetime.now().year
-        target_anchor_year = str(current_year_now - 1)
-        
-        if y_anchor_2025 and y_anchor_2025 > 0:
-            log(f"DEBUG: v241 Forcing Normalized Anchor for {ticker_symbol} {target_anchor_year}: {y_anchor_2025:.2f}")
-            adjusted_history[target_anchor_year] = y_anchor_2025
-            # Force it also for the visuals
-            if target_anchor_year not in [str(y) for y in historical_data.get("years", [])]:
-                 pass
-        
-        # 3. Fallback to API modules if scrape failed
+
         if not y_anchor_2025:
              try:
                 y_ee = getattr(stock, 'earnings_estimate', None)
                 if y_ee is not None and not (hasattr(y_ee, 'empty') and y_ee.empty):
                     if '0y' in y_ee.index:
-                        y_anchor_2025 = float(y_ee.loc['0y'].get('yearAgoEps') or 0)
+                        y_anchor_2025 = float(y_ee.loc['0y'].get('yearAgoEps') or 0) * (fx_rate or 1.0)
              except: pass
         
         # v233: REALITY TIMELINE (Include 2025 as it is reported by Feb 2026)
