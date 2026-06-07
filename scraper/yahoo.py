@@ -4,7 +4,7 @@ import json
 import datetime
 import urllib.request
 import urllib.parse
-import concurrent.futures
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
 import random
 import requests
@@ -494,7 +494,7 @@ def get_nasdaq_comprehensive_estimates(ticker: str, force_refresh: bool = False)
         except: return None
 
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+    with ThreadPoolExecutor(max_workers=2) as executor:
         future_eps = executor.submit(fetch_url, "eps", ticker)
         future_rev = executor.submit(fetch_url, "rev", ticker)
         
@@ -1413,7 +1413,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
         # Start background fetches while processing info
         executor = None
         if not fast_mode:
-            executor = concurrent.futures.ThreadPoolExecutor(max_workers=8)
+            executor = ThreadPoolExecutor(max_workers=8)
             future_nasdaq_cagr = executor.submit(get_nasdaq_earnings_growth, ticker_symbol, info.get('trailingEps'))
             future_nasdaq_actual = executor.submit(get_nasdaq_actual_eps, ticker_symbol)
             future_est = executor.submit(lambda: getattr(stock, 'earnings_estimate', None))
@@ -3839,9 +3839,9 @@ def get_competitors_data(target_ticker: str, limit: int = 4, custom_peers: list 
                     print(f"DEBUG: Error extracting {t}: {e}")
                     return None
 
-            ex = concurrent.futures.ThreadPoolExecutor(max_workers=min(len(candidates), 5))
+            ex = ThreadPoolExecutor(max_workers=min(len(candidates), 5))
             futs = {ex.submit(fetch_peer_info, t): t for t in candidates}
-            for f in concurrent.futures.as_completed(futs, timeout=12):
+            for f in as_completed(futs, timeout=12):
                 res = f.result()
                 if res: final_peers.append(res)
             ex.shutdown(wait=False)
