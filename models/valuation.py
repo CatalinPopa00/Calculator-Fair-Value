@@ -74,7 +74,7 @@ def calculate_dcf(fcf: float, growth_rate: float, discount_rate: float, perpetua
     the cash cost of buybacks is deducted from each year's projected FCF.
     Stock price is assumed to grow at WACC rate year-over-year.
     """
-    if not all([fcf, shares_outstanding]):
+    if not all([fcf, discount_rate, shares_outstanding]):
         return None
 
     # 1. WACC Smart Cap
