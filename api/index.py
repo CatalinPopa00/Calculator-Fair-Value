@@ -84,9 +84,14 @@ def get_usd_fx_rate(currency: str) -> float:
 # 1. Initialize FastAPI App (Systemic Recovery Fix)
 app = FastAPI(title="Fair Value Calculator API")
 
+allowed_origins = os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://localhost:3000,http://127.0.0.1:3000,http://localhost:8000,http://127.0.0.1:8000"
+).split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
