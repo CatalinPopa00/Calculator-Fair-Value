@@ -1,16 +1,16 @@
 with open('scraper/yahoo.py', 'r') as f:
     content = f.read()
 
-target = """        return {
+target = """        data = {
+            "ticker": ticker_symbol.upper(),
             "name": name,
-            "sector": sector,
-            "industry": industry,"""
+            "currency": info.get("currency", "USD"),"""
 
-replacement = """        return {
+replacement = """        data = {
+            "ticker": ticker_symbol.upper(),
             "name": name,
-            "sector": sector,
-            "industry": industry,
-            "open": info.get("regularMarketOpen") or info.get("open") or info.get("previousClose") or prev_close,"""
+            "open": info.get("regularMarketOpen") or info.get("open") or info.get("previousClose") or prev_close,
+            "currency": info.get("currency", "USD"),"""
 
 content = content.replace(target, replacement)
 

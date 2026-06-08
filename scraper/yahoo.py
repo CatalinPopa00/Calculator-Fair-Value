@@ -3324,6 +3324,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
         data = {
             "ticker": ticker_symbol.upper(),
             "name": name,
+            "open": info.get("regularMarketOpen") or info.get("open") or info.get("previousClose") or prev_close,
             "currency": info.get("currency", "USD"),
             "financial_currency": info.get("financialCurrency", "USD"),
             "historical_anchors": historical_anchors,
