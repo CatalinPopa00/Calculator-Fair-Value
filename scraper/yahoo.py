@@ -37,7 +37,6 @@ def get_yahoo_analysis_normalized(ticker, info=None):
 
     try:
         # 1. Preliminary fetch from info (Fastest)
-        # 1. Preliminary fetch from info (Fastest)
         if info:
             try:
                 if info.get('epsCurrentYear'):
@@ -2103,8 +2102,6 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                     # Only use CF if it shows a stronger signal (e.g. clear dilution or clear buyback)
                     if abs(cf_rate) > abs(historic_buyback_rate):
                         historic_buyback_rate = cf_rate
-        except Exception:
-            pass
         except Exception:
             pass
         operating_cashflow = fcf # Default to FCF
@@ -4304,9 +4301,6 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
 
         g2r = normalize_growth(((fy2_rev - fy1_rev) / abs(fy1_rev)) if fy1_rev and fy1_rev != 0 and fy2_rev is not None else None)
         unified_rev.append({"period": f"FY {fy2_yr}", "avg": fy2_rev, "low": fy2_rev_low, "high": fy2_rev_high, "yearAgo": fy1_rev, "growth": g2r, "status": "estimate"})
-
-        # FY 3 block removed to stick only to 2 years (FY1, FY2) from Yahoo Finance.
-
 
         # (Anomaly healing removed: with proper FY0/FY1 from Yahoo, no longer needed)
 

@@ -21,7 +21,8 @@ def calculate_peter_lynch(current_price: float, trailing_eps: float, eps_growth_
             fwd_eps = fwd_eps + abs(fwd_eps) * eps_growth_estimated
         else:
             fwd_eps = fwd_eps * (1 + eps_growth_estimated)
-    
+
+    if fwd_eps <= 0:
         return {"fwd_pe": None, "fair_value": None, "status": "N/A"}
         
     fwd_pe = current_price / fwd_eps
@@ -211,8 +212,6 @@ def calculate_reverse_dcf(current_price: float, current_fcf: float, discount_rat
         else: low = mid
             
     return implied_growth if implied_growth is not None else (low + high) / 2
-import statistics
-
 import yfinance as yf
 import statistics
 import math

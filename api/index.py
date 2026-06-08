@@ -6,7 +6,7 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from fastapi import FastAPI, HTTPException, Response
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from cachetools import TTLCache
 import uvicorn
 import math
@@ -140,8 +140,7 @@ class ValuationResponse(BaseModel):
     overrides: Optional[dict] = None
     competitor_metrics: Optional[list] = None
     
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 
@@ -986,8 +985,8 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         company_shares = data.get("shares_outstanding") or 1
         company_debt = data.get("total_debt") or 0
         company_cash = data.get("total_cash") or 0
-        company_book_val = data.get("book_value") or (data.get("book_value_per_share") * company_shares if data.get("book_value_per_share") and company_shares else 0)
-        company_book_share = (company_book_val / company_shares) if company_book_val and company_shares else (data.get("book_value_per_share") or 0)
+        company_book_share = current_price / data.get("price_to_book") if data.get("price_to_book") and data.get("price_to_book") > 0 else 0
+        company_book_val = company_book_share * company_shares
         
         # Calculate Target Company Forward Metrics
         targ_fwd_eps = data.get("forward_eps") or data.get("eps")
@@ -1498,7 +1497,6 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 "company_ev_ebitda": sanitize(data.get("ev_to_ebitda") or ( ((current_price * shares) + data.get("total_debt", 0) - data.get("total_cash", 0)) / data.get("ebitda") if data.get("ebitda") and shares else None )),
                 "company_trailing_pe": sanitize(pe_historic),
                 "peers": [p.get("ticker", p) if isinstance(p, dict) else p for p in peers_data] if peers_data else [],
-                "median_peer_pe": sanitize(median_peer_pe),
                 "median_peer_pe": sanitize(median_peer_pe), # Forward P/E
                 "median_peer_ps": sanitize(median_peer_ps), # Forward EV/Sales
                 "median_peer_pb": sanitize(median_peer_pb),
