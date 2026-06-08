@@ -2945,7 +2945,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
         # 3. Historical Anchors (Last 4 reported fiscal years - Robust Selection)
         historical_anchors = []
         try:
-            if financials is not None and not financials.empty:
+            if historical_data and "years" in historical_data:
                 # Iterate over already-extracted historical years from step 1
                 for i in range(len(historical_data["years"])):
                     # Skip estimate years in anchors table
@@ -2953,14 +2953,18 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                     
                     yr_label = historical_data["years"][i]
                     # Find matching datetime col to pull Balance Sheet data
-                    is_cols = [c for c in financials.columns if str(c).upper() != "TTM"]
                     yr_col = None
-                    for c in is_cols:
-                        c_label = str(c.year) if hasattr(c, 'year') else str(c)[:4]
-                        if c_label == str(yr_label):
-                            yr_col = c; break
+                    if financials is not None and not financials.empty:
+                        is_cols = [c for c in financials.columns if str(c).upper() != "TTM"]
+                        for c in is_cols:
+                            c_label = str(c.year) if hasattr(c, 'year') else str(c)[:4]
+                            if c_label == str(yr_label):
+                                yr_col = c; break
                     
-                    if not yr_col: continue
+                    if not yr_col and financials is not None and not financials.empty:
+                        # Allow fast mode to continue without strict datetime match
+                        if not fast_mode:
+                            continue
 
                     r_raw = historical_data["revenue"][i]
                     e_raw = historical_data["diluted_eps"][i] if "diluted_eps" in historical_data else historical_data["eps"][i]
@@ -2969,8 +2973,10 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                     ni_raw = (r_raw * historical_trends[i]["net_margin"]) if (i < len(historical_trends) and historical_trends[i]["net_margin"]) else 0
 
                     def get_bs_metric(field, target_date):
+                        if bs is None or bs.empty: return None
                         idx = find_idx(bs, field)
                         if not idx: return None
+                        if not target_date: return None
                         c_idx = find_nearest_col(bs, target_date)
                         if not c_idx: return None
                         val = bs.loc[idx, c_idx]
@@ -2980,6 +2986,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                         if financials is None or financials.empty: return None
                         idx = find_idx(financials, field)
                         if not idx: return None
+                        if not target_date: return None
                         c_idx = find_nearest_col(financials, target_date)
                         if not c_idx: return None
                         val = financials.loc[idx, c_idx]
@@ -2993,6 +3000,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                     # --- DEBT MAPPING (Updated to match Yahoo's Total Debt figure) ---
                     # Rule 1: Prioritize 'Total Debt', fallback to LT Debt + ST Debt
                     def get_hist_metric(fields, target_date):
+                        if bs is None or bs.empty: return None
+                        if not target_date: return None
                         for field in fields:
                             idx = find_idx(bs, field)
                             if not idx: continue
@@ -3012,6 +3021,10 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                     total_liab = get_bs_metric('Total Liabilities', yr_col) or get_bs_metric('Total Liabilities Net Minority Interest', yr_col)
                     if total_liab and (d_raw >= total_liab) and total_liab > 0:
                         print(f"CRITICAL MAPPING ERROR: {ticker_symbol} {yr_label} - Debt (${d_raw/1e9:.2f}B) >= Liabilities (${total_liab/1e9:.2f}B). Sanity check failed.")
+
+                    # Provide defaults for fast_mode
+                    if d_raw is None: d_raw = 0
+                    if c_raw is None: c_raw = 0
 
                     assets = get_bs_metric('Total Assets', yr_col)
                     liabs = get_bs_metric('Current Liabilities', yr_col) or get_bs_metric('Total Current Liabilities', yr_col)
@@ -4354,7 +4367,8 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             "eps_growth": normalize_growth(eps_forward_growth),
             "fwd_pe": (current_price / fy1_eps) if (current_price and fy1_eps and fy1_eps > 0) else None, # v260
             "eps_trend": eps_trend,
-            "ownership": get_ownership_data(ticker_symbol)
+            "ownership": get_ownership_data(ticker_symbol),
+            "currency": info.get("currency", "USD") if info else "USD"
         }
 
 

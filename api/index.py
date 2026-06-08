@@ -172,8 +172,57 @@ def get_analyst(ticker: str, response: Response):
     if cache_key in valuation_cache:
         return valuation_cache[cache_key]
     result = get_analyst_data(ticker_upper)
+
+    # --- DYNAMIC FX CURRENCY CONVERSION TO USD ---
+    if result:
+        price_currency = result.get("currency", "USD")
+        price_fx = get_usd_fx_rate(price_currency)
+
+        if price_fx != 1.0:
+            if result.get("price_target"):
+                pt = result["price_target"]
+                for pt_key in ["current", "low", "avg", "median", "high"]:
+                    if pt.get(pt_key) is not None and isinstance(pt[pt_key], (int, float)):
+                        pt[pt_key] = pt[pt_key] * price_fx
+
+            if result.get("adjusted_eps_fy0") is not None:
+                result["adjusted_eps_fy0"] = result["adjusted_eps_fy0"] * price_fx
+            if result.get("forward_revenue") is not None:
+                result["forward_revenue"] = result["forward_revenue"] * price_fx
+            if result.get("forward_eps") is not None:
+                result["forward_eps"] = result["forward_eps"] * price_fx
+
+            if result.get("eps_trend"):
+                for period, trend in result["eps_trend"].items():
+                    if isinstance(trend, dict):
+                        for metric in ["avg", "low", "high", "yearAgoEps", "current"]:
+                            if trend.get(metric) is not None:
+                                trend[metric] = trend[metric] * price_fx
+
+            if result.get("eps_estimates"):
+                for est in result["eps_estimates"]:
+                    if est.get("avg") is not None:
+                        est["avg"] = est["avg"] * price_fx
+                    if est.get("low") is not None:
+                        est["low"] = est["low"] * price_fx
+                    if est.get("high") is not None:
+                        est["high"] = est["high"] * price_fx
+                    if est.get("yearAgo") is not None:
+                        est["yearAgo"] = est["yearAgo"] * price_fx
+
+            if result.get("rev_estimates"):
+                for est in result["rev_estimates"]:
+                    if est.get("avg") is not None:
+                        est["avg"] = est["avg"] * price_fx
+                    if est.get("low") is not None:
+                        est["low"] = est["low"] * price_fx
+                    if est.get("high") is not None:
+                        est["high"] = est["high"] * price_fx
+                    if est.get("yearAgo") is not None:
+                        est["yearAgo"] = est["yearAgo"] * price_fx
+
     # v147 Visible Marker for Diagnostic
-    if result and "price_target" in result:
+    if result and "price_target" in result and isinstance(result["price_target"].get("avg"), (int, float)):
         result["price_target"]["avg"] = str(result["price_target"].get("avg", "")) + " (v147)"
     valuation_cache[cache_key] = result
     return result
@@ -617,6 +666,13 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                         for date, q_data in quarters.items():
                             if isinstance(q_data, list) and len(q_data) > 0 and q_data[0] is not None:
                                 q_data[0] = q_data[0] * price_fx
+
+            # Convert historical_anchors
+            if data.get("historical_anchors"):
+                for anchor in data["historical_anchors"]:
+                    for h_key in ["revenue_b", "eps", "fcf_b", "net_income_b", "ebitda_b", "gross_profit_b", "cash_b", "total_debt_b"]:
+                        if anchor.get(h_key) is not None:
+                            anchor[h_key] = anchor[h_key] * price_fx
         
         # Recalculate forward ratios in USD to prevent currency mismatch
         shares = data.get("shares_outstanding") or 1
