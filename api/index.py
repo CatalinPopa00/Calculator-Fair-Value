@@ -1898,3 +1898,27 @@ def get_firebase_config():
 
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8000)
+
+
+@app.get("/api/live-price/{ticker}")
+def get_live_price(ticker: str):
+    import yfinance as yf
+    try:
+        stock = yf.Ticker(ticker)
+        # Using fast_info for speed if available, or fallback to info
+        price = None
+
+        # Try fast_info first (faster, less rate-limited)
+        try:
+            if hasattr(stock, 'fast_info') and 'lastPrice' in stock.fast_info:
+                price = stock.fast_info['lastPrice']
+        except Exception:
+            pass
+
+        if not price:
+            info = stock.info
+            price = info.get("currentPrice") or info.get("regularMarketPrice") or info.get("previousClose")
+
+        return {"ticker": ticker, "price": price}
+    except Exception as e:
+        return {"error": str(e)}
