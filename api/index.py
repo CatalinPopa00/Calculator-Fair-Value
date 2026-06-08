@@ -1907,18 +1907,28 @@ def get_live_price(ticker: str):
         stock = yf.Ticker(ticker)
         # Using fast_info for speed if available, or fallback to info
         price = None
+        currency = "USD"
 
         # Try fast_info first (faster, less rate-limited)
         try:
-            if hasattr(stock, 'fast_info') and 'lastPrice' in stock.fast_info:
-                price = stock.fast_info['lastPrice']
+            if hasattr(stock, 'fast_info'):
+                if 'lastPrice' in stock.fast_info:
+                    price = stock.fast_info['lastPrice']
+                if 'currency' in stock.fast_info:
+                    currency = stock.fast_info['currency']
         except Exception:
             pass
 
         if not price:
             info = stock.info
             price = info.get("currentPrice") or info.get("regularMarketPrice") or info.get("previousClose")
+            currency = info.get("currency", "USD")
 
-        return {"ticker": ticker, "price": price}
+        # Ensure we always return the USD equivalent to match the platform's standard
+        price_fx = get_usd_fx_rate(currency)
+        if price and price_fx != 1.0:
+            price = price * price_fx
+
+        return {"ticker": ticker, "price": price, "currency": "USD"}
     except Exception as e:
         return {"error": str(e)}
