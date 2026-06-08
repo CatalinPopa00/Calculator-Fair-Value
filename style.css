@@ -3874,3 +3874,26 @@ body.has-searched .floating-login-btn {
     background: rgba(16, 185, 129, 0.2);
     border-color: var(--success);
     color: var(--success);}
+
+/* Price update animations */
+@keyframes flash-green {
+    0% { color: var(--text-color); transform: scale(1); }
+    10% { color: #10b981; transform: scale(1.05); }
+    100% { color: var(--text-color); transform: scale(1); }
+}
+
+@keyframes flash-red {
+    0% { color: var(--text-color); transform: scale(1); }
+    10% { color: #ef4444; transform: scale(1.05); }
+    100% { color: var(--text-color); transform: scale(1); }
+}
+
+.price-flash-green {
+    display: inline-block;
+    animation: flash-green 1.5s ease-out;
+}
+
+.price-flash-red {
+    display: inline-block;
+    animation: flash-red 1.5s ease-out;
+}

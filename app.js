@@ -456,6 +456,43 @@ document.addEventListener('DOMContentLoaded', () => {
     let _originalPrice = null; // Stores the restore point for simulation reset
     let _simulating = false;
 
+// --- PRICE ANIMATION UTILITY ---
+const animatePriceUI = (oldPrice, newPrice) => {
+    if (!oldPrice || oldPrice === newPrice) return;
+
+    const priceEl = document.getElementById('current-price');
+    const stickyPrice = document.getElementById('sticky-banner-price');
+    const trendIcon = document.getElementById('price-trend-icon');
+    const stickyTrendIcon = document.getElementById('sticky-price-trend-icon');
+
+    const isUp = newPrice > oldPrice;
+    const color = isUp ? '#10b981' : '#ef4444';
+    const icon = isUp ? '▲' : '▼';
+    const pulseClass = isUp ? 'price-flash-green' : 'price-flash-red';
+
+    if (trendIcon && !_simulating) {
+        trendIcon.textContent = icon;
+        trendIcon.style.color = color;
+    }
+    if (stickyTrendIcon && !_simulating) {
+        stickyTrendIcon.textContent = icon;
+        stickyTrendIcon.style.color = color;
+    }
+
+    if (priceEl && !_simulating) {
+        priceEl.classList.remove('price-flash-green', 'price-flash-red');
+        void priceEl.offsetWidth; // trigger reflow
+        priceEl.classList.add(pulseClass);
+    }
+    if (stickyPrice && !_simulating) {
+        stickyPrice.classList.remove('price-flash-green', 'price-flash-red');
+        void stickyPrice.offsetWidth;
+        stickyPrice.classList.add(pulseClass);
+    }
+};
+
+
+
     // --- CHART TOGGLE ENGINE ---
     let _chartViewActive = false;
     let _tvWidgetCreatedFor = null;
@@ -787,7 +824,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // --- 3. Update Current Price Header ---
         const priceEl = document.getElementById('current-price');
+        let prevPrice = null;
         if (priceEl && !_simulating) {
+            const prevStr = priceEl.textContent.replace(/[^0-9.-]+/g,"");
+            if (prevStr) prevPrice = parseFloat(prevStr);
             priceEl.textContent = formatCurrency(simPrice);
         }
 
@@ -795,6 +835,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (stickyPrice) {
             stickyPrice.textContent = formatCurrency(simPrice);
             stickyPrice.style.color = _simulating ? '#fbbf24' : 'var(--accent)';
+        }
+
+        if (!_simulating && prevPrice !== null && simPrice !== prevPrice) {
+             animatePriceUI(prevPrice, simPrice);
+        } else if (_simulating) {
+             // Clear icons when simulating
+             const ti = document.getElementById('price-trend-icon');
+             if (ti) ti.textContent = '';
+             const sti = document.getElementById('sticky-price-trend-icon');
+             if (sti) sti.textContent = '';
         }
 
         // Precise growth rate calculation for simulation scoring to prevent drift
@@ -3511,6 +3561,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // v40: Instant UI feedback
         if (!silent) {
+            // Clear price trend icons when loading a new ticker
+            const ti = document.getElementById('price-trend-icon');
+            if (ti) ti.textContent = '';
+            const sti = document.getElementById('sticky-price-trend-icon');
+            if (sti) sti.textContent = '';
             autocompleteList.style.display = 'none';
             watchlistView.style.display = 'none';
             dashboard.style.display = 'none';
