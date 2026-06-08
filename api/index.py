@@ -1678,6 +1678,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             "company_profile": {
                 "industry": data.get("industry") or "N/A",
                 "sector": data.get("sector") or "N/A",
+                "open_price": sanitize(data.get("open") or data.get("regularMarketOpen") or data.get("previousClose") or current_price),
                 "market_cap": sanitize(data.get("shares_outstanding", 0) * current_price if data.get("shares_outstanding") and current_price else 0.0),
                 "adjusted_eps": sanitize(data.get("adjusted_eps")),
                 "fwd_eps": sanitize(next((e.get("avg") for e in data.get("eps_estimates", []) if e.get("status") == "estimate"), None)),
@@ -1919,16 +1920,20 @@ def get_live_price(ticker: str):
         except Exception:
             pass
 
+        info = stock.info
         if not price:
-            info = stock.info
             price = info.get("currentPrice") or info.get("regularMarketPrice") or info.get("previousClose")
-            currency = info.get("currency", "USD")
+
+        currency = info.get("currency", "USD")
+        open_price = info.get("regularMarketOpen") or info.get("open") or info.get("previousClose")
 
         # Ensure we always return the USD equivalent to match the platform's standard
         price_fx = get_usd_fx_rate(currency)
         if price and price_fx != 1.0:
             price = price * price_fx
+        if open_price and price_fx != 1.0:
+            open_price = open_price * price_fx
 
-        return {"ticker": ticker, "price": price, "currency": "USD"}
+        return {"ticker": ticker, "price": price, "open_price": open_price, "currency": "USD"}
     except Exception as e:
         return {"error": str(e)}

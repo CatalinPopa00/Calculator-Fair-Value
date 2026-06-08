@@ -457,15 +457,21 @@ document.addEventListener('DOMContentLoaded', () => {
     let _simulating = false;
 
 // --- PRICE ANIMATION UTILITY ---
-const animatePriceUI = (oldPrice, newPrice) => {
-    if (!oldPrice || oldPrice === newPrice) return;
+const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
+    if (!openPrice || openPrice === newPrice) {
+        const ti = document.getElementById('price-trend-icon');
+        if (ti) ti.textContent = '';
+        const sti = document.getElementById('sticky-price-trend-icon');
+        if (sti) sti.textContent = '';
+        return;
+    }
 
     const priceEl = document.getElementById('current-price');
     const stickyPrice = document.getElementById('sticky-banner-price');
     const trendIcon = document.getElementById('price-trend-icon');
     const stickyTrendIcon = document.getElementById('sticky-price-trend-icon');
 
-    const isUp = newPrice > oldPrice;
+    const isUp = newPrice > openPrice;
     const color = isUp ? '#10b981' : '#ef4444';
     const icon = isUp ? '▲' : '▼';
     const pulseClass = isUp ? 'price-flash-green' : 'price-flash-red';
@@ -479,12 +485,12 @@ const animatePriceUI = (oldPrice, newPrice) => {
         stickyTrendIcon.style.color = color;
     }
 
-    if (priceEl && !_simulating) {
+    if (triggerFlash && priceEl && !_simulating) {
         priceEl.classList.remove('price-flash-green', 'price-flash-red');
         void priceEl.offsetWidth; // trigger reflow
         priceEl.classList.add(pulseClass);
     }
-    if (stickyPrice && !_simulating) {
+    if (triggerFlash && stickyPrice && !_simulating) {
         stickyPrice.classList.remove('price-flash-green', 'price-flash-red');
         void stickyPrice.offsetWidth;
         stickyPrice.classList.add(pulseClass);
@@ -837,8 +843,10 @@ const animatePriceUI = (oldPrice, newPrice) => {
             stickyPrice.style.color = _simulating ? '#fbbf24' : 'var(--accent)';
         }
 
-        if (!_simulating && prevPrice !== null && simPrice !== prevPrice) {
-             animatePriceUI(prevPrice, simPrice);
+        if (!_simulating && globalData && globalData.company_profile && globalData.company_profile.open_price) {
+             const openPrice = globalData.company_profile.open_price;
+             const priceChanged = prevPrice !== null && simPrice !== prevPrice;
+             animatePriceUI(openPrice, simPrice, priceChanged);
         } else if (_simulating) {
              // Clear icons when simulating
              const ti = document.getElementById('price-trend-icon');
@@ -3540,6 +3548,11 @@ const animatePriceUI = (oldPrice, newPrice) => {
                     _realApiPrice = data.price;
                     _originalPrice = data.price;
 
+                    // Update open_price if provided
+                    if (data.open_price && globalData.company_profile) {
+                        globalData.company_profile.open_price = data.open_price;
+                    }
+
                     // Re-calculate everything with the new price
                     if (typeof recalcWithSimPrice === 'function') {
                         recalcWithSimPrice(data.price, true);
@@ -3887,6 +3900,9 @@ const animatePriceUI = (oldPrice, newPrice) => {
         elements.name.textContent = data.name;
         elements.ticker.textContent = data.ticker;
         elements.currentPrice.textContent = formatCurrency(data.current_price);
+        if (data.company_profile && data.company_profile.open_price) {
+            animatePriceUI(data.company_profile.open_price, data.current_price, false);
+        }
 
         renderOwnership(data.ownership);
 
