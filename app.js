@@ -3467,6 +3467,40 @@ document.addEventListener('DOMContentLoaded', () => {
         toggle.onchange = updateAndSave;
     });
 
+
+    // --- LIVE PRICE POLLING ---
+    let livePriceInterval = null;
+
+    const startLivePricePolling = () => {
+        if (livePriceInterval) clearInterval(livePriceInterval);
+
+        livePriceInterval = setInterval(async () => {
+            if (!currentTicker || _simulating) return; // Don't poll if simulating or no ticker selected
+
+            try {
+                const res = await fetch(`/api/live-price/${encodeURIComponent(currentTicker)}`);
+                if (!res.ok) return;
+
+                const data = await res.json();
+                if (data.price && data.price > 0 && data.price !== globalData.current_price) {
+                    console.log(`Live price update for ${currentTicker}: ${data.price}`);
+
+                    // Update global data
+                    globalData.current_price = data.price;
+                    _realApiPrice = data.price;
+                    _originalPrice = data.price;
+
+                    // Re-calculate everything with the new price
+                    if (typeof recalcWithSimPrice === 'function') {
+                        recalcWithSimPrice(data.price, true);
+                    }
+                }
+            } catch (err) {
+                console.error("Live price polling error:", err);
+            }
+        }, 30000); // Poll every 30 seconds
+    };
+
     const analyzeTicker = async (queryParam, forceRefresh = false, silent = false) => {
         const savedScrollY = window.scrollY;
         document.body.classList.add('has-searched');
@@ -3691,6 +3725,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const displayData = (data, isSilentUpdate = false) => {
+        startLivePricePolling();
         if (!data) return;
 
         // Preserve current simulator state locally before overriding globals
