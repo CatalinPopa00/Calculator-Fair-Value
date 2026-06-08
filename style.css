@@ -3897,3 +3897,29 @@ body.has-searched .floating-login-btn {
     display: inline-block;
     animation: flash-red 1.5s ease-out;
 }
+
+/* Premium View Data Tables */
+.premium-data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+    margin-top: 15px;
+}
+
+.premium-data-table th {
+    text-align: left;
+    padding: 10px;
+    background: rgba(0,0,0,0.2);
+    color: var(--text-muted);
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.premium-data-table td {
+    padding: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    color: var(--text-main);
+}
+
+.premium-data-table tr:hover td {
+    background: rgba(255,255,255,0.02);
+}
