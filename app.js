@@ -2350,7 +2350,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         const labelText = rule40Data.label || (rule40Data.passed ? 'Strong' : (total > 30 ? 'Moderate' : 'Weak'));
 
         let html = `
-            <div style="text-align:center; margin-bottom: 1.5rem;">
+            <div style="text-align:center; margin-bottom: 1.5rem; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.1);">
                 <h3 style="font-size: 1.2rem; margin: 0 0 0.5rem; color: white;">Rule of 40 Breakdown</h3>
                 <div style="font-size: 2.8rem; font-weight: 800; color: ${labelColor}; line-height: 1;">${total.toFixed(1)}%<span style="font-size: 1.2rem; color: var(--text-muted); font-weight: 500;">/40%</span></div>
                 <div style="font-size: 0.9rem; font-weight: 700; color: ${labelColor}; margin-top: 4px;">${labelText}</div>
@@ -6109,7 +6109,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             return prefix + v.toLocaleString();
         };
 
-        const row = (label, value) => `<div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.05);"><span style="color:var(--text-muted);">${label}</span><span style="font-weight:600;">${value}</span></div>`;
+        const row = (label, value) => `<div style="display:flex; justify-content:space-between; padding:12px 0; border-bottom:1px solid rgba(255,255,255,0.05);"><span style="color:var(--text-muted);">${label}</span><span style="font-weight:600;">${value}</span></div>`;
 
         if (model === 'dcf' && currentFormulaData.dcf) {
             const d = currentFormulaData.dcf;
@@ -6161,7 +6161,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 const customMarginGrowthEl = document.getElementById('dcf-custom-margin-growth');
                 const customMarginGrowth = (customMarginGrowthEl && customMarginGrowthEl.value !== '') ? parseLocaleFloat(customMarginGrowthEl.value) / 100 : 0.002;
 
-                let tableHTML = `<table style="width:100%; border-collapse:collapse; margin-top:20px; font-size: 0.95rem;">
+                let tableHTML = `<div class="table-responsive"><table class="premium-data-table">
                                         <tr style="border-bottom:1px solid rgba(255,255,255,0.2);">
                                             <th style="text-align:left; padding:8px 0; color:white;">Year</th>
                                             <th style="text-align:right; padding:8px 0; color:white;">Projected FCF</th>
@@ -6175,7 +6175,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                                         <td style="text-align:right; color:var(--accent); font-weight:600;">${fmtPct(yearMargin)}</td>
                                       </tr>`;
                 });
-                tableHTML += `</table>`;
+                tableHTML += `</table></div>`;
 
                 const tvLabel = method === 'perpetual' ? `Terminal Value (${fmtPct(dataObj.perpetual_growth_rate)} Growth)` : `Terminal Value (${dataObj.exit_multiple}x Multiple)`;
 
@@ -6184,7 +6184,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     matrixHTML = `<div style="margin-top: 25px;">
                             <h4 style="margin-bottom:15px; font-size:1rem; text-transform:uppercase; letter-spacing:1px; color:white; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:5px;">DCF Sensitivity Matrix</h4>
                             <div style="overflow-x:auto;">
-                            <table style="width:100%; border-collapse:collapse; font-size: 0.9rem; text-align:center; background: rgba(0,0,0,0.2); border-radius:6px; overflow:hidden;">`;
+                            <table class="premium-data-table">`;
 
                     matrixHTML += `<tr><th style="padding:10px; border:1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color:white;">WACC \\ Growth</th>`;
                     const firstRowVals = sensMatrix[0].values;
@@ -6332,7 +6332,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 peerTableHTML = `
                     <h4 style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:10px;">Peer Benchmarks</h4>
                     <div style="overflow-x:auto; margin-bottom:1.5rem;">
-                    <table style="width:100%; border-collapse:collapse; font-size:0.65rem;">
+                    <table class="premium-data-table" style="font-size:0.75rem;">
                         <thead>
                             <tr style="border-bottom:1px solid rgba(255,255,255,0.15);">
                                 <th style="text-align:left; padding:4px 2px; color:white; white-space:nowrap;">Ticker</th>
@@ -6626,7 +6626,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         // Build header - 3-column grid to center the total and align with X
         const displayTitle = title.replace(' Breakdown', '');
         let html = `
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:5px; gap:15px; flex-wrap:nowrap; border-bottom:none;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:10px; gap:15px; flex-wrap:nowrap; border-bottom:1px solid rgba(255,255,255,0.1);">
                 <h3 style="margin:0; font-size:1.05rem; color:white; font-weight:800; white-space:nowrap; border-bottom:none !important;">${displayTitle}</h3>
                 
                 <div style="display:flex; align-items:baseline; gap:6px; flex-shrink:0;">
@@ -6673,7 +6673,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 : `<div style="text-align: right; width: 100%;">${valStr}</div>`;
 
             html += `
-                <div style="display:grid; grid-template-columns: 2fr minmax(110px, max-content) 12px 50px; align-items:center; padding:12px 0; border-top:1px solid rgba(255,255,255,0.04); gap:12px;">
+                <div style="display:grid; grid-template-columns: 2fr minmax(110px, max-content) 20px 50px; align-items:center; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.05); gap:12px;">
                     <div style="font-weight:600; font-size:clamp(0.75rem, 3vw, 0.88rem); color:white; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${label}">${label}</div>
                     
                     <div style="font-weight:700; font-size:clamp(0.8rem, 3vw, 0.9rem); color:rgba(255,255,255,0.85); font-family:monospace; display: flex; justify-content: flex-end; white-space: nowrap;">${valueHtml}</div>
@@ -6708,7 +6708,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
         const scoreVal = beneishData.m_score;
         let html = `
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:5px; gap:15px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:10px; gap:15px; border-bottom:1px solid rgba(255,255,255,0.1);">
                 <h3 style="margin:0; font-size:1.05rem; color:white; font-weight:800;">Beneish M-Score</h3>
                 <div style="display:flex; align-items:baseline; gap:6px;">
                     <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600; text-transform:uppercase;">Total:</span>
@@ -6762,7 +6762,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
         const scoreVal = (totalScore != null && totalScore !== 'N/A') ? totalScore : '?';
         let html = `
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:5px; gap:15px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:10px; gap:15px; border-bottom:1px solid rgba(255,255,255,0.1);">
                 <h3 style="margin:0; font-size:1.05rem; color:white; font-weight:800;">Piotroski F-Score</h3>
                 <div style="display:flex; align-items:baseline; gap:6px;">
                     <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600; text-transform:uppercase;">Total:</span>
