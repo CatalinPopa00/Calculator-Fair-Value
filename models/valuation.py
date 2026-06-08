@@ -276,16 +276,16 @@ def calculate_relative_valuation(company_ticker: str, peer_list: list):
     
     fv_ev_ebitda = None
     if company_fwd_ebitda and peer_median_ev_ebitda and company_shares_out and company_shares_out > 0:
-        implied_ev = company_fwd_ebitda * peer_median_ev_ebitda
-        implied_equity = implied_ev - company_total_debt + company_total_cash
-        fv_ev_ebitda = implied_equity / company_shares_out
+        calc_implied_ev = company_fwd_ebitda * peer_median_ev_ebitda
+        calc_implied_equity = calc_implied_ev - company_total_debt + company_total_cash
+        fv_ev_ebitda = calc_implied_equity / company_shares_out
 
     company_fwd_revenue = t_info.get('totalRevenue')
     fv_ev_sales = None
     if company_fwd_revenue and peer_median_ev_sales and company_shares_out and company_shares_out > 0:
-        implied_ev_sales = company_fwd_revenue * peer_median_ev_sales
-        implied_equity_sales = implied_ev_sales - company_total_debt + company_total_cash
-        fv_ev_sales = implied_equity_sales / company_shares_out
+        calc_implied_ev_sales = company_fwd_revenue * peer_median_ev_sales
+        calc_implied_equity_sales = calc_implied_ev_sales - company_total_debt + company_total_cash
+        fv_ev_sales = calc_implied_equity_sales / company_shares_out
         
     company_bvps = t_info.get('bookValue')
     fv_pb = None
