@@ -2364,26 +2364,26 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     Metrics
                 </h4>
                 
-                <div style="display:flex; align-items:flex-start; gap:10px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04);">
-                    <span style="font-size:1.1rem; min-width:22px;">📈</span>
-                    <div style="flex:1; min-width:0;">
-                        <div style="font-size:0.85rem; font-weight:700; color:white;">${rule40Data.rev_growth_label || 'Revenue Growth'}</div>
-                        <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">${rule40Data.rev_growth_desc || 'Most recent historical 1-year revenue growth.'}</div>
+                <div style="display:grid; grid-template-columns: auto 1fr 20px 50px; align-items:center; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.05); gap:12px;">
+                    <div style="font-weight:600; font-size:clamp(0.75rem, 3vw, 0.88rem); color:white; line-height:1.2; white-space:nowrap;" title="${rule40Data.rev_growth_label || 'Revenue Growth'}">${rule40Data.rev_growth_label || 'Revenue Growth'}</div>
+                    <div style="font-weight:700; font-size:clamp(0.8rem, 3vw, 0.9rem); color:rgba(255,255,255,0.85); font-family:monospace; display: flex; justify-content: flex-end; white-space: nowrap;">
+                        <div style="text-align: right; width: 100%;">${(rule40Data.revenue_growth || 0).toFixed(1)} <span style="font-size: 0.8em; color: rgba(255,255,255,0.7);">%</span></div>
                     </div>
-                    <span style="font-size:0.85rem; font-weight:700; color:var(--text-main); min-width:28px; text-align:right;">
-                        ${(rule40Data.revenue_growth || 0).toFixed(1)}%
-                    </span>
+                    <div style="display:flex; justify-content:center;">
+                        <span style="width:8px; height:8px; border-radius:50%; background:${(rule40Data.revenue_growth || 0) > 0 ? 'var(--accent)' : 'var(--danger)'}; display:inline-block;"></span>
+                    </div>
+                    <div></div>
                 </div>
                 
-                <div style="display:flex; align-items:flex-start; gap:10px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04);">
-                    <span style="font-size:1.1rem; min-width:22px;">💰</span>
-                    <div style="flex:1; min-width:0;">
-                        <div style="font-size:0.85rem; font-weight:700; color:white;">${rule40Data.margin_label || 'FCF Margin'}</div>
-                        <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">${rule40Data.margin_desc || 'Free Cash Flow relative to Total Revenue.'}</div>
+                <div style="display:grid; grid-template-columns: auto 1fr 20px 50px; align-items:center; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.05); gap:12px;">
+                    <div style="font-weight:600; font-size:clamp(0.75rem, 3vw, 0.88rem); color:white; line-height:1.2; white-space:nowrap;" title="${rule40Data.margin_label || 'FCF Margin'}">${rule40Data.margin_label || 'FCF Margin'}</div>
+                    <div style="font-weight:700; font-size:clamp(0.8rem, 3vw, 0.9rem); color:rgba(255,255,255,0.85); font-family:monospace; display: flex; justify-content: flex-end; white-space: nowrap;">
+                        <div style="text-align: right; width: 100%;">${(rule40Data.fcf_margin || 0).toFixed(1)} <span style="font-size: 0.8em; color: rgba(255,255,255,0.7);">%</span></div>
                     </div>
-                    <span style="font-size:0.85rem; font-weight:700; color:var(--text-main); min-width:28px; text-align:right;">
-                        ${(rule40Data.fcf_margin || 0).toFixed(1)}%
-                    </span>
+                    <div style="display:flex; justify-content:center;">
+                        <span style="width:8px; height:8px; border-radius:50%; background:${(rule40Data.fcf_margin || 0) > 0 ? 'var(--accent)' : 'var(--danger)'}; display:inline-block;"></span>
+                    </div>
+                    <div></div>
                 </div>
             </div>`;
 
@@ -6627,9 +6627,9 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         const displayTitle = title.replace(' Breakdown', '');
         let html = `
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:10px; gap:15px; flex-wrap:nowrap; border-bottom:1px solid rgba(255,255,255,0.1);">
-                <h3 style="margin:0; font-size:1.05rem; color:white; font-weight:800; white-space:nowrap; border-bottom:none !important;">${displayTitle}</h3>
+                <h3 style="margin:0; font-size:1.05rem; color:white; font-weight:800; white-space:nowrap; border-bottom:none !important; line-height:1.3rem;">${displayTitle}</h3>
                 
-                <div style="display:flex; align-items:baseline; gap:6px; flex-shrink:0;">
+                <div style="display:flex; align-items:baseline; gap:6px; flex-shrink:0; line-height:1.3rem;">
                     <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600; text-transform:uppercase;">Total:</span>
                     <span style="font-size:1.3rem; font-weight:900; color:white;">${scoreVal}/${totalMax}</span>
                 </div>
@@ -6673,8 +6673,8 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 : `<div style="text-align: right; width: 100%;">${valStr}</div>`;
 
             html += `
-                <div style="display:grid; grid-template-columns: 2fr minmax(110px, max-content) 20px 50px; align-items:center; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.05); gap:12px;">
-                    <div style="font-weight:600; font-size:clamp(0.75rem, 3vw, 0.88rem); color:white; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${label}">${label}</div>
+                <div style="display:grid; grid-template-columns: auto 1fr 20px 50px; align-items:center; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.05); gap:12px;">
+                    <div style="font-weight:600; font-size:clamp(0.75rem, 3vw, 0.88rem); color:white; line-height:1.2; white-space:nowrap;" title="${label}">${label}</div>
                     
                     <div style="font-weight:700; font-size:clamp(0.8rem, 3vw, 0.9rem); color:rgba(255,255,255,0.85); font-family:monospace; display: flex; justify-content: flex-end; white-space: nowrap;">${valueHtml}</div>
                     
@@ -6709,8 +6709,8 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         const scoreVal = beneishData.m_score;
         let html = `
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:10px; gap:15px; border-bottom:1px solid rgba(255,255,255,0.1);">
-                <h3 style="margin:0; font-size:1.05rem; color:white; font-weight:800;">Beneish M-Score</h3>
-                <div style="display:flex; align-items:baseline; gap:6px;">
+                <h3 style="margin:0; font-size:1.05rem; color:white; font-weight:800; line-height:1.3rem;">Beneish M-Score</h3>
+                <div style="display:flex; align-items:baseline; gap:6px; line-height:1.3rem;">
                     <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600; text-transform:uppercase;">Total:</span>
                     <span style="font-size:1.3rem; font-weight:900; color:white;">${scoreVal}</span>
                 </div>
@@ -6726,17 +6726,18 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             const dotColor = passed ? 'var(--accent)' : (item.status === 'fail' ? 'var(--danger)' : 'var(--text-muted)');
 
             html += `
-                <div style="display:flex; flex-direction:column; padding:8px 0; border-top:1px solid rgba(255,255,255,0.04); gap:6px;">
-                    <div>
-                        <div style="font-weight:600; font-size:0.85rem; color:white; line-height:1.4;">${label}</div>
-                        <div style="font-size:0.7rem; color:var(--text-muted); margin-top:2px;">${item.threshold}</div>
+                <div style="display:grid; grid-template-columns: auto 1fr 20px 50px; align-items:center; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.05); gap:12px;">
+                    <div style="font-weight:600; font-size:clamp(0.75rem, 3vw, 0.88rem); color:white; line-height:1.2; white-space:nowrap;" title="${label}">${label}</div>
+
+                    <div style="font-weight:700; font-size:clamp(0.8rem, 3vw, 0.9rem); color:rgba(255,255,255,0.85); font-family:monospace; display: flex; justify-content: flex-end; white-space: nowrap;">
+                        <div style="text-align: right; width: 100%;">${item.value !== null ? item.value : 'N/A'}</div>
                     </div>
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <div style="font-weight:700; font-size:0.85rem; color:rgba(255,255,255,0.7); font-family:monospace;">${item.value !== null ? item.value : 'N/A'}</div>
-                        <div style="display:flex; align-items:center;">
-                            <span style="width:8px; height:8px; border-radius:50%; background:${dotColor}; display:inline-block; flex-shrink:0;"></span>
-                        </div>
+
+                    <div style="display:flex; justify-content:center;">
+                        <span style="width:8px; height:8px; border-radius:50%; background:${dotColor}; display:inline-block;"></span>
                     </div>
+
+                    <div></div>
                 </div>
             `;
         });
@@ -6763,8 +6764,8 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         const scoreVal = (totalScore != null && totalScore !== 'N/A') ? totalScore : '?';
         let html = `
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:10px; gap:15px; border-bottom:1px solid rgba(255,255,255,0.1);">
-                <h3 style="margin:0; font-size:1.05rem; color:white; font-weight:800;">Piotroski F-Score</h3>
-                <div style="display:flex; align-items:baseline; gap:6px;">
+                <h3 style="margin:0; font-size:1.05rem; color:white; font-weight:800; line-height:1.3rem;">Piotroski F-Score</h3>
+                <div style="display:flex; align-items:baseline; gap:6px; line-height:1.3rem;">
                     <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600; text-transform:uppercase;">Total:</span>
                     <span style="font-size:1.3rem; font-weight:900; color:white;">${scoreVal}/9</span>
                 </div>
