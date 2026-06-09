@@ -23,14 +23,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 container.style.fontFamily = "'Outfit', sans-serif";
                 container.style.padding = '40px';
                 
-                // Position it absolutely but off-screen to preserve exact layout width
-                // without interfering with the user's viewport, avoiding the blank canvas bug.
-                container.style.position = 'absolute';
-                container.style.top = '-20000px';
-                container.style.left = '0';
+                // Wrap in a 0-height container so it doesn't affect user view, but stays in DOM flow
+                // so the browser renderer perfectly paints it.
+                const wrapper = document.createElement('div');
+                wrapper.style.position = 'relative';
+                wrapper.style.width = '100%';
+                wrapper.style.height = '0px';
+                wrapper.style.overflow = 'hidden';
+
+                container.style.position = 'relative';
                 container.style.width = '1200px';
                 
-                document.body.appendChild(container);
+                wrapper.appendChild(container);
+                document.body.appendChild(wrapper);
 
                 // Get Data
                 const d = window.globalData;
@@ -162,14 +167,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     },
                     pagebreak:    { mode: ['css', 'legacy'] },
-                    jsPDF:        { unit: 'pt', format: 'a4', orientation: 'portrait' }
+                    jsPDF:        { unit: 'px', format: [1200, 1600], hotfixes: ["px_scaling"], orientation: 'portrait' }
                 };
                 
                 await html2pdf().set(opt).from(container).save();
 
                 // Cleanup
-                if (document.body.contains(container)) {
-                    document.body.removeChild(container);
+                if (document.body.contains(wrapper)) {
+                    document.body.removeChild(wrapper);
                 }
 
             } catch(e) {
