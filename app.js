@@ -6669,20 +6669,21 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             else if (valStr.toLowerCase().endsWith('x')) { suffix = 'x'; valStr = valStr.slice(0, -1); }
 
             const valueHtml = suffix
-                ? `<div style="text-align: right; width: 100%;">${valStr} <span style="font-size: 0.8em; color: rgba(255,255,255,0.7);">${suffix}</span></div>`
-                : `<div style="text-align: right; width: 100%;">${valStr}</div>`;
+                ? `<div style="font-weight: 700; font-size: 0.9rem; color: rgba(255,255,255,0.85); font-family: monospace; white-space: nowrap;">${valStr}<span style="font-size: 0.8em; color: rgba(255,255,255,0.7); margin-left: 2px;">${suffix}</span></div>`
+                : `<div style="font-weight: 700; font-size: 0.9rem; color: rgba(255,255,255,0.85); font-family: monospace; white-space: nowrap;">${valStr}</div>`;
 
             html += `
-                <div style="display:grid; grid-template-columns: auto 1fr 20px 50px; align-items:center; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.05); gap:12px;">
-                    <div style="font-weight:600; font-size:clamp(0.75rem, 3vw, 0.88rem); color:white; line-height:1.2; white-space:nowrap;" title="${label}">${label}</div>
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.03); gap: 15px;">
+                    <div style="font-weight: 600; font-size: 0.85rem; color: white; line-height: 1.3;">${label}</div>
                     
-                    <div style="font-weight:700; font-size:clamp(0.8rem, 3vw, 0.9rem); color:rgba(255,255,255,0.85); font-family:monospace; display: flex; justify-content: flex-end; white-space: nowrap;">${valueHtml}</div>
-                    
-                    <div style="display:flex; justify-content:center;">
-                        <span style="width:8px; height:8px; border-radius:50%; background:${dotColor}; display:inline-block;"></span>
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        ${valueHtml}
+
+                        <div style="display: flex; align-items: center; gap: 8px; justify-content: flex-end; width: 60px;">
+                            <span style="width: 6px; height: 6px; border-radius: 50%; background: ${dotColor}; display: inline-block; flex-shrink: 0;"></span>
+                            <div style="font-weight: 800; font-size: 0.85rem; color: ${ptsColor}; font-family: 'Outfit', sans-serif; min-width: 35px; text-align: right;">${pts}/${maxPts}</div>
+                        </div>
                     </div>
-                    
-                    <div style="font-weight:800; font-size:clamp(0.8rem, 3vw, 0.85rem); color:${ptsColor}; font-family: 'Outfit', sans-serif; text-align:right;">${pts}/${maxPts}</div>
                 </div>
             `;
         });
@@ -6726,18 +6727,15 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             const dotColor = passed ? 'var(--accent)' : (item.status === 'fail' ? 'var(--danger)' : 'var(--text-muted)');
 
             html += `
-                <div style="display:grid; grid-template-columns: auto 1fr 20px 50px; align-items:center; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.05); gap:12px;">
-                    <div style="font-weight:600; font-size:clamp(0.75rem, 3vw, 0.88rem); color:white; line-height:1.2; white-space:nowrap;" title="${label}">${label}</div>
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05); gap: 15px;">
+                    <div style="font-weight: 600; font-size: 0.9rem; color: white; line-height: 1.3;">${label}</div>
 
-                    <div style="font-weight:700; font-size:clamp(0.8rem, 3vw, 0.9rem); color:rgba(255,255,255,0.85); font-family:monospace; display: flex; justify-content: flex-end; white-space: nowrap;">
-                        <div style="text-align: right; width: 100%;">${item.value !== null ? item.value : 'N/A'}</div>
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <div style="font-weight: 700; font-size: 0.9rem; color: rgba(255,255,255,0.85); font-family: monospace; white-space: nowrap;">
+                            ${item.value !== null ? item.value : 'N/A'}
+                        </div>
+                        <span style="width: 8px; height: 8px; border-radius: 50%; background: ${dotColor}; display: inline-block; flex-shrink: 0;"></span>
                     </div>
-
-                    <div style="display:flex; justify-content:center;">
-                        <span style="width:8px; height:8px; border-radius:50%; background:${dotColor}; display:inline-block;"></span>
-                    </div>
-
-                    <div></div>
                 </div>
             `;
         });
@@ -6778,23 +6776,26 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             const group = item.group || '';
             if (group && group !== lastGroup) {
                 lastGroup = group;
-                html += `<div style="margin-top:12px; margin-bottom:6px; font-size:0.75rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px;">${group}</div>`;
+                html += `<div style="margin-top: 15px; margin-bottom: 5px; font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px;">${group}</div>`;
             }
 
             const label = item.criterion || item.name || 'Unknown';
             const passed = item.passed;
             const dotColor = passed === true ? 'var(--accent)' : (passed === false ? 'var(--danger)' : 'var(--text-muted)');
-            const statusText = passed === true ? '✓ Pass' : (passed === false ? '✗ Fail' : '— N/A');
+            const statusText = passed === true ? 'Pass' : (passed === false ? 'Fail' : 'N/A');
             const statusColor = passed === true ? 'var(--accent)' : (passed === false ? 'var(--danger)' : 'var(--text-muted)');
 
             html += `
-                <div style="display:flex; flex-direction:column; padding:8px 0; border-top:1px solid rgba(255,255,255,0.04); gap:6px;">
-                    <div style="font-weight:600; font-size:0.85rem; color:white; line-height:1.4;">${label}</div>
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <div style="font-weight:700; font-size:0.85rem; color:rgba(255,255,255,0.7); font-family:monospace;">${item.value || 'N/A'}</div>
-                        <div style="display:flex; align-items:center; gap:8px;">
-                            <span style="width:8px; height:8px; border-radius:50%; background:${dotColor}; display:inline-block; flex-shrink:0;"></span>
-                            <div style="font-weight:800; font-size:0.85rem; color:${statusColor}; white-space:nowrap; padding-left:4px; min-width:55px;">${statusText}</div>
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.03); gap: 15px;">
+                    <div style="font-weight: 600; font-size: 0.85rem; color: white; line-height: 1.3;">${label}</div>
+
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <div style="font-weight: 700; font-size: 0.85rem; color: rgba(255,255,255,0.85); font-family: monospace; white-space: nowrap;">
+                            ${item.value || 'N/A'}
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 6px; width: 45px; justify-content: flex-end;">
+                            <div style="font-weight: 800; font-size: 0.8rem; color: ${statusColor}; text-transform: uppercase;">${statusText}</div>
+                            <span style="width: 6px; height: 6px; border-radius: 50%; background: ${dotColor}; display: inline-block; flex-shrink: 0;"></span>
                         </div>
                     </div>
                 </div>
