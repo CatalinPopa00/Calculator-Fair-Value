@@ -36,7 +36,10 @@ from models.scoring import calculate_scoring_reform, calculate_piotroski_score
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
+
 CACHE_VERSION = "v316"
+
+
 def get_usd_fx_rate(currency: str) -> float:
     if not currency:
         return 1.0
@@ -1156,12 +1159,20 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             # For these, we use PV(FCF) as a proxy for Equity Value directly.
             # v63: Only apply to actual Banks/Insurance, not Data/FinTech providers like FDS or MSCI.
             is_bank_or_insurance = any(x in str(industry).lower() for x in ["bank", "insurance", "savings", "credit"])
+
+            # Exception for Payment Networks (V, MA, PYPL) which are often labeled "Credit Services" but are not banks
+            if ticker.upper() in ["V", "MA", "PYPL"]:
+                is_bank_or_insurance = False
+
             if sector == "Financial Services" and is_bank_or_insurance:
                 dcf_cash = 0
                 dcf_debt = 0
                 
+        # Get buyback rate for DCF
+        dcf_buyback = data.get("historic_buyback_rate") or 0.0
+
         # 5 Year Calculation (Default for Dashboard)
-        res_5 = calculate_dcf(fcf_obj, eps_growth, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, years=5, exit_multiple=recommended_exit_multiple, current_price=current_price)
+        res_5 = calculate_dcf(fcf_obj, eps_growth, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, years=5, buyback_rate=dcf_buyback, exit_multiple=recommended_exit_multiple, current_price=current_price)
         sens_5 = calculate_dcf_sensitivity(fcf_obj, eps_growth, shares, dcf_cash, dcf_debt, 5, discount_rate, perpetual_growth, exit_multiple=recommended_exit_multiple)
         rev_5 = calculate_reverse_dcf(current_price, fcf_obj, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, 5, exit_multiple=recommended_exit_multiple)
         
@@ -1178,7 +1189,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             }
             
         # 10 Year Calculation 
-        res_10 = calculate_dcf(fcf_obj, eps_growth, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, years=10, exit_multiple=recommended_exit_multiple, current_price=current_price)
+        res_10 = calculate_dcf(fcf_obj, eps_growth, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, years=10, buyback_rate=dcf_buyback, exit_multiple=recommended_exit_multiple, current_price=current_price)
         sens_10 = calculate_dcf_sensitivity(fcf_obj, eps_growth, shares, dcf_cash, dcf_debt, 10, discount_rate, perpetual_growth, exit_multiple=recommended_exit_multiple)
         rev_10 = calculate_reverse_dcf(current_price, fcf_obj, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, 10, exit_multiple=recommended_exit_multiple)
         
