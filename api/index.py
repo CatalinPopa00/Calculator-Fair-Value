@@ -1018,7 +1018,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             return statistics.median(vals)
 
         bPE = get_clean_median_local('pe_ratio')
-        bEVSALES = get_clean_median_local('ps_ratio')
+        bEVSALES = get_clean_median_local('forward_ev_sales')
         bEVEBITDA = get_clean_median_local('ev_to_ebitda')
         bPB = get_clean_median_local('price_to_book')
         
@@ -1035,15 +1035,17 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
 
         # 3. Forward EV/EBITDA Fair Value
         fvEVEBITDA = None
-        if targ_fwd_eps and company_shares > 0:
-            est_fwd_ni = targ_fwd_eps * company_shares
-            tax_int_da = targ_ebitda - targ_ni
-            est_fwd_ebitda = est_fwd_ni + tax_int_da
-            if est_fwd_ebitda > 0 and bEVEBITDA:
-                implied_ev_ebitda = est_fwd_ebitda * bEVEBITDA
-                implied_mcap_ebitda = implied_ev_ebitda - company_debt + company_cash
-                fvEVEBITDA = implied_mcap_ebitda / company_shares if company_shares > 0 else None
-                if fvEVEBITDA is not None and fvEVEBITDA <= 0: fvEVEBITDA = None
+        # Better EV/EBITDA Proxy calculation via fwd revenue and margin
+        est_fwd_ebitda = None
+        if targ_fwd_rev and targ_ebitda and data.get("revenue") and data.get("revenue") > 0:
+            ebitda_margin = targ_ebitda / data.get("revenue")
+            est_fwd_ebitda = targ_fwd_rev * ebitda_margin
+
+        if est_fwd_ebitda and est_fwd_ebitda > 0 and bEVEBITDA and company_shares > 0:
+            implied_ev_ebitda = est_fwd_ebitda * bEVEBITDA
+            implied_mcap_ebitda = implied_ev_ebitda - company_debt + company_cash
+            fvEVEBITDA = implied_mcap_ebitda / company_shares if company_shares > 0 else None
+            if fvEVEBITDA is not None and fvEVEBITDA <= 0: fvEVEBITDA = None
                 
         # 4. Current P/B Fair Value (Financials only)
         fvPB = (company_book_share * bPB) if (company_book_share and bPB and company_book_share > 0) else None
