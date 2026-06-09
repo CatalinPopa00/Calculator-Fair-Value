@@ -3417,7 +3417,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
     const inputSelectors = [
         'fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple', 'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp',
-        'dcf-buyback-source', 'dcf-custom-buyback', 'relative-variant',
+        'dcf-buyback-source', 'dcf-custom-buyback', 'dcf-custom-sbc', 'relative-variant',
         'lynch-multiple-source', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth', 'lynch-return-rate', 'lynch-custom-return',
         'peg-eps-source', 'peg-custom-growth'
     ];
@@ -4734,7 +4734,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     const overrideInputIds = [
         'fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple',
         'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp', 'dcf-custom-fcf-margin', 'dcf-custom-margin-growth',
-        'dcf-buyback-source', 'dcf-custom-buyback', 'relative-variant',
+        'dcf-buyback-source', 'dcf-custom-buyback', 'dcf-custom-sbc', 'relative-variant',
         'lynch-multiple-source', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth', 'lynch-return-rate', 'lynch-custom-return',
         'peg-eps-source', 'peg-custom-growth', 'peg-mode'
     ];
@@ -4943,7 +4943,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         const ov = cachedOverrides[currentTicker];
         if (ov && ov.inputs) {
             const idsToReset = {
-                dcf: ['fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple', 'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp', 'dcf-custom-fcf-margin', 'dcf-custom-margin-growth', 'dcf-buyback-source', 'dcf-custom-buyback'],
+                dcf: ['fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple', 'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp', 'dcf-custom-fcf-margin', 'dcf-custom-margin-growth', 'dcf-buyback-source', 'dcf-custom-buyback', 'dcf-custom-sbc'],
                 relative: ['relative-variant', 'rel-weight-mode-card'],
                 peter_lynch: ['lynch-multiple-source', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth', 'lynch-return-rate', 'lynch-custom-return'],
                 peg: ['peg-eps-source', 'peg-custom-growth', 'peg-mode']

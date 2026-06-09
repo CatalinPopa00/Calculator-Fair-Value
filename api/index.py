@@ -1155,6 +1155,11 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             # For these, we use PV(FCF) as a proxy for Equity Value directly.
             # v63: Only apply to actual Banks/Insurance, not Data/FinTech providers like FDS or MSCI.
             is_bank_or_insurance = any(x in str(industry).lower() for x in ["bank", "insurance", "savings", "credit"])
+
+            # Exception for Payment Networks (V, MA, PYPL) which are often labeled "Credit Services" but are not banks
+            if ticker.upper() in ["V", "MA", "PYPL"]:
+                is_bank_or_insurance = False
+
             if sector == "Financial Services" and is_bank_or_insurance:
                 dcf_cash = 0
                 dcf_debt = 0
