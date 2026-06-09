@@ -1469,7 +1469,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             buybackCostPerYear.push(buybackCashSpent);
             fcf_projections.push(currentFcf);
 
-            const pv_fcf = currentFcf / Math.pow(1 + finalWacc, i);
+            const pv_fcf = currentFcf / Math.pow(1 + finalWacc, i - 0.5);
             pv_fcf_years.push(pv_fcf);
             pv += pv_fcf;
         }
