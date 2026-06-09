@@ -2302,9 +2302,16 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         circle.style.color = '';
         fill.style.backgroundColor = '';
         fill.style.width = '0%';
-        circle.style.width = 'auto'; // ensure padding is respected
-        circle.style.padding = '0 10px';
-        circle.style.borderRadius = '12px';
+        circle.style.width = '';
+        circle.style.padding = '0';
+        circle.style.borderRadius = '';
+
+        // Adjust parent grid to accommodate wider percentage text
+        const parentDisplay = circle.parentElement;
+        if (parentDisplay && parentDisplay.classList.contains('score-display')) {
+            parentDisplay.style.gridTemplateColumns = 'min-content 1fr 2.5rem';
+            circle.style.marginRight = '0.5rem';
+        }
 
         if (!rule40Data || rule40Data.total === null || isNaN(rule40Data.total)) {
             circle.textContent = 'N/A';
@@ -2364,26 +2371,27 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     Metrics
                 </h4>
                 
-                <div style="display:grid; grid-template-columns: auto 1fr 20px 50px; align-items:center; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.05); gap:12px;">
+                <div style="display:grid; grid-template-columns: 1fr max-content 20px; align-items:center; padding:10px 0; gap:12px 16px;">
+                    <!-- Revenue Growth Row -->
                     <div style="font-weight:600; font-size:clamp(0.75rem, 3vw, 0.88rem); color:white; line-height:1.2; white-space:nowrap;" title="${rule40Data.rev_growth_label || 'Revenue Growth'}">${rule40Data.rev_growth_label || 'Revenue Growth'}</div>
-                    <div style="font-weight:700; font-size:clamp(0.8rem, 3vw, 0.9rem); color:rgba(255,255,255,0.85); font-family:monospace; display: flex; justify-content: flex-end; white-space: nowrap;">
-                        <div style="text-align: right; width: 100%;">${(rule40Data.revenue_growth || 0).toFixed(1)} <span style="font-size: 0.8em; color: rgba(255,255,255,0.7);">%</span></div>
+                    <div style="font-weight:700; font-size:clamp(0.8rem, 3vw, 0.9rem); color:rgba(255,255,255,0.85); font-family:monospace; text-align:right;">
+                        ${(rule40Data.revenue_growth || 0).toFixed(1)} <span style="font-size: 0.8em; color: rgba(255,255,255,0.7);">%</span>
                     </div>
                     <div style="display:flex; justify-content:center;">
                         <span style="width:8px; height:8px; border-radius:50%; background:${(rule40Data.revenue_growth || 0) > 0 ? 'var(--accent)' : 'var(--danger)'}; display:inline-block;"></span>
                     </div>
-                    <div></div>
-                </div>
-                
-                <div style="display:grid; grid-template-columns: auto 1fr 20px 50px; align-items:center; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.05); gap:12px;">
+
+                    <!-- Full-width divider -->
+                    <div style="grid-column: 1 / -1; height: 1px; background: rgba(255,255,255,0.05); margin: 2px 0;"></div>
+
+                    <!-- FCF Margin Row -->
                     <div style="font-weight:600; font-size:clamp(0.75rem, 3vw, 0.88rem); color:white; line-height:1.2; white-space:nowrap;" title="${rule40Data.margin_label || 'FCF Margin'}">${rule40Data.margin_label || 'FCF Margin'}</div>
-                    <div style="font-weight:700; font-size:clamp(0.8rem, 3vw, 0.9rem); color:rgba(255,255,255,0.85); font-family:monospace; display: flex; justify-content: flex-end; white-space: nowrap;">
-                        <div style="text-align: right; width: 100%;">${(rule40Data.fcf_margin || 0).toFixed(1)} <span style="font-size: 0.8em; color: rgba(255,255,255,0.7);">%</span></div>
+                    <div style="font-weight:700; font-size:clamp(0.8rem, 3vw, 0.9rem); color:rgba(255,255,255,0.85); font-family:monospace; text-align:right;">
+                        ${(rule40Data.fcf_margin || 0).toFixed(1)} <span style="font-size: 0.8em; color: rgba(255,255,255,0.7);">%</span>
                     </div>
                     <div style="display:flex; justify-content:center;">
                         <span style="width:8px; height:8px; border-radius:50%; background:${(rule40Data.fcf_margin || 0) > 0 ? 'var(--accent)' : 'var(--danger)'}; display:inline-block;"></span>
                     </div>
-                    <div></div>
                 </div>
             </div>`;
 
