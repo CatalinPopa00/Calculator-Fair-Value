@@ -1456,16 +1456,16 @@ window._customScenariosData = null;
             // FCF is calculated on top of projected Revenue
             currentFcf = currentRevenue * yearMargin;
 
-            // Method A: Deduct buyback cash cost from FCF
+            // Method A: Deduct buyback cash cost from FCF (or add dilution cost if buybackRate < 0)
             let buybackCashSpent = 0;
-            if (buybackRate > 0 && currentPrice && currentPrice > 0) {
+            if (buybackRate !== 0 && currentPrice && currentPrice > 0) {
                 const projectedPrice = currentPrice * Math.pow(1 + finalWacc, i);
                 const sharesBought = remainingShares * buybackRate;
                 buybackCashSpent = sharesBought * projectedPrice;
                 remainingShares -= sharesBought;
                 currentFcf -= buybackCashSpent;
-            } else if (buybackRate > 0) {
-                // Fallback: just reduce shares without FCF deduction
+            } else if (buybackRate !== 0) {
+                // Fallback: just reduce/increase shares without FCF deduction
                 remainingShares *= (1 - buybackRate);
             }
 
@@ -2374,32 +2374,15 @@ window._customScenariosData = null;
                     Metrics
                 </h4>
                 
-<<<<<<< HEAD
-<<<<<<< HEAD
                 <div style="display:grid; grid-template-columns: 1fr max-content 20px; align-items:center; padding:10px 0; gap:12px 16px;">
                     <!-- Revenue Growth Row -->
                     <div style="font-weight:600; font-size:clamp(0.75rem, 3vw, 0.88rem); color:white; line-height:1.2; white-space:nowrap;" title="${rule40Data.rev_growth_label || 'Revenue Growth'}">${rule40Data.rev_growth_label || 'Revenue Growth'}</div>
                     <div style="font-weight:700; font-size:clamp(0.8rem, 3vw, 0.9rem); color:rgba(255,255,255,0.85); font-family:monospace; text-align:right;">
                         ${(rule40Data.revenue_growth || 0).toFixed(1)} <span style="font-size: 0.8em; color: rgba(255,255,255,0.7);">%</span>
-=======
-                <div style="display:grid; grid-template-columns: auto 1fr 20px 50px; align-items:center; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.05); gap:12px;">
-                    <div style="font-weight:600; font-size:clamp(0.75rem, 3vw, 0.88rem); color:white; line-height:1.2; white-space:nowrap;" title="${rule40Data.rev_growth_label || 'Revenue Growth'}">${rule40Data.rev_growth_label || 'Revenue Growth'}</div>
-                    <div style="font-weight:700; font-size:clamp(0.8rem, 3vw, 0.9rem); color:rgba(255,255,255,0.85); font-family:monospace; display: flex; justify-content: flex-end; white-space: nowrap;">
-                        <div style="text-align: right; width: 100%;">${(rule40Data.revenue_growth || 0).toFixed(1)} <span style="font-size: 0.8em; color: rgba(255,255,255,0.7);">%</span></div>
->>>>>>> 4059b65 (style: enhance breakdown menus formatting)
-=======
-                <div style="display:grid; grid-template-columns: 1fr max-content 20px; align-items:center; padding:10px 0; gap:12px 16px;">
-                    <!-- Revenue Growth Row -->
-                    <div style="font-weight:600; font-size:clamp(0.75rem, 3vw, 0.88rem); color:white; line-height:1.2; white-space:nowrap;" title="${rule40Data.rev_growth_label || 'Revenue Growth'}">${rule40Data.rev_growth_label || 'Revenue Growth'}</div>
-                    <div style="font-weight:700; font-size:clamp(0.8rem, 3vw, 0.9rem); color:rgba(255,255,255,0.85); font-family:monospace; text-align:right;">
-                        ${(rule40Data.revenue_growth || 0).toFixed(1)} <span style="font-size: 0.8em; color: rgba(255,255,255,0.7);">%</span>
->>>>>>> 7861b3d (fix: update modal titles and modernize view data buttons)
                     </div>
                     <div style="display:flex; justify-content:center;">
                         <span style="width:8px; height:8px; border-radius:50%; background:${(rule40Data.revenue_growth || 0) > 0 ? 'var(--accent)' : 'var(--danger)'}; display:inline-block;"></span>
                     </div>
-<<<<<<< HEAD
-<<<<<<< HEAD
 
                     <!-- Full-width divider -->
                     <div style="grid-column: 1 / -1; height: 1px; background: rgba(255,255,255,0.05); margin: 2px 0;"></div>
@@ -2412,30 +2395,6 @@ window._customScenariosData = null;
                     <div style="display:flex; justify-content:center;">
                         <span style="width:8px; height:8px; border-radius:50%; background:${(rule40Data.fcf_margin || 0) > 0 ? 'var(--accent)' : 'var(--danger)'}; display:inline-block;"></span>
                     </div>
-=======
-                    <div></div>
-                </div>
-
-                <div style="display:grid; grid-template-columns: auto 1fr 20px 50px; align-items:center; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.05); gap:12px;">
-=======
-
-                    <!-- Full-width divider -->
-                    <div style="grid-column: 1 / -1; height: 1px; background: rgba(255,255,255,0.05); margin: 2px 0;"></div>
-
-                    <!-- FCF Margin Row -->
->>>>>>> 7861b3d (fix: update modal titles and modernize view data buttons)
-                    <div style="font-weight:600; font-size:clamp(0.75rem, 3vw, 0.88rem); color:white; line-height:1.2; white-space:nowrap;" title="${rule40Data.margin_label || 'FCF Margin'}">${rule40Data.margin_label || 'FCF Margin'}</div>
-                    <div style="font-weight:700; font-size:clamp(0.8rem, 3vw, 0.9rem); color:rgba(255,255,255,0.85); font-family:monospace; text-align:right;">
-                        ${(rule40Data.fcf_margin || 0).toFixed(1)} <span style="font-size: 0.8em; color: rgba(255,255,255,0.7);">%</span>
-                    </div>
-                    <div style="display:flex; justify-content:center;">
-                        <span style="width:8px; height:8px; border-radius:50%; background:${(rule40Data.fcf_margin || 0) > 0 ? 'var(--accent)' : 'var(--danger)'}; display:inline-block;"></span>
-                    </div>
-<<<<<<< HEAD
-                    <div></div>
->>>>>>> 4059b65 (style: enhance breakdown menus formatting)
-=======
->>>>>>> 7861b3d (fix: update modal titles and modernize view data buttons)
                 </div>
             </div>`;
 
@@ -6846,11 +6805,7 @@ window._customScenariosData = null;
                     
                     <div style="display: flex; align-items: center; gap: 15px;">
                         ${valueHtml}
-<<<<<<< HEAD
 
-=======
-
->>>>>>> 4059b65 (style: enhance breakdown menus formatting)
                         <div style="display: flex; align-items: center; gap: 8px; justify-content: flex-end; width: 60px;">
                             <span style="width: 6px; height: 6px; border-radius: 50%; background: ${dotColor}; display: inline-block; flex-shrink: 0;"></span>
                             <div style="font-weight: 800; font-size: 0.85rem; color: ${ptsColor}; font-family: 'Outfit', sans-serif; min-width: 35px; text-align: right;">${pts}/${maxPts}</div>
@@ -6901,11 +6856,7 @@ window._customScenariosData = null;
             html += `
                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05); gap: 15px;">
                     <div style="font-weight: 600; font-size: 0.9rem; color: white; line-height: 1.3;">${label}</div>
-<<<<<<< HEAD
 
-=======
-
->>>>>>> 4059b65 (style: enhance breakdown menus formatting)
                     <div style="display: flex; align-items: center; gap: 15px;">
                         <div style="font-weight: 700; font-size: 0.9rem; color: rgba(255,255,255,0.85); font-family: monospace; white-space: nowrap;">
                             ${item.value !== null ? item.value : 'N/A'}
@@ -6964,11 +6915,7 @@ window._customScenariosData = null;
             html += `
                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.03); gap: 15px;">
                     <div style="font-weight: 600; font-size: 0.85rem; color: white; line-height: 1.3;">${label}</div>
-<<<<<<< HEAD
 
-=======
-
->>>>>>> 4059b65 (style: enhance breakdown menus formatting)
                     <div style="display: flex; align-items: center; gap: 15px;">
                         <div style="font-weight: 700; font-size: 0.85rem; color: rgba(255,255,255,0.85); font-family: monospace; white-space: nowrap;">
                             ${item.value || 'N/A'}

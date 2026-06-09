@@ -1954,6 +1954,7 @@ def get_firebase_config():
         "appId": os.environ.get("FIREBASE_APP_ID", "1:332002590695:web:ffaebc5eb3b62548cb8742")
     })
 
+
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8000)
 

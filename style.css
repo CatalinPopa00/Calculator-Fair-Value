@@ -3892,8 +3892,6 @@ body.has-searched .floating-login-btn {
 .premium-data-table tr:hover td {
     background: rgba(255,255,255,0.02);
 }
-<<<<<<< HEAD
-<<<<<<< HEAD
 
 /* Custom Scenarios Modal Styles */
 .cs-label {
@@ -3966,9 +3964,6 @@ body.has-searched .floating-login-btn {
         overflow-y: auto;
     }
 }
-=======
->>>>>>> 4059b65 (style: enhance breakdown menus formatting)
-=======
 
 .view-data-btn {
     width: auto;
@@ -4013,4 +4008,3 @@ body.has-searched .floating-login-btn {
 .view-data-btn:hover .details-icon {
     transform: scale(1.1);
 }
->>>>>>> 7861b3d (fix: update modal titles and modernize view data buttons)
