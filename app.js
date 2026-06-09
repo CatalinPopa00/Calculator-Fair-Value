@@ -702,7 +702,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             window._simulatedPriceActive = simPrice;
         } else {
             window._simulatedPriceActive = null;
-window._customScenariosData = null;
         }
 
         // Helper to convert growth/margins to percentage if they are raw decimals (matches backend clean_percent)
@@ -2518,24 +2517,22 @@ window._customScenariosData = null;
 
             if (fcfSource === 'revenue' || fcfSource === 'eps_growth') {
                 const waccInput = document.getElementById('dcf-custom-wacc');
-                const wAnalyst = (waccInput && waccInput.value) ? parseLocaleFloat(waccInput.value) / 100 : w;
+                let wAnalyst = (waccInput && waccInput.value) ? parseLocaleFloat(waccInput.value) / 100 : w;
+                if (cs && cs.wacc !== null) wAnalyst = cs.wacc / 100;
 
                 const pRaw = document.getElementById('dcf-custom-perp')?.value;
-                const pCustom = (pRaw === '' || isNaN(parseLocaleFloat(pRaw))) ? p : parseLocaleFloat(pRaw) / 100;
+                let pCustom = (pRaw === '' || isNaN(parseLocaleFloat(pRaw))) ? p : parseLocaleFloat(pRaw) / 100;
+                if (cs && cs.perp !== null) pCustom = cs.perp / 100;
 
-                const em = parseLocaleFloat(document.getElementById('input-exit-multiple')?.value) || (globalData.dcf_assumptions?.recommended_exit_multiple || 15.0);
+                let em = parseLocaleFloat(document.getElementById('input-exit-multiple')?.value) || (globalData.dcf_assumptions?.recommended_exit_multiple || 15.0);
+                if (cs && cs.exit !== null) em = cs.exit;
 
                 let g;
                 if (fcfSource === 'revenue') {
                     const revBase = getDynamicRevGrowth();
                     const g13 = Math.min(Math.round(revBase * 1000) / 1000, 0.50);
 
-                    let customRev46 = null;
-                    if (window._customScenariosData && window._customScenariosData[_currentScenario] && window._customScenariosData[_currentScenario].rev46 !== null) {
-                        customRev46 = window._customScenariosData[_currentScenario].rev46 / 100;
-                    }
-
-                    const g46 = customRev46 !== null ? customRev46 : Math.min(revBase * 0.75, 0.30);
+                    const g46 = Math.min(revBase * 0.75, 0.30);
 
                     const g78 = Math.min(revBase * 0.50, 0.15);
                     const g910 = Math.min(revBase * 0.25, 0.05);
@@ -2617,15 +2614,19 @@ window._customScenariosData = null;
                     // If 10yr selected, 7-8Y and 9-10Y are ALSO required
                     dcfValObj = null;
                 } else {
-                    const g13 = v13 / 100;
+                    let g13 = v13 / 100;
+                    let g46 = v46 / 100;
+                    let g78 = (v78 ?? 0) / 100;
+                    let g910 = (v910 ?? 0) / 100;
 
-                    let customRev46 = null;
-                    if (window._customScenariosData && window._customScenariosData[_currentScenario] && window._customScenariosData[_currentScenario].rev46 !== null) {
-                        customRev46 = window._customScenariosData[_currentScenario].rev46 / 100;
+                    // Override all growths if custom scenario provides 1-3Y growth
+                    if (window._customScenariosData && window._customScenariosData[_currentScenario] && window._customScenariosData[_currentScenario].rev13 !== null) {
+                        const baseRev = window._customScenariosData[_currentScenario].rev13 / 100;
+                        g13 = Math.min(Math.round(baseRev * 1000) / 1000, 0.50);
+                        g46 = Math.min(baseRev * 0.75, 0.30);
+                        g78 = Math.min(baseRev * 0.50, 0.15);
+                        g910 = Math.min(baseRev * 0.25, 0.05);
                     }
-                    const g46 = customRev46 !== null ? customRev46 : v46 / 100;
-                    const g78 = (v78 ?? 0) / 100;
-                    const g910 = (v910 ?? 0) / 100;
 
                     // Build per-year growth array
                     const growthArr = [];
@@ -2709,6 +2710,10 @@ window._customScenariosData = null;
             if (pegSrc === 'analyst') {
                 strictCagrMode = true;
                 usedGrowth = null; // Default to null for strict 2-Year CAGR
+                if (window._customScenariosData && window._customScenariosData[_currentScenario] && window._customScenariosData[_currentScenario].eps !== null) {
+                    usedGrowth = window._customScenariosData[_currentScenario].eps / 100;
+                    strictCagrMode = false; // We have custom growth, not strict CAGR
+                }
                 const pegEsts = globalData.eps_estimates?.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
                 if (pegEsts && pegEsts.length >= 2) {
                     const reportedE = globalData.eps_estimates?.find(e => e && e.status === 'reported');
@@ -2719,15 +2724,17 @@ window._customScenariosData = null;
                         else if (_currentScenario === 'bull') { y1 = pegEsts[0].high ?? pegEsts[0].avg; y2 = pegEsts[1].high ?? pegEsts[1].avg; }
                         else { y1 = pegEsts[0].avg; y2 = pegEsts[1].avg; }
 
-                        if (globalData.computed_eps_growth != null && !isNaN(globalData.computed_eps_growth)) {
-                            usedGrowth = globalData.computed_eps_growth;
-                        } else {
-                            if (baseEps > 0 && y2 > 0) {
-                                usedGrowth = Math.pow(y2 / baseEps, 0.5) - 1;
+                        if (usedGrowth === null) {
+                            if (globalData.computed_eps_growth != null && !isNaN(globalData.computed_eps_growth)) {
+                                usedGrowth = globalData.computed_eps_growth;
                             } else {
-                                const g1 = (y1 / baseEps) - 1;
-                                const g2 = (y2 / y1) - 1;
-                                usedGrowth = (g1 + g2) / 2.0;
+                                if (baseEps > 0 && y2 > 0) {
+                                    usedGrowth = Math.pow(y2 / baseEps, 0.5) - 1;
+                                } else {
+                                    const g1 = (y1 / baseEps) - 1;
+                                    const g2 = (y2 / y1) - 1;
+                                    usedGrowth = (g1 + g2) / 2.0;
+                                }
                             }
                         }
 
@@ -2737,6 +2744,9 @@ window._customScenariosData = null;
                 }
             } else if (pegSrc === '5ycagr') {
                 usedGrowth = globalData.company_profile.cagr_5y_custom || currentFormulaData.peg.eps_growth_5y_cagr || usedGrowth;
+                if (window._customScenariosData && window._customScenariosData[_currentScenario] && window._customScenariosData[_currentScenario].eps !== null) {
+                    usedGrowth = window._customScenariosData[_currentScenario].eps / 100;
+                }
                 fwdPe = globalData.company_profile.forward_pe_custom || currentFormulaData.peg.fwd_pe || null;
             } else if (pegSrc === 'custom') {
                 const rawG = document.getElementById('peg-custom-growth').value;
@@ -2938,9 +2948,11 @@ window._customScenariosData = null;
 
             if (epsSource === 'analyst') {
                 usedGrowth = getDynamicEpsGrowth();
-            }
-            if (epsSource === '5ycagr') {
+            } else if (epsSource === '5ycagr') {
                 usedGrowth = globalData.company_profile.cagr_5y_custom || pl.eps_growth_5y_cagr || usedGrowth;
+                if (window._customScenariosData && window._customScenariosData[_currentScenario] && window._customScenariosData[_currentScenario].eps !== null) {
+                    usedGrowth = window._customScenariosData[_currentScenario].eps / 100;
+                }
             } else if (epsSource === 'historical') {
                 usedGrowth = prof.historic_eps_growth != null ? prof.historic_eps_growth : 0.05;
             } else if (epsSource === 'custom') {
@@ -3010,6 +3022,7 @@ window._customScenariosData = null;
             if (targetEps != null && targetEps > 0) {
                 const fwdPrice = targetEps * selectedMult;
                 lynchVal = fwdPrice / Math.pow(1 + discountRate, 3);
+                currentFormulaData.peter_lynch.dynamic_fwd_price = fwdPrice;
             }
 
             // Store dynamics for modal
@@ -5959,7 +5972,6 @@ window._customScenariosData = null;
                         const data = window._customScenariosData[scen];
                         if (!data) return;
                         if (data.rev13 !== null) document.getElementById(`cs-rev-1-3-${scen}`).value = data.rev13;
-                        if (data.rev46 !== null) document.getElementById(`cs-rev-4-6-${scen}`).value = data.rev46;
                         if (data.fcfMargin !== null) document.getElementById(`cs-fcf-margin-${scen}`).value = data.fcfMargin;
                         if (data.wacc !== null) document.getElementById(`cs-wacc-${scen}`).value = data.wacc;
                         if (data.exit !== null) document.getElementById(`cs-exit-${scen}`).value = data.exit;
@@ -5997,7 +6009,6 @@ window._customScenariosData = null;
             ['bear', 'base', 'bull'].forEach(scen => {
                 window._customScenariosData[scen] = {
                     rev13: parseCsInput(`cs-rev-1-3-${scen}`),
-                    rev46: parseCsInput(`cs-rev-4-6-${scen}`),
                     fcfMargin: parseCsInput(`cs-fcf-margin-${scen}`),
                     wacc: parseCsInput(`cs-wacc-${scen}`),
                     exit: parseCsInput(`cs-exit-${scen}`),
@@ -6278,7 +6289,13 @@ window._customScenariosData = null;
                 }
 
                 const customMarginEl = document.getElementById('dcf-custom-fcf-margin');
-                const customMargin = (customMarginEl && customMarginEl.value !== '') ? parseLocaleFloat(customMarginEl.value) : null;
+                let customMargin = (customMarginEl && customMarginEl.value !== '') ? parseLocaleFloat(customMarginEl.value) : null;
+
+                let cs = window._customScenariosData && window._customScenariosData[_currentScenario] ? window._customScenariosData[_currentScenario] : null;
+                if (cs && cs.fcfMargin !== null) {
+                    customMargin = cs.fcfMargin;
+                }
+
                 let startingFcfMargin = 0.10;
                 if (customMargin !== null && !isNaN(customMargin)) {
                     startingFcfMargin = customMargin / 100;
@@ -6667,12 +6684,15 @@ window._customScenariosData = null;
             const prof = globalData.company_profile || {};
             title.textContent = '📊 Forward Multiple Valuation';
             const epsLabel = p.valuation_eps !== p.trailing_eps ? 'EPS Base (Normalized)' : 'Trailing EPS (GAAP)';
+            const dynMult = p.dynamic_mult != null ? (Number.isInteger(p.dynamic_mult) ? p.dynamic_mult : p.dynamic_mult.toFixed(2)) : 20;
+            const targetPrice = p.dynamic_fwd_price != null ? p.dynamic_fwd_price : (p.fwd_eps != null ? p.fwd_eps * dynMult : null);
             html = `<div class="table-responsive"><table class="premium-data-table">` + row(epsLabel, '$' + fmt(p.valuation_eps || p.trailing_eps))
                 + row('Growth Estimate', fmtPct(p.dynamic_growth != null ? p.dynamic_growth : p.eps_growth_estimated))
                 + row('Forward EPS (3Y Projection)', '$' + fmt(p.dynamic_fwd_eps != null ? p.dynamic_fwd_eps : p.fwd_eps))
                 + row('5Y Avg P/E', prof.historic_pe ? prof.historic_pe.toFixed(2) + 'x' : 'N/A')
+                + (targetPrice != null ? row(`3Y Target Price (PE ${dynMult})`, '$' + fmt(targetPrice)) : '')
                 + row(`Return Rate (Discount)`, p.dynamic_discount != null ? fmtPct(p.dynamic_discount) : '15.0%')
-                + row(`Fair Value (PE ${p.dynamic_mult != null ? (Number.isInteger(p.dynamic_mult) ? p.dynamic_mult : p.dynamic_mult.toFixed(2)) : 20})`, '$' + fmt(p.dynamic_fv != null ? p.dynamic_fv : p.fair_value_pe_20)) + `</table></div>`;
+                + row(`Present Fair Value`, '$' + fmt(p.dynamic_fv != null ? p.dynamic_fv : p.fair_value_pe_20)) + `</table></div>`;
         } else if (model === 'peg' && currentFormulaData.peg) {
             const g = currentFormulaData.peg;
             const prof = globalData.company_profile || {};
