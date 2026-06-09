@@ -1167,23 +1167,9 @@ body {
 }
 
 /* View Data Button */
-.view-data-btn {
-    margin-top: auto;
-    align-self: center;
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    color: white;
-    padding: 0.6rem 1.2rem;
-    border-radius: 8px;
-    cursor: pointer;
-    font-family: inherit;
-    font-weight: 600;
-    transition: background 0.3s;
-}
 
-.view-data-btn:hover {
-    background: rgba(255, 255, 255, 0.2);
-}
+
+
 
 /* Watchlist View */
 .watchlist-view h2 {
@@ -2234,26 +2220,9 @@ body.banner-visible .modal-content {
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
 }
 
-.view-data-btn {
-    width: 100%;
-    margin-top: 1rem;
-    padding: 10px;
-    background: rgba(59, 130, 246, 0.1);
-    border: 1px solid rgba(59, 130, 246, 0.3);
-    color: var(--primary);
-    border-radius: 10px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-    font-size: 0.85rem;
-}
 
-.view-data-btn:hover {
-    background: var(--primary);
-    color: white;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
-}
+
+
 
 /* Toggle Stylization */
 .method-toggle {
@@ -3922,4 +3891,48 @@ body.has-searched .floating-login-btn {
 
 .premium-data-table tr:hover td {
     background: rgba(255,255,255,0.02);
+}
+
+.view-data-btn {
+    width: auto;
+    min-width: 130px;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 20px;
+    padding: 0.45rem 1.1rem;
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    user-select: none;
+    outline: none;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.view-data-btn:hover {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%);
+    border-color: rgba(255, 255, 255, 0.15);
+    color: var(--text-light);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.view-data-btn .details-icon {
+    stroke: var(--primary);
+    transition: transform 0.3s ease;
+}
+
+.view-data-btn:hover .details-icon {
+    transform: scale(1.1);
 }

@@ -3393,7 +3393,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             const activeTitle = document.getElementById('modal-title')?.textContent || '';
             let btnSelector = null;
             if (activeTitle.includes('Discounted Cash Flow')) btnSelector = 'button.view-data-btn[data-method="dcf"]';
-            else if (activeTitle.includes('Triangulation')) btnSelector = 'button.view-data-btn[data-method="relative"]';
+            else if (activeTitle.includes('Relative Valuation')) btnSelector = 'button.view-data-btn[data-method="relative"]';
             else if (activeTitle.includes('Forward Multiple')) btnSelector = 'button.view-data-btn[data-method="peter_lynch"]';
             else if (activeTitle.includes('PEG Valuation')) btnSelector = 'button.view-data-btn[data-method="peg"]';
 
@@ -6117,7 +6117,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             return prefix + v.toLocaleString();
         };
 
-        const row = (label, value) => `<div style="display:flex; justify-content:space-between; padding:12px 0; border-bottom:1px solid rgba(255,255,255,0.05);"><span style="color:var(--text-muted);">${label}</span><span style="font-weight:600;">${value}</span></div>`;
+        const row = (label, value) => `<tr><td style="text-align:left; padding:10px; border-bottom:1px solid rgba(255,255,255,0.05); color:var(--text-muted);">${label}</td><td style="text-align:right; padding:10px; border-bottom:1px solid rgba(255,255,255,0.05); font-weight:600; color:white;">${value}</td></tr>`;
 
         if (model === 'dcf' && currentFormulaData.dcf) {
             const d = currentFormulaData.dcf;
@@ -6251,7 +6251,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             title.style.textOverflow = 'ellipsis';
             title.style.fontSize = 'clamp(0.85rem, 3.5vw, 1.25rem)';
             title.style.lineHeight = '1.3';
-            title.textContent = '📊 Relative Valuation — Triangulation';
+            title.textContent = '📊 Relative Valuation';
 
             // --- Determine which metrics are active based on sector weights ---
             const SECTOR_WEIGHTS = {
@@ -6546,18 +6546,18 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         } else if (model === 'peter_lynch' && currentFormulaData.peter_lynch) {
             const p = currentFormulaData.peter_lynch;
             const prof = globalData.company_profile || {};
-            title.textContent = '📊 Forward Multiple — Data Transparency';
+            title.textContent = '📊 Forward Multiple Valuation';
             const epsLabel = p.valuation_eps !== p.trailing_eps ? 'EPS Base (Normalized)' : 'Trailing EPS (GAAP)';
-            html = row(epsLabel, '$' + fmt(p.valuation_eps || p.trailing_eps))
+            html = `<div class="table-responsive"><table class="premium-data-table">` + row(epsLabel, '$' + fmt(p.valuation_eps || p.trailing_eps))
                 + row('Growth Estimate', fmtPct(p.dynamic_growth != null ? p.dynamic_growth : p.eps_growth_estimated))
                 + row('Forward EPS (3Y Projection)', '$' + fmt(p.dynamic_fwd_eps != null ? p.dynamic_fwd_eps : p.fwd_eps))
                 + row('5Y Avg P/E', prof.historic_pe ? prof.historic_pe.toFixed(2) + 'x' : 'N/A')
                 + row(`Return Rate (Discount)`, p.dynamic_discount != null ? fmtPct(p.dynamic_discount) : '15.0%')
-                + row(`Fair Value (PE ${p.dynamic_mult != null ? (Number.isInteger(p.dynamic_mult) ? p.dynamic_mult : p.dynamic_mult.toFixed(2)) : 20})`, '$' + fmt(p.dynamic_fv != null ? p.dynamic_fv : p.fair_value_pe_20));
+                + row(`Fair Value (PE ${p.dynamic_mult != null ? (Number.isInteger(p.dynamic_mult) ? p.dynamic_mult : p.dynamic_mult.toFixed(2)) : 20})`, '$' + fmt(p.dynamic_fv != null ? p.dynamic_fv : p.fair_value_pe_20)) + `</table></div>`;
         } else if (model === 'peg' && currentFormulaData.peg) {
             const g = currentFormulaData.peg;
             const prof = globalData.company_profile || {};
-            title.textContent = '📊 PEG Valuation — Data Transparency';
+            title.textContent = '📊 PEG Valuation';
             const periodLabel = g.eps_growth_period || '2Y EPS CAGR';
             const displayPe = g.dynamic_pe != null ? g.dynamic_pe : g.current_pe;
             const epsTypeLabel = prof.peg_eps_type === 'GAAP' ? '(GAAP)' : '(Non-GAAP)';
@@ -6569,12 +6569,12 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 peLabel = 'P/E FWD';
             }
 
-            html = row(peLabel, displayPe ? displayPe.toFixed(2) + 'x' : 'N/A')
+            html = `<div class="table-responsive"><table class="premium-data-table">` + row(peLabel, displayPe ? displayPe.toFixed(2) + 'x' : 'N/A')
                 + row('Growth Estimate', fmtPct(g.dynamic_growth != null ? g.dynamic_growth : g.eps_growth_estimated))
                 + row('Current PEG', g.dynamic_peg ? g.dynamic_peg.toFixed(2) + 'x' : (g.current_peg ? g.current_peg.toFixed(2) + 'x' : 'N/A'))
                 + row('Industry PEG', g.industry_peg ? g.industry_peg.toFixed(2) + 'x' : 'N/A')
                 + row('Fair Value', '$' + fmt(g.dynamic_fv != null ? g.dynamic_fv : g.fair_value))
-                + row('Margin of Safety', (() => { const cp = globalData.current_price; const fv = (g.dynamic_fv != null ? g.dynamic_fv : g.fair_value); if (fv != null && cp > 0) { const mos = (fv - cp) / cp; return fmtPct(mos); } return 'N/A'; })());
+                + row('Margin of Safety', (() => { const cp = globalData.current_price; const fv = (g.dynamic_fv != null ? g.dynamic_fv : g.fair_value); if (fv != null && cp > 0) { const mos = (fv - cp) / cp; return fmtPct(mos); } return 'N/A'; })()) + `</table></div>`;
         } else {
             title.textContent = 'Data Transparency';
             html = '<p style="color:var(--text-muted);">No data available for this model.</p>';
