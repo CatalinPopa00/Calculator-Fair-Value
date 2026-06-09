@@ -111,13 +111,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         clone.style.margin = '0 0 30px 0';
                         clone.style.width = '100%';
                         clone.style.maxWidth = '100%';
-                        clone.style.display = 'block';
-                        clone.style.boxSizing = 'border-box';
+                                                clone.style.boxSizing = 'border-box';
+
+                        // We do NOT set display: block here, let it inherit its grid/flex from CSS
 
                         // Convert canvases to images
                         const originalCanvases = el.querySelectorAll('canvas');
                         const clonedCanvases = clone.querySelectorAll('canvas');
-                        
+
                         originalCanvases.forEach((orig, idx) => {
                             try {
                                 const dataUrl = orig.toDataURL('image/png');
@@ -156,6 +157,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const imgData = canvas.toDataURL('image/jpeg', 0.95);
                 const pdf = new jsPDF('p', 'mm', 'a4');
 
+                // Set default background color to match dark theme (#0b1320)
+                pdf.setFillColor(11, 19, 32);
+
                 // A4 dimensions (210x297mm)
                 const pdfWidth = 210;
                 const pdfHeight = 297;
@@ -168,7 +172,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 let heightLeft = imgHeightInMm;
                 let position = 0;
 
-                // Add first page
+                // Add first page background and image
+                pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
                 pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, imgHeightInMm);
                 heightLeft -= pdfHeight;
 
@@ -176,6 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 while (heightLeft > 0) {
                     position -= pdfHeight;
                     pdf.addPage();
+                    pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
                     pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, imgHeightInMm);
                     heightLeft -= pdfHeight;
                 }
