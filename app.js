@@ -3637,6 +3637,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             dashboard.style.display = 'none';
             loadingState.style.display = 'flex';
             if (elements.fairValue) elements.fairValue.textContent = '$0.00';
+            if (elements.marginSafety) {
+                elements.marginSafety.textContent = '0% Margin of Safety';
+                elements.marginSafety.style.background = 'none';
+                elements.marginSafety.style.color = 'inherit';
+            }
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
         if (searchBtn) {
@@ -4584,6 +4589,15 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             const hadOverrides = applyOverrides(currentTicker);
         }
         updateFairValue();
+
+        // Ensure UI displays current global state immediately after updateFairValue recalculates it.
+        // Final updates to MOS styling based on fallback or custom weights.
+        if (elements.fairValue && elements.marginSafety && globalData.fair_value != null && globalData.margin_of_safety != null) {
+            elements.fairValue.textContent = formatCurrency(globalData.fair_value);
+            elements.marginSafety.textContent = `${formatPercent(globalData.margin_of_safety)} Margin of Safety`;
+            elements.marginSafety.style.color = globalData.margin_of_safety > 0 ? 'var(--accent)' : 'var(--danger)';
+            elements.marginSafety.style.background = globalData.margin_of_safety > 0 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)';
+        }
 
         document.querySelectorAll('.valuation-toggle').forEach(toggle => {
             toggle.onchange = updateAndSave;
