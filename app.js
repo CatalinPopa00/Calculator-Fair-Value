@@ -4016,7 +4016,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     rfBanner.style.cssText = 'background: rgba(239, 68, 68, 0.1); border: 1px solid var(--danger); padding: 12px; border-radius: 8px; margin-bottom: 15px; width: 100%;';
                     profileHeader.insertAdjacentElement('afterend', rfBanner);
                 }
-                rfBanner.innerHTML = data.red_flags.map(f => `<div style="color: var(--danger); font-weight: bold; font-size: 0.9em; margin-bottom: 4px;">${f}</div>`).join('');
+                rfBanner.innerHTML = data.red_flags.map(f => `<div style="color: var(--danger); font-weight: bold; font-size: 0.7em; margin-bottom: 0px; display: flex; align-items: center; justify-content: center; text-align: center; white-space: nowrap; letter-spacing: -0.5px; overflow: hidden; text-overflow: ellipsis;">${f}</div>`).join('');
                 rfBanner.style.display = 'block';
             } else if (rfBanner) {
                 rfBanner.style.display = 'none';
