@@ -128,6 +128,7 @@
                                     <button class="scenario-btn bear-btn" data-scenario="bear">Bear</button>
                                     <button class="scenario-btn base-btn active" data-scenario="base">Base</button>
                                     <button class="scenario-btn bull-btn" data-scenario="bull">Bull</button>
+                                    <button id="open-custom-scenarios-btn" class="scenario-btn custom-scenarios-btn" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); font-size: 0.8rem; margin-left: 10px;" title="Configure Custom Scenarios">⚙️</button>
                                 </div>
 
                                 <!-- The ID is moved inside a span so we can color JUST the text or keep it neutral -->
@@ -1048,6 +1049,71 @@
             </div>
         </div>
 
+    </div>
+
+    <!-- Custom Scenarios Modal -->
+    <div id="custom-scenarios-modal" class="modal-overlay" style="display: none; z-index: 2000;">
+        <div style="position: relative; max-width: 650px; width: 95%; pointer-events: none;">
+            <div class="modal-content glass-card" style="padding: 25px; position: relative; pointer-events: auto; max-height: 90vh; overflow-y: auto;">
+                <span id="close-custom-scenarios-modal" class="close-btn"
+                    style="position: absolute; top: 15px; right: 15px; background: rgba(255,255,255,0.1); backdrop-filter: blur(5px); border: 1px solid rgba(255,255,255,0.2); border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: white; font-size: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); z-index: 10;">&times;</span>
+                <h3 style="margin-top: 0; margin-bottom: 20px; color: var(--text-main); font-size: 1.3rem;">Custom Scenarios</h3>
+
+                <div class="custom-scenarios-grid" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 10px; align-items: center; margin-bottom: 20px;">
+                    <!-- Header -->
+                    <div style="font-weight: bold; color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase;">Parameter</div>
+                    <div style="font-weight: bold; color: var(--danger); text-align: center;">Bear</div>
+                    <div style="font-weight: bold; color: var(--text-main); text-align: center;">Base</div>
+                    <div style="font-weight: bold; color: var(--accent); text-align: center;">Bull</div>
+
+                    <!-- Rows -->
+                    <div class="cs-label">Rev. Growth 1-3Y (%)</div>
+                    <input type="number" step="0.1" id="cs-rev-1-3-bear" class="cs-input bear-input" placeholder="e.g. 5">
+                    <input type="number" step="0.1" id="cs-rev-1-3-base" class="cs-input base-input" placeholder="e.g. 10">
+                    <input type="number" step="0.1" id="cs-rev-1-3-bull" class="cs-input bull-input" placeholder="e.g. 15">
+
+                    <div class="cs-label">Rev. Growth 4-6Y (%)</div>
+                    <input type="number" step="0.1" id="cs-rev-4-6-bear" class="cs-input bear-input" placeholder="e.g. 3">
+                    <input type="number" step="0.1" id="cs-rev-4-6-base" class="cs-input base-input" placeholder="e.g. 8">
+                    <input type="number" step="0.1" id="cs-rev-4-6-bull" class="cs-input bull-input" placeholder="e.g. 12">
+
+                    <div class="cs-label">FCF Margin (%)</div>
+                    <input type="number" step="0.1" id="cs-fcf-margin-bear" class="cs-input bear-input" placeholder="Auto">
+                    <input type="number" step="0.1" id="cs-fcf-margin-base" class="cs-input base-input" placeholder="Auto">
+                    <input type="number" step="0.1" id="cs-fcf-margin-bull" class="cs-input bull-input" placeholder="Auto">
+
+                    <div class="cs-label">WACC (%)</div>
+                    <input type="number" step="0.1" id="cs-wacc-bear" class="cs-input bear-input" placeholder="e.g. 10">
+                    <input type="number" step="0.1" id="cs-wacc-base" class="cs-input base-input" placeholder="e.g. 9">
+                    <input type="number" step="0.1" id="cs-wacc-bull" class="cs-input bull-input" placeholder="e.g. 8">
+
+                    <div class="cs-label">Exit Multiple (x)</div>
+                    <input type="number" step="0.1" id="cs-exit-bear" class="cs-input bear-input" placeholder="e.g. 10">
+                    <input type="number" step="0.1" id="cs-exit-base" class="cs-input base-input" placeholder="e.g. 15">
+                    <input type="number" step="0.1" id="cs-exit-bull" class="cs-input bull-input" placeholder="e.g. 20">
+
+                    <div class="cs-label">Perpetual Gr. (%)</div>
+                    <input type="number" step="0.1" id="cs-perp-bear" class="cs-input bear-input" placeholder="e.g. 2">
+                    <input type="number" step="0.1" id="cs-perp-base" class="cs-input base-input" placeholder="e.g. 2.5">
+                    <input type="number" step="0.1" id="cs-perp-bull" class="cs-input bull-input" placeholder="e.g. 3">
+
+                    <div class="cs-label">EPS Growth (%)</div>
+                    <input type="number" step="0.1" id="cs-eps-bear" class="cs-input bear-input" placeholder="e.g. 8">
+                    <input type="number" step="0.1" id="cs-eps-base" class="cs-input base-input" placeholder="e.g. 12">
+                    <input type="number" step="0.1" id="cs-eps-bull" class="cs-input bull-input" placeholder="e.g. 18">
+
+                    <div class="cs-label">Forward P/E</div>
+                    <input type="number" step="0.1" id="cs-pe-bear" class="cs-input bear-input" placeholder="e.g. 12">
+                    <input type="number" step="0.1" id="cs-pe-base" class="cs-input base-input" placeholder="e.g. 18">
+                    <input type="number" step="0.1" id="cs-pe-bull" class="cs-input bull-input" placeholder="e.g. 25">
+                </div>
+
+                <div style="display: flex; justify-content: space-between; gap: 15px; margin-top: 30px;">
+                    <button id="cs-reset-btn" style="flex: 1; padding: 12px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.05); color: white; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s;">Reset to API Data</button>
+                    <button id="cs-calculate-btn" style="flex: 2; padding: 12px; border: none; background: var(--accent); color: #0f172a; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s;">Calculate</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Auth Modal -->

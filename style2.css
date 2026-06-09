@@ -1,0 +1,14 @@
+
+/* Fix Mobile Cutoff */
+#custom-scenarios-modal .modal-content {
+    max-height: 85vh;
+    overflow-y: auto;
+    padding-bottom: 20px;
+}
+
+@media (max-width: 600px) {
+    #custom-scenarios-modal .modal-content {
+        max-height: 80vh;
+        overflow-y: auto;
+    }
+}
