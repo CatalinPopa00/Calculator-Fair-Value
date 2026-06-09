@@ -24,11 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 container.style.padding = '40px';
                 
                 // Show it explicitly on screen at the top so the browser paints it properly
-                container.style.position = 'absolute';
-                container.style.top = '0px';
-                container.style.left = '50%';
-                container.style.transform = 'translateX(-50%)';
-                container.style.zIndex = '999999';
+                // Removed absolute positioning to fix html2canvas blank page issue
                 
                 document.body.appendChild(container);
 
@@ -139,7 +135,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     filename:     `${ticker}_Fair_Value_Report.pdf`,
                     image:        { type: 'jpeg', quality: 0.98 },
                     html2canvas:  { 
-                        scale: 2, // Reverted to 2x for crispness now that DOM layout handles sizing properly
+                        scale: 2,
+                        scrollX: 0,
+                        scrollY: 0,
                         useCORS: true, 
                         logging: false, 
                         windowWidth: 1200,
@@ -155,6 +153,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             });
                         }
                     },
+                    pagebreak:    { mode: ['css', 'legacy'] },
                     jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
                 };
                 
