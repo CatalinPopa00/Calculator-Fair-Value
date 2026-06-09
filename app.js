@@ -3022,6 +3022,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             if (targetEps != null && targetEps > 0) {
                 const fwdPrice = targetEps * selectedMult;
                 lynchVal = fwdPrice / Math.pow(1 + discountRate, 3);
+                currentFormulaData.peter_lynch.dynamic_fwd_price = fwdPrice;
             }
 
             // Store dynamics for modal
@@ -6683,12 +6684,15 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             const prof = globalData.company_profile || {};
             title.textContent = '📊 Forward Multiple — Data Transparency';
             const epsLabel = p.valuation_eps !== p.trailing_eps ? 'EPS Base (Normalized)' : 'Trailing EPS (GAAP)';
+            const dynMult = p.dynamic_mult != null ? (Number.isInteger(p.dynamic_mult) ? p.dynamic_mult : p.dynamic_mult.toFixed(2)) : 20;
+            const targetPrice = p.dynamic_fwd_price != null ? p.dynamic_fwd_price : (p.fwd_eps != null ? p.fwd_eps * dynMult : null);
             html = row(epsLabel, '$' + fmt(p.valuation_eps || p.trailing_eps))
                 + row('Growth Estimate', fmtPct(p.dynamic_growth != null ? p.dynamic_growth : p.eps_growth_estimated))
                 + row('Forward EPS (3Y Projection)', '$' + fmt(p.dynamic_fwd_eps != null ? p.dynamic_fwd_eps : p.fwd_eps))
                 + row('5Y Avg P/E', prof.historic_pe ? prof.historic_pe.toFixed(2) + 'x' : 'N/A')
+                + (targetPrice != null ? row(`3Y Target Price (PE ${dynMult})`, '$' + fmt(targetPrice)) : '')
                 + row(`Return Rate (Discount)`, p.dynamic_discount != null ? fmtPct(p.dynamic_discount) : '15.0%')
-                + row(`Fair Value (PE ${p.dynamic_mult != null ? (Number.isInteger(p.dynamic_mult) ? p.dynamic_mult : p.dynamic_mult.toFixed(2)) : 20})`, '$' + fmt(p.dynamic_fv != null ? p.dynamic_fv : p.fair_value_pe_20));
+                + row(`Present Fair Value`, '$' + fmt(p.dynamic_fv != null ? p.dynamic_fv : p.fair_value_pe_20));
         } else if (model === 'peg' && currentFormulaData.peg) {
             const g = currentFormulaData.peg;
             const prof = globalData.company_profile || {};
