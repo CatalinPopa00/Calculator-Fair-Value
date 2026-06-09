@@ -4850,7 +4850,8 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             inputs: collectOverrideInputs(),
             toggles: collectOverrideToggles(),
             computed: getComputedValues(),
-            weights: customWeights
+            weights: customWeights,
+            custom_scenarios: window._customScenariosData || null
         };
 
         cachedOverrides[ticker] = payload;
@@ -4876,7 +4877,8 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             inputs: collectOverrideInputs(),
             toggles: collectOverrideToggles(),
             computed: getComputedValues(),
-            weights: { ...customWeights }
+            weights: { ...customWeights },
+            custom_scenarios: window._customScenariosData || null
         };
         pendingOverrideTicker = ticker;
 
@@ -4892,7 +4894,17 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
     const applyOverrides = (ticker) => {
         const ov = cachedOverrides[ticker];
-        if (!ov) return false;
+
+        // If there are no overrides for this ticker, clear out any custom scenarios
+        // so they don't bleed over from a previously viewed ticker.
+        if (!ov) {
+            window._customScenariosData = null;
+            const customScenariosBtn = document.getElementById('open-custom-scenarios-btn');
+            if (customScenariosBtn) {
+                customScenariosBtn.classList.remove('active-custom');
+            }
+            return false;
+        }
         const inputs = ov.inputs || {};
         const toggles = ov.toggles || {};
 
@@ -4935,6 +4947,21 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             const el = document.getElementById(id);
             if (el) el.checked = checked;
         });
+
+        // Restore Custom Scenarios Data
+        if (ov.custom_scenarios) {
+            window._customScenariosData = ov.custom_scenarios;
+            const customScenariosBtn = document.getElementById('open-custom-scenarios-btn');
+            if (customScenariosBtn) {
+                customScenariosBtn.classList.add('active-custom');
+            }
+        } else {
+            window._customScenariosData = null;
+            const customScenariosBtn = document.getElementById('open-custom-scenarios-btn');
+            if (customScenariosBtn) {
+                customScenariosBtn.classList.remove('active-custom');
+            }
+        }
 
         window._isApplyingOverrides = false;
         return true;
@@ -5961,6 +5988,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     const closeCustomScenariosBtn = document.getElementById('close-custom-scenarios-modal');
     const calculateCustomBtn = document.getElementById('cs-calculate-btn');
     const resetCustomBtn = document.getElementById('cs-reset-btn');
+    const turnOffCustomBtn = document.getElementById('cs-turn-off-btn');
 
     if (customScenariosBtn) {
         customScenariosBtn.addEventListener('click', () => {
@@ -6021,11 +6049,18 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             if (typeof updateFairValue === 'function') { updateFairValue(); }
             if (typeof window.triggerRecalculate === 'function') { window.triggerRecalculate(); }
             if (typeof updateScoresDynamic === 'function') { updateScoresDynamic(); }
+            saveOverridesDebounced(currentTicker);
         });
     }
 
     if (resetCustomBtn) {
         resetCustomBtn.addEventListener('click', () => {
+            document.querySelectorAll('.cs-input').forEach(inp => inp.value = '');
+        });
+    }
+
+    if (turnOffCustomBtn) {
+        turnOffCustomBtn.addEventListener('click', () => {
             window._customScenariosData = null;
             document.querySelectorAll('.cs-input').forEach(inp => inp.value = '');
             if (customScenariosBtn) customScenariosBtn.classList.remove('active-custom');
@@ -6033,6 +6068,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             if (typeof updateFairValue === 'function') { updateFairValue(); }
             if (typeof window.triggerRecalculate === 'function') { window.triggerRecalculate(); }
             if (typeof updateScoresDynamic === 'function') { updateScoresDynamic(); }
+            saveOverridesDebounced(currentTicker);
         });
     }
     // --- END CUSTOM SCENARIOS LOGIC ---
