@@ -1453,16 +1453,16 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             // FCF is calculated on top of projected Revenue
             currentFcf = currentRevenue * yearMargin;
 
-            // Method A: Deduct buyback cash cost from FCF
+            // Method A: Deduct buyback cash cost from FCF (or add dilution cost if buybackRate < 0)
             let buybackCashSpent = 0;
-            if (buybackRate > 0 && currentPrice && currentPrice > 0) {
+            if (buybackRate !== 0 && currentPrice && currentPrice > 0) {
                 const projectedPrice = currentPrice * Math.pow(1 + finalWacc, i);
                 const sharesBought = remainingShares * buybackRate;
                 buybackCashSpent = sharesBought * projectedPrice;
                 remainingShares -= sharesBought;
                 currentFcf -= buybackCashSpent;
-            } else if (buybackRate > 0) {
-                // Fallback: just reduce shares without FCF deduction
+            } else if (buybackRate !== 0) {
+                // Fallback: just reduce/increase shares without FCF deduction
                 remainingShares *= (1 - buybackRate);
             }
 
