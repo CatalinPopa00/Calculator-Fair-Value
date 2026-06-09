@@ -67,7 +67,7 @@ def calculate_peg_fair_value(current_price: float, company_peg: float, industry_
         
     return current_price * (industry_peg / company_peg)
 
-def calculate_dcf(fcf: float, growth_rate: float, discount_rate: float, perpetual_growth: float, shares_outstanding: int, total_cash: float = 0, total_debt: float = 0, years: int = 5, buyback_rate: float = 0.0, exit_multiple: float = 15.0, current_price: float = None):
+def calculate_dcf(fcf_obj, growth_rate, discount_rate: float, perpetual_growth: float, shares_outstanding: int, total_cash: float = 0, total_debt: float = 0, years: int = 5, buyback_rate: float = 0.0, exit_multiple: float = 15.0, current_price: float = None):
     """
     Discounted Cash Flow (DCF) - Dual Method.
     WACC Smart Cap: Forced between 7% and 10.5%.
@@ -75,13 +75,41 @@ def calculate_dcf(fcf: float, growth_rate: float, discount_rate: float, perpetua
     the cash cost of buybacks is deducted from each year's projected FCF.
     Stock price is assumed to grow at WACC rate year-over-year.
     """
-    if not all([fcf, shares_outstanding]):
+    if not shares_outstanding:
         return None
 
     # 1. WACC Smart Cap
     wacc = max(0.07, min(discount_rate, 0.105))
     
     buyback_rate = float(buyback_rate or 0.0)
+
+    fcf = 0
+    revenue = 0
+    custom_margin = None
+    margin_growth = 0.002
+
+    if isinstance(fcf_obj, dict):
+        fcf = fcf_obj.get("fcf", 0)
+        revenue = fcf_obj.get("revenue", 0)
+        custom_margin = fcf_obj.get("customMargin")
+        if fcf_obj.get("marginGrowth") is not None:
+            margin_growth = fcf_obj.get("marginGrowth")
+    else:
+        fcf = fcf_obj or 0
+
+    if not fcf:
+        return None
+
+    current_revenue = revenue
+    if not current_revenue or current_revenue <= 0:
+        current_revenue = fcf / 0.10
+
+    starting_fcf_margin = 0.10
+    if custom_margin is not None:
+        starting_fcf_margin = custom_margin / 100
+    elif current_revenue > 0:
+        starting_fcf_margin = fcf / current_revenue
+
     current_fcf = fcf
     cash_flows = []
     pv_cash_flows_list = []
@@ -97,10 +125,13 @@ def calculate_dcf(fcf: float, growth_rate: float, discount_rate: float, perpetua
         else:
             g = growth_rate
             
-        if current_fcf < 0:
-            current_fcf = current_fcf + abs(current_fcf) * g
+        if current_revenue < 0:
+            current_revenue = current_revenue + abs(current_revenue) * g
         else:
-            current_fcf *= (1 + g)
+            current_revenue *= (1 + g)
+
+        year_margin = starting_fcf_margin + (i * margin_growth)
+        current_fcf = current_revenue * year_margin
         
         # Method A: Deduct buyback cash cost from FCF
         buyback_cash_spent = 0
@@ -116,7 +147,9 @@ def calculate_dcf(fcf: float, growth_rate: float, discount_rate: float, perpetua
         
         buyback_cost_per_year.append(buyback_cash_spent)
         cash_flows.append(current_fcf)
-        pv = current_fcf / ((1 + wacc) ** i)
+
+        # Mid-Year Convention
+        pv = current_fcf / ((1 + wacc) ** (i - 0.5))
         pv_cash_flows_list.append(pv)
 
     sum_pv_cf = sum(pv_cash_flows_list)
@@ -161,11 +194,11 @@ def calculate_dcf(fcf: float, growth_rate: float, discount_rate: float, perpetua
         "buyback_cost_per_year": buyback_cost_per_year
     }
     
-def calculate_dcf_sensitivity(fcf: float, growth_rate: float, shares_outstanding: int, total_cash: float = 0, total_debt: float = 0, years: int = 5, base_discount: float = 0.09, base_perp: float = 0.02, exit_multiple: float = 15.0):
+def calculate_dcf_sensitivity(fcf_obj, growth_rate, shares_outstanding: int, total_cash: float = 0, total_debt: float = 0, years: int = 5, base_discount: float = 0.09, base_perp: float = 0.02, exit_multiple: float = 15.0):
     """
     Calculates a 3x3 matrix for Perpetual Growth scenario.
     """
-    if not all([fcf, shares_outstanding]):
+    if not all([fcf_obj, shares_outstanding]):
         return None
         
     discounts = [base_discount - 0.01, base_discount, base_discount + 0.01]
@@ -175,17 +208,17 @@ def calculate_dcf_sensitivity(fcf: float, growth_rate: float, shares_outstanding
     for d in discounts:
         row = {"discount_rate": d, "values": []}
         for p in perps:
-            res = calculate_dcf(fcf, growth_rate, d, p, shares_outstanding, total_cash, total_debt, years, exit_multiple=exit_multiple)
+            res = calculate_dcf(fcf_obj, growth_rate, d, p, shares_outstanding, total_cash, total_debt, years, exit_multiple=exit_multiple)
             val = res.get("dcf_perpetual", {}).get("fair_value") if res else None
             row["values"].append({"perpetual_growth": p, "fair_value": val})
         matrix.append(row)
     return matrix
 
-def calculate_reverse_dcf(current_price: float, current_fcf: float, discount_rate: float, perpetual_growth: float, shares_outstanding: int, total_cash: float = 0, total_debt: float = 0, years: int = 5, exit_multiple: float = 15.0):
+def calculate_reverse_dcf(current_price: float, fcf_obj, discount_rate: float, perpetual_growth: float, shares_outstanding: int, total_cash: float = 0, total_debt: float = 0, years: int = 5, exit_multiple: float = 15.0):
     """
     Finds implied growth for Perpetual Growth scenario.
     """
-    if not all([current_price, current_fcf, shares_outstanding]):
+    if not all([current_price, fcf_obj, shares_outstanding]):
         return None
         
     market_cap = current_price * shares_outstanding
@@ -198,7 +231,7 @@ def calculate_reverse_dcf(current_price: float, current_fcf: float, discount_rat
     
     for _ in range(30):
         mid = (low + high) / 2
-        res = calculate_dcf(current_fcf, mid, discount_rate, perpetual_growth, shares_outstanding, total_cash, total_debt, years, exit_multiple=exit_multiple)
+        res = calculate_dcf(fcf_obj, mid, discount_rate, perpetual_growth, shares_outstanding, total_cash, total_debt, years, exit_multiple=exit_multiple)
         if not res: return None
             
         calc_ev = res.get("dcf_perpetual", {}).get("enterprise_value")

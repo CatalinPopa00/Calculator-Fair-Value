@@ -3892,6 +3892,83 @@ body.has-searched .floating-login-btn {
 .premium-data-table tr:hover td {
     background: rgba(255,255,255,0.02);
 }
+<<<<<<< HEAD
+<<<<<<< HEAD
+
+/* Custom Scenarios Modal Styles */
+.cs-label {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+.cs-input {
+    width: 100%;
+    padding: 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(0,0,0,0.2);
+    color: white;
+    font-family: inherit;
+    font-size: 0.85rem;
+    box-sizing: border-box;
+    text-align: center;
+}
+.cs-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: rgba(0,0,0,0.4);
+}
+.cs-input.bear-input:focus { border-color: var(--danger); }
+.cs-input.bull-input:focus { border-color: var(--accent); }
+
+#cs-calculate-btn:hover {
+    background: #00b4d8;
+}
+#cs-reset-btn:hover {
+    background: rgba(255,255,255,0.1);
+}
+
+.custom-scenarios-btn.active-custom {
+    background: rgba(234, 179, 8, 0.2) !important;
+    border-color: rgba(234, 179, 8, 0.5) !important;
+    color: #fef08a !important;
+    box-shadow: 0 0 10px rgba(234, 179, 8, 0.3);
+}
+
+@media (max-width: 600px) {
+    .custom-scenarios-grid {
+        grid-template-columns: 1fr 1fr 1fr !important;
+    }
+    .custom-scenarios-grid > .cs-label {
+        grid-column: span 3;
+        text-align: center;
+        margin-top: 10px;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+        padding-bottom: 4px;
+    }
+    .custom-scenarios-grid > div:nth-child(1),
+    .custom-scenarios-grid > div:nth-child(2),
+    .custom-scenarios-grid > div:nth-child(3),
+    .custom-scenarios-grid > div:nth-child(4) {
+        display: none; /* Hide header row on mobile, use inline labels */
+    }
+}
+
+/* Fix Mobile Cutoff */
+#custom-scenarios-modal .modal-content {
+    max-height: 85vh;
+    overflow-y: auto;
+    padding-bottom: 20px;
+}
+
+@media (max-width: 600px) {
+    #custom-scenarios-modal .modal-content {
+        max-height: 80vh;
+        overflow-y: auto;
+    }
+}
+=======
+>>>>>>> 4059b65 (style: enhance breakdown menus formatting)
+=======
 
 .view-data-btn {
     width: auto;
@@ -3936,3 +4013,4 @@ body.has-searched .floating-login-btn {
 .view-data-btn:hover .details-icon {
     transform: scale(1.1);
 }
+>>>>>>> 7861b3d (fix: update modal titles and modernize view data buttons)

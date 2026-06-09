@@ -452,6 +452,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let chartEpsShares = null;
     let globalData = null;
     let _currentScenario = 'base';
+let _customScenariosData = null;
+window._customScenariosData = null;
     let _realApiPrice = null; // v299: Immutable anchor for Fair Value stability
     let _originalPrice = null; // Stores the restore point for simulation reset
     let _simulating = false;
@@ -700,6 +702,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             window._simulatedPriceActive = simPrice;
         } else {
             window._simulatedPriceActive = null;
+window._customScenariosData = null;
         }
 
         // Helper to convert growth/margins to percentage if they are raw decimals (matches backend clean_percent)
@@ -1469,7 +1472,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             buybackCostPerYear.push(buybackCashSpent);
             fcf_projections.push(currentFcf);
 
-            const pv_fcf = currentFcf / Math.pow(1 + finalWacc, i);
+            const pv_fcf = currentFcf / Math.pow(1 + finalWacc, i - 0.5);
             pv_fcf_years.push(pv_fcf);
             pv += pv_fcf;
         }
@@ -2371,15 +2374,32 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     Metrics
                 </h4>
                 
+<<<<<<< HEAD
+<<<<<<< HEAD
                 <div style="display:grid; grid-template-columns: 1fr max-content 20px; align-items:center; padding:10px 0; gap:12px 16px;">
                     <!-- Revenue Growth Row -->
                     <div style="font-weight:600; font-size:clamp(0.75rem, 3vw, 0.88rem); color:white; line-height:1.2; white-space:nowrap;" title="${rule40Data.rev_growth_label || 'Revenue Growth'}">${rule40Data.rev_growth_label || 'Revenue Growth'}</div>
                     <div style="font-weight:700; font-size:clamp(0.8rem, 3vw, 0.9rem); color:rgba(255,255,255,0.85); font-family:monospace; text-align:right;">
                         ${(rule40Data.revenue_growth || 0).toFixed(1)} <span style="font-size: 0.8em; color: rgba(255,255,255,0.7);">%</span>
+=======
+                <div style="display:grid; grid-template-columns: auto 1fr 20px 50px; align-items:center; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.05); gap:12px;">
+                    <div style="font-weight:600; font-size:clamp(0.75rem, 3vw, 0.88rem); color:white; line-height:1.2; white-space:nowrap;" title="${rule40Data.rev_growth_label || 'Revenue Growth'}">${rule40Data.rev_growth_label || 'Revenue Growth'}</div>
+                    <div style="font-weight:700; font-size:clamp(0.8rem, 3vw, 0.9rem); color:rgba(255,255,255,0.85); font-family:monospace; display: flex; justify-content: flex-end; white-space: nowrap;">
+                        <div style="text-align: right; width: 100%;">${(rule40Data.revenue_growth || 0).toFixed(1)} <span style="font-size: 0.8em; color: rgba(255,255,255,0.7);">%</span></div>
+>>>>>>> 4059b65 (style: enhance breakdown menus formatting)
+=======
+                <div style="display:grid; grid-template-columns: 1fr max-content 20px; align-items:center; padding:10px 0; gap:12px 16px;">
+                    <!-- Revenue Growth Row -->
+                    <div style="font-weight:600; font-size:clamp(0.75rem, 3vw, 0.88rem); color:white; line-height:1.2; white-space:nowrap;" title="${rule40Data.rev_growth_label || 'Revenue Growth'}">${rule40Data.rev_growth_label || 'Revenue Growth'}</div>
+                    <div style="font-weight:700; font-size:clamp(0.8rem, 3vw, 0.9rem); color:rgba(255,255,255,0.85); font-family:monospace; text-align:right;">
+                        ${(rule40Data.revenue_growth || 0).toFixed(1)} <span style="font-size: 0.8em; color: rgba(255,255,255,0.7);">%</span>
+>>>>>>> 7861b3d (fix: update modal titles and modernize view data buttons)
                     </div>
                     <div style="display:flex; justify-content:center;">
                         <span style="width:8px; height:8px; border-radius:50%; background:${(rule40Data.revenue_growth || 0) > 0 ? 'var(--accent)' : 'var(--danger)'}; display:inline-block;"></span>
                     </div>
+<<<<<<< HEAD
+<<<<<<< HEAD
 
                     <!-- Full-width divider -->
                     <div style="grid-column: 1 / -1; height: 1px; background: rgba(255,255,255,0.05); margin: 2px 0;"></div>
@@ -2392,6 +2412,30 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     <div style="display:flex; justify-content:center;">
                         <span style="width:8px; height:8px; border-radius:50%; background:${(rule40Data.fcf_margin || 0) > 0 ? 'var(--accent)' : 'var(--danger)'}; display:inline-block;"></span>
                     </div>
+=======
+                    <div></div>
+                </div>
+
+                <div style="display:grid; grid-template-columns: auto 1fr 20px 50px; align-items:center; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.05); gap:12px;">
+=======
+
+                    <!-- Full-width divider -->
+                    <div style="grid-column: 1 / -1; height: 1px; background: rgba(255,255,255,0.05); margin: 2px 0;"></div>
+
+                    <!-- FCF Margin Row -->
+>>>>>>> 7861b3d (fix: update modal titles and modernize view data buttons)
+                    <div style="font-weight:600; font-size:clamp(0.75rem, 3vw, 0.88rem); color:white; line-height:1.2; white-space:nowrap;" title="${rule40Data.margin_label || 'FCF Margin'}">${rule40Data.margin_label || 'FCF Margin'}</div>
+                    <div style="font-weight:700; font-size:clamp(0.8rem, 3vw, 0.9rem); color:rgba(255,255,255,0.85); font-family:monospace; text-align:right;">
+                        ${(rule40Data.fcf_margin || 0).toFixed(1)} <span style="font-size: 0.8em; color: rgba(255,255,255,0.7);">%</span>
+                    </div>
+                    <div style="display:flex; justify-content:center;">
+                        <span style="width:8px; height:8px; border-radius:50%; background:${(rule40Data.fcf_margin || 0) > 0 ? 'var(--accent)' : 'var(--danger)'}; display:inline-block;"></span>
+                    </div>
+<<<<<<< HEAD
+                    <div></div>
+>>>>>>> 4059b65 (style: enhance breakdown menus formatting)
+=======
+>>>>>>> 7861b3d (fix: update modal titles and modernize view data buttons)
                 </div>
             </div>`;
 
@@ -2406,6 +2450,9 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
     const updateFairValue = () => {
         const getDynamicEpsGrowth = () => {
+            if (window._customScenariosData && window._customScenariosData[_currentScenario] && window._customScenariosData[_currentScenario].eps !== null) {
+                return window._customScenariosData[_currentScenario].eps / 100;
+            }
             if (globalData && globalData.computed_eps_growth != null && !isNaN(globalData.computed_eps_growth)) {
                 return globalData.computed_eps_growth;
             }
@@ -2416,6 +2463,9 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         };
 
         const getDynamicRevGrowth = () => {
+            if (window._customScenariosData && window._customScenariosData[_currentScenario] && window._customScenariosData[_currentScenario].rev13 !== null) {
+                return window._customScenariosData[_currentScenario].rev13 / 100;
+            }
             if (globalData && globalData.computed_dcf_growth != null && !isNaN(globalData.computed_dcf_growth)) {
                 return globalData.computed_dcf_growth;
             }
@@ -2490,7 +2540,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             baseRevenue = baseRevenue || (prof.market_cap && prof.ps_ratio && prof.ps_ratio > 0 ? prof.market_cap / prof.ps_ratio : null) || 0;
 
             const customMarginEl = document.getElementById('dcf-custom-fcf-margin');
-            const customMargin = (customMarginEl && customMarginEl.value !== '') ? parseLocaleFloat(customMarginEl.value) : null;
+            let cs = window._customScenariosData && window._customScenariosData[_currentScenario] ? window._customScenariosData[_currentScenario] : null;
+            let customMargin = (customMarginEl && customMarginEl.value !== '') ? parseLocaleFloat(customMarginEl.value) : null;
+            if (cs && cs.fcfMargin !== null) {
+                customMargin = cs.fcfMargin;
+            }
 
             const customMarginGrowthEl = document.getElementById('dcf-custom-margin-growth');
             const customMarginGrowth = (customMarginGrowthEl && customMarginGrowthEl.value !== '') ? parseLocaleFloat(customMarginGrowthEl.value) / 100 : 0.002;
@@ -2516,7 +2570,14 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 if (fcfSource === 'revenue') {
                     const revBase = getDynamicRevGrowth();
                     const g13 = Math.min(Math.round(revBase * 1000) / 1000, 0.50);
-                    const g46 = Math.min(revBase * 0.75, 0.30);
+
+                    let customRev46 = null;
+                    if (window._customScenariosData && window._customScenariosData[_currentScenario] && window._customScenariosData[_currentScenario].rev46 !== null) {
+                        customRev46 = window._customScenariosData[_currentScenario].rev46 / 100;
+                    }
+
+                    const g46 = customRev46 !== null ? customRev46 : Math.min(revBase * 0.75, 0.30);
+
                     const g78 = Math.min(revBase * 0.50, 0.15);
                     const g910 = Math.min(revBase * 0.25, 0.05);
                     g = [];
@@ -2598,7 +2659,12 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     dcfValObj = null;
                 } else {
                     const g13 = v13 / 100;
-                    const g46 = v46 / 100;
+
+                    let customRev46 = null;
+                    if (window._customScenariosData && window._customScenariosData[_currentScenario] && window._customScenariosData[_currentScenario].rev46 !== null) {
+                        customRev46 = window._customScenariosData[_currentScenario].rev46 / 100;
+                    }
+                    const g46 = customRev46 !== null ? customRev46 : v46 / 100;
                     const g78 = (v78 ?? 0) / 100;
                     const g910 = (v910 ?? 0) / 100;
 
@@ -2617,9 +2683,13 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     const pRaw = document.getElementById('dcf-custom-perp').value;
                     const emRaw = document.getElementById('input-exit-multiple').value;
 
-                    const wCustom = (wRaw === '' || isNaN(parseLocaleFloat(wRaw))) ? 0.09 : parseLocaleFloat(wRaw) / 100;
-                    const pCustom = (pRaw === '' || isNaN(parseLocaleFloat(pRaw))) ? 0.025 : parseLocaleFloat(pRaw) / 100;
-                    const em = (emRaw === '' || isNaN(parseLocaleFloat(emRaw))) ? (globalData.dcf_assumptions?.recommended_exit_multiple || 10.0) : parseLocaleFloat(emRaw);
+                    let csWacc = (cs && cs.wacc !== null) ? cs.wacc / 100 : null;
+                    let csPerp = (cs && cs.perp !== null) ? cs.perp / 100 : null;
+                    let csExit = (cs && cs.exit !== null) ? cs.exit : null;
+
+                    const wCustom = csWacc !== null ? csWacc : ((wRaw === '' || isNaN(parseLocaleFloat(wRaw))) ? 0.09 : parseLocaleFloat(wRaw) / 100);
+                    const pCustom = csPerp !== null ? csPerp : ((pRaw === '' || isNaN(parseLocaleFloat(pRaw))) ? 0.025 : parseLocaleFloat(pRaw) / 100);
+                    const em = csExit !== null ? csExit : ((emRaw === '' || isNaN(parseLocaleFloat(emRaw))) ? (globalData.dcf_assumptions?.recommended_exit_multiple || 10.0) : parseLocaleFloat(emRaw));
 
                     dcfValObj = calcLocalDcf(fcfParam, growthArr, wCustom, pCustom, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em, _realApiPrice);
                 }
@@ -2954,8 +3024,12 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 // Fallback just in case
                 selectedMult = 20;
             }
+            let csLynch = window._customScenariosData && window._customScenariosData[_currentScenario] ? window._customScenariosData[_currentScenario] : null;
+            if (csLynch && csLynch.pe !== null) {
+                selectedMult = csLynch.pe;
+            }
 
-            if (multVal === 'historical') {
+            if (multVal === 'historical' && (!csLynch || csLynch.pe === null)) {
                 if (_currentScenario === 'bear') selectedMult -= 3;
                 else if (_currentScenario === 'bull') selectedMult += 3;
             }
@@ -5909,7 +5983,93 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     tickerInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') analyzeTicker(); });
 
     // Scenario Toggles
-    const scenarioBtns = document.querySelectorAll('.scenario-btn');
+
+    // --- CUSTOM SCENARIOS LOGIC ---
+    const customScenariosBtn = document.getElementById('open-custom-scenarios-btn');
+    const customScenariosModal = document.getElementById('custom-scenarios-modal');
+    const closeCustomScenariosBtn = document.getElementById('close-custom-scenarios-modal');
+    const calculateCustomBtn = document.getElementById('cs-calculate-btn');
+    const resetCustomBtn = document.getElementById('cs-reset-btn');
+
+    if (customScenariosBtn) {
+        customScenariosBtn.addEventListener('click', () => {
+            if (customScenariosModal) {
+                // Populate inputs if data exists
+                if (window._customScenariosData) {
+                    ['bear', 'base', 'bull'].forEach(scen => {
+                        const data = window._customScenariosData[scen];
+                        if (!data) return;
+                        if (data.rev13 !== null) document.getElementById(`cs-rev-1-3-${scen}`).value = data.rev13;
+                        if (data.rev46 !== null) document.getElementById(`cs-rev-4-6-${scen}`).value = data.rev46;
+                        if (data.fcfMargin !== null) document.getElementById(`cs-fcf-margin-${scen}`).value = data.fcfMargin;
+                        if (data.wacc !== null) document.getElementById(`cs-wacc-${scen}`).value = data.wacc;
+                        if (data.exit !== null) document.getElementById(`cs-exit-${scen}`).value = data.exit;
+                        if (data.perp !== null) document.getElementById(`cs-perp-${scen}`).value = data.perp;
+                        if (data.eps !== null) document.getElementById(`cs-eps-${scen}`).value = data.eps;
+                        if (data.pe !== null) document.getElementById(`cs-pe-${scen}`).value = data.pe;
+                    });
+                }
+                customScenariosModal.style.display = 'flex';
+            }
+        });
+    }
+
+    if (closeCustomScenariosBtn) {
+        closeCustomScenariosBtn.addEventListener('click', () => {
+            if (customScenariosModal) customScenariosModal.style.display = 'none';
+        });
+    }
+    if (customScenariosModal) {
+        customScenariosModal.addEventListener('click', (e) => {
+            if (e.target === customScenariosModal) {
+                customScenariosModal.style.display = 'none';
+            }
+        });
+    }
+
+    const parseCsInput = (id) => {
+        const val = document.getElementById(id).value;
+        return val === '' ? null : parseFloat(val);
+    };
+
+    if (calculateCustomBtn) {
+        calculateCustomBtn.addEventListener('click', () => {
+            window._customScenariosData = {};
+            ['bear', 'base', 'bull'].forEach(scen => {
+                window._customScenariosData[scen] = {
+                    rev13: parseCsInput(`cs-rev-1-3-${scen}`),
+                    rev46: parseCsInput(`cs-rev-4-6-${scen}`),
+                    fcfMargin: parseCsInput(`cs-fcf-margin-${scen}`),
+                    wacc: parseCsInput(`cs-wacc-${scen}`),
+                    exit: parseCsInput(`cs-exit-${scen}`),
+                    perp: parseCsInput(`cs-perp-${scen}`),
+                    eps: parseCsInput(`cs-eps-${scen}`),
+                    pe: parseCsInput(`cs-pe-${scen}`)
+                };
+            });
+            if (customScenariosBtn) customScenariosBtn.classList.add('active-custom');
+            if (customScenariosModal) customScenariosModal.style.display = 'none';
+            if (typeof updateFairValue === 'function') { updateFairValue(); }
+            if (typeof window.triggerRecalculate === 'function') { window.triggerRecalculate(); }
+            if (typeof updateScoresDynamic === 'function') { updateScoresDynamic(); }
+        });
+    }
+
+    if (resetCustomBtn) {
+        resetCustomBtn.addEventListener('click', () => {
+            window._customScenariosData = null;
+            document.querySelectorAll('.cs-input').forEach(inp => inp.value = '');
+            if (customScenariosBtn) customScenariosBtn.classList.remove('active-custom');
+            if (customScenariosModal) customScenariosModal.style.display = 'none';
+            if (typeof updateFairValue === 'function') { updateFairValue(); }
+            if (typeof window.triggerRecalculate === 'function') { window.triggerRecalculate(); }
+            if (typeof updateScoresDynamic === 'function') { updateScoresDynamic(); }
+        });
+    }
+    // --- END CUSTOM SCENARIOS LOGIC ---
+
+    const scenarioBtns = document.querySelectorAll('.scenario-btn:not(.custom-scenarios-btn)');
+
     scenarioBtns.forEach(btn => {
         btn.addEventListener('click', (e) => {
             scenarioBtns.forEach(b => b.classList.remove('active'));
@@ -6686,7 +6846,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     
                     <div style="display: flex; align-items: center; gap: 15px;">
                         ${valueHtml}
+<<<<<<< HEAD
 
+=======
+
+>>>>>>> 4059b65 (style: enhance breakdown menus formatting)
                         <div style="display: flex; align-items: center; gap: 8px; justify-content: flex-end; width: 60px;">
                             <span style="width: 6px; height: 6px; border-radius: 50%; background: ${dotColor}; display: inline-block; flex-shrink: 0;"></span>
                             <div style="font-weight: 800; font-size: 0.85rem; color: ${ptsColor}; font-family: 'Outfit', sans-serif; min-width: 35px; text-align: right;">${pts}/${maxPts}</div>
@@ -6737,7 +6901,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             html += `
                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05); gap: 15px;">
                     <div style="font-weight: 600; font-size: 0.9rem; color: white; line-height: 1.3;">${label}</div>
+<<<<<<< HEAD
 
+=======
+
+>>>>>>> 4059b65 (style: enhance breakdown menus formatting)
                     <div style="display: flex; align-items: center; gap: 15px;">
                         <div style="font-weight: 700; font-size: 0.9rem; color: rgba(255,255,255,0.85); font-family: monospace; white-space: nowrap;">
                             ${item.value !== null ? item.value : 'N/A'}
@@ -6796,7 +6964,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             html += `
                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.03); gap: 15px;">
                     <div style="font-weight: 600; font-size: 0.85rem; color: white; line-height: 1.3;">${label}</div>
+<<<<<<< HEAD
 
+=======
+
+>>>>>>> 4059b65 (style: enhance breakdown menus formatting)
                     <div style="display: flex; align-items: center; gap: 15px;">
                         <div style="font-weight: 700; font-size: 0.85rem; color: rgba(255,255,255,0.85); font-family: monospace; white-space: nowrap;">
                             ${item.value || 'N/A'}
