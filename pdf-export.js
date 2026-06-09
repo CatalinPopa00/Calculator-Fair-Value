@@ -2,6 +2,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const exportBtn = document.getElementById('export-pdf-btn');
     if (exportBtn) {
         exportBtn.addEventListener('click', async () => {
+            if (!window.globalData || !window.globalData.ticker) {
+                alert('Te rog să cauți o companie mai întâi.');
+                return;
+            }
+
             if (typeof html2canvas === 'undefined' || typeof window.jspdf === 'undefined') {
                 alert('PDF libraries not fully loaded yet. Please try again in a moment.');
                 return;
@@ -47,6 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 container.style.color = '#f8fafc';
                 container.style.fontFamily = "'Outfit', sans-serif";
                 container.style.padding = '40px';
+                container.style.boxSizing = 'border-box'; // Ensure padding doesn't affect 1200px
                 container.style.position = 'absolute';
                 container.style.top = '0';
                 container.style.left = '0';
@@ -106,6 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         clone.style.width = '100%';
                         clone.style.maxWidth = '100%';
                         clone.style.display = 'block';
+                        clone.style.boxSizing = 'border-box';
 
                         // Convert canvases to images
                         const originalCanvases = el.querySelectorAll('canvas');
@@ -148,7 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // 3. Generate PDF manually via jsPDF
                 const imgData = canvas.toDataURL('image/jpeg', 0.95);
                 const pdf = new jsPDF('p', 'mm', 'a4');
-                
+
                 // A4 dimensions (210x297mm)
                 const pdfWidth = 210;
                 const pdfHeight = 297;
