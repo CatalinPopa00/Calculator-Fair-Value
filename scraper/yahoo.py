@@ -3627,7 +3627,7 @@ def get_competitors_data(target_ticker: str, limit: int = 4, custom_peers: list 
                     now = time.time()
                     
                     # 1. ALWAYS PREFER MAIN CACHE IF AVAILABLE
-                    main_cache_key = f"val_data_v31_{t}"
+                    main_cache_key = f"val_data_v32_{t}"
                     if not force_refresh:
                         main_data = kv_get(main_cache_key)
                         if main_data and isinstance(main_data, dict):
