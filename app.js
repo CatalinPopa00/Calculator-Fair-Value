@@ -1392,40 +1392,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         return w;
     };
 
-    const calcLocalDcf = (fcfObj, growth, wacc, perp, shares, cash, debt, buybackRate = 0, years = 5, exitMult = 10.0, currentPrice = null) => {
-        let fcf = 0;
-        let revenue = 0;
-        let customMargin = null;
-        let marginGrowth = 0.002;
-
-        if (fcfObj && typeof fcfObj === 'object') {
-            fcf = fcfObj.fcf || 0;
-            revenue = fcfObj.revenue || 0;
-            customMargin = fcfObj.customMargin;
-            if (fcfObj.marginGrowth !== undefined && fcfObj.marginGrowth !== null) {
-                marginGrowth = fcfObj.marginGrowth;
-            }
-        } else {
-            fcf = fcfObj || 0;
-        }
-
+    const calcLocalDcf = (fcf, growth, wacc, perp, shares, cash, debt, buybackRate = 0, years = 5, exitMult = 10.0, currentPrice = null) => {
         if (!fcf || !shares || shares <= 0) return null;
 
         // WACC Smart Cap
         const finalWacc = Math.max(0.07, Math.min(wacc, 0.105));
-
-        // 1. Determine base Revenue and starting FCF Margin
-        let currentRevenue = revenue;
-        if (!currentRevenue || currentRevenue <= 0) {
-            currentRevenue = fcf / 0.10; // Fallback if revenue is missing
-        }
-
-        let startingFcfMargin = 0.10;
-        if (customMargin !== null && !isNaN(customMargin)) {
-            startingFcfMargin = customMargin / 100;
-        } else if (currentRevenue > 0) {
-            startingFcfMargin = fcf / currentRevenue;
-        }
 
         let pv = 0;
         let currentFcf = fcf;
@@ -1440,18 +1411,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             // Support multi-phase growth: growth can be an array (per-year) or a single number
             const g = Array.isArray(growth) ? (growth[i - 1] !== undefined ? growth[i - 1] : growth[growth.length - 1]) : growth;
 
-            // Revenue grows year-over-year
-            if (currentRevenue < 0) {
-                currentRevenue = currentRevenue + Math.abs(currentRevenue) * g;
+            if (currentFcf < 0) {
+                currentFcf = currentFcf + Math.abs(currentFcf) * g;
             } else {
-                currentRevenue *= (1 + g);
+                currentFcf *= (1 + g);
             }
-
-            // FCF margin increases by configured growth rate each year in the background
-            const yearMargin = startingFcfMargin + (i * marginGrowth);
-
-            // FCF is calculated on top of projected Revenue
-            currentFcf = currentRevenue * yearMargin;
 
             // Adjust shares based on buyback/dilution rate (positive = buyback, negative = dilution)
             if (buybackRate !== 0) {
@@ -2480,13 +2444,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
             baseRevenue = baseRevenue || (prof.market_cap && prof.ps_ratio && prof.ps_ratio > 0 ? prof.market_cap / prof.ps_ratio : null) || 0;
 
-            const customMarginEl = document.getElementById('dcf-custom-fcf-margin');
-            const customMargin = (customMarginEl && customMarginEl.value !== '') ? parseLocaleFloat(customMarginEl.value) : null;
-
-            const customMarginGrowthEl = document.getElementById('dcf-custom-margin-growth');
-            const customMarginGrowth = (customMarginGrowthEl && customMarginGrowthEl.value !== '') ? parseLocaleFloat(customMarginGrowthEl.value) / 100 : 0.002;
-
-            const fcfParam = { fcf: baseFcf, revenue: baseRevenue, customMargin: customMargin, marginGrowth: customMarginGrowth };
+            const fcfParam = baseFcf;
 
             const shares = prof.shares_outstanding;
 
@@ -4733,7 +4691,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     // --- Overrides Sync ---
     const overrideInputIds = [
         'fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple',
-        'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp', 'dcf-custom-fcf-margin', 'dcf-custom-margin-growth',
+        'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp',
         'dcf-buyback-source', 'dcf-custom-buyback', 'dcf-custom-sbc', 'relative-variant',
         'lynch-multiple-source', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth', 'lynch-return-rate', 'lynch-custom-return',
         'peg-eps-source', 'peg-custom-growth', 'peg-mode'
@@ -4943,7 +4901,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         const ov = cachedOverrides[currentTicker];
         if (ov && ov.inputs) {
             const idsToReset = {
-                dcf: ['fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple', 'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp', 'dcf-custom-fcf-margin', 'dcf-custom-margin-growth', 'dcf-buyback-source', 'dcf-custom-buyback', 'dcf-custom-sbc'],
+                dcf: ['fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple', 'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp', 'dcf-buyback-source', 'dcf-custom-buyback', 'dcf-custom-sbc'],
                 relative: ['relative-variant', 'rel-weight-mode-card'],
                 peter_lynch: ['lynch-multiple-source', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth', 'lynch-return-rate', 'lynch-custom-return'],
                 peg: ['peg-eps-source', 'peg-custom-growth', 'peg-mode']
@@ -6149,29 +6107,15 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     }
                 }
 
-                const customMarginEl = document.getElementById('dcf-custom-fcf-margin');
-                const customMargin = (customMarginEl && customMarginEl.value !== '') ? parseLocaleFloat(customMarginEl.value) : null;
-                let startingFcfMargin = 0.10;
-                if (customMargin !== null && !isNaN(customMargin)) {
-                    startingFcfMargin = customMargin / 100;
-                } else if (baseRevenue > 0) {
-                    startingFcfMargin = baseFcf / baseRevenue;
-                }
-                const customMarginGrowthEl = document.getElementById('dcf-custom-margin-growth');
-                const customMarginGrowth = (customMarginGrowthEl && customMarginGrowthEl.value !== '') ? parseLocaleFloat(customMarginGrowthEl.value) / 100 : 0.002;
-
                 let tableHTML = `<div class="table-responsive"><table class="premium-data-table">
                                         <tr style="border-bottom:1px solid rgba(255,255,255,0.2);">
                                             <th style="text-align:left; padding:8px 0; color:white;">Year</th>
                                             <th style="text-align:right; padding:8px 0; color:white;">Projected FCF</th>
-                                            <th style="text-align:right; padding:8px 0; color:white;">FCF Margin</th>
                                         </tr>`;
                 fcfYears.forEach((val, i) => {
-                    const yearMargin = startingFcfMargin + ((i + 1) * customMarginGrowth);
                     tableHTML += `<tr>
                                         <td style="padding:6px 0; color:white;">Year ${i + 1}</td>
                                         <td style="text-align:right; color:white;">${fmtBig(val)}</td>
-                                        <td style="text-align:right; color:var(--accent); font-weight:600;">${fmtPct(yearMargin)}</td>
                                       </tr>`;
                 });
                 tableHTML += `</table></div>`;
