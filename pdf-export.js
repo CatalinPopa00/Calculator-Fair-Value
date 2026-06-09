@@ -23,19 +23,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 container.style.fontFamily = "'Outfit', sans-serif";
                 container.style.padding = '40px';
                 
-                // Wrap in a 0-height container so it doesn't affect user view, but stays in DOM flow
-                // so the browser renderer perfectly paints it.
-                const wrapper = document.createElement('div');
-                wrapper.style.position = 'relative';
-                wrapper.style.width = '100%';
-                wrapper.style.height = '0px';
-                wrapper.style.overflow = 'hidden';
-
-                container.style.position = 'relative';
+                // Position absolute and off-screen left so layout calculates at exactly 1200px width.
+                container.id = 'pdf-export-temp-container';
+                container.style.position = 'absolute';
+                container.style.left = '-15000px';
+                container.style.top = '0';
                 container.style.width = '1200px';
                 
-                wrapper.appendChild(container);
-                document.body.appendChild(wrapper);
+                document.body.appendChild(container);
 
                 // Get Data
                 const d = window.globalData;
@@ -156,6 +151,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         windowWidth: 1200,
                         backgroundColor: '#0b1320',
                         onclone: (clonedDoc) => {
+                            // Reset the container position so html2canvas measures it properly
+                            const clonedContainer = clonedDoc.getElementById('pdf-export-temp-container');
+                            if (clonedContainer) {
+                                clonedContainer.style.position = 'static';
+                                clonedContainer.style.left = '0';
+                            }
+                            clonedDoc.body.style.overflow = 'visible';
+
                             const allElements = clonedDoc.querySelectorAll('*');
                             allElements.forEach(el => {
                                 el.style.backdropFilter = 'none';
@@ -167,14 +170,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     },
                     pagebreak:    { mode: ['css', 'legacy'] },
-                    jsPDF:        { unit: 'px', format: [1200, 1600], hotfixes: ["px_scaling"], orientation: 'portrait' }
+                    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
                 };
                 
                 await html2pdf().set(opt).from(container).save();
 
                 // Cleanup
-                if (document.body.contains(wrapper)) {
-                    document.body.removeChild(wrapper);
+                if (document.body.contains(container)) {
+                    document.body.removeChild(container);
                 }
 
             } catch(e) {
