@@ -127,6 +127,7 @@ class ValuationResponse(BaseModel):
     historical_trends: Optional[list] = None
     historical_anchors: Optional[list] = None
     company_overview_synthesis: Optional[str] = None
+    latest_news: Optional[list] = None
     formula_data: Dict[str, Any] = {}
     health_score_total: Optional[Any] = None
     health_breakdown: Optional[list] = None
@@ -1835,6 +1836,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             "historical_trends": data.get("historical_trends"),
             "historical_anchors": historical_anchors,
             "company_overview_synthesis": data.get("company_overview_synthesis"),
+            "latest_news": data.get("latest_news"),
             "health_score_total": health_score_total,
             "health_breakdown": health_breakdown,
             "health_score": { "beneish": beneish_data },

@@ -4302,11 +4302,25 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                             `;
                         }
                     } else if (activeTab === 'news') {
-                        if (isLoadingAI) {
+                        if (isLoadingAI && !globalData.latest_news) {
                             panel.innerHTML = `
                                 <div class="brief-news-item"><div class="skeleton-text" style="width: 80%;"></div><div class="skeleton-text" style="width: 50%;"></div></div>
                                 <div class="brief-news-item"><div class="skeleton-text" style="width: 75%;"></div><div class="skeleton-text" style="width: 45%;"></div></div>
                             `;
+                        } else if (globalData.latest_news && globalData.latest_news.length > 0) {
+                            panel.innerHTML = globalData.latest_news.map((news, index) => {
+                                const title = news.title;
+                                const source = news.publisher;
+
+                                return `
+                                    <div class="brief-news-item" style="cursor: pointer;" onclick="window.openNewsModalByIndex(${index})">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; gap: 10px;">
+                                            <span style="background: rgba(56, 189, 248, 0.1); color: #38bdf8; font-size: 0.58rem; padding: 2px 6px; border-radius: 4px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3px;">${source}</span>
+                                        </div>
+                                        <div style="color: rgba(255,255,255,0.9); font-size: 0.8rem; line-height: 1.4; font-weight: 600;">${title}</div>
+                                    </div>
+                                `;
+                            }).join('');
                         } else if (parsed.latestMarketIntelligence.length > 0) {
                             panel.innerHTML = parsed.latestMarketIntelligence.map(item => {
                                 const match = item.match(/^(.*?)\s*\(Source:\s*(.*?)\)$/i);
@@ -6891,6 +6905,81 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         body.innerHTML = html;
         modal.style.display = 'flex';
     }
+
+    // ── News Modal ──────────────────────
+    window.openNewsModalByIndex = function(index) {
+        try {
+            if (!globalData || !globalData.latest_news || !globalData.latest_news[index]) {
+                return;
+            }
+            const news = globalData.latest_news[index];
+
+            // create modal container if not exists
+            let modal = document.getElementById('news-modal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'news-modal';
+                modal.style.position = 'fixed';
+                modal.style.top = '0';
+                modal.style.left = '0';
+                modal.style.width = '100vw';
+                modal.style.height = '100vh';
+                modal.style.backgroundColor = 'rgba(0, 0, 0, 0.75)';
+                modal.style.backdropFilter = 'blur(5px)';
+                modal.style.zIndex = '999999';
+                modal.style.display = 'flex';
+                modal.style.alignItems = 'center';
+                modal.style.justifyContent = 'center';
+                modal.style.opacity = '0';
+                modal.style.transition = 'opacity 0.2s ease-out';
+
+                modal.onclick = function(e) {
+                    if (e.target === modal) {
+                        window.closeNewsModal();
+                    }
+                };
+                document.body.appendChild(modal);
+            }
+
+            window.closeNewsModal = function() {
+                const m = document.getElementById('news-modal');
+                if (m) {
+                    m.style.opacity = '0';
+                    setTimeout(() => { m.style.display = 'none'; }, 200);
+                }
+            };
+
+            modal.innerHTML = `
+                <div style="background: var(--bg-surface); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; width: 90%; max-width: 500px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); position: relative; font-family: 'Outfit', sans-serif;">
+                    <button onclick="window.closeNewsModal()" style="position: absolute; top: 12px; right: 12px; background: none; border: none; color: rgba(255,255,255,0.5); font-size: 1.2rem; cursor: pointer; padding: 4px;">&times;</button>
+
+                    <div style="margin-bottom: 15px; display: inline-block;">
+                        <span style="background: rgba(56, 189, 248, 0.1); color: #38bdf8; font-size: 0.7rem; padding: 4px 8px; border-radius: 6px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">${news.publisher || 'News'}</span>
+                    </div>
+
+                    <h2 style="font-size: 1.2rem; color: #fff; line-height: 1.4; margin-top: 0; margin-bottom: 16px; font-weight: 700;">${news.title}</h2>
+
+                    ${news.summary ? `<div style="background: rgba(255,255,255,0.03); border-left: 3px solid #4ade80; padding: 12px 16px; border-radius: 4px; margin-bottom: 20px;">
+                        <p style="color: rgba(255,255,255,0.85); font-size: 0.9rem; line-height: 1.6; margin: 0; font-style: italic;">"${news.summary}"</p>
+                    </div>` : ''}
+
+                    ${news.link ? `<div style="text-align: right;">
+                        <a href="${news.link}" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; gap: 8px; background: rgba(56, 189, 248, 0.15); color: #38bdf8; text-decoration: none; padding: 10px 16px; border-radius: 8px; font-weight: 600; font-size: 0.9rem; transition: all 0.2s;">
+                            Read Full Article <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                        </a>
+                    </div>` : ''}
+                </div>
+            `;
+
+            modal.style.display = 'flex';
+            // Trigger reflow
+            modal.offsetHeight;
+            modal.style.opacity = '1';
+
+        } catch (err) {
+            console.error("Error parsing news data", err);
+        }
+    };
 
     // ── Piotroski F-Score Breakdown Modal ──────────────────────
     function renderPiotroskiBreakdown(totalScore, breakdown) {
