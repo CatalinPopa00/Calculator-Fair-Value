@@ -167,8 +167,8 @@ def get_yahoo_analysis_normalized(ticker, info=None):
                     # v284: Non-nesting regex to prevent crossing object boundaries (Fix for ABNB crossover)
                     eps_avg_m = re.search(r'earningsEstimate(?:\"|\\"):\{[^{}]*?avg(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
                     eps_ya_m = re.search(r'yearAgoEps(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
-                    eps_low_m = re.search(r'earningsEstimate(?:\"|\\"):\{.*?low(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
-                    eps_high_m = re.search(r'earningsEstimate(?:\"|\\"):\{.*?high(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
+                    eps_low_m = re.search(r'earningsEstimate(?:\"|\\"):\{(?:(?!revenueEstimate).)*?low(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
+                    eps_high_m = re.search(r'earningsEstimate(?:\"|\\"):\{(?:(?!revenueEstimate).)*?high(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
 
                     if eps_avg_m:
                         val = float(eps_avg_m.group(1))
@@ -198,8 +198,8 @@ def get_yahoo_analysis_normalized(ticker, info=None):
                     # Revenue extraction (Only if trend_key is revenueTrend)
                     rev_avg_m = re.search(r'revenueEstimate(?:\"|\\"):\{[^{}]*?avg(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
                     rev_ya_m = re.search(r'yearAgoSales(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
-                    rev_low_m = re.search(r'revenueEstimate(?:\"|\\"):\{.*?low(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
-                    rev_high_m = re.search(r'revenueEstimate(?:\"|\\"):\{.*?high(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
+                    rev_low_m = re.search(r'revenueEstimate(?:\"|\\"):\{(?:(?!earningsEstimate).)*?low(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
+                    rev_high_m = re.search(r'revenueEstimate(?:\"|\\"):\{(?:(?!earningsEstimate).)*?high(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
 
                     if rev_avg_m:
                         val = float(rev_avg_m.group(1))
@@ -3422,7 +3422,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
             "cet1_ratio": info.get('commonEquityTier1Ratio') or (float(bs.loc[find_idx(bs, 'Common Equity Tier 1')].iloc[0]) if bs is not None and find_idx(bs, 'Common Equity Tier 1') else (float(bs.loc[find_idx(bs, ['Total Equity', 'Stockholders Equity', 'Total Equity Gross Minority Interest'])].iloc[0]) / float(bs.loc[find_idx(bs, 'Total Assets')].iloc[0]) if bs is not None and find_idx(bs, 'Total Assets') and find_idx(bs, ['Total Equity', 'Stockholders Equity', 'Total Equity Gross Minority Interest']) and float(bs.loc[find_idx(bs, 'Total Assets')].iloc[0]) > 0 else None)),
             "red_flags": red_flags,
             "company_overview_synthesis": get_company_synthesis(ticker_symbol, info, run_ai=False),
-            "beneish_data": beneish_data
+            "beneish_data": beneish_data,
+            "beta": info.get("beta")
         }
         
         # Cache raw yfinance info dictionary for asynchronous decoupled Gemini endpoints

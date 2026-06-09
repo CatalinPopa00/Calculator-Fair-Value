@@ -452,6 +452,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let chartEpsShares = null;
     let globalData = null;
     let _currentScenario = 'base';
+let _customScenariosData = null;
+window._customScenariosData = null;
     let _realApiPrice = null; // v299: Immutable anchor for Fair Value stability
     let _originalPrice = null; // Stores the restore point for simulation reset
     let _simulating = false;
@@ -1453,23 +1455,23 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             // FCF is calculated on top of projected Revenue
             currentFcf = currentRevenue * yearMargin;
 
-            // Method A: Deduct buyback cash cost from FCF
+            // Method A: Deduct buyback cash cost from FCF (or add dilution cost if buybackRate < 0)
             let buybackCashSpent = 0;
-            if (buybackRate > 0 && currentPrice && currentPrice > 0) {
+            if (buybackRate !== 0 && currentPrice && currentPrice > 0) {
                 const projectedPrice = currentPrice * Math.pow(1 + finalWacc, i);
                 const sharesBought = remainingShares * buybackRate;
                 buybackCashSpent = sharesBought * projectedPrice;
                 remainingShares -= sharesBought;
                 currentFcf -= buybackCashSpent;
-            } else if (buybackRate > 0) {
-                // Fallback: just reduce shares without FCF deduction
+            } else if (buybackRate !== 0) {
+                // Fallback: just reduce/increase shares without FCF deduction
                 remainingShares *= (1 - buybackRate);
             }
 
             buybackCostPerYear.push(buybackCashSpent);
             fcf_projections.push(currentFcf);
 
-            const pv_fcf = currentFcf / Math.pow(1 + finalWacc, i);
+            const pv_fcf = currentFcf / Math.pow(1 + finalWacc, i - 0.5);
             pv_fcf_years.push(pv_fcf);
             pv += pv_fcf;
         }
@@ -2302,9 +2304,16 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         circle.style.color = '';
         fill.style.backgroundColor = '';
         fill.style.width = '0%';
-        circle.style.width = 'auto'; // ensure padding is respected
-        circle.style.padding = '0 10px';
-        circle.style.borderRadius = '12px';
+        circle.style.width = '';
+        circle.style.padding = '0';
+        circle.style.borderRadius = '';
+
+        // Adjust parent grid to accommodate wider percentage text
+        const parentDisplay = circle.parentElement;
+        if (parentDisplay && parentDisplay.classList.contains('score-display')) {
+            parentDisplay.style.gridTemplateColumns = 'min-content 1fr 2.5rem';
+            circle.style.marginRight = '0.5rem';
+        }
 
         if (!rule40Data || rule40Data.total === null || isNaN(rule40Data.total)) {
             circle.textContent = 'N/A';
@@ -2350,7 +2359,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         const labelText = rule40Data.label || (rule40Data.passed ? 'Strong' : (total > 30 ? 'Moderate' : 'Weak'));
 
         let html = `
-            <div style="text-align:center; margin-bottom: 1.5rem;">
+            <div style="text-align:center; margin-bottom: 1.5rem; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.1);">
                 <h3 style="font-size: 1.2rem; margin: 0 0 0.5rem; color: white;">Rule of 40 Breakdown</h3>
                 <div style="font-size: 2.8rem; font-weight: 800; color: ${labelColor}; line-height: 1;">${total.toFixed(1)}%<span style="font-size: 1.2rem; color: var(--text-muted); font-weight: 500;">/40%</span></div>
                 <div style="font-size: 0.9rem; font-weight: 700; color: ${labelColor}; margin-top: 4px;">${labelText}</div>
@@ -2364,26 +2373,27 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     Metrics
                 </h4>
                 
-                <div style="display:flex; align-items:flex-start; gap:10px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04);">
-                    <span style="font-size:1.1rem; min-width:22px;">📈</span>
-                    <div style="flex:1; min-width:0;">
-                        <div style="font-size:0.85rem; font-weight:700; color:white;">${rule40Data.rev_growth_label || 'Revenue Growth'}</div>
-                        <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">${rule40Data.rev_growth_desc || 'Most recent historical 1-year revenue growth.'}</div>
+                <div style="display:grid; grid-template-columns: 1fr max-content 20px; align-items:center; padding:10px 0; gap:12px 16px;">
+                    <!-- Revenue Growth Row -->
+                    <div style="font-weight:600; font-size:clamp(0.75rem, 3vw, 0.88rem); color:white; line-height:1.2; white-space:nowrap;" title="${rule40Data.rev_growth_label || 'Revenue Growth'}">${rule40Data.rev_growth_label || 'Revenue Growth'}</div>
+                    <div style="font-weight:700; font-size:clamp(0.8rem, 3vw, 0.9rem); color:rgba(255,255,255,0.85); font-family:monospace; text-align:right;">
+                        ${(rule40Data.revenue_growth || 0).toFixed(1)} <span style="font-size: 0.8em; color: rgba(255,255,255,0.7);">%</span>
                     </div>
-                    <span style="font-size:0.85rem; font-weight:700; color:var(--text-main); min-width:28px; text-align:right;">
-                        ${(rule40Data.revenue_growth || 0).toFixed(1)}%
-                    </span>
-                </div>
-                
-                <div style="display:flex; align-items:flex-start; gap:10px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04);">
-                    <span style="font-size:1.1rem; min-width:22px;">💰</span>
-                    <div style="flex:1; min-width:0;">
-                        <div style="font-size:0.85rem; font-weight:700; color:white;">${rule40Data.margin_label || 'FCF Margin'}</div>
-                        <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">${rule40Data.margin_desc || 'Free Cash Flow relative to Total Revenue.'}</div>
+                    <div style="display:flex; justify-content:center;">
+                        <span style="width:8px; height:8px; border-radius:50%; background:${(rule40Data.revenue_growth || 0) > 0 ? 'var(--accent)' : 'var(--danger)'}; display:inline-block;"></span>
                     </div>
-                    <span style="font-size:0.85rem; font-weight:700; color:var(--text-main); min-width:28px; text-align:right;">
-                        ${(rule40Data.fcf_margin || 0).toFixed(1)}%
-                    </span>
+
+                    <!-- Full-width divider -->
+                    <div style="grid-column: 1 / -1; height: 1px; background: rgba(255,255,255,0.05); margin: 2px 0;"></div>
+
+                    <!-- FCF Margin Row -->
+                    <div style="font-weight:600; font-size:clamp(0.75rem, 3vw, 0.88rem); color:white; line-height:1.2; white-space:nowrap;" title="${rule40Data.margin_label || 'FCF Margin'}">${rule40Data.margin_label || 'FCF Margin'}</div>
+                    <div style="font-weight:700; font-size:clamp(0.8rem, 3vw, 0.9rem); color:rgba(255,255,255,0.85); font-family:monospace; text-align:right;">
+                        ${(rule40Data.fcf_margin || 0).toFixed(1)} <span style="font-size: 0.8em; color: rgba(255,255,255,0.7);">%</span>
+                    </div>
+                    <div style="display:flex; justify-content:center;">
+                        <span style="width:8px; height:8px; border-radius:50%; background:${(rule40Data.fcf_margin || 0) > 0 ? 'var(--accent)' : 'var(--danger)'}; display:inline-block;"></span>
+                    </div>
                 </div>
             </div>`;
 
@@ -2398,6 +2408,9 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
     const updateFairValue = () => {
         const getDynamicEpsGrowth = () => {
+            if (window._customScenariosData && window._customScenariosData[_currentScenario] && window._customScenariosData[_currentScenario].eps !== null) {
+                return window._customScenariosData[_currentScenario].eps / 100;
+            }
             if (globalData && globalData.computed_eps_growth != null && !isNaN(globalData.computed_eps_growth)) {
                 return globalData.computed_eps_growth;
             }
@@ -2408,6 +2421,9 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         };
 
         const getDynamicRevGrowth = () => {
+            if (window._customScenariosData && window._customScenariosData[_currentScenario] && window._customScenariosData[_currentScenario].rev13 !== null) {
+                return window._customScenariosData[_currentScenario].rev13 / 100;
+            }
             if (globalData && globalData.computed_dcf_growth != null && !isNaN(globalData.computed_dcf_growth)) {
                 return globalData.computed_dcf_growth;
             }
@@ -2482,7 +2498,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             baseRevenue = baseRevenue || (prof.market_cap && prof.ps_ratio && prof.ps_ratio > 0 ? prof.market_cap / prof.ps_ratio : null) || 0;
 
             const customMarginEl = document.getElementById('dcf-custom-fcf-margin');
-            const customMargin = (customMarginEl && customMarginEl.value !== '') ? parseLocaleFloat(customMarginEl.value) : null;
+            let cs = window._customScenariosData && window._customScenariosData[_currentScenario] ? window._customScenariosData[_currentScenario] : null;
+            let customMargin = (customMarginEl && customMarginEl.value !== '') ? parseLocaleFloat(customMarginEl.value) : null;
+            if (cs && cs.fcfMargin !== null) {
+                customMargin = cs.fcfMargin;
+            }
 
             const customMarginGrowthEl = document.getElementById('dcf-custom-margin-growth');
             const customMarginGrowth = (customMarginGrowthEl && customMarginGrowthEl.value !== '') ? parseLocaleFloat(customMarginGrowthEl.value) / 100 : 0.002;
@@ -2497,18 +2517,23 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
             if (fcfSource === 'revenue' || fcfSource === 'eps_growth') {
                 const waccInput = document.getElementById('dcf-custom-wacc');
-                const wAnalyst = (waccInput && waccInput.value) ? parseLocaleFloat(waccInput.value) / 100 : w;
+                let wAnalyst = (waccInput && waccInput.value) ? parseLocaleFloat(waccInput.value) / 100 : w;
+                if (cs && cs.wacc !== null) wAnalyst = cs.wacc / 100;
 
                 const pRaw = document.getElementById('dcf-custom-perp')?.value;
-                const pCustom = (pRaw === '' || isNaN(parseLocaleFloat(pRaw))) ? p : parseLocaleFloat(pRaw) / 100;
+                let pCustom = (pRaw === '' || isNaN(parseLocaleFloat(pRaw))) ? p : parseLocaleFloat(pRaw) / 100;
+                if (cs && cs.perp !== null) pCustom = cs.perp / 100;
 
-                const em = parseLocaleFloat(document.getElementById('input-exit-multiple')?.value) || (globalData.dcf_assumptions?.recommended_exit_multiple || 15.0);
+                let em = parseLocaleFloat(document.getElementById('input-exit-multiple')?.value) || (globalData.dcf_assumptions?.recommended_exit_multiple || 15.0);
+                if (cs && cs.exit !== null) em = cs.exit;
 
                 let g;
                 if (fcfSource === 'revenue') {
                     const revBase = getDynamicRevGrowth();
                     const g13 = Math.min(Math.round(revBase * 1000) / 1000, 0.50);
+
                     const g46 = Math.min(revBase * 0.75, 0.30);
+
                     const g78 = Math.min(revBase * 0.50, 0.15);
                     const g910 = Math.min(revBase * 0.25, 0.05);
                     g = [];
@@ -2589,10 +2614,19 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     // If 10yr selected, 7-8Y and 9-10Y are ALSO required
                     dcfValObj = null;
                 } else {
-                    const g13 = v13 / 100;
-                    const g46 = v46 / 100;
-                    const g78 = (v78 ?? 0) / 100;
-                    const g910 = (v910 ?? 0) / 100;
+                    let g13 = v13 / 100;
+                    let g46 = v46 / 100;
+                    let g78 = (v78 ?? 0) / 100;
+                    let g910 = (v910 ?? 0) / 100;
+
+                    // Override all growths if custom scenario provides 1-3Y growth
+                    if (window._customScenariosData && window._customScenariosData[_currentScenario] && window._customScenariosData[_currentScenario].rev13 !== null) {
+                        const baseRev = window._customScenariosData[_currentScenario].rev13 / 100;
+                        g13 = Math.min(Math.round(baseRev * 1000) / 1000, 0.50);
+                        g46 = Math.min(baseRev * 0.75, 0.30);
+                        g78 = Math.min(baseRev * 0.50, 0.15);
+                        g910 = Math.min(baseRev * 0.25, 0.05);
+                    }
 
                     // Build per-year growth array
                     const growthArr = [];
@@ -2609,9 +2643,13 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     const pRaw = document.getElementById('dcf-custom-perp').value;
                     const emRaw = document.getElementById('input-exit-multiple').value;
 
-                    const wCustom = (wRaw === '' || isNaN(parseLocaleFloat(wRaw))) ? 0.09 : parseLocaleFloat(wRaw) / 100;
-                    const pCustom = (pRaw === '' || isNaN(parseLocaleFloat(pRaw))) ? 0.025 : parseLocaleFloat(pRaw) / 100;
-                    const em = (emRaw === '' || isNaN(parseLocaleFloat(emRaw))) ? (globalData.dcf_assumptions?.recommended_exit_multiple || 10.0) : parseLocaleFloat(emRaw);
+                    let csWacc = (cs && cs.wacc !== null) ? cs.wacc / 100 : null;
+                    let csPerp = (cs && cs.perp !== null) ? cs.perp / 100 : null;
+                    let csExit = (cs && cs.exit !== null) ? cs.exit : null;
+
+                    const wCustom = csWacc !== null ? csWacc : ((wRaw === '' || isNaN(parseLocaleFloat(wRaw))) ? 0.09 : parseLocaleFloat(wRaw) / 100);
+                    const pCustom = csPerp !== null ? csPerp : ((pRaw === '' || isNaN(parseLocaleFloat(pRaw))) ? 0.025 : parseLocaleFloat(pRaw) / 100);
+                    const em = csExit !== null ? csExit : ((emRaw === '' || isNaN(parseLocaleFloat(emRaw))) ? (globalData.dcf_assumptions?.recommended_exit_multiple || 10.0) : parseLocaleFloat(emRaw));
 
                     dcfValObj = calcLocalDcf(fcfParam, growthArr, wCustom, pCustom, shares, currentFormulaData.dcf.total_cash, currentFormulaData.dcf.total_debt, buybackRate, years, em, _realApiPrice);
                 }
@@ -2672,6 +2710,10 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             if (pegSrc === 'analyst') {
                 strictCagrMode = true;
                 usedGrowth = null; // Default to null for strict 2-Year CAGR
+                if (window._customScenariosData && window._customScenariosData[_currentScenario] && window._customScenariosData[_currentScenario].eps !== null) {
+                    usedGrowth = window._customScenariosData[_currentScenario].eps / 100;
+                    strictCagrMode = false; // We have custom growth, not strict CAGR
+                }
                 const pegEsts = globalData.eps_estimates?.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
                 if (pegEsts && pegEsts.length >= 2) {
                     const reportedE = globalData.eps_estimates?.find(e => e && e.status === 'reported');
@@ -2682,15 +2724,17 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                         else if (_currentScenario === 'bull') { y1 = pegEsts[0].high ?? pegEsts[0].avg; y2 = pegEsts[1].high ?? pegEsts[1].avg; }
                         else { y1 = pegEsts[0].avg; y2 = pegEsts[1].avg; }
 
-                        if (globalData.computed_eps_growth != null && !isNaN(globalData.computed_eps_growth)) {
-                            usedGrowth = globalData.computed_eps_growth;
-                        } else {
-                            if (baseEps > 0 && y2 > 0) {
-                                usedGrowth = Math.pow(y2 / baseEps, 0.5) - 1;
+                        if (usedGrowth === null) {
+                            if (globalData.computed_eps_growth != null && !isNaN(globalData.computed_eps_growth)) {
+                                usedGrowth = globalData.computed_eps_growth;
                             } else {
-                                const g1 = (y1 / baseEps) - 1;
-                                const g2 = (y2 / y1) - 1;
-                                usedGrowth = (g1 + g2) / 2.0;
+                                if (baseEps > 0 && y2 > 0) {
+                                    usedGrowth = Math.pow(y2 / baseEps, 0.5) - 1;
+                                } else {
+                                    const g1 = (y1 / baseEps) - 1;
+                                    const g2 = (y2 / y1) - 1;
+                                    usedGrowth = (g1 + g2) / 2.0;
+                                }
                             }
                         }
 
@@ -2700,6 +2744,9 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 }
             } else if (pegSrc === '5ycagr') {
                 usedGrowth = globalData.company_profile.cagr_5y_custom || currentFormulaData.peg.eps_growth_5y_cagr || usedGrowth;
+                if (window._customScenariosData && window._customScenariosData[_currentScenario] && window._customScenariosData[_currentScenario].eps !== null) {
+                    usedGrowth = window._customScenariosData[_currentScenario].eps / 100;
+                }
                 fwdPe = globalData.company_profile.forward_pe_custom || currentFormulaData.peg.fwd_pe || null;
             } else if (pegSrc === 'custom') {
                 const rawG = document.getElementById('peg-custom-growth').value;
@@ -2901,9 +2948,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
             if (epsSource === 'analyst') {
                 usedGrowth = getDynamicEpsGrowth();
-            }
-            if (epsSource === '5ycagr') {
+            } else if (epsSource === '5ycagr') {
                 usedGrowth = globalData.company_profile.cagr_5y_custom || pl.eps_growth_5y_cagr || usedGrowth;
+                if (window._customScenariosData && window._customScenariosData[_currentScenario] && window._customScenariosData[_currentScenario].eps !== null) {
+                    usedGrowth = window._customScenariosData[_currentScenario].eps / 100;
+                }
             } else if (epsSource === 'historical') {
                 usedGrowth = prof.historic_eps_growth != null ? prof.historic_eps_growth : 0.05;
             } else if (epsSource === 'custom') {
@@ -2946,8 +2995,12 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 // Fallback just in case
                 selectedMult = 20;
             }
+            let csLynch = window._customScenariosData && window._customScenariosData[_currentScenario] ? window._customScenariosData[_currentScenario] : null;
+            if (csLynch && csLynch.pe !== null) {
+                selectedMult = csLynch.pe;
+            }
 
-            if (multVal === 'historical') {
+            if (multVal === 'historical' && (!csLynch || csLynch.pe === null)) {
                 if (_currentScenario === 'bear') selectedMult -= 3;
                 else if (_currentScenario === 'bull') selectedMult += 3;
             }
@@ -5902,7 +5955,91 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     tickerInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') analyzeTicker(); });
 
     // Scenario Toggles
-    const scenarioBtns = document.querySelectorAll('.scenario-btn');
+
+    // --- CUSTOM SCENARIOS LOGIC ---
+    const customScenariosBtn = document.getElementById('open-custom-scenarios-btn');
+    const customScenariosModal = document.getElementById('custom-scenarios-modal');
+    const closeCustomScenariosBtn = document.getElementById('close-custom-scenarios-modal');
+    const calculateCustomBtn = document.getElementById('cs-calculate-btn');
+    const resetCustomBtn = document.getElementById('cs-reset-btn');
+
+    if (customScenariosBtn) {
+        customScenariosBtn.addEventListener('click', () => {
+            if (customScenariosModal) {
+                // Populate inputs if data exists
+                if (window._customScenariosData) {
+                    ['bear', 'base', 'bull'].forEach(scen => {
+                        const data = window._customScenariosData[scen];
+                        if (!data) return;
+                        if (data.rev13 !== null) document.getElementById(`cs-rev-1-3-${scen}`).value = data.rev13;
+                        if (data.fcfMargin !== null) document.getElementById(`cs-fcf-margin-${scen}`).value = data.fcfMargin;
+                        if (data.wacc !== null) document.getElementById(`cs-wacc-${scen}`).value = data.wacc;
+                        if (data.exit !== null) document.getElementById(`cs-exit-${scen}`).value = data.exit;
+                        if (data.perp !== null) document.getElementById(`cs-perp-${scen}`).value = data.perp;
+                        if (data.eps !== null) document.getElementById(`cs-eps-${scen}`).value = data.eps;
+                        if (data.pe !== null) document.getElementById(`cs-pe-${scen}`).value = data.pe;
+                    });
+                }
+                customScenariosModal.style.display = 'flex';
+            }
+        });
+    }
+
+    if (closeCustomScenariosBtn) {
+        closeCustomScenariosBtn.addEventListener('click', () => {
+            if (customScenariosModal) customScenariosModal.style.display = 'none';
+        });
+    }
+    if (customScenariosModal) {
+        customScenariosModal.addEventListener('click', (e) => {
+            if (e.target === customScenariosModal) {
+                customScenariosModal.style.display = 'none';
+            }
+        });
+    }
+
+    const parseCsInput = (id) => {
+        const val = document.getElementById(id).value;
+        return val === '' ? null : parseFloat(val);
+    };
+
+    if (calculateCustomBtn) {
+        calculateCustomBtn.addEventListener('click', () => {
+            window._customScenariosData = {};
+            ['bear', 'base', 'bull'].forEach(scen => {
+                window._customScenariosData[scen] = {
+                    rev13: parseCsInput(`cs-rev-1-3-${scen}`),
+                    fcfMargin: parseCsInput(`cs-fcf-margin-${scen}`),
+                    wacc: parseCsInput(`cs-wacc-${scen}`),
+                    exit: parseCsInput(`cs-exit-${scen}`),
+                    perp: parseCsInput(`cs-perp-${scen}`),
+                    eps: parseCsInput(`cs-eps-${scen}`),
+                    pe: parseCsInput(`cs-pe-${scen}`)
+                };
+            });
+            if (customScenariosBtn) customScenariosBtn.classList.add('active-custom');
+            if (customScenariosModal) customScenariosModal.style.display = 'none';
+            if (typeof updateFairValue === 'function') { updateFairValue(); }
+            if (typeof window.triggerRecalculate === 'function') { window.triggerRecalculate(); }
+            if (typeof updateScoresDynamic === 'function') { updateScoresDynamic(); }
+        });
+    }
+
+    if (resetCustomBtn) {
+        resetCustomBtn.addEventListener('click', () => {
+            window._customScenariosData = null;
+            document.querySelectorAll('.cs-input').forEach(inp => inp.value = '');
+            if (customScenariosBtn) customScenariosBtn.classList.remove('active-custom');
+            if (customScenariosModal) customScenariosModal.style.display = 'none';
+            if (typeof updateFairValue === 'function') { updateFairValue(); }
+            if (typeof window.triggerRecalculate === 'function') { window.triggerRecalculate(); }
+            if (typeof updateScoresDynamic === 'function') { updateScoresDynamic(); }
+        });
+    }
+    // --- END CUSTOM SCENARIOS LOGIC ---
+
+    const scenarioBtns = document.querySelectorAll('.scenario-btn:not(.custom-scenarios-btn)');
+
     scenarioBtns.forEach(btn => {
         btn.addEventListener('click', (e) => {
             scenarioBtns.forEach(b => b.classList.remove('active'));
@@ -6110,7 +6247,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             return prefix + v.toLocaleString();
         };
 
-        const row = (label, value) => `<div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.05);"><span style="color:var(--text-muted);">${label}</span><span style="font-weight:600;">${value}</span></div>`;
+        const row = (label, value) => `<div style="display:flex; justify-content:space-between; padding:12px 0; border-bottom:1px solid rgba(255,255,255,0.05);"><span style="color:var(--text-muted);">${label}</span><span style="font-weight:600;">${value}</span></div>`;
 
         if (model === 'dcf' && currentFormulaData.dcf) {
             const d = currentFormulaData.dcf;
@@ -6152,7 +6289,13 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 }
 
                 const customMarginEl = document.getElementById('dcf-custom-fcf-margin');
-                const customMargin = (customMarginEl && customMarginEl.value !== '') ? parseLocaleFloat(customMarginEl.value) : null;
+                let customMargin = (customMarginEl && customMarginEl.value !== '') ? parseLocaleFloat(customMarginEl.value) : null;
+
+                let cs = window._customScenariosData && window._customScenariosData[_currentScenario] ? window._customScenariosData[_currentScenario] : null;
+                if (cs && cs.fcfMargin !== null) {
+                    customMargin = cs.fcfMargin;
+                }
+
                 let startingFcfMargin = 0.10;
                 if (customMargin !== null && !isNaN(customMargin)) {
                     startingFcfMargin = customMargin / 100;
@@ -6162,7 +6305,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 const customMarginGrowthEl = document.getElementById('dcf-custom-margin-growth');
                 const customMarginGrowth = (customMarginGrowthEl && customMarginGrowthEl.value !== '') ? parseLocaleFloat(customMarginGrowthEl.value) / 100 : 0.002;
 
-                let tableHTML = `<table style="width:100%; border-collapse:collapse; margin-top:20px; font-size: 0.95rem;">
+                let tableHTML = `<div class="table-responsive"><table class="premium-data-table">
                                         <tr style="border-bottom:1px solid rgba(255,255,255,0.2);">
                                             <th style="text-align:left; padding:8px 0; color:white;">Year</th>
                                             <th style="text-align:right; padding:8px 0; color:white;">Projected FCF</th>
@@ -6176,7 +6319,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                                         <td style="text-align:right; color:var(--accent); font-weight:600;">${fmtPct(yearMargin)}</td>
                                       </tr>`;
                 });
-                tableHTML += `</table>`;
+                tableHTML += `</table></div>`;
 
                 const tvLabel = method === 'perpetual' ? `Terminal Value (${fmtPct(dataObj.perpetual_growth_rate)} Growth)` : `Terminal Value (${dataObj.exit_multiple}x Multiple)`;
 
@@ -6185,7 +6328,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     matrixHTML = `<div style="margin-top: 25px;">
                             <h4 style="margin-bottom:15px; font-size:1rem; text-transform:uppercase; letter-spacing:1px; color:white; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:5px;">DCF Sensitivity Matrix</h4>
                             <div style="overflow-x:auto;">
-                            <table style="width:100%; border-collapse:collapse; font-size: 0.9rem; text-align:center; background: rgba(0,0,0,0.2); border-radius:6px; overflow:hidden;">`;
+                            <table class="premium-data-table">`;
 
                     matrixHTML += `<tr><th style="padding:10px; border:1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color:white;">WACC \\ Growth</th>`;
                     const firstRowVals = sensMatrix[0].values;
@@ -6333,7 +6476,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 peerTableHTML = `
                     <h4 style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:10px;">Peer Benchmarks</h4>
                     <div style="overflow-x:auto; margin-bottom:1.5rem;">
-                    <table style="width:100%; border-collapse:collapse; font-size:0.65rem;">
+                    <table class="premium-data-table" style="font-size:0.75rem;">
                         <thead>
                             <tr style="border-bottom:1px solid rgba(255,255,255,0.15);">
                                 <th style="text-align:left; padding:4px 2px; color:white; white-space:nowrap;">Ticker</th>
@@ -6630,10 +6773,10 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         // Build header - 3-column grid to center the total and align with X
         const displayTitle = title.replace(' Breakdown', '');
         let html = `
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:5px; gap:15px; flex-wrap:nowrap; border-bottom:none;">
-                <h3 style="margin:0; font-size:1.05rem; color:white; font-weight:800; white-space:nowrap; border-bottom:none !important;">${displayTitle}</h3>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:10px; gap:15px; flex-wrap:nowrap; border-bottom:1px solid rgba(255,255,255,0.1);">
+                <h3 style="margin:0; font-size:1.05rem; color:white; font-weight:800; white-space:nowrap; border-bottom:none !important; line-height:1.3rem;">${displayTitle}</h3>
                 
-                <div style="display:flex; align-items:baseline; gap:6px; flex-shrink:0;">
+                <div style="display:flex; align-items:baseline; gap:6px; flex-shrink:0; line-height:1.3rem;">
                     <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600; text-transform:uppercase;">Total:</span>
                     <span style="font-size:1.3rem; font-weight:900; color:white;">${scoreVal}/${totalMax}</span>
                 </div>
@@ -6673,20 +6816,21 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             else if (valStr.toLowerCase().endsWith('x')) { suffix = 'x'; valStr = valStr.slice(0, -1); }
 
             const valueHtml = suffix
-                ? `<div style="text-align: right; width: 100%;">${valStr} <span style="font-size: 0.8em; color: rgba(255,255,255,0.7);">${suffix}</span></div>`
-                : `<div style="text-align: right; width: 100%;">${valStr}</div>`;
+                ? `<div style="font-weight: 700; font-size: 0.9rem; color: rgba(255,255,255,0.85); font-family: monospace; white-space: nowrap;">${valStr}<span style="font-size: 0.8em; color: rgba(255,255,255,0.7); margin-left: 2px;">${suffix}</span></div>`
+                : `<div style="font-weight: 700; font-size: 0.9rem; color: rgba(255,255,255,0.85); font-family: monospace; white-space: nowrap;">${valStr}</div>`;
 
             html += `
-                <div style="display:grid; grid-template-columns: 2fr minmax(110px, max-content) 12px 50px; align-items:center; padding:12px 0; border-top:1px solid rgba(255,255,255,0.04); gap:12px;">
-                    <div style="font-weight:600; font-size:clamp(0.75rem, 3vw, 0.88rem); color:white; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${label}">${label}</div>
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.03); gap: 15px;">
+                    <div style="font-weight: 600; font-size: 0.85rem; color: white; line-height: 1.3;">${label}</div>
                     
-                    <div style="font-weight:700; font-size:clamp(0.8rem, 3vw, 0.9rem); color:rgba(255,255,255,0.85); font-family:monospace; display: flex; justify-content: flex-end; white-space: nowrap;">${valueHtml}</div>
-                    
-                    <div style="display:flex; justify-content:center;">
-                        <span style="width:8px; height:8px; border-radius:50%; background:${dotColor}; display:inline-block;"></span>
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        ${valueHtml}
+
+                        <div style="display: flex; align-items: center; gap: 8px; justify-content: flex-end; width: 60px;">
+                            <span style="width: 6px; height: 6px; border-radius: 50%; background: ${dotColor}; display: inline-block; flex-shrink: 0;"></span>
+                            <div style="font-weight: 800; font-size: 0.85rem; color: ${ptsColor}; font-family: 'Outfit', sans-serif; min-width: 35px; text-align: right;">${pts}/${maxPts}</div>
+                        </div>
                     </div>
-                    
-                    <div style="font-weight:800; font-size:clamp(0.8rem, 3vw, 0.85rem); color:${ptsColor}; font-family: 'Outfit', sans-serif; text-align:right;">${pts}/${maxPts}</div>
                 </div>
             `;
         });
@@ -6712,9 +6856,9 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
         const scoreVal = beneishData.m_score;
         let html = `
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:5px; gap:15px;">
-                <h3 style="margin:0; font-size:1.05rem; color:white; font-weight:800;">Beneish M-Score</h3>
-                <div style="display:flex; align-items:baseline; gap:6px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:10px; gap:15px; border-bottom:1px solid rgba(255,255,255,0.1);">
+                <h3 style="margin:0; font-size:1.05rem; color:white; font-weight:800; line-height:1.3rem;">Beneish M-Score</h3>
+                <div style="display:flex; align-items:baseline; gap:6px; line-height:1.3rem;">
                     <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600; text-transform:uppercase;">Total:</span>
                     <span style="font-size:1.3rem; font-weight:900; color:white;">${scoreVal}</span>
                 </div>
@@ -6730,16 +6874,14 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             const dotColor = passed ? 'var(--accent)' : (item.status === 'fail' ? 'var(--danger)' : 'var(--text-muted)');
 
             html += `
-                <div style="display:flex; flex-direction:column; padding:8px 0; border-top:1px solid rgba(255,255,255,0.04); gap:6px;">
-                    <div>
-                        <div style="font-weight:600; font-size:0.85rem; color:white; line-height:1.4;">${label}</div>
-                        <div style="font-size:0.7rem; color:var(--text-muted); margin-top:2px;">${item.threshold}</div>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <div style="font-weight:700; font-size:0.85rem; color:rgba(255,255,255,0.7); font-family:monospace;">${item.value !== null ? item.value : 'N/A'}</div>
-                        <div style="display:flex; align-items:center;">
-                            <span style="width:8px; height:8px; border-radius:50%; background:${dotColor}; display:inline-block; flex-shrink:0;"></span>
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05); gap: 15px;">
+                    <div style="font-weight: 600; font-size: 0.9rem; color: white; line-height: 1.3;">${label}</div>
+
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <div style="font-weight: 700; font-size: 0.9rem; color: rgba(255,255,255,0.85); font-family: monospace; white-space: nowrap;">
+                            ${item.value !== null ? item.value : 'N/A'}
                         </div>
+                        <span style="width: 8px; height: 8px; border-radius: 50%; background: ${dotColor}; display: inline-block; flex-shrink: 0;"></span>
                     </div>
                 </div>
             `;
@@ -6766,9 +6908,9 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
         const scoreVal = (totalScore != null && totalScore !== 'N/A') ? totalScore : '?';
         let html = `
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:5px; gap:15px;">
-                <h3 style="margin:0; font-size:1.05rem; color:white; font-weight:800;">Piotroski F-Score</h3>
-                <div style="display:flex; align-items:baseline; gap:6px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:10px; gap:15px; border-bottom:1px solid rgba(255,255,255,0.1);">
+                <h3 style="margin:0; font-size:1.05rem; color:white; font-weight:800; line-height:1.3rem;">Piotroski F-Score</h3>
+                <div style="display:flex; align-items:baseline; gap:6px; line-height:1.3rem;">
                     <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600; text-transform:uppercase;">Total:</span>
                     <span style="font-size:1.3rem; font-weight:900; color:white;">${scoreVal}/9</span>
                 </div>
@@ -6781,23 +6923,26 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             const group = item.group || '';
             if (group && group !== lastGroup) {
                 lastGroup = group;
-                html += `<div style="margin-top:12px; margin-bottom:6px; font-size:0.75rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px;">${group}</div>`;
+                html += `<div style="margin-top: 15px; margin-bottom: 5px; font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px;">${group}</div>`;
             }
 
             const label = item.criterion || item.name || 'Unknown';
             const passed = item.passed;
             const dotColor = passed === true ? 'var(--accent)' : (passed === false ? 'var(--danger)' : 'var(--text-muted)');
-            const statusText = passed === true ? '✓ Pass' : (passed === false ? '✗ Fail' : '— N/A');
+            const statusText = passed === true ? 'Pass' : (passed === false ? 'Fail' : 'N/A');
             const statusColor = passed === true ? 'var(--accent)' : (passed === false ? 'var(--danger)' : 'var(--text-muted)');
 
             html += `
-                <div style="display:flex; flex-direction:column; padding:8px 0; border-top:1px solid rgba(255,255,255,0.04); gap:6px;">
-                    <div style="font-weight:600; font-size:0.85rem; color:white; line-height:1.4;">${label}</div>
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <div style="font-weight:700; font-size:0.85rem; color:rgba(255,255,255,0.7); font-family:monospace;">${item.value || 'N/A'}</div>
-                        <div style="display:flex; align-items:center; gap:8px;">
-                            <span style="width:8px; height:8px; border-radius:50%; background:${dotColor}; display:inline-block; flex-shrink:0;"></span>
-                            <div style="font-weight:800; font-size:0.85rem; color:${statusColor}; white-space:nowrap; padding-left:4px; min-width:55px;">${statusText}</div>
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.03); gap: 15px;">
+                    <div style="font-weight: 600; font-size: 0.85rem; color: white; line-height: 1.3;">${label}</div>
+
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <div style="font-weight: 700; font-size: 0.85rem; color: rgba(255,255,255,0.85); font-family: monospace; white-space: nowrap;">
+                            ${item.value || 'N/A'}
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 6px; width: 45px; justify-content: flex-end;">
+                            <div style="font-weight: 800; font-size: 0.8rem; color: ${statusColor}; text-transform: uppercase;">${statusText}</div>
+                            <span style="width: 6px; height: 6px; border-radius: 50%; background: ${dotColor}; display: inline-block; flex-shrink: 0;"></span>
                         </div>
                     </div>
                 </div>
