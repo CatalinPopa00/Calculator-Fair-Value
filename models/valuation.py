@@ -133,19 +133,11 @@ def calculate_dcf(fcf_obj, growth_rate, discount_rate: float, perpetual_growth: 
         year_margin = starting_fcf_margin + (i * margin_growth)
         current_fcf = current_revenue * year_margin
         
-        # Method A: Deduct buyback cash cost from FCF
-        buyback_cash_spent = 0
-        if buyback_rate > 0 and current_price and current_price > 0:
-            projected_price = current_price * ((1 + wacc) ** i)
-            shares_bought = remaining_shares * buyback_rate
-            buyback_cash_spent = shares_bought * projected_price
-            remaining_shares -= shares_bought
-            current_fcf -= buyback_cash_spent
-        elif buyback_rate > 0:
-            # Fallback: just reduce shares without FCF deduction (old behavior)
+        # Adjust shares based on buyback/dilution rate (positive = buyback, negative = dilution)
+        if buyback_rate != 0:
             remaining_shares *= (1 - buyback_rate)
         
-        buyback_cost_per_year.append(buyback_cash_spent)
+        buyback_cost_per_year.append(0)
         cash_flows.append(current_fcf)
 
         # Mid-Year Convention

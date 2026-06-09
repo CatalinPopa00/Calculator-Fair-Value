@@ -1455,20 +1455,12 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             // FCF is calculated on top of projected Revenue
             currentFcf = currentRevenue * yearMargin;
 
-            // Method A: Deduct buyback cash cost from FCF
-            let buybackCashSpent = 0;
-            if (buybackRate > 0 && currentPrice && currentPrice > 0) {
-                const projectedPrice = currentPrice * Math.pow(1 + finalWacc, i);
-                const sharesBought = remainingShares * buybackRate;
-                buybackCashSpent = sharesBought * projectedPrice;
-                remainingShares -= sharesBought;
-                currentFcf -= buybackCashSpent;
-            } else if (buybackRate > 0) {
-                // Fallback: just reduce shares without FCF deduction
+            // Adjust shares based on buyback/dilution rate (positive = buyback, negative = dilution)
+            if (buybackRate !== 0) {
                 remainingShares *= (1 - buybackRate);
             }
 
-            buybackCostPerYear.push(buybackCashSpent);
+            buybackCostPerYear.push(0);
             fcf_projections.push(currentFcf);
 
             const pv_fcf = currentFcf / Math.pow(1 + finalWacc, i - 0.5);
@@ -2460,13 +2452,20 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             const buybackCustomInputs = document.getElementById('dcf-buyback-custom-inputs');
             if (buybackCustomInputs) buybackCustomInputs.style.display = buybackSrc === 'custom' ? 'flex' : 'none';
 
-            let buybackRate = 0;
+            let rawBuybackRate = 0;
+            let rawSbcRate = 0;
+
             if (buybackSrc === 'historical') {
-                buybackRate = currentFormulaData.dcf.historic_buyback_rate || 0;
+                rawBuybackRate = currentFormulaData.dcf.historic_buyback_rate || 0;
             } else if (buybackSrc === 'custom') {
                 const rawVal = document.getElementById('dcf-custom-buyback').value;
-                buybackRate = (rawVal === '' || isNaN(parseLocaleFloat(rawVal))) ? 0 : parseLocaleFloat(rawVal) / 100;
+                rawBuybackRate = (rawVal === '' || isNaN(parseLocaleFloat(rawVal))) ? 0 : parseLocaleFloat(rawVal) / 100;
+
+                const sbcVal = document.getElementById('dcf-custom-sbc').value;
+                rawSbcRate = (sbcVal === '' || isNaN(parseLocaleFloat(sbcVal))) ? 0 : parseLocaleFloat(sbcVal) / 100;
             }
+
+            let buybackRate = rawBuybackRate - rawSbcRate;
 
             let baseFcf = currentFormulaData.dcf.fcf;
             let baseRevenue = globalData.revenue;
@@ -3022,6 +3021,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             if (targetEps != null && targetEps > 0) {
                 const fwdPrice = targetEps * selectedMult;
                 lynchVal = fwdPrice / Math.pow(1 + discountRate, 3);
+                currentFormulaData.peter_lynch.dynamic_fwd_price = fwdPrice;
             }
 
             // Store dynamics for modal
@@ -3471,7 +3471,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
     const inputSelectors = [
         'fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple', 'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp',
-        'dcf-buyback-source', 'dcf-custom-buyback', 'relative-variant',
+        'dcf-buyback-source', 'dcf-custom-buyback', 'dcf-custom-sbc', 'relative-variant',
         'lynch-multiple-source', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth', 'lynch-return-rate', 'lynch-custom-return',
         'peg-eps-source', 'peg-custom-growth'
     ];
@@ -3637,6 +3637,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             dashboard.style.display = 'none';
             loadingState.style.display = 'flex';
             if (elements.fairValue) elements.fairValue.textContent = '$0.00';
+            if (elements.marginSafety) {
+                elements.marginSafety.textContent = '0% Margin of Safety';
+                elements.marginSafety.style.background = 'none';
+                elements.marginSafety.style.color = 'inherit';
+            }
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
         if (searchBtn) {
@@ -4016,7 +4021,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     rfBanner.style.cssText = 'background: rgba(239, 68, 68, 0.1); border: 1px solid var(--danger); padding: 12px; border-radius: 8px; margin-bottom: 15px; width: 100%;';
                     profileHeader.insertAdjacentElement('afterend', rfBanner);
                 }
-                rfBanner.innerHTML = data.red_flags.map(f => `<div style="color: var(--danger); font-weight: bold; font-size: 0.9em; margin-bottom: 4px;">${f}</div>`).join('');
+                rfBanner.innerHTML = data.red_flags.map(f => `<div style="color: var(--danger); font-weight: bold; font-size: 0.7em; margin-bottom: 0px; display: flex; align-items: center; justify-content: center; text-align: center; white-space: nowrap; letter-spacing: -0.5px; overflow: hidden; text-overflow: ellipsis;">${f}</div>`).join('');
                 rfBanner.style.display = 'block';
             } else if (rfBanner) {
                 rfBanner.style.display = 'none';
@@ -4032,7 +4037,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             } else {
                 cachedWatchlistData.push({ ...data });
             }
-            sessionStorage.setItem(`val_v3_${data.ticker.toUpperCase()}`, JSON.stringify({ data, ts: Date.now() }));
+            sessionStorage.setItem(`val_v4_${data.ticker.toUpperCase()}`, JSON.stringify({ data, ts: Date.now() }));
         }
 
         // DESCRIPTION CARD INJECTION
@@ -4301,23 +4306,48 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                             `;
                         }
                     } else if (activeTab === 'news') {
-                        if (isLoadingAI) {
+                        if (isLoadingAI && !globalData.latest_news) {
                             panel.innerHTML = `
                                 <div class="brief-news-item"><div class="skeleton-text" style="width: 80%;"></div><div class="skeleton-text" style="width: 50%;"></div></div>
                                 <div class="brief-news-item"><div class="skeleton-text" style="width: 75%;"></div><div class="skeleton-text" style="width: 45%;"></div></div>
                             `;
+                        } else if (globalData.latest_news && globalData.latest_news.length > 0) {
+                            panel.innerHTML = globalData.latest_news.map((news, index) => {
+                                const title = news.title;
+                                const source = news.publisher;
+
+                                return `
+                                    <div class="brief-news-item" style="cursor: pointer;" onclick="window.openNewsModalByIndex(${index})">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; gap: 10px;">
+                                            <span style="background: rgba(56, 189, 248, 0.1); color: #38bdf8; font-size: 0.58rem; padding: 2px 6px; border-radius: 4px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3px;">${source}</span>
+                                        </div>
+                                        <div style="color: rgba(255,255,255,0.9); font-size: 0.8rem; line-height: 1.4; font-weight: 600;">${title}</div>
+                                    </div>
+                                `;
+                            }).join('');
                         } else if (parsed.latestMarketIntelligence.length > 0) {
-                            panel.innerHTML = parsed.latestMarketIntelligence.map(item => {
+                            panel.innerHTML = parsed.latestMarketIntelligence.map((item, index) => {
                                 const match = item.match(/^(.*?)\s*\(Source:\s*(.*?)\)$/i);
                                 const title = match ? match[1] : item;
                                 const source = match ? match[2] : "Market News";
 
+                                // Synthesize a fake news object so the modal can still open using the text data
+                                const synthesizedNews = {
+                                    title: title,
+                                    publisher: source,
+                                    summary: "Acesta este un fragment generat din inteligența pieței. Pentru articolul complet sau sumarul detaliat, vă rugăm să actualizați datele."
+                                };
+
+                                // Inject into globalData so openNewsModalByIndex works
+                                if (!globalData.latest_news) globalData.latest_news = [];
+                                globalData.latest_news[index] = synthesizedNews;
+
                                 return `
-                                    <div class="brief-news-item">
+                                    <div class="brief-news-item" style="cursor: pointer;" onclick="window.openNewsModalByIndex(${index})">
                                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; gap: 10px;">
                                             <span style="background: rgba(56, 189, 248, 0.1); color: #38bdf8; font-size: 0.58rem; padding: 2px 6px; border-radius: 4px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3px;">${source}</span>
                                         </div>
-                                        <div style="color: rgba(255,255,255,0.9); font-size: 0.8rem; line-height: 1.4;">${title}</div>
+                                        <div style="color: rgba(255,255,255,0.9); font-size: 0.8rem; line-height: 1.4; font-weight: 600;">${title}</div>
                                     </div>
                                 `;
                             }).join('');
@@ -4560,6 +4590,15 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         }
         updateFairValue();
 
+        // Ensure UI displays current global state immediately after updateFairValue recalculates it.
+        // Final updates to MOS styling based on fallback or custom weights.
+        if (elements.fairValue && elements.marginSafety && globalData.fair_value != null && globalData.margin_of_safety != null) {
+            elements.fairValue.textContent = formatCurrency(globalData.fair_value);
+            elements.marginSafety.textContent = `${formatPercent(globalData.margin_of_safety)} Margin of Safety`;
+            elements.marginSafety.style.color = globalData.margin_of_safety > 0 ? 'var(--accent)' : 'var(--danger)';
+            elements.marginSafety.style.background = globalData.margin_of_safety > 0 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)';
+        }
+
         document.querySelectorAll('.valuation-toggle').forEach(toggle => {
             toggle.onchange = updateAndSave;
         });
@@ -4788,7 +4827,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     const overrideInputIds = [
         'fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple',
         'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp', 'dcf-custom-fcf-margin', 'dcf-custom-margin-growth',
-        'dcf-buyback-source', 'dcf-custom-buyback', 'relative-variant',
+        'dcf-buyback-source', 'dcf-custom-buyback', 'dcf-custom-sbc', 'relative-variant',
         'lynch-multiple-source', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth', 'lynch-return-rate', 'lynch-custom-return',
         'peg-eps-source', 'peg-custom-growth', 'peg-mode'
     ];
@@ -4861,7 +4900,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         }).then(() => {
-            sessionStorage.removeItem(`val_v3_${ticker.toUpperCase()}`);
+            sessionStorage.removeItem(`val_v4_${ticker.toUpperCase()}`);
         }).catch(err => console.error('Override sync error:', err));
 
         pendingOverridePayload = null;
@@ -4911,65 +4950,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 turnOffCustomBtn.style.color = '#10b981';
                 turnOffCustomBtn.style.borderColor = '#10b981';
             }
-            return false;
-        }
-        const inputs = ov.inputs || {};
-        const toggles = ov.toggles || {};
-
-        // v299: Lock cascade during load
-        window._isApplyingOverrides = true;
-
-        // Apply inputs
-        Object.entries(inputs).forEach(([id, val]) => {
-            const el = document.getElementById(id);
-            if (el) {
-                let cleanVal = val;
-                if (el.type === 'number' && (id.includes('growth') || id.includes('perp') || id.includes('wacc') || id.includes('mult') || id.includes('dcf-growth-'))) {
-                    const parsed = parseFloat(val);
-                    if (!isNaN(parsed)) {
-                        cleanVal = parsed % 1 === 0 ? parsed.toString() : parsed.toFixed(1);
-                    }
-                }
-                el.value = cleanVal;
-                // Show/hide custom input containers based on select values
-                if (id === 'fcf-source' || id === 'dcf-buyback-source' || id === 'lynch-multiple-source' || id === 'lynch-eps-source' || id === 'peg-eps-source') {
-                    const ciId = id === 'fcf-source' ? 'dcf-custom-inputs' :
-                        id === 'dcf-buyback-source' ? 'dcf-buyback-custom-inputs' :
-                            id === 'lynch-multiple-source' ? 'lynch-custom-multiple-inputs' :
-                                id === 'lynch-eps-source' ? 'lynch-custom-inputs' : 'peg-custom-inputs';
-                    const ci = document.getElementById(ciId);
-                    if (ci) {
-                        if (ciId === 'lynch-custom-inputs' || ciId === 'peg-custom-inputs' || ciId === 'lynch-custom-multiple-inputs') {
-                            ci.style.display = val === 'custom' ? 'grid' : 'none';
-                        } else {
-                            ci.style.display = val === 'custom' ? 'flex' : 'none';
-                        }
-                    }
-                }
-                if (id === 'dcf-method-selector') switchDCFMethod(val);
-            }
-        });
-
-        // Apply toggles
-        Object.entries(toggles).forEach(([id, checked]) => {
-            const el = document.getElementById(id);
-            if (el) el.checked = checked;
-        });
-
-        // Restore Custom Scenarios Data
-        if (ov.custom_scenarios) {
-            window._customScenariosData = ov.custom_scenarios;
-            const customScenariosBtn = document.getElementById('open-custom-scenarios-btn');
-            if (customScenariosBtn) {
-                customScenariosBtn.classList.add('active-custom');
-            }
-            const turnOffCustomBtn = document.getElementById('cs-turn-off-btn');
-            if (turnOffCustomBtn) {
-                turnOffCustomBtn.textContent = 'Turn Off';
-                turnOffCustomBtn.style.background = 'rgba(239, 68, 68, 0.1)';
-                turnOffCustomBtn.style.color = 'var(--danger)';
-                turnOffCustomBtn.style.borderColor = 'var(--danger)';
-            }
         } else {
             window._customScenariosData = null;
             const customScenariosBtn = document.getElementById('open-custom-scenarios-btn');
@@ -4983,1027 +4963,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 turnOffCustomBtn.style.color = '#10b981';
                 turnOffCustomBtn.style.borderColor = '#10b981';
             }
-        }
-
-        window._isApplyingOverrides = false;
-        return true;
-    };
-
-    const saveOverride = (ticker) => {
-        if (!ticker) return;
-        saveOverridesToServer(ticker);
-    };
-
-    const deleteOverrideFromServer = (ticker) => {
-        delete cachedOverrides[ticker];
-        fetch(`/api/overrides/${ticker}`, { method: 'DELETE' })
-            .then(() => sessionStorage.removeItem(`val_v3_${ticker.toUpperCase()}`))
-            .catch(err => console.error('Override delete error:', err));
-    };
-
-    const updateWatchlistButtonState = () => {
-        if (!currentTicker) return;
-        if (watchlist.includes(currentTicker)) {
-            addToWatchlistBtn.classList.add('added');
-            addToWatchlistBtn.innerHTML = '★';
-        } else {
-            addToWatchlistBtn.classList.remove('added');
-            addToWatchlistBtn.innerHTML = '☆';
-        }
-    };
-
-    const toggleWatchlist = () => {
-        if (!currentTicker) return;
-        if (watchlist.includes(currentTicker)) {
-            watchlist = watchlist.filter(t => t !== currentTicker);
-            deleteOverrideFromServer(currentTicker);
-        } else {
-            watchlist.push(currentTicker);
-            saveOverridesToServer(currentTicker);
-        }
-        saveWatchlist();
-        updateWatchlistButtonState();
-    };
-
-    const switchDCFMethod = (method) => {
-        const rowPerp = document.getElementById('row-input-perpetual');
-        const rowExit = document.getElementById('row-input-exit-multiple');
-        if (method === 'multiple') {
-            if (rowPerp) rowPerp.style.display = 'none';
-            if (rowExit) rowExit.style.display = 'grid';
-        } else {
-            if (rowPerp) rowPerp.style.display = 'grid';
-            if (rowExit) rowExit.style.display = 'none';
-        }
-        updateFairValue();
-    };
-    window.switchDCFMethod = switchDCFMethod;
-
-    const resetMethodDefaults = (method) => {
-        if (!globalData || !currentTicker) return;
-
-        // 1. Clear overrides for this specific method
-        const ov = cachedOverrides[currentTicker];
-        if (ov && ov.inputs) {
-            const idsToReset = {
-                dcf: ['fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple', 'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp', 'dcf-custom-fcf-margin', 'dcf-custom-margin-growth', 'dcf-buyback-source', 'dcf-custom-buyback'],
-                relative: ['relative-variant', 'rel-weight-mode-card'],
-                peter_lynch: ['lynch-multiple-source', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth', 'lynch-return-rate', 'lynch-custom-return'],
-                peg: ['peg-eps-source', 'peg-custom-growth', 'peg-mode']
-            };
-
-            (idsToReset[method] || []).forEach(id => {
-                delete ov.inputs[id];
-            });
-
-            saveOverridesToServer(currentTicker, ov);
-        }
-
-        // 2. Re-apply baseline overrides (if any left)
-        applyOverrides(currentTicker);
-
-        // 3. FORCE re-population of specific fields for THIS method
-        if (method === 'dcf') {
-            // Reset Dropdowns
-            ['fcf-source', 'dcf-buyback-source', 'dcf-method-selector', 'dcf-years-source'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) {
-                    el.value = (id === 'fcf-source') ? 'revenue' :
-                        (id === 'dcf-years-source') ? '10yr' :
-                            (id === 'dcf-buyback-source') ? 'none' : 'perpetual';
-                    el.dispatchEvent(new Event('change', { bubbles: true }));
-                }
-            });
-
-            // v286: Use global unified logic
-            const targetGrowth = window.getDcfGrowthDefault(globalData);
-
-            const g13 = document.getElementById('dcf-growth-1-3');
-            if (g13) {
-                g13.value = formatCleanInputVal(targetGrowth);
-                // Reset 'isDefault' markers to allow fresh cascade
-                const g46 = document.getElementById('dcf-growth-4-6');
-                const g78 = document.getElementById('dcf-growth-7-8');
-                const g910 = document.getElementById('dcf-growth-9-10');
-                if (g46) { g46.value = ''; g46.dataset.isDefault = 'true'; }
-                if (g78) { g78.value = ''; g78.dataset.isDefault = 'true'; }
-                if (g910) { g910.value = ''; g910.dataset.isDefault = 'true'; }
-                g13.dispatchEvent(new Event('input', { bubbles: true }));
-            }
-            const wacc = document.getElementById('dcf-custom-wacc');
-            if (wacc) wacc.value = '9';
-            const perp = document.getElementById('dcf-custom-perp');
-            if (perp) perp.value = '2.5';
-            const fcfMargin = document.getElementById('dcf-custom-fcf-margin');
-            if (fcfMargin) fcfMargin.value = '';
-            const fcfMarginGrowth = document.getElementById('dcf-custom-margin-growth');
-            if (fcfMarginGrowth) fcfMarginGrowth.value = '0.2';
-
-            switchDCFMethod('perpetual');
-        } else if (method === 'relative') {
-            const relVar = document.getElementById('relative-variant');
-            if (relVar) relVar.value = 'peers';
-            const relWeight = document.getElementById('rel-weight-mode-card');
-            if (relWeight) relWeight.value = 'default';
-            if (relVar) relVar.dispatchEvent(new Event('change', { bubbles: true }));
-            if (relWeight) relWeight.dispatchEvent(new Event('change', { bubbles: true }));
-        } else if (method === 'peter_lynch') {
-            const lMult = document.getElementById('lynch-multiple-source');
-            if (lMult) lMult.value = 'system';
-            const lEps = document.getElementById('lynch-eps-source');
-            if (lEps) lEps.value = 'analyst';
-        } else if (method === 'peg') {
-            const pEps = document.getElementById('peg-eps-source');
-            if (pEps) pEps.value = 'analyst';
-            const pMode = document.getElementById('peg-mode');
-            if (pMode) pMode.value = 'standard';
-        }
-
-        updateFairValue();
-    };
-
-    document.querySelectorAll('.reset-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.preventDefault();
-            const button = e.target.closest('.reset-btn');
-            if (!button) return;
-            const method = button.getAttribute('data-method');
-            if (confirm(`Reset ${method.toUpperCase()} to defaults?`)) {
-                if (method === 'peers') {
-                    if (globalData.company_profile && globalData.company_profile.original_competitor_metrics) {
-                        globalData.company_profile.competitor_metrics = JSON.parse(JSON.stringify(globalData.company_profile.original_competitor_metrics));
-                        localStorage.removeItem('customPeers_' + globalData.ticker);
-                        displayData(globalData);
-                    }
-                } else {
-                    resetMethodDefaults(method);
-                }
-            }
-        });
-    });
-
-    const dcfMethodSelector = document.getElementById('dcf-method-selector');
-    if (dcfMethodSelector) {
-        dcfMethodSelector.addEventListener('change', (e) => {
-            switchDCFMethod(e.target.value);
-            saveOverridesDebounced(currentTicker);
-        });
-    }
-
-    // UNIVERSAL PERSISTENCE: Attach listeners to ALL override-able components (v62)
-    overrideInputIds.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-            el.addEventListener('change', () => {
-                updateFairValue();
-                saveOverridesDebounced(currentTicker);
-            });
-            // Also listen for input on number/text fields for immediate feedback
-            if (el.tagName === 'INPUT') {
-                el.addEventListener('input', () => {
-                    updateFairValue();
-                    saveOverridesDebounced(currentTicker);
-                });
-            }
-        }
-    });
-
-    overrideToggleIds.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-            el.addEventListener('change', () => {
-                updateFairValue();
-                saveOverridesDebounced(currentTicker);
-            });
-        }
-    });
-
-    // INITIALIZATION: Default to Perpetual
-    switchDCFMethod('perpetual');
-
-    let dragSrcIndex = null;
-    let manualOrder = false;
-
-    // ── Historical Charts (Chart.js) ──────────────────────────────────
-
-    const renderHistoricalCharts = (data) => {
-        const container = document.getElementById('historical-charts-container');
-        if (!container) return;
-
-        const hd = data.historical_data;
-        if (!hd || !hd.years || hd.years.length === 0) {
-            container.style.display = 'none';
-            return;
-        }
-
-        container.style.display = 'block';
-
-        // v298: Dynamic Timeline Expansion
-        // We look at analyst estimates and if we see a year that's NOT in our chart labels, we add it.
-        const labels = [...(hd.years || [])];
-        const epsDataRawBase = [...(hd.eps || [])];
-        const revDataRawBase = [...(hd.revenue || [])];
-        const fcfDataRawBase = [...(hd.fcf || [])];
-        const sharesDataRawBase = [...(hd.shares || [])];
-
-        const allEst = [...(data.eps_estimates || []), ...(data.rev_estimates || [])];
-        const newYears = [];
-        allEst.forEach(est => {
-            if (est.status === 'estimate') {
-                const yrMatch = est.period.match(/\d{4}/);
-                if (yrMatch) {
-                    const yrStr = yrMatch[0];
-                    const label = yrStr + ' (Est)';
-                    if (!labels.includes(label) && !labels.includes(yrStr)) {
-                        if (!newYears.includes(yrStr)) newYears.push(yrStr);
-                    }
-                }
-            }
-        });
-
-        newYears.sort().forEach(yr => {
-            labels.push(yr + ' (Est)');
-            epsDataRawBase.push(0);
-            revDataRawBase.push(0);
-            fcfDataRawBase.push(0);
-            sharesDataRawBase.push(sharesDataRawBase.length > 0 ? sharesDataRawBase[sharesDataRawBase.length - 1] : 0);
-        });
-
-        const estIndex = labels.findIndex(l => String(l).includes('Est'));
-
-        // Helper: build background colors (solid for actual, translucent for estimates)
-        const bgColors = (baseColor, alphaActual, alphaEst) =>
-            labels.map((_, i) => i >= estIndex && estIndex !== -1
-                ? baseColor.replace('1)', `${alphaEst})`)
-                : baseColor.replace('1)', `${alphaActual})`));
-
-        const borderDash = labels.map((_, i) => i >= estIndex && estIndex !== -1 ? [6, 4] : []);
-
-        // ── Chart 1: Revenue & FCF (Bar chart, billions) ──
-        const ctxRevFcf = document.getElementById('chart-rev-fcf');
-        if (ctxRevFcf) {
-            if (chartRevFcf) chartRevFcf.destroy();
-
-            // Build custom legend
-            const legendEl = document.getElementById('legend-rev-fcf');
-            if (legendEl) {
-                legendEl.innerHTML = `
-                    <div class="legend-item"><span class="legend-dot" style="background:#38bdf8"></span> Revenue</div>
-                    <div class="legend-item"><span class="legend-dot" style="background:#10b981"></span> FCF</div>
-                `;
-            }
-
-            chartRevFcf = new Chart(ctxRevFcf, {
-                type: 'bar',
-                data: {
-                    labels,
-                    datasets: [
-                        {
-                            label: 'Revenue ($B)',
-                            data: revDataRawBase.map(v => v ? +(v / 1e9).toFixed(2) : 0),
-                            backgroundColor: bgColors('rgba(56, 189, 248, 1)', 0.7, 0.3),
-                            borderColor: 'rgba(56, 189, 248, 1)',
-                            borderWidth: 1,
-                            borderRadius: 4,
-                            order: 2
-                        },
-                        {
-                            label: 'FCF ($B)',
-                            data: fcfDataRawBase.map(v => v ? +(v / 1e9).toFixed(2) : 0),
-                            backgroundColor: bgColors('rgba(16, 185, 129, 1)', 0.7, 0.3),
-                            borderColor: 'rgba(16, 185, 129, 1)',
-                            borderWidth: 1,
-                            borderRadius: 4,
-                            order: 2
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: { mode: 'index', intersect: false }
-                    },
-                    scales: {
-                        x: {
-                            ticks: {
-                                color: '#94a3b8',
-                                font: { size: window.innerWidth < 768 ? 9 : 11 },
-                                maxRotation: 45,
-                                autoSkip: true
-                            },
-                            grid: { color: 'rgba(148,163,184,0.1)' }
-                        },
-                        y: {
-                            ticks: { color: '#94a3b8', font: { size: 10 }, callback: v => formatLargeNumber(v, '$') },
-                            grid: { color: 'rgba(148,163,184,0.1)' }
-                        }
-                    }
-                }
-            });
-        }
-
-        // ── Chart 2: EPS & Shares Outstanding (Dual Axis) ──
-        const ctxEps = document.getElementById('chart-eps-shares');
-        if (ctxEps) {
-            if (chartEpsShares) chartEpsShares.destroy();
-
-            // v279: Link graph to Historical Anchors table (strictly GAAP Diluted EPS for history)
-            const anchors = data.historical_anchors || [];
-            const gaapMap = {};
-            anchors.forEach(a => {
-                if (a.year) gaapMap[String(a.year)] = a.eps;
-            });
-
-            const epsDataRaw = hd.eps || [];
-            const epsData = labels.map((l, i) => {
-                const yearStr = String(l).replace(' (Est)', '');
-                if (gaapMap[yearStr] !== undefined) return gaapMap[yearStr];
-                return epsDataRawBase[i] || 0;
-            });
-
-            const sharesData = sharesDataRawBase.map(v => v ? +(v / 1e9).toFixed(3) : 0);
-
-            // Build custom legend
-            const legendEl = document.getElementById('legend-eps-shares');
-            if (legendEl) {
-                legendEl.innerHTML = `
-                    <div class="legend-item"><span class="legend-dot" style="background:#a855f7"></span> EPS</div>
-                    <div class="legend-item"><span class="legend-dot" style="background:#fbbf24"></span> Shares (B)</div>
-                `;
-            }
-
-            chartEpsShares = new Chart(ctxEps, {
-                type: 'bar',
-                data: {
-                    labels,
-                    datasets: [
-                        {
-                            label: 'Shares (B)',
-                            data: sharesData,
-                            backgroundColor: bgColors('rgba(251, 191, 36, 1)', 0.4, 0.2),
-                            borderColor: 'rgba(251, 191, 36, 1)',
-                            borderWidth: 1,
-                            borderRadius: 4,
-                            yAxisID: 'y1',
-                            order: 2
-                        },
-                        {
-                            label: 'EPS ($)',
-                            data: epsData.map(v => v ? +v.toFixed(2) : 0),
-                            type: 'line',
-                            borderColor: 'rgba(168, 85, 247, 1)',
-                            backgroundColor: 'rgba(168, 85, 247, 0.1)',
-                            pointBackgroundColor: 'rgba(168, 85, 247, 1)',
-                            pointBorderColor: '#fff',
-                            pointRadius: 5,
-                            pointHoverRadius: 7,
-                            borderWidth: 3,
-                            fill: false,
-                            tension: 0.3,
-                            segment: {
-                                borderDash: ctx => labels[ctx.p1DataIndex] && String(labels[ctx.p1DataIndex]).includes('Est') ? [6, 4] : undefined
-                            },
-                            yAxisID: 'y',
-                            order: 1
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: { mode: 'index', intersect: false }
-                    },
-                    scales: {
-                        x: {
-                            ticks: {
-                                color: '#94a3b8',
-                                font: { size: window.innerWidth < 768 ? 9 : 11 },
-                                maxRotation: 45,
-                                autoSkip: true
-                            },
-                            grid: { color: 'rgba(148,163,184,0.1)' }
-                        },
-                        y: {
-                            position: 'left',
-                            ticks: { color: '#a855f7', font: { size: 10 }, callback: v => formatLargeNumber(v, '$') },
-                            grid: { color: 'rgba(148,163,184,0.1)' },
-                        },
-                        y1: {
-                            position: 'right',
-                            ticks: { color: '#fbbf24', font: { size: 10 }, callback: v => formatLargeNumber(v) },
-                            grid: { drawOnChartArea: false },
-                        }
-                    }
-                }
-            });
-        }
-    };
-
-    const renderAnalystEstimatesInline = async (ticker) => {
-        const analystCard = document.getElementById('analyst-estimates-card');
-        if (!ticker || !analystCard) return;
-
-        // V304: Prevent previous company's closure from persisting if new company fails to load estimates
-        window._renderEstimatesTable = null;
-
-        analystCard.style.setProperty('display', 'block', 'important');
-        document.getElementById('pt-avg').textContent = '...';
-        document.getElementById('rec-status').textContent = '...';
-        const eBody = document.querySelector('#eps-est-table tbody');
-        const rBody = document.querySelector('#rev-est-table tbody');
-        if (eBody) eBody.innerHTML = '';
-        if (rBody) rBody.innerHTML = '';
-
-        try {
-            const res = await fetch(`/api/analyst/${ticker}?t=${Date.now()}`);
-            if (!res.ok) throw new Error('API Error');
-            const data = await res.json();
-            console.log("ANALYST API DATA RECEIVED:", data);
-
-            if (data.error) throw new Error(data.error);
-
-            const pt = data.price_target || {};
-            if (document.getElementById('pt-avg')) document.getElementById('pt-avg').textContent = (pt.avg != null) ? `$${parseFloat(pt.avg).toFixed(2)}` : '--';
-            if (document.getElementById('pt-upside')) {
-                const ups = pt.upside_pct;
-                document.getElementById('pt-upside').textContent = (ups && typeof ups === 'number') ? `${ups > 0 ? '+' : ''}${ups.toFixed(1)}%` : '--';
-                document.getElementById('pt-upside').style.color = (ups > 0) ? 'var(--accent)' : (ups < 0 ? 'var(--danger)' : 'var(--text-muted)');
-            }
-            if (document.getElementById('pt-low')) document.getElementById('pt-low').textContent = (pt.low && typeof pt.low === 'number') ? `$${pt.low.toFixed(2)}` : '--';
-            if (document.getElementById('pt-high')) document.getElementById('pt-high').textContent = (pt.high && typeof pt.high === 'number') ? `$${pt.high.toFixed(2)}` : '--';
-
-            const rec = data.recommendation || {};
-            const statusElem = document.getElementById('rec-status');
-            const counts = rec.counts || {};
-            const maxVal = Math.max(...Object.values(counts), 1);
-            const barsContainer = document.getElementById('rec-bars');
-            barsContainer.innerHTML = '';
-
-            const labels = { strongBuy: 'SB', buy: 'B', hold: 'H', sell: 'S', strongSell: 'SS' };
-
-            ['strongBuy', 'buy', 'hold', 'sell', 'strongSell'].forEach(k => {
-                const count = counts[k] || 0;
-                const pct = (count / maxVal) * 100;
-                barsContainer.innerHTML += `
-                    <div style="display:flex; align-items:center; gap:8px; font-size:0.7rem; color:var(--text-muted); margin-bottom:2px;">
-                        <span style="width:20px;">${labels[k]}</span>
-                        <div style="flex:1; height:4px; background:rgba(255,255,255,0.05); border-radius:2px; overflow:hidden;">
-                            <div style="width:${pct}%; height:100%; background:var(--accent);"></div>
-                        </div>
-                        <span style="width:15px; text-align:right;">${count}</span>
-                    </div>
-                `;
-            });
-
-            if (statusElem) {
-                const medianRating = rec.median_label;
-                let ratingLabel = 'N/A';
-
-                // v279: Convert numerical rating to descriptive label (1.0 = Strong Buy, 5.0 = Strong Sell)
-                if (typeof medianRating === 'number') {
-                    if (medianRating <= 1.5) ratingLabel = 'Strong Buy';
-                    else if (medianRating <= 2.5) ratingLabel = 'Buy';
-                    else if (medianRating <= 3.5) ratingLabel = 'Hold';
-                    else if (medianRating <= 4.5) ratingLabel = 'Sell';
-                    else ratingLabel = 'Strong Sell';
-                } else {
-                    ratingLabel = medianRating || 'N/A';
-                }
-
-                statusElem.textContent = ratingLabel;
-
-                // Color based on sentiment score (0-100)
-                const sent = rec.sentiment || 0;
-                if (sent >= 66) statusElem.style.color = '#4ade80'; // Green
-                else if (sent >= 45) statusElem.style.color = '#fbbf24'; // Yellow
-                else statusElem.style.color = '#f87171'; // Red
-            }
-
-            if (document.getElementById('rec-mean')) {
-                const sent = rec.sentiment || 0;
-                document.getElementById('rec-mean').textContent = `Sentiment: ${sent.toFixed(1)}/100`;
-            }
-
-            // Tables population exported for re-rendering on scenario switch
-            const eItems = data.eps_estimates || [];
-            const rItems = data.rev_estimates || [];
-            window._renderEstimatesTable = () => {
-                const eBody = document.querySelector('#eps-est-table tbody');
-                const rBody = document.querySelector('#rev-est-table tbody');
-                if (eBody) eBody.innerHTML = '';
-                if (rBody) rBody.innerHTML = '';
-
-                const epsHead = document.querySelector('#eps-est-table thead tr');
-                const revHead = document.querySelector('#rev-est-table thead tr');
-                const headerLabel = _currentScenario === 'bear' ? 'Low' : (_currentScenario === 'bull' ? 'High' : 'Avg');
-                if (epsHead) epsHead.innerHTML = `<th>Period</th><th style="text-align:right">${headerLabel}</th><th style="text-align:right">Growth</th>`;
-                if (revHead) revHead.innerHTML = `<th>Period</th><th style="text-align:right">${headerLabel}</th><th style="text-align:right">Growth</th>`;
-
-
-                const getColor = (item) => {
-                    if (item.status !== 'reported') return 'var(--text-main)'; // neutral for estimates
-
-                    // For reported: color based on surprise if available, otherwise growth
-                    const surprise = item.surprise_pct || 0;
-                    if (surprise > 0) return '#4ade80'; // Beat
-                    if (surprise < 0) return '#f87171'; // Miss
-
-                    // Fallback to growth if surprise is missing but it's reported
-                    if (item.growth > 0) return '#4ade80';
-                    if (item.growth < 0) return '#f87171';
-
-                    return 'var(--text-main)';
-                };
-
-                let prevEpsVal = null;
-                let epsGrowths = [];
-
-                eItems.forEach((item, idx) => {
-                    if (!item) return;
-                    const pLabel = item.period || '--';
-                    const isAnchor = item.status === 'reported';
-
-                    let scenarioVal = item.avg;
-                    if (!isAnchor) {
-                        if (_currentScenario === 'bear' && item.low != null) scenarioVal = item.low ?? item.avg;
-                        if (_currentScenario === 'bull' && item.high != null) scenarioVal = item.high ?? item.avg;
-                    }
-
-                    const aVal = (scenarioVal != null) ? formatLargeNumber(parseFloat(scenarioVal), '$') : '--';
-                    let gVal = isAnchor ? '' : '--';
-
-                    if (!isAnchor) {
-                        let dynamicBase = prevEpsVal;
-
-                        if (item.status === 'reported' && item.surprise_pct != null) {
-                            gVal = (parseFloat(item.surprise_pct) * 100).toFixed(1) + '%';
-                        } else if (scenarioVal != null && dynamicBase != null && dynamicBase !== 0) {
-                            let gRaw = (parseFloat(scenarioVal) - parseFloat(dynamicBase)) / Math.abs(parseFloat(dynamicBase));
-                            epsGrowths.push(gRaw);
-                            gVal = (gRaw * 100).toFixed(1) + '%';
-                        } else if (item.growth != null) {
-                            let gRaw = parseFloat(item.growth);
-                            epsGrowths.push(gRaw);
-                            gVal = (gRaw * 100).toFixed(1) + '%';
-                        }
-                    }
-
-                    prevEpsVal = scenarioVal; // carry forward sequentially
-
-                    const sColor = isAnchor ? 'white' : getColor(item);
-                    const weight = item.status === 'reported' ? 'bold' : 'normal';
-                    const labelColor = isAnchor ? 'white' : (item.status === 'reported' ? '#4ade80' : 'inherit');
-                    const valColor = isAnchor ? 'white' : 'inherit';
-                    const estVal = item.num_estimates != null ? item.num_estimates : '--';
-
-                    if (eBody) eBody.innerHTML += `<tr><td style="padding:4px 0;color:${labelColor};">${pLabel}</td><td style="text-align:right;color:${valColor};">${aVal}</td><td style="text-align:right;color:${sColor};font-weight:${weight};">${gVal}</td></tr>`;
-                });
-
-                if (globalData) {
-                    if (epsGrowths.length >= 2) globalData.computed_eps_growth = (epsGrowths[0] + epsGrowths[1]) / 2.0;
-                    else if (epsGrowths.length === 1) globalData.computed_eps_growth = epsGrowths[0];
-                }
-
-                let prevRevVal = null;
-                let revGrowths = [];
-
-                rItems.forEach((item, idx) => {
-                    if (!item) return;
-                    const pLabel = item.period || '--';
-                    const isAnchor = item.status === 'reported';
-
-                    let scenarioVal = item.avg;
-                    if (!isAnchor) {
-                        if (_currentScenario === 'bear' && item.low != null) scenarioVal = item.low ?? item.avg;
-                        if (_currentScenario === 'bull' && item.high != null) scenarioVal = item.high ?? item.avg;
-                    }
-
-                    const aVal = (scenarioVal != null) ? formatLargeNumber(parseFloat(scenarioVal), '$') : '--';
-                    let gVal = isAnchor ? '' : '--';
-
-                    if (!isAnchor) {
-                        let dynamicBase = prevRevVal;
-                        if (scenarioVal != null && dynamicBase != null && dynamicBase !== 0) {
-                            let gRaw = (parseFloat(scenarioVal) / parseFloat(dynamicBase)) - 1;
-                            revGrowths.push(gRaw);
-                            gVal = (gRaw * 100).toFixed(1) + '%';
-                        } else if (item.growth != null) {
-                            let gRaw = parseFloat(item.growth);
-                            revGrowths.push(gRaw);
-                            gVal = (gRaw * 100).toFixed(1) + '%';
-                        }
-                    }
-
-                    prevRevVal = scenarioVal; // carry forward sequentially
-
-                    const sColor = isAnchor ? 'white' : getColor(item);
-                    const weight = item.status === 'reported' ? 'bold' : 'normal';
-                    const labelColor = isAnchor ? 'white' : (item.status === 'reported' ? '#4ade80' : 'inherit');
-                    const valColor = isAnchor ? 'white' : 'inherit';
-
-                    if (rBody) rBody.innerHTML += `<tr><td style="padding:4px 0;color:${labelColor};">${pLabel}</td><td style="text-align:right;color:${valColor};">${aVal}</td><td style="text-align:right;color:${sColor};font-weight:${weight};">${gVal}</td></tr>`;
-                });
-
-                if (globalData) {
-                    if (revGrowths.length >= 2) globalData.computed_dcf_growth = (revGrowths[0] + revGrowths[1]) / 2.0;
-                    else if (revGrowths.length === 1) globalData.computed_dcf_growth = revGrowths[0];
-                }
-
-            }; // End window._renderEstimatesTable
-            window._renderEstimatesTable(); // Call it immediately
-
-            // -------------------------------------------------------------
-            // Sync analyst estimates data to globalData FIRST
-            // -------------------------------------------------------------
-            if (globalData && ticker) {
-                globalData.rev_estimates = rItems;
-                globalData.eps_estimates = eItems;
-
-                const g13 = document.getElementById('dcf-growth-1-3');
-                if (g13) {
-                    const hadOverrides = (cachedOverrides[globalData.ticker] && cachedOverrides[globalData.ticker].inputs && cachedOverrides[globalData.ticker].inputs['dcf-growth-1-3']);
-                    if (!hadOverrides) {
-                        const targetGrowth = window.getDcfGrowthDefault(globalData);
-                        g13.value = formatCleanInputVal(targetGrowth);
-                        // Cascade to other inputs using 'change' as 'input' is not caught on text inputs
-                        g13.dispatchEvent(new Event('change', { bubbles: true }));
-                    }
-                }
-
-                // Re-calculate all fair values to reflect the fresh consensus growth
-                if (typeof updateFairValue === 'function') updateFairValue();
-            }
-
-            // -------------------------------------------------------------
-            // v70: Reactive Chart Updates - Link Analyst Projections to the main Stability Chart
-            // -------------------------------------------------------------
-            try {
-                if ((chartEpsShares || chartRevFcf) && (eItems.length > 0 || rItems.length > 0)) {
-                    console.log("[Analyst] Synchronizing projections to historical charts...");
-
-                    // 1. Sync EPS (Chart 2)
-                    if (chartEpsShares && eItems.length > 0 && chartEpsShares.data) {
-                        const labels = chartEpsShares.data.labels || [];
-                        const epsDs = (chartEpsShares.data.datasets || []).find(d => d.label === 'EPS ($)');
-                        const sharesDs = (chartEpsShares.data.datasets || []).find(d => d.label === 'Shares (B)');
-                        if (epsDs && epsDs.data) {
-                            let updated = false;
-                            eItems.forEach(item => {
-                                if (item.status === 'estimate') {
-                                    const yrMatch = item.period.match(/\d{4}/);
-                                    if (yrMatch) {
-                                        const yearStr = yrMatch[0];
-                                        const idx = labels.findIndex(l => String(l).includes(yearStr) && String(l).includes('Est'));
-                                        if (idx !== -1 && item.avg != null) {
-                                            epsDs.data[idx] = +parseFloat(item.avg).toFixed(2);
-                                            // If shares are missing for estimates (often are), carry over the last known actual
-                                            if (sharesDs && sharesDs.data && (sharesDs.data[idx] === 0 || sharesDs.data[idx] == null)) {
-                                                let lastActualIdx = -1;
-                                                for (let i = labels.length - 1; i >= 0; i--) {
-                                                    if (!String(labels[i]).includes('Est')) {
-                                                        lastActualIdx = i;
-                                                        break;
-                                                    }
-                                                }
-                                                if (lastActualIdx !== -1) sharesDs.data[idx] = sharesDs.data[lastActualIdx];
-                                            }
-                                            updated = true;
-                                        }
-                                    }
-                                }
-                            });
-                            if (updated) chartEpsShares.update('none');
-                        }
-                    }
-
-                    // 2. Sync Revenue (Chart 1)
-                    if (chartRevFcf && rItems.length > 0 && chartRevFcf.data) {
-                        const labels = chartRevFcf.data.labels || [];
-                        const revDs = (chartRevFcf.data.datasets || []).find(d => d.label === 'Revenue ($B)');
-                        const fcfDs = (chartRevFcf.data.datasets || []).find(d => d.label === 'FCF ($B)');
-                        if (revDs && revDs.data) {
-                            let updated = false;
-                            rItems.forEach(item => {
-                                if (item.status === 'estimate') {
-                                    const yrMatch = item.period.match(/\d{4}/);
-                                    if (yrMatch) {
-                                        const yearStr = yrMatch[0];
-                                        const idx = labels.findIndex(l => String(l).includes(yearStr) && String(l).includes('Est'));
-                                        if (idx !== -1 && item.avg != null) {
-                                            const oldVal = revDs.data[idx];
-                                            const newVal = +(parseFloat(item.avg) / 1e9).toFixed(2);
-
-                                            // Update revenue
-                                            revDs.data[idx] = newVal;
-
-                                            // Update FCF if it's missing or zero using the last known margin
-                                            if (fcfDs && fcfDs.data && (fcfDs.data[idx] === 0 || fcfDs.data[idx] == null)) {
-                                                let lastActualIdx = -1;
-                                                for (let i = labels.length - 1; i >= 0; i--) {
-                                                    if (!String(labels[i]).includes('Est')) {
-                                                        lastActualIdx = i;
-                                                        break;
-                                                    }
-                                                }
-                                                if (lastActualIdx !== -1 && revDs.data[lastActualIdx] > 0) {
-                                                    const margin = fcfDs.data[lastActualIdx] / revDs.data[lastActualIdx];
-                                                    fcfDs.data[idx] = +(newVal * margin).toFixed(2);
-                                                }
-                                            }
-                                            updated = true;
-                                        }
-                                    }
-                                }
-                            });
-                            if (updated) chartRevFcf.update('none');
-                        }
-                    }
-                }
-            } catch (chartErr) {
-                console.warn("[Analyst] Failed to sync to charts:", chartErr);
-            }
-        } catch (err) {
-            console.error("Analyst major error:", err);
-        }
-    };
-
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const targetTab = btn.getAttribute('data-tab');
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            document.getElementById(`tab-${targetTab}`).classList.add('active');
-        });
-    });
-
-    const renderWatchlistUI = () => {
-        try {
-            if (!watchlistGrid) {
-                console.error("watchlistGrid element not found!");
-                return;
-            }
-            watchlistGrid.innerHTML = '';
-
-            if (!watchlist || watchlist.length === 0) {
-                emptyWatchlistMsg.style.display = 'block';
-                return;
-            }
-
-            emptyWatchlistMsg.style.display = 'none';
-
-            if (!Array.isArray(cachedWatchlistData)) {
-                cachedWatchlistData = [];
-            }
-
-            // Map watchlist tickers to data
-            let augmentedData = watchlist.map(t => {
-                const tickerUpper = t.toUpperCase();
-                const found = (cachedWatchlistData || []).find(d => d && d.ticker && d.ticker.toUpperCase() === tickerUpper);
-                if (found) return { ...found };
-
-                // If not found in cache, check if it's currently in flight
-                const isLoading = window._watchlistFetching && window._watchlistFetching.has(tickerUpper);
-                return {
-                    ticker: t,
-                    name: isLoading ? 'Loading...' : 'Data Unavailable',
-                    current_price: null,
-                    fair_value: null,
-                    margin_of_safety: null,
-                    health_score_total: null,
-                    good_to_buy_total: null,
-                    is_loading: isLoading
-                };
-            });
-
-            // Sort
-            if (!manualOrder) {
-                augmentedData.sort((a, b) => {
-                    if (!a || !b) return 0;
-                    const aValid = a.current_price != null && a.fair_value != null;
-                    const bValid = b.current_price != null && b.fair_value != null;
-                    if (!aValid && bValid) return 1;
-                    if (aValid && !bValid) return -1;
-                    if (!aValid && !bValid) return 0;
-
-                    let aVal, bVal;
-                    if (currentSort.column === 'mos') {
-                        aVal = a.margin_of_safety != null ? a.margin_of_safety : -99999;
-                        bVal = b.margin_of_safety != null ? b.margin_of_safety : -99999;
-                    } else if (currentSort.column === 'price') {
-                        aVal = a.current_price != null ? a.current_price : 0;
-                        bVal = b.current_price != null ? b.current_price : 0;
-                    } else if (currentSort.column === 'health') {
-                        aVal = a.health_score_total != null ? a.health_score_total : -99999;
-                        bVal = b.health_score_total != null ? b.health_score_total : -99999;
-                    } else if (currentSort.column === 'buy') {
-                        aVal = a.good_to_buy_total != null ? a.good_to_buy_total : -99999;
-                        bVal = b.good_to_buy_total != null ? b.good_to_buy_total : -99999;
-                    } else if (currentSort.column === 'ticker') {
-                        aVal = a.ticker || ''; bVal = b.ticker || '';
-                        if (aVal < bVal) return currentSort.order === 'asc' ? -1 : 1;
-                        if (aVal > bVal) return currentSort.order === 'asc' ? 1 : -1;
-                        return 0;
-                    }
-                    return currentSort.order === 'asc' ? aVal - bVal : bVal - aVal;
-                });
-            }
-
-            // Render loop
-            augmentedData.forEach((data) => {
-                if (!data || !data.ticker) return;
-                try {
-                    const toggles = getActiveToggles(data.ticker);
-                    // Use server-provided values for consistency
-                    const globalOv = cachedOverrides[data.ticker] || data.overrides;
-                    const hasOverride = globalOv && globalOv.computed && globalOv.computed.fair_value != null;
-
-                    const displayFv = hasOverride ? globalOv.computed.fair_value : data.fair_value;
-                    const displayMos = (displayFv != null && data.current_price) ? ((displayFv - data.current_price) / data.current_price) * 100 : data.margin_of_safety;
-                    const displayHealth = (globalOv && globalOv.computed && globalOv.computed.health_score_total != null) ? globalOv.computed.health_score_total : data.health_score_total;
-
-                    // buy score sync logic
-                    const dynamicBuyScore = data.good_to_buy_total;
-                    let displayBuy = (globalOv && globalOv.computed && globalOv.computed.good_to_buy_total != null) ? globalOv.computed.good_to_buy_total : dynamicBuyScore;
-
-                    const fvStr = displayFv != null ? formatCurrency(displayFv) : 'N/A';
-                    const mosStr = displayMos != null ? formatPercent(displayMos) : 'N/A';
-                    const mosColor = displayMos > 0 ? 'var(--accent)' : (displayMos < 0 ? 'var(--danger)' : 'var(--text-muted)');
-                    const dotClass = (displayBuy || 0) >= 76 ? 'dot-green' : ((displayBuy || 0) >= 41 ? 'dot-yellow' : 'dot-red');
-                    const hDotClass = (displayHealth || 0) >= 76 ? 'dot-green' : ((displayHealth || 0) >= 41 ? 'dot-yellow' : 'dot-red');
-
-                    const card = document.createElement('div');
-                    card.className = `watchlist-card-new ${data.is_loading ? 'wl-loading-state' : ''}`;
-
-                    const loadingSpinner = `<div class="wl-spinner"></div>`;
-
-                    card.innerHTML = `
-                        <button class="wl-close-btn" data-ticker="${data.ticker}">&times;</button>
-                        <div class="wl-header">
-                            <h3 class="wl-ticker">${data.ticker}</h3>
-                            <p class="wl-name">${data.is_loading ? 'Fetching latest data...' : data.name}</p>
-                        </div>
-                        <div class="wl-metrics-bar">
-                            <div class="wl-metric-item">
-                                <span class="wl-m-label">Price</span>
-                                <span class="wl-m-value">${data.is_loading ? loadingSpinner : formatCurrency(data.current_price)}</span>
-                            </div>
-                            <div class="wl-metric-item">
-                                <span class="wl-m-label">Fair Val ${hasOverride ? '✏️' : ''}</span>
-                                <span class="wl-m-value">${data.is_loading ? loadingSpinner : fvStr}</span>
-                            </div>
-                            <div class="wl-metric-item">
-                                <span class="wl-m-label">Margin</span>
-                                <span class="wl-m-value" style="color: ${mosColor}">${data.is_loading ? loadingSpinner : mosStr}</span>
-                            </div>
-                        </div>
-                        <div class="wl-scores-row">
-                            <div class="wl-score-pill">
-                                <div class="wl-dot ${hDotClass}"></div>
-                                <span>Health: ${displayHealth || 'N/A'}</span>
-                            </div>
-                            <div class="wl-score-pill">
-                                <div class="wl-dot ${dotClass}"></div>
-                                <span>Buy: ${displayBuy || 'N/A'}</span>
-                            </div>
-                            <div class="wl-score-pill" title="Piotroski F-Score">
-                                <span style="font-size: 0.75rem; font-weight: 800; margin-right: 4px; color: ${(data.piotroski?.score >= 7) ? 'var(--accent)' : (data.piotroski?.score >= 4 ? '#fbbf24' : (data.piotroski?.score == null ? 'var(--text-muted)' : 'var(--danger)'))}">
-                                    ${data.piotroski?.score != null ? data.piotroski.score : '--'}
-                                </span>
-                                <span style="font-size: 0.7rem; color: var(--text-muted);">Piotroski</span>
-                            </div>
-                        </div>
-                    `;
-
-                    card.addEventListener('click', (e) => {
-                        if (e.target.closest('.wl-close-btn')) return;
-
-                        // v39: Immediate UI feedback
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                        tickerInput.value = data.ticker;
-                        analyzeTicker(data.ticker);
-                    });
-
-                    card.querySelector('.wl-close-btn').addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        watchlist = watchlist.filter(t => t !== data.ticker);
-                        cachedWatchlistData = cachedWatchlistData.filter(d => d.ticker !== data.ticker);
-                        deleteOverrideFromServer(data.ticker);
-                        saveWatchlist();
-                        renderWatchlistUI();
-                        if (currentTicker === data.ticker) updateWatchlistButtonState();
-                    });
-
-                    watchlistGrid.appendChild(card);
-                } catch (cardErr) {
-                    console.error(`Error rendering card for ${data.ticker}:`, cardErr);
-                }
-            });
-        } catch (err) {
-            console.error("CRITICAL ERROR in renderWatchlistUI:", err);
-            if (watchlistGrid) watchlistGrid.innerHTML = `<div style="color:red; padding:20px;">Error rendering watchlist: ${err.message}. Check console.</div>`;
-        }
-    };
-
-    // ── Autocomplete Logic ──────────────────────────────
-    let autocompleteTimeout = null;
-    let selectedIndex = -1;
-
-    const renderAutocomplete = (suggestions) => {
-        autocompleteList.innerHTML = '';
-        if (!suggestions || suggestions.length === 0) {
-            autocompleteList.style.display = 'none';
-            return;
-        }
-
-        suggestions.forEach((item, index) => {
-            const div = document.createElement('div');
-            div.className = 'autocomplete-item';
-            div.innerHTML = `
-                <span class="ticker-match">${item.ticker}</span>
-                <span class="name-match">${item.name}</span>
-                <span class="exch-match">${item.exchange}</span>
-            `;
-            div.addEventListener('click', () => {
-                tickerInput.value = item.ticker;
-                analyzeTicker(item.ticker);
-                autocompleteList.style.display = 'none';
-            });
-            autocompleteList.appendChild(div);
-        });
-        autocompleteList.style.display = 'block';
-        selectedIndex = -1;
-    };
-
-    const handleAutocomplete = async () => {
-        const query = tickerInput.value.trim();
-        if (query.length < 1) {
-            autocompleteList.style.display = 'none';
-            return;
-        }
-
-        try {
-            const res = await fetch(`/api/search/${encodeURIComponent(query)}?t=${Date.now()}`);
-            if (res.ok) {
-                const suggestions = await res.json();
-                renderAutocomplete(suggestions);
-            }
-        } catch (err) {
-            console.error('Autocomplete error:', err);
-        }
-    };
-
-    tickerInput.addEventListener('input', () => {
-        clearTimeout(autocompleteTimeout);
-        autocompleteTimeout = setTimeout(handleAutocomplete, 300);
-    });
-
-    tickerInput.addEventListener('keydown', (e) => {
-        const items = autocompleteList.querySelectorAll('.autocomplete-item');
-        if (autocompleteList.style.display === 'block' && items.length > 0) {
-            if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                selectedIndex = (selectedIndex + 1) % items.length;
-                updateSelection(items);
-            } else if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                selectedIndex = (selectedIndex - 1 + items.length) % items.length;
-                updateSelection(items);
-            } else if (e.key === 'Enter' && selectedIndex >= 0) {
-                e.preventDefault();
-                const ticker = items[selectedIndex].querySelector('.ticker-match').textContent;
-                tickerInput.value = ticker;
-                analyzeTicker(ticker);
-                autocompleteList.style.display = 'none';
-            } else if (e.key === 'Escape') {
-                autocompleteList.style.display = 'none';
-            }
-        }
-    });
-
-    const updateSelection = (items) => {
-        items.forEach((item, idx) => {
-            if (idx === selectedIndex) item.classList.add('selected');
-            else item.classList.remove('selected');
-        });
-    };
-
-    document.addEventListener('click', (e) => {
-        if (!e.target.closest('.autocomplete-wrapper')) {
-            autocompleteList.style.display = 'none';
-        }
-    });
-
-    // Event Listeners
-    searchBtn.addEventListener('click', analyzeTicker);
-    tickerInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') analyzeTicker(); });
-
-    // Scenario Toggles
-
     // --- CUSTOM SCENARIOS LOGIC ---
     const customScenariosBtn = document.getElementById('open-custom-scenarios-btn');
     const customScenariosModal = document.getElementById('custom-scenarios-modal');
@@ -6043,24 +5002,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                         turnOffCustomBtn.style.borderColor = '#10b981';
                     }
                 }
-
-                customScenariosModal.style.display = 'flex';
-            }
-        });
-    }
-
-    if (closeCustomScenariosBtn) {
-        closeCustomScenariosBtn.addEventListener('click', () => {
-            if (customScenariosModal) customScenariosModal.style.display = 'none';
-        });
-    }
-    if (customScenariosModal) {
-        customScenariosModal.addEventListener('click', (e) => {
-            if (e.target === customScenariosModal) {
-                customScenariosModal.style.display = 'none';
-            }
-        });
-    }
 
     // Growth Tips Tooltip Logic
     const tipsTooltip = document.getElementById('cs-tips-tooltip');
@@ -6143,50 +5084,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 turnOffCustomBtn.style.borderColor = 'var(--danger)';
             }
 
-            if (customScenariosModal) customScenariosModal.style.display = 'none';
-            if (typeof updateFairValue === 'function') { updateFairValue(); }
-            if (typeof window.triggerRecalculate === 'function') { window.triggerRecalculate(); }
-            if (typeof updateScoresDynamic === 'function') { updateScoresDynamic(); }
-            saveOverridesDebounced(currentTicker);
-        });
-    }
-
-    if (resetCustomBtn) {
-        resetCustomBtn.addEventListener('click', () => {
-            document.querySelectorAll('.cs-input').forEach(inp => inp.value = '');
-        });
-    }
-
-    if (turnOffCustomBtn) {
-        turnOffCustomBtn.addEventListener('click', () => {
-            if (window._customScenariosData) {
-                // Currently ON, turn it OFF
-                window._customScenariosData = null;
-                turnOffCustomBtn.textContent = 'Turn On';
-                turnOffCustomBtn.style.background = 'rgba(16, 185, 129, 0.1)';
-                turnOffCustomBtn.style.color = '#10b981';
-                turnOffCustomBtn.style.borderColor = '#10b981';
-                if (customScenariosBtn) customScenariosBtn.classList.remove('active-custom');
-            } else {
-                // Currently OFF, turn it ON
-                window._customScenariosData = {};
-                ['bear', 'base', 'bull'].forEach(scen => {
-                    window._customScenariosData[scen] = {
-                        rev13: parseCsInput(`cs-rev-1-3-${scen}`),
-                        fcfMargin: parseCsInput(`cs-fcf-margin-${scen}`),
-                        wacc: parseCsInput(`cs-wacc-${scen}`),
-                        exit: parseCsInput(`cs-exit-${scen}`),
-                        perp: parseCsInput(`cs-perp-${scen}`),
-                        eps: parseCsInput(`cs-eps-${scen}`),
-                        pe: parseCsInput(`cs-pe-${scen}`)
-                    };
-                });
-                turnOffCustomBtn.textContent = 'Turn Off';
-                turnOffCustomBtn.style.background = 'rgba(239, 68, 68, 0.1)';
-                turnOffCustomBtn.style.color = 'var(--danger)';
-                turnOffCustomBtn.style.borderColor = 'var(--danger)';
-                if (customScenariosBtn) customScenariosBtn.classList.add('active-custom');
-            }
             if (customScenariosModal) customScenariosModal.style.display = 'none';
             if (typeof updateFairValue === 'function') { updateFairValue(); }
             if (typeof window.triggerRecalculate === 'function') { window.triggerRecalculate(); }
@@ -6289,7 +5186,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 // v38: Call individual valuation endpoint. 
                 // skip_peers=false to ensure scores are 100% sync'd with dashboard.
                 // Check client-side cache first (15 min TTL)
-                const cacheKey = `val_v3_${tUpper}`;
+                const cacheKey = `val_v4_${tUpper}`;
                 const cached = sessionStorage.getItem(cacheKey);
                 if (cached) {
                     const { data: cachedData, ts } = JSON.parse(cached);
@@ -6842,12 +5739,15 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             const prof = globalData.company_profile || {};
             title.textContent = '📊 Forward Multiple — Data Transparency';
             const epsLabel = p.valuation_eps !== p.trailing_eps ? 'EPS Base (Normalized)' : 'Trailing EPS (GAAP)';
+            const dynMult = p.dynamic_mult != null ? (Number.isInteger(p.dynamic_mult) ? p.dynamic_mult : p.dynamic_mult.toFixed(2)) : 20;
+            const targetPrice = p.dynamic_fwd_price != null ? p.dynamic_fwd_price : (p.fwd_eps != null ? p.fwd_eps * dynMult : null);
             html = row(epsLabel, '$' + fmt(p.valuation_eps || p.trailing_eps))
                 + row('Growth Estimate', fmtPct(p.dynamic_growth != null ? p.dynamic_growth : p.eps_growth_estimated))
                 + row('Forward EPS (3Y Projection)', '$' + fmt(p.dynamic_fwd_eps != null ? p.dynamic_fwd_eps : p.fwd_eps))
                 + row('5Y Avg P/E', prof.historic_pe ? prof.historic_pe.toFixed(2) + 'x' : 'N/A')
+                + (targetPrice != null ? row(`3Y Target Price (PE ${dynMult})`, '$' + fmt(targetPrice)) : '')
                 + row(`Return Rate (Discount)`, p.dynamic_discount != null ? fmtPct(p.dynamic_discount) : '15.0%')
-                + row(`Fair Value (PE ${p.dynamic_mult != null ? (Number.isInteger(p.dynamic_mult) ? p.dynamic_mult : p.dynamic_mult.toFixed(2)) : 20})`, '$' + fmt(p.dynamic_fv != null ? p.dynamic_fv : p.fair_value_pe_20));
+                + row(`Present Fair Value`, '$' + fmt(p.dynamic_fv != null ? p.dynamic_fv : p.fair_value_pe_20));
         } else if (model === 'peg' && currentFormulaData.peg) {
             const g = currentFormulaData.peg;
             const prof = globalData.company_profile || {};
@@ -7046,6 +5946,81 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         body.innerHTML = html;
         modal.style.display = 'flex';
     }
+
+    // ── News Modal ──────────────────────
+    window.openNewsModalByIndex = function(index) {
+        try {
+            if (!globalData || !globalData.latest_news || !globalData.latest_news[index]) {
+                return;
+            }
+            const news = globalData.latest_news[index];
+
+            // create modal container if not exists
+            let modal = document.getElementById('news-modal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'news-modal';
+                modal.style.position = 'fixed';
+                modal.style.top = '0';
+                modal.style.left = '0';
+                modal.style.width = '100vw';
+                modal.style.height = '100vh';
+                modal.style.backgroundColor = 'rgba(0, 0, 0, 0.75)';
+                modal.style.backdropFilter = 'blur(5px)';
+                modal.style.zIndex = '999999';
+                modal.style.display = 'flex';
+                modal.style.alignItems = 'center';
+                modal.style.justifyContent = 'center';
+                modal.style.opacity = '0';
+                modal.style.transition = 'opacity 0.2s ease-out';
+
+                modal.onclick = function(e) {
+                    if (e.target === modal) {
+                        window.closeNewsModal();
+                    }
+                };
+                document.body.appendChild(modal);
+            }
+
+            window.closeNewsModal = function() {
+                const m = document.getElementById('news-modal');
+                if (m) {
+                    m.style.opacity = '0';
+                    setTimeout(() => { m.style.display = 'none'; }, 200);
+                }
+            };
+
+            modal.innerHTML = `
+                <div style="background: var(--bg-surface); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; width: 90%; max-width: 500px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); position: relative; font-family: 'Outfit', sans-serif;">
+                    <button onclick="window.closeNewsModal()" style="position: absolute; top: 12px; right: 12px; background: none; border: none; color: rgba(255,255,255,0.5); font-size: 1.2rem; cursor: pointer; padding: 4px;">&times;</button>
+
+                    <div style="margin-bottom: 15px; display: inline-block;">
+                        <span style="background: rgba(56, 189, 248, 0.1); color: #38bdf8; font-size: 0.7rem; padding: 4px 8px; border-radius: 6px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">${news.publisher || 'News'}</span>
+                    </div>
+
+                    <h2 style="font-size: 1.2rem; color: #fff; line-height: 1.4; margin-top: 0; margin-bottom: 16px; font-weight: 700;">${news.title}</h2>
+
+                    ${news.summary ? `<div style="background: rgba(255,255,255,0.03); border-left: 3px solid #4ade80; padding: 12px 16px; border-radius: 4px; margin-bottom: 20px;">
+                        <p style="color: rgba(255,255,255,0.85); font-size: 0.9rem; line-height: 1.6; margin: 0; font-style: italic;">"${news.summary}"</p>
+                    </div>` : ''}
+
+                    ${news.link ? `<div style="text-align: right;">
+                        <a href="${news.link}" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; gap: 8px; background: rgba(56, 189, 248, 0.15); color: #38bdf8; text-decoration: none; padding: 10px 16px; border-radius: 8px; font-weight: 600; font-size: 0.9rem; transition: all 0.2s;">
+                            Read Full Article <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                        </a>
+                    </div>` : ''}
+                </div>
+            `;
+
+            modal.style.display = 'flex';
+            // Trigger reflow
+            modal.offsetHeight;
+            modal.style.opacity = '1';
+
+        } catch (err) {
+            console.error("Error parsing news data", err);
+        }
+    };
 
     // ── Piotroski F-Score Breakdown Modal ──────────────────────
     function renderPiotroskiBreakdown(totalScore, breakdown) {

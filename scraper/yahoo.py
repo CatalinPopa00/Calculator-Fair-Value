@@ -167,8 +167,8 @@ def get_yahoo_analysis_normalized(ticker, info=None):
                     # v284: Non-nesting regex to prevent crossing object boundaries (Fix for ABNB crossover)
                     eps_avg_m = re.search(r'earningsEstimate(?:\"|\\"):\{[^{}]*?avg(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
                     eps_ya_m = re.search(r'yearAgoEps(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
-                    eps_low_m = re.search(r'earningsEstimate(?:\"|\\"):\{.*?low(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
-                    eps_high_m = re.search(r'earningsEstimate(?:\"|\\"):\{.*?high(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
+                    eps_low_m = re.search(r'earningsEstimate(?:\"|\\"):\{(?:(?!revenueEstimate).)*?low(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
+                    eps_high_m = re.search(r'earningsEstimate(?:\"|\\"):\{(?:(?!revenueEstimate).)*?high(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
 
                     if eps_avg_m:
                         val = float(eps_avg_m.group(1))
@@ -198,8 +198,8 @@ def get_yahoo_analysis_normalized(ticker, info=None):
                     # Revenue extraction (Only if trend_key is revenueTrend)
                     rev_avg_m = re.search(r'revenueEstimate(?:\"|\\"):\{[^{}]*?avg(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
                     rev_ya_m = re.search(r'yearAgoSales(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
-                    rev_low_m = re.search(r'revenueEstimate(?:\"|\\"):\{.*?low(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
-                    rev_high_m = re.search(r'revenueEstimate(?:\"|\\"):\{.*?high(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
+                    rev_low_m = re.search(r'revenueEstimate(?:\"|\\"):\{(?:(?!earningsEstimate).)*?low(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
+                    rev_high_m = re.search(r'revenueEstimate(?:\"|\\"):\{(?:(?!earningsEstimate).)*?high(?:\"|\\"):\{[^{}]*?raw(?:\"|\\"):([\d\.\-]+)', sub_chunk)
 
                     if rev_avg_m:
                         val = float(rev_avg_m.group(1))
@@ -953,7 +953,7 @@ def fetch_latest_news_v2(ticker_symbol: str) -> list:
         news = stock.news
         if news and len(news) > 0:
             results = []
-            for item in news[:4]:  # Top 4 news items
+            for item in news[:8]:  # Top 8 news items
                 # yfinance news uses a nested 'content' structure
                 content = item.get('content', item) if isinstance(item, dict) else {}
                 title = content.get('title', 'N/A')
@@ -965,11 +965,21 @@ def fetch_latest_news_v2(ticker_symbol: str) -> list:
                     title = item.get('title', 'N/A')
                     publisher = item.get('publisher', 'N/A')
                     
-                results.append(f"{title} (Source: {publisher})")
+                click_through_url = content.get('clickThroughUrl') or {}
+                canonical_url = content.get('canonicalUrl') or {}
+                link = click_through_url.get('url') or canonical_url.get('url') or item.get('link', '')
+                summary = content.get('summary', '') or item.get('summary', '')
+
+                results.append({
+                    "title": title,
+                    "publisher": publisher,
+                    "link": link,
+                    "summary": summary
+                })
             return results
     except Exception as e:
         print(f"Error fetching news for {ticker_symbol}: {e}")
-    return ["No significant recent news available (last 24-48h)."]
+    return []
 
 
 def load_gemini_api_key() -> str:
@@ -1018,7 +1028,7 @@ def get_company_synthesis(ticker: str, info: dict, run_ai: bool = False) -> str:
             # Fetch news first (only when running AI)
             news_items = fetch_latest_news_v2(ticker_upper)
             # Format news as list text
-            news_text = "\n".join([f"- {item}" for item in news_items])
+            news_text = "\n".join([f"- {item['title']} (Source: {item['publisher']})" for item in news_items])
             
             # Prepare context values
             pe = info.get('trailingPE') or info.get('forwardPE') or 'N/A'
@@ -1152,7 +1162,7 @@ Strictly adhere to these precise markdown headers (written exactly like this, in
         try:
             raw_news = fetch_latest_news_v2(ticker_upper)
             if raw_news:
-                fallback_news = raw_news[:3]
+                fallback_news = [f"{n['title']} (Source: {n['publisher']})" for n in raw_news[:3]]
             else:
                 fallback_news = ["No recent news or market developments available."]
         except:
@@ -3330,6 +3340,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
             if market_cap and market_cap > 0 and fcf_fwd_val > 0:
                 pfcf_forward_custom = market_cap / fcf_fwd_val
 
+        news_items = fetch_latest_news_v2(ticker_symbol)
+
         # Final return object (Diagnostic-Rich v22)
         data = {
             "ticker": ticker_symbol.upper(),
@@ -3422,6 +3434,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
             "cet1_ratio": info.get('commonEquityTier1Ratio') or (float(bs.loc[find_idx(bs, 'Common Equity Tier 1')].iloc[0]) if bs is not None and find_idx(bs, 'Common Equity Tier 1') else (float(bs.loc[find_idx(bs, ['Total Equity', 'Stockholders Equity', 'Total Equity Gross Minority Interest'])].iloc[0]) / float(bs.loc[find_idx(bs, 'Total Assets')].iloc[0]) if bs is not None and find_idx(bs, 'Total Assets') and find_idx(bs, ['Total Equity', 'Stockholders Equity', 'Total Equity Gross Minority Interest']) and float(bs.loc[find_idx(bs, 'Total Assets')].iloc[0]) > 0 else None)),
             "red_flags": red_flags,
             "company_overview_synthesis": get_company_synthesis(ticker_symbol, info, run_ai=False),
+            "latest_news": news_items,
             "beneish_data": beneish_data,
             "beta": info.get("beta")
         }
@@ -3627,7 +3640,7 @@ def get_competitors_data(target_ticker: str, limit: int = 4, custom_peers: list 
                     now = time.time()
                     
                     # 1. ALWAYS PREFER MAIN CACHE IF AVAILABLE
-                    main_cache_key = f"val_data_v31_{t}"
+                    main_cache_key = f"val_data_v32_{t}"
                     if not force_refresh:
                         main_data = kv_get(main_cache_key)
                         if main_data and isinstance(main_data, dict):

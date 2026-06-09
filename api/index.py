@@ -36,7 +36,7 @@ from models.scoring import calculate_scoring_reform, calculate_piotroski_score
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v314"
+CACHE_VERSION = "v315"
 def get_usd_fx_rate(currency: str) -> float:
     if not currency:
         return 1.0
@@ -127,6 +127,7 @@ class ValuationResponse(BaseModel):
     historical_trends: Optional[list] = None
     historical_anchors: Optional[list] = None
     company_overview_synthesis: Optional[str] = None
+    latest_news: Optional[list] = None
     formula_data: Dict[str, Any] = {}
     health_score_total: Optional[Any] = None
     health_breakdown: Optional[list] = None
@@ -555,12 +556,12 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 return valuation_cache[full_mode_key]
 
         # 1. Persistent Cache Check
-        persistent_cache_key = f"val_data_v31_{ticker.upper()}"
+        persistent_cache_key = f"val_data_v32_{ticker.upper()}"
         cached_data = kv_get(persistent_cache_key)
         if cached_data and not force_refresh:
             return cached_data
             
-        persistent_skip_key = f"val_data_v31_skip_{ticker.upper()}"
+        persistent_skip_key = f"val_data_v32_skip_{ticker.upper()}"
         if skip_peers:
             cached_skip = kv_get(persistent_skip_key)
             if cached_skip and not force_refresh:
@@ -1155,12 +1156,20 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             # For these, we use PV(FCF) as a proxy for Equity Value directly.
             # v63: Only apply to actual Banks/Insurance, not Data/FinTech providers like FDS or MSCI.
             is_bank_or_insurance = any(x in str(industry).lower() for x in ["bank", "insurance", "savings", "credit"])
+
+            # Exception for Payment Networks (V, MA, PYPL) which are often labeled "Credit Services" but are not banks
+            if ticker.upper() in ["V", "MA", "PYPL"]:
+                is_bank_or_insurance = False
+
             if sector == "Financial Services" and is_bank_or_insurance:
                 dcf_cash = 0
                 dcf_debt = 0
                 
+        # Get buyback rate for DCF
+        dcf_buyback = data.get("historic_buyback_rate") or 0.0
+
         # 5 Year Calculation (Default for Dashboard)
-        res_5 = calculate_dcf(fcf_obj, eps_growth, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, years=5, exit_multiple=recommended_exit_multiple, current_price=current_price)
+        res_5 = calculate_dcf(fcf_obj, eps_growth, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, years=5, buyback_rate=dcf_buyback, exit_multiple=recommended_exit_multiple, current_price=current_price)
         sens_5 = calculate_dcf_sensitivity(fcf_obj, eps_growth, shares, dcf_cash, dcf_debt, 5, discount_rate, perpetual_growth, exit_multiple=recommended_exit_multiple)
         rev_5 = calculate_reverse_dcf(current_price, fcf_obj, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, 5, exit_multiple=recommended_exit_multiple)
         
@@ -1177,7 +1186,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             }
             
         # 10 Year Calculation 
-        res_10 = calculate_dcf(fcf_obj, eps_growth, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, years=10, exit_multiple=recommended_exit_multiple, current_price=current_price)
+        res_10 = calculate_dcf(fcf_obj, eps_growth, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, years=10, buyback_rate=dcf_buyback, exit_multiple=recommended_exit_multiple, current_price=current_price)
         sens_10 = calculate_dcf_sensitivity(fcf_obj, eps_growth, shares, dcf_cash, dcf_debt, 10, discount_rate, perpetual_growth, exit_multiple=recommended_exit_multiple)
         rev_10 = calculate_reverse_dcf(current_price, fcf_obj, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, 10, exit_multiple=recommended_exit_multiple)
         
@@ -1835,6 +1844,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             "historical_trends": data.get("historical_trends"),
             "historical_anchors": historical_anchors,
             "company_overview_synthesis": data.get("company_overview_synthesis"),
+            "latest_news": data.get("latest_news"),
             "health_score_total": health_score_total,
             "health_breakdown": health_breakdown,
             "health_score": { "beneish": beneish_data },
@@ -1876,9 +1886,9 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
     try:
         from utils.kv import kv_set
         if not skip_peers and not fast_mode:
-            kv_set(f"val_data_v31_{ticker_upper}", response_data, ex=86400)
+            kv_set(f"val_data_v32_{ticker_upper}", response_data, ex=86400)
         elif skip_peers and not fast_mode:
-            kv_set(f"val_data_v31_skip_{ticker_upper}", response_data, ex=86400)
+            kv_set(f"val_data_v32_skip_{ticker_upper}", response_data, ex=86400)
     except Exception as e:
         print(f"Failed to cache main profile to KV for {ticker_upper}: {e}")
 
