@@ -23,10 +23,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 container.style.fontFamily = "'Outfit', sans-serif";
                 container.style.padding = '40px';
                 
-                // Show it explicitly on screen at the top so the browser paints it properly
-                // Removed absolute positioning to fix html2canvas blank page issue
+                // Wrap in a 0-height container so it doesn't affect user view, but stays in DOM flow
+                // so the browser renderer perfectly paints it.
+                const wrapper = document.createElement('div');
+                wrapper.style.position = 'relative';
+                wrapper.style.width = '100%';
+                wrapper.style.height = '0px';
+                wrapper.style.overflow = 'hidden';
+
+                container.style.position = 'relative';
+                container.style.width = '1200px';
                 
-                document.body.appendChild(container);
+                wrapper.appendChild(container);
+                document.body.appendChild(wrapper);
 
                 // Get Data
                 const d = window.globalData;
@@ -103,6 +112,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (el) {
                         const clone = el.cloneNode(true);
                         
+                        // Overwrite potential weird classes or widths inherited from body flex
+                        clone.style.width = '100%';
+                        clone.style.maxWidth = '100%';
+
                         // Replace canvases with images to avoid html2canvas blank canvas bug
                         const sourceCanvases = el.querySelectorAll('canvas');
                         const clonedCanvases = clone.querySelectorAll('canvas');
@@ -154,14 +167,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     },
                     pagebreak:    { mode: ['css', 'legacy'] },
-                    jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+                    jsPDF:        { unit: 'px', format: [1200, 1600], hotfixes: ["px_scaling"], orientation: 'portrait' }
                 };
                 
                 await html2pdf().set(opt).from(container).save();
 
                 // Cleanup
-                if (document.body.contains(container)) {
-                    document.body.removeChild(container);
+                if (document.body.contains(wrapper)) {
+                    document.body.removeChild(wrapper);
                 }
 
             } catch(e) {
