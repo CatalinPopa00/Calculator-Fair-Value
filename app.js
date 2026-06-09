@@ -4904,6 +4904,13 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 customScenariosBtn.classList.remove('active-custom');
             }
             document.querySelectorAll('.cs-input').forEach(inp => inp.value = '');
+            const turnOffCustomBtn = document.getElementById('cs-turn-off-btn');
+            if (turnOffCustomBtn) {
+                turnOffCustomBtn.textContent = 'Turn On';
+                turnOffCustomBtn.style.background = 'rgba(16, 185, 129, 0.1)';
+                turnOffCustomBtn.style.color = '#10b981';
+                turnOffCustomBtn.style.borderColor = '#10b981';
+            }
             return false;
         }
         const inputs = ov.inputs || {};
@@ -4956,11 +4963,25 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             if (customScenariosBtn) {
                 customScenariosBtn.classList.add('active-custom');
             }
+            const turnOffCustomBtn = document.getElementById('cs-turn-off-btn');
+            if (turnOffCustomBtn) {
+                turnOffCustomBtn.textContent = 'Turn Off';
+                turnOffCustomBtn.style.background = 'rgba(239, 68, 68, 0.1)';
+                turnOffCustomBtn.style.color = 'var(--danger)';
+                turnOffCustomBtn.style.borderColor = 'var(--danger)';
+            }
         } else {
             window._customScenariosData = null;
             const customScenariosBtn = document.getElementById('open-custom-scenarios-btn');
             if (customScenariosBtn) {
                 customScenariosBtn.classList.remove('active-custom');
+            }
+            const turnOffCustomBtn = document.getElementById('cs-turn-off-btn');
+            if (turnOffCustomBtn) {
+                turnOffCustomBtn.textContent = 'Turn On';
+                turnOffCustomBtn.style.background = 'rgba(16, 185, 129, 0.1)';
+                turnOffCustomBtn.style.color = '#10b981';
+                turnOffCustomBtn.style.borderColor = '#10b981';
             }
         }
 
@@ -6008,6 +6029,21 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                         if (data.pe !== null) document.getElementById(`cs-pe-${scen}`).value = data.pe;
                     });
                 }
+
+                if (turnOffCustomBtn) {
+                    if (window._customScenariosData) {
+                        turnOffCustomBtn.textContent = 'Turn Off';
+                        turnOffCustomBtn.style.background = 'rgba(239, 68, 68, 0.1)';
+                        turnOffCustomBtn.style.color = 'var(--danger)';
+                        turnOffCustomBtn.style.borderColor = 'var(--danger)';
+                    } else {
+                        turnOffCustomBtn.textContent = 'Turn On';
+                        turnOffCustomBtn.style.background = 'rgba(16, 185, 129, 0.1)';
+                        turnOffCustomBtn.style.color = '#10b981';
+                        turnOffCustomBtn.style.borderColor = '#10b981';
+                    }
+                }
+
                 customScenariosModal.style.display = 'flex';
             }
         });
@@ -6043,11 +6079,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 const f = globalData.financials;
                 const r0 = f[0].total_revenue;
                 const r1 = f[1].total_revenue;
-                if (r0 > 0 && r1 > 0) rev1y = ((r0 / r1) - 1) * 100;
+                if (r1 > 0) rev1y = ((r0 / r1) - 1) * 100;
 
                 if (f.length >= 4) {
                     const r3 = f[3].total_revenue;
-                    if (r0 > 0 && r3 > 0) rev3y = (Math.pow(r0 / r3, 1/3) - 1) * 100;
+                    if (r3 > 0) rev3y = (Math.pow(r0 / r3, 1/3) - 1) * 100;
                 }
             }
 
@@ -6070,8 +6106,8 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
             // Positioning
             const rect = e.target.getBoundingClientRect();
-            tipsTooltip.style.left = (rect.left + window.scrollX + (rect.width / 2) - 75) + 'px'; // Center tooltip (150px min-width)
-            tipsTooltip.style.top = (rect.top + window.scrollY - tipsTooltip.offsetHeight - 10) + 'px';
+            tipsTooltip.style.left = (rect.right + window.scrollX + 15) + 'px';
+            tipsTooltip.style.top = (rect.top + window.scrollY - 10) + 'px';
         });
 
         input.addEventListener('blur', () => {
@@ -6099,6 +6135,14 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 };
             });
             if (customScenariosBtn) customScenariosBtn.classList.add('active-custom');
+
+            if (turnOffCustomBtn) {
+                turnOffCustomBtn.textContent = 'Turn Off';
+                turnOffCustomBtn.style.background = 'rgba(239, 68, 68, 0.1)';
+                turnOffCustomBtn.style.color = 'var(--danger)';
+                turnOffCustomBtn.style.borderColor = 'var(--danger)';
+            }
+
             if (customScenariosModal) customScenariosModal.style.display = 'none';
             if (typeof updateFairValue === 'function') { updateFairValue(); }
             if (typeof window.triggerRecalculate === 'function') { window.triggerRecalculate(); }
@@ -6115,9 +6159,34 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
     if (turnOffCustomBtn) {
         turnOffCustomBtn.addEventListener('click', () => {
-            window._customScenariosData = null;
-            document.querySelectorAll('.cs-input').forEach(inp => inp.value = '');
-            if (customScenariosBtn) customScenariosBtn.classList.remove('active-custom');
+            if (window._customScenariosData) {
+                // Currently ON, turn it OFF
+                window._customScenariosData = null;
+                turnOffCustomBtn.textContent = 'Turn On';
+                turnOffCustomBtn.style.background = 'rgba(16, 185, 129, 0.1)';
+                turnOffCustomBtn.style.color = '#10b981';
+                turnOffCustomBtn.style.borderColor = '#10b981';
+                if (customScenariosBtn) customScenariosBtn.classList.remove('active-custom');
+            } else {
+                // Currently OFF, turn it ON
+                window._customScenariosData = {};
+                ['bear', 'base', 'bull'].forEach(scen => {
+                    window._customScenariosData[scen] = {
+                        rev13: parseCsInput(`cs-rev-1-3-${scen}`),
+                        fcfMargin: parseCsInput(`cs-fcf-margin-${scen}`),
+                        wacc: parseCsInput(`cs-wacc-${scen}`),
+                        exit: parseCsInput(`cs-exit-${scen}`),
+                        perp: parseCsInput(`cs-perp-${scen}`),
+                        eps: parseCsInput(`cs-eps-${scen}`),
+                        pe: parseCsInput(`cs-pe-${scen}`)
+                    };
+                });
+                turnOffCustomBtn.textContent = 'Turn Off';
+                turnOffCustomBtn.style.background = 'rgba(239, 68, 68, 0.1)';
+                turnOffCustomBtn.style.color = 'var(--danger)';
+                turnOffCustomBtn.style.borderColor = 'var(--danger)';
+                if (customScenariosBtn) customScenariosBtn.classList.add('active-custom');
+            }
             if (customScenariosModal) customScenariosModal.style.display = 'none';
             if (typeof updateFairValue === 'function') { updateFairValue(); }
             if (typeof window.triggerRecalculate === 'function') { window.triggerRecalculate(); }
