@@ -2710,6 +2710,10 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             if (pegSrc === 'analyst') {
                 strictCagrMode = true;
                 usedGrowth = null; // Default to null for strict 2-Year CAGR
+                if (window._customScenariosData && window._customScenariosData[_currentScenario] && window._customScenariosData[_currentScenario].eps !== null) {
+                    usedGrowth = window._customScenariosData[_currentScenario].eps / 100;
+                    strictCagrMode = false; // We have custom growth, not strict CAGR
+                }
                 const pegEsts = globalData.eps_estimates?.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
                 if (pegEsts && pegEsts.length >= 2) {
                     const reportedE = globalData.eps_estimates?.find(e => e && e.status === 'reported');
@@ -2720,15 +2724,17 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                         else if (_currentScenario === 'bull') { y1 = pegEsts[0].high ?? pegEsts[0].avg; y2 = pegEsts[1].high ?? pegEsts[1].avg; }
                         else { y1 = pegEsts[0].avg; y2 = pegEsts[1].avg; }
 
-                        if (globalData.computed_eps_growth != null && !isNaN(globalData.computed_eps_growth)) {
-                            usedGrowth = globalData.computed_eps_growth;
-                        } else {
-                            if (baseEps > 0 && y2 > 0) {
-                                usedGrowth = Math.pow(y2 / baseEps, 0.5) - 1;
+                        if (usedGrowth === null) {
+                            if (globalData.computed_eps_growth != null && !isNaN(globalData.computed_eps_growth)) {
+                                usedGrowth = globalData.computed_eps_growth;
                             } else {
-                                const g1 = (y1 / baseEps) - 1;
-                                const g2 = (y2 / y1) - 1;
-                                usedGrowth = (g1 + g2) / 2.0;
+                                if (baseEps > 0 && y2 > 0) {
+                                    usedGrowth = Math.pow(y2 / baseEps, 0.5) - 1;
+                                } else {
+                                    const g1 = (y1 / baseEps) - 1;
+                                    const g2 = (y2 / y1) - 1;
+                                    usedGrowth = (g1 + g2) / 2.0;
+                                }
                             }
                         }
 
@@ -2738,6 +2744,9 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 }
             } else if (pegSrc === '5ycagr') {
                 usedGrowth = globalData.company_profile.cagr_5y_custom || currentFormulaData.peg.eps_growth_5y_cagr || usedGrowth;
+                if (window._customScenariosData && window._customScenariosData[_currentScenario] && window._customScenariosData[_currentScenario].eps !== null) {
+                    usedGrowth = window._customScenariosData[_currentScenario].eps / 100;
+                }
                 fwdPe = globalData.company_profile.forward_pe_custom || currentFormulaData.peg.fwd_pe || null;
             } else if (pegSrc === 'custom') {
                 const rawG = document.getElementById('peg-custom-growth').value;
@@ -2939,9 +2948,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
             if (epsSource === 'analyst') {
                 usedGrowth = getDynamicEpsGrowth();
-            }
-            if (epsSource === '5ycagr') {
+            } else if (epsSource === '5ycagr') {
                 usedGrowth = globalData.company_profile.cagr_5y_custom || pl.eps_growth_5y_cagr || usedGrowth;
+                if (window._customScenariosData && window._customScenariosData[_currentScenario] && window._customScenariosData[_currentScenario].eps !== null) {
+                    usedGrowth = window._customScenariosData[_currentScenario].eps / 100;
+                }
             } else if (epsSource === 'historical') {
                 usedGrowth = prof.historic_eps_growth != null ? prof.historic_eps_growth : 0.05;
             } else if (epsSource === 'custom') {
@@ -6277,7 +6288,13 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 }
 
                 const customMarginEl = document.getElementById('dcf-custom-fcf-margin');
-                const customMargin = (customMarginEl && customMarginEl.value !== '') ? parseLocaleFloat(customMarginEl.value) : null;
+                let customMargin = (customMarginEl && customMarginEl.value !== '') ? parseLocaleFloat(customMarginEl.value) : null;
+
+                let cs = window._customScenariosData && window._customScenariosData[_currentScenario] ? window._customScenariosData[_currentScenario] : null;
+                if (cs && cs.fcfMargin !== null) {
+                    customMargin = cs.fcfMargin;
+                }
+
                 let startingFcfMargin = 0.10;
                 if (customMargin !== null && !isNaN(customMargin)) {
                     startingFcfMargin = customMargin / 100;
