@@ -4321,17 +4321,28 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                                 `;
                             }).join('');
                         } else if (parsed.latestMarketIntelligence.length > 0) {
-                            panel.innerHTML = parsed.latestMarketIntelligence.map(item => {
+                            panel.innerHTML = parsed.latestMarketIntelligence.map((item, index) => {
                                 const match = item.match(/^(.*?)\s*\(Source:\s*(.*?)\)$/i);
                                 const title = match ? match[1] : item;
                                 const source = match ? match[2] : "Market News";
 
+                                // Synthesize a fake news object so the modal can still open using the text data
+                                const synthesizedNews = {
+                                    title: title,
+                                    publisher: source,
+                                    summary: "Acesta este un fragment generat din inteligența pieței. Pentru articolul complet sau sumarul detaliat, vă rugăm să actualizați datele."
+                                };
+
+                                // Inject into globalData so openNewsModalByIndex works
+                                if (!globalData.latest_news) globalData.latest_news = [];
+                                globalData.latest_news[index] = synthesizedNews;
+
                                 return `
-                                    <div class="brief-news-item">
+                                    <div class="brief-news-item" style="cursor: pointer;" onclick="window.openNewsModalByIndex(${index})">
                                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; gap: 10px;">
                                             <span style="background: rgba(56, 189, 248, 0.1); color: #38bdf8; font-size: 0.58rem; padding: 2px 6px; border-radius: 4px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3px;">${source}</span>
                                         </div>
-                                        <div style="color: rgba(255,255,255,0.9); font-size: 0.8rem; line-height: 1.4;">${title}</div>
+                                        <div style="color: rgba(255,255,255,0.9); font-size: 0.8rem; line-height: 1.4; font-weight: 600;">${title}</div>
                                     </div>
                                 `;
                             }).join('');
