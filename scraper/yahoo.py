@@ -3422,7 +3422,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
             "cet1_ratio": info.get('commonEquityTier1Ratio') or (float(bs.loc[find_idx(bs, 'Common Equity Tier 1')].iloc[0]) if bs is not None and find_idx(bs, 'Common Equity Tier 1') else (float(bs.loc[find_idx(bs, ['Total Equity', 'Stockholders Equity', 'Total Equity Gross Minority Interest'])].iloc[0]) / float(bs.loc[find_idx(bs, 'Total Assets')].iloc[0]) if bs is not None and find_idx(bs, 'Total Assets') and find_idx(bs, ['Total Equity', 'Stockholders Equity', 'Total Equity Gross Minority Interest']) and float(bs.loc[find_idx(bs, 'Total Assets')].iloc[0]) > 0 else None)),
             "red_flags": red_flags,
             "company_overview_synthesis": get_company_synthesis(ticker_symbol, info, run_ai=False),
-            "beneish_data": beneish_data
+            "beneish_data": beneish_data,
+            "beta": info.get("beta")
         }
         
         # Cache raw yfinance info dictionary for asynchronous decoupled Gemini endpoints
