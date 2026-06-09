@@ -1453,20 +1453,12 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             // FCF is calculated on top of projected Revenue
             currentFcf = currentRevenue * yearMargin;
 
-            // Method A: Deduct buyback cash cost from FCF (or add dilution cost if buybackRate < 0)
-            let buybackCashSpent = 0;
-            if (buybackRate !== 0 && currentPrice && currentPrice > 0) {
-                const projectedPrice = currentPrice * Math.pow(1 + finalWacc, i);
-                const sharesBought = remainingShares * buybackRate;
-                buybackCashSpent = sharesBought * projectedPrice;
-                remainingShares -= sharesBought;
-                currentFcf -= buybackCashSpent;
-            } else if (buybackRate !== 0) {
-                // Fallback: just reduce/increase shares without FCF deduction
+            // Adjust shares based on buyback/dilution rate (positive = buyback, negative = dilution)
+            if (buybackRate !== 0) {
                 remainingShares *= (1 - buybackRate);
             }
 
-            buybackCostPerYear.push(buybackCashSpent);
+            buybackCostPerYear.push(0);
             fcf_projections.push(currentFcf);
 
             const pv_fcf = currentFcf / Math.pow(1 + finalWacc, i - 0.5);
@@ -2444,13 +2436,20 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             const buybackCustomInputs = document.getElementById('dcf-buyback-custom-inputs');
             if (buybackCustomInputs) buybackCustomInputs.style.display = buybackSrc === 'custom' ? 'flex' : 'none';
 
-            let buybackRate = 0;
+            let rawBuybackRate = 0;
+            let rawSbcRate = 0;
+
             if (buybackSrc === 'historical') {
-                buybackRate = currentFormulaData.dcf.historic_buyback_rate || 0;
+                rawBuybackRate = currentFormulaData.dcf.historic_buyback_rate || 0;
             } else if (buybackSrc === 'custom') {
                 const rawVal = document.getElementById('dcf-custom-buyback').value;
-                buybackRate = (rawVal === '' || isNaN(parseLocaleFloat(rawVal))) ? 0 : parseLocaleFloat(rawVal) / 100;
+                rawBuybackRate = (rawVal === '' || isNaN(parseLocaleFloat(rawVal))) ? 0 : parseLocaleFloat(rawVal) / 100;
+
+                const sbcVal = document.getElementById('dcf-custom-sbc').value;
+                rawSbcRate = (sbcVal === '' || isNaN(parseLocaleFloat(sbcVal))) ? 0 : parseLocaleFloat(sbcVal) / 100;
             }
+
+            let buybackRate = rawBuybackRate - rawSbcRate;
 
             let baseFcf = currentFormulaData.dcf.fcf;
             let baseRevenue = globalData.revenue;
