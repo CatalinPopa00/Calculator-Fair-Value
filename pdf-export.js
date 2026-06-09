@@ -23,8 +23,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 container.style.fontFamily = "'Outfit', sans-serif";
                 container.style.padding = '40px';
                 
-                // Show it explicitly on screen at the top so the browser paints it properly
-                // Removed absolute positioning to fix html2canvas blank page issue
+                // Position it absolutely but off-screen to preserve exact layout width
+                // without interfering with the user's viewport, avoiding the blank canvas bug.
+                container.style.position = 'absolute';
+                container.style.top = '-20000px';
+                container.style.left = '0';
+                container.style.width = '1200px';
                 
                 document.body.appendChild(container);
 
@@ -103,6 +107,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (el) {
                         const clone = el.cloneNode(true);
                         
+                        // Overwrite potential weird classes or widths inherited from body flex
+                        clone.style.width = '100%';
+                        clone.style.maxWidth = '100%';
+
                         // Replace canvases with images to avoid html2canvas blank canvas bug
                         const sourceCanvases = el.querySelectorAll('canvas');
                         const clonedCanvases = clone.querySelectorAll('canvas');
@@ -154,7 +162,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     },
                     pagebreak:    { mode: ['css', 'legacy'] },
-                    jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+                    jsPDF:        { unit: 'pt', format: 'a4', orientation: 'portrait' }
                 };
                 
                 await html2pdf().set(opt).from(container).save();
