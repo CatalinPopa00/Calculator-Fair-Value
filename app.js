@@ -4917,6 +4917,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             if (customScenariosBtn) {
                 customScenariosBtn.classList.remove('active-custom');
             }
+            document.querySelectorAll('.cs-input').forEach(inp => inp.value = '');
             return false;
         }
         const inputs = ov.inputs || {};
@@ -6038,6 +6039,59 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             }
         });
     }
+
+    // Growth Tips Tooltip Logic
+    const tipsTooltip = document.getElementById('cs-tips-tooltip');
+    const tipsContent = document.getElementById('cs-tips-content');
+    const revInputs = document.querySelectorAll('#cs-rev-1-3-bear, #cs-rev-1-3-base, #cs-rev-1-3-bull');
+
+    revInputs.forEach(input => {
+        input.addEventListener('focus', (e) => {
+            if (!globalData || !globalData.company_profile) return;
+            const prof = globalData.company_profile;
+
+            // Calculate historically available data
+            let rev1y = 'N/A';
+            let rev3y = 'N/A';
+            if (globalData.financials && globalData.financials.length >= 2) {
+                const f = globalData.financials;
+                const r0 = f[0].total_revenue;
+                const r1 = f[1].total_revenue;
+                if (r0 > 0 && r1 > 0) rev1y = ((r0 / r1) - 1) * 100;
+
+                if (f.length >= 4) {
+                    const r3 = f[3].total_revenue;
+                    if (r0 > 0 && r3 > 0) rev3y = (Math.pow(r0 / r3, 1/3) - 1) * 100;
+                }
+            }
+
+            let fwdAvg = 'N/A';
+            if (globalData.computed_dcf_growth != null) {
+                 fwdAvg = globalData.computed_dcf_growth * 100;
+            } else if (prof.revenue_growth != null) {
+                 fwdAvg = prof.revenue_growth * 100;
+            }
+
+            const formatVal = (v) => v !== 'N/A' && !isNaN(v) ? v.toFixed(1) + '%' : 'N/A';
+
+            tipsContent.innerHTML = `
+                <div style="display:flex; justify-content:space-between; width:120px; margin-bottom:3px;"><span style="color:var(--text-muted);">1Y Hist:</span> <span>${formatVal(rev1y)}</span></div>
+                <div style="display:flex; justify-content:space-between; width:120px; margin-bottom:3px;"><span style="color:var(--text-muted);">3Y CAGR:</span> <span>${formatVal(rev3y)}</span></div>
+                <div style="display:flex; justify-content:space-between; width:120px;"><span style="color:var(--text-muted);">FWD Est:</span> <span style="color:#fbbf24;">${formatVal(fwdAvg)}</span></div>
+            `;
+
+            tipsTooltip.style.display = 'block';
+
+            // Positioning
+            const rect = e.target.getBoundingClientRect();
+            tipsTooltip.style.left = (rect.left + window.scrollX + (rect.width / 2) - 75) + 'px'; // Center tooltip (150px min-width)
+            tipsTooltip.style.top = (rect.top + window.scrollY - tipsTooltip.offsetHeight - 10) + 'px';
+        });
+
+        input.addEventListener('blur', () => {
+            tipsTooltip.style.display = 'none';
+        });
+    });
 
     const parseCsInput = (id) => {
         const val = document.getElementById(id).value;
