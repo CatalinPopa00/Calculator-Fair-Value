@@ -702,7 +702,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             window._simulatedPriceActive = simPrice;
         } else {
             window._simulatedPriceActive = null;
-window._customScenariosData = null;
         }
 
         // Helper to convert growth/margins to percentage if they are raw decimals (matches backend clean_percent)
@@ -2518,24 +2517,22 @@ window._customScenariosData = null;
 
             if (fcfSource === 'revenue' || fcfSource === 'eps_growth') {
                 const waccInput = document.getElementById('dcf-custom-wacc');
-                const wAnalyst = (waccInput && waccInput.value) ? parseLocaleFloat(waccInput.value) / 100 : w;
+                let wAnalyst = (waccInput && waccInput.value) ? parseLocaleFloat(waccInput.value) / 100 : w;
+                if (cs && cs.wacc !== null) wAnalyst = cs.wacc / 100;
 
                 const pRaw = document.getElementById('dcf-custom-perp')?.value;
-                const pCustom = (pRaw === '' || isNaN(parseLocaleFloat(pRaw))) ? p : parseLocaleFloat(pRaw) / 100;
+                let pCustom = (pRaw === '' || isNaN(parseLocaleFloat(pRaw))) ? p : parseLocaleFloat(pRaw) / 100;
+                if (cs && cs.perp !== null) pCustom = cs.perp / 100;
 
-                const em = parseLocaleFloat(document.getElementById('input-exit-multiple')?.value) || (globalData.dcf_assumptions?.recommended_exit_multiple || 15.0);
+                let em = parseLocaleFloat(document.getElementById('input-exit-multiple')?.value) || (globalData.dcf_assumptions?.recommended_exit_multiple || 15.0);
+                if (cs && cs.exit !== null) em = cs.exit;
 
                 let g;
                 if (fcfSource === 'revenue') {
                     const revBase = getDynamicRevGrowth();
                     const g13 = Math.min(Math.round(revBase * 1000) / 1000, 0.50);
 
-                    let customRev46 = null;
-                    if (window._customScenariosData && window._customScenariosData[_currentScenario] && window._customScenariosData[_currentScenario].rev46 !== null) {
-                        customRev46 = window._customScenariosData[_currentScenario].rev46 / 100;
-                    }
-
-                    const g46 = customRev46 !== null ? customRev46 : Math.min(revBase * 0.75, 0.30);
+                    const g46 = Math.min(revBase * 0.75, 0.30);
 
                     const g78 = Math.min(revBase * 0.50, 0.15);
                     const g910 = Math.min(revBase * 0.25, 0.05);
@@ -2617,15 +2614,19 @@ window._customScenariosData = null;
                     // If 10yr selected, 7-8Y and 9-10Y are ALSO required
                     dcfValObj = null;
                 } else {
-                    const g13 = v13 / 100;
+                    let g13 = v13 / 100;
+                    let g46 = v46 / 100;
+                    let g78 = (v78 ?? 0) / 100;
+                    let g910 = (v910 ?? 0) / 100;
 
-                    let customRev46 = null;
-                    if (window._customScenariosData && window._customScenariosData[_currentScenario] && window._customScenariosData[_currentScenario].rev46 !== null) {
-                        customRev46 = window._customScenariosData[_currentScenario].rev46 / 100;
+                    // Override all growths if custom scenario provides 1-3Y growth
+                    if (window._customScenariosData && window._customScenariosData[_currentScenario] && window._customScenariosData[_currentScenario].rev13 !== null) {
+                        const baseRev = window._customScenariosData[_currentScenario].rev13 / 100;
+                        g13 = Math.min(Math.round(baseRev * 1000) / 1000, 0.50);
+                        g46 = Math.min(baseRev * 0.75, 0.30);
+                        g78 = Math.min(baseRev * 0.50, 0.15);
+                        g910 = Math.min(baseRev * 0.25, 0.05);
                     }
-                    const g46 = customRev46 !== null ? customRev46 : v46 / 100;
-                    const g78 = (v78 ?? 0) / 100;
-                    const g910 = (v910 ?? 0) / 100;
 
                     // Build per-year growth array
                     const growthArr = [];
@@ -5959,7 +5960,6 @@ window._customScenariosData = null;
                         const data = window._customScenariosData[scen];
                         if (!data) return;
                         if (data.rev13 !== null) document.getElementById(`cs-rev-1-3-${scen}`).value = data.rev13;
-                        if (data.rev46 !== null) document.getElementById(`cs-rev-4-6-${scen}`).value = data.rev46;
                         if (data.fcfMargin !== null) document.getElementById(`cs-fcf-margin-${scen}`).value = data.fcfMargin;
                         if (data.wacc !== null) document.getElementById(`cs-wacc-${scen}`).value = data.wacc;
                         if (data.exit !== null) document.getElementById(`cs-exit-${scen}`).value = data.exit;
@@ -5997,7 +5997,6 @@ window._customScenariosData = null;
             ['bear', 'base', 'bull'].forEach(scen => {
                 window._customScenariosData[scen] = {
                     rev13: parseCsInput(`cs-rev-1-3-${scen}`),
-                    rev46: parseCsInput(`cs-rev-4-6-${scen}`),
                     fcfMargin: parseCsInput(`cs-fcf-margin-${scen}`),
                     wacc: parseCsInput(`cs-wacc-${scen}`),
                     exit: parseCsInput(`cs-exit-${scen}`),
