@@ -4033,7 +4033,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             } else {
                 cachedWatchlistData.push({ ...data });
             }
-            sessionStorage.setItem(`val_v3_${data.ticker.toUpperCase()}`, JSON.stringify({ data, ts: Date.now() }));
+            sessionStorage.setItem(`val_v4_${data.ticker.toUpperCase()}`, JSON.stringify({ data, ts: Date.now() }));
         }
 
         // DESCRIPTION CARD INJECTION
@@ -4886,7 +4886,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         }).then(() => {
-            sessionStorage.removeItem(`val_v3_${ticker.toUpperCase()}`);
+            sessionStorage.removeItem(`val_v4_${ticker.toUpperCase()}`);
         }).catch(err => console.error('Override sync error:', err));
 
         pendingOverridePayload = null;
@@ -4974,7 +4974,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     const deleteOverrideFromServer = (ticker) => {
         delete cachedOverrides[ticker];
         fetch(`/api/overrides/${ticker}`, { method: 'DELETE' })
-            .then(() => sessionStorage.removeItem(`val_v3_${ticker.toUpperCase()}`))
+            .then(() => sessionStorage.removeItem(`val_v4_${ticker.toUpperCase()}`))
             .catch(err => console.error('Override delete error:', err));
     };
 
@@ -6156,7 +6156,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 // v38: Call individual valuation endpoint. 
                 // skip_peers=false to ensure scores are 100% sync'd with dashboard.
                 // Check client-side cache first (15 min TTL)
-                const cacheKey = `val_v3_${tUpper}`;
+                const cacheKey = `val_v4_${tUpper}`;
                 const cached = sessionStorage.getItem(cacheKey);
                 if (cached) {
                     const { data: cachedData, ts } = JSON.parse(cached);
