@@ -1159,8 +1159,11 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 dcf_cash = 0
                 dcf_debt = 0
                 
+        # Get buyback rate for DCF
+        dcf_buyback = data.get("historic_buyback_rate") or 0.0
+
         # 5 Year Calculation (Default for Dashboard)
-        res_5 = calculate_dcf(fcf_obj, eps_growth, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, years=5, exit_multiple=recommended_exit_multiple, current_price=current_price)
+        res_5 = calculate_dcf(fcf_obj, eps_growth, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, years=5, buyback_rate=dcf_buyback, exit_multiple=recommended_exit_multiple, current_price=current_price)
         sens_5 = calculate_dcf_sensitivity(fcf_obj, eps_growth, shares, dcf_cash, dcf_debt, 5, discount_rate, perpetual_growth, exit_multiple=recommended_exit_multiple)
         rev_5 = calculate_reverse_dcf(current_price, fcf_obj, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, 5, exit_multiple=recommended_exit_multiple)
         
@@ -1177,7 +1180,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             }
             
         # 10 Year Calculation 
-        res_10 = calculate_dcf(fcf_obj, eps_growth, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, years=10, exit_multiple=recommended_exit_multiple, current_price=current_price)
+        res_10 = calculate_dcf(fcf_obj, eps_growth, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, years=10, buyback_rate=dcf_buyback, exit_multiple=recommended_exit_multiple, current_price=current_price)
         sens_10 = calculate_dcf_sensitivity(fcf_obj, eps_growth, shares, dcf_cash, dcf_debt, 10, discount_rate, perpetual_growth, exit_multiple=recommended_exit_multiple)
         rev_10 = calculate_reverse_dcf(current_price, fcf_obj, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, 10, exit_multiple=recommended_exit_multiple)
         
