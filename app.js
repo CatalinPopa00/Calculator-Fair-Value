@@ -366,65 +366,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // v59: Instant Capitalization & Search Feedback logic
-    if (tickerInput) {
-        tickerInput.addEventListener('input', function () {
-            this.value = this.value.toUpperCase();
-            if (this.value.length >= 1) {
-                fetchSuggestions(this.value);
-            } else {
-                autocompleteList.innerHTML = '';
-                autocompleteList.style.display = 'none';
-            }
-        });
 
-        tickerInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') analyzeTicker();
-        });
-    }
-
-    const fetchSuggestions = async (q) => {
-        try {
-            // v59: Use relative path for production safety
-            const res = await fetch(`/api/search/${encodeURIComponent(q)}`);
-            if (res.ok) {
-                const results = await res.json();
-                populateAutocomplete(results);
-            }
-        } catch (e) { console.error('Autocomplete fetch failed:', e); }
-    };
-
-    const populateAutocomplete = (items) => {
-        autocompleteList.innerHTML = '';
-        if (!items || items.length === 0) {
-            autocompleteList.style.display = 'none';
-            return;
-        }
-
-        items.slice(0, 8).forEach(item => {
-            const div = document.createElement('div');
-            div.className = 'autocomplete-item';
-            div.innerHTML = `
-                <span class="ticker-match">${item.ticker}</span>
-                <span class="name-match">${item.name}</span>
-                <span class="exch-match">${item.exchange || ''}</span>
-            `;
-            div.onclick = () => {
-                tickerInput.value = item.ticker;
-                autocompleteList.style.display = 'none';
-                analyzeTicker(item.ticker);
-            };
-            autocompleteList.appendChild(div);
-        });
-        autocompleteList.style.display = 'block';
-    };
-
-    // Close autocomplete on outside click
-    document.addEventListener('click', (e) => {
-        if (!tickerInput.contains(e.target) && !autocompleteList.contains(e.target)) {
-            autocompleteList.style.display = 'none';
-        }
-    });
 
     let currentFormulaData = null;
     // ── Global Error Handling ─────────────────────────────────────────
@@ -1488,20 +1430,12 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             // FCF is calculated on top of projected Revenue
             currentFcf = currentRevenue * yearMargin;
 
-            // Method A: Deduct buyback cash cost from FCF
-            let buybackCashSpent = 0;
-            if (buybackRate > 0 && currentPrice && currentPrice > 0) {
-                const projectedPrice = currentPrice * Math.pow(1 + finalWacc, i);
-                const sharesBought = remainingShares * buybackRate;
-                buybackCashSpent = sharesBought * projectedPrice;
-                remainingShares -= sharesBought;
-                currentFcf -= buybackCashSpent;
-            } else if (buybackRate > 0) {
-                // Fallback: just reduce shares without FCF deduction
+            // Adjust shares based on buyback/dilution rate (positive = buyback, negative = dilution)
+            if (buybackRate !== 0) {
                 remainingShares *= (1 - buybackRate);
             }
 
-            buybackCostPerYear.push(buybackCashSpent);
+            buybackCostPerYear.push(0);
             fcf_projections.push(currentFcf);
 
             const pv_fcf = currentFcf / Math.pow(1 + finalWacc, i - 0.5);
@@ -2493,13 +2427,20 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             const buybackCustomInputs = document.getElementById('dcf-buyback-custom-inputs');
             if (buybackCustomInputs) buybackCustomInputs.style.display = buybackSrc === 'custom' ? 'flex' : 'none';
 
-            let buybackRate = 0;
+            let rawBuybackRate = 0;
+            let rawSbcRate = 0;
+
             if (buybackSrc === 'historical') {
-                buybackRate = currentFormulaData.dcf.historic_buyback_rate || 0;
+                rawBuybackRate = currentFormulaData.dcf.historic_buyback_rate || 0;
             } else if (buybackSrc === 'custom') {
                 const rawVal = document.getElementById('dcf-custom-buyback').value;
-                buybackRate = (rawVal === '' || isNaN(parseLocaleFloat(rawVal))) ? 0 : parseLocaleFloat(rawVal) / 100;
+                rawBuybackRate = (rawVal === '' || isNaN(parseLocaleFloat(rawVal))) ? 0 : parseLocaleFloat(rawVal) / 100;
+
+                const sbcVal = document.getElementById('dcf-custom-sbc').value;
+                rawSbcRate = (sbcVal === '' || isNaN(parseLocaleFloat(sbcVal))) ? 0 : parseLocaleFloat(sbcVal) / 100;
             }
+
+            let buybackRate = rawBuybackRate - rawSbcRate;
 
             let baseFcf = currentFormulaData.dcf.fcf;
             let baseRevenue = globalData.revenue;
@@ -3055,6 +2996,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             if (targetEps != null && targetEps > 0) {
                 const fwdPrice = targetEps * selectedMult;
                 lynchVal = fwdPrice / Math.pow(1 + discountRate, 3);
+                currentFormulaData.peter_lynch.dynamic_fwd_price = fwdPrice;
             }
 
             // Store dynamics for modal
@@ -3504,7 +3446,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
     const inputSelectors = [
         'fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple', 'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp',
-        'dcf-buyback-source', 'dcf-custom-buyback', 'relative-variant',
+        'dcf-buyback-source', 'dcf-custom-buyback', 'dcf-custom-sbc', 'relative-variant',
         'lynch-multiple-source', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth', 'lynch-return-rate', 'lynch-custom-return',
         'peg-eps-source', 'peg-custom-growth'
     ];
@@ -3670,6 +3612,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             dashboard.style.display = 'none';
             loadingState.style.display = 'flex';
             if (elements.fairValue) elements.fairValue.textContent = '$0.00';
+            if (elements.marginSafety) {
+                elements.marginSafety.textContent = '0% Margin of Safety';
+                elements.marginSafety.style.background = 'none';
+                elements.marginSafety.style.color = 'inherit';
+            }
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
         if (searchBtn) {
@@ -3815,6 +3762,24 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             thBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No data available</td></tr>';
         }
 
+        // 2.5 Top Mutual Funds
+        const mfBody = document.getElementById('mutual-funds-body');
+        if (mfBody) {
+            mfBody.innerHTML = '';
+            if (ownership.mutual_funds && ownership.mutual_funds.length > 0) {
+                ownership.mutual_funds.forEach(mf => {
+                    mfBody.innerHTML += `<tr>
+                        <td>${mf.holder}</td>
+                        <td style="text-align: right;">${formatBigNumber(mf.shares, '')}</td>
+                        <td style="text-align: right;">${(mf.pct_out * 100).toFixed(2)}%</td>
+                        <td style="text-align: right;">${formatBigNumber(mf.value, '$')}</td>
+                    </tr>`;
+                });
+            } else {
+                mfBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No data available</td></tr>';
+            }
+        }
+
         // 3. Insiders
         const txBody = document.getElementById('insider-tx-body');
         const renderTx = (type) => {
@@ -3861,6 +3826,23 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 renderTx(type);
             });
         });
+
+        // 3.5 Insider Roster
+        const rosterBody = document.getElementById('roster-body');
+        if (rosterBody) {
+            rosterBody.innerHTML = '';
+            if (ownership.insider_roster && ownership.insider_roster.length > 0) {
+                ownership.insider_roster.forEach(ir => {
+                    rosterBody.innerHTML += `<tr>
+                        <td>${ir.name}</td>
+                        <td>${ir.position}</td>
+                        <td style="text-align: right; color: var(--text-muted);">${ir.date}</td>
+                    </tr>`;
+                });
+            } else {
+                rosterBody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-muted);">No roster data available</td></tr>';
+            }
+        }
 
         // 4. Statistics
         const stBody = document.getElementById('insider-stats-body');
@@ -4049,7 +4031,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     rfBanner.style.cssText = 'background: rgba(239, 68, 68, 0.1); border: 1px solid var(--danger); padding: 12px; border-radius: 8px; margin-bottom: 15px; width: 100%;';
                     profileHeader.insertAdjacentElement('afterend', rfBanner);
                 }
-                rfBanner.innerHTML = data.red_flags.map(f => `<div style="color: var(--danger); font-weight: bold; font-size: 0.9em; margin-bottom: 4px;">${f}</div>`).join('');
+                rfBanner.innerHTML = data.red_flags.map(f => `<div style="color: var(--danger); font-weight: bold; font-size: 0.7em; margin-bottom: 0px; display: flex; align-items: center; justify-content: center; text-align: center; white-space: nowrap; letter-spacing: -0.5px; overflow: hidden; text-overflow: ellipsis;">${f}</div>`).join('');
                 rfBanner.style.display = 'block';
             } else if (rfBanner) {
                 rfBanner.style.display = 'none';
@@ -4065,7 +4047,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             } else {
                 cachedWatchlistData.push({ ...data });
             }
-            sessionStorage.setItem(`val_v3_${data.ticker.toUpperCase()}`, JSON.stringify({ data, ts: Date.now() }));
+            sessionStorage.setItem(`val_v4_${data.ticker.toUpperCase()}`, JSON.stringify({ data, ts: Date.now() }));
         }
 
         // DESCRIPTION CARD INJECTION
@@ -4334,23 +4316,48 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                             `;
                         }
                     } else if (activeTab === 'news') {
-                        if (isLoadingAI) {
+                        if (isLoadingAI && !globalData.latest_news) {
                             panel.innerHTML = `
                                 <div class="brief-news-item"><div class="skeleton-text" style="width: 80%;"></div><div class="skeleton-text" style="width: 50%;"></div></div>
                                 <div class="brief-news-item"><div class="skeleton-text" style="width: 75%;"></div><div class="skeleton-text" style="width: 45%;"></div></div>
                             `;
+                        } else if (globalData.latest_news && globalData.latest_news.length > 0) {
+                            panel.innerHTML = globalData.latest_news.map((news, index) => {
+                                const title = news.title;
+                                const source = news.publisher;
+
+                                return `
+                                    <div class="brief-news-item" style="cursor: pointer;" onclick="window.openNewsModalByIndex(${index})">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; gap: 10px;">
+                                            <span style="background: rgba(56, 189, 248, 0.1); color: #38bdf8; font-size: 0.58rem; padding: 2px 6px; border-radius: 4px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3px;">${source}</span>
+                                        </div>
+                                        <div style="color: rgba(255,255,255,0.9); font-size: 0.8rem; line-height: 1.4; font-weight: 600;">${title}</div>
+                                    </div>
+                                `;
+                            }).join('');
                         } else if (parsed.latestMarketIntelligence.length > 0) {
-                            panel.innerHTML = parsed.latestMarketIntelligence.map(item => {
+                            panel.innerHTML = parsed.latestMarketIntelligence.map((item, index) => {
                                 const match = item.match(/^(.*?)\s*\(Source:\s*(.*?)\)$/i);
                                 const title = match ? match[1] : item;
                                 const source = match ? match[2] : "Market News";
 
+                                // Synthesize a fake news object so the modal can still open using the text data
+                                const synthesizedNews = {
+                                    title: title,
+                                    publisher: source,
+                                    summary: "Acesta este un fragment generat din inteligența pieței. Pentru articolul complet sau sumarul detaliat, vă rugăm să actualizați datele."
+                                };
+
+                                // Inject into globalData so openNewsModalByIndex works
+                                if (!globalData.latest_news) globalData.latest_news = [];
+                                globalData.latest_news[index] = synthesizedNews;
+
                                 return `
-                                    <div class="brief-news-item">
+                                    <div class="brief-news-item" style="cursor: pointer;" onclick="window.openNewsModalByIndex(${index})">
                                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; gap: 10px;">
                                             <span style="background: rgba(56, 189, 248, 0.1); color: #38bdf8; font-size: 0.58rem; padding: 2px 6px; border-radius: 4px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3px;">${source}</span>
                                         </div>
-                                        <div style="color: rgba(255,255,255,0.9); font-size: 0.8rem; line-height: 1.4;">${title}</div>
+                                        <div style="color: rgba(255,255,255,0.9); font-size: 0.8rem; line-height: 1.4; font-weight: 600;">${title}</div>
                                     </div>
                                 `;
                             }).join('');
@@ -4593,6 +4600,15 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         }
         updateFairValue();
 
+        // Ensure UI displays current global state immediately after updateFairValue recalculates it.
+        // Final updates to MOS styling based on fallback or custom weights.
+        if (elements.fairValue && elements.marginSafety && globalData.fair_value != null && globalData.margin_of_safety != null) {
+            elements.fairValue.textContent = formatCurrency(globalData.fair_value);
+            elements.marginSafety.textContent = `${formatPercent(globalData.margin_of_safety)} Margin of Safety`;
+            elements.marginSafety.style.color = globalData.margin_of_safety > 0 ? 'var(--accent)' : 'var(--danger)';
+            elements.marginSafety.style.background = globalData.margin_of_safety > 0 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)';
+        }
+
         document.querySelectorAll('.valuation-toggle').forEach(toggle => {
             toggle.onchange = updateAndSave;
         });
@@ -4821,7 +4837,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     const overrideInputIds = [
         'fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple',
         'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp', 'dcf-custom-fcf-margin', 'dcf-custom-margin-growth',
-        'dcf-buyback-source', 'dcf-custom-buyback', 'relative-variant',
+        'dcf-buyback-source', 'dcf-custom-buyback', 'dcf-custom-sbc', 'relative-variant',
         'lynch-multiple-source', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth', 'lynch-return-rate', 'lynch-custom-return',
         'peg-eps-source', 'peg-custom-growth', 'peg-mode'
     ];
@@ -5083,7 +5099,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         const ov = cachedOverrides[currentTicker];
         if (ov && ov.inputs) {
             const idsToReset = {
-                dcf: ['fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple', 'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp', 'dcf-custom-fcf-margin', 'dcf-custom-margin-growth', 'dcf-buyback-source', 'dcf-custom-buyback'],
+                dcf: ['fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple', 'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp', 'dcf-custom-fcf-margin', 'dcf-custom-margin-growth', 'dcf-buyback-source', 'dcf-custom-buyback', 'dcf-custom-sbc'],
                 relative: ['relative-variant', 'rel-weight-mode-card'],
                 peter_lynch: ['lynch-multiple-source', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth', 'lynch-return-rate', 'lynch-custom-return'],
                 peg: ['peg-eps-source', 'peg-custom-growth', 'peg-mode']
@@ -5949,21 +5965,31 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     // ── Autocomplete Logic ──────────────────────────────
     let autocompleteTimeout = null;
     let selectedIndex = -1;
+    const searchCache = new Map();
 
-    const renderAutocomplete = (suggestions) => {
+    const renderAutocomplete = (suggestions, query) => {
         autocompleteList.innerHTML = '';
         if (!suggestions || suggestions.length === 0) {
-            autocompleteList.style.display = 'none';
+            const div = document.createElement('div');
+            div.className = 'autocomplete-item empty-msg';
+            const span = document.createElement('span');
+            span.style.color = '#8892b0';
+            span.style.fontStyle = 'italic';
+            span.textContent = `No results found for "${query}"`;
+            div.appendChild(span);
+            div.style.cursor = 'default';
+            autocompleteList.appendChild(div);
+            autocompleteList.style.display = 'block';
             return;
         }
 
-        suggestions.forEach((item, index) => {
+        suggestions.slice(0, 8).forEach((item, index) => {
             const div = document.createElement('div');
             div.className = 'autocomplete-item';
             div.innerHTML = `
                 <span class="ticker-match">${item.ticker}</span>
                 <span class="name-match">${item.name}</span>
-                <span class="exch-match">${item.exchange}</span>
+                <span class="exch-match">${item.exchange || ''}</span>
             `;
             div.addEventListener('click', () => {
                 tickerInput.value = item.ticker;
@@ -5976,31 +6002,57 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         selectedIndex = -1;
     };
 
+    const showAutocompleteLoading = () => {
+        autocompleteList.innerHTML = '';
+        const div = document.createElement('div');
+        div.className = 'autocomplete-item loading-msg';
+        div.innerHTML = `<span style="color: #64ffda; font-style: italic;">Searching...</span>`;
+        div.style.cursor = 'default';
+        autocompleteList.appendChild(div);
+        autocompleteList.style.display = 'block';
+    };
+
     const handleAutocomplete = async () => {
-        const query = tickerInput.value.trim();
+        const query = tickerInput.value.trim().toUpperCase();
         if (query.length < 1) {
             autocompleteList.style.display = 'none';
             return;
         }
 
+        if (searchCache.has(query)) {
+            renderAutocomplete(searchCache.get(query), query);
+            return;
+        }
+
+        showAutocompleteLoading();
+
         try {
             const res = await fetch(`/api/search/${encodeURIComponent(query)}?t=${Date.now()}`);
             if (res.ok) {
                 const suggestions = await res.json();
-                renderAutocomplete(suggestions);
+                searchCache.set(query, suggestions);
+
+                // Only render if the input hasn't changed since we started fetching
+                if (tickerInput.value.trim().toUpperCase() === query) {
+                    renderAutocomplete(suggestions, query);
+                }
+            } else {
+                autocompleteList.style.display = 'none';
             }
         } catch (err) {
             console.error('Autocomplete error:', err);
+            autocompleteList.style.display = 'none';
         }
     };
 
-    tickerInput.addEventListener('input', () => {
+    tickerInput.addEventListener('input', function() {
+        this.value = this.value.toUpperCase();
         clearTimeout(autocompleteTimeout);
         autocompleteTimeout = setTimeout(handleAutocomplete, 300);
     });
 
     tickerInput.addEventListener('keydown', (e) => {
-        const items = autocompleteList.querySelectorAll('.autocomplete-item');
+        const items = autocompleteList.querySelectorAll('.autocomplete-item:not(.empty-msg):not(.loading-msg)');
         if (autocompleteList.style.display === 'block' && items.length > 0) {
             if (e.key === 'ArrowDown') {
                 e.preventDefault();
@@ -6016,9 +6068,17 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 tickerInput.value = ticker;
                 analyzeTicker(ticker);
                 autocompleteList.style.display = 'none';
+                return;
             } else if (e.key === 'Escape') {
                 autocompleteList.style.display = 'none';
             }
+        }
+
+        // Handle generic Enter if nothing is selected from the list
+        if (e.key === 'Enter' && selectedIndex < 0) {
+            e.preventDefault();
+            autocompleteList.style.display = 'none';
+            analyzeTicker();
         }
     });
 
@@ -6326,7 +6386,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 // v38: Call individual valuation endpoint. 
                 // skip_peers=false to ensure scores are 100% sync'd with dashboard.
                 // Check client-side cache first (15 min TTL)
-                const cacheKey = `val_v3_${tUpper}`;
+                const cacheKey = `val_v4_${tUpper}`;
                 const cached = sessionStorage.getItem(cacheKey);
                 if (cached) {
                     const { data: cachedData, ts } = JSON.parse(cached);
@@ -6879,12 +6939,15 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             const prof = globalData.company_profile || {};
             title.textContent = '📊 Forward Multiple — Data Transparency';
             const epsLabel = p.valuation_eps !== p.trailing_eps ? 'EPS Base (Normalized)' : 'Trailing EPS (GAAP)';
+            const dynMult = p.dynamic_mult != null ? (Number.isInteger(p.dynamic_mult) ? p.dynamic_mult : p.dynamic_mult.toFixed(2)) : 20;
+            const targetPrice = p.dynamic_fwd_price != null ? p.dynamic_fwd_price : (p.fwd_eps != null ? p.fwd_eps * dynMult : null);
             html = row(epsLabel, '$' + fmt(p.valuation_eps || p.trailing_eps))
                 + row('Growth Estimate', fmtPct(p.dynamic_growth != null ? p.dynamic_growth : p.eps_growth_estimated))
                 + row('Forward EPS (3Y Projection)', '$' + fmt(p.dynamic_fwd_eps != null ? p.dynamic_fwd_eps : p.fwd_eps))
                 + row('5Y Avg P/E', prof.historic_pe ? prof.historic_pe.toFixed(2) + 'x' : 'N/A')
+                + (targetPrice != null ? row(`3Y Target Price (PE ${dynMult})`, '$' + fmt(targetPrice)) : '')
                 + row(`Return Rate (Discount)`, p.dynamic_discount != null ? fmtPct(p.dynamic_discount) : '15.0%')
-                + row(`Fair Value (PE ${p.dynamic_mult != null ? (Number.isInteger(p.dynamic_mult) ? p.dynamic_mult : p.dynamic_mult.toFixed(2)) : 20})`, '$' + fmt(p.dynamic_fv != null ? p.dynamic_fv : p.fair_value_pe_20));
+                + row(`Present Fair Value`, '$' + fmt(p.dynamic_fv != null ? p.dynamic_fv : p.fair_value_pe_20));
         } else if (model === 'peg' && currentFormulaData.peg) {
             const g = currentFormulaData.peg;
             const prof = globalData.company_profile || {};
@@ -7084,6 +7147,81 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         modal.style.display = 'flex';
     }
 
+    // ── News Modal ──────────────────────
+    window.openNewsModalByIndex = function(index) {
+        try {
+            if (!globalData || !globalData.latest_news || !globalData.latest_news[index]) {
+                return;
+            }
+            const news = globalData.latest_news[index];
+
+            // create modal container if not exists
+            let modal = document.getElementById('news-modal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'news-modal';
+                modal.style.position = 'fixed';
+                modal.style.top = '0';
+                modal.style.left = '0';
+                modal.style.width = '100vw';
+                modal.style.height = '100vh';
+                modal.style.backgroundColor = 'rgba(0, 0, 0, 0.75)';
+                modal.style.backdropFilter = 'blur(5px)';
+                modal.style.zIndex = '999999';
+                modal.style.display = 'flex';
+                modal.style.alignItems = 'center';
+                modal.style.justifyContent = 'center';
+                modal.style.opacity = '0';
+                modal.style.transition = 'opacity 0.2s ease-out';
+
+                modal.onclick = function(e) {
+                    if (e.target === modal) {
+                        window.closeNewsModal();
+                    }
+                };
+                document.body.appendChild(modal);
+            }
+
+            window.closeNewsModal = function() {
+                const m = document.getElementById('news-modal');
+                if (m) {
+                    m.style.opacity = '0';
+                    setTimeout(() => { m.style.display = 'none'; }, 200);
+                }
+            };
+
+            modal.innerHTML = `
+                <div style="background: var(--bg-surface); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; width: 90%; max-width: 500px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); position: relative; font-family: 'Outfit', sans-serif;">
+                    <button onclick="window.closeNewsModal()" style="position: absolute; top: 12px; right: 12px; background: none; border: none; color: rgba(255,255,255,0.5); font-size: 1.2rem; cursor: pointer; padding: 4px;">&times;</button>
+
+                    <div style="margin-bottom: 15px; display: inline-block;">
+                        <span style="background: rgba(56, 189, 248, 0.1); color: #38bdf8; font-size: 0.7rem; padding: 4px 8px; border-radius: 6px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">${news.publisher || 'News'}</span>
+                    </div>
+
+                    <h2 style="font-size: 1.2rem; color: #fff; line-height: 1.4; margin-top: 0; margin-bottom: 16px; font-weight: 700;">${news.title}</h2>
+
+                    ${news.summary ? `<div style="background: rgba(255,255,255,0.03); border-left: 3px solid #4ade80; padding: 12px 16px; border-radius: 4px; margin-bottom: 20px;">
+                        <p style="color: rgba(255,255,255,0.85); font-size: 0.9rem; line-height: 1.6; margin: 0; font-style: italic;">"${news.summary}"</p>
+                    </div>` : ''}
+
+                    ${news.link ? `<div style="text-align: right;">
+                        <a href="${news.link}" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; gap: 8px; background: rgba(56, 189, 248, 0.15); color: #38bdf8; text-decoration: none; padding: 10px 16px; border-radius: 8px; font-weight: 600; font-size: 0.9rem; transition: all 0.2s;">
+                            Read Full Article <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                        </a>
+                    </div>` : ''}
+                </div>
+            `;
+
+            modal.style.display = 'flex';
+            // Trigger reflow
+            modal.offsetHeight;
+            modal.style.opacity = '1';
+
+        } catch (err) {
+            console.error("Error parsing news data", err);
+        }
+    };
+
     // ── Piotroski F-Score Breakdown Modal ──────────────────────
     function renderPiotroskiBreakdown(totalScore, breakdown) {
         const modal = document.getElementById('score-modal');
@@ -7210,4 +7348,10 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         });
     }
 
+    // Close autocomplete on outside click
+    document.addEventListener('click', (e) => {
+        if (!tickerInput.contains(e.target) && !autocompleteList.contains(e.target)) {
+            autocompleteList.style.display = 'none';
+        }
+    });
 });
