@@ -806,6 +806,7 @@ body {
 }
 
 @media (max-width: 768px) {
+
     .name-col h2 { font-size: 1.25rem !important; }
 }
 
@@ -3990,19 +3991,4 @@ body.has-searched .floating-login-btn {
     padding: 10px 0;
     border-bottom: 1px solid rgba(255, 255, 255, 0.03);
     gap: 15px;
-}
-
-/* Override grid layout for empty and loading messages so text spans full width */
-.autocomplete-item.empty-msg,
-.autocomplete-item.loading-msg {
-    display: block;
-    text-align: center;
-}
-
-.autocomplete-item.empty-msg:hover,
-.autocomplete-item.loading-msg:hover {
-    background: transparent;
-    border-left: none;
-    padding-left: 16px;
-    cursor: default;
 }
