@@ -115,12 +115,22 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const docRef = db.collection('users').doc(currentUser.uid);
-            await docRef.set({
+
+            // Gather overrides data directly from memory cache
+            let overridesToSave = null;
+            if (typeof cachedOverrides !== 'undefined') {
+                overridesToSave = cachedOverrides;
+            }
+
+            const payload = {
                 fairValueWatchlist: watchListData,
                 method_cards_collapsed: collapsedData,
                 customPeers: customPeersData,
                 lastSync: firebase.firestore.FieldValue.serverTimestamp()
-            });
+            };
+            if (overridesToSave) payload.overrides = overridesToSave;
+
+            await docRef.set(payload);
 
         } catch (error) {
             console.error("Cloud Sync Error (Push):", error);
@@ -160,6 +170,29 @@ document.addEventListener('DOMContentLoaded', () => {
                     Object.keys(data.customPeers).forEach(k => {
                         localStorage.setItem(k, JSON.stringify(data.customPeers[k]));
                     });
+                }
+
+                if (data.overrides) {
+                    if (typeof cachedOverrides !== 'undefined') {
+                        cachedOverrides = data.overrides;
+
+                        // Push them back to local backend via fire-and-forget API
+                        // We do it sequentially or batched (sequentially here)
+                        const updateOverrides = async () => {
+                            for (const ticker of Object.keys(data.overrides)) {
+                                try {
+                                    await fetch('/api/overrides', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify(data.overrides[ticker])
+                                    });
+                                } catch(err) {
+                                    console.error('Silent backend sync error:', err);
+                                }
+                            }
+                        };
+                        updateOverrides();
+                    }
                 }
 
                 // Refresh UI Watchlist
@@ -4861,7 +4894,8 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         }).then(() => {
-            sessionStorage.removeItem(`val_v3_${ticker.toUpperCase()}`);
+            sessionStorage.removeItem(`val_v4_${ticker.toUpperCase()}`);
+            if (typeof _syncInProgress !== "undefined" && !_syncInProgress) syncToCloud(); // Push overrides to cloud when they change locally
         }).catch(err => console.error('Override sync error:', err));
 
         pendingOverridePayload = null;
@@ -4997,7 +5031,10 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     const deleteOverrideFromServer = (ticker) => {
         delete cachedOverrides[ticker];
         fetch(`/api/overrides/${ticker}`, { method: 'DELETE' })
-            .then(() => sessionStorage.removeItem(`val_v3_${ticker.toUpperCase()}`))
+            .then(() => {
+                sessionStorage.removeItem(`val_v4_${ticker.toUpperCase()}`);
+                if (typeof _syncInProgress !== "undefined" && !_syncInProgress) syncToCloud(); // Push overrides deletion to cloud when it happens
+            })
             .catch(err => console.error('Override delete error:', err));
     };
 
@@ -6975,7 +7012,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 : `<div style="font-weight: 700; font-size: 0.9rem; color: rgba(255,255,255,0.85); font-family: monospace; white-space: nowrap;">${valStr}</div>`;
 
             html += `
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.03); gap: 15px;">
+                <div class="score-breakdown-row">
                     <div style="font-weight: 600; font-size: 0.85rem; color: white; line-height: 1.3;">${label}</div>
                     
                     <div style="display: flex; align-items: center; gap: 15px;">
@@ -7029,7 +7066,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             const dotColor = passed ? 'var(--accent)' : (item.status === 'fail' ? 'var(--danger)' : 'var(--text-muted)');
 
             html += `
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05); gap: 15px;">
+                <div class="score-breakdown-row">
                     <div style="font-weight: 600; font-size: 0.9rem; color: white; line-height: 1.3;">${label}</div>
 
                     <div style="display: flex; align-items: center; gap: 15px;">
@@ -7088,7 +7125,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             const statusColor = passed === true ? 'var(--accent)' : (passed === false ? 'var(--danger)' : 'var(--text-muted)');
 
             html += `
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.03); gap: 15px;">
+                <div class="score-breakdown-row">
                     <div style="font-weight: 600; font-size: 0.85rem; color: white; line-height: 1.3;">${label}</div>
 
                     <div style="display: flex; align-items: center; gap: 15px;">
