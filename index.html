@@ -42,8 +42,7 @@
     </style>
     <!-- Chart.js for Historical Analysis -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js" onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js';"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
 </head>
 
@@ -345,7 +344,7 @@
                                                 </select>
                                             </div>
                                             <div class="valuation-input-group">
-                                                <label class="premium-label">STB / Buybacks</label>
+                                                <label class="premium-label">Buybacks</label>
                                                 <select id="dcf-buyback-source" class="premium-select">
                                                     <option value="none">None</option>
                                                     <option value="historical">Historical</option>
@@ -394,14 +393,10 @@
                                                 <input type="number" id="input-exit-multiple" class="premium-input">
                                             </div>
                                         </div>
-                                        <div id="dcf-buyback-custom-inputs" style="display: none; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem;">
+                                        <div id="dcf-buyback-custom-inputs" style="display: none; margin-top: 0.5rem;">
                                             <div class="valuation-input-group">
                                                 <label class="premium-label">Buyback Rate (%)</label>
-                                                <input type="number" id="dcf-custom-buyback" class="premium-input" placeholder="e.g. 2">
-                                            </div>
-                                            <div class="valuation-input-group">
-                                                <label class="premium-label">SBC Dilution (%)</label>
-                                                <input type="number" id="dcf-custom-sbc" class="premium-input" placeholder="e.g. 1.5">
+                                                <input type="number" id="dcf-custom-buyback" class="premium-input">
                                             </div>
                                         </div>
                                     </div>
@@ -745,9 +740,7 @@
                                     <div class="analyst-tabs-control">
                                         <button class="analyst-tab-btn ownership-tab-btn active" data-tab="holders">Holders</button>
                                         <button class="analyst-tab-btn ownership-tab-btn" data-tab="top-holders">Top</button>
-                                        <button class="analyst-tab-btn ownership-tab-btn" data-tab="funds">Funds</button>
                                         <button class="analyst-tab-btn ownership-tab-btn" data-tab="insiders">Insiders</button>
-                                        <button class="analyst-tab-btn ownership-tab-btn" data-tab="roster">Roster</button>
                                         <button class="analyst-tab-btn ownership-tab-btn" data-tab="stats">Stats</button>
                                     </div>
                                 </div>
@@ -774,15 +767,12 @@
                                             .ownership-grid.carousel-mode {
                                                 align-items: stretch;
                                                 display: flex !important;
+                                    
                                                 width: 300%; /* 6 items / 2 visible = 3.0 */
                                                 transition: transform 0.4s ease-in-out;
                                                 gap: 0 !important;
                                             }
                                             .ownership-grid.carousel-mode > .analyst-tab-content {
-                                                display: flex !important;
-                                                flex-direction: column;
-                                                flex: 0 0 16.6666% !important; /* 1/6 of 300% = 50% of viewport */
-                                                max-width: 16.6666% !important;
                                                 padding: 0 1.5rem !important;
                                                 box-sizing: border-box;
                                             }
@@ -856,7 +846,7 @@
                                             <div class="rec-module" style="height: 100%;">
                                                 <span class="module-label">TOP 5 INSTITUTIONAL HOLDERS</span>
                                                 <div class="table-responsive" style="margin-top: 10px;">
-                                                    <table class="mini-research-table premium-data-table" style="width: 100%; text-align: left; font-size: 0.8rem;">
+                                                    <table class="mini-research-table" style="width: 100%; text-align: left; font-size: 0.8rem;">
                                                         <thead>
                                                             <tr>
                                                                 <th>Holder</th>
@@ -873,29 +863,7 @@
                                             </div>
                                         </div>
 
-                                        <!-- Col 3: Mutual Funds -->
-                                        <div class="analyst-tab-content ownership-tab-content" id="tab-funds">
-                                            <div class="rec-module" style="height: 100%;">
-                                                <span class="module-label">TOP MUTUAL FUNDS</span>
-                                                <div class="table-responsive" style="margin-top: 10px;">
-                                                    <table class="mini-research-table premium-data-table" style="width: 100%; text-align: left; font-size: 0.8rem;">
-                                                        <thead>
-                                                            <tr>
-                                                                <th>Fund</th>
-                                                                <th style="text-align: right;">Shares</th>
-                                                                <th style="text-align: right;">% Out</th>
-                                                                <th style="text-align: right;">Value</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody id="mutual-funds-body" class="mutual-funds-body">
-                                                            <!-- JS Injected -->
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-                                            </div>
-                                        </div>
 
-                                        <!-- Col 4: Insiders -->
                                         <div class="analyst-tab-content ownership-tab-content" id="tab-insiders">
                                             <div class="eps-module" style="height: 100%;">
                                                 <span class="module-label" style="display: flex; justify-content: space-between; align-items: center;">
@@ -906,7 +874,7 @@
                                                     </div>
                                                 </span>
                                                 <div class="table-responsive" style="margin-top: 10px; max-height: 200px; overflow-y: auto;">
-                                                    <table class="mini-research-table premium-data-table" style="width: 100%; text-align: left; font-size: 0.75rem;">
+                                                    <table class="mini-research-table" style="width: 100%; text-align: left; font-size: 0.75rem;">
                                                         <thead>
                                                             <tr>
                                                                 <th>Date</th>
@@ -923,33 +891,12 @@
                                             </div>
                                         </div>
 
-                                        <!-- Col 5: Roster -->
-                                        <div class="analyst-tab-content ownership-tab-content" id="tab-roster">
-                                            <div class="eps-module" style="height: 100%;">
-                                                <span class="module-label">INSIDER ROSTER</span>
-                                                <div class="table-responsive" style="margin-top: 10px; max-height: 200px; overflow-y: auto;">
-                                                    <table class="mini-research-table premium-data-table" style="width: 100%; text-align: left; font-size: 0.8rem;">
-                                                        <thead>
-                                                            <tr>
-                                                                <th>Name</th>
-                                                                <th>Position</th>
-                                                                <th style="text-align: right;">Date</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody id="roster-body" class="roster-body">
-                                                            <!-- JS Injected -->
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-                                            </div>
-                                        </div>
 
-                                        <!-- Col 6: Statistics -->
                                         <div class="analyst-tab-content ownership-tab-content" id="tab-stats">
                                             <div class="rev-module" style="height: 100%;">
                                                 <span class="module-label">INSIDER PURCHASES (LAST 6M)</span>
                                                 <div class="table-responsive" style="margin-top: 10px;">
-                                                    <table class="mini-research-table premium-data-table" style="width: 100%; text-align: left; font-size: 0.8rem;">
+                                                    <table class="mini-research-table" style="width: 100%; text-align: left; font-size: 0.8rem;">
                                                         <thead>
                                                             <tr>
                                                                 <th>Metric</th>
@@ -971,8 +918,7 @@
                                     document.addEventListener('DOMContentLoaded', () => {
                                         const track = document.getElementById('ownership-carousel-track');
                                         const prevBtn = document.getElementById('ownership-prev');
-                                        const nextBtn = document.getElementById('ownership-next');
-                                        
+                                        const nextBtn = document.getElementById('ownership-next');                                   
                                         let currentSlide = 0; // Current index for desktop carousel
                                         let isTransitioning = false;
                                         let cloned = false;
@@ -1031,11 +977,7 @@
 
                                         const updateCarousel = (smooth = true) => {
                                             if(window.innerWidth >= 769) {
-                                                track.style.transition = smooth ? 'transform 0.4s ease-in-out' : 'none';
-                                                // 10 items total, 5 pages. 1 page = 20% of track width.
-                                                track.style.transform = `translateX(-${currentSlide * 20}%)`;
-                                                prevBtn.style.opacity = '1';
-                                                nextBtn.style.opacity = '1';
+<main
                                             } else {
                                                 track.style.transform = 'none';
                                             }
@@ -1043,18 +985,7 @@
                                         
                                         if (prevBtn && nextBtn) {
                                             prevBtn.addEventListener('click', () => {
-                                                if (isTransitioning || window.innerWidth < 769) return;
-                                                isTransitioning = true;
-                                                currentSlide--;
-                                                updateCarousel(true);
-                                            });
 
-                                            nextBtn.addEventListener('click', () => {
-                                                if (isTransitioning || window.innerWidth < 769) return;
-                                                isTransitioning = true;
-                                                currentSlide++;
-                                                updateCarousel(true);
-                                            });
 
                                             track.addEventListener('transitionend', () => {
                                                 isTransitioning = false;
@@ -1084,36 +1015,7 @@
                                             });
                                         }
 
-                                        const tabBtns = document.querySelectorAll('.ownership-tab-btn');
-                                        const tabContents = document.querySelectorAll('.ownership-tab-content');
-
-                                        tabBtns.forEach((btn, index) => {
-                                            btn.addEventListener('click', () => {
-                                                const target = btn.dataset.tab;
-
-                                                tabBtns.forEach(b => b.classList.remove('active'));
-                                                btn.classList.add('active');
-
-                                                if (window.innerWidth < 769) {
-                                                    tabContents.forEach(tc => {
-                                                        if (tc.id === 'tab-' + target) {
-                                                            tc.style.display = 'block';
-                                                            tc.classList.add('active');
-                                                        } else {
-                                                            tc.style.display = 'none';
-                                                            tc.classList.remove('active');
-                                                        }
-                                                    });
-                                                } else {
-                                                    // Mobile active state doesn't mean anything for Desktop visibility, but it highlights tab.
-                                                    // On desktop, clicking tab should slide viewport.
-                                                    if (index < 2) currentSlide = 1;
-                                                    else if (index < 4) currentSlide = 2;
-                                                    else currentSlide = 3;
-                                                    updateCarousel();
-                                                }
-                                            });
-                                        });
+                                                                     
                                     });
                                     </script>
                                 </div>
