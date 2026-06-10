@@ -931,7 +931,7 @@ def search_companies(query: str) -> list:
                         others.append(v)
                 
                 final_results = ([exact_match] if exact_match else []) + others
-                return final_results[:6]
+                return final_results[:8]
             
             elif response.status_code == 429:
                 print(f"Yahoo Search Rate Limited (429) on {host}")

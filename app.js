@@ -366,65 +366,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // v59: Instant Capitalization & Search Feedback logic
-    if (tickerInput) {
-        tickerInput.addEventListener('input', function () {
-            this.value = this.value.toUpperCase();
-            if (this.value.length >= 1) {
-                fetchSuggestions(this.value);
-            } else {
-                autocompleteList.innerHTML = '';
-                autocompleteList.style.display = 'none';
-            }
-        });
 
-        tickerInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') analyzeTicker();
-        });
-    }
-
-    const fetchSuggestions = async (q) => {
-        try {
-            // v59: Use relative path for production safety
-            const res = await fetch(`/api/search/${encodeURIComponent(q)}`);
-            if (res.ok) {
-                const results = await res.json();
-                populateAutocomplete(results);
-            }
-        } catch (e) { console.error('Autocomplete fetch failed:', e); }
-    };
-
-    const populateAutocomplete = (items) => {
-        autocompleteList.innerHTML = '';
-        if (!items || items.length === 0) {
-            autocompleteList.style.display = 'none';
-            return;
-        }
-
-        items.slice(0, 8).forEach(item => {
-            const div = document.createElement('div');
-            div.className = 'autocomplete-item';
-            div.innerHTML = `
-                <span class="ticker-match">${item.ticker}</span>
-                <span class="name-match">${item.name}</span>
-                <span class="exch-match">${item.exchange || ''}</span>
-            `;
-            div.onclick = () => {
-                tickerInput.value = item.ticker;
-                autocompleteList.style.display = 'none';
-                analyzeTicker(item.ticker);
-            };
-            autocompleteList.appendChild(div);
-        });
-        autocompleteList.style.display = 'block';
-    };
-
-    // Close autocomplete on outside click
-    document.addEventListener('click', (e) => {
-        if (!tickerInput.contains(e.target) && !autocompleteList.contains(e.target)) {
-            autocompleteList.style.display = 'none';
-        }
-    });
 
     let currentFormulaData = null;
     // ── Global Error Handling ─────────────────────────────────────────
@@ -6002,21 +5944,31 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     // ── Autocomplete Logic ──────────────────────────────
     let autocompleteTimeout = null;
     let selectedIndex = -1;
+    const searchCache = new Map();
 
-    const renderAutocomplete = (suggestions) => {
+    const renderAutocomplete = (suggestions, query) => {
         autocompleteList.innerHTML = '';
         if (!suggestions || suggestions.length === 0) {
-            autocompleteList.style.display = 'none';
+            const div = document.createElement('div');
+            div.className = 'autocomplete-item empty-msg';
+            const span = document.createElement('span');
+            span.style.color = '#8892b0';
+            span.style.fontStyle = 'italic';
+            span.textContent = `No results found for "${query}"`;
+            div.appendChild(span);
+            div.style.cursor = 'default';
+            autocompleteList.appendChild(div);
+            autocompleteList.style.display = 'block';
             return;
         }
 
-        suggestions.forEach((item, index) => {
+        suggestions.slice(0, 8).forEach((item, index) => {
             const div = document.createElement('div');
             div.className = 'autocomplete-item';
             div.innerHTML = `
                 <span class="ticker-match">${item.ticker}</span>
                 <span class="name-match">${item.name}</span>
-                <span class="exch-match">${item.exchange}</span>
+                <span class="exch-match">${item.exchange || ''}</span>
             `;
             div.addEventListener('click', () => {
                 tickerInput.value = item.ticker;
@@ -6029,31 +5981,57 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         selectedIndex = -1;
     };
 
+    const showAutocompleteLoading = () => {
+        autocompleteList.innerHTML = '';
+        const div = document.createElement('div');
+        div.className = 'autocomplete-item loading-msg';
+        div.innerHTML = `<span style="color: #64ffda; font-style: italic;">Searching...</span>`;
+        div.style.cursor = 'default';
+        autocompleteList.appendChild(div);
+        autocompleteList.style.display = 'block';
+    };
+
     const handleAutocomplete = async () => {
-        const query = tickerInput.value.trim();
+        const query = tickerInput.value.trim().toUpperCase();
         if (query.length < 1) {
             autocompleteList.style.display = 'none';
             return;
         }
 
+        if (searchCache.has(query)) {
+            renderAutocomplete(searchCache.get(query), query);
+            return;
+        }
+
+        showAutocompleteLoading();
+
         try {
             const res = await fetch(`/api/search/${encodeURIComponent(query)}?t=${Date.now()}`);
             if (res.ok) {
                 const suggestions = await res.json();
-                renderAutocomplete(suggestions);
+                searchCache.set(query, suggestions);
+
+                // Only render if the input hasn't changed since we started fetching
+                if (tickerInput.value.trim().toUpperCase() === query) {
+                    renderAutocomplete(suggestions, query);
+                }
+            } else {
+                autocompleteList.style.display = 'none';
             }
         } catch (err) {
             console.error('Autocomplete error:', err);
+            autocompleteList.style.display = 'none';
         }
     };
 
-    tickerInput.addEventListener('input', () => {
+    tickerInput.addEventListener('input', function() {
+        this.value = this.value.toUpperCase();
         clearTimeout(autocompleteTimeout);
         autocompleteTimeout = setTimeout(handleAutocomplete, 300);
     });
 
     tickerInput.addEventListener('keydown', (e) => {
-        const items = autocompleteList.querySelectorAll('.autocomplete-item');
+        const items = autocompleteList.querySelectorAll('.autocomplete-item:not(.empty-msg):not(.loading-msg)');
         if (autocompleteList.style.display === 'block' && items.length > 0) {
             if (e.key === 'ArrowDown') {
                 e.preventDefault();
@@ -6069,9 +6047,17 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 tickerInput.value = ticker;
                 analyzeTicker(ticker);
                 autocompleteList.style.display = 'none';
+                return;
             } else if (e.key === 'Escape') {
                 autocompleteList.style.display = 'none';
             }
+        }
+
+        // Handle generic Enter if nothing is selected from the list
+        if (e.key === 'Enter' && selectedIndex < 0) {
+            e.preventDefault();
+            autocompleteList.style.display = 'none';
+            analyzeTicker();
         }
     });
 
@@ -7293,4 +7279,10 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         });
     }
 
+    // Close autocomplete on outside click
+    document.addEventListener('click', (e) => {
+        if (!tickerInput.contains(e.target) && !autocompleteList.contains(e.target)) {
+            autocompleteList.style.display = 'none';
+        }
+    });
 });
