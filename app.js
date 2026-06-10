@@ -366,7 +366,65 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // v59: Instant Capitalization & Search Feedback logic
+    if (tickerInput) {
+        tickerInput.addEventListener('input', function () {
+            this.value = this.value.toUpperCase();
+            if (this.value.length >= 1) {
+                fetchSuggestions(this.value);
+            } else {
+                autocompleteList.innerHTML = '';
+                autocompleteList.style.display = 'none';
+            }
+        });
 
+        tickerInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') analyzeTicker();
+        });
+    }
+
+    const fetchSuggestions = async (q) => {
+        try {
+            // v59: Use relative path for production safety
+            const res = await fetch(`/api/search/${encodeURIComponent(q)}`);
+            if (res.ok) {
+                const results = await res.json();
+                populateAutocomplete(results);
+            }
+        } catch (e) { console.error('Autocomplete fetch failed:', e); }
+    };
+
+    const populateAutocomplete = (items) => {
+        autocompleteList.innerHTML = '';
+        if (!items || items.length === 0) {
+            autocompleteList.style.display = 'none';
+            return;
+        }
+
+        items.slice(0, 8).forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'autocomplete-item';
+            div.innerHTML = `
+                <span class="ticker-match">${item.ticker}</span>
+                <span class="name-match">${item.name}</span>
+                <span class="exch-match">${item.exchange || ''}</span>
+            `;
+            div.onclick = () => {
+                tickerInput.value = item.ticker;
+                autocompleteList.style.display = 'none';
+                analyzeTicker(item.ticker);
+            };
+            autocompleteList.appendChild(div);
+        });
+        autocompleteList.style.display = 'block';
+    };
+
+    // Close autocomplete on outside click
+    document.addEventListener('click', (e) => {
+        if (!tickerInput.contains(e.target) && !autocompleteList.contains(e.target)) {
+            autocompleteList.style.display = 'none';
+        }
+    });
 
     let currentFormulaData = null;
     // ── Global Error Handling ─────────────────────────────────────────
@@ -1430,12 +1488,20 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             // FCF is calculated on top of projected Revenue
             currentFcf = currentRevenue * yearMargin;
 
-            // Adjust shares based on buyback/dilution rate (positive = buyback, negative = dilution)
-            if (buybackRate !== 0) {
+            // Method A: Deduct buyback cash cost from FCF
+            let buybackCashSpent = 0;
+            if (buybackRate > 0 && currentPrice && currentPrice > 0) {
+                const projectedPrice = currentPrice * Math.pow(1 + finalWacc, i);
+                const sharesBought = remainingShares * buybackRate;
+                buybackCashSpent = sharesBought * projectedPrice;
+                remainingShares -= sharesBought;
+                currentFcf -= buybackCashSpent;
+            } else if (buybackRate > 0) {
+                // Fallback: just reduce shares without FCF deduction
                 remainingShares *= (1 - buybackRate);
             }
 
-            buybackCostPerYear.push(0);
+            buybackCostPerYear.push(buybackCashSpent);
             fcf_projections.push(currentFcf);
 
             const pv_fcf = currentFcf / Math.pow(1 + finalWacc, i - 0.5);
@@ -2427,20 +2493,13 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             const buybackCustomInputs = document.getElementById('dcf-buyback-custom-inputs');
             if (buybackCustomInputs) buybackCustomInputs.style.display = buybackSrc === 'custom' ? 'flex' : 'none';
 
-            let rawBuybackRate = 0;
-            let rawSbcRate = 0;
-
+            let buybackRate = 0;
             if (buybackSrc === 'historical') {
-                rawBuybackRate = currentFormulaData.dcf.historic_buyback_rate || 0;
+                buybackRate = currentFormulaData.dcf.historic_buyback_rate || 0;
             } else if (buybackSrc === 'custom') {
                 const rawVal = document.getElementById('dcf-custom-buyback').value;
-                rawBuybackRate = (rawVal === '' || isNaN(parseLocaleFloat(rawVal))) ? 0 : parseLocaleFloat(rawVal) / 100;
-
-                const sbcVal = document.getElementById('dcf-custom-sbc').value;
-                rawSbcRate = (sbcVal === '' || isNaN(parseLocaleFloat(sbcVal))) ? 0 : parseLocaleFloat(sbcVal) / 100;
+                buybackRate = (rawVal === '' || isNaN(parseLocaleFloat(rawVal))) ? 0 : parseLocaleFloat(rawVal) / 100;
             }
-
-            let buybackRate = rawBuybackRate - rawSbcRate;
 
             let baseFcf = currentFormulaData.dcf.fcf;
             let baseRevenue = globalData.revenue;
@@ -2996,7 +3055,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             if (targetEps != null && targetEps > 0) {
                 const fwdPrice = targetEps * selectedMult;
                 lynchVal = fwdPrice / Math.pow(1 + discountRate, 3);
-                currentFormulaData.peter_lynch.dynamic_fwd_price = fwdPrice;
             }
 
             // Store dynamics for modal
@@ -3446,7 +3504,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
     const inputSelectors = [
         'fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple', 'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp',
-        'dcf-buyback-source', 'dcf-custom-buyback', 'dcf-custom-sbc', 'relative-variant',
+        'dcf-buyback-source', 'dcf-custom-buyback', 'relative-variant',
         'lynch-multiple-source', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth', 'lynch-return-rate', 'lynch-custom-return',
         'peg-eps-source', 'peg-custom-growth'
     ];
@@ -3612,11 +3670,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             dashboard.style.display = 'none';
             loadingState.style.display = 'flex';
             if (elements.fairValue) elements.fairValue.textContent = '$0.00';
-            if (elements.marginSafety) {
-                elements.marginSafety.textContent = '0% Margin of Safety';
-                elements.marginSafety.style.background = 'none';
-                elements.marginSafety.style.color = 'inherit';
-            }
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
         if (searchBtn) {
@@ -3756,28 +3809,10 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     <td style="text-align: right;">${formatBigNumber(th.shares, '')}</td>
                     <td style="text-align: right;">${(th.pct_out * 100).toFixed(2)}%</td>
                     <td style="text-align: right;">${formatBigNumber(th.value, '$')}</td>
-                </tr>`;
+                </tr>`);
             });
         } else {
             thBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No data available</td></tr>';
-        }
-
-        // 2.5 Top Mutual Funds
-        const mfBody = document.getElementById('mutual-funds-body');
-        if (mfBody) {
-            mfBody.innerHTML = '';
-            if (ownership.mutual_funds && ownership.mutual_funds.length > 0) {
-                ownership.mutual_funds.forEach(mf => {
-                    mfBody.innerHTML += `<tr>
-                        <td>${mf.holder}</td>
-                        <td style="text-align: right;">${formatBigNumber(mf.shares, '')}</td>
-                        <td style="text-align: right;">${(mf.pct_out * 100).toFixed(2)}%</td>
-                        <td style="text-align: right;">${formatBigNumber(mf.value, '$')}</td>
-                    </tr>`;
-                });
-            } else {
-                mfBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No data available</td></tr>';
-            }
         }
 
         // 3. Insiders
@@ -3792,7 +3827,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                         <td>${tx.insider}<br><span style="color:var(--text-muted); font-size: 0.65rem;">${tx.position}</span></td>
                         <td style="text-align: right; color: ${type === 'buy' ? 'var(--accent)' : 'var(--danger)'};">${formatBigNumber(tx.shares, '')}</td>
                         <td style="text-align: right;">${formatBigNumber(tx.value, '$')}</td>
-                    </tr>`;
+                    </tr>`);
                 });
             } else {
                 txBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No transactions found</td></tr>';
@@ -3827,23 +3862,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             });
         });
 
-        // 3.5 Insider Roster
-        const rosterBody = document.getElementById('roster-body');
-        if (rosterBody) {
-            rosterBody.innerHTML = '';
-            if (ownership.insider_roster && ownership.insider_roster.length > 0) {
-                ownership.insider_roster.forEach(ir => {
-                    rosterBody.innerHTML += `<tr>
-                        <td>${ir.name}</td>
-                        <td>${ir.position}</td>
-                        <td style="text-align: right; color: var(--text-muted);">${ir.date}</td>
-                    </tr>`;
-                });
-            } else {
-                rosterBody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-muted);">No roster data available</td></tr>';
-            }
-        }
-
         // 4. Statistics
         const stBody = document.getElementById('insider-stats-body');
         stBody.innerHTML = '';
@@ -3853,7 +3871,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     <td>${st.label}</td>
                     <td style="text-align: right;">${formatBigNumber(st.shares, '')}</td>
                     <td style="text-align: right;">${st.trans}</td>
-                </tr>`;
+                </tr>`);
             });
         } else {
             stBody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-muted);">No data available</td></tr>';
@@ -4031,7 +4049,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     rfBanner.style.cssText = 'background: rgba(239, 68, 68, 0.1); border: 1px solid var(--danger); padding: 12px; border-radius: 8px; margin-bottom: 15px; width: 100%;';
                     profileHeader.insertAdjacentElement('afterend', rfBanner);
                 }
-                rfBanner.innerHTML = data.red_flags.map(f => `<div style="color: var(--danger); font-weight: bold; font-size: 0.7em; margin-bottom: 0px; display: flex; align-items: center; justify-content: center; text-align: center; white-space: nowrap; letter-spacing: -0.5px; overflow: hidden; text-overflow: ellipsis;">${f}</div>`).join('');
+                rfBanner.innerHTML = data.red_flags.map(f => `<div style="color: var(--danger); font-weight: bold; font-size: 0.9em; margin-bottom: 4px;">${f}</div>`).join('');
                 rfBanner.style.display = 'block';
             } else if (rfBanner) {
                 rfBanner.style.display = 'none';
@@ -4047,7 +4065,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             } else {
                 cachedWatchlistData.push({ ...data });
             }
-            sessionStorage.setItem(`val_v4_${data.ticker.toUpperCase()}`, JSON.stringify({ data, ts: Date.now() }));
+            sessionStorage.setItem(`val_v3_${data.ticker.toUpperCase()}`, JSON.stringify({ data, ts: Date.now() }));
         }
 
         // DESCRIPTION CARD INJECTION
@@ -4316,48 +4334,23 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                             `;
                         }
                     } else if (activeTab === 'news') {
-                        if (isLoadingAI && !globalData.latest_news) {
+                        if (isLoadingAI) {
                             panel.innerHTML = `
                                 <div class="brief-news-item"><div class="skeleton-text" style="width: 80%;"></div><div class="skeleton-text" style="width: 50%;"></div></div>
                                 <div class="brief-news-item"><div class="skeleton-text" style="width: 75%;"></div><div class="skeleton-text" style="width: 45%;"></div></div>
                             `;
-                        } else if (globalData.latest_news && globalData.latest_news.length > 0) {
-                            panel.innerHTML = globalData.latest_news.map((news, index) => {
-                                const title = news.title;
-                                const source = news.publisher;
-
-                                return `
-                                    <div class="brief-news-item" style="cursor: pointer;" onclick="window.openNewsModalByIndex(${index})">
-                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; gap: 10px;">
-                                            <span style="background: rgba(56, 189, 248, 0.1); color: #38bdf8; font-size: 0.58rem; padding: 2px 6px; border-radius: 4px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3px;">${source}</span>
-                                        </div>
-                                        <div style="color: rgba(255,255,255,0.9); font-size: 0.8rem; line-height: 1.4; font-weight: 600;">${title}</div>
-                                    </div>
-                                `;
-                            }).join('');
                         } else if (parsed.latestMarketIntelligence.length > 0) {
-                            panel.innerHTML = parsed.latestMarketIntelligence.map((item, index) => {
+                            panel.innerHTML = parsed.latestMarketIntelligence.map(item => {
                                 const match = item.match(/^(.*?)\s*\(Source:\s*(.*?)\)$/i);
                                 const title = match ? match[1] : item;
                                 const source = match ? match[2] : "Market News";
 
-                                // Synthesize a fake news object so the modal can still open using the text data
-                                const synthesizedNews = {
-                                    title: title,
-                                    publisher: source,
-                                    summary: "Acesta este un fragment generat din inteligența pieței. Pentru articolul complet sau sumarul detaliat, vă rugăm să actualizați datele."
-                                };
-
-                                // Inject into globalData so openNewsModalByIndex works
-                                if (!globalData.latest_news) globalData.latest_news = [];
-                                globalData.latest_news[index] = synthesizedNews;
-
                                 return `
-                                    <div class="brief-news-item" style="cursor: pointer;" onclick="window.openNewsModalByIndex(${index})">
+                                    <div class="brief-news-item">
                                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; gap: 10px;">
                                             <span style="background: rgba(56, 189, 248, 0.1); color: #38bdf8; font-size: 0.58rem; padding: 2px 6px; border-radius: 4px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3px;">${source}</span>
                                         </div>
-                                        <div style="color: rgba(255,255,255,0.9); font-size: 0.8rem; line-height: 1.4; font-weight: 600;">${title}</div>
+                                        <div style="color: rgba(255,255,255,0.9); font-size: 0.8rem; line-height: 1.4;">${title}</div>
                                     </div>
                                 `;
                             }).join('');
@@ -4600,15 +4593,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         }
         updateFairValue();
 
-        // Ensure UI displays current global state immediately after updateFairValue recalculates it.
-        // Final updates to MOS styling based on fallback or custom weights.
-        if (elements.fairValue && elements.marginSafety && globalData.fair_value != null && globalData.margin_of_safety != null) {
-            elements.fairValue.textContent = formatCurrency(globalData.fair_value);
-            elements.marginSafety.textContent = `${formatPercent(globalData.margin_of_safety)} Margin of Safety`;
-            elements.marginSafety.style.color = globalData.margin_of_safety > 0 ? 'var(--accent)' : 'var(--danger)';
-            elements.marginSafety.style.background = globalData.margin_of_safety > 0 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)';
-        }
-
         document.querySelectorAll('.valuation-toggle').forEach(toggle => {
             toggle.onchange = updateAndSave;
         });
@@ -4837,7 +4821,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     const overrideInputIds = [
         'fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple',
         'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp', 'dcf-custom-fcf-margin', 'dcf-custom-margin-growth',
-        'dcf-buyback-source', 'dcf-custom-buyback', 'dcf-custom-sbc', 'relative-variant',
+        'dcf-buyback-source', 'dcf-custom-buyback', 'relative-variant',
         'lynch-multiple-source', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth', 'lynch-return-rate', 'lynch-custom-return',
         'peg-eps-source', 'peg-custom-growth', 'peg-mode'
     ];
@@ -4954,6 +4938,13 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 customScenariosBtn.classList.remove('active-custom');
             }
             document.querySelectorAll('.cs-input').forEach(inp => inp.value = '');
+            const turnOffCustomBtn = document.getElementById('cs-turn-off-btn');
+            if (turnOffCustomBtn) {
+                turnOffCustomBtn.textContent = 'Turn On';
+                turnOffCustomBtn.style.background = 'rgba(16, 185, 129, 0.1)';
+                turnOffCustomBtn.style.color = '#10b981';
+                turnOffCustomBtn.style.borderColor = '#10b981';
+            }
             return false;
         }
         const inputs = ov.inputs || {};
@@ -5006,11 +4997,25 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             if (customScenariosBtn) {
                 customScenariosBtn.classList.add('active-custom');
             }
+            const turnOffCustomBtn = document.getElementById('cs-turn-off-btn');
+            if (turnOffCustomBtn) {
+                turnOffCustomBtn.textContent = 'Turn Off';
+                turnOffCustomBtn.style.background = 'rgba(239, 68, 68, 0.1)';
+                turnOffCustomBtn.style.color = 'var(--danger)';
+                turnOffCustomBtn.style.borderColor = 'var(--danger)';
+            }
         } else {
             window._customScenariosData = null;
             const customScenariosBtn = document.getElementById('open-custom-scenarios-btn');
             if (customScenariosBtn) {
                 customScenariosBtn.classList.remove('active-custom');
+            }
+            const turnOffCustomBtn = document.getElementById('cs-turn-off-btn');
+            if (turnOffCustomBtn) {
+                turnOffCustomBtn.textContent = 'Turn On';
+                turnOffCustomBtn.style.background = 'rgba(16, 185, 129, 0.1)';
+                turnOffCustomBtn.style.color = '#10b981';
+                turnOffCustomBtn.style.borderColor = '#10b981';
             }
         }
 
@@ -5078,7 +5083,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         const ov = cachedOverrides[currentTicker];
         if (ov && ov.inputs) {
             const idsToReset = {
-                dcf: ['fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple', 'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp', 'dcf-custom-fcf-margin', 'dcf-custom-margin-growth', 'dcf-buyback-source', 'dcf-custom-buyback', 'dcf-custom-sbc'],
+                dcf: ['fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple', 'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp', 'dcf-custom-fcf-margin', 'dcf-custom-margin-growth', 'dcf-buyback-source', 'dcf-custom-buyback'],
                 relative: ['relative-variant', 'rel-weight-mode-card'],
                 peter_lynch: ['lynch-multiple-source', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth', 'lynch-return-rate', 'lynch-custom-return'],
                 peg: ['peg-eps-source', 'peg-custom-growth', 'peg-mode']
@@ -5944,31 +5949,21 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     // ── Autocomplete Logic ──────────────────────────────
     let autocompleteTimeout = null;
     let selectedIndex = -1;
-    const searchCache = new Map();
 
-    const renderAutocomplete = (suggestions, query) => {
+    const renderAutocomplete = (suggestions) => {
         autocompleteList.innerHTML = '';
         if (!suggestions || suggestions.length === 0) {
-            const div = document.createElement('div');
-            div.className = 'autocomplete-item empty-msg';
-            const span = document.createElement('span');
-            span.style.color = '#8892b0';
-            span.style.fontStyle = 'italic';
-            span.textContent = `No results found for "${query}"`;
-            div.appendChild(span);
-            div.style.cursor = 'default';
-            autocompleteList.appendChild(div);
-            autocompleteList.style.display = 'block';
+            autocompleteList.style.display = 'none';
             return;
         }
 
-        suggestions.slice(0, 8).forEach((item, index) => {
+        suggestions.forEach((item, index) => {
             const div = document.createElement('div');
             div.className = 'autocomplete-item';
             div.innerHTML = `
                 <span class="ticker-match">${item.ticker}</span>
                 <span class="name-match">${item.name}</span>
-                <span class="exch-match">${item.exchange || ''}</span>
+                <span class="exch-match">${item.exchange}</span>
             `;
             div.addEventListener('click', () => {
                 tickerInput.value = item.ticker;
@@ -5981,57 +5976,31 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         selectedIndex = -1;
     };
 
-    const showAutocompleteLoading = () => {
-        autocompleteList.innerHTML = '';
-        const div = document.createElement('div');
-        div.className = 'autocomplete-item loading-msg';
-        div.innerHTML = `<span style="color: #64ffda; font-style: italic;">Searching...</span>`;
-        div.style.cursor = 'default';
-        autocompleteList.appendChild(div);
-        autocompleteList.style.display = 'block';
-    };
-
     const handleAutocomplete = async () => {
-        const query = tickerInput.value.trim().toUpperCase();
+        const query = tickerInput.value.trim();
         if (query.length < 1) {
             autocompleteList.style.display = 'none';
             return;
         }
 
-        if (searchCache.has(query)) {
-            renderAutocomplete(searchCache.get(query), query);
-            return;
-        }
-
-        showAutocompleteLoading();
-
         try {
             const res = await fetch(`/api/search/${encodeURIComponent(query)}?t=${Date.now()}`);
             if (res.ok) {
                 const suggestions = await res.json();
-                searchCache.set(query, suggestions);
-
-                // Only render if the input hasn't changed since we started fetching
-                if (tickerInput.value.trim().toUpperCase() === query) {
-                    renderAutocomplete(suggestions, query);
-                }
-            } else {
-                autocompleteList.style.display = 'none';
+                renderAutocomplete(suggestions);
             }
         } catch (err) {
             console.error('Autocomplete error:', err);
-            autocompleteList.style.display = 'none';
         }
     };
 
-    tickerInput.addEventListener('input', function() {
-        this.value = this.value.toUpperCase();
+    tickerInput.addEventListener('input', () => {
         clearTimeout(autocompleteTimeout);
         autocompleteTimeout = setTimeout(handleAutocomplete, 300);
     });
 
     tickerInput.addEventListener('keydown', (e) => {
-        const items = autocompleteList.querySelectorAll('.autocomplete-item:not(.empty-msg):not(.loading-msg)');
+        const items = autocompleteList.querySelectorAll('.autocomplete-item');
         if (autocompleteList.style.display === 'block' && items.length > 0) {
             if (e.key === 'ArrowDown') {
                 e.preventDefault();
@@ -6047,17 +6016,9 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 tickerInput.value = ticker;
                 analyzeTicker(ticker);
                 autocompleteList.style.display = 'none';
-                return;
             } else if (e.key === 'Escape') {
                 autocompleteList.style.display = 'none';
             }
-        }
-
-        // Handle generic Enter if nothing is selected from the list
-        if (e.key === 'Enter' && selectedIndex < 0) {
-            e.preventDefault();
-            autocompleteList.style.display = 'none';
-            analyzeTicker();
         }
     });
 
@@ -6105,6 +6066,21 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                         if (data.pe !== null) document.getElementById(`cs-pe-${scen}`).value = data.pe;
                     });
                 }
+
+                if (turnOffCustomBtn) {
+                    if (window._customScenariosData) {
+                        turnOffCustomBtn.textContent = 'Turn Off';
+                        turnOffCustomBtn.style.background = 'rgba(239, 68, 68, 0.1)';
+                        turnOffCustomBtn.style.color = 'var(--danger)';
+                        turnOffCustomBtn.style.borderColor = 'var(--danger)';
+                    } else {
+                        turnOffCustomBtn.textContent = 'Turn On';
+                        turnOffCustomBtn.style.background = 'rgba(16, 185, 129, 0.1)';
+                        turnOffCustomBtn.style.color = '#10b981';
+                        turnOffCustomBtn.style.borderColor = '#10b981';
+                    }
+                }
+
                 customScenariosModal.style.display = 'flex';
             }
         });
@@ -6123,57 +6099,215 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         });
     }
 
-    // Growth Tips Tooltip Logic
+        // Custom Scenarios Tooltip Logic
     const tipsTooltip = document.getElementById('cs-tips-tooltip');
     const tipsContent = document.getElementById('cs-tips-content');
-    const revInputs = document.querySelectorAll('#cs-rev-1-3-bear, #cs-rev-1-3-base, #cs-rev-1-3-bull');
+    const csInputs = document.querySelectorAll('.cs-input');
 
-    revInputs.forEach(input => {
-        input.addEventListener('focus', (e) => {
+    const updateTooltipPosition = (e) => {
+        const rect = e.target.getBoundingClientRect();
+        const inputId = e.target.id;
+
+        // Tooltip dimensions
+        const tooltipWidth = 150; // min-width from CSS
+        const tooltipHeight = 90; // approximate height
+
+        let leftPos = 0;
+        // Position above the input by default to not cover the typing area
+        let topPos = rect.top + window.scrollY - tooltipHeight - 10;
+
+        // Align horizontally based on the input column (bear, base, bull)
+        if (inputId.includes('bear')) {
+            // Align left edge of tooltip with left edge of input
+            leftPos = rect.left + window.scrollX;
+        } else if (inputId.includes('base')) {
+            // Center tooltip relative to input
+            leftPos = rect.left + window.scrollX + (rect.width / 2) - (tooltipWidth / 2);
+        } else if (inputId.includes('bull')) {
+            // Align right edge of tooltip with right edge of input
+            leftPos = rect.right + window.scrollX - tooltipWidth;
+        } else {
+             // Fallback
+             leftPos = rect.left + window.scrollX;
+        }
+
+        // Edge case: if top positioning pushes it off the top of the viewport
+        if (topPos < window.scrollY) {
+            topPos = rect.bottom + window.scrollY + 10; // place below instead
+        }
+
+        // Edge case: if left positioning pushes it off the left of the screen
+        if (leftPos < 0) {
+            leftPos = 10;
+        }
+
+        // Edge case: if right positioning pushes it off the right of the screen
+        if (leftPos + tooltipWidth > window.innerWidth) {
+            leftPos = window.innerWidth - tooltipWidth - 10;
+        }
+
+        tipsTooltip.style.left = leftPos + 'px';
+        tipsTooltip.style.top = topPos + 'px';
+    };
+
+    csInputs.forEach(input => {
+        const showTooltip = (e) => {
             if (!globalData || !globalData.company_profile) return;
             const prof = globalData.company_profile;
+            const f = globalData.financials || [];
+            const id = input.id;
 
-            // Calculate historically available data
-            let rev1y = 'N/A';
-            let rev3y = 'N/A';
-            if (globalData.financials && globalData.financials.length >= 2) {
-                const f = globalData.financials;
-                const r0 = f[0].total_revenue;
-                const r1 = f[1].total_revenue;
-                if (r0 > 0 && r1 > 0) rev1y = ((r0 / r1) - 1) * 100;
+            // Default "N/A"
+            let val1y = 'N/A', val3y = 'N/A', valFwd = 'N/A';
+            let title = "TIPS";
 
-                if (f.length >= 4) {
-                    const r3 = f[3].total_revenue;
-                    if (r0 > 0 && r3 > 0) rev3y = (Math.pow(r0 / r3, 1/3) - 1) * 100;
+            // Helper to get FWD value with bear(-10%)/bull(+10%) logic based on base value
+            const getFwdScenario = (baseValue) => {
+                if (baseValue === 'N/A' || baseValue == null || isNaN(baseValue)) return 'N/A';
+                if (id.includes('bear')) return baseValue * 0.9;
+                if (id.includes('bull')) return baseValue * 1.1;
+                return baseValue;
+            };
+
+            const formatVal = (v) => v !== 'N/A' && !isNaN(v) ? v.toFixed(1) + (title.includes('P/E') || title.includes('MULTIPLE') ? 'x' : '%') : 'N/A';
+
+            if (id.includes('rev-1-3')) {
+                title = "REV GROWTH TIPS";
+                if (f.length >= 1 && f[0].total_revenue && f.length >= 2 && f[1].total_revenue > 0) val1y = ((f[0].total_revenue / f[1].total_revenue) - 1) * 100;
+                if (f.length >= 4 && f[3].total_revenue > 0) val3y = (Math.pow(f[0].total_revenue / f[3].total_revenue, 1/3) - 1) * 100;
+
+                // User requirement: "Unde nu avem estimari, vom folosi valoarea de pe ultimul an pentru base, apoi +10% pentru bull sau -10% pentru bear"
+                // Actually the instructions say: 1y (datele din ultimul an), 3y (cagr pe ultimii 3 ani), FWD (estimarile low, high sau avg pt urmatorul an)
+
+                let fwdBase = null;
+                const est = globalData.analyst_estimates || {};
+                const currentRev = f[0]?.total_revenue;
+
+                if (currentRev > 0) {
+                     if (id.includes('bear') && est.estimatedRevLow != null) valFwd = ((est.estimatedRevLow / currentRev) - 1) * 100;
+                     else if (id.includes('bull') && est.estimatedRevHigh != null) valFwd = ((est.estimatedRevHigh / currentRev) - 1) * 100;
+                     else if (est.estimatedRevAvg != null) valFwd = ((est.estimatedRevAvg / currentRev) - 1) * 100;
                 }
+
+                if (valFwd === 'N/A') {
+                     // Default to 1Y hist for base if no estimates
+                     fwdBase = val1y;
+                     valFwd = getFwdScenario(fwdBase);
+                }
+
+            } else if (id.includes('eps')) {
+                title = "EPS GROWTH TIPS";
+                // 1Y EPS (adjusted) - ensure non-gaap
+                if (f.length >= 2 && f[0].adjusted_eps != null && f[1].adjusted_eps > 0) val1y = ((f[0].adjusted_eps / f[1].adjusted_eps) - 1) * 100;
+                // 3Y EPS (adjusted)
+                if (f.length >= 4 && f[3].adjusted_eps > 0) val3y = (Math.pow(f[0].adjusted_eps / f[3].adjusted_eps, 1/3) - 1) * 100;
+
+                // FWD EPS Est from analyst estimates (Low, Avg, High)
+                let fwdBase = null;
+                const est = globalData.analyst_estimates || {};
+                const currentEps = prof.adjusted_eps || prof.trailing_eps || f[0]?.adjusted_eps;
+
+                if (currentEps > 0) {
+                    if (id.includes('bear') && est.estimatedEpsLow != null) {
+                        valFwd = ((est.estimatedEpsLow / currentEps) - 1) * 100;
+                    } else if (id.includes('bull') && est.estimatedEpsHigh != null) {
+                        valFwd = ((est.estimatedEpsHigh / currentEps) - 1) * 100;
+                    } else if (est.estimatedEpsAvg != null) {
+                        valFwd = ((est.estimatedEpsAvg / currentEps) - 1) * 100;
+                    } else if (prof.eps_growth != null) {
+                        fwdBase = prof.eps_growth * 100;
+                    } else {
+                        fwdBase = val1y;
+                    }
+                } else if (prof.eps_growth != null) {
+                     fwdBase = prof.eps_growth * 100;
+                } else {
+                     fwdBase = val1y;
+                }
+
+                if (valFwd === 'N/A' && fwdBase !== null) {
+                     valFwd = getFwdScenario(fwdBase);
+                }
+
+            } else if (id.includes('pe') || id.includes('exit')) {
+                title = id.includes('pe') ? "FORWARD P/E TIPS" : "EXIT MULTIPLE TIPS";
+
+                val1y = prof.trailing_pe || 'N/A';
+                val3y = 'N/A';
+
+                let epsFwd = 'N/A';
+                const est = globalData.analyst_estimates || {};
+                const currentEps = prof.adjusted_eps || prof.trailing_eps || f[0]?.adjusted_eps;
+
+                if (currentEps > 0) {
+                     if (id.includes('bear') && est.estimatedEpsLow != null) epsFwd = ((est.estimatedEpsLow / currentEps) - 1) * 100;
+                     else if (id.includes('bull') && est.estimatedEpsHigh != null) epsFwd = ((est.estimatedEpsHigh / currentEps) - 1) * 100;
+                     else if (est.estimatedEpsAvg != null) epsFwd = ((est.estimatedEpsAvg / currentEps) - 1) * 100;
+                }
+                if (epsFwd === 'N/A' && prof.eps_growth != null) epsFwd = prof.eps_growth * 100;
+
+                if (epsFwd !== 'N/A' && epsFwd > 0) {
+                     valFwd = epsFwd; // PEG = 1 assumed
+                } else {
+                     valFwd = prof.forward_pe || val1y;
+                     valFwd = getFwdScenario(valFwd);
+                }
+
+            } else if (id.includes('fcf-margin')) {
+                title = "FCF MARGIN TIPS";
+                if (f.length >= 1 && f[0].total_revenue > 0) val1y = (f[0].free_cash_flow / f[0].total_revenue) * 100;
+                if (f.length >= 4) {
+                    let avgMargin = 0;
+                    let count = 0;
+                    for (let i=1; i<4; i++) { // Using historical anchors 1,2,3 for 3y avg
+                        if (f[i].total_revenue > 0) {
+                            avgMargin += (f[i].free_cash_flow / f[i].total_revenue) * 100;
+                            count++;
+                        }
+                    }
+                    if (count > 0) val3y = avgMargin / count;
+                }
+
+                let fwdBase = (f.length > 0 && f[0].total_revenue > 0) ? (f[0].free_cash_flow / f[0].total_revenue) * 100 : val1y;
+                valFwd = getFwdScenario(fwdBase);
+
+            } else if (id.includes('wacc')) {
+                title = "WACC TIPS";
+                val1y = 'N/A';
+                val3y = 'N/A';
+                let baseWacc = globalData.computed_wacc != null ? globalData.computed_wacc * 100 : 9.0;
+                if (id.includes('bear')) valFwd = baseWacc * 1.1;
+                else if (id.includes('bull')) valFwd = baseWacc * 0.9;
+                else valFwd = baseWacc;
+
+            } else if (id.includes('perp')) {
+                 title = "PERPETUAL GR. TIPS";
+                 val1y = 'N/A';
+                 val3y = 'N/A';
+                 let basePerp = 2.5;
+                 if (id.includes('bear')) valFwd = 2.0;
+                 else if (id.includes('bull')) valFwd = 3.0;
+                 else valFwd = basePerp;
             }
 
-            let fwdAvg = 'N/A';
-            if (globalData.computed_dcf_growth != null) {
-                 fwdAvg = globalData.computed_dcf_growth * 100;
-            } else if (prof.revenue_growth != null) {
-                 fwdAvg = prof.revenue_growth * 100;
-            }
-
-            const formatVal = (v) => v !== 'N/A' && !isNaN(v) ? v.toFixed(1) + '%' : 'N/A';
-
+            document.querySelector('#cs-tips-tooltip > div:first-child').textContent = title;
             tipsContent.innerHTML = `
-                <div style="display:flex; justify-content:space-between; width:120px; margin-bottom:3px;"><span style="color:var(--text-muted);">1Y Hist:</span> <span>${formatVal(rev1y)}</span></div>
-                <div style="display:flex; justify-content:space-between; width:120px; margin-bottom:3px;"><span style="color:var(--text-muted);">3Y CAGR:</span> <span>${formatVal(rev3y)}</span></div>
-                <div style="display:flex; justify-content:space-between; width:120px;"><span style="color:var(--text-muted);">FWD Est:</span> <span style="color:#fbbf24;">${formatVal(fwdAvg)}</span></div>
+                <div style="display:flex; justify-content:space-between; width:130px; margin-bottom:3px;"><span style="color:var(--text-muted);">1Y Hist:</span> <span>${formatVal(val1y)}</span></div>
+                <div style="display:flex; justify-content:space-between; width:130px; margin-bottom:3px;"><span style="color:var(--text-muted);">3Y Avg/CAGR:</span> <span>${formatVal(val3y)}</span></div>
+                <div style="display:flex; justify-content:space-between; width:130px;"><span style="color:var(--text-muted);">FWD Est:</span> <span style="color:#fbbf24;">${formatVal(valFwd)}</span></div>
             `;
 
             tipsTooltip.style.display = 'block';
+            updateTooltipPosition(e);
+        };
 
-            // Positioning
-            const rect = e.target.getBoundingClientRect();
-            tipsTooltip.style.left = (rect.left + window.scrollX + (rect.width / 2) - 75) + 'px'; // Center tooltip (150px min-width)
-            tipsTooltip.style.top = (rect.top + window.scrollY - tipsTooltip.offsetHeight - 10) + 'px';
-        });
+        // For desktop
+        input.addEventListener('mouseenter', showTooltip);
+        input.addEventListener('mouseleave', () => tipsTooltip.style.display = 'none');
 
-        input.addEventListener('blur', () => {
-            tipsTooltip.style.display = 'none';
-        });
+        // For mobile and general interaction
+        input.addEventListener('focus', showTooltip);
+        input.addEventListener('blur', () => tipsTooltip.style.display = 'none');
     });
 
     const parseCsInput = (id) => {
@@ -6196,6 +6330,14 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 };
             });
             if (customScenariosBtn) customScenariosBtn.classList.add('active-custom');
+
+            if (turnOffCustomBtn) {
+                turnOffCustomBtn.textContent = 'Turn Off';
+                turnOffCustomBtn.style.background = 'rgba(239, 68, 68, 0.1)';
+                turnOffCustomBtn.style.color = 'var(--danger)';
+                turnOffCustomBtn.style.borderColor = 'var(--danger)';
+            }
+
             if (customScenariosModal) customScenariosModal.style.display = 'none';
             if (typeof updateFairValue === 'function') { updateFairValue(); }
             if (typeof window.triggerRecalculate === 'function') { window.triggerRecalculate(); }
@@ -6212,9 +6354,34 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
     if (turnOffCustomBtn) {
         turnOffCustomBtn.addEventListener('click', () => {
-            window._customScenariosData = null;
-            document.querySelectorAll('.cs-input').forEach(inp => inp.value = '');
-            if (customScenariosBtn) customScenariosBtn.classList.remove('active-custom');
+            if (window._customScenariosData) {
+                // Currently ON, turn it OFF
+                window._customScenariosData = null;
+                turnOffCustomBtn.textContent = 'Turn On';
+                turnOffCustomBtn.style.background = 'rgba(16, 185, 129, 0.1)';
+                turnOffCustomBtn.style.color = '#10b981';
+                turnOffCustomBtn.style.borderColor = '#10b981';
+                if (customScenariosBtn) customScenariosBtn.classList.remove('active-custom');
+            } else {
+                // Currently OFF, turn it ON
+                window._customScenariosData = {};
+                ['bear', 'base', 'bull'].forEach(scen => {
+                    window._customScenariosData[scen] = {
+                        rev13: parseCsInput(`cs-rev-1-3-${scen}`),
+                        fcfMargin: parseCsInput(`cs-fcf-margin-${scen}`),
+                        wacc: parseCsInput(`cs-wacc-${scen}`),
+                        exit: parseCsInput(`cs-exit-${scen}`),
+                        perp: parseCsInput(`cs-perp-${scen}`),
+                        eps: parseCsInput(`cs-eps-${scen}`),
+                        pe: parseCsInput(`cs-pe-${scen}`)
+                    };
+                });
+                turnOffCustomBtn.textContent = 'Turn Off';
+                turnOffCustomBtn.style.background = 'rgba(239, 68, 68, 0.1)';
+                turnOffCustomBtn.style.color = 'var(--danger)';
+                turnOffCustomBtn.style.borderColor = 'var(--danger)';
+                if (customScenariosBtn) customScenariosBtn.classList.add('active-custom');
+            }
             if (customScenariosModal) customScenariosModal.style.display = 'none';
             if (typeof updateFairValue === 'function') { updateFairValue(); }
             if (typeof window.triggerRecalculate === 'function') { window.triggerRecalculate(); }
@@ -6317,7 +6484,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 // v38: Call individual valuation endpoint. 
                 // skip_peers=false to ensure scores are 100% sync'd with dashboard.
                 // Check client-side cache first (15 min TTL)
-                const cacheKey = `val_v4_${tUpper}`;
+                const cacheKey = `val_v3_${tUpper}`;
                 const cached = sessionStorage.getItem(cacheKey);
                 if (cached) {
                     const { data: cachedData, ts } = JSON.parse(cached);
@@ -6870,15 +7037,12 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             const prof = globalData.company_profile || {};
             title.textContent = '📊 Forward Multiple — Data Transparency';
             const epsLabel = p.valuation_eps !== p.trailing_eps ? 'EPS Base (Normalized)' : 'Trailing EPS (GAAP)';
-            const dynMult = p.dynamic_mult != null ? (Number.isInteger(p.dynamic_mult) ? p.dynamic_mult : p.dynamic_mult.toFixed(2)) : 20;
-            const targetPrice = p.dynamic_fwd_price != null ? p.dynamic_fwd_price : (p.fwd_eps != null ? p.fwd_eps * dynMult : null);
             html = row(epsLabel, '$' + fmt(p.valuation_eps || p.trailing_eps))
                 + row('Growth Estimate', fmtPct(p.dynamic_growth != null ? p.dynamic_growth : p.eps_growth_estimated))
                 + row('Forward EPS (3Y Projection)', '$' + fmt(p.dynamic_fwd_eps != null ? p.dynamic_fwd_eps : p.fwd_eps))
                 + row('5Y Avg P/E', prof.historic_pe ? prof.historic_pe.toFixed(2) + 'x' : 'N/A')
-                + (targetPrice != null ? row(`3Y Target Price (PE ${dynMult})`, '$' + fmt(targetPrice)) : '')
                 + row(`Return Rate (Discount)`, p.dynamic_discount != null ? fmtPct(p.dynamic_discount) : '15.0%')
-                + row(`Present Fair Value`, '$' + fmt(p.dynamic_fv != null ? p.dynamic_fv : p.fair_value_pe_20));
+                + row(`Fair Value (PE ${p.dynamic_mult != null ? (Number.isInteger(p.dynamic_mult) ? p.dynamic_mult : p.dynamic_mult.toFixed(2)) : 20})`, '$' + fmt(p.dynamic_fv != null ? p.dynamic_fv : p.fair_value_pe_20));
         } else if (model === 'peg' && currentFormulaData.peg) {
             const g = currentFormulaData.peg;
             const prof = globalData.company_profile || {};
@@ -7078,81 +7242,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         modal.style.display = 'flex';
     }
 
-    // ── News Modal ──────────────────────
-    window.openNewsModalByIndex = function(index) {
-        try {
-            if (!globalData || !globalData.latest_news || !globalData.latest_news[index]) {
-                return;
-            }
-            const news = globalData.latest_news[index];
-
-            // create modal container if not exists
-            let modal = document.getElementById('news-modal');
-            if (!modal) {
-                modal = document.createElement('div');
-                modal.id = 'news-modal';
-                modal.style.position = 'fixed';
-                modal.style.top = '0';
-                modal.style.left = '0';
-                modal.style.width = '100vw';
-                modal.style.height = '100vh';
-                modal.style.backgroundColor = 'rgba(0, 0, 0, 0.75)';
-                modal.style.backdropFilter = 'blur(5px)';
-                modal.style.zIndex = '999999';
-                modal.style.display = 'flex';
-                modal.style.alignItems = 'center';
-                modal.style.justifyContent = 'center';
-                modal.style.opacity = '0';
-                modal.style.transition = 'opacity 0.2s ease-out';
-
-                modal.onclick = function(e) {
-                    if (e.target === modal) {
-                        window.closeNewsModal();
-                    }
-                };
-                document.body.appendChild(modal);
-            }
-
-            window.closeNewsModal = function() {
-                const m = document.getElementById('news-modal');
-                if (m) {
-                    m.style.opacity = '0';
-                    setTimeout(() => { m.style.display = 'none'; }, 200);
-                }
-            };
-
-            modal.innerHTML = `
-                <div style="background: var(--bg-surface); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; width: 90%; max-width: 500px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); position: relative; font-family: 'Outfit', sans-serif;">
-                    <button onclick="window.closeNewsModal()" style="position: absolute; top: 12px; right: 12px; background: none; border: none; color: rgba(255,255,255,0.5); font-size: 1.2rem; cursor: pointer; padding: 4px;">&times;</button>
-
-                    <div style="margin-bottom: 15px; display: inline-block;">
-                        <span style="background: rgba(56, 189, 248, 0.1); color: #38bdf8; font-size: 0.7rem; padding: 4px 8px; border-radius: 6px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">${news.publisher || 'News'}</span>
-                    </div>
-
-                    <h2 style="font-size: 1.2rem; color: #fff; line-height: 1.4; margin-top: 0; margin-bottom: 16px; font-weight: 700;">${news.title}</h2>
-
-                    ${news.summary ? `<div style="background: rgba(255,255,255,0.03); border-left: 3px solid #4ade80; padding: 12px 16px; border-radius: 4px; margin-bottom: 20px;">
-                        <p style="color: rgba(255,255,255,0.85); font-size: 0.9rem; line-height: 1.6; margin: 0; font-style: italic;">"${news.summary}"</p>
-                    </div>` : ''}
-
-                    ${news.link ? `<div style="text-align: right;">
-                        <a href="${news.link}" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; gap: 8px; background: rgba(56, 189, 248, 0.15); color: #38bdf8; text-decoration: none; padding: 10px 16px; border-radius: 8px; font-weight: 600; font-size: 0.9rem; transition: all 0.2s;">
-                            Read Full Article <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-                        </a>
-                    </div>` : ''}
-                </div>
-            `;
-
-            modal.style.display = 'flex';
-            // Trigger reflow
-            modal.offsetHeight;
-            modal.style.opacity = '1';
-
-        } catch (err) {
-            console.error("Error parsing news data", err);
-        }
-    };
-
     // ── Piotroski F-Score Breakdown Modal ──────────────────────
     function renderPiotroskiBreakdown(totalScore, breakdown) {
         const modal = document.getElementById('score-modal');
@@ -7276,138 +7365,3 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 }
                 deferredPrompt = null;
             }
-        });
-    }
-
-    // Close autocomplete on outside click
-    document.addEventListener('click', (e) => {
-        if (!tickerInput.contains(e.target) && !autocompleteList.contains(e.target)) {
-            autocompleteList.style.display = 'none';
-        }
-    });
-
-    const rulesIcon = document.getElementById('rules-info-icon');
-    const rulesModal = document.getElementById('rules-modal');
-    const closeRulesModal = document.getElementById('close-rules-modal');
-
-    if (rulesIcon) {
-        rulesIcon.addEventListener('click', () => {
-            console.log('rules-info-icon clicked');
-            try {
-                if (typeof renderRulesModal === 'function') {
-                    renderRulesModal();
-                }
-                if (rulesModal) {
-                    rulesModal.style.display = 'flex';
-                }
-            } catch (err) {
-                console.error('Error rendering rules modal:', err);
-                alert('Error displaying rules. See console.');
-            }
-        });
-    }
-
-    if (closeRulesModal) {
-        closeRulesModal.addEventListener('click', () => {
-            if (rulesModal) {
-                rulesModal.style.display = 'none';
-            }
-        });
-    }
-
-    window.addEventListener('click', (event) => {
-        if (event.target == rulesModal) {
-            rulesModal.style.display = 'none';
-        }
-    });
-});
-
-function renderRulesModal() {
-    const rulesModalBody = document.getElementById('rules-modal-body');
-    const rulesModalTitle = document.getElementById('rules-modal-title');
-    if(!rulesModalBody || !rulesModalTitle) return;
-
-    const sector = (window.globalData?.company_profile?.sector || "").toLowerCase();
-    const industry = (window.globalData?.company_profile?.industry || "").toLowerCase();
-    let archetype = "Standard";
-    let targetPe = 18;
-
-    // Determine archetype based on Python backend rules
-    if (industry.includes('reit') || sector.includes('real estate')) archetype = "REIT";
-    else if (industry.includes('bank') || industry.includes('credit')) archetype = "Bank";
-    else if (industry.includes('insurance')) archetype = "Insurance";
-    else if (sector.includes('financial')) archetype = "Fintech";
-    else if (sector.includes('utilities')) archetype = "Utilities";
-    else if (sector.includes('energy') && !industry.includes('renewable')) archetype = "Energy";
-    else if (sector.includes('defensive') || sector.includes('consumer staples') || industry.includes('retail') || industry.includes('discount')) archetype = "Retail/Defensive";
-    else if (sector.includes('technology') || industry.includes('software') || sector.includes('communication')) {
-        archetype = "Technology";
-        targetPe = 25;
-    }
-
-    if (sector.includes('consumer discretionary')) targetPe = 22;
-    else if (sector.includes('health') || industry.includes('biotech')) targetPe = 18;
-    else if (sector.includes('industrials') || sector.includes('materials') || sector.includes('consumer staples') || sector.includes('defensive')) targetPe = 16;
-    else if (sector.includes('utilities') || sector.includes('real estate') || industry.includes('reit')) targetPe = 15;
-    else if (sector.includes('financial') || industry.includes('bank')) targetPe = 13;
-
-
-    rulesModalTitle.textContent = `Scoring Rules (${archetype})`;
-
-    let html = `
-    <div style="display:flex; flex-direction: column; gap: 1rem; text-align: left;">
-        <h3 style="color:var(--text-main); font-size:1.1rem;">Health Score (Max 100p)</h3>
-        <ul style="list-style-type: disc; padding-left: 20px; font-size: 0.9rem; color: var(--text-secondary); ">
-    `;
-
-    // Health Score rules
-    if (archetype === "Bank" || archetype === "Insurance" || archetype === "Fintech") {
-        html += `<li style="margin-bottom: 6px;"><strong>Debt to Equity:</strong> Ignored for financial companies.</li>`;
-        html += `<li style="margin-bottom: 6px;"><strong>Current Ratio:</strong> Ignored.</li>`;
-        html += `<li style="margin-bottom: 6px;"><strong>ROA (Return on Assets):</strong> >1.5% (20p), >0.8% (10p)</li>`;
-        html += `<li style="margin-bottom: 6px;"><strong>ROE (Return on Equity):</strong> >15% (20p), >10% (10p)</li>`;
-        html += `<li style="margin-bottom: 6px;"><strong>Net Margin:</strong> >15% (15p), >10% (7.5p)</li>`;
-    } else if (archetype === "REIT") {
-        html += `<li style="margin-bottom: 6px;"><strong>Debt to Equity:</strong> &le;2.5 (20p), &le;4.0 (10p)</li>`;
-        html += `<li style="margin-bottom: 6px;"><strong>Current Ratio:</strong> Ignored.</li>`;
-        html += `<li style="margin-bottom: 6px;"><strong>EBIT Margin (Operating):</strong> >30% (15p), >20% (7.5p)</li>`;
-        html += `<li style="margin-bottom: 6px;"><strong>ROE:</strong> >8% (20p), >5% (10p)</li>`;
-    } else if (archetype === "Utilities") {
-        html += `<li style="margin-bottom: 6px;"><strong>Debt to Equity:</strong> &le;2.0 (20p), &le;3.0 (10p)</li>`;
-        html += `<li style="margin-bottom: 6px;"><strong>Current Ratio:</strong> &ge;0.5 (15p)</li>`;
-        html += `<li style="margin-bottom: 6px;"><strong>EBIT Margin:</strong> >20% (15p), >10% (7.5p)</li>`;
-        html += `<li style="margin-bottom: 6px;"><strong>ROE:</strong> >8% (20p), >5% (10p)</li>`;
-    } else if (archetype === "Energy") {
-        html += `<li style="margin-bottom: 6px;"><strong>Debt to Equity:</strong> &le;1.0 (20p), &le;1.5 (10p)</li>`;
-        html += `<li style="margin-bottom: 6px;"><strong>Current Ratio:</strong> &ge;1.0 (15p), &ge;0.8 if Free Cash Flow is growing (7.5p)</li>`;
-        html += `<li style="margin-bottom: 6px;"><strong>EBIT Margin:</strong> >15% (15p), >8% (7.5p)</li>`;
-        html += `<li style="margin-bottom: 6px;"><strong>ROIC:</strong> >10% (20p), >5% (10p)</li>`;
-    } else {
-        // Standard / Tech / Retail
-        html += `<li style="margin-bottom: 6px;"><strong>Debt to Equity:</strong> <0.8 (20p), &le;1.5 (10p)</li>`;
-        html += `<li style="margin-bottom: 6px;"><strong>Current Ratio:</strong> &ge;1.5 (15p), 0.7-1.49 (7.5p, or 15p if FCF is growing)</li>`;
-        html += `<li style="margin-bottom: 6px;"><strong>EBIT Margin:</strong> >20% (15p), &ge;10% (7.5p)</li>`;
-        html += `<li style="margin-bottom: 6px;"><strong>ROIC:</strong> >15% (20p), &ge;8% (10p)</li>`;
-    }
-
-    html += `
-        <li style="margin-bottom: 6px;"><strong>Free Cash Flow (FCF):</strong> >0 (15p)</li>
-        <li style="margin-bottom: 6px;"><strong>FCF Margin:</strong> >10% (10p), &ge;5% (5p)</li>
-    </ul>
-    `;
-
-    html += `
-        <h3 style="color:var(--text-main); font-size:1.1rem; margin-top: 10px;">Good to Buy Score (Max 100p)</h3>
-        <ul style="list-style-type: disc; padding-left: 20px; font-size: 0.9rem; color: var(--text-secondary); ">
-            <li style="margin-bottom: 6px;"><strong>P/E Ratio:</strong> &le;${targetPe} (20p), &le;${Math.round(targetPe*1.3)} AND (Revenue Growth > 15% OR PEG < 1.5) (15p), Else &le;${Math.round(targetPe*1.3)} (10p)</li>
-            <li style="margin-bottom: 6px;"><strong>P/FCF Ratio:</strong> &le;15 (20p), &le;25 (10p)</li>
-            <li style="margin-bottom: 6px;"><strong>PEG Ratio:</strong> >0 AND &le;1.2 (15p), &le;1.8 (7.5p)</li>
-            <li style="margin-bottom: 6px;"><strong>Revenue Growth (YoY):</strong> >10% (15p), >5% (7.5p)</li>
-            <li style="margin-bottom: 6px;"><strong>EPS Growth (YoY):</strong> >10% (15p), >5% (7.5p)</li>
-            <li style="margin-bottom: 6px;"><strong>Share Buybacks (YoY):</strong> Shares Decreased (15p)</li>
-        </ul>
-    </div>
-    `;
-
-    rulesModalBody.innerHTML = html;
-}
