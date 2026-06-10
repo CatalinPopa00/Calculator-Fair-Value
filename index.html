@@ -743,7 +743,9 @@
                                     <div class="analyst-tabs-control">
                                         <button class="analyst-tab-btn ownership-tab-btn active" data-tab="holders">Holders</button>
                                         <button class="analyst-tab-btn ownership-tab-btn" data-tab="top-holders">Top</button>
+                                        <button class="analyst-tab-btn ownership-tab-btn" data-tab="funds">Funds</button>
                                         <button class="analyst-tab-btn ownership-tab-btn" data-tab="insiders">Insiders</button>
+                                        <button class="analyst-tab-btn ownership-tab-btn" data-tab="roster">Roster</button>
                                         <button class="analyst-tab-btn ownership-tab-btn" data-tab="stats">Stats</button>
                                     </div>
                                 </div>
@@ -763,13 +765,13 @@
                                             }
                                             .ownership-grid.carousel-mode {
                                                 display: flex !important;
-                                                width: 200%;
+                                                width: 150%; /* 6 items / 4 visible = 1.5 */
                                                 transition: transform 0.4s ease-in-out;
                                                 gap: 0 !important;
                                             }
                                             .ownership-grid.carousel-mode > .analyst-tab-content {
-                                                flex: 0 0 25% !important;
-                                                max-width: 25% !important;
+                                                flex: 0 0 16.6666% !important; /* 1/6 of 150% = 25% of viewport */
+                                                max-width: 16.6666% !important;
                                                 padding: 0 1.5rem !important;
                                                 box-sizing: border-box;
                                             }
@@ -837,7 +839,7 @@
                                             <div class="rec-module" style="height: 100%;">
                                                 <span class="module-label">TOP 5 INSTITUTIONAL HOLDERS</span>
                                                 <div class="table-responsive" style="margin-top: 10px;">
-                                                    <table class="mini-research-table" style="width: 100%; text-align: left; font-size: 0.8rem;">
+                                                    <table class="mini-research-table premium-data-table" style="width: 100%; text-align: left; font-size: 0.8rem;">
                                                         <thead>
                                                             <tr>
                                                                 <th>Holder</th>
@@ -854,7 +856,29 @@
                                             </div>
                                         </div>
 
-                                        <!-- Col 3: Insiders -->
+                                        <!-- Col 3: Mutual Funds -->
+                                        <div class="analyst-tab-content ownership-tab-content" id="tab-funds">
+                                            <div class="rec-module" style="height: 100%;">
+                                                <span class="module-label">TOP MUTUAL FUNDS</span>
+                                                <div class="table-responsive" style="margin-top: 10px;">
+                                                    <table class="mini-research-table premium-data-table" style="width: 100%; text-align: left; font-size: 0.8rem;">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>Fund</th>
+                                                                <th style="text-align: right;">Shares</th>
+                                                                <th style="text-align: right;">% Out</th>
+                                                                <th style="text-align: right;">Value</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody id="mutual-funds-body">
+                                                            <!-- JS Injected -->
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Col 4: Insiders -->
                                         <div class="analyst-tab-content ownership-tab-content" id="tab-insiders">
                                             <div class="eps-module" style="height: 100%;">
                                                 <span class="module-label" style="display: flex; justify-content: space-between; align-items: center;">
@@ -865,7 +889,7 @@
                                                     </div>
                                                 </span>
                                                 <div class="table-responsive" style="margin-top: 10px; max-height: 200px; overflow-y: auto;">
-                                                    <table class="mini-research-table" style="width: 100%; text-align: left; font-size: 0.75rem;">
+                                                    <table class="mini-research-table premium-data-table" style="width: 100%; text-align: left; font-size: 0.75rem;">
                                                         <thead>
                                                             <tr>
                                                                 <th>Date</th>
@@ -882,12 +906,33 @@
                                             </div>
                                         </div>
 
-                                        <!-- Col 4: Statistics -->
+                                        <!-- Col 5: Roster -->
+                                        <div class="analyst-tab-content ownership-tab-content" id="tab-roster">
+                                            <div class="eps-module" style="height: 100%;">
+                                                <span class="module-label">INSIDER ROSTER</span>
+                                                <div class="table-responsive" style="margin-top: 10px; max-height: 200px; overflow-y: auto;">
+                                                    <table class="mini-research-table premium-data-table" style="width: 100%; text-align: left; font-size: 0.8rem;">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>Name</th>
+                                                                <th>Position</th>
+                                                                <th style="text-align: right;">Date</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody id="roster-body">
+                                                            <!-- JS Injected -->
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Col 6: Statistics -->
                                         <div class="analyst-tab-content ownership-tab-content" id="tab-stats">
                                             <div class="rev-module" style="height: 100%;">
                                                 <span class="module-label">INSIDER PURCHASES (LAST 6M)</span>
                                                 <div class="table-responsive" style="margin-top: 10px;">
-                                                    <table class="mini-research-table" style="width: 100%; text-align: left; font-size: 0.8rem;">
+                                                    <table class="mini-research-table premium-data-table" style="width: 100%; text-align: left; font-size: 0.8rem;">
                                                         <thead>
                                                             <tr>
                                                                 <th>Metric</th>
@@ -910,16 +955,15 @@
                                         const track = document.getElementById('ownership-carousel-track');
                                         const prevBtn = document.getElementById('ownership-prev');
                                         const nextBtn = document.getElementById('ownership-next');
-                                        let currentSlide = 0; // 0 for part 1, 1 for part 2
+                                        let currentSlide = 0; // Current index for desktop carousel
+                                        const totalSlides = 2; // Total slides to reach the end of the carousel
                                         
                                         const updateCarousel = () => {
                                             if(window.innerWidth >= 769) {
-                                                track.style.transform = `translateX(-${currentSlide * 50}%)`;
-                                                // Looping logic means buttons are always active
-                                                prevBtn.style.opacity = '1';
-                                                prevBtn.style.pointerEvents = 'auto';
-                                                nextBtn.style.opacity = '1';
-                                                nextBtn.style.pointerEvents = 'auto';
+                                                // slide by 1 item width, which is 100/6 of track width, but we can translate by % of viewport. 1 item = 25% viewport.
+                                                track.style.transform = `translateX(-${currentSlide * 16.6666}%)`;
+                                                prevBtn.style.opacity = currentSlide > 0 ? '1' : '0.5';
+                                                nextBtn.style.opacity = currentSlide < totalSlides ? '1' : '0.5';
                                             } else {
                                                 track.style.transform = 'none';
                                             }
@@ -927,25 +971,48 @@
                                         
                                         if (prevBtn && nextBtn) {
                                             prevBtn.addEventListener('click', () => {
-                                                if (currentSlide > 0) {
-                                                    currentSlide--;
-                                                } else {
-                                                    currentSlide = 1;
-                                                }
+                                                if (currentSlide > 0) currentSlide--;
                                                 updateCarousel();
                                             });
                                             nextBtn.addEventListener('click', () => {
-                                                if (currentSlide < 1) {
-                                                    currentSlide++;
-                                                } else {
-                                                    currentSlide = 0;
-                                                }
+                                                if (currentSlide < totalSlides) currentSlide++;
                                                 updateCarousel();
                                             });
                                             // Initialize
                                             setTimeout(updateCarousel, 100);
                                             window.addEventListener('resize', updateCarousel);
                                         }
+
+                                        const tabBtns = document.querySelectorAll('.ownership-tab-btn');
+                                        const tabContents = document.querySelectorAll('.ownership-tab-content');
+
+                                        tabBtns.forEach((btn, index) => {
+                                            btn.addEventListener('click', () => {
+                                                const target = btn.dataset.tab;
+
+                                                tabBtns.forEach(b => b.classList.remove('active'));
+                                                btn.classList.add('active');
+
+                                                if (window.innerWidth < 769) {
+                                                    tabContents.forEach(tc => {
+                                                        if (tc.id === 'tab-' + target) {
+                                                            tc.style.display = 'block';
+                                                            tc.classList.add('active');
+                                                        } else {
+                                                            tc.style.display = 'none';
+                                                            tc.classList.remove('active');
+                                                        }
+                                                    });
+                                                } else {
+                                                    // Mobile active state doesn't mean anything for Desktop visibility, but it highlights tab.
+                                                    // On desktop, clicking tab should slide viewport.
+                                                    if (index < 4) currentSlide = 0;
+                                                    else if (index === 4) currentSlide = 1;
+                                                    else if (index === 5) currentSlide = 2;
+                                                    updateCarousel();
+                                                }
+                                            });
+                                        });
                                     });
                                     </script>
                                 </div>
