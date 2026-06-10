@@ -7073,6 +7073,56 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         modal.style.display = 'flex';
     });
 
+
+    // ── Scoring Rules Modal Handlers ──────────────────────────────
+    const rulesModal = document.getElementById('rules-modal');
+    const openRulesBtn = document.getElementById('open-rules-modal');
+    const closeRulesBtn = document.getElementById('close-rules-modal');
+    const rulesBody = document.getElementById('rules-modal-body');
+
+    if (openRulesBtn && rulesModal && closeRulesBtn && rulesBody) {
+        openRulesBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!window.globalData || !window.globalData.scoring_rules) {
+                rulesBody.innerHTML = '<p style="color:var(--text-muted);">No scoring rules available for this company.</p>';
+            } else {
+                let html = '';
+                const { health_rules, buy_rules } = window.globalData.scoring_rules;
+
+                if (health_rules && health_rules.length > 0) {
+                    html += '<h4 style="color: var(--accent); margin-bottom: 10px; margin-top: 0; font-size: 1.1rem;">Health Score Rules</h4>';
+                    html += '<ul style="padding-left: 20px; margin-bottom: 20px;">';
+                    health_rules.forEach(rule => {
+                        html += `<li style="margin-bottom: 8px;">${rule}</li>`;
+                    });
+                    html += '</ul>';
+                }
+
+                if (buy_rules && buy_rules.length > 0) {
+                    html += '<h4 style="color: var(--success, #10b981); margin-bottom: 10px; font-size: 1.1rem;">Good to Buy Score Rules</h4>';
+                    html += '<ul style="padding-left: 20px; margin-bottom: 20px;">';
+                    buy_rules.forEach(rule => {
+                        html += `<li style="margin-bottom: 8px;">${rule}</li>`;
+                    });
+                    html += '</ul>';
+                }
+
+                rulesBody.innerHTML = html || '<p style="color:var(--text-muted);">No specific rules found.</p>';
+            }
+            rulesModal.style.display = 'flex';
+        });
+
+        closeRulesBtn.addEventListener('click', () => {
+            rulesModal.style.display = 'none';
+        });
+
+        rulesModal.addEventListener('click', (e) => {
+            if (e.target === rulesModal) {
+                rulesModal.style.display = 'none';
+            }
+        });
+    }
+
     // ── Score Bar Click Handlers ──────────────────────────────
     function renderScoreBreakdown(title, totalScore, breakdown) {
         const modal = document.getElementById('score-modal');
