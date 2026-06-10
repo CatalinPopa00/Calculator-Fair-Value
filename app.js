@@ -3789,22 +3789,22 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         const inst = (mh.institutions || 0) * 100;
         const flt = (mh.float || 0) * 100;
 
-        document.getElementById('float-pct-text').textContent = flt.toFixed(1) + '%';
+        document.querySelectorAll('#float-pct-text, .analyst-tab-content #float-pct-text').forEach(el => el.textContent = flt.toFixed(1) + '%');
         document.getElementById('leg-insiders').textContent = ins.toFixed(1) + '%';
         document.getElementById('leg-institutions').textContent = inst.toFixed(1) + '%';
 
         setTimeout(() => {
-            document.getElementById('ring-insiders').style.strokeDashoffset = 439.8 - (439.8 * (ins / 100));
-            document.getElementById('ring-institutions').style.strokeDashoffset = 339.3 - (339.3 * (inst / 100));
-            document.getElementById('ring-float').style.strokeDashoffset = 238.8 - (238.8 * (flt / 100));
+            document.querySelectorAll('#ring-insiders').forEach(el => el.style.strokeDashoffset = 439.8 - (439.8 * (ins / 100)));
+            document.querySelectorAll('#ring-institutions').forEach(el => el.style.strokeDashoffset = 339.3 - (339.3 * (inst / 100)));
+            document.querySelectorAll('#ring-float').forEach(el => el.style.strokeDashoffset = 238.8 - (238.8 * (flt / 100)));
         }, 100);
 
         // 2. Top Holders
-        const thBody = document.getElementById('top-holders-body');
-        thBody.innerHTML = '';
+        const thBodies = document.querySelectorAll('#top-holders-body, .analyst-tab-content table tbody.top-holders-body');
+        thBodies.forEach(b => b.innerHTML = '');
         if (ownership.top_institutional && ownership.top_institutional.length > 0) {
             ownership.top_institutional.forEach(th => {
-                thBody.innerHTML += `<tr>
+                thBodies.forEach(b => b.innerHTML += `<tr>
                     <td>${th.holder}</td>
                     <td style="text-align: right;">${formatBigNumber(th.shares, '')}</td>
                     <td style="text-align: right;">${(th.pct_out * 100).toFixed(2)}%</td>
@@ -3812,17 +3812,18 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 </tr>`;
             });
         } else {
-            thBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No data available</td></tr>';
+            thBodies.forEach(b => b.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No data available</td></tr>');
         }
 
+
         // 3. Insiders
-        const txBody = document.getElementById('insider-tx-body');
+        const txBodies = document.querySelectorAll('#insider-tx-body, .analyst-tab-content table tbody.insider-tx-body');
         const renderTx = (type) => {
-            txBody.innerHTML = '';
+            txBodies.forEach(b => b.innerHTML = '');
             const txs = ownership.insider_transactions ? ownership.insider_transactions[type] : [];
             if (txs && txs.length > 0) {
                 txs.forEach(tx => {
-                    txBody.innerHTML += `<tr>
+                    txBodies.forEach(b => b.innerHTML += `<tr>
                         <td>${tx.date}</td>
                         <td>${tx.insider}<br><span style="color:var(--text-muted); font-size: 0.65rem;">${tx.position}</span></td>
                         <td style="text-align: right; color: ${type === 'buy' ? 'var(--accent)' : 'var(--danger)'};">${formatBigNumber(tx.shares, '')}</td>
@@ -3830,7 +3831,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     </tr>`;
                 });
             } else {
-                txBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No transactions found</td></tr>';
+                txBodies.forEach(b => b.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No transactions found</td></tr>');
             }
         };
         renderTx('buy');
@@ -3862,19 +3863,20 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             });
         });
 
+
         // 4. Statistics
-        const stBody = document.getElementById('insider-stats-body');
-        stBody.innerHTML = '';
+        const stBodies = document.querySelectorAll('#insider-stats-body, .analyst-tab-content table tbody.insider-stats-body');
+        stBodies.forEach(b => b.innerHTML = '');
         if (ownership.insider_purchases_6m && ownership.insider_purchases_6m.length > 0) {
             ownership.insider_purchases_6m.forEach(st => {
-                stBody.innerHTML += `<tr>
+                stBodies.forEach(b => b.innerHTML += `<tr>
                     <td>${st.label}</td>
                     <td style="text-align: right;">${formatBigNumber(st.shares, '')}</td>
                     <td style="text-align: right;">${st.trans}</td>
                 </tr>`;
             });
         } else {
-            stBody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-muted);">No data available</td></tr>';
+            stBodies.forEach(b => b.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-muted);">No data available</td></tr>');
         }
     };
 
@@ -7338,3 +7340,93 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     }
 
 });
+
+function renderRulesModal() {
+    const rulesModalBody = document.getElementById('rules-modal-body');
+    const rulesModalTitle = document.getElementById('rules-modal-title');
+    if(!rulesModalBody || !rulesModalTitle) return;
+
+    const sector = (window.globalData?.company_profile?.sector || "").toLowerCase();
+    const industry = (window.globalData?.company_profile?.industry || "").toLowerCase();
+    let archetype = "Standard";
+    let targetPe = 18;
+
+    // Determine archetype based on Python backend rules
+    if (industry.includes('reit') || sector.includes('real estate')) archetype = "REIT";
+    else if (industry.includes('bank') || industry.includes('credit')) archetype = "Bank";
+    else if (industry.includes('insurance')) archetype = "Insurance";
+    else if (sector.includes('financial')) archetype = "Fintech";
+    else if (sector.includes('utilities')) archetype = "Utilities";
+    else if (sector.includes('energy') && !industry.includes('renewable')) archetype = "Energy";
+    else if (sector.includes('defensive') || sector.includes('consumer staples') || industry.includes('retail') || industry.includes('discount')) archetype = "Retail/Defensive";
+    else if (sector.includes('technology') || industry.includes('software') || sector.includes('communication')) {
+        archetype = "Technology";
+        targetPe = 25;
+    }
+
+    if (sector.includes('consumer discretionary')) targetPe = 22;
+    else if (sector.includes('health') || industry.includes('biotech')) targetPe = 18;
+    else if (sector.includes('industrials') || sector.includes('materials') || sector.includes('consumer staples') || sector.includes('defensive')) targetPe = 16;
+    else if (sector.includes('utilities') || sector.includes('real estate') || industry.includes('reit')) targetPe = 15;
+    else if (sector.includes('financial') || industry.includes('bank')) targetPe = 13;
+
+
+    rulesModalTitle.textContent = `Scoring Rules (${archetype})`;
+
+    let html = `
+    <div style="display:flex; flex-direction: column; gap: 1rem; text-align: left;">
+        <h3 style="color:var(--text-main); font-size:1.1rem;">Health Score (Max 100p)</h3>
+        <ul style="list-style-type: disc; padding-left: 20px; font-size: 0.9rem; color: var(--text-secondary); display: flex; flex-direction: column; gap: 8px;">
+    `;
+
+    // Health Score rules
+    if (archetype === "Bank" || archetype === "Insurance" || archetype === "Fintech") {
+        html += `<li><strong>Debt to Equity:</strong> Ignored for financial companies.</li>`;
+        html += `<li><strong>Current Ratio:</strong> Ignored.</li>`;
+        html += `<li><strong>ROA (Return on Assets):</strong> >1.5% (20p), >0.8% (10p)</li>`;
+        html += `<li><strong>ROE (Return on Equity):</strong> >15% (20p), >10% (10p)</li>`;
+        html += `<li><strong>Net Margin:</strong> >15% (15p), >10% (7.5p)</li>`;
+    } else if (archetype === "REIT") {
+        html += `<li><strong>Debt to Equity:</strong> &le;2.5 (20p), &le;4.0 (10p)</li>`;
+        html += `<li><strong>Current Ratio:</strong> Ignored.</li>`;
+        html += `<li><strong>EBIT Margin (Operating):</strong> >30% (15p), >20% (7.5p)</li>`;
+        html += `<li><strong>ROE:</strong> >8% (20p), >5% (10p)</li>`;
+    } else if (archetype === "Utilities") {
+        html += `<li><strong>Debt to Equity:</strong> &le;2.0 (20p), &le;3.0 (10p)</li>`;
+        html += `<li><strong>Current Ratio:</strong> &ge;0.5 (15p)</li>`;
+        html += `<li><strong>EBIT Margin:</strong> >20% (15p), >10% (7.5p)</li>`;
+        html += `<li><strong>ROE:</strong> >8% (20p), >5% (10p)</li>`;
+    } else if (archetype === "Energy") {
+        html += `<li><strong>Debt to Equity:</strong> &le;1.0 (20p), &le;1.5 (10p)</li>`;
+        html += `<li><strong>Current Ratio:</strong> &ge;1.0 (15p), &ge;0.8 if Free Cash Flow is growing (7.5p)</li>`;
+        html += `<li><strong>EBIT Margin:</strong> >15% (15p), >8% (7.5p)</li>`;
+        html += `<li><strong>ROIC:</strong> >10% (20p), >5% (10p)</li>`;
+    } else {
+        // Standard / Tech / Retail
+        html += `<li><strong>Debt to Equity:</strong> <0.8 (20p), &le;1.5 (10p)</li>`;
+        html += `<li><strong>Current Ratio:</strong> &ge;1.5 (15p), 0.7-1.49 (7.5p, or 15p if FCF is growing)</li>`;
+        html += `<li><strong>EBIT Margin:</strong> >20% (15p), &ge;10% (7.5p)</li>`;
+        html += `<li><strong>ROIC:</strong> >15% (20p), &ge;8% (10p)</li>`;
+    }
+
+    html += `
+        <li><strong>Free Cash Flow (FCF):</strong> >0 (15p)</li>
+        <li><strong>FCF Margin:</strong> >10% (10p), &ge;5% (5p)</li>
+    </ul>
+    `;
+
+    html += `
+        <h3 style="color:var(--text-main); font-size:1.1rem; margin-top: 10px;">Good to Buy Score (Max 100p)</h3>
+        <ul style="list-style-type: disc; padding-left: 20px; font-size: 0.9rem; color: var(--text-secondary); display: flex; flex-direction: column; gap: 8px;">
+            <li><strong>P/E Ratio:</strong> &le;${targetPe} (20p), &le;${Math.round(targetPe*1.3)} AND (Revenue Growth > 15% OR PEG < 1.5) (15p), Else &le;${Math.round(targetPe*1.3)} (10p)</li>
+            <li><strong>P/FCF Ratio:</strong> &le;15 (20p), &le;25 (10p)</li>
+            <li><strong>PEG Ratio:</strong> >0 AND &le;1.2 (15p), &le;1.8 (7.5p)</li>
+            <li><strong>Revenue Growth (YoY):</strong> >10% (15p), >5% (7.5p)</li>
+            <li><strong>EPS Growth (YoY):</strong> >10% (15p), >5% (7.5p)</li>
+            <li><strong>Share Buybacks (YoY):</strong> Shares Decreased (15p)</li>
+        </ul>
+    </div>
+    `;
+
+    rulesModalBody.innerHTML = html;
+}
