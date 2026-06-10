@@ -1062,12 +1062,14 @@
         <!-- Hidden PDF Container -->
         <div id="pdf-export-container" style="position: absolute; left: -9999px; top: -9999px; width: 1100px; background: #0b1320; color: white;"></div>
 
-        <div id="rules-modal" class="modal">
-            <div class="modal-content" style="max-width: 600px;">
-                <span class="close-btn" id="close-rules-modal">&times;</span>
-                <h2 id="rules-modal-title">Scoring Rules</h2>
-                <div id="rules-modal-body" class="premium-data-table" style="margin-top: 1rem;">
-                    <!-- dynamic rules injected here -->
+        <div id="rules-modal" class="modal-overlay" style="display: none; z-index: 1000;">
+            <div style="position: relative; max-width: 600px; width: 95%; pointer-events: none;">
+                <div class="modal-content glass-card" style="padding-top: 35px; position: relative; pointer-events: auto; max-height: 90vh; overflow-y: auto;">
+                    <span class="close-btn" id="close-rules-modal" style="position: absolute; top: 15px; right: 20px; font-size: 1.5rem; cursor: pointer; color: var(--text-main);">&times;</span>
+                    <h2 id="rules-modal-title" style="margin-bottom: 1rem;">Scoring Rules</h2>
+                    <div id="rules-modal-body" class="premium-data-table" style="margin-top: 1rem;">
+                        <!-- dynamic rules injected here -->
+                    </div>
                 </div>
             </div>
         </div>
