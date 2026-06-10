@@ -165,8 +165,10 @@
                     style="margin-top: 1.5rem; width: 100%; position: relative;">
                     <!-- Modal Info Icon Removed per User Request -->
 
-                    <h3 style="margin-bottom: 1.5rem; color: var(--text-main); font-size: 1.2rem; text-align: center;">
-                        COMPANY SCORES & KEY DRIVERS</h3>
+                    <h3 style="margin-bottom: 1.5rem; color: var(--text-main); font-size: 1.2rem; text-align: center; position: relative;">
+                        COMPANY SCORES & KEY DRIVERS
+                        <span id="rules-info-icon" style="cursor: pointer; font-size: 1rem; position: absolute; right: 0; top: 0;" title="View Scoring Rules">ℹ️</span>
+                    </h3>
 
                     <div class="row-2-grid">
                         <!-- Left 50%: Scores -->
@@ -1060,6 +1062,15 @@
         <!-- Hidden PDF Container -->
         <div id="pdf-export-container" style="position: absolute; left: -9999px; top: -9999px; width: 1100px; background: #0b1320; color: white;"></div>
 
+        <div id="rules-modal" class="modal">
+            <div class="modal-content" style="max-width: 600px;">
+                <span class="close-btn" id="close-rules-modal">&times;</span>
+                <h2 id="rules-modal-title">Scoring Rules</h2>
+                <div id="rules-modal-body" class="premium-data-table" style="margin-top: 1rem;">
+                    <!-- dynamic rules injected here -->
+                </div>
+            </div>
+        </div>
         <!-- Loading State -->
         <div id="loading-state" class="loading-state" style="display: none;">
             <div class="spinner"></div>
