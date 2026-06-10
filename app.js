@@ -3820,6 +3820,24 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             thBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No data available</td></tr>';
         }
 
+        // 2.5 Top Mutual Funds
+        const mfBody = document.getElementById('mutual-funds-body');
+        if (mfBody) {
+            mfBody.innerHTML = '';
+            if (ownership.mutual_funds && ownership.mutual_funds.length > 0) {
+                ownership.mutual_funds.forEach(mf => {
+                    mfBody.innerHTML += `<tr>
+                        <td>${mf.holder}</td>
+                        <td style="text-align: right;">${formatBigNumber(mf.shares, '')}</td>
+                        <td style="text-align: right;">${(mf.pct_out * 100).toFixed(2)}%</td>
+                        <td style="text-align: right;">${formatBigNumber(mf.value, '$')}</td>
+                    </tr>`;
+                });
+            } else {
+                mfBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No data available</td></tr>';
+            }
+        }
+
         // 3. Insiders
         const txBody = document.getElementById('insider-tx-body');
         const renderTx = (type) => {
@@ -3866,6 +3884,23 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 renderTx(type);
             });
         });
+
+        // 3.5 Insider Roster
+        const rosterBody = document.getElementById('roster-body');
+        if (rosterBody) {
+            rosterBody.innerHTML = '';
+            if (ownership.insider_roster && ownership.insider_roster.length > 0) {
+                ownership.insider_roster.forEach(ir => {
+                    rosterBody.innerHTML += `<tr>
+                        <td>${ir.name}</td>
+                        <td>${ir.position}</td>
+                        <td style="text-align: right; color: var(--text-muted);">${ir.date}</td>
+                    </tr>`;
+                });
+            } else {
+                rosterBody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-muted);">No roster data available</td></tr>';
+            }
+        }
 
         // 4. Statistics
         const stBody = document.getElementById('insider-stats-body');

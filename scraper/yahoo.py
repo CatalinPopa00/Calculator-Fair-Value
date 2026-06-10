@@ -1174,6 +1174,7 @@ Strictly adhere to these precise markdown headers (written exactly like this, in
 
 def get_ownership_data(ticker_symbol: str):
     try:
+        import pandas as _pd
         stock = yf.Ticker(ticker_symbol)
         
         # 1. Major Holders
@@ -1259,14 +1260,50 @@ def get_ownership_data(ticker_symbol: str):
         except Exception as e:
             log(f"Error fetching insider_purchases for {ticker_symbol}: {e}")
 
+        # 5. Mutual Fund Holders
+        mutual_funds = []
+        try:
+            mf = stock.mutualfund_holders
+            if mf is not None and not mf.empty:
+                so = stock.info.get('sharesOutstanding', 0)
+                for idx in mf.head(5).index:
+                    shares = float(mf.loc[idx, 'Shares']) if 'Shares' in mf.columns and _pd.notna(mf.loc[idx, 'Shares']) else 0
+                    pct_out = (shares / so) if so > 0 else 0
+                    mutual_funds.append({
+                        "holder": str(mf.loc[idx, 'Holder']) if 'Holder' in mf.columns else '',
+                        "shares": shares,
+                        "pct_out": pct_out,
+                        "value": float(mf.loc[idx, 'Value']) if 'Value' in mf.columns and _pd.notna(mf.loc[idx, 'Value']) else 0
+                    })
+        except Exception as e:
+            log(f"Error fetching mutualfund_holders for {ticker_symbol}: {e}")
+
+        # 6. Insider Roster
+        insider_roster = []
+        try:
+            ir = stock.insider_roster_holders
+            if ir is not None and not ir.empty:
+                for idx in ir.head(10).index:
+                    date_val = ir.loc[idx, 'Direct Date'] if 'Direct Date' in ir.columns else None
+                    date_str = date_val.strftime('%b %d, %Y') if hasattr(date_val, 'strftime') else str(date_val) if _pd.notna(date_val) else ''
+                    insider_roster.append({
+                        "name": str(ir.loc[idx, 'Name']) if 'Name' in ir.columns else '',
+                        "position": str(ir.loc[idx, 'Position']) if 'Position' in ir.columns else '',
+                        "date": date_str
+                    })
+        except Exception as e:
+            log(f"Error fetching insider_roster_holders for {ticker_symbol}: {e}")
+
         return {
             "major_holders": mh,
             "top_institutional": top_inst,
+            "mutual_funds": mutual_funds,
             "insider_transactions": {
                 "buy": insider_buy,
                 "sell": insider_sell
             },
-            "insider_purchases_6m": purchases_stats
+            "insider_purchases_6m": purchases_stats,
+            "insider_roster": insider_roster
         }
     except Exception as e:
         log(f"Error in get_ownership_data for {ticker_symbol}: {e}")
