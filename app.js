@@ -3809,12 +3809,12 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         thBodies.forEach(b => b.innerHTML = '');
         if (ownership.top_institutional && ownership.top_institutional.length > 0) {
             ownership.top_institutional.forEach(th => {
-                thBodies.forEach(b => b.innerHTML += `<tr>
+                thBodies.forEach(b => { b.innerHTML += `<tr>
                     <td>${th.holder}</td>
                     <td style="text-align: right;">${formatBigNumber(th.shares, '')}</td>
                     <td style="text-align: right;">${(th.pct_out * 100).toFixed(2)}%</td>
                     <td style="text-align: right;">${formatBigNumber(th.value, '$')}</td>
-                </tr>`;
+                </tr>`; });
             });
         } else {
             thBodies.forEach(b => b.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No data available</td></tr>');
@@ -3826,12 +3826,12 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             mfBodies.forEach(b => b.innerHTML = '');
             if (ownership.mutual_funds && ownership.mutual_funds.length > 0) {
                 ownership.mutual_funds.forEach(mf => {
-                    mfBodies.forEach(b => b.innerHTML += `<tr>
+                    mfBodies.forEach(b => { b.innerHTML += `<tr>
                         <td>${mf.holder}</td>
                         <td style="text-align: right;">${formatBigNumber(mf.shares, '')}</td>
                         <td style="text-align: right;">${(mf.pct_out * 100).toFixed(2)}%</td>
                         <td style="text-align: right;">${formatBigNumber(mf.value, '$')}</td>
-                    </tr>`;
+                    </tr>`; });
                 });
             } else {
                 mfBodies.forEach(b => b.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No data available</td></tr>');
@@ -3845,12 +3845,12 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             const txs = ownership.insider_transactions ? ownership.insider_transactions[type] : [];
             if (txs && txs.length > 0) {
                 txs.forEach(tx => {
-                    txBodies.forEach(b => b.innerHTML += `<tr>
+                    txBodies.forEach(b => { b.innerHTML += `<tr>
                         <td>${tx.date}</td>
                         <td>${tx.insider}<br><span style="color:var(--text-muted); font-size: 0.65rem;">${tx.position}</span></td>
                         <td style="text-align: right; color: ${type === 'buy' ? 'var(--accent)' : 'var(--danger)'};">${formatBigNumber(tx.shares, '')}</td>
                         <td style="text-align: right;">${formatBigNumber(tx.value, '$')}</td>
-                    </tr>`;
+                    </tr>`; });
                 });
             } else {
                 txBodies.forEach(b => b.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No transactions found</td></tr>');
@@ -3891,11 +3891,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             rosterBodies.forEach(b => b.innerHTML = '');
             if (ownership.insider_roster && ownership.insider_roster.length > 0) {
                 ownership.insider_roster.forEach(ir => {
-                    rosterBodies.forEach(b => b.innerHTML += `<tr>
+                    rosterBodies.forEach(b => { b.innerHTML += `<tr>
                         <td>${ir.name}</td>
                         <td>${ir.position}</td>
                         <td style="text-align: right; color: var(--text-muted);">${ir.date}</td>
-                    </tr>`;
+                    </tr>`; });
                 });
             } else {
                 rosterBodies.forEach(b => b.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-muted);">No roster data available</td></tr>');
@@ -3907,11 +3907,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         stBodies.forEach(b => b.innerHTML = '');
         if (ownership.insider_purchases_6m && ownership.insider_purchases_6m.length > 0) {
             ownership.insider_purchases_6m.forEach(st => {
-                stBodies.forEach(b => b.innerHTML += `<tr>
+                stBodies.forEach(b => { b.innerHTML += `<tr>
                     <td>${st.label}</td>
                     <td style="text-align: right;">${formatBigNumber(st.shares, '')}</td>
                     <td style="text-align: right;">${st.trans}</td>
-                </tr>`;
+                </tr>`; });
             });
         } else {
             stBodies.forEach(b => b.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-muted);">No data available</td></tr>');

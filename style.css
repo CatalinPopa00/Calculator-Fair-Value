@@ -1800,6 +1800,9 @@ body.banner-visible .modal-content {
 
 .analyst-tabs-control {
     display: flex;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
     background: transparent;
     padding: 2px;
     border-radius: 12px;
