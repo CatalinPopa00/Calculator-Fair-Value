@@ -1055,3 +1055,55 @@ def calculate_rule_of_40(metrics):
         "margin_desc": margin_desc
     }
 
+
+
+def get_scoring_rules(valuation_data: dict, metrics: dict) -> dict:
+    profile = valuation_data.get("company_profile", {})
+    sector = profile.get("sector", "").lower()
+    industry = profile.get("industry", "").lower()
+
+    # Determine archetype based on logic from calculate_scoring_reform
+    if sector in ['financial services', 'financials'] or 'bank' in industry or 'insurance' in industry or 'credit services' in industry:
+        # Banks/Financials
+        return {
+            "health_rules": [
+                "RoE (Return on Equity): > 10% => 10p, 6-10% => 5p, < 6% => 0p",
+                "P/B (Price-to-Book): < 1.0 => 10p, 1.0-1.5 => 5p, > 1.5 => 0p",
+                "Div Yield: > 3% => 10p, 1-3% => 5p, < 1% => 0p",
+                "Payout Ratio: < 60% => 10p, 60-80% => 5p, > 80% => 0p",
+                "NIM (Net Interest Margin, proxied by FCF Margin here): > 30% => 10p, 15-30% => 5p, < 15% => 0p"
+            ],
+            "buy_rules": [
+                "Discount to Fair Value: > 20% => Max, 0-20% => Scale, Premium => 0p",
+                "P/E vs Target (Return Rate): Lower is better"
+            ]
+        }
+    elif 'software' in industry or 'technology' in sector:
+        # Tech/SaaS
+        return {
+            "health_rules": [
+                "Rule of 40 (Growth + Margin): > 40% => 20p, 20-40% => 10p, < 20% => 0p",
+                "Gross Margin: > 70% => 10p, 50-70% => 5p, < 50% => 0p",
+                "Debt-to-Equity: < 0.5 => 10p, 0.5-1.0 => 5p, > 1.0 => 0p",
+                "Revenue Growth: > 20% => 10p, 10-20% => 5p, < 10% => 0p"
+            ],
+            "buy_rules": [
+                "Discount to Fair Value: > 20% => Max, 0-20% => Scale, Premium => 0p",
+                "PEG Ratio: < 1.0 => Max, 1.0-1.5 => Scale, > 1.5 => 0p"
+            ]
+        }
+    else:
+        # Default
+        return {
+            "health_rules": [
+                "Debt-to-Equity: < 0.8 => 10p, 0.8-1.2 => 5p, > 1.2 => 0p",
+                "Current Ratio: > 1.5 => 10p, 1.0-1.5 => 5p, < 1.0 => 0p",
+                "RoIC (Return on Invested Capital): > 10% => 10p, 5-10% => 5p, < 5% => 0p",
+                "Gross Margin: > 40% => 10p, 20-40% => 5p, < 20% => 0p",
+                "FCF Margin: > 10% => 10p, 5-10% => 5p, < 5% => 0p"
+            ],
+            "buy_rules": [
+                "Discount to Fair Value: > 20% => Max, 0-20% => Scale, Premium => 0p",
+                "P/E vs Target: Lower is better"
+            ]
+        }

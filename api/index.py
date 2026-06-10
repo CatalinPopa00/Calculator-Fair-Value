@@ -30,7 +30,7 @@ from models.valuation import (
     calculate_dcf_sensitivity,
     calculate_reverse_dcf
 )
-from models.scoring import calculate_scoring_reform, calculate_piotroski_score
+from models.scoring import calculate_scoring_reform, calculate_piotroski_score, get_scoring_rules
 
 # Cache for search results (30 mins TTL)
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
@@ -1405,6 +1405,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             
             # Shared fields across branches
             shared = {
+
                 "fcf_projections": [sanitize(x) for x in res.get("fcf_years", [])],
                 "pv_fcf_years": [sanitize(x) for x in res.get("pv_fcf_years", [])],
                 "present_value_fcf_sum": sanitize(res.get("total_pv_of_fcfs")),
@@ -1867,7 +1868,8 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             "overrides": ticker_overrides,
             "archetype": data.get("archetype"),
             "archetype_weights": data.get("archetype_weights"),
-            "ownership": data.get("ownership")
+            "ownership": data.get("ownership"),
+            "scoring_rules": get_scoring_rules(valuation_data_for_scoring, data)
         }
     except Exception as e:
         import traceback
