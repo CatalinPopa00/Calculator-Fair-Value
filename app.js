@@ -7314,6 +7314,29 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     });
 
 
+
+    // Rules Modal Logic
+    const rulesInfoIcon = document.getElementById('rules-info-icon');
+    const rulesModal = document.getElementById('rules-modal');
+    const closeRulesModal = document.getElementById('close-rules-modal');
+
+    if (rulesInfoIcon && rulesModal && closeRulesModal) {
+        rulesInfoIcon.addEventListener('click', () => {
+            renderRulesModal();
+            rulesModal.style.display = 'flex';
+        });
+
+        closeRulesModal.addEventListener('click', () => {
+            rulesModal.style.display = 'none';
+        });
+
+        window.addEventListener('click', (e) => {
+            if (e.target === rulesModal) {
+                rulesModal.style.display = 'none';
+            }
+        });
+    }
+
     // PWA Install Logic
     let deferredPrompt;
     window.addEventListener('beforeinstallprompt', (e) => {
