@@ -246,14 +246,14 @@ def get_yahoo_analysis_normalized(ticker, info=None):
                     if y in rev_est.index:
                         if y not in res['rev']: res['rev'][y] = {}
                         val_avg = rev_est.loc[y, 'avg']
-                        if pd.notna(val_avg): res['rev'][y]['avg'] = float(val_avg)
+                        if _pd.notna(val_avg): res['rev'][y]['avg'] = float(val_avg)
                         val_low = rev_est.loc[y, 'low']
-                        if pd.notna(val_low) and not res['rev'][y].get('low'): res['rev'][y]['low'] = float(val_low)
+                        if _pd.notna(val_low) and not res['rev'][y].get('low'): res['rev'][y]['low'] = float(val_low)
                         val_high = rev_est.loc[y, 'high']
-                        if pd.notna(val_high) and not res['rev'][y].get('high'): res['rev'][y]['high'] = float(val_high)
+                        if _pd.notna(val_high) and not res['rev'][y].get('high'): res['rev'][y]['high'] = float(val_high)
                         if 'yearAgoRevenue' in rev_est.columns:
                             val_ya = rev_est.loc[y, 'yearAgoRevenue']
-                            if pd.notna(val_ya) and not res['rev'][y].get('yearAgo'): res['rev'][y]['yearAgo'] = float(val_ya)
+                            if _pd.notna(val_ya) and not res['rev'][y].get('yearAgo'): res['rev'][y]['yearAgo'] = float(val_ya)
                         
             # EPS Estimates
             eps_est = yf_ticker.earnings_estimate
@@ -263,15 +263,15 @@ def get_yahoo_analysis_normalized(ticker, info=None):
                         if y not in res['eps']: res['eps'][y] = {}
                         val_avg = eps_est.loc[y, 'avg']
                         # v296: Do NOT overwrite info's Non-GAAP estimate with yfinance's GAAP estimate
-                        if pd.notna(val_avg) and not res['eps'][y].get('avg'): 
+                        if _pd.notna(val_avg) and not res['eps'][y].get('avg'):
                             res['eps'][y]['avg'] = float(val_avg)
                         val_low = eps_est.loc[y, 'low']
-                        if pd.notna(val_low) and not res['eps'][y].get('low'): res['eps'][y]['low'] = float(val_low)
+                        if _pd.notna(val_low) and not res['eps'][y].get('low'): res['eps'][y]['low'] = float(val_low)
                         val_high = eps_est.loc[y, 'high']
-                        if pd.notna(val_high) and not res['eps'][y].get('high'): res['eps'][y]['high'] = float(val_high)
+                        if _pd.notna(val_high) and not res['eps'][y].get('high'): res['eps'][y]['high'] = float(val_high)
                         if 'yearAgoEps' in eps_est.columns:
                             val_ya = eps_est.loc[y, 'yearAgoEps']
-                            if pd.notna(val_ya) and not res['eps'][y].get('yearAgo'): res['eps'][y]['yearAgo'] = float(val_ya)
+                            if _pd.notna(val_ya) and not res['eps'][y].get('yearAgo'): res['eps'][y]['yearAgo'] = float(val_ya)
         except Exception as e:
             print(f"yfinance estimates fetch failed for {t_upper}: {e}")
 
@@ -1181,10 +1181,10 @@ def get_ownership_data(ticker_symbol: str):
         try:
             major = stock.major_holders
             if major is not None and not major.empty:
-                for idx, row in major.iterrows():
+                for idx in major.index:
                     bd = str(idx)
-                    val = row.get('Value')
-                    if pd.notna(val):
+                    val = major.loc[idx, 'Value'] if 'Value' in major.columns else None
+                    if _pd.notna(val):
                         if 'insidersPercentHeld' in bd:
                             mh['insiders'] = float(val)
                         elif 'institutionsPercentHeld' in bd:
@@ -1202,14 +1202,14 @@ def get_ownership_data(ticker_symbol: str):
             if ih is not None and not ih.empty:
                 # Need sharesOutstanding to calculate % Out
                 so = stock.info.get('sharesOutstanding', 0)
-                for _, row in ih.head(5).iterrows():
-                    shares = float(row.get('Shares', 0)) if pd.notna(row.get('Shares')) else 0
+                for idx in ih.head(5).index:
+                    shares = float(ih.loc[idx, 'Shares']) if 'Shares' in ih.columns and _pd.notna(ih.loc[idx, 'Shares']) else 0
                     pct_out = (shares / so) if so > 0 else 0
                     top_inst.append({
-                        "holder": str(row.get('Holder', '')),
+                        "holder": str(ih.loc[idx, 'Holder']) if 'Holder' in ih.columns else '',
                         "shares": shares,
                         "pct_out": pct_out,
-                        "value": float(row.get('Value', 0)) if pd.notna(row.get('Value')) else 0
+                        "value": float(ih.loc[idx, 'Value']) if 'Value' in ih.columns and _pd.notna(ih.loc[idx, 'Value']) else 0
                     })
         except Exception as e:
             log(f"Error fetching institutional_holders for {ticker_symbol}: {e}")
@@ -1220,21 +1220,21 @@ def get_ownership_data(ticker_symbol: str):
         try:
             it = stock.insider_transactions
             if it is not None and not it.empty:
-                for _, row in it.iterrows():
-                    text = str(row.get('Text', '')).lower()
-                    if pd.isna(row.get('Text')): continue
+                for idx in it.index:
+                    if 'Text' not in it.columns or _pd.isna(it.loc[idx, 'Text']): continue
+                    text = str(it.loc[idx, 'Text']).lower()
                     
                     # Convert Timestamp to string
-                    date_val = row.get('Start Date')
+                    date_val = it.loc[idx, 'Start Date'] if 'Start Date' in it.columns else None
                     date_str = date_val.strftime('%b %d, %Y') if hasattr(date_val, 'strftime') else str(date_val)
                     
                     tx = {
-                        "insider": str(row.get('Insider', '')),
-                        "position": str(row.get('Position', '')),
+                        "insider": str(it.loc[idx, 'Insider']) if 'Insider' in it.columns else '',
+                        "position": str(it.loc[idx, 'Position']) if 'Position' in it.columns else '',
                         "date": date_str,
-                        "shares": float(row.get('Shares', 0)) if pd.notna(row.get('Shares')) else 0,
-                        "value": float(row.get('Value', 0)) if pd.notna(row.get('Value')) else 0,
-                        "text": str(row.get('Text', ''))
+                        "shares": float(it.loc[idx, 'Shares']) if 'Shares' in it.columns and _pd.notna(it.loc[idx, 'Shares']) else 0,
+                        "value": float(it.loc[idx, 'Value']) if 'Value' in it.columns and _pd.notna(it.loc[idx, 'Value']) else 0,
+                        "text": str(it.loc[idx, 'Text'])
                     }
                     if 'purchase' in text or 'buy' in text:
                         if len(insider_buy) < 10:
@@ -1250,11 +1250,11 @@ def get_ownership_data(ticker_symbol: str):
         try:
             ip = stock.insider_purchases
             if ip is not None and not ip.empty:
-                for _, row in ip.iterrows():
+                for idx in ip.index:
                     purchases_stats.append({
-                        "label": str(row.get('Insider Purchases Last 6m', '')),
-                        "shares": float(row.get('Shares', 0)) if pd.notna(row.get('Shares')) else 0,
-                        "trans": int(row.get('Trans', 0)) if pd.notna(row.get('Trans')) else 0
+                        "label": str(ip.loc[idx, 'Insider Purchases Last 6m']) if 'Insider Purchases Last 6m' in ip.columns else '',
+                        "shares": float(ip.loc[idx, 'Shares']) if 'Shares' in ip.columns and _pd.notna(ip.loc[idx, 'Shares']) else 0,
+                        "trans": int(ip.loc[idx, 'Trans']) if 'Trans' in ip.columns and _pd.notna(ip.loc[idx, 'Trans']) else 0
                     })
         except Exception as e:
             log(f"Error fetching insider_purchases for {ticker_symbol}: {e}")
@@ -1453,7 +1453,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                     idx = find_idx(ge, 'Next 5 Years')
                     if idx:
                         val = ge.loc[idx, ge.columns[0]]
-                        if val is not None and not pd.isna(val):
+                        if val is not None and not _pd.isna(val):
                             eps_growth_5y_consensus = normalize_growth(val)
                             eps_growth = eps_growth_5y_consensus
                             eps_growth_period = "Next 5 Years (Consensus)"
@@ -1516,9 +1516,9 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
         try:
             ee = stock.earnings_estimate
             if ee is not None and not ee.empty:
-                for idx, row in ee.iterrows():
-                    g = row.get('growth')
-                    if g is not None and not pd.isna(g):
+                for idx in ee.index:
+                    g = ee.loc[idx, 'growth'] if 'growth' in ee.columns else None
+                    if g is not None and not _pd.isna(g):
                         if str(idx) == '0y': yf_0y_growth = normalize_growth(g)
                         elif str(idx) == '+1y': yf_1y_growth = normalize_growth(g)
         except: pass
@@ -1729,7 +1729,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                             valid = series.dropna()
                             if not valid.empty: return float(valid.iloc[0])
                         else:
-                            if not pd.isna(series): return float(series)
+                            if not _pd.isna(series): return float(series)
                 return 0
 
             # Prioritize explicitly reported Total Debt
@@ -1772,7 +1772,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                             valid = series.dropna()
                             if not valid.empty: return float(valid.iloc[0])
                         else:
-                            if not pd.isna(series): return float(series)
+                            if not _pd.isna(series): return float(series)
                 return 0
                 
             return get_latest_valid(['Cash Cash Equivalents And Short Term Investments', 'Cash And Cash Equivalents'])
@@ -2276,9 +2276,9 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                     est_col = next((c for c in ed.columns if 'Estimate' in c), None)
                     act_col = next((c for c in ed.columns if any(x in c for x in ['Reported', 'Actual', 'EPS', 'Earnings'])), None)
                     
-                    for idx, row in ed.iterrows():
-                        val = row.get(act_col)
-                        fc_val = row.get(est_col)
+                    for idx in ed.index:
+                        val = ed.loc[idx, act_col] if act_col and act_col in ed.columns else None
+                        fc_val = ed.loc[idx, est_col] if est_col and est_col in ed.columns else None
                         if val is not None and not _pd.isna(val):
                             dt = _pd.to_datetime(idx).tz_localize(None)
                             
@@ -2312,9 +2312,9 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
             try:
                 eh = stock.earnings_history
                 if eh is not None and not eh.empty:
-                    for idx, row in eh.iterrows():
-                        val = row.get('epsActual')
-                        fc_val = row.get('epsEstimate')
+                    for idx in eh.index:
+                        val = eh.loc[idx, 'epsActual'] if 'epsActual' in eh.columns else None
+                        fc_val = eh.loc[idx, 'epsEstimate'] if 'epsEstimate' in eh.columns else None
                         if val is not None and not _pd.isna(val):
                             # The index 'quarter' might be datetime or string
                             dt = _pd.to_datetime(idx).tz_localize(None)
@@ -2347,7 +2347,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                             c_idx = find_nearest_col(df, date)
                             if not c_idx: return 0
                             val = df.loc[idx, c_idx]
-                            return float(val) if not (val is None or (isinstance(val, float) and pd.isna(val))) else 0
+                            return float(val) if not (val is None or (isinstance(val, float) and _pd.isna(val))) else 0
 
                         ni_val = _quick_m(financials, 'Net Income', yr_col)
                         sbc_val = _quick_m(cashflow, 'Stock Based Compensation', yr_col)
@@ -2437,9 +2437,9 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                             sorted_q = q_eh.sort_index(ascending=False).head(4)
                             super_norm_ttm = 0.0
                             found_qs = 0
-                            for q_date, q_row in sorted_q.iterrows():
-                                gaap_q = q_row.get('epsActual')
-                                if gaap_q is not None and not pd.isna(gaap_q):
+                            for q_date in sorted_q.index:
+                                gaap_q = sorted_q.loc[q_date, 'epsActual'] if 'epsActual' in sorted_q.columns else None
+                                if gaap_q is not None and not _pd.isna(gaap_q):
                                     q_sbc_idx = find_nearest_col(q_cf, q_date, max_days=45)
                                     q_sh_idx = find_nearest_col(q_fin, q_date, max_days=45)
                                     sbc_q_val = q_cf.loc[sbc_q_idx, q_sbc_idx] if q_sbc_idx else 0
@@ -2616,7 +2616,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                                 if q_dt.year == yr_val:
                                     q_val = q_financials.loc[q_eps_idx, q_col]
                                     if hasattr(q_val, 'iloc'): q_val = q_val.iloc[0]
-                                    if q_val is not None and not pd.isna(q_val):
+                                    if q_val is not None and not _pd.isna(q_val):
                                         year_sum += float(q_val)
                                         q_count += 1
                             except: continue
@@ -2987,7 +2987,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                         c_idx = find_nearest_col(bs, target_date)
                         if not c_idx: return None
                         val = bs.loc[idx, c_idx]
-                        return float(val) if not pd.isna(val) else None
+                        return float(val) if not _pd.isna(val) else None
 
                     def get_is_metric(field, target_date):
                         if financials is None or financials.empty: return None
@@ -2997,7 +2997,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                         c_idx = find_nearest_col(financials, target_date)
                         if not c_idx: return None
                         val = financials.loc[idx, c_idx]
-                        return float(val) if not pd.isna(val) else None
+                        return float(val) if not _pd.isna(val) else None
 
                     c_raw = get_bs_metric('Cash Cash Equivalents And Short Term Investments', yr_col)
                     if c_raw is None:
@@ -3015,7 +3015,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                             c_idx = find_nearest_col(bs, target_date)
                             if not c_idx: continue
                             val = bs.loc[idx, c_idx]
-                            if not pd.isna(val): return float(val)
+                            if not _pd.isna(val): return float(val)
                         return None
 
                     d_raw = get_hist_metric(['Total Debt'], yr_col)
@@ -3146,7 +3146,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                                     c_idx = find_nearest_col(df, date)
                                     if c_idx:
                                         val = df.loc[idx, c_idx]
-                                        if not pd.isna(val): return float(val)
+                                        if not _pd.isna(val): return float(val)
                             return 0
 
                         # 1. Margins
@@ -3235,7 +3235,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                             idx = find_idx(df, f)
                             if idx:
                                 val = df.loc[idx, col]
-                                if not pd.isna(val): return float(val)
+                                if not _pd.isna(val): return float(val)
                         return None
                     
                     beneish_data = {
@@ -4152,13 +4152,13 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         # v260: Price Target Fallback (Scrape from HTML if info is missing)
         analysis_data = get_yahoo_analysis_normalized(ticker_symbol)
         
-        if not target_mean or pd.isna(target_mean):
+        if not target_mean or _pd.isna(target_mean):
              target_mean = analysis_data.get('target_mean')
-        if not target_low or pd.isna(target_low):
+        if not target_low or _pd.isna(target_low):
              target_low = analysis_data.get('target_low')
-        if not target_high or pd.isna(target_high):
+        if not target_high or _pd.isna(target_high):
              target_high = analysis_data.get('target_high')
-        if not target_median or pd.isna(target_median):
+        if not target_median or _pd.isna(target_median):
              target_median = analysis_data.get('target_median')
              
         upside = ((target_mean - current_price) / current_price * 100) if (target_mean and current_price) else None
@@ -4184,9 +4184,9 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
             if rt is not None and not rt.empty:
                 # v280: Robust month selection (prefer current month '0m')
                 latest = None
-                for _, row in rt.iterrows():
-                    if str(row.get('period')).lower() == '0m':
-                        latest = row
+                for idx in rt.index:
+                    if 'period' in rt.columns and str(rt.loc[idx, 'period']).lower() == '0m':
+                        latest = dict(rt.loc[idx]) if hasattr(rt.loc[idx], 'keys') else rt.loc[idx]
                         break
                 if latest is None: latest = rt.iloc[0] # Fallback to first row
                 rec_counts = {
@@ -4330,8 +4330,8 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
                 for lbl in target_labels:
                     if lbl in ge.index:
                         val = ge.loc[lbl, ge.columns[0]]
-                        if val is not None and not pd.isna(val): break
-                if val is not None and not pd.isna(val):
+                        if val is not None and not _pd.isna(val): break
+                if val is not None and not _pd.isna(val):
                     eps_growth_5y_consensus = normalize_growth(val)
         except: pass
 
