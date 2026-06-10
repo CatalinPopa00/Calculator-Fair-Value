@@ -7292,11 +7292,17 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
     if (rulesIcon) {
         rulesIcon.addEventListener('click', () => {
-            if (typeof renderRulesModal === 'function') {
-                renderRulesModal();
-            }
-            if (rulesModal) {
-                rulesModal.style.display = 'flex';
+            console.log('rules-info-icon clicked');
+            try {
+                if (typeof renderRulesModal === 'function') {
+                    renderRulesModal();
+                }
+                if (rulesModal) {
+                    rulesModal.style.display = 'flex';
+                }
+            } catch (err) {
+                console.error('Error rendering rules modal:', err);
+                alert('Error displaying rules. See console.');
             }
         });
     }
