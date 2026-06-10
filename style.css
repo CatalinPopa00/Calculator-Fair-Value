@@ -3991,3 +3991,18 @@ body.has-searched .floating-login-btn {
     border-bottom: 1px solid rgba(255, 255, 255, 0.03);
     gap: 15px;
 }
+
+/* Override grid layout for empty and loading messages so text spans full width */
+.autocomplete-item.empty-msg,
+.autocomplete-item.loading-msg {
+    display: block;
+    text-align: center;
+}
+
+.autocomplete-item.empty-msg:hover,
+.autocomplete-item.loading-msg:hover {
+    background: transparent;
+    border-left: none;
+    padding-left: 16px;
+    cursor: default;
+}
