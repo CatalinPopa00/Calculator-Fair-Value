@@ -6109,12 +6109,18 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         const inputId = e.target.id;
 
         // Tooltip dimensions
-        const tooltipWidth = 150; // min-width from CSS
-        const tooltipHeight = 90; // approximate height
+        const tooltipWidth = tipsTooltip.offsetWidth || 150;
+        const tooltipHeight = tipsTooltip.offsetHeight || 90;
 
         let leftPos = 0;
-        // Position above the input by default to not cover the typing area
-        let topPos = rect.top + window.scrollY - tooltipHeight - 10;
+
+        // Position below the input by default
+        let topPos = rect.bottom + window.scrollY + 10;
+
+        // If positioning below pushes it off the bottom of the viewport, place it above instead
+        if (rect.bottom + tooltipHeight + 20 > window.innerHeight) {
+            topPos = rect.top + window.scrollY - tooltipHeight - 10;
+        }
 
         // Align horizontally based on the input column (bear, base, bull)
         if (inputId.includes('bear')) {
