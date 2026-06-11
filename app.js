@@ -6263,17 +6263,17 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             let label1y = "1y:";
             let label3y = "3y:";
             let labelFwd = "Suggestion:";
+            let labelFwd5y = null;
+            let valFwd5y = null;
 
             const hd = globalData.historical_data || {};
-            const revArr = hd.revenue || [];
-            const fcfArr = hd.fcf || [];
-            const epsArr = hd.eps || [];
+            const prof = globalData.company_profile || {};
 
-            // Helper to get historical values (offset 0 = FY0, offset 1 = FY-1)
-            const getHist = (arr, offset) => {
-                if (!arr || arr.length <= offset) return null;
-                const val = arr[arr.length - 1 - offset];
-                return val;
+            // Helper to get historical values (offset 0 = FY0, offset 1 = FY-1) from ANCHORS
+            const anchors = globalData.historical_anchors || [];
+            const getAnchor = (idx, key) => {
+                if (anchors.length > idx && anchors[idx]) return anchors[idx][key];
+                return null;
             };
 
             // Helper to get FWD value with bear(-10%)/bull(+10%) logic based on base value
@@ -6284,26 +6284,28 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 return baseValue;
             };
 
-            const formatVal = (v) => v !== 'N/A' && !isNaN(v) ? v.toFixed(1) + (title.includes('P/E') || title.includes('MULTIPLE') ? 'x' : '%') : 'N/A';
+            const formatVal = (v) => v !== 'N/A' && !isNaN(v) && v !== null ? v.toFixed(1) + (title.includes('P/E') || title.includes('MULTIPLE') ? 'x' : '%') : 'N/A';
 
             if (id.includes('rev-1-3')) {
                 title = "REV GROWTH TIPS";
                 labelFwd = "FWD:";
-                const rev0 = getHist(revArr, 0);
-                const rev1 = getHist(revArr, 1);
-                const rev3 = getHist(revArr, 3);
+                const rev0 = getAnchor(0, 'revenue_b');
+                const rev1 = getAnchor(1, 'revenue_b');
+                const rev3 = getAnchor(3, 'revenue_b');
 
                 if (rev0 != null && rev1 != null && rev1 > 0) val1y = ((rev0 / rev1) - 1) * 100;
-                if (rev0 != null && rev3 != null && rev3 > 0) val3y = (Math.pow(rev0 / rev3, 1/4) - 1) * 100;
+                if (rev0 != null && rev3 != null && rev3 > 0) val3y = (Math.pow(rev0 / rev3, 1/3) - 1) * 100;
 
                 let fwdBase = null;
                 const rEsts = (globalData.rev_estimates || []).filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
                 const estRev = rEsts.length > 0 ? rEsts[0] : {};
 
                 if (rev0 > 0) {
-                     if (id.includes('bear') && estRev.low != null) valFwd = ((estRev.low / rev0) - 1) * 100;
-                     else if (id.includes('bull') && estRev.high != null) valFwd = ((estRev.high / rev0) - 1) * 100;
-                     else if (estRev.avg != null) valFwd = ((estRev.avg / rev0) - 1) * 100;
+                     const rev0_abs = rev0 * 1e9;
+                     if (id.includes('bear') && estRev.low != null) valFwd = ((estRev.low / rev0_abs) - 1) * 100;
+                     else if (id.includes('bull') && estRev.high != null) valFwd = ((estRev.high / rev0_abs) - 1) * 100;
+                     else if (estRev.growth != null) valFwd = estRev.growth * 100;
+                     else if (estRev.avg != null) valFwd = ((estRev.avg / rev0_abs) - 1) * 100;
                 }
 
                 if (valFwd === 'N/A') {
@@ -6313,15 +6315,15 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
             } else if (id.includes('fcf-margin')) {
                 title = "FCF MARGIN TIPS";
-                const rev0 = getHist(revArr, 0);
-                const fcf0 = getHist(fcfArr, 0);
+                const rev0 = getAnchor(0, 'revenue_b');
+                const fcf0 = getAnchor(0, 'fcf_b');
                 if (rev0 > 0 && fcf0 != null) val1y = (fcf0 / rev0) * 100;
 
                 let avgMargin = 0;
                 let count = 0;
                 for (let i = 0; i < 3; i++) {
-                    const r = getHist(revArr, i);
-                    const f = getHist(fcfArr, i);
+                    const r = getAnchor(i, 'revenue_b');
+                    const f = getAnchor(i, 'fcf_b');
                     if (r > 0 && f != null) {
                         avgMargin += (f / r) * 100;
                         count++;
@@ -6336,32 +6338,41 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             } else if (id.includes('eps')) {
                 title = "EPS GROWTH TIPS";
                 labelFwd = "FWD:";
-                const eps0 = getHist(epsArr, 0);
-                const eps1 = getHist(epsArr, 1);
-                const eps3 = getHist(epsArr, 3);
+                const eps0 = getAnchor(0, 'eps');
+                const eps1 = getAnchor(1, 'eps');
+                const eps3 = getAnchor(3, 'eps');
 
                 if (eps0 != null && eps1 != null && eps1 > 0) val1y = ((eps0 / eps1) - 1) * 100;
-                if (eps0 != null && eps3 != null && eps3 > 0) val3y = (Math.pow(eps0 / eps3, 1/4) - 1) * 100;
+                if (eps0 != null && eps3 != null && eps3 > 0) val3y = (Math.pow(eps0 / eps3, 1/3) - 1) * 100;
 
                 let fwdBase = null;
                 const eEsts = (globalData.eps_estimates || []).filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
-                const estEps = eEsts.length > 0 ? eEsts[0] : {};
-                const currentEps = prof.adjusted_eps || prof.trailing_eps || eps0;
-
-                if (currentEps > 0) {
-                    if (id.includes('bear') && estEps.low != null) valFwd = ((estEps.low / currentEps) - 1) * 100;
-                    else if (id.includes('bull') && estEps.high != null) valFwd = ((estEps.high / currentEps) - 1) * 100;
-                    else if (estEps.avg != null) valFwd = ((estEps.avg / currentEps) - 1) * 100;
-                    else if (prof.eps_growth != null) fwdBase = prof.eps_growth * 100;
-                    else fwdBase = val1y;
-                } else if (prof.eps_growth != null) {
-                     fwdBase = prof.eps_growth * 100;
-                } else {
-                     fwdBase = val1y;
+                
+                if (eEsts.length >= 2) {
+                    const estFirst = eEsts[0];
+                    const estLast = eEsts.length > 2 ? eEsts[2] : eEsts[1];
+                    const yearsDiff = eEsts.length > 2 ? 2 : 1;
+                    labelFwd = `FWD ${yearsDiff}y:`;
+                    
+                    const dBear = estFirst.low || estFirst.avg;
+                    const dBull = estFirst.high || estFirst.avg;
+                    
+                    if (id.includes('bear') && estLast.low != null && dBear > 0) valFwd = (Math.pow(estLast.low / dBear, 1/yearsDiff) - 1) * 100;
+                    else if (id.includes('bull') && estLast.high != null && dBull > 0) valFwd = (Math.pow(estLast.high / dBull, 1/yearsDiff) - 1) * 100;
+                    else if (estLast.avg != null && estFirst.avg > 0) valFwd = (Math.pow(estLast.avg / estFirst.avg, 1/yearsDiff) - 1) * 100;
                 }
 
-                if (valFwd === 'N/A' && fwdBase !== null) {
+                if (valFwd === 'N/A') {
+                     if (prof.eps_growth != null) fwdBase = prof.eps_growth * 100;
+                     else fwdBase = val1y;
                      valFwd = getFwdScenario(fwdBase);
+                }
+                
+                labelFwd5y = "FWD 5Y:";
+                if (globalData.computed_eps_growth != null) {
+                     valFwd5y = globalData.computed_eps_growth * 100;
+                } else if (prof.earnings_growth != null) {
+                     valFwd5y = prof.earnings_growth * 100;
                 }
 
             } else if (id.includes('wacc')) {
@@ -6395,20 +6406,17 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 val1y = prof.trailing_pe || 'N/A';
                 val3y = prof.historic_pe || 'N/A';
 
-                // For Forward P/E we calculate 3y Forward P/E based on the user's EPS growth input!
                 let epsInput = null;
                 if (id.includes('bear')) epsInput = parseFloat(document.getElementById('cs-eps-bear')?.value);
                 else if (id.includes('bull')) epsInput = parseFloat(document.getElementById('cs-eps-bull')?.value);
                 else epsInput = parseFloat(document.getElementById('cs-eps-base')?.value);
 
-                const currentEps = prof.adjusted_eps || prof.trailing_eps || getHist(epsArr, 0);
+                const currentEps = prof.adjusted_eps || prof.trailing_eps || getAnchor(0, 'eps');
 
                 if (!isNaN(epsInput) && currentEps > 0 && prof.price) {
-                    // P/E in 3 years = Price / (EPS0 * (1 + growth/100)^3)
                     const eps3y = currentEps * Math.pow(1 + (epsInput / 100), 3);
                     valFwd = prof.price / eps3y;
                 } else {
-                    // Fallback if inputs are missing
                     valFwd = prof.forward_pe || val1y;
                     valFwd = getFwdScenario(valFwd);
                 }
@@ -6422,6 +6430,10 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 htmlContent += `<div style="display:flex; justify-content:space-between; width:130px; margin-bottom:3px;"><span style="color:var(--text-muted);">${label3y}</span> <span>${formatVal(val3y)}</span></div>`;
             }
             htmlContent += `<div style="display:flex; justify-content:space-between; width:130px;"><span style="color:var(--text-muted);">${labelFwd}</span> <span style="color:#fbbf24;">${formatVal(valFwd)}</span></div>`;
+            
+            if (valFwd5y !== null) {
+                htmlContent += `<div style="display:flex; justify-content:space-between; width:130px; margin-top:3px;"><span style="color:var(--text-muted);">${labelFwd5y}</span> <span style="color:#fbbf24;">${formatVal(valFwd5y)}</span></div>`;
+            }
             
             tipsContent.innerHTML = htmlContent;
 
