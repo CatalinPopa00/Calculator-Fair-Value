@@ -466,6 +466,72 @@ def delete_override(ticker: str):
         print(f"Error deleting override: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
+@app.get("/api/article-bypass")
+def bypass_article(url: str):
+    """
+    Fetches the content of a news article, attempting to bypass basic paywalls,
+    and returns clean HTML containing only the main article text.
+    """
+    try:
+        from bs4 import BeautifulSoup
+        try:
+            from curl_cffi import requests as c_requests
+            # Impersonate a standard Chrome browser to bypass simple anti-bot systems
+            resp = c_requests.get(url, impersonate="chrome110", timeout=15)
+            html = resp.text
+        except ImportError:
+            import requests
+            headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+            resp = requests.get(url, headers=headers, timeout=15)
+            html = resp.text
+
+        soup = BeautifulSoup(html, "html.parser")
+        
+        # Remove noisy elements
+        for tag in soup(["script", "style", "nav", "footer", "header", "aside", "form", "iframe", "noscript"]):
+            tag.decompose()
+
+        # Try to find the main article container
+        article_body = soup.find("article") or soup.find("main") or soup.find("div", class_="article-body") or soup.find("div", class_="story")
+        
+        if article_body:
+            content = "".join([f"<p>{p.get_text(strip=True)}</p>" for p in article_body.find_all("p") if len(p.get_text(strip=True)) > 20])
+        else:
+            # Fallback to all paragraphs if no article container is found
+            content = "".join([f"<p>{p.get_text(strip=True)}</p>" for p in soup.find_all("p") if len(p.get_text(strip=True)) > 30])
+        
+        title = soup.find("title").get_text(strip=True) if soup.find("title") else "Article"
+
+        clean_html = f"""
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>{title}</title>
+            <style>
+                body {{ font-family: 'Inter', system-ui, sans-serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 2rem; color: #f8fafc; background: #0f172a; }}
+                h1 {{ font-size: 2rem; border-bottom: 1px solid #334155; padding-bottom: 1rem; margin-bottom: 2rem; }}
+                p {{ margin-bottom: 1.5rem; font-size: 1.1rem; color: #cbd5e1; }}
+                a {{ color: #38bdf8; text-decoration: none; }}
+                a:hover {{ text-decoration: underline; }}
+                .watermark {{ margin-top: 4rem; padding-top: 2rem; border-top: 1px solid #334155; font-size: 0.8rem; color: #64748b; text-align: center; }}
+            </style>
+        </head>
+        <body>
+            <h1>{title}</h1>
+            <div style="margin-bottom: 2rem;">
+                <a href="{url}" target="_blank">&larr; Original Article</a>
+            </div>
+            {content if content else "<p>Could not extract article content. The site might have a hard paywall or captcha.</p>"}
+            <div class="watermark">Extracted via Fair Value Calculator Reader View</div>
+        </body>
+        </html>
+        """
+        return Response(content=clean_html, media_type="text/html")
+    except Exception as e:
+        print(f"Article Bypass Error for {url}: {e}")
+        return JSONResponse(content={"error": True, "detail": str(e)}, status_code=500)
+
 
 def get_recommended_exit_multiple(sector: str, industry: str) -> float:
     """Assigns recommended exit multiple based on sector/industry (User Strict Rule Refinement)."""

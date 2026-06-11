@@ -222,6 +222,35 @@ document.addEventListener('DOMContentLoaded', () => {
     const authGoogle = document.getElementById('auth-google-btn');
     const authError = document.getElementById('auth-error');
 
+    const closeRulesModalBtn = document.getElementById('close-rules-modal');
+    if (closeRulesModalBtn) {
+        closeRulesModalBtn.addEventListener('click', () => {
+            const modal = document.getElementById('rules-modal');
+            if (modal) modal.style.display = 'none';
+        });
+    }
+
+    const closeNewsModalBtn = document.getElementById('close-news-modal');
+    if (closeNewsModalBtn) {
+        closeNewsModalBtn.addEventListener('click', () => {
+            const modal = document.getElementById('news-modal');
+            if (modal) modal.style.display = 'none';
+        });
+    }
+
+    // Modal click outside to close
+    window.addEventListener('click', (event) => {
+        const rulesModal = document.getElementById('rules-modal');
+        if (event.target == rulesModal) {
+            rulesModal.style.display = 'none';
+        }
+        
+        const newsModal = document.getElementById('news-modal');
+        if (event.target == newsModal) {
+            newsModal.style.display = 'none';
+        }
+    });
+
     if (loginBtn) {
         loginBtn.addEventListener('click', () => {
             if (currentUser) {
@@ -4339,6 +4368,39 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                                 <div class="brief-news-item"><div class="skeleton-text" style="width: 80%;"></div><div class="skeleton-text" style="width: 50%;"></div></div>
                                 <div class="brief-news-item"><div class="skeleton-text" style="width: 75%;"></div><div class="skeleton-text" style="width: 45%;"></div></div>
                             `;
+                        } else if (data.latest_news && data.latest_news.length > 0) {
+                            panel.innerHTML = data.latest_news.map((item, idx) => {
+                                return `
+                                    <div class="brief-news-item clickable-news" data-idx="${idx}" style="cursor: pointer; transition: all 0.2s; padding: 6px; border-radius: 6px; margin-bottom: 6px;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; gap: 10px;">
+                                            <span style="background: rgba(56, 189, 248, 0.1); color: #38bdf8; font-size: 0.58rem; padding: 2px 6px; border-radius: 4px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3px;">${item.publisher || "Market News"}</span>
+                                        </div>
+                                        <div style="color: rgba(255,255,255,0.9); font-size: 0.8rem; line-height: 1.4;">${item.title}</div>
+                                    </div>
+                                `;
+                            }).join('');
+                            
+                            // Attach click handlers
+                            setTimeout(() => {
+                                document.querySelectorAll('.clickable-news').forEach(el => {
+                                    el.addEventListener('click', () => {
+                                        const idx = el.getAttribute('data-idx');
+                                        const article = data.latest_news[idx];
+                                        
+                                        document.getElementById('news-modal-title').textContent = article.title;
+                                        document.getElementById('news-modal-publisher').textContent = article.publisher || "News";
+                                        document.getElementById('news-modal-summary').innerHTML = article.summary || 'No detailed summary available. Click "Go to Original" or "Bypass Paywall" to read more.';
+                                        
+                                        const bypassBtn = document.getElementById('news-modal-bypass-btn');
+                                        bypassBtn.href = `/api/article-bypass?url=${encodeURIComponent(article.link)}`;
+                                        
+                                        const origBtn = document.getElementById('news-modal-original-btn');
+                                        origBtn.href = article.link;
+                                        
+                                        document.getElementById('news-modal').style.display = 'flex';
+                                    });
+                                });
+                            }, 50);
                         } else if (parsed.latestMarketIntelligence.length > 0) {
                             panel.innerHTML = parsed.latestMarketIntelligence.map(item => {
                                 const match = item.match(/^(.*?)\s*\(Source:\s*(.*?)\)$/i);

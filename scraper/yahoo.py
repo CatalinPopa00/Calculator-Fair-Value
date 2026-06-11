@@ -947,13 +947,18 @@ def search_companies(query: str) -> list:
     return []
 
 def fetch_latest_news_v2(ticker_symbol: str) -> list:
-    """Fetches several recent news headlines for the ticker."""
+    """Fetches several recent news headlines for the ticker, scored by relevance."""
     try:
         stock = yf.Ticker(ticker_symbol)
         news = stock.news
         if news and len(news) > 0:
             results = []
-            for item in news[:8]:  # Top 8 news items
+            # Financial keywords to boost relevance score
+            keywords = ["earnings", "merger", "acquisition", "revenue", "profit", "loss", 
+                        "dividend", "lawsuit", "fda", "buyback", "guidance", "target", 
+                        "upgrade", "downgrade", "ceo", "layoff", "strike", "contract", "partnership"]
+                        
+            for idx, item in enumerate(news[:20]):  # Analyze up to 20 news items
                 # yfinance news uses a nested 'content' structure
                 content = item.get('content', item) if isinstance(item, dict) else {}
                 title = content.get('title', 'N/A')
@@ -970,13 +975,38 @@ def fetch_latest_news_v2(ticker_symbol: str) -> list:
                 link = click_through_url.get('url') or canonical_url.get('url') or item.get('link', '')
                 summary = content.get('summary', '') or item.get('summary', '')
 
+                # Simple relevance scoring
+                score = 0
+                title_lower = title.lower()
+                summary_lower = summary.lower()
+                
+                for kw in keywords:
+                    if kw in title_lower:
+                        score += 3
+                    if kw in summary_lower:
+                        score += 1
+                
+                # Penalize older news slightly (based on list order) to keep fresh news relevant
+                score -= (idx * 0.1)
+
                 results.append({
                     "title": title,
                     "publisher": publisher,
                     "link": link,
-                    "summary": summary
+                    "summary": summary,
+                    "score": score
                 })
-            return results
+            
+            # Sort by score descending and take top 7
+            results.sort(key=lambda x: x['score'], reverse=True)
+            
+            # Remove score key before returning
+            final_results = []
+            for r in results[:7]:
+                r.pop('score', None)
+                final_results.append(r)
+                
+            return final_results
     except Exception as e:
         print(f"Error fetching news for {ticker_symbol}: {e}")
     return []
