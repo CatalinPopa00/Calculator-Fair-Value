@@ -593,10 +593,20 @@ body {
 }
 
 .name-watchlist-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas:
+        "chart ticker star"
+        "name name name";
+    gap: 5px 10px;
     align-items: center;
-    gap: 0.8rem;
+    width: 100%;
 }
+.chart-col { grid-area: chart; }
+.ticker-col { grid-area: ticker; text-align: center; display: flex; justify-content: center; align-items: center; }
+.ticker-col .ticker { font-size: 1.5rem !important; font-weight: bold !important; margin: 0; }
+.star-col { grid-area: star; text-align: right; }
+.name-col { grid-area: name; text-align: center; margin-top: 5px; }
 
 .company-overview h3 {
     color: var(--text-muted);
@@ -774,35 +784,7 @@ body {
     text-align: right;
 }
 
-/* Header Restructure for Mobile */
-.name-watchlist-row {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    width: 100%;
-    padding: 0 10px;
-    flex-wrap: wrap;
-}
-.chart-col { order: 1; }
-.name-col { order: 2; flex: 1; text-align: center; }
-.ticker-col { order: 3; }
-.star-col { order: 4; }
-
 @media (max-width: 768px) {
-    .name-watchlist-row {
-        display: grid;
-        grid-template-columns: auto 1fr auto;
-        grid-template-areas:
-            "chart ticker star"
-            "name name name";
-        gap: 15px 10px;
-        align-items: center;
-    }
-    .chart-col { grid-area: chart; }
-    .ticker-col { grid-area: ticker; text-align: center; display: flex; justify-content: center; align-items: center;}
-    .star-col { grid-area: star; }
-    .name-col { grid-area: name; text-align: center; margin-top: 5px; }
     .name-col h2 { font-size: 1.25rem !important; }
 }
 
