@@ -5903,18 +5903,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     if (globalData && globalData.historical_anchors && globalData.historical_anchors.length > 0) {
                         globalData.historical_anchors.forEach(item => {
                             if (!item) return;
-                            const yrLabel = item.year || '--';
-                            const revVal = item.revenue_b != null ? parseFloat(item.revenue_b).toFixed(2) : '--';
-                            const epsVal = item.eps != null ? parseFloat(item.eps).toFixed(2) : '--';
-                            const fcfVal = item.fcf_b != null ? parseFloat(item.fcf_b).toFixed(2) : '--';
-                            
-                            hBody.innerHTML += `<tr><td style="padding:4px 0; font-weight:bold;">${yrLabel}</td><td style="text-align:right;">${revVal}</td><td style="text-align:right;">${epsVal}</td><td style="text-align:right;">${fcfVal}</td></tr>`;
-                        });
-                    } else {
-                        hBody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:10px;">No historical data available</td></tr>';
-                    }
-                }
-
             }; // End window._renderEstimatesTable
             window._renderEstimatesTable(); // Call it immediately
 
