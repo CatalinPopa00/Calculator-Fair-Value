@@ -181,10 +181,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         const updateOverrides = async () => {
                             for (const ticker of Object.keys(data.overrides)) {
                                 try {
+                                    let payload = data.overrides[ticker];
+                                    if (!payload) continue;
+                                    if (!payload.ticker) payload.ticker = ticker; // Prevent 422 Unprocessable Entity
                                     await fetch('/api/overrides', {
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify(data.overrides[ticker])
+                                        body: JSON.stringify(payload)
                                     });
                                 } catch(err) {
                                     console.error('Silent backend sync error:', err);
@@ -2814,6 +2817,10 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 const rawG = document.getElementById('peg-custom-growth').value;
                 usedGrowth = (rawG === '' || isNaN(parseFloat(rawG))) ? 0.20 : parseFloat(rawG) / 100;
                 fwdPe = globalData.company_profile.forward_pe_custom || currentFormulaData.peg.fwd_pe || null;
+            }
+
+            if (window._customScenariosData && window._customScenariosData[_currentScenario] && window._customScenariosData[_currentScenario].pe !== null) {
+                fwdPe = window._customScenariosData[_currentScenario].pe;
             }
 
             let eps = globalData.company_profile.adjusted_eps || globalData.company_profile.trailing_eps || 0;
@@ -6359,17 +6366,41 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                  title = "PERPETUAL GR. TIPS";
                  val1y = 'N/A';
                  val3y = 'N/A';
-                 let basePerp = 2.5;
-                 if (id.includes('bear')) valFwd = 2.0;
-                 else if (id.includes('bull')) valFwd = 3.0;
+                 let basePerp = currentFormulaData?.dcf?.['5yr']?.perpetual_growth_rate ? currentFormulaData.dcf['5yr'].perpetual_growth_rate * 100 : 2.5;
+                 if (id.includes('bear')) valFwd = Math.max(1.0, basePerp - 0.5);
+                 else if (id.includes('bull')) valFwd = basePerp + 0.5;
                  else valFwd = basePerp;
+            } else if (id.includes('exit')) {
+                 title = "EXIT MULTIPLE TIPS";
+                 val1y = 'N/A';
+                 val3y = 'N/A';
+                 let baseExit = currentFormulaData?.dcf?.['5yr']?.exit_multiple ? currentFormulaData.dcf['5yr'].exit_multiple : 15;
+                 if (id.includes('bear')) valFwd = Math.max(5.0, baseExit - 3);
+                 else if (id.includes('bull')) valFwd = baseExit + 3;
+                 else valFwd = baseExit;
+            } else if (id.includes('eps')) {
+                 title = "EPS GROWTH TIPS";
+                 val1y = 'N/A';
+                 val3y = 'N/A';
+                 let baseEps = globalData.computed_eps_growth != null ? globalData.computed_eps_growth * 100 : (globalData.earnings_growth ? globalData.earnings_growth * 100 : 5.0);
+                 if (id.includes('bear')) valFwd = baseEps * 0.7;
+                 else if (id.includes('bull')) valFwd = baseEps * 1.3;
+                 else valFwd = baseEps;
+            } else if (id.includes('pe')) {
+                 title = "FORWARD P/E TIPS";
+                 val1y = 'N/A';
+                 val3y = 'N/A';
+                 let basePe = globalData.pe_historic || globalData.forward_pe || globalData.fwd_pe || 15;
+                 if (id.includes('bear')) valFwd = Math.max(5.0, basePe - 3);
+                 else if (id.includes('bull')) valFwd = basePe + 3;
+                 else valFwd = basePe;
             }
 
             document.querySelector('#cs-tips-tooltip > div:first-child').textContent = title;
             tipsContent.innerHTML = `
                 <div style="display:flex; justify-content:space-between; width:130px; margin-bottom:3px;"><span style="color:var(--text-muted);">1Y Hist:</span> <span>${formatVal(val1y)}</span></div>
                 <div style="display:flex; justify-content:space-between; width:130px; margin-bottom:3px;"><span style="color:var(--text-muted);">3Y Avg/CAGR:</span> <span>${formatVal(val3y)}</span></div>
-                <div style="display:flex; justify-content:space-between; width:130px;"><span style="color:var(--text-muted);">FWD Est:</span> <span style="color:#fbbf24;">${formatVal(valFwd)}</span></div>
+                <div style="display:flex; justify-content:space-between; width:130px;"><span style="color:var(--text-muted);">SUGGESTION:</span> <span style="color:#fbbf24;">${formatVal(valFwd)}</span></div>
             `;
 
             tipsTooltip.style.display = 'block';
