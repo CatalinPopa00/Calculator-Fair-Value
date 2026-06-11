@@ -657,23 +657,31 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 viewA.style.opacity = '0';
                 if (openWeightsBtn) openWeightsBtn.style.display = 'none';
 
-                setTimeout(() => {
-                    viewA.style.display = 'none';
-                    viewB.style.display = 'block';
-                    // give the box enough height to render the chart properly
-                    const fvBox = viewA.closest('.fair-value-box');
-                    if (fvBox) fvBox.style.minHeight = '350px';
+                let viewATransitionFired = false;
+                const viewAHandler = () => {
+                    if (viewATransitionFired) return;
+                    viewATransitionFired = true;
+                    viewA.removeEventListener('transitionend', viewAHandler);
+                    requestAnimationFrame(() => {
+                        viewA.style.display = 'none';
+                        viewB.style.display = 'block';
+                        // give the box enough height to render the chart properly
+                        const fvBox = viewA.closest('.fair-value-box');
+                        if (fvBox) fvBox.style.minHeight = '350px';
 
-                    // force reflow
-                    void viewB.offsetWidth;
-                    viewB.style.opacity = '1';
+                        // force reflow
+                        void viewB.offsetWidth;
+                        viewB.style.opacity = '1';
 
-                    if (globalData && globalData.ticker && _tvWidgetCreatedFor !== globalData.ticker) {
-                        if (typeof window.activeSMA === 'undefined') window.activeSMA = null;
-                        window.renderTVWidget(globalData.ticker, window.activeSMA);
-                        _tvWidgetCreatedFor = globalData.ticker;
-                    }
-                }, 300);
+                        if (globalData && globalData.ticker && _tvWidgetCreatedFor !== globalData.ticker) {
+                            if (typeof window.activeSMA === 'undefined') window.activeSMA = null;
+                            window.renderTVWidget(globalData.ticker, window.activeSMA);
+                            _tvWidgetCreatedFor = globalData.ticker;
+                        }
+                    });
+                };
+                viewA.addEventListener('transitionend', viewAHandler);
+                setTimeout(viewAHandler, 350); // Fallback if transition fails
             } else {
                 // Switch to Current Price View
                 toggleBtn.style.background = 'rgba(255,255,255,0.05)';
@@ -681,15 +689,23 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 viewB.style.opacity = '0';
                 if (openWeightsBtn) openWeightsBtn.style.display = 'block';
 
-                setTimeout(() => {
-                    viewB.style.display = 'none';
-                    viewA.style.display = 'flex';
-                    const fvBox = viewA.closest('.fair-value-box');
-                    if (fvBox) fvBox.style.minHeight = '';
-                    // force reflow
-                    void viewA.offsetWidth;
-                    viewA.style.opacity = '1';
-                }, 300);
+                let viewBTransitionFired = false;
+                const viewBHandler = () => {
+                    if (viewBTransitionFired) return;
+                    viewBTransitionFired = true;
+                    viewB.removeEventListener('transitionend', viewBHandler);
+                    requestAnimationFrame(() => {
+                        viewB.style.display = 'none';
+                        viewA.style.display = 'flex';
+                        const fvBox = viewA.closest('.fair-value-box');
+                        if (fvBox) fvBox.style.minHeight = '';
+                        // force reflow
+                        void viewA.offsetWidth;
+                        viewA.style.opacity = '1';
+                    });
+                };
+                viewB.addEventListener('transitionend', viewBHandler);
+                setTimeout(viewBHandler, 350); // Fallback if transition fails
             }
         };
     };

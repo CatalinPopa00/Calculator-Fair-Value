@@ -4113,23 +4113,6 @@ def get_market_averages():
     _market_cache = {"data": data, "timestamp": now}
     return data
 
-def get_nasdaq_earnings_forecast(ticker):
-    headers = {
-        'User-Agent': get_random_agent(),
-        'Accept': 'application/json, text/plain, */*',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Origin': 'https://www.nasdaq.com',
-        'Referer': f'https://www.nasdaq.com/market-activity/stocks/{ticker.lower()}/earnings-estimate',
-    }
-    url = f"https://api.nasdaq.com/api/analyst/{ticker.upper()}/earnings-forecast"
-    try:
-        resp = requests.get(url, headers=headers, timeout=5)
-        if resp.status_code == 200:
-            return resp.json().get('data', {}).get('yearlyForecast', {}).get('rows', [])
-    except Exception as e:
-        print(f"Nasdaq API Error for {ticker}: {e}")
-    return []
-
 def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, history_rev=None, fx_rate=None, historical_data=None, **kwargs):
     """
     Fetches analyst estimates data.
@@ -4335,7 +4318,8 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         fy2_rev_high = fy2_rev_high_raw * fx_rate if fy2_rev_high_raw else None
         
         # Nasdaq Data Fetch & Map
-        nasdaq_rows = get_nasdaq_earnings_forecast(ticker_symbol)
+        nasdaq_data = get_nasdaq_comprehensive_estimates(ticker_symbol)
+        nasdaq_rows = nasdaq_data.get("yearly_eps", [])
         nasdaq_map = {}
         for row in nasdaq_rows:
             if row.get('fiscalEnd'):
