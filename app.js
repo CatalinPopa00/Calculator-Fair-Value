@@ -6301,9 +6301,9 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 const estRev = rEsts.length > 0 ? rEsts[0] : {};
 
                 if (rev0 > 0) {
-                     if (id.includes('bear') && estRev.estimatedRevLow != null) valFwd = ((estRev.estimatedRevLow / rev0) - 1) * 100;
-                     else if (id.includes('bull') && estRev.estimatedRevHigh != null) valFwd = ((estRev.estimatedRevHigh / rev0) - 1) * 100;
-                     else if (estRev.estimatedRevAvg != null) valFwd = ((estRev.estimatedRevAvg / rev0) - 1) * 100;
+                     if (id.includes('bear') && estRev.low != null) valFwd = ((estRev.low / rev0) - 1) * 100;
+                     else if (id.includes('bull') && estRev.high != null) valFwd = ((estRev.high / rev0) - 1) * 100;
+                     else if (estRev.avg != null) valFwd = ((estRev.avg / rev0) - 1) * 100;
                 }
 
                 if (valFwd === 'N/A') {
@@ -6349,9 +6349,9 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 const currentEps = prof.adjusted_eps || prof.trailing_eps || eps0;
 
                 if (currentEps > 0) {
-                    if (id.includes('bear') && estEps.estimatedEpsLow != null) valFwd = ((estEps.estimatedEpsLow / currentEps) - 1) * 100;
-                    else if (id.includes('bull') && estEps.estimatedEpsHigh != null) valFwd = ((estEps.estimatedEpsHigh / currentEps) - 1) * 100;
-                    else if (estEps.estimatedEpsAvg != null) valFwd = ((estEps.estimatedEpsAvg / currentEps) - 1) * 100;
+                    if (id.includes('bear') && estEps.low != null) valFwd = ((estEps.low / currentEps) - 1) * 100;
+                    else if (id.includes('bull') && estEps.high != null) valFwd = ((estEps.high / currentEps) - 1) * 100;
+                    else if (estEps.avg != null) valFwd = ((estEps.avg / currentEps) - 1) * 100;
                     else if (prof.eps_growth != null) fwdBase = prof.eps_growth * 100;
                     else fwdBase = val1y;
                 } else if (prof.eps_growth != null) {
@@ -6395,24 +6395,22 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 val1y = prof.trailing_pe || 'N/A';
                 val3y = prof.historic_pe || 'N/A';
 
-                let epsFwd = 'N/A';
-                const eEsts = (globalData.eps_estimates || []).filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
-                const estEps = eEsts.length > 0 ? eEsts[0] : {};
-                const eps0 = getHist(epsArr, 0);
-                const currentEps = prof.adjusted_eps || prof.trailing_eps || eps0;
+                // For Forward P/E we calculate 3y Forward P/E based on the user's EPS growth input!
+                let epsInput = null;
+                if (id.includes('bear')) epsInput = parseFloat(document.getElementById('cs-eps-bear')?.value);
+                else if (id.includes('bull')) epsInput = parseFloat(document.getElementById('cs-eps-bull')?.value);
+                else epsInput = parseFloat(document.getElementById('cs-eps-base')?.value);
 
-                if (currentEps > 0) {
-                     if (id.includes('bear') && estEps.estimatedEpsLow != null) epsFwd = ((estEps.estimatedEpsLow / currentEps) - 1) * 100;
-                     else if (id.includes('bull') && estEps.estimatedEpsHigh != null) epsFwd = ((estEps.estimatedEpsHigh / currentEps) - 1) * 100;
-                     else if (estEps.estimatedEpsAvg != null) epsFwd = ((estEps.estimatedEpsAvg / currentEps) - 1) * 100;
-                }
-                if (epsFwd === 'N/A' && prof.eps_growth != null) epsFwd = prof.eps_growth * 100;
+                const currentEps = prof.adjusted_eps || prof.trailing_eps || getHist(epsArr, 0);
 
-                if (epsFwd !== 'N/A' && epsFwd > 0) {
-                     valFwd = epsFwd; // PEG = 1 assumed
+                if (!isNaN(epsInput) && currentEps > 0 && prof.price) {
+                    // P/E in 3 years = Price / (EPS0 * (1 + growth/100)^3)
+                    const eps3y = currentEps * Math.pow(1 + (epsInput / 100), 3);
+                    valFwd = prof.price / eps3y;
                 } else {
-                     valFwd = prof.forward_pe || val1y;
-                     valFwd = getFwdScenario(valFwd);
+                    // Fallback if inputs are missing
+                    valFwd = prof.forward_pe || val1y;
+                    valFwd = getFwdScenario(valFwd);
                 }
             }
 
