@@ -640,6 +640,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             "chartType": "area",
             "lineWidth": 2,
             "lineType": 0,
+            "dateRange": "12M",
             "dateRanges": ["1d|1", "1m|30", "3m|60", "12m|1D", "60m|1W", "all|1M"],
             "backgroundColor": "rgba(0, 0, 0, 0)" // transparent
         };
