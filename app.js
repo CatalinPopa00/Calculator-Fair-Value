@@ -1455,12 +1455,20 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             // FCF is calculated on top of projected Revenue
             currentFcf = currentRevenue * yearMargin;
 
-            // Adjust shares based on buyback/dilution rate (positive = buyback, negative = dilution)
-            if (buybackRate !== 0) {
+            // Method A: Deduct buyback cash cost from FCF (or add dilution cost if buybackRate < 0)
+            let buybackCashSpent = 0;
+            if (buybackRate !== 0 && currentPrice && currentPrice > 0) {
+                const projectedPrice = currentPrice * Math.pow(1 + finalWacc, i);
+                const sharesBought = remainingShares * buybackRate;
+                buybackCashSpent = sharesBought * projectedPrice;
+                remainingShares -= sharesBought;
+                currentFcf -= buybackCashSpent;
+            } else if (buybackRate !== 0) {
+                // Fallback: just reduce/increase shares without FCF deduction
                 remainingShares *= (1 - buybackRate);
             }
 
-            buybackCostPerYear.push(0);
+            buybackCostPerYear.push(buybackCashSpent);
             fcf_projections.push(currentFcf);
 
             const pv_fcf = currentFcf / Math.pow(1 + finalWacc, i - 0.5);
@@ -2452,20 +2460,13 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             const buybackCustomInputs = document.getElementById('dcf-buyback-custom-inputs');
             if (buybackCustomInputs) buybackCustomInputs.style.display = buybackSrc === 'custom' ? 'flex' : 'none';
 
-            let rawBuybackRate = 0;
-            let rawSbcRate = 0;
-
+            let buybackRate = 0;
             if (buybackSrc === 'historical') {
-                rawBuybackRate = currentFormulaData.dcf.historic_buyback_rate || 0;
+                buybackRate = currentFormulaData.dcf.historic_buyback_rate || 0;
             } else if (buybackSrc === 'custom') {
                 const rawVal = document.getElementById('dcf-custom-buyback').value;
-                rawBuybackRate = (rawVal === '' || isNaN(parseLocaleFloat(rawVal))) ? 0 : parseLocaleFloat(rawVal) / 100;
-
-                const sbcVal = document.getElementById('dcf-custom-sbc').value;
-                rawSbcRate = (sbcVal === '' || isNaN(parseLocaleFloat(sbcVal))) ? 0 : parseLocaleFloat(sbcVal) / 100;
+                buybackRate = (rawVal === '' || isNaN(parseLocaleFloat(rawVal))) ? 0 : parseLocaleFloat(rawVal) / 100;
             }
-
-            let buybackRate = rawBuybackRate - rawSbcRate;
 
             let baseFcf = currentFormulaData.dcf.fcf;
             let baseRevenue = globalData.revenue;
@@ -3471,7 +3472,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
     const inputSelectors = [
         'fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple', 'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp',
-        'dcf-buyback-source', 'dcf-custom-buyback', 'dcf-custom-sbc', 'relative-variant',
+        'dcf-buyback-source', 'dcf-custom-buyback', 'relative-variant',
         'lynch-multiple-source', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth', 'lynch-return-rate', 'lynch-custom-return',
         'peg-eps-source', 'peg-custom-growth'
     ];
@@ -3637,11 +3638,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             dashboard.style.display = 'none';
             loadingState.style.display = 'flex';
             if (elements.fairValue) elements.fairValue.textContent = '$0.00';
-            if (elements.marginSafety) {
-                elements.marginSafety.textContent = '0% Margin of Safety';
-                elements.marginSafety.style.background = 'none';
-                elements.marginSafety.style.color = 'inherit';
-            }
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
         if (searchBtn) {
@@ -4021,7 +4017,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     rfBanner.style.cssText = 'background: rgba(239, 68, 68, 0.1); border: 1px solid var(--danger); padding: 12px; border-radius: 8px; margin-bottom: 15px; width: 100%;';
                     profileHeader.insertAdjacentElement('afterend', rfBanner);
                 }
-                rfBanner.innerHTML = data.red_flags.map(f => `<div style="color: var(--danger); font-weight: bold; font-size: 0.7em; margin-bottom: 0px; display: flex; align-items: center; justify-content: center; text-align: center; white-space: nowrap; letter-spacing: -0.5px; overflow: hidden; text-overflow: ellipsis;">${f}</div>`).join('');
+                rfBanner.innerHTML = data.red_flags.map(f => `<div style="color: var(--danger); font-weight: bold; font-size: 0.9em; margin-bottom: 4px;">${f}</div>`).join('');
                 rfBanner.style.display = 'block';
             } else if (rfBanner) {
                 rfBanner.style.display = 'none';
@@ -4590,15 +4586,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         }
         updateFairValue();
 
-        // Ensure UI displays current global state immediately after updateFairValue recalculates it.
-        // Final updates to MOS styling based on fallback or custom weights.
-        if (elements.fairValue && elements.marginSafety && globalData.fair_value != null && globalData.margin_of_safety != null) {
-            elements.fairValue.textContent = formatCurrency(globalData.fair_value);
-            elements.marginSafety.textContent = `${formatPercent(globalData.margin_of_safety)} Margin of Safety`;
-            elements.marginSafety.style.color = globalData.margin_of_safety > 0 ? 'var(--accent)' : 'var(--danger)';
-            elements.marginSafety.style.background = globalData.margin_of_safety > 0 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)';
-        }
-
         document.querySelectorAll('.valuation-toggle').forEach(toggle => {
             toggle.onchange = updateAndSave;
         });
@@ -4827,7 +4814,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     const overrideInputIds = [
         'fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple',
         'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp', 'dcf-custom-fcf-margin', 'dcf-custom-margin-growth',
-        'dcf-buyback-source', 'dcf-custom-buyback', 'dcf-custom-sbc', 'relative-variant',
+        'dcf-buyback-source', 'dcf-custom-buyback', 'relative-variant',
         'lynch-multiple-source', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth', 'lynch-return-rate', 'lynch-custom-return',
         'peg-eps-source', 'peg-custom-growth', 'peg-mode'
     ];
@@ -4889,8 +4876,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             inputs: collectOverrideInputs(),
             toggles: collectOverrideToggles(),
             computed: getComputedValues(),
-            weights: customWeights,
-            custom_scenarios: window._customScenariosData || null
+            weights: customWeights
         };
 
         cachedOverrides[ticker] = payload;
@@ -4916,8 +4902,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             inputs: collectOverrideInputs(),
             toggles: collectOverrideToggles(),
             computed: getComputedValues(),
-            weights: { ...customWeights },
-            custom_scenarios: window._customScenariosData || null
+            weights: { ...customWeights }
         };
         pendingOverrideTicker = ticker;
 
@@ -4933,18 +4918,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
     const applyOverrides = (ticker) => {
         const ov = cachedOverrides[ticker];
-
-        // If there are no overrides for this ticker, clear out any custom scenarios
-        // so they don't bleed over from a previously viewed ticker.
-        if (!ov) {
-            window._customScenariosData = null;
-            const customScenariosBtn = document.getElementById('open-custom-scenarios-btn');
-            if (customScenariosBtn) {
-                customScenariosBtn.classList.remove('active-custom');
-            }
-            document.querySelectorAll('.cs-input').forEach(inp => inp.value = '');
-            return false;
-        }
+        if (!ov) return false;
         const inputs = ov.inputs || {};
         const toggles = ov.toggles || {};
 
@@ -4987,21 +4961,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             const el = document.getElementById(id);
             if (el) el.checked = checked;
         });
-
-        // Restore Custom Scenarios Data
-        if (ov.custom_scenarios) {
-            window._customScenariosData = ov.custom_scenarios;
-            const customScenariosBtn = document.getElementById('open-custom-scenarios-btn');
-            if (customScenariosBtn) {
-                customScenariosBtn.classList.add('active-custom');
-            }
-        } else {
-            window._customScenariosData = null;
-            const customScenariosBtn = document.getElementById('open-custom-scenarios-btn');
-            if (customScenariosBtn) {
-                customScenariosBtn.classList.remove('active-custom');
-            }
-        }
 
         window._isApplyingOverrides = false;
         return true;
@@ -5064,7 +5023,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         const ov = cachedOverrides[currentTicker];
         if (ov && ov.inputs) {
             const idsToReset = {
-                dcf: ['fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple', 'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp', 'dcf-custom-fcf-margin', 'dcf-custom-margin-growth', 'dcf-buyback-source', 'dcf-custom-buyback', 'dcf-custom-sbc'],
+                dcf: ['fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple', 'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp', 'dcf-custom-fcf-margin', 'dcf-custom-margin-growth', 'dcf-buyback-source', 'dcf-custom-buyback'],
                 relative: ['relative-variant', 'rel-weight-mode-card'],
                 peter_lynch: ['lynch-multiple-source', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth', 'lynch-return-rate', 'lynch-custom-return'],
                 peg: ['peg-eps-source', 'peg-custom-growth', 'peg-mode']
@@ -6028,7 +5987,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     const closeCustomScenariosBtn = document.getElementById('close-custom-scenarios-modal');
     const calculateCustomBtn = document.getElementById('cs-calculate-btn');
     const resetCustomBtn = document.getElementById('cs-reset-btn');
-    const turnOffCustomBtn = document.getElementById('cs-turn-off-btn');
 
     if (customScenariosBtn) {
         customScenariosBtn.addEventListener('click', () => {
@@ -6065,59 +6023,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         });
     }
 
-    // Growth Tips Tooltip Logic
-    const tipsTooltip = document.getElementById('cs-tips-tooltip');
-    const tipsContent = document.getElementById('cs-tips-content');
-    const revInputs = document.querySelectorAll('#cs-rev-1-3-bear, #cs-rev-1-3-base, #cs-rev-1-3-bull');
-
-    revInputs.forEach(input => {
-        input.addEventListener('focus', (e) => {
-            if (!globalData || !globalData.company_profile) return;
-            const prof = globalData.company_profile;
-
-            // Calculate historically available data
-            let rev1y = 'N/A';
-            let rev3y = 'N/A';
-            if (globalData.financials && globalData.financials.length >= 2) {
-                const f = globalData.financials;
-                const r0 = f[0].total_revenue;
-                const r1 = f[1].total_revenue;
-                if (r0 > 0 && r1 > 0) rev1y = ((r0 / r1) - 1) * 100;
-
-                if (f.length >= 4) {
-                    const r3 = f[3].total_revenue;
-                    if (r0 > 0 && r3 > 0) rev3y = (Math.pow(r0 / r3, 1/3) - 1) * 100;
-                }
-            }
-
-            let fwdAvg = 'N/A';
-            if (globalData.computed_dcf_growth != null) {
-                 fwdAvg = globalData.computed_dcf_growth * 100;
-            } else if (prof.revenue_growth != null) {
-                 fwdAvg = prof.revenue_growth * 100;
-            }
-
-            const formatVal = (v) => v !== 'N/A' && !isNaN(v) ? v.toFixed(1) + '%' : 'N/A';
-
-            tipsContent.innerHTML = `
-                <div style="display:flex; justify-content:space-between; width:120px; margin-bottom:3px;"><span style="color:var(--text-muted);">1Y Hist:</span> <span>${formatVal(rev1y)}</span></div>
-                <div style="display:flex; justify-content:space-between; width:120px; margin-bottom:3px;"><span style="color:var(--text-muted);">3Y CAGR:</span> <span>${formatVal(rev3y)}</span></div>
-                <div style="display:flex; justify-content:space-between; width:120px;"><span style="color:var(--text-muted);">FWD Est:</span> <span style="color:#fbbf24;">${formatVal(fwdAvg)}</span></div>
-            `;
-
-            tipsTooltip.style.display = 'block';
-
-            // Positioning
-            const rect = e.target.getBoundingClientRect();
-            tipsTooltip.style.left = (rect.left + window.scrollX + (rect.width / 2) - 75) + 'px'; // Center tooltip (150px min-width)
-            tipsTooltip.style.top = (rect.top + window.scrollY - tipsTooltip.offsetHeight - 10) + 'px';
-        });
-
-        input.addEventListener('blur', () => {
-            tipsTooltip.style.display = 'none';
-        });
-    });
-
     const parseCsInput = (id) => {
         const val = document.getElementById(id).value;
         return val === '' ? null : parseFloat(val);
@@ -6142,18 +6047,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             if (typeof updateFairValue === 'function') { updateFairValue(); }
             if (typeof window.triggerRecalculate === 'function') { window.triggerRecalculate(); }
             if (typeof updateScoresDynamic === 'function') { updateScoresDynamic(); }
-            saveOverridesDebounced(currentTicker);
         });
     }
 
     if (resetCustomBtn) {
         resetCustomBtn.addEventListener('click', () => {
-            document.querySelectorAll('.cs-input').forEach(inp => inp.value = '');
-        });
-    }
-
-    if (turnOffCustomBtn) {
-        turnOffCustomBtn.addEventListener('click', () => {
             window._customScenariosData = null;
             document.querySelectorAll('.cs-input').forEach(inp => inp.value = '');
             if (customScenariosBtn) customScenariosBtn.classList.remove('active-custom');
@@ -6161,7 +6059,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             if (typeof updateFairValue === 'function') { updateFairValue(); }
             if (typeof window.triggerRecalculate === 'function') { window.triggerRecalculate(); }
             if (typeof updateScoresDynamic === 'function') { updateScoresDynamic(); }
-            saveOverridesDebounced(currentTicker);
         });
     }
     // --- END CUSTOM SCENARIOS LOGIC ---
