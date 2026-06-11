@@ -6198,8 +6198,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         let leftPos = 0;
         let topPos = rect.bottom + 10; // Default below
 
-        // If below pushes it off screen, put it above
-        if (topPos + tooltipHeight + 10 > window.innerHeight) {
+        // Force above for Forward P/E to avoid covering modal buttons
+        if (inputId.includes('pe-')) {
+            topPos = rect.top - tooltipHeight - 10;
+        } else if (topPos + tooltipHeight + 10 > window.innerHeight) {
+            // If below pushes it off screen, put it above
             topPos = rect.top - tooltipHeight - 10;
         }
 
@@ -6216,7 +6219,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
         // Desktop specific: place it to the right of the modal if window is wide enough
         if (window.innerWidth > 768) {
-            const modalContent = input.closest('.modal-content');
+            const modalContent = e.target.closest('.modal-content');
             if (modalContent) {
                 const modalRect = modalContent.getBoundingClientRect();
                 // Place to the right of the modal if there's enough space
