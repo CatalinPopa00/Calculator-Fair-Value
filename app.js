@@ -5872,6 +5872,49 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     else if (revGrowths.length === 1) globalData.computed_dcf_growth = revGrowths[0];
                 }
 
+                // Render Surprises Table
+                const sBody = document.querySelector('#surprises-table tbody');
+                if (sBody) {
+                    sBody.innerHTML = '';
+                    if (globalData && globalData.earnings_history && globalData.earnings_history.length > 0) {
+                        globalData.earnings_history.forEach(item => {
+                            if (!item) return;
+                            const dLabel = item.earningsDate || '--';
+                            const estVal = item.epsEstimate != null ? parseFloat(item.epsEstimate).toFixed(2) : '--';
+                            const actVal = item.epsActual != null ? parseFloat(item.epsActual).toFixed(2) : '--';
+                            let surpVal = '--';
+                            let sColor = 'var(--text-main)';
+                            if (item.surprisePercent != null) {
+                                const surp = parseFloat(item.surprisePercent);
+                                surpVal = (surp > 0 ? '+' : '') + surp.toFixed(2) + '%';
+                                sColor = surp > 0 ? '#4ade80' : (surp < 0 ? '#f87171' : 'var(--text-main)');
+                            }
+                            sBody.innerHTML += `<tr><td style="padding:4px 0;">${dLabel}</td><td style="text-align:right;">${estVal}</td><td style="text-align:right;">${actVal}</td><td style="text-align:right;color:${sColor};font-weight:bold;">${surpVal}</td></tr>`;
+                        });
+                    } else {
+                        sBody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:10px;">No surprise data available</td></tr>';
+                    }
+                }
+
+                // Render History Table
+                const hBody = document.querySelector('#history-table tbody');
+                if (hBody) {
+                    hBody.innerHTML = '';
+                    if (globalData && globalData.historical_anchors && globalData.historical_anchors.length > 0) {
+                        globalData.historical_anchors.forEach(item => {
+                            if (!item) return;
+                            const yrLabel = item.year || '--';
+                            const revVal = item.revenue_b != null ? parseFloat(item.revenue_b).toFixed(2) : '--';
+                            const epsVal = item.eps != null ? parseFloat(item.eps).toFixed(2) : '--';
+                            const fcfVal = item.fcf_b != null ? parseFloat(item.fcf_b).toFixed(2) : '--';
+                            
+                            hBody.innerHTML += `<tr><td style="padding:4px 0; font-weight:bold;">${yrLabel}</td><td style="text-align:right;">${revVal}</td><td style="text-align:right;">${epsVal}</td><td style="text-align:right;">${fcfVal}</td></tr>`;
+                        });
+                    } else {
+                        hBody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:10px;">No historical data available</td></tr>';
+                    }
+                }
+
             }; // End window._renderEstimatesTable
             window._renderEstimatesTable(); // Call it immediately
 

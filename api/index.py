@@ -766,6 +766,42 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                         if anchor.get(h_key) is not None:
                             anchor[h_key] = anchor[h_key] * price_fx
 
+        # --- HISTORICAL DATA ACCUMULATOR ---
+        try:
+            from utils.kv import kv_get as fresh_kv_get, kv_set as fresh_kv_set
+            accum_key = f"accum_history_v2_{ticker_upper}"
+            cached_history = fresh_kv_get(accum_key) or []
+            print(f"DEBUG ACCUM: fetched cached_history -> {cached_history}")
+            
+            # Convert to dictionary keyed by year for easy merging
+            merged = {str(item.get("year")): item for item in cached_history if item.get("year")}
+            
+            # Merge incoming anchors (these override existing ones since they are fresher)
+            fresh_anchors = data.get("historical_anchors") or []
+            for fresh_anchor in fresh_anchors:
+                if fresh_anchor.get("year"):
+                    merged[str(fresh_anchor["year"])] = fresh_anchor
+                    
+            # Sort descending by year
+            def sort_key(x):
+                y = x.get("year", "")
+                # Handle "2025" or "2025 (Partial)"
+                try:
+                    return int(str(y)[:4]) if str(y)[:4].isdigit() else 0
+                except:
+                    return 0
+                    
+            merged_list = sorted(list(merged.values()), key=sort_key, reverse=True)
+            
+            # Save back to KV (No expiration, so it accumulates indefinitely)
+            if len(merged_list) > 0:
+                fresh_kv_set(accum_key, merged_list, ex=None)
+            
+            # Inject back to data
+            data["historical_anchors"] = merged_list
+        except Exception as e:
+            print(f"DEBUG: Historical Accumulator failed for {ticker_upper}: {e}")
+
         # Recalculate forward ratios in USD to prevent currency mismatch
         shares = data.get("shares_outstanding") or 1
         rev_per_share = (data.get("revenue") or 0) / shares if shares else 0
