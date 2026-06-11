@@ -2552,9 +2552,12 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     
                     // Apply SBC deduction if enabled
                     const sbcEl = document.getElementById('dcf-sbc-source');
-                    const sbcSrc = sbcEl ? sbcEl.value : 'deduct'; // 'deduct' or 'ignore'
-                    if (sbcSrc === 'deduct' && globalData.historical_data.sbc && globalData.historical_data.sbc.length > lastActualIdx && globalData.historical_data.sbc[lastActualIdx] != null) {
-                        baseFcf -= globalData.historical_data.sbc[lastActualIdx];
+                    const sbcSrc = sbcEl ? sbcEl.value : 'none'; // 'none' or 'custom'
+                    if (sbcSrc === 'custom') {
+                        const rawSbcVal = document.getElementById('dcf-custom-sbc')?.value;
+                        if (rawSbcVal !== '' && !isNaN(parseLocaleFloat(rawSbcVal))) {
+                            baseFcf -= parseLocaleFloat(rawSbcVal) * 1e9;
+                        }
                     }
                 }
             }
@@ -4896,7 +4899,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     const overrideInputIds = [
         'fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple',
         'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp', 'dcf-custom-fcf-margin', 'dcf-custom-margin-growth',
-        'dcf-buyback-source', 'dcf-custom-buyback', 'dcf-sbc-source', 'relative-variant',
+        'dcf-buyback-source', 'dcf-custom-buyback', 'dcf-sbc-source', 'dcf-custom-sbc', 'relative-variant',
         'lynch-multiple-source', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth', 'lynch-return-rate', 'lynch-custom-return',
         'peg-eps-source', 'peg-custom-growth', 'peg-mode',
         'cs-rev-1-3-bear', 'cs-rev-1-3-base', 'cs-rev-1-3-bull',
@@ -5165,7 +5168,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         const ov = cachedOverrides[currentTicker];
         if (ov && ov.inputs) {
             const idsToReset = {
-                dcf: ['fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple', 'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp', 'dcf-custom-fcf-margin', 'dcf-custom-margin-growth', 'dcf-buyback-source', 'dcf-custom-buyback', 'dcf-sbc-source'],
+                dcf: ['fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple', 'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp', 'dcf-custom-fcf-margin', 'dcf-custom-margin-growth', 'dcf-buyback-source', 'dcf-custom-buyback', 'dcf-sbc-source', 'dcf-custom-sbc'],
                 relative: ['relative-variant', 'rel-weight-mode-card'],
                 peter_lynch: ['lynch-multiple-source', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth', 'lynch-return-rate', 'lynch-custom-return'],
                 peg: ['peg-eps-source', 'peg-custom-growth', 'peg-mode']
@@ -5190,7 +5193,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     el.value = (id === 'fcf-source') ? 'revenue' :
                         (id === 'dcf-years-source') ? '10yr' :
                             (id === 'dcf-buyback-source') ? 'none' : 
-                                (id === 'dcf-sbc-source') ? 'deduct' : 'perpetual';
+                                (id === 'dcf-sbc-source') ? 'none' : 'perpetual';
                     el.dispatchEvent(new Event('change', { bubbles: true }));
                 }
             });
@@ -6778,9 +6781,12 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                         }
                         
                         const sbcEl = document.getElementById('dcf-sbc-source');
-                        const sbcSrc = sbcEl ? sbcEl.value : 'deduct';
-                        if (sbcSrc === 'deduct' && globalData.historical_data.sbc && globalData.historical_data.sbc.length > lastActualIdx && globalData.historical_data.sbc[lastActualIdx] != null) {
-                            baseFcf -= globalData.historical_data.sbc[lastActualIdx];
+                        const sbcSrc = sbcEl ? sbcEl.value : 'none';
+                        if (sbcSrc === 'custom') {
+                            const rawSbcVal = document.getElementById('dcf-custom-sbc')?.value;
+                            if (rawSbcVal !== '' && !isNaN(parseLocaleFloat(rawSbcVal))) {
+                                baseFcf -= parseLocaleFloat(rawSbcVal) * 1e9;
+                            }
                         }
                     }
                 }
