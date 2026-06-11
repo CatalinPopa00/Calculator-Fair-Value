@@ -526,13 +526,11 @@ window._customScenariosData = null;
 // --- PRICE ANIMATION UTILITY ---
 const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     const ti = document.getElementById('price-trend-icon');
-    const sti = document.getElementById('sticky-price-trend-icon');
     const pc = document.getElementById('price-change-percent');
     const spc = document.getElementById('sticky-price-change-percent');
 
     if (!openPrice || openPrice === newPrice) {
         if (ti) ti.textContent = '';
-        if (sti) sti.textContent = '';
         if (pc) pc.textContent = '';
         if (spc) spc.textContent = '';
         return;
@@ -556,16 +554,13 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             ti.textContent = icon;
             ti.style.color = color;
         }
-        if (sti) {
-            sti.textContent = icon;
-            sti.style.color = color;
-        }
         if (pc) {
             pc.textContent = changeText;
             pc.style.color = color;
         }
         if (spc) {
-            spc.textContent = changeText;
+            const pctText = `${changeAmount > 0 ? '+' : ''}${pctChange.toFixed(2)}%`;
+            spc.textContent = pctText;
             spc.style.color = color;
         }
     }
@@ -954,8 +949,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
              // Clear icons when simulating
              const ti = document.getElementById('price-trend-icon');
              if (ti) ti.textContent = '';
-             const sti = document.getElementById('sticky-price-trend-icon');
-             if (sti) sti.textContent = '';
         }
 
         // Precise growth rate calculation for simulation scoring to prevent drift
@@ -3739,8 +3732,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             // Clear price trend icons when loading a new ticker
             const ti = document.getElementById('price-trend-icon');
             if (ti) ti.textContent = '';
-            const sti = document.getElementById('sticky-price-trend-icon');
-            if (sti) sti.textContent = '';
             autocompleteList.style.display = 'none';
             watchlistView.style.display = 'none';
             dashboard.style.display = 'none';
