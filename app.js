@@ -566,39 +566,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
     let currentCustomPE = null;
     let _tvWidgetCreatedFor = null;
-    window.activeSMA = null;
-
-    window.toggleSMA = function(length) {
-        const btn50 = document.getElementById('btn-sma-50');
-        const btn200 = document.getElementById('btn-sma-200');
-
-        if (window.activeSMA === length) {
-            // Turn off
-            window.activeSMA = null;
-            if (length === 50) {
-                if (btn50) { btn50.style.background = 'rgba(255,255,255,0.1)'; btn50.style.color = 'white'; }
-            } else {
-                if (btn200) { btn200.style.background = 'rgba(255,255,255,0.1)'; btn200.style.color = 'white'; }
-            }
-        } else {
-            // Turn on
-            window.activeSMA = length;
-            if (length === 50) {
-                if (btn50) { btn50.style.background = 'var(--primary)'; btn50.style.color = 'black'; }
-                if (btn200) { btn200.style.background = 'rgba(255,255,255,0.1)'; btn200.style.color = 'white'; }
-            } else {
-                if (btn200) { btn200.style.background = 'var(--primary)'; btn200.style.color = 'black'; }
-                if (btn50) { btn50.style.background = 'rgba(255,255,255,0.1)'; btn50.style.color = 'white'; }
-            }
-        }
-        
-        if (globalData && globalData.ticker) {
-            window.renderTVWidget(globalData.ticker, window.activeSMA);
-            _tvWidgetCreatedFor = globalData.ticker;
-        }
-    };
-
-    window.renderTVWidget = function(ticker, smaLength) {
+    window.renderTVWidget = function(ticker) {
         const container = document.getElementById('tv-widget-container');
         if (!container) return;
         
@@ -626,7 +594,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             "locale": "en",
             "colorTheme": "dark",
             "showVolume": false,
-            "showMA": smaLength !== null,
             "hideDateRanges": false,
             "hideMarketStatus": false,
             "hideSymbolLogo": true,
@@ -644,12 +611,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             "dateRanges": ["1d|1", "1m|30", "3m|60", "12m|1D", "60m|1W", "all|1M"],
             "backgroundColor": "rgba(0, 0, 0, 0)" // transparent
         };
-
-        if (smaLength !== null) {
-            config["maLineColor"] = "#2962FF";
-            config["maLineWidth"] = 1;
-            config["maLength"] = smaLength;
-        }
 
         script.innerHTML = JSON.stringify(config);
         container.appendChild(script);
@@ -3965,12 +3926,39 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             if (ownership.insider_roster && ownership.insider_roster.length > 0) {
                 // Sort by shares descending
                 const sortedRoster = [...ownership.insider_roster].sort((a, b) => b.shares - a.shares);
-                
+                const generateColors = (count) => {
+                    const colors = [
+                        'rgba(255, 99, 132, 0.8)',
+                        'rgba(54, 162, 235, 0.8)',
+                        'rgba(255, 206, 86, 0.8)',
+                        'rgba(75, 192, 192, 0.8)',
+                        'rgba(153, 102, 255, 0.8)',
+                        'rgba(255, 159, 64, 0.8)',
+                        'rgba(199, 199, 199, 0.8)',
+                        'rgba(83, 102, 255, 0.8)',
+                        'rgba(255, 102, 204, 0.8)',
+                        'rgba(102, 255, 153, 0.8)'
+                    ];
+                    let result = [];
+                    for(let i=0; i<count; i++) result.push(colors[i % colors.length]);
+                    return result;
+                };
+
+                const rosterColors = generateColors(sortedRoster.length);
+
                 // Populate Table
-                sortedRoster.forEach(r => {
+                sortedRoster.forEach((r, idx) => {
                     rstBody.innerHTML += `<tr>
-                        <td>${r.name}<br><span style="color:var(--text-muted); font-size: 0.65rem;">${r.position}</span></td>
-                        <td style="text-align: right;">${r.shares.toLocaleString()}</td>
+                        <td>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <div style="width: 12px; height: 12px; border-radius: 3px; background-color: ${rosterColors[idx]}; flex-shrink: 0;"></div>
+                                <div>
+                                    ${r.name}<br>
+                                    <span style="color:var(--text-muted); font-size: 0.65rem;">${r.position}</span>
+                                </div>
+                            </div>
+                        </td>
+                        <td style="text-align: right; vertical-align: middle;">${r.shares.toLocaleString()}</td>
                     </tr>`;
                 });
 
@@ -3981,24 +3969,9 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     
                     const labels = sortedRoster.map(r => r.name);
                     const data = sortedRoster.map(r => r.shares / 1000); // in thousands
-                    
-                    const generateColors = (count) => {
-                        const colors = [
-                            'rgba(255, 99, 132, 0.8)',
-                            'rgba(54, 162, 235, 0.8)',
-                            'rgba(255, 206, 86, 0.8)',
-                            'rgba(75, 192, 192, 0.8)',
-                            'rgba(153, 102, 255, 0.8)',
-                            'rgba(255, 159, 64, 0.8)',
-                            'rgba(199, 199, 199, 0.8)',
-                            'rgba(83, 102, 255, 0.8)',
-                            'rgba(255, 102, 204, 0.8)',
-                            'rgba(102, 255, 153, 0.8)'
-                        ];
-                        let result = [];
-                        for(let i=0; i<count; i++) result.push(colors[i % colors.length]);
-                        return result;
-                    };
+                    const totalShares = data.reduce((a, b) => a + b, 0);
+
+                    const pluginsArray = typeof ChartDataLabels !== 'undefined' ? [ChartDataLabels] : [];
 
                     window.rosterPieChart = new Chart(ctx, {
                         type: 'doughnut',
@@ -4006,16 +3979,31 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                             labels: labels,
                             datasets: [{
                                 data: data,
-                                backgroundColor: generateColors(data.length),
+                                backgroundColor: rosterColors,
                                 borderWidth: 1,
                                 borderColor: 'rgba(255, 255, 255, 0.05)'
                             }]
                         },
+                        plugins: pluginsArray,
                         options: {
                             responsive: true,
                             maintainAspectRatio: false,
                             plugins: {
                                 legend: { display: false },
+                                datalabels: {
+                                    color: '#ffffff',
+                                    font: { weight: 'bold', size: 10 },
+                                    formatter: (value, context) => {
+                                        if (totalShares === 0) return '';
+                                        const percentage = ((value / totalShares) * 100).toFixed(1) + '%';
+                                        return percentage;
+                                    },
+                                    display: function(context) {
+                                        if (totalShares === 0) return false;
+                                        const percentage = (context.dataset.data[context.dataIndex] / totalShares) * 100;
+                                        return percentage > 3; // only display if slice is > 3% to avoid clutter
+                                    }
+                                },
                                 tooltip: {
                                     callbacks: {
                                         label: function(context) {
