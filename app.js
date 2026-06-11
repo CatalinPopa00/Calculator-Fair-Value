@@ -6496,6 +6496,20 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     if (resetCustomBtn) {
         resetCustomBtn.addEventListener('click', () => {
             document.querySelectorAll('.cs-input').forEach(inp => inp.value = '');
+            
+            window._customScenariosData = {};
+            ['bear', 'base', 'bull'].forEach(scen => {
+                window._customScenariosData[scen] = {
+                    rev13: null, fcfMargin: null, wacc: null, exit: null,
+                    perpetual: null, shares: null, buyback: null, sbc: null,
+                    discount: null, eps: null, pe: null
+                };
+            });
+            
+            if (typeof updateFairValue === 'function') { updateFairValue(); }
+            if (typeof window.triggerRecalculate === 'function') { window.triggerRecalculate(); }
+            if (typeof updateScoresDynamic === 'function') { updateScoresDynamic(); }
+            saveOverridesDebounced(currentTicker);
         });
     }
 
@@ -7259,21 +7273,33 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 const { health_rules, buy_rules } = globalData.scoring_rules;
 
                 if (health_rules && health_rules.length > 0) {
-                    html += '<h4 style="color: var(--accent); margin-bottom: 10px; margin-top: 0; font-size: 1.1rem;">Health Score Rules</h4>';
-                    html += '<ul style="padding-left: 20px; margin-bottom: 20px;">';
-                    health_rules.forEach(rule => {
-                        html += `<li style="margin-bottom: 8px;">${rule}</li>`;
+                    html += '<h4 style="color: var(--accent); margin-bottom: 15px; margin-top: 0; font-size: 1.1rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">Health Score Rules</h4>';
+                    html += '<div style="margin-bottom: 25px;">';
+                    health_rules.forEach((rule, index) => {
+                        html += `<div style="margin-bottom: 15px;">`;
+                        html += `<div style="color: white; font-weight: 500; margin-bottom: 5px;">${index + 1}. ${rule.name}</div>`;
+                        html += `<ul style="padding-left: 20px; margin: 0; color: var(--text-muted); list-style-type: disc;">`;
+                        rule.criteria.forEach(crit => {
+                            html += `<li style="margin-bottom: 3px; font-size: 0.85rem;">${crit}</li>`;
+                        });
+                        html += `</ul></div>`;
                     });
-                    html += '</ul>';
+                    html += '</div>';
                 }
 
                 if (buy_rules && buy_rules.length > 0) {
-                    html += '<h4 style="color: var(--success, #10b981); margin-bottom: 10px; font-size: 1.1rem;">Good to Buy Score Rules</h4>';
-                    html += '<ul style="padding-left: 20px; margin-bottom: 20px;">';
-                    buy_rules.forEach(rule => {
-                        html += `<li style="margin-bottom: 8px;">${rule}</li>`;
+                    html += '<h4 style="color: var(--success, #10b981); margin-bottom: 15px; font-size: 1.1rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">Good to Buy Score Rules</h4>';
+                    html += '<div style="margin-bottom: 25px;">';
+                    buy_rules.forEach((rule, index) => {
+                        html += `<div style="margin-bottom: 15px;">`;
+                        html += `<div style="color: white; font-weight: 500; margin-bottom: 5px;">${index + 1}. ${rule.name}</div>`;
+                        html += `<ul style="padding-left: 20px; margin: 0; color: var(--text-muted); list-style-type: disc;">`;
+                        rule.criteria.forEach(crit => {
+                            html += `<li style="margin-bottom: 3px; font-size: 0.85rem;">${crit}</li>`;
+                        });
+                        html += `</ul></div>`;
                     });
-                    html += '</ul>';
+                    html += '</div>';
                 }
 
                 rulesBody.innerHTML = html || '<p style="color:var(--text-muted);">No specific rules found.</p>';
