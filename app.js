@@ -2517,6 +2517,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             const buybackCustomInputs = document.getElementById('dcf-buyback-custom-inputs');
             if (buybackCustomInputs) buybackCustomInputs.style.display = buybackSrc === 'custom' ? 'flex' : 'none';
 
+            const sbcEl = document.getElementById('dcf-sbc-source');
+            const sbcSrc = sbcEl ? sbcEl.value : 'none';
+            const sbcCustomInputs = document.getElementById('dcf-sbc-custom-inputs');
+            if (sbcCustomInputs) sbcCustomInputs.style.display = sbcSrc === 'custom' ? 'flex' : 'none';
+
             let buybackRate = 0;
             if (buybackSrc === 'historical') {
                 buybackRate = currentFormulaData.dcf.historic_buyback_rate || 0;
@@ -2551,8 +2556,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     }
                     
                     // Apply SBC deduction if enabled
-                    const sbcEl = document.getElementById('dcf-sbc-source');
-                    const sbcSrc = sbcEl ? sbcEl.value : 'none'; // 'none' or 'custom'
                     if (sbcSrc === 'custom') {
                         const rawSbcVal = document.getElementById('dcf-custom-sbc')?.value;
                         if (rawSbcVal !== '' && !isNaN(parseLocaleFloat(rawSbcVal))) {
@@ -5051,11 +5054,12 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 }
                 el.value = cleanVal;
                 // Show/hide custom input containers based on select values
-                if (id === 'fcf-source' || id === 'dcf-buyback-source' || id === 'lynch-multiple-source' || id === 'lynch-eps-source' || id === 'peg-eps-source') {
+                if (id === 'fcf-source' || id === 'dcf-buyback-source' || id === 'dcf-sbc-source' || id === 'lynch-multiple-source' || id === 'lynch-eps-source' || id === 'peg-eps-source') {
                     const ciId = id === 'fcf-source' ? 'dcf-custom-inputs' :
                         id === 'dcf-buyback-source' ? 'dcf-buyback-custom-inputs' :
-                            id === 'lynch-multiple-source' ? 'lynch-custom-multiple-inputs' :
-                                id === 'lynch-eps-source' ? 'lynch-custom-inputs' : 'peg-custom-inputs';
+                            id === 'dcf-sbc-source' ? 'dcf-sbc-custom-inputs' :
+                                id === 'lynch-multiple-source' ? 'lynch-custom-multiple-inputs' :
+                                    id === 'lynch-eps-source' ? 'lynch-custom-inputs' : 'peg-custom-inputs';
                     const ci = document.getElementById(ciId);
                     if (ci) {
                         if (ciId === 'lynch-custom-inputs' || ciId === 'peg-custom-inputs' || ciId === 'lynch-custom-multiple-inputs') {
