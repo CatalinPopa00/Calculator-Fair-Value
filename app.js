@@ -568,44 +568,14 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     let _tvWidgetCreatedFor = null;
     window.activeSMA = null;
 
-    window.toggleSMA = function(length) {
-        const btn50 = document.getElementById('btn-sma-50');
-        const btn200 = document.getElementById('btn-sma-200');
-
-        if (window.activeSMA === length) {
-            // Turn off
-            window.activeSMA = null;
-            if (length === 50) {
-                if (btn50) { btn50.style.background = 'rgba(255,255,255,0.1)'; btn50.style.color = 'white'; }
-            } else {
-                if (btn200) { btn200.style.background = 'rgba(255,255,255,0.1)'; btn200.style.color = 'white'; }
-            }
-        } else {
-            // Turn on
-            window.activeSMA = length;
-            if (length === 50) {
-                if (btn50) { btn50.style.background = 'var(--primary)'; btn50.style.color = 'black'; }
-                if (btn200) { btn200.style.background = 'rgba(255,255,255,0.1)'; btn200.style.color = 'white'; }
-            } else {
-                if (btn200) { btn200.style.background = 'var(--primary)'; btn200.style.color = 'black'; }
-                if (btn50) { btn50.style.background = 'rgba(255,255,255,0.1)'; btn50.style.color = 'white'; }
-            }
-        }
-        
-        if (globalData && globalData.ticker) {
-            window.renderTVWidget(globalData.ticker, window.activeSMA);
-            _tvWidgetCreatedFor = globalData.ticker;
-        }
-    };
-
-    window.renderTVWidget = function(ticker, smaLength) {
+    window.renderTVWidget = function(ticker) {
         const container = document.getElementById('tv-widget-container');
         if (!container) return;
         
         container.innerHTML = ''; // clear old widget
         const script = document.createElement('script');
         script.type = 'text/javascript';
-        script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js';
+        script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
         script.async = true;
 
         let tvSymbol = ticker.toUpperCase();
@@ -619,36 +589,21 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         else if (tvSymbol.endsWith('.SW')) tvSymbol = 'SIX:' + tvSymbol.replace('.SW', '');
 
         const config = {
-            "symbols": [ [tvSymbol, tvSymbol + "|1D"] ],
-            "chartOnly": false,
-            "width": "100%",
-            "height": "100%",
+            "autosize": true,
+            "symbol": tvSymbol,
+            "interval": "D",
+            "timezone": "Etc/UTC",
+            "theme": "dark",
+            "style": "1",
             "locale": "en",
-            "colorTheme": "dark",
-            "showVolume": false,
-            "showMA": smaLength !== null,
-            "hideDateRanges": false,
-            "hideMarketStatus": false,
-            "hideSymbolLogo": true,
-            "scalePosition": "right",
-            "scaleMode": "Normal",
-            "fontFamily": "-apple-system, BlinkMacSystemFont, Trebuchet MS, Roboto, Ubuntu, sans-serif",
-            "fontSize": "10",
-            "noTimeScale": false,
-            "valuesTracking": "1",
-            "changeMode": "price-and-percent",
-            "chartType": "area",
-            "lineWidth": 2,
-            "lineType": 0,
-            "dateRanges": ["1d|1", "1m|30", "3m|60", "12m|1D", "60m|1W", "all|1M"],
-            "backgroundColor": "rgba(0, 0, 0, 0)" // transparent
+            "allow_symbol_change": true,
+            "calendar": false,
+            "hide_top_toolbar": false,
+            "studies": [
+                "STD;SMA" // Add Simple Moving Average by default
+            ],
+            "support_host": "https://www.tradingview.com"
         };
-
-        if (smaLength !== null) {
-            config["maLineColor"] = "#2962FF";
-            config["maLineWidth"] = 1;
-            config["maLength"] = smaLength;
-        }
 
         script.innerHTML = JSON.stringify(config);
         container.appendChild(script);
@@ -690,8 +645,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
                     // Inject TradingView widget if needed
                     if (globalData && globalData.ticker && _tvWidgetCreatedFor !== globalData.ticker) {
-                        if (typeof window.activeSMA === 'undefined') window.activeSMA = null;
-                        window.renderTVWidget(globalData.ticker, window.activeSMA);
+                        window.renderTVWidget(globalData.ticker);
                         _tvWidgetCreatedFor = globalData.ticker;
                     }
                 }, 300);
