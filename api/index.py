@@ -36,7 +36,7 @@ from models.scoring import calculate_scoring_reform, calculate_piotroski_score, 
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v317"
+CACHE_VERSION = "v318"
 import threading
 in_flight_requests = {}
 in_flight_lock = threading.Lock()
@@ -175,7 +175,25 @@ def get_analyst(ticker: str, response: Response):
     cache_key = f"analyst_v2_{ticker_upper}_{CACHE_VERSION}"
     if cache_key in valuation_cache:
         return valuation_cache[cache_key]
-    result = get_analyst_data(ticker_upper)
+        
+    # Attempt to extract from full valuation cache to avoid duplicate Yahoo requests
+    full_val_key = f"valuation_{ticker_upper}_False_False_{CACHE_VERSION}_None"
+    if full_val_key in valuation_cache:
+        val_data = valuation_cache[full_val_key]
+        # Build the exact structure get_analyst_data would return
+        result = {
+            "ticker": ticker_upper,
+            "adjusted_eps_fy0": val_data.get("company_profile", {}).get("adjusted_eps"),
+            "previous_close": val_data.get("company_profile", {}).get("open_price"),
+            "price_target": val_data.get("price_target"),
+            "recommendation": val_data.get("recommendation"),
+            "eps_estimates": val_data.get("eps_estimates", []),
+            "rev_estimates": val_data.get("rev_estimates", []),
+            "eps_trend": val_data.get("eps_trend", {}),
+            "currency": "USD" # Already converted
+        }
+    else:
+        result = get_analyst_data(ticker_upper)
 
     # --- DYNAMIC FX CURRENCY CONVERSION TO USD ---
     if result:
@@ -1870,6 +1888,9 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             "recommended_exit_multiple": sanitize(recommended_exit_multiple),
             "eps_estimates": sanitize(data.get("eps_estimates", [])),
             "rev_estimates": sanitize(data.get("rev_estimates", [])),
+            "price_target": data.get("price_target", {}),
+            "recommendation": data.get("recommendation", {}),
+            "eps_trend": data.get("eps_trend", {}),
             "company_profile": {
                 "industry": data.get("industry") or "N/A",
                 "sector": data.get("sector") or "N/A",
