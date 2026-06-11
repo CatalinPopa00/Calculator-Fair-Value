@@ -1873,7 +1873,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             "company_profile": {
                 "industry": data.get("industry") or "N/A",
                 "sector": data.get("sector") or "N/A",
-                "open_price": sanitize(data.get("open") or data.get("regularMarketOpen") or data.get("previousClose") or current_price),
+                "open_price": sanitize(data.get("previous_close") or current_price),
                 "market_cap": sanitize(data.get("shares_outstanding", 0) * current_price if data.get("shares_outstanding") and current_price else 0.0),
                 "adjusted_eps": sanitize(data.get("adjusted_eps")),
                 "fwd_eps": sanitize(next((e.get("avg") for e in data.get("eps_estimates", []) if e.get("status") == "estimate"), None)),

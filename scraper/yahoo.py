@@ -4489,6 +4489,7 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         return {
             "ticker": ticker_symbol.upper(),
             "adjusted_eps_fy0": fy0_eps,
+            "previous_close": (info.get('previousClose') * fx_rate) if (info and info.get('previousClose') and fx_rate) else None,
             "price_target": {
                 "current": current_price,
                 "low":    target_low,
