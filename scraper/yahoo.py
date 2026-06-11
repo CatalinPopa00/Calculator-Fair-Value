@@ -1365,7 +1365,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
     red_flags = []
     historical_trends = []
     historical_data = {
-        "years": [], "revenue": [], "eps": [], "diluted_eps": [], "fcf": [], "shares": []
+        "years": [], "revenue": [], "eps": [], "diluted_eps": [], "fcf": [], "shares": [], "sbc": []
     }
     history_eps = {}
     history_rev = {}
@@ -2672,6 +2672,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                             e_raw = year_sum
 
                 f = get_metric(cashflow, ['Free Cash Flow', 'Free Cash Flow (USD)', 'Total Cash Flow From Operating Activities', 'Cash Flow From Operating Activities'], yr_col) or 0
+                sbc_val = get_metric(cashflow, 'Stock Based Compensation', yr_col) or 0
                 eb = get_metric(financials, 'EBITDA', yr_col) or get_metric(financials, 'EBIT', yr_col) or 0
                 s = get_metric(financials, 'Diluted Average Shares', yr_col) or \
                     get_metric(financials, 'Basic Average Shares', yr_col) or 0
@@ -2718,6 +2719,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                 historical_data["eps"].append(e)
                 historical_data["diluted_eps"].append(e_raw * fx_rate) # v260: Track reported Diluted EPS
                 historical_data["fcf"].append(f_usd)
+                historical_data["sbc"].append(sbc_val * fx_rate)
                 historical_data["shares"].append(s)
                 
                 margin = (ni_usd / r_usd) if (r_usd and r_usd > 0) else 0
@@ -3019,6 +3021,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                     r_raw = historical_data["revenue"][i]
                     e_raw = historical_data["diluted_eps"][i] if "diluted_eps" in historical_data else historical_data["eps"][i]
                     f_raw = historical_data["fcf"][i]
+                    sbc_raw = historical_data.get("sbc", [])[i] if "sbc" in historical_data and i < len(historical_data["sbc"]) else 0
                     s_raw = historical_data["shares"][i]
                     ni_raw = (r_raw * historical_trends[i]["net_margin"]) if (i < len(historical_trends) and historical_trends[i]["net_margin"]) else 0
 
@@ -3114,6 +3117,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                         "revenue_b": round(r_raw / 1e9, 2), # Already USD
                         "eps": round(e_raw, 2), # Already USD
                         "fcf_b": round(f_raw / 1e9, 2), # Already USD
+                        "sbc_b": round(sbc_raw / 1e9, 2),
                         "fcf_margin_pct": f"{fcf_margin_v:.1f}%" if fcf_margin_v is not None else "N/A",
                         "net_income_b": round(ni_raw / 1e9, 2) if ni_raw is not None else 0,
                         "ebitda_b": round(historical_trends[i].get("ebitda", 0) / 1e9, 2),

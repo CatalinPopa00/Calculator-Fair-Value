@@ -1520,20 +1520,12 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             // FCF is calculated on top of projected Revenue
             currentFcf = currentRevenue * yearMargin;
 
-            // Method A: Deduct buyback cash cost from FCF
-            let buybackCashSpent = 0;
-            if (buybackRate > 0 && currentPrice && currentPrice > 0) {
-                const projectedPrice = currentPrice * Math.pow(1 + finalWacc, i);
-                const sharesBought = remainingShares * buybackRate;
-                buybackCashSpent = sharesBought * projectedPrice;
-                remainingShares -= sharesBought;
-                currentFcf -= buybackCashSpent;
-            } else if (buybackRate > 0) {
-                // Fallback: just reduce shares without FCF deduction
+            // Apply buybacks or dilution directly to the share count, keeping FCF intact
+            if (buybackRate !== 0) {
                 remainingShares *= (1 - buybackRate);
             }
 
-            buybackCostPerYear.push(buybackCashSpent);
+            buybackCostPerYear.push(0); // Deprecated
             fcf_projections.push(currentFcf);
 
             const pv_fcf = currentFcf / Math.pow(1 + finalWacc, i - 0.5);
@@ -2556,6 +2548,13 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     }
                     if (histRev && histRev.length > lastActualIdx && histRev[lastActualIdx] != null) {
                         baseRevenue = histRev[lastActualIdx];
+                    }
+                    
+                    // Apply SBC deduction if enabled
+                    const sbcEl = document.getElementById('dcf-sbc-source');
+                    const sbcSrc = sbcEl ? sbcEl.value : 'deduct'; // 'deduct' or 'ignore'
+                    if (sbcSrc === 'deduct' && globalData.historical_data.sbc && globalData.historical_data.sbc.length > lastActualIdx && globalData.historical_data.sbc[lastActualIdx] != null) {
+                        baseFcf -= globalData.historical_data.sbc[lastActualIdx];
                     }
                 }
             }
@@ -4897,7 +4896,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     const overrideInputIds = [
         'fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple',
         'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp', 'dcf-custom-fcf-margin', 'dcf-custom-margin-growth',
-        'dcf-buyback-source', 'dcf-custom-buyback', 'relative-variant',
+        'dcf-buyback-source', 'dcf-custom-buyback', 'dcf-sbc-source', 'relative-variant',
         'lynch-multiple-source', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth', 'lynch-return-rate', 'lynch-custom-return',
         'peg-eps-source', 'peg-custom-growth', 'peg-mode',
         'cs-rev-1-3-bear', 'cs-rev-1-3-base', 'cs-rev-1-3-bull',
@@ -5166,7 +5165,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         const ov = cachedOverrides[currentTicker];
         if (ov && ov.inputs) {
             const idsToReset = {
-                dcf: ['fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple', 'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp', 'dcf-custom-fcf-margin', 'dcf-custom-margin-growth', 'dcf-buyback-source', 'dcf-custom-buyback'],
+                dcf: ['fcf-source', 'dcf-years-source', 'dcf-method-selector', 'input-exit-multiple', 'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp', 'dcf-custom-fcf-margin', 'dcf-custom-margin-growth', 'dcf-buyback-source', 'dcf-custom-buyback', 'dcf-sbc-source'],
                 relative: ['relative-variant', 'rel-weight-mode-card'],
                 peter_lynch: ['lynch-multiple-source', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth', 'lynch-return-rate', 'lynch-custom-return'],
                 peg: ['peg-eps-source', 'peg-custom-growth', 'peg-mode']
@@ -5185,12 +5184,13 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         // 3. FORCE re-population of specific fields for THIS method
         if (method === 'dcf') {
             // Reset Dropdowns
-            ['fcf-source', 'dcf-buyback-source', 'dcf-method-selector', 'dcf-years-source'].forEach(id => {
+            ['fcf-source', 'dcf-buyback-source', 'dcf-method-selector', 'dcf-years-source', 'dcf-sbc-source'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) {
                     el.value = (id === 'fcf-source') ? 'revenue' :
                         (id === 'dcf-years-source') ? '10yr' :
-                            (id === 'dcf-buyback-source') ? 'none' : 'perpetual';
+                            (id === 'dcf-buyback-source') ? 'none' : 
+                                (id === 'dcf-sbc-source') ? 'deduct' : 'perpetual';
                     el.dispatchEvent(new Event('change', { bubbles: true }));
                 }
             });
@@ -6776,6 +6776,12 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                         if (histRev && histRev.length > lastActualIdx && histRev[lastActualIdx] != null) {
                             baseRevenue = histRev[lastActualIdx];
                         }
+                        
+                        const sbcEl = document.getElementById('dcf-sbc-source');
+                        const sbcSrc = sbcEl ? sbcEl.value : 'deduct';
+                        if (sbcSrc === 'deduct' && globalData.historical_data.sbc && globalData.historical_data.sbc.length > lastActualIdx && globalData.historical_data.sbc[lastActualIdx] != null) {
+                            baseFcf -= globalData.historical_data.sbc[lastActualIdx];
+                        }
                     }
                 }
 
@@ -6795,19 +6801,32 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 }
                 const customMarginGrowthEl = document.getElementById('dcf-custom-margin-growth');
                 const customMarginGrowth = (customMarginGrowthEl && customMarginGrowthEl.value !== '') ? parseLocaleFloat(customMarginGrowthEl.value) / 100 : 0.002;
+                
+                let currentShares = d.shares_outstanding;
+                const buybackSrc = document.getElementById('dcf-buyback-source')?.value || 'none';
+                let buybackRate = 0;
+                if (buybackSrc === 'historical') {
+                    buybackRate = currentFormulaData?.dcf?.historic_buyback_rate || 0;
+                } else if (buybackSrc === 'custom') {
+                    const rawVal = document.getElementById('dcf-custom-buyback')?.value;
+                    buybackRate = (rawVal === '' || isNaN(parseLocaleFloat(rawVal))) ? 0 : parseLocaleFloat(rawVal) / 100;
+                }
 
                 let tableHTML = `<div class="table-responsive"><table class="premium-data-table">
                                         <tr style="border-bottom:1px solid rgba(255,255,255,0.2);">
                                             <th style="text-align:left; padding:8px 0; color:white;">Year</th>
                                             <th style="text-align:right; padding:8px 0; color:white;">Projected FCF</th>
                                             <th style="text-align:right; padding:8px 0; color:white;">FCF Margin</th>
+                                            ${buybackRate !== 0 ? `<th style="text-align:right; padding:8px 0; color:white;">Shares Out</th>` : ''}
                                         </tr>`;
                 fcfYears.forEach((val, i) => {
                     const yearMargin = startingFcfMargin + ((i + 1) * customMarginGrowth);
+                    if (buybackRate !== 0) currentShares *= (1 - buybackRate);
                     tableHTML += `<tr>
                                         <td style="padding:6px 0; color:white;">Year ${i + 1}</td>
                                         <td style="text-align:right; color:white;">${fmtBig(val)}</td>
                                         <td style="text-align:right; color:var(--accent); font-weight:600;">${fmtPct(yearMargin)}</td>
+                                        ${buybackRate !== 0 ? `<td style="text-align:right; color:var(--text-muted);">${fmtBigNum(currentShares, '')}</td>` : ''}
                                       </tr>`;
                 });
                 tableHTML += `</table></div>`;
