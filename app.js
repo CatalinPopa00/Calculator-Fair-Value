@@ -6267,7 +6267,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             let valFwd5y = null;
 
             const hd = globalData.historical_data || {};
-            const prof = globalData.company_profile || {};
 
             // Helper to get historical values (offset 0 = FY0, offset 1 = FY-1) from ANCHORS
             const anchors = globalData.historical_anchors || [];
