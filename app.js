@@ -6385,10 +6385,9 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             } else if (id.includes('perp')) {
                  title = "PERPETUAL GR. TIPS";
                  show1y3y = false;
-                 let basePerp = currentFormulaData?.dcf?.['5yr']?.perpetual_growth_rate ? currentFormulaData.dcf['5yr'].perpetual_growth_rate * 100 : 2.5;
-                 if (id.includes('bear')) valFwd = Math.max(1.0, basePerp - 0.5);
-                 else if (id.includes('bull')) valFwd = basePerp + 0.5;
-                 else valFwd = basePerp;
+                 if (id.includes('bear')) valFwd = 2.0;
+                 else if (id.includes('bull')) valFwd = 3.0;
+                 else valFwd = 2.5;
 
             } else if (id.includes('exit')) {
                  title = "EXIT MULTIPLE TIPS";
