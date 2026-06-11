@@ -1168,8 +1168,10 @@ body {
     transition: background 0.3s;
 }
 
-.view-data-btn:hover {
-    background: rgba(255, 255, 255, 0.2);
+@media (hover: hover) {
+    .view-data-btn:hover {
+        background: rgba(56, 189, 248, 0.15);
+    }
 }
 
 /* Watchlist View */
@@ -2074,8 +2076,10 @@ body.banner-visible .modal-content {
     transition: color 0.2s ease;
 }
 
-.collapsible-trigger:hover {
-    color: var(--accent);
+@media (hover: hover) {
+    .collapsible-trigger:hover {
+        color: var(--accent);
+    }
 }
 
 .chevron-icon {

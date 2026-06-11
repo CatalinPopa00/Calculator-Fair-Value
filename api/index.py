@@ -500,6 +500,15 @@ def bypass_article(url: str):
             # Fallback to all paragraphs if no article container is found
             content = "".join([f"<p>{p.get_text(strip=True)}</p>" for p in soup.find_all("p") if len(p.get_text(strip=True)) > 30])
         
+        # Check for Anti-Bot / JS Wall
+        anti_bot_strings = ["Please enable JS and disable any ad blocker", "enable JavaScript", "verify you are a human", "Robot or human?", "Are you a robot?"]
+        is_blocked = any(s.lower() in html.lower() for s in anti_bot_strings) or len(content) < 150
+
+        if is_blocked:
+            archive_url = f"https://archive.is/newest/{url}"
+            from fastapi.responses import RedirectResponse
+            return RedirectResponse(url=archive_url)
+        
         title = soup.find("title").get_text(strip=True) if soup.find("title") else "Article"
 
         clean_html = f"""

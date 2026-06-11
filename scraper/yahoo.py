@@ -2274,7 +2274,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
             "eps": [],
             "diluted_eps": [],
             "fcf": [],
-            "shares": []
+            "shares": [],
+            "sbc": []
         }
         
         # --- PHASE 0: PRE-CALCULATE NON-GAAP (ADJUSTED) EPS HISTORY ---
