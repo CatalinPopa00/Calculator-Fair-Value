@@ -6264,6 +6264,18 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             let label3y = "3y:";
             let labelFwd = "Suggestion:";
 
+            const hd = globalData.historical_data || {};
+            const revArr = hd.revenue || [];
+            const fcfArr = hd.fcf || [];
+            const epsArr = hd.eps || [];
+
+            // Helper to get historical values (offset 0 = FY0, offset 1 = FY-1)
+            const getHist = (arr, offset) => {
+                if (!arr || arr.length <= offset) return null;
+                const val = arr[arr.length - 1 - offset];
+                return val;
+            };
+
             // Helper to get FWD value with bear(-10%)/bull(+10%) logic based on base value
             const getFwdScenario = (baseValue) => {
                 if (baseValue === 'N/A' || baseValue == null || isNaN(baseValue)) return 'N/A';
@@ -6277,18 +6289,21 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             if (id.includes('rev-1-3')) {
                 title = "REV GROWTH TIPS";
                 labelFwd = "FWD:";
-                if (f.length >= 2 && f[0].revenue && f[1].revenue > 0) val1y = ((f[0].revenue / f[1].revenue) - 1) * 100;
-                if (f.length >= 4 && f[0].revenue && f[3].revenue > 0) val3y = (Math.pow(f[0].revenue / f[3].revenue, 1/4) - 1) * 100;
+                const rev0 = getHist(revArr, 0);
+                const rev1 = getHist(revArr, 1);
+                const rev3 = getHist(revArr, 3);
+
+                if (rev0 != null && rev1 != null && rev1 > 0) val1y = ((rev0 / rev1) - 1) * 100;
+                if (rev0 != null && rev3 != null && rev3 > 0) val3y = (Math.pow(rev0 / rev3, 1/4) - 1) * 100;
 
                 let fwdBase = null;
                 const rEsts = (globalData.rev_estimates || []).filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
                 const estRev = rEsts.length > 0 ? rEsts[0] : {};
-                const currentRev = f[0]?.revenue;
 
-                if (currentRev > 0) {
-                     if (id.includes('bear') && estRev.estimatedRevLow != null) valFwd = ((estRev.estimatedRevLow / currentRev) - 1) * 100;
-                     else if (id.includes('bull') && estRev.estimatedRevHigh != null) valFwd = ((estRev.estimatedRevHigh / currentRev) - 1) * 100;
-                     else if (estRev.estimatedRevAvg != null) valFwd = ((estRev.estimatedRevAvg / currentRev) - 1) * 100;
+                if (rev0 > 0) {
+                     if (id.includes('bear') && estRev.estimatedRevLow != null) valFwd = ((estRev.estimatedRevLow / rev0) - 1) * 100;
+                     else if (id.includes('bull') && estRev.estimatedRevHigh != null) valFwd = ((estRev.estimatedRevHigh / rev0) - 1) * 100;
+                     else if (estRev.estimatedRevAvg != null) valFwd = ((estRev.estimatedRevAvg / rev0) - 1) * 100;
                 }
 
                 if (valFwd === 'N/A') {
@@ -6298,33 +6313,40 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
             } else if (id.includes('fcf-margin')) {
                 title = "FCF MARGIN TIPS";
-                if (f.length >= 1 && f[0].revenue > 0) val1y = (f[0].free_cash_flow / f[0].revenue) * 100;
-                if (f.length >= 3) {
-                    let avgMargin = 0;
-                    let count = 0;
-                    for (let i=0; i<3; i++) {
-                        if (f[i].revenue > 0) {
-                            avgMargin += (f[i].free_cash_flow / f[i].revenue) * 100;
-                            count++;
-                        }
-                    }
-                    if (count === 3) val3y = avgMargin / 3;
-                    else if (count > 0) val3y = avgMargin / count;
-                }
+                const rev0 = getHist(revArr, 0);
+                const fcf0 = getHist(fcfArr, 0);
+                if (rev0 > 0 && fcf0 != null) val1y = (fcf0 / rev0) * 100;
 
-                let fwdBase = (f.length >= 1 && f[0].revenue > 0) ? (f[0].free_cash_flow / f[0].revenue) * 100 : val1y;
+                let avgMargin = 0;
+                let count = 0;
+                for (let i = 0; i < 3; i++) {
+                    const r = getHist(revArr, i);
+                    const f = getHist(fcfArr, i);
+                    if (r > 0 && f != null) {
+                        avgMargin += (f / r) * 100;
+                        count++;
+                    }
+                }
+                if (count === 3) val3y = avgMargin / 3;
+                else if (count > 0) val3y = avgMargin / count;
+
+                let fwdBase = (rev0 > 0 && fcf0 != null) ? (fcf0 / rev0) * 100 : val1y;
                 valFwd = getFwdScenario(fwdBase);
 
             } else if (id.includes('eps')) {
                 title = "EPS GROWTH TIPS";
                 labelFwd = "FWD:";
-                if (f.length >= 2 && f[0].adjusted_eps != null && f[1].adjusted_eps > 0) val1y = ((f[0].adjusted_eps / f[1].adjusted_eps) - 1) * 100;
-                if (f.length >= 4 && f[0].adjusted_eps != null && f[3].adjusted_eps > 0) val3y = (Math.pow(f[0].adjusted_eps / f[3].adjusted_eps, 1/4) - 1) * 100;
+                const eps0 = getHist(epsArr, 0);
+                const eps1 = getHist(epsArr, 1);
+                const eps3 = getHist(epsArr, 3);
+
+                if (eps0 != null && eps1 != null && eps1 > 0) val1y = ((eps0 / eps1) - 1) * 100;
+                if (eps0 != null && eps3 != null && eps3 > 0) val3y = (Math.pow(eps0 / eps3, 1/4) - 1) * 100;
 
                 let fwdBase = null;
                 const eEsts = (globalData.eps_estimates || []).filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
                 const estEps = eEsts.length > 0 ? eEsts[0] : {};
-                const currentEps = prof.adjusted_eps || prof.trailing_eps || f[0]?.adjusted_eps;
+                const currentEps = prof.adjusted_eps || prof.trailing_eps || eps0;
 
                 if (currentEps > 0) {
                     if (id.includes('bear') && estEps.estimatedEpsLow != null) valFwd = ((estEps.estimatedEpsLow / currentEps) - 1) * 100;
@@ -6376,7 +6398,8 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 let epsFwd = 'N/A';
                 const eEsts = (globalData.eps_estimates || []).filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
                 const estEps = eEsts.length > 0 ? eEsts[0] : {};
-                const currentEps = prof.adjusted_eps || prof.trailing_eps || f[0]?.adjusted_eps;
+                const eps0 = getHist(epsArr, 0);
+                const currentEps = prof.adjusted_eps || prof.trailing_eps || eps0;
 
                 if (currentEps > 0) {
                      if (id.includes('bear') && estEps.estimatedEpsLow != null) epsFwd = ((estEps.estimatedEpsLow / currentEps) - 1) * 100;
