@@ -37,6 +37,9 @@ search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
 CACHE_VERSION = "v317"
+import threading
+in_flight_requests = {}
+in_flight_lock = threading.Lock()
 
 def get_usd_fx_rate(currency: str) -> float:
     if not currency:
@@ -646,6 +649,19 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         # 2. Local Memory Cache check for the specific requested mode
         if not force_refresh and cache_key in valuation_cache:
             return valuation_cache[cache_key]
+
+        # 2.5 Request Deduplication (In-Flight Lock)
+        with in_flight_lock:
+            if cache_key in in_flight_requests:
+                future = in_flight_requests[cache_key]
+            else:
+                computation_future = concurrent.futures.Future()
+                in_flight_requests[cache_key] = computation_future
+                future = None
+
+        if future:
+            # Wait for the already in-flight request to finish
+            return future.result()
 
         # v41: THE PARALLEL BLITZ
         # Run main scraping and peer fetching simultaneously to cut wait time in half.
@@ -1952,6 +1968,12 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         error_msg = f"VALUATION CRASH for {ticker}: {str(e)}"
         print(error_msg)
         print(traceback.format_exc())
+
+        with in_flight_lock:
+            if cache_key in in_flight_requests:
+                in_flight_requests[cache_key].set_exception(e)
+                del in_flight_requests[cache_key]
+
         return JSONResponse(
             status_code=500,
             content={"error": True, "detail": "An internal error occurred during valuation."}
@@ -1969,6 +1991,12 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             kv_set(f"val_data_v34_skip_{ticker_upper}", response_data, ex=86400)
     except Exception as e:
         print(f"Failed to cache main profile to KV for {ticker_upper}: {e}")
+
+    # Release in-flight lock for this request
+    with in_flight_lock:
+        if cache_key in in_flight_requests:
+            in_flight_requests[cache_key].set_result(deep_clean_data(response_data))
+            del in_flight_requests[cache_key]
 
     # LIQUID DEFENSE: Deep clean before sending
     return deep_clean_data(response_data)
