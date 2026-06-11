@@ -713,7 +713,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                         pt[pt_key] = pt[pt_key] * price_fx
 
             # Convert financial-dependent metrics (already normalized to price_currency by scraper)
-            for key in ["adjusted_eps", "trailing_eps", "fwd_eps", "forward_eps", "fcf", "total_cash", "total_debt", "revenue", "forward_revenue", "ebitda", "eps_last_year"]:
+            for key in ["adjusted_eps", "trailing_eps", "fwd_eps", "forward_eps", "fcf", "total_cash", "total_debt", "revenue", "forward_revenue", "ebitda", "eps_last_year", "open", "regularMarketOpen", "previousClose"]:
                 if data.get(key) is not None:
                     data[key] = data[key] * price_fx
 

@@ -509,12 +509,14 @@ def get_nasdaq_comprehensive_estimates(ticker: str, force_refresh: bool = False)
         eps_data = future_eps.result()
         rev_data = future_rev.result()
         
-        if eps_data:
-            results["yearly_eps"] = eps_data.get('data', {}).get('yearlyForecast', {}).get('rows', [])
-            results["quarterly_eps"] = eps_data.get('data', {}).get('quarterlyForecast', {}).get('rows', [])
-        if rev_data:
-            results["yearly_rev"] = rev_data.get('data', {}).get('yearlyForecast', {}).get('rows', [])
-            results["quarterly_rev"] = rev_data.get('data', {}).get('quarterlyForecast', {}).get('rows', [])
+        if eps_data and isinstance(eps_data, dict):
+            e_data = eps_data.get('data') or {}
+            results["yearly_eps"] = (e_data.get('yearlyForecast') or {}).get('rows') or []
+            results["quarterly_eps"] = (e_data.get('quarterlyForecast') or {}).get('rows') or []
+        if rev_data and isinstance(rev_data, dict):
+            r_data = rev_data.get('data') or {}
+            results["yearly_rev"] = (r_data.get('yearlyForecast') or {}).get('rows') or []
+            results["quarterly_rev"] = (r_data.get('quarterlyForecast') or {}).get('rows') or []
 
     if results["yearly_eps"] or results["yearly_rev"]:
         kv_set(cache_key, results, ex=600) # 10 mins cache
@@ -2983,12 +2985,13 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
         except Exception as e_proj:
             print(f"Error adding projections: {e_proj}")
         
-        # v219: RECALCULATE eps_growth from Normalized projection anchors
+        try:
+            # v219: RECALCULATE eps_growth from Normalized projection anchors
             # v234: SYSTEMIC ANCHOR SYNC (No hardcoding)
             # Sync the most recent reported anchor (last_yr) to Yahoo's Analyst 'Year Ago' baseline
             # This ensures that for all tickers, the anchor matches the screenshot visual.
             y_trend = get_yahoo_eps_trend(ticker_symbol)
-            y_prev_anchor = y_trend.get('0y', {}).get('yearAgoEps')
+            y_prev_anchor = y_trend.get('0y', {}).get('yearAgoEps') if y_trend else None
             
             # v237: HOLY GRAIL ANCHOR SYNC
             # Match y_anchor_2025 to the 2025 row in history to ensure NO deviation.
