@@ -6186,6 +6186,16 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     const tipsTooltip = document.getElementById('cs-tips-tooltip');
     const tipsContent = document.getElementById('cs-tips-content');
     const csInputs = document.querySelectorAll('.cs-input');
+    
+    // 1. Fereastra frozen: Hide tooltip when modal is scrolled
+    const customScenariosModalContent = document.querySelector('#custom-scenarios-modal .modal-content');
+    if (customScenariosModalContent) {
+        customScenariosModalContent.addEventListener('scroll', () => {
+            if (tipsTooltip.style.display === 'block') {
+                tipsTooltip.style.display = 'none';
+            }
+        });
+    }
 
     const updateTooltipPosition = (e) => {
         const rect = e.target.getBoundingClientRect();
@@ -6249,6 +6259,8 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             // Default "N/A"
             let val1y = 'N/A', val3y = 'N/A', valFwd = 'N/A';
             let title = "TIPS";
+            let show1y3y = true;
+            let label3y = "3Y Avg/CAGR:";
 
             // Helper to get FWD value with bear(-10%)/bull(+10%) logic based on base value
             const getFwdScenario = (baseValue) => {
@@ -6277,36 +6289,44 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 }
 
                 if (valFwd === 'N/A') {
-                     // Default to 1Y hist for base if no estimates
                      fwdBase = val1y;
                      valFwd = getFwdScenario(fwdBase);
                 }
 
+            } else if (id.includes('fcf-margin')) {
+                title = "FCF MARGIN TIPS";
+                if (f.length >= 1 && f[0].total_revenue > 0) val1y = (f[0].free_cash_flow / f[0].total_revenue) * 100;
+                if (f.length >= 4) {
+                    let avgMargin = 0;
+                    let count = 0;
+                    for (let i=1; i<4; i++) {
+                        if (f[i].total_revenue > 0) {
+                            avgMargin += (f[i].free_cash_flow / f[i].total_revenue) * 100;
+                            count++;
+                        }
+                    }
+                    if (count > 0) val3y = avgMargin / count;
+                }
+
+                let fwdBase = (f.length > 0 && f[0].total_revenue > 0) ? (f[0].free_cash_flow / f[0].total_revenue) * 100 : val1y;
+                valFwd = getFwdScenario(fwdBase);
+
             } else if (id.includes('eps')) {
                 title = "EPS GROWTH TIPS";
-                // 1Y EPS (adjusted) - ensure non-gaap
                 if (f.length >= 2 && f[0].adjusted_eps != null && f[1].adjusted_eps > 0) val1y = ((f[0].adjusted_eps / f[1].adjusted_eps) - 1) * 100;
-                // 3Y EPS (adjusted)
                 if (f.length >= 4 && f[3].adjusted_eps > 0) val3y = (Math.pow(f[0].adjusted_eps / f[3].adjusted_eps, 1/3) - 1) * 100;
 
-                // FWD EPS Est from analyst estimates (Low, Avg, High)
                 let fwdBase = null;
                 const eEsts = (globalData.eps_estimates || []).filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
                 const estEps = eEsts.length > 0 ? eEsts[0] : {};
                 const currentEps = prof.adjusted_eps || prof.trailing_eps || f[0]?.adjusted_eps;
 
                 if (currentEps > 0) {
-                    if (id.includes('bear') && estEps.estimatedEpsLow != null) {
-                        valFwd = ((estEps.estimatedEpsLow / currentEps) - 1) * 100;
-                    } else if (id.includes('bull') && estEps.estimatedEpsHigh != null) {
-                        valFwd = ((estEps.estimatedEpsHigh / currentEps) - 1) * 100;
-                    } else if (estEps.estimatedEpsAvg != null) {
-                        valFwd = ((estEps.estimatedEpsAvg / currentEps) - 1) * 100;
-                    } else if (prof.eps_growth != null) {
-                        fwdBase = prof.eps_growth * 100;
-                    } else {
-                        fwdBase = val1y;
-                    }
+                    if (id.includes('bear') && estEps.estimatedEpsLow != null) valFwd = ((estEps.estimatedEpsLow / currentEps) - 1) * 100;
+                    else if (id.includes('bull') && estEps.estimatedEpsHigh != null) valFwd = ((estEps.estimatedEpsHigh / currentEps) - 1) * 100;
+                    else if (estEps.estimatedEpsAvg != null) valFwd = ((estEps.estimatedEpsAvg / currentEps) - 1) * 100;
+                    else if (prof.eps_growth != null) fwdBase = prof.eps_growth * 100;
+                    else fwdBase = val1y;
                 } else if (prof.eps_growth != null) {
                      fwdBase = prof.eps_growth * 100;
                 } else {
@@ -6317,11 +6337,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                      valFwd = getFwdScenario(fwdBase);
                 }
 
-            } else if (id.includes('pe') || id.includes('exit')) {
-                title = id.includes('pe') ? "FORWARD P/E TIPS" : "EXIT MULTIPLE TIPS";
-
+            } else if (id.includes('pe')) {
+                title = "FORWARD P/E TIPS";
+                label3y = "5Y Avg:";
                 val1y = prof.trailing_pe || 'N/A';
-                val3y = 'N/A';
+                val3y = prof.historic_pe || 'N/A';
 
                 let epsFwd = 'N/A';
                 const eEsts = (globalData.eps_estimates || []).filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
@@ -6342,28 +6362,9 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                      valFwd = getFwdScenario(valFwd);
                 }
 
-            } else if (id.includes('fcf-margin')) {
-                title = "FCF MARGIN TIPS";
-                if (f.length >= 1 && f[0].total_revenue > 0) val1y = (f[0].free_cash_flow / f[0].total_revenue) * 100;
-                if (f.length >= 4) {
-                    let avgMargin = 0;
-                    let count = 0;
-                    for (let i=1; i<4; i++) { // Using historical anchors 1,2,3 for 3y avg
-                        if (f[i].total_revenue > 0) {
-                            avgMargin += (f[i].free_cash_flow / f[i].total_revenue) * 100;
-                            count++;
-                        }
-                    }
-                    if (count > 0) val3y = avgMargin / count;
-                }
-
-                let fwdBase = (f.length > 0 && f[0].total_revenue > 0) ? (f[0].free_cash_flow / f[0].total_revenue) * 100 : val1y;
-                valFwd = getFwdScenario(fwdBase);
-
             } else if (id.includes('wacc')) {
                 title = "WACC TIPS";
-                val1y = 'N/A';
-                val3y = 'N/A';
+                show1y3y = false;
                 let baseWacc = globalData.computed_wacc != null ? globalData.computed_wacc * 100 : 9.0;
                 if (id.includes('bear')) valFwd = baseWacc * 1.1;
                 else if (id.includes('bull')) valFwd = baseWacc * 0.9;
@@ -6371,44 +6372,31 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
             } else if (id.includes('perp')) {
                  title = "PERPETUAL GR. TIPS";
-                 val1y = 'N/A';
-                 val3y = 'N/A';
+                 show1y3y = false;
                  let basePerp = currentFormulaData?.dcf?.['5yr']?.perpetual_growth_rate ? currentFormulaData.dcf['5yr'].perpetual_growth_rate * 100 : 2.5;
                  if (id.includes('bear')) valFwd = Math.max(1.0, basePerp - 0.5);
                  else if (id.includes('bull')) valFwd = basePerp + 0.5;
                  else valFwd = basePerp;
+
             } else if (id.includes('exit')) {
                  title = "EXIT MULTIPLE TIPS";
-                 val1y = 'N/A';
-                 val3y = 'N/A';
+                 show1y3y = false;
                  let baseExit = currentFormulaData?.dcf?.['5yr']?.exit_multiple ? currentFormulaData.dcf['5yr'].exit_multiple : 15;
                  if (id.includes('bear')) valFwd = Math.max(5.0, baseExit - 3);
                  else if (id.includes('bull')) valFwd = baseExit + 3;
                  else valFwd = baseExit;
-            } else if (id.includes('eps')) {
-                 title = "EPS GROWTH TIPS";
-                 val1y = 'N/A';
-                 val3y = 'N/A';
-                 let baseEps = globalData.computed_eps_growth != null ? globalData.computed_eps_growth * 100 : (globalData.earnings_growth ? globalData.earnings_growth * 100 : 5.0);
-                 if (id.includes('bear')) valFwd = baseEps * 0.7;
-                 else if (id.includes('bull')) valFwd = baseEps * 1.3;
-                 else valFwd = baseEps;
-            } else if (id.includes('pe')) {
-                 title = "FORWARD P/E TIPS";
-                 val1y = 'N/A';
-                 val3y = 'N/A';
-                 let basePe = globalData.pe_historic || globalData.forward_pe || globalData.fwd_pe || 15;
-                 if (id.includes('bear')) valFwd = Math.max(5.0, basePe - 3);
-                 else if (id.includes('bull')) valFwd = basePe + 3;
-                 else valFwd = basePe;
             }
 
             document.querySelector('#cs-tips-tooltip > div:first-child').textContent = title;
-            tipsContent.innerHTML = `
-                <div style="display:flex; justify-content:space-between; width:130px; margin-bottom:3px;"><span style="color:var(--text-muted);">1Y Hist:</span> <span>${formatVal(val1y)}</span></div>
-                <div style="display:flex; justify-content:space-between; width:130px; margin-bottom:3px;"><span style="color:var(--text-muted);">3Y Avg/CAGR:</span> <span>${formatVal(val3y)}</span></div>
-                <div style="display:flex; justify-content:space-between; width:130px;"><span style="color:var(--text-muted);">SUGGESTION:</span> <span style="color:#fbbf24;">${formatVal(valFwd)}</span></div>
-            `;
+            
+            let htmlContent = '';
+            if (show1y3y) {
+                htmlContent += `<div style="display:flex; justify-content:space-between; width:130px; margin-bottom:3px;"><span style="color:var(--text-muted);">1Y Hist:</span> <span>${formatVal(val1y)}</span></div>`;
+                htmlContent += `<div style="display:flex; justify-content:space-between; width:130px; margin-bottom:3px;"><span style="color:var(--text-muted);">${label3y}</span> <span>${formatVal(val3y)}</span></div>`;
+            }
+            htmlContent += `<div style="display:flex; justify-content:space-between; width:130px;"><span style="color:var(--text-muted);">SUGGESTION:</span> <span style="color:#fbbf24;">${formatVal(valFwd)}</span></div>`;
+            
+            tipsContent.innerHTML = htmlContent;
 
             tipsTooltip.style.display = 'block';
             updateTooltipPosition(e);
