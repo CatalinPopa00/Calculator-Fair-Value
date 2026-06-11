@@ -980,6 +980,18 @@ def fetch_latest_news_v2(ticker_symbol: str) -> list:
                 title_lower = title.lower()
                 summary_lower = summary.lower()
                 
+                # Extract and format publication date
+                pub_date_raw = content.get('pubDate') or item.get('pubDate')
+                pub_date_str = ""
+                if pub_date_raw:
+                    try:
+                        from datetime import datetime
+                        # Handle '2026-06-08T12:04:20Z'
+                        dt = datetime.strptime(pub_date_raw[:10], "%Y-%m-%d")
+                        pub_date_str = dt.strftime("%d/%m/%Y")
+                    except Exception:
+                        pass
+
                 for kw in keywords:
                     if kw in title_lower:
                         score += 3
@@ -994,6 +1006,7 @@ def fetch_latest_news_v2(ticker_symbol: str) -> list:
                     "publisher": publisher,
                     "link": link,
                     "summary": summary,
+                    "pubDate": pub_date_str,
                     "score": score
                 })
             

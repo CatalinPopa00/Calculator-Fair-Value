@@ -4372,8 +4372,9 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                             panel.innerHTML = data.latest_news.map((item, idx) => {
                                 return `
                                     <div class="brief-news-item clickable-news" data-idx="${idx}" style="cursor: pointer; transition: all 0.2s; padding: 6px; border-radius: 6px; margin-bottom: 6px;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'">
-                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; gap: 10px;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; gap: 10px; width: 100%;">
                                             <span style="background: rgba(56, 189, 248, 0.1); color: #38bdf8; font-size: 0.58rem; padding: 2px 6px; border-radius: 4px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3px;">${item.publisher || "Market News"}</span>
+                                            ${item.pubDate ? `<span style="font-size: 0.65rem; color: rgba(255,255,255,0.45); font-weight: 500;">${item.pubDate}</span>` : ''}
                                         </div>
                                         <div style="color: rgba(255,255,255,0.9); font-size: 0.8rem; line-height: 1.4;">${item.title}</div>
                                     </div>
@@ -4389,6 +4390,12 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                                         
                                         document.getElementById('news-modal-title').textContent = article.title;
                                         document.getElementById('news-modal-publisher').textContent = article.publisher || "News";
+                                        
+                                        const dateEl = document.getElementById('news-modal-date');
+                                        if (dateEl) {
+                                            dateEl.textContent = article.pubDate || '';
+                                        }
+
                                         document.getElementById('news-modal-summary').innerHTML = article.summary || 'No detailed summary available. Click "Go to Original" or "Bypass Paywall" to read more.';
                                         
                                         const bypassBtn = document.getElementById('news-modal-bypass-btn');
