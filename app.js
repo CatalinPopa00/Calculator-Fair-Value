@@ -619,7 +619,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         else if (tvSymbol.endsWith('.SW')) tvSymbol = 'SIX:' + tvSymbol.replace('.SW', '');
 
         const config = {
-            "symbols": [ [tvSymbol, tvSymbol + "|1D"] ],
+            "symbols": [ [tvSymbol, tvSymbol] ],
             "chartOnly": false,
             "width": "100%",
             "height": "100%",
@@ -5359,7 +5359,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             if (lEps) lEps.value = 'analyst';
         } else if (method === 'peg') {
             const pEps = document.getElementById('peg-eps-source');
-            if (pEps) pEps.value = 'analyst';
+            if (pEps) pEps.value = '5ycagr';
             const pMode = document.getElementById('peg-mode');
             if (pMode) pMode.value = 'standard';
         }
@@ -7434,6 +7434,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 rulesModal.style.display = 'none';
             }
         });
+    }
+
+    const openRulesModalBtn = document.getElementById('open-rules-modal');
+    if (openRulesModalBtn) {
+        openRulesModalBtn.addEventListener('click', window.openScoringRulesModal);
     }
 
     // ── Score Bar Click Handlers ──────────────────────────────
