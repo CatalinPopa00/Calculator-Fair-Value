@@ -3916,6 +3916,82 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         } else {
             stBody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-muted);">No data available</td></tr>';
         }
+
+        // 5. Insider Roster
+        const rstBody = document.getElementById('insider-roster-body');
+        if (rstBody) {
+            rstBody.innerHTML = '';
+            if (ownership.insider_roster && ownership.insider_roster.length > 0) {
+                // Sort by shares descending
+                const sortedRoster = [...ownership.insider_roster].sort((a, b) => b.shares - a.shares);
+                
+                // Populate Table
+                sortedRoster.forEach(r => {
+                    rstBody.innerHTML += `<tr>
+                        <td>${r.name}<br><span style="color:var(--text-muted); font-size: 0.65rem;">${r.position}</span></td>
+                        <td style="text-align: right;">${r.shares.toLocaleString()}</td>
+                    </tr>`;
+                });
+
+                // Populate Chart
+                const ctx = document.getElementById('roster-pie-chart');
+                if (ctx) {
+                    if (window.rosterPieChart) window.rosterPieChart.destroy();
+                    
+                    const labels = sortedRoster.map(r => r.name);
+                    const data = sortedRoster.map(r => r.shares / 1000); // in thousands
+                    
+                    const generateColors = (count) => {
+                        const colors = [
+                            'rgba(255, 99, 132, 0.8)',
+                            'rgba(54, 162, 235, 0.8)',
+                            'rgba(255, 206, 86, 0.8)',
+                            'rgba(75, 192, 192, 0.8)',
+                            'rgba(153, 102, 255, 0.8)',
+                            'rgba(255, 159, 64, 0.8)',
+                            'rgba(199, 199, 199, 0.8)',
+                            'rgba(83, 102, 255, 0.8)',
+                            'rgba(255, 102, 204, 0.8)',
+                            'rgba(102, 255, 153, 0.8)'
+                        ];
+                        let result = [];
+                        for(let i=0; i<count; i++) result.push(colors[i % colors.length]);
+                        return result;
+                    };
+
+                    window.rosterPieChart = new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                data: data,
+                                backgroundColor: generateColors(data.length),
+                                borderWidth: 1,
+                                borderColor: 'rgba(255, 255, 255, 0.05)'
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            const label = context.label || '';
+                                            const val = context.parsed || 0;
+                                            return `${label} - ${val.toFixed(1)}k`;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+            } else {
+                rstBody.innerHTML = '<tr><td colspan="2" style="text-align: center; color: var(--text-muted);">No roster data available</td></tr>';
+            }
+        }
     };
 
     const displayData = (data, isSilentUpdate = false) => {

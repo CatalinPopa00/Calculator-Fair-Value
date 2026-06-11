@@ -755,13 +755,13 @@
                                             }
                                             .ownership-grid.carousel-mode {
                                                 display: flex !important;
-                                                width: 200%;
+                                                width: 300%;
                                                 transition: transform 0.4s ease-in-out;
                                                 gap: 0 !important;
                                             }
                                             .ownership-grid.carousel-mode > .analyst-tab-content {
-                                                flex: 0 0 25% !important;
-                                                max-width: 25% !important;
+                                                flex: 0 0 16.6666% !important;
+                                                max-width: 16.6666% !important;
                                                 padding: 0 1.5rem !important;
                                                 box-sizing: border-box;
                                             }
@@ -856,7 +856,7 @@
                                                         <button class="insider-subtab" data-type="sell" style="background: transparent; color: var(--text-muted); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; padding: 2px 8px; font-size: 0.7rem; cursor: pointer;">Sell</button>
                                                     </div>
                                                 </span>
-                                                <div class="table-responsive" style="margin-top: 10px; max-height: 200px; overflow-y: auto;">
+                                                <div class="table-responsive" style="margin-top: 10px; max-height: 350px; overflow-y: auto;">
                                                     <table class="mini-research-table" style="width: 100%; text-align: left; font-size: 0.75rem;">
                                                         <thead>
                                                             <tr>
@@ -894,6 +894,36 @@
                                                 </div>
                                             </div>
                                         </div>
+
+                                        <!-- Col 5: Roster Table -->
+                                        <div class="analyst-tab-content ownership-tab-content" id="tab-roster-table">
+                                            <div class="eps-module" style="height: 100%;">
+                                                <span class="module-label">INSIDER ROSTER</span>
+                                                <div class="table-responsive" style="margin-top: 10px; max-height: 350px; overflow-y: auto;">
+                                                    <table class="mini-research-table" style="width: 100%; text-align: left; font-size: 0.75rem;">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>Individual</th>
+                                                                <th style="text-align: right;">Shares Owned</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody id="insider-roster-body">
+                                                            <!-- JS Injected -->
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Col 6: Roster Chart -->
+                                        <div class="analyst-tab-content ownership-tab-content" id="tab-roster-chart">
+                                            <div class="rev-module" style="height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                                                <span class="module-label" style="align-self: flex-start; width: 100%;">ROSTER DISTRIBUTION</span>
+                                                <div style="position: relative; width: 220px; height: 220px; margin-top: 15px;">
+                                                    <canvas id="roster-pie-chart"></canvas>
+                                                </div>
+                                            </div>
+                                        </div>
                                         </div>
                                     </div>
                                     </div>
@@ -902,41 +932,67 @@
                                         const track = document.getElementById('ownership-carousel-track');
                                         const prevBtn = document.getElementById('ownership-prev');
                                         const nextBtn = document.getElementById('ownership-next');
-                                        let currentSlide = 0; // 0 for part 1, 1 for part 2
+                                        let isAnimating = false;
 
-                                        const updateCarousel = () => {
-                                            if(window.innerWidth >= 769) {
-                                                track.style.transform = `translateX(-${currentSlide * 50}%)`;
-                                                // Looping logic means buttons are always active
-                                                prevBtn.style.opacity = '1';
-                                                prevBtn.style.pointerEvents = 'auto';
-                                                nextBtn.style.opacity = '1';
-                                                nextBtn.style.pointerEvents = 'auto';
-                                            } else {
-                                                track.style.transform = 'none';
-                                            }
-                                        };
-                                        
-                                        if (prevBtn && nextBtn) {
-                                            prevBtn.addEventListener('click', () => {
-                                                if (currentSlide > 0) {
-                                                    currentSlide--;
+                                        if (prevBtn && nextBtn && track) {
+                                            const originalOrder = Array.from(track.children);
+                                            
+                                            prevBtn.style.opacity = '1';
+                                            prevBtn.style.pointerEvents = 'auto';
+                                            nextBtn.style.opacity = '1';
+                                            nextBtn.style.pointerEvents = 'auto';
+
+                                            const moveItems = (toEnd) => {
+                                                if (toEnd) {
+                                                    track.appendChild(track.firstElementChild);
+                                                    track.appendChild(track.firstElementChild);
                                                 } else {
-                                                    currentSlide = 1;
+                                                    track.insertBefore(track.lastElementChild, track.firstElementChild);
+                                                    track.insertBefore(track.lastElementChild, track.firstElementChild);
                                                 }
-                                                updateCarousel();
-                                            });
+                                            };
+
                                             nextBtn.addEventListener('click', () => {
-                                                if (currentSlide < 1) {
-                                                    currentSlide++;
-                                                } else {
-                                                    currentSlide = 0;
-                                                }
-                                                updateCarousel();
+                                                if (isAnimating || window.innerWidth < 769) return;
+                                                isAnimating = true;
+                                                
+                                                track.style.transition = 'transform 0.4s ease-in-out';
+                                                track.style.transform = 'translateX(-33.3333%)';
+                                                
+                                                setTimeout(() => {
+                                                    track.style.transition = 'none';
+                                                    moveItems(true);
+                                                    track.style.transform = 'translateX(0)';
+                                                    void track.offsetWidth;
+                                                    isAnimating = false;
+                                                }, 400);
                                             });
-                                            // Initialize
-                                            setTimeout(updateCarousel, 100);
-                                            window.addEventListener('resize', updateCarousel);
+
+                                            prevBtn.addEventListener('click', () => {
+                                                if (isAnimating || window.innerWidth < 769) return;
+                                                isAnimating = true;
+                                                
+                                                track.style.transition = 'none';
+                                                moveItems(false);
+                                                track.style.transform = 'translateX(-33.3333%)';
+                                                
+                                                void track.offsetWidth;
+                                                
+                                                track.style.transition = 'transform 0.4s ease-in-out';
+                                                track.style.transform = 'translateX(0)';
+                                                
+                                                setTimeout(() => {
+                                                    isAnimating = false;
+                                                }, 400);
+                                            });
+
+                                            window.addEventListener('resize', () => {
+                                                if (window.innerWidth < 769) {
+                                                    track.style.transition = 'none';
+                                                    track.style.transform = 'none';
+                                                    originalOrder.forEach(el => track.appendChild(el));
+                                                }
+                                            });
                                         }
                                     });
                                     </script>

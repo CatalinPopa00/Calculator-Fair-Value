@@ -1301,6 +1301,21 @@ def get_ownership_data(ticker_symbol: str):
                     })
         except Exception as e:
             log(f"Error fetching insider_purchases for {ticker_symbol}: {e}")
+        # 5. Insider Roster
+        roster = []
+        try:
+            ir = stock.insider_roster_holders
+            if ir is not None and not ir.empty:
+                for idx in ir.index:
+                    shares_owned = ir.loc[idx, 'Shares Owned Directly'] if 'Shares Owned Directly' in ir.columns else None
+                    if _pd.notna(shares_owned):
+                        roster.append({
+                            "name": str(ir.loc[idx, 'Name']) if 'Name' in ir.columns else '',
+                            "position": str(ir.loc[idx, 'Position']) if 'Position' in ir.columns else '',
+                            "shares": float(shares_owned)
+                        })
+        except Exception as e:
+            log(f"Error fetching insider_roster for {ticker_symbol}: {e}")
 
         return {
             "major_holders": mh,
@@ -1309,7 +1324,8 @@ def get_ownership_data(ticker_symbol: str):
                 "buy": insider_buy,
                 "sell": insider_sell
             },
-            "insider_purchases_6m": purchases_stats
+            "insider_purchases_6m": purchases_stats,
+            "insider_roster": roster
         }
     except Exception as e:
         log(f"Error in get_ownership_data for {ticker_symbol}: {e}")
