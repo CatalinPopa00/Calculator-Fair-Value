@@ -604,10 +604,10 @@ body {
 }
 .chart-col { grid-area: chart; }
 .ticker-col { grid-area: ticker; text-align: center; display: flex; justify-content: center; align-items: center; }
-.ticker-col .ticker { font-size: 1.8rem !important; font-weight: 800 !important; letter-spacing: 1px; margin: 0; }
+.ticker-col .ticker { font-size: 1.6rem !important; font-weight: 800 !important; letter-spacing: 1px; margin: 0; }
 .star-col { grid-area: star; text-align: right; }
 .name-col { grid-area: name; text-align: center; margin-top: 2px; }
-.name-col h2 { font-size: 1.1rem !important; font-weight: 600; color: var(--text-main); }
+.name-col h2 { font-size: 1.35rem !important; font-weight: 600; color: var(--text-main); }
 
 .company-overview h3 {
     color: var(--text-muted);
@@ -1754,6 +1754,14 @@ body.banner-visible .modal-content {
     border-radius: 16px;
     background: rgba(15, 23, 42, 0.5);
     border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.deep-research-section .research-card + .research-card {
+    margin-top: 1.5rem;
+}
+
+.deep-research-section .research-card {
+    margin-bottom: 0;
 }
 
 .research-header {
