@@ -30,26 +30,26 @@ from models.valuation import (
     calculate_dcf_sensitivity,
     calculate_reverse_dcf
 )
-from models.scoring import calculate_scoring_reform, calculate_piotroski_score
+from models.scoring import calculate_scoring_reform, calculate_piotroski_score, get_scoring_rules
 
 # Cache for search results (30 mins TTL)
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
-CACHE_VERSION = "v316"
+
 def get_usd_fx_rate(currency: str) -> float:
     if not currency:
         return 1.0
     c_upper = currency.upper().strip()
     if c_upper == 'USD':
         return 1.0
-    
+
     # Handle Pence (GBp/GBX) to USD
     is_pence = False
     if c_upper in ['GBX', 'GBP']:
         c_upper = 'GBP'
         is_pence = True
-        
+
     try:
         import yfinance as yf
         symbol = f"{c_upper}USD=X"
@@ -62,7 +62,7 @@ def get_usd_fx_rate(currency: str) -> float:
             return rate
     except Exception as e:
         print(f"Error fetching USD FX Rate for {currency}: {e}")
-        
+
     # Fallbacks for common currencies if Yahoo is blocked
     fallbacks = {
         'EUR': 1.08,
@@ -140,7 +140,7 @@ class ValuationResponse(BaseModel):
     red_flags: Optional[list] = None
     overrides: Optional[dict] = None
     competitor_metrics: Optional[list] = None
-    
+
     model_config = ConfigDict(extra="allow")
 
 
@@ -149,24 +149,24 @@ class ValuationResponse(BaseModel):
 def search(query: str, response: Response):
     # Agresiv cache for search (24h edge, 7d background revalidate)
     response.headers["Cache-Control"] = "public, s-maxage=86400, stale-while-revalidate=604800"
-    
+
     q_key = query.lower().strip()
     if q_key in search_cache:
         return search_cache[q_key]
-        
+
     result = search_companies(query)
-    
+
     # Only cache if we got results, or if the query is very short (likely no results anyway)
     if result or len(q_key) <= 2:
         search_cache[q_key] = result
-        
+
     return result
 
 @app.get("/api/analyst/{ticker}")
 def get_analyst(ticker: str, response: Response):
     # Cache analyst data for 1 hour on Edge, background refresh up to 24h
     response.headers["Cache-Control"] = "public, s-maxage=3600, stale-while-revalidate=86400"
-    
+
     ticker_upper = ticker.upper()
     cache_key = f"analyst_v2_{ticker_upper}_{CACHE_VERSION}"
     if cache_key in valuation_cache:
@@ -231,19 +231,19 @@ def get_analyst(ticker: str, response: Response):
 def get_sector_peers(ticker: str, response: Response):
     """Fetches top 10 most relevant sector/industry peers with enriched forward metrics."""
     response.headers["Cache-Control"] = "public, s-maxage=3600, stale-while-revalidate=86400"
-    
+
     ticker_upper = ticker.upper()
     cache_key = f"sector_peers_v1_{ticker_upper}_{CACHE_VERSION}"
-    
+
     if cache_key in valuation_cache:
         return valuation_cache[cache_key]
-    
+
     try:
         peers_data = get_competitors_data(ticker_upper, limit=10)
-        
+
         if not peers_data:
             return []
-        
+
         # Enrich each peer with forward metrics (same logic as main valuation endpoint)
         def _calculateForwardEvEbitda(comp_data):
             mcap = comp_data.get("market_cap") or 0
@@ -330,9 +330,9 @@ def get_sector_peers(ticker: str, response: Response):
             p['forward_ev_ebitda'] = _calculateForwardEvEbitda(p)
             p['forward_pe'] = _calculateForwardPE(p)
             p['forward_ev_sales'] = _calculateForwardEvSales(p)
-            
+
             # cagr_5y_custom and peg_custom are preserved from scraper
-            
+
             enriched.append({
                 "ticker": p.get("ticker"),
                 "name": p.get("name"),
@@ -369,7 +369,7 @@ def get_sector_peers(ticker: str, response: Response):
                 "fcf_margin_custom": sanitize(p.get("fcf_margin_custom")),
                 "pfcf_forward_custom": sanitize(p.get("pfcf_forward_custom")),
             })
-        
+
         valuation_cache[cache_key] = enriched
         return enriched
     except Exception as e:
@@ -383,7 +383,7 @@ def get_watchlist():
     try:
         data = kv_get("watchlist") or []
         # Overrides should not be forced into the watchlist. Watchlist should remain exactly as saved by the user.
-        
+
         if not data and os.path.exists(WATCHLIST_FILE):
             try:
                 with open(WATCHLIST_FILE, "r") as f:
@@ -470,23 +470,23 @@ def get_recommended_exit_multiple(sector: str, industry: str) -> float:
     """Assigns recommended exit multiple based on sector/industry (User Strict Rule Refinement)."""
     s = str(sector).lower()
     ind = str(industry).lower()
-    
+
     # 1. Premium: Technology, Software, Healthcare, Communication Services
     if any(x in s for x in ["tech", "soft", "health", "communication"]):
         return 15.0
-    
+
     # 2. Defensive: Consumer Defensive, Utilities, Consumer Staples
     if any(x in s for x in ["defensive", "utilities", "staple"]):
         return 12.0
-    
+
     # 3. Cyclical / Heavy: Energy, Oil & Gas, Basic Materials, Industrials, Auto, Manufacturing
     if any(x in s for x in ["energy", "oil", "gas", "material", "industrial", "manufacturing"]) or "auto" in ind:
         return 8.0
-        
+
     # 4. Financials / REITs: Financials, Banks, Insurance, Real Estate, REITs
     if any(x in s for x in ["financial", "bank", "insurance", "real estate", "reit"]):
         return 10.0
-        
+
     return 10.0
 
 def deep_clean_data(val):
@@ -510,7 +510,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     else:
         response.headers["Cache-Control"] = "public, s-maxage=3600, stale-while-revalidate=86400"
-    
+
     # GOD MODE: Pre-initialize all possible response keys to Safe Defaults (v55)
     ticker_upper = ticker.upper()
     current_price = 0.0
@@ -541,13 +541,13 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
     rec_exit_mult = 15.0
     dcf_val_final = None
     fair_value_total = None
-    
+
     try:
         # Ensure wacc is normalized for the key
         norm_wacc = round(float(wacc), 2) if wacc is not None else "def"
         # Synchronized v38: Always include skip_peers to prevent cache collision
         cache_key = f"valuation_{ticker.upper()}_{fast_mode}_{skip_peers}_{CACHE_VERSION}_{norm_wacc}"
-        
+
         # 0. Cache Elevation: If we are in any limited mode (Watchlist/SkipPeers), 
         # Always check if we have a full_mode cache (Complete Data) in memory first.
         if (fast_mode or skip_peers) and not force_refresh:
@@ -560,7 +560,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         cached_data = kv_get(persistent_cache_key)
         if cached_data and not force_refresh:
             return cached_data
-            
+
         persistent_skip_key = f"val_data_v32_skip_{ticker.upper()}"
         if skip_peers:
             cached_skip = kv_get(persistent_skip_key)
@@ -576,12 +576,12 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         executor = concurrent.futures.ThreadPoolExecutor(max_workers=2)
         # 1. Start main scraper
         main_task = executor.submit(get_company_data, ticker_upper, fast_mode, force_refresh)
-        
+
         # Dynamic Peers Launch (Skip if skip_peers is True)
         future_peers = None
         if not skip_peers:
             future_peers = executor.submit(get_competitors_data, ticker_upper, 4, None, force_refresh)
-        
+
         # 6. Sector Metrics & Dynamic Benchmarks
         try:
             # get_market_averages takes no arguments (returns SPY PE)
@@ -590,14 +590,14 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         except Exception as e:
             print(f"Error computing sector metrics: {e}")
             sector_metrics = {}
-        
+
         # Wait for main data with robust error handling
         try:
             data = main_task.result() or {}
         except Exception as e:
             print(f"DEBUG: Main scraper task failed for {ticker_upper}: {e}")
             data = {"ticker": ticker_upper, "error": "Ticker analysis failed due to an internal error."}
-        
+
         # v296: Early exit if ticker is definitively not found (Bypasses 500 crashes)
         if not data or data.get("error") or (not data.get("current_price") and not data.get("name")):
             detail_msg = data.get("error") or f"Ticker '{ticker_upper}' not found or has no active trade data."
@@ -609,7 +609,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         # --- DYNAMIC FX CURRENCY CONVERSION TO USD ---
         price_currency = data.get("currency", "USD")
         price_fx = get_usd_fx_rate(price_currency)
-        
+
         if price_fx != 1.0:
             # Convert price-dependent metrics
             if data.get("current_price"): 
@@ -619,12 +619,12 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 for pt_key in ["low", "avg", "median", "high"]:
                     if pt.get(pt_key) is not None:
                         pt[pt_key] = pt[pt_key] * price_fx
-            
+
             # Convert financial-dependent metrics (already normalized to price_currency by scraper)
             for key in ["adjusted_eps", "trailing_eps", "fwd_eps", "forward_eps", "fcf", "total_cash", "total_debt", "revenue", "forward_revenue", "ebitda", "eps_last_year"]:
                 if data.get(key) is not None:
                     data[key] = data[key] * price_fx
-            
+
             # Convert eps_trend
             if data.get("eps_trend"):
                 for period, trend in data["eps_trend"].items():
@@ -632,7 +632,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                         for metric in ["avg", "low", "high", "yearAgoEps", "current"]:
                             if trend.get(metric) is not None:
                                 trend[metric] = trend[metric] * price_fx
-            
+
             # Convert multi-year eps estimates
             if data.get("eps_estimates"):
                 for est in data["eps_estimates"]:
@@ -642,7 +642,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                         est["low"] = est["low"] * price_fx
                     if est.get("high") is not None:
                         est["high"] = est["high"] * price_fx
-                        
+
             # Convert multi-year revenue estimates
             if data.get("rev_estimates"):
                 for est in data["rev_estimates"]:
@@ -652,13 +652,13 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                         est["low"] = est["low"] * price_fx
                     if est.get("high") is not None:
                         est["high"] = est["high"] * price_fx
-            
+
             # Convert historical data
             if data.get("historical_data"):
                 for h_key in ["revenue", "eps", "diluted_eps", "fcf"]:
                     if data["historical_data"].get(h_key):
                         data["historical_data"][h_key] = [v * price_fx if v is not None else None for v in data["historical_data"][h_key]]
-                        
+
             # Convert raw_quarterly_history
             if data.get("raw_quarterly_history"):
                 for year, quarters in data["raw_quarterly_history"].items():
@@ -673,17 +673,17 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                     for h_key in ["revenue_b", "eps", "fcf_b", "net_income_b", "ebitda_b", "gross_profit_b", "cash_b", "total_debt_b"]:
                         if anchor.get(h_key) is not None:
                             anchor[h_key] = anchor[h_key] * price_fx
-        
+
         # Recalculate forward ratios in USD to prevent currency mismatch
         shares = data.get("shares_outstanding") or 1
         rev_per_share = (data.get("revenue") or 0) / shares if shares else 0
-        
+
         # Recalculate fwd_pe if we have fy1_eps in USD
         if data.get("eps_estimates") and data.get("current_price"):
             fy1 = next((e for e in data["eps_estimates"] if e.get("period") == "FY 1" or "FY1" in str(e.get("period"))), None)
             if fy1 and fy1.get("avg") and fy1.get("avg") > 0:
                 data["fwd_pe"] = data["current_price"] / fy1["avg"]
-                
+
         # Recalculate fwd_ps if we have fy1_rev in USD
         if data.get("rev_estimates") and data.get("current_price") and shares:
             fy1_r = next((e for e in data["rev_estimates"] if e.get("period") == "FY 1" or "FY1" in str(e.get("period"))), None)
@@ -699,7 +699,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             except Exception as e:
                 print(f"DEBUG: Parallel peer fetch failed for {ticker_upper}: {e}")
                 peers_data = []
-                
+
         # Strict Forward Proxy Functions (v308: Robust multi-fallback)
         def calculateForwardPS(comp_data):
             """Forward Price-to-Sales: mcap / forward_revenue"""
@@ -709,20 +709,20 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 price = comp_data.get("price") or comp_data.get("current_price") or 0
                 if shares > 0 and price > 0:
                     mcap = shares * price
-            
+
             if mcap <= 0:
                 return None
-            
+
             fwd_rev = comp_data.get("forward_revenue")
             if not fwd_rev or fwd_rev <= 0:
                 rev = comp_data.get("revenue")
                 g = comp_data.get("revenue_growth")
                 if rev and rev > 0 and g is not None:
                     fwd_rev = rev * (1 + g)
-            
+
             if not fwd_rev or fwd_rev <= 0:
                 fwd_rev = comp_data.get("revenue")
-            
+
             if fwd_rev and fwd_rev > 0:
                 return mcap / fwd_rev
             return None
@@ -731,16 +731,16 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             mcap = comp_data.get("market_cap") or 0
             debt = comp_data.get("total_debt") or 0
             cash = comp_data.get("total_cash") or 0
-            
+
             if mcap <= 0:
                 shares = comp_data.get("shares_outstanding") or 0
                 price = comp_data.get("price") or comp_data.get("current_price") or 0
                 if shares > 0 and price > 0:
                     mcap = shares * price
-            
+
             if mcap <= 0:
                 return None
-                
+
             ev = mcap + debt - cash
             # If cash is massive, EV could be negative. Cap at mcap for sanity in multiples.
             if ev <= 0:
@@ -755,7 +755,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             if not fwd_rev or fwd_rev <= 0:
                 fwd_rev = comp_data.get("revenue")
 
-            
+
             if fwd_rev and fwd_rev > 0:
                 return ev / fwd_rev
             return None
@@ -772,7 +772,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 price = comp_data.get("price") or comp_data.get("current_price") or 0
                 if shares > 0 and price > 0:
                     mcap = shares * price
-            
+
             debt = comp_data.get("total_debt") or 0
             cash = comp_data.get("total_cash") or 0
             curr_ev = mcap + debt - cash if mcap > 0 else 0
@@ -781,7 +781,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             yahoo_ev = comp_data.get("enterprise_value")
             if yahoo_ev and yahoo_ev > 0:
                 curr_ev = yahoo_ev
-            
+
             if curr_ev <= 0:
                 curr_ev = mcap  # Last resort: use mcap as EV proxy
 
@@ -795,7 +795,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             fwd_rev = comp_data.get("forward_revenue")
             ttm_ebitda = comp_data.get("ebitda")
             ttm_rev = comp_data.get("revenue")
-            
+
             if fwd_rev and ttm_ebitda and ttm_rev and ttm_rev > 0:
                 ebitda_margin = ttm_ebitda / ttm_rev
                 estimated_fwd_ebitda = fwd_rev * ebitda_margin
@@ -830,13 +830,13 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         data['forward_ev_sales'] = calculateForwardEvSales(data)
         data['forward_ev_ebitda'] = calculateForwardEvEbitda(data)
         data['forward_pe'] = calculateForwardPE(data)
-        
+
         # cagr_5y_custom and peg_custom are preserved from scraper
-            
+
         # Unify the profile's fwd_ps to use the robust Forward P/S
         if data.get('forward_ps'):
             data['fwd_ps'] = data['forward_ps']
-        
+
         if peers_data:
             for p in peers_data:
                 p_price = p.get("price")
@@ -847,14 +847,14 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 p_growth = p.get("earnings_growth") or p.get("revenue_growth")
                 if not p.get("peg_ratio") and p_pe and p_growth and p_growth > 0:
                     p["peg_ratio"] = p_pe / (p_growth * 100.0)
-                
+
                 # Apply proxies for peers
                 p['forward_ev_sales'] = calculateForwardEvSales(p)
                 p['forward_ev_ebitda'] = calculateForwardEvEbitda(p)
                 p['forward_pe'] = calculateForwardPE(p)
 
                 # custom metrics are preserved from scraper
-                
+
 
         executor.shutdown(wait=False)
 
@@ -862,10 +862,10 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         current_price = data.get("current_price") or 0.0
         if not data.get("name"):
             data["name"] = ticker.upper()
-        
+
         # v251: Ensure ticker is strictly ticker, don't allow doubling
         data["ticker"] = ticker.upper()
-    
+
         all_overrides = _load_overrides()
         ticker_overrides = all_overrides.get(ticker.upper())
         sector = data.get("sector")
@@ -877,18 +877,18 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
 
         # Watchlist skips expensive peer fetching to save 80% loading time while retaining sync
         market_data = get_market_averages()
-        
+
         # 3. Compute Valuations (v219: Use recalculated eps_growth = Avg FY0+FY1 from Normalized Anchors)
         consensus_growth = data.get("eps_growth")
         if consensus_growth is None or consensus_growth <= 0:
             consensus_growth = data.get("eps_growth_5y_consensus") or data.get("eps_growth_3y") or data.get("eps_growth_5y") or 0.05
-        
+
         # Use a safe growth baseline for labels
         eps_growth_estimated = consensus_growth
-        
+
         lynch_period_label = data.get("eps_growth_period") or "2Y EPS CAGR"
-        
-        
+
+
         # Calculate Industry Median PE for Peter Lynch fallback
         valid_pes = []
         if peers_data:
@@ -899,22 +899,22 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         # Include current company PE if available
         if data.get("pe_ratio") and data.get("pe_ratio") > 0:
             valid_pes.append(data.get("pe_ratio"))
-            
+
         sector_median_pe = statistics.median(valid_pes) if valid_pes else 20.0
         median_peer_pe = sector_median_pe
 
         pe_historic = data.get("pe_historic") or data.get("pe_ratio")
-        
+
         # STRICT DATA MAPPING: Prioritize Adjusted (Non-GAAP) EPS for valuation models (v70)
         # Trailing TTM EPS fallback only if Adjusted is missing.
         eps_for_valuation = data.get("adjusted_eps") or data.get("trailing_eps", 0) 
-        
+
         # Peter Lynch - Conservative Guardrails for Negative Growth
         # Standard Lynch PE is 20, but for shrinking companies (<0% growth), we cap it at 12x (Risk Adjusted)
         effective_lynch_pe = sector_median_pe
         if consensus_growth < 0:
             effective_lynch_pe = min(sector_median_pe, 12.0)
-            
+
         lynch_result = calculate_peter_lynch(current_price, eps_for_valuation, consensus_growth, pe_historic, effective_lynch_pe)
         lynch_fwd_pe = lynch_result.get("fwd_pe")
         lynch_fair_value = lynch_result.get("fair_value")
@@ -923,33 +923,33 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         # Additional Benchmarks for Data Transparency
         res_pe20 = calculate_peter_lynch(current_price, eps_for_valuation, consensus_growth, pe_historic, 20.0)
         lynch_pe20_val = res_pe20.get("fair_value")
-        
+
         res_sector = calculate_peter_lynch(current_price, eps_for_valuation, consensus_growth, pe_historic, sector_median_pe)
         fair_value_sector_pe = res_sector.get("fair_value")
-        
+
         # PEG Valuation (Sector-based)
         eps_base = data.get("adjusted_eps")
         peg_eps_type = "Non-GAAP"
         if eps_base is None or eps_base <= 0:
             eps_base = data.get("trailing_eps", 0)
             peg_eps_type = "GAAP"
-            
+
         current_pe = current_price / eps_base if eps_base > 0 else 0
-        
+
         # Fallback logic handled by consensus_growth
         eps_growth_rate_peg = consensus_growth
-        
+
         peg_period_label = data.get("eps_growth_period") or "2Y EPS CAGR"
         company_peg = current_pe / (eps_growth_rate_peg * 100) if eps_growth_rate_peg > 0 else 0
-        
+
         # Export the flag and custom metrics
         data["peg_eps_type"] = peg_eps_type
         # company_peg is preserved or used only for backwards compat
         data["peg_custom"] = data.get('peg_custom') or company_peg
-        
+
         # Calculate Industry PEG from peers using Forward PEG (2Y avg EPS growth based)
         valid_pegs = []
-        
+
         if peers_data:
             for p in peers_data:
                 p_price = p.get('price')
@@ -958,13 +958,13 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 if p_eps is None or p_eps <= 0:
                     p_eps = p.get('eps')
                     peer_peg_type = "GAAP"
-                    
+
                 if p_price and p_eps and p_eps > 0:
                     p_pe = p_price / p_eps
                     p['pe_non_gaap'] = p_pe
                 else:
                     p_pe = None
-                    
+
                 p_growth = p.get("earnings_growth") or p.get("revenue_growth")
                 # Calculate peer PEG exactly like company PEG
                 if p_pe and p_pe > 0 and p_growth and p_growth > 0:
@@ -977,18 +977,18 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                     if p_peg and p_peg > 0:
                         valid_pegs.append(float(p_peg))
                         p['peg_eps_type'] = peer_peg_type
-        
+
         # No fallback, return None if no valid peers
         industry_peg = statistics.median(valid_pegs) if valid_pegs else None
         peg_value = calculate_peg_fair_value(current_price, company_peg, industry_peg)
-        
+
         # Multi-Metric Sector-Weighted Relative Valuation (Strict Forward)
         company_shares = data.get("shares_outstanding") or 1
         company_debt = data.get("total_debt") or 0
         company_cash = data.get("total_cash") or 0
         company_book_share = current_price / data.get("price_to_book") if data.get("price_to_book") and data.get("price_to_book") > 0 else 0
         company_book_val = company_book_share * company_shares
-        
+
         # Calculate Target Company Forward Metrics
         targ_fwd_eps = data.get("forward_eps") or data.get("eps")
         targ_fwd_rev = data.get("forward_revenue")
@@ -997,15 +997,15 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             tg = data.get("next_3y_rev_growth")
             if tr and tr > 0 and tg is not None:
                 targ_fwd_rev = tr * (1 + tg)
-                
+
         targ_ebitda = data.get("ebitda") or 0
         targ_ni = data.get("net_income") or (data.get("adjusted_eps") * company_shares if data.get("adjusted_eps") else 0)
-        
+
         bPE = None
         bEVSALES = None
         bEVEBITDA = None
         bPB = None
-        
+
         # We need to compute median beforehand since we extracted the relative logic
         def get_clean_median_local(key):
             vals = []
@@ -1022,10 +1022,10 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         bEVSALES = get_clean_median_local('forward_ev_sales')
         bEVEBITDA = get_clean_median_local('ev_to_ebitda')
         bPB = get_clean_median_local('price_to_book')
-        
+
         # 1. Forward P/E Fair Value
         fvPE = (targ_fwd_eps * bPE) if (targ_fwd_eps and bPE and targ_fwd_eps > 0) else None
-        
+
         # 2. Forward EV/Sales Fair Value
         fvEVSALES = None
         if targ_fwd_rev and bEVSALES and targ_fwd_rev > 0:
@@ -1047,7 +1047,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             implied_mcap_ebitda = implied_ev_ebitda - company_debt + company_cash
             fvEVEBITDA = implied_mcap_ebitda / company_shares if company_shares > 0 else None
             if fvEVEBITDA is not None and fvEVEBITDA <= 0: fvEVEBITDA = None
-                
+
         # 4. Current P/B Fair Value (Financials only)
         fvPB = (company_book_share * bPB) if (company_book_share and bPB and company_book_share > 0) else None
 
@@ -1075,11 +1075,11 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
 
         sector_name = sector or 'Default'
         weights = SECTOR_WEIGHTS.get(sector_name) or SECTOR_WEIGHTS.get('Default')
-        
+
         # Dynamic Technology_Growth rule:
         if (sector_name == 'Technology' or sector_name == 'Information Technology') and (not targ_fwd_eps or targ_fwd_eps <= 0 or not bPE or bPE > 50):
             weights = { "PE": 0.00, "EV_SALES": 1.00 }
-            
+
         if sector_name not in SECTOR_WEIGHTS:
             if 'Tech' in sector_name: weights = SECTOR_WEIGHTS['Technology']
             elif 'Finance' in sector_name or 'Bank' in sector_name: weights = SECTOR_WEIGHTS['Financial Services']
@@ -1093,7 +1093,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
 
         weightedSum = 0.0
         totalWeight = 0.0
-        
+
         def calcMetric(val, w):
             nonlocal weightedSum, totalWeight
             if w is not None and w > 0:
@@ -1105,7 +1105,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         if weights.get("EV_SALES") is not None: calcMetric(fvEVSALES, weights.get("EV_SALES"))
         if weights.get("EV_EBITDA") is not None: calcMetric(fvEVEBITDA, weights.get("EV_EBITDA"))
         if weights.get("PB") is not None: calcMetric(fvPB, weights.get("PB"))
-        
+
         if weights.get("P_FFO") is not None: calcMetric(fvPE, weights.get("P_FFO"))
         if weights.get("P_AFFO") is not None: calcMetric(fvPE, weights.get("P_AFFO"))
 
@@ -1113,10 +1113,10 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             relative_value = weightedSum / totalWeight
         else:
             relative_value = None
-        
+
         # DCF Exit Multiple Mapping
         recommended_exit_multiple = get_recommended_exit_multiple(sector, industry)
-        
+
         # DCF
         # For DCF, we need FCF, Growth, WACC (discount_rate), terminal growth
         fcf = data.get("fcf")
@@ -1125,28 +1125,28 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         # We will use simple defaults if missing
         # For DCF, we strictly use the consensus_growth (v62 fix for growing FCF in negative scenarios)
         eps_growth = consensus_growth
-        
+
         dcf_value = None
         dcf_5yr = None
         dcf_10yr = None
-    
+
         # Dynamic WACC (CAPM)
         risk_free_rate = get_risk_free_rate()
         erp = 0.055 # Equity Risk Premium fallback
         beta = data.get("beta")
         if beta is None:
             beta = 1.0 # Default beta
-            
+
         dynamic_wacc = risk_free_rate + (beta * erp)
-        
+
         # Use custom WACC if provided by frontend, else dynamic_wacc
         discount_rate = (wacc / 100.0) if wacc is not None else dynamic_wacc
         perpetual_growth = 0.02 # 2% GDP growth standard
-        
+
         # Initialize variables before conditional assignment to avoid UnboundLocalError
         dcf_cash = data.get("total_cash") or 0
         dcf_debt = data.get("total_debt") or 0
-        
+
         # EXIT MULTIPLE CAP: If growth is negative, cap exit multiple to 12.0 for prudence
         if eps_growth < 0:
             recommended_exit_multiple = min(recommended_exit_multiple or 15.0, 12.0)
@@ -1156,32 +1156,40 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             # For these, we use PV(FCF) as a proxy for Equity Value directly.
             # v63: Only apply to actual Banks/Insurance, not Data/FinTech providers like FDS or MSCI.
             is_bank_or_insurance = any(x in str(industry).lower() for x in ["bank", "insurance", "savings", "credit"])
+
+            # Exception for Payment Networks (V, MA, PYPL) which are often labeled "Credit Services" but are not banks
+            if ticker.upper() in ["V", "MA", "PYPL"]:
+                is_bank_or_insurance = False
+
             if sector == "Financial Services" and is_bank_or_insurance:
                 dcf_cash = 0
                 dcf_debt = 0
-                
+
+        # Get buyback rate for DCF
+        dcf_buyback = data.get("historic_buyback_rate") or 0.0
+
         # 5 Year Calculation (Default for Dashboard)
-        res_5 = calculate_dcf(fcf_obj, eps_growth, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, years=5, exit_multiple=recommended_exit_multiple, current_price=current_price)
+        res_5 = calculate_dcf(fcf_obj, eps_growth, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, years=5, buyback_rate=dcf_buyback, exit_multiple=recommended_exit_multiple, current_price=current_price)
         sens_5 = calculate_dcf_sensitivity(fcf_obj, eps_growth, shares, dcf_cash, dcf_debt, 5, discount_rate, perpetual_growth, exit_multiple=recommended_exit_multiple)
         rev_5 = calculate_reverse_dcf(current_price, fcf_obj, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, 5, exit_multiple=recommended_exit_multiple)
-        
+
         if res_5:
             # Use Perpetual as baseline for weighted average
             dcf_value = res_5["dcf_perpetual"]["fair_value"]
             # Apply WACC cap globally to the response
             discount_rate = res_5["discount_rate_applied"]
-            
+
             dcf_5yr = {
                 "result": res_5,
                 "sensitivity": sens_5,
                 "reverse_dcf": rev_5
             }
-            
+
         # 10 Year Calculation 
-        res_10 = calculate_dcf(fcf_obj, eps_growth, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, years=10, exit_multiple=recommended_exit_multiple, current_price=current_price)
+        res_10 = calculate_dcf(fcf_obj, eps_growth, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, years=10, buyback_rate=dcf_buyback, exit_multiple=recommended_exit_multiple, current_price=current_price)
         sens_10 = calculate_dcf_sensitivity(fcf_obj, eps_growth, shares, dcf_cash, dcf_debt, 10, discount_rate, perpetual_growth, exit_multiple=recommended_exit_multiple)
         rev_10 = calculate_reverse_dcf(current_price, fcf_obj, discount_rate, perpetual_growth, shares, dcf_cash, dcf_debt, 10, exit_multiple=recommended_exit_multiple)
-        
+
         if res_10:
             dcf_10yr = {
                 "result": res_10,
@@ -1201,13 +1209,13 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                     y_str = str(h.get("year", "0"))
                     nums = "".join(filter(str.isdigit, y_str))
                     return int(nums) if nums else 0
-                
+
                 # Sort descending: [2027 (Est), 2026 (Est), 2025, 2024...]
                 sorted_trends = sorted(historical_trends, key=get_yr_num, reverse=True)
-                
+
                 # We only want REPORTED years for the 'historical' growth comparison (e.g. 2025 vs 2024)
                 reported_revs = [h.get("revenue") for h in sorted_trends if h.get("revenue") and "(Est)" not in str(h.get("year"))]
-                
+
                 if len(reported_revs) >= 2:
                     curr_r = reported_revs[0]
                     prev_r = reported_revs[1]
@@ -1215,23 +1223,23 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                         stable_rev_growth = (curr_r - prev_r) / prev_r
             except:
                 pass
-        
+
         # Propagate stable revenue growth to both the profile and the scoring engine (v63 fix)
         data["revenue_growth"] = stable_rev_growth
         data["next_3y_rev_growth"] = stable_rev_growth
-            
+
         # Stabilize Fair Value with Dynamic Financial Archetypes
-        
+
         # Helper vars for Archetype Engine
         ind_lower = str(industry).lower() if industry else ""
         safe_sector = str(sector) if sector else "Default"
-        
+
         m_rev_g = (data.get("next_3y_rev_growth") or stable_rev_growth or 0) * 100
-        
+
         roic = data.get("roic") or 0
         if roic > 0 and roic <= 1.0:
             roic *= 100
-            
+
         # Pasul 1: Filtre Sectoriale Stricte (Overrides)
         is_fin_special = False
         if safe_sector == "Financial Services":
@@ -1241,7 +1249,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 # Exclude Payment Networks (V, MA) which have very high ROIC from Traditional Financials
                 if "credit" in ind_lower and (roic >= 20 or ticker.upper() in ["V", "MA", "PYPL", "AXP", "FI", "FIS", "GPN", "HOOD"]):
                     is_fin_special = False
-                
+
         if is_fin_special:
             base_weights = {"dcf": 0.0, "relative": 0.45, "lynch": 0.45, "peg": 0.10}
             data["archetype"] = "Traditional Financials"
@@ -1279,7 +1287,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             "peg": int(base_weights.get("peg", 0) * 100),
             "relative": int(base_weights.get("relative", 0) * 100)
         }
- 
+
         # Map methods to weight keys
         lynch_pe20_val = lynch_result.get("fair_value_pe_20")
         method_map = {
@@ -1288,7 +1296,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             "relative": relative_value,
             "dcf": dcf_value
         }
- 
+
         # Calculate weighted average based on AVAILABLE methods
         total_weight = 0
         weighted_sum = 0
@@ -1297,7 +1305,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 w = base_weights.get(key, 0)
                 weighted_sum += val * w
                 total_weight += w
- 
+
         if total_weight > 0:
             fair_value = weighted_sum / total_weight
             # Margin of Safety relative to PRICE is the standard for buy scores
@@ -1308,7 +1316,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         else:
             fair_value = None
             margin_of_safety = None
-            
+
         # Add bounds handling to avoid infinite or NaN
         def sanitize(val):
             if val is None:
@@ -1322,7 +1330,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             if isinstance(val, list):
                 return [sanitize(v) for v in val]
             return val
-            
+
         # Clean Median Rule for Peer Stats
         median_peer_pe = None
         mean_peer_pe = None
@@ -1336,7 +1344,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         median_peer_ev_ebitda = None
         mean_peer_ev_ebitda = None
         median_peer_ev_gp = None
-        
+
         if peers_data:
             def get_clean_median(key):
                 vals = []
@@ -1347,14 +1355,14 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 if not vals:
                     return None
                 return statistics.median(vals)
-                
+
             # Compute Strict Forward Medians
             median_peer_pe = get_clean_median('pe_ratio')
             median_peer_ps = get_clean_median('ps_ratio')
             median_peer_ev_ebitda = get_clean_median('ev_to_ebitda')
             median_peer_pb = get_clean_median('price_to_book')
             median_peer_pfcf = get_clean_median('pfcf_ratio')
-            
+
             valid_pegs = []
             valid_ev_gps = []
             for p in peers_data:
@@ -1362,7 +1370,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 val = p.get('peg_ratio')
                 if val is not None and isinstance(val, (int, float)) and math.isfinite(val) and val > 0:
                     valid_pegs.append(float(val))
-                
+
                 # Calculate EV/GP
                 p_rev_grow = p.get('revenue_growth') or 0
                 if p_rev_grow > 1: p_rev_grow /= 100
@@ -1374,29 +1382,30 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 p_ev = p.get('enterprise_value') or 0
                 if p_fwd_gp > 0 and p_ev > 0:
                     valid_ev_gps.append(float(p_ev / p_fwd_gp))
-                    
+
             if valid_pegs:
                 median_peer_peg = statistics.median(valid_pegs)
-                
+
             median_peer_ev_gp = statistics.median(valid_ev_gps) if valid_ev_gps else None
- 
+
         # v285: PEG MUST use Adjusted (Non-GAAP) PE to match Non-GAAP Growth Estimates
         adj_pe = current_price / data.get("adjusted_eps") if data.get("adjusted_eps") and data.get("adjusted_eps") > 0 else None
- 
+
         # 5. Build Formula Data for Transparency
         fair_value_sector_pe = None
         if lynch_result.get("fwd_eps") and median_peer_pe:
             fair_value_sector_pe = lynch_result.get("fwd_eps") * median_peer_pe
- 
+
         def _format_dcf_payload(dcf_dict, exit_multiple_applied):
             if not dcf_dict or not dcf_dict.get("result"):
                 return None
             res = dcf_dict["result"]
             sens = dcf_dict["sensitivity"]
             rev = dcf_dict["reverse_dcf"]
-            
+
             # Shared fields across branches
             shared = {
+
                 "fcf_projections": [sanitize(x) for x in res.get("fcf_years", [])],
                 "pv_fcf_years": [sanitize(x) for x in res.get("pv_fcf_years", [])],
                 "present_value_fcf_sum": sanitize(res.get("total_pv_of_fcfs")),
@@ -1522,7 +1531,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             ttm_pe = current_price / data.get("trailing_eps")
         else:
             ttm_pe = data.get("pe_ratio") or 0
-        
+
         data["trailing_pe"] = ttm_pe
 
         # FCF Trend Logic (Growing, Improving, Flat, Decreasing)
@@ -1534,7 +1543,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             # In SMCI diagnostic, it looked like oldest-first [..., 1.53B].
             current = fcf_vals[-1]
             prev = fcf_vals[-2]
-            
+
             # RECOVERY LOGIC: Negative to Positive is a strong Growth signal
             if current > 0 and prev < 0:
                 fcf_trend = "Growing" # Significant recovery
@@ -1546,19 +1555,19 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             g = data.get("historic_fcf_growth")
             if g > 0.02: fcf_trend = "Growing"
             elif g < -0.02: fcf_trend = "Decreasing"
-        
+
         data["fcf_trend"] = fcf_trend
 
         # Financials placeholders (mapping from authoritative scraper data)
         data["nim"] = data.get("netInterestMargin") or 0
         data["cet1_ratio"] = data.get("cet1_ratio") or 0
-        
+
         # PRIORITIZE CALCULATED RATIOS (ADBE/SMCI FIX)
         data["roe"] = data.get("roe") or 0
         data["roa"] = data.get("roa") or 0
         data["ebit_margin"] = (data.get("operating_margin") or data.get("ebit_margin") or 0)
         data["net_margin"] = (data.get("net_margin") or 0)
-        
+
         data["bvps_growth"] = data.get("historic_bvps_growth") or 0
         data["next_3y_rev_growth"] = data.get("revenue_growth") or 0
 
@@ -1567,13 +1576,13 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         rev_val = data.get("revenue") or 0
         data["affo_margin"] = data.get("affo_margin") or (fcf/rev_val if fcf and rev_val > 0 else 0)
         data["affo_growth"] = data.get("historic_fcf_growth") or 0
-        
+
         # Defensive Price to AFFO (avoid /0)
         p_affo = 0
         if fcf and shares and shares > 0 and (fcf/shares) != 0:
             p_affo = current_price / (fcf/shares)
         data["price_to_affo"] = p_affo
-        
+
         # Defensive FCF Yield (avoid /0)
         mkt_cap_val = (current_price * shares) if (current_price and shares) else 0
         data["fcf_yield"] = (fcf / mkt_cap_val) if (fcf and mkt_cap_val > 0) else 0
@@ -1581,11 +1590,11 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         # RESTORE: Standard indicators for DEFAULT template (Respect Scraper Values)
         if not data.get("ebit_margin") or data["ebit_margin"] == 0:
             data["ebit_margin"] = (data.get("ebit", 0) / (rev_val or 1))
-        
+
         # Only overwrite ps_ratio if scraper provided 0
         if not data.get("ps_ratio") or data["ps_ratio"] == 0:
             data["ps_ratio"] = current_price / (rev_val / (shares or 1)) if rev_val > 0 and shares > 0 else 0
-        
+
         ebitda_val = data.get("ebitda")
         # Fix: current_price and shares are authoritative from earlier derivation
         mkt_cap_val = (shares or 0) * (current_price or 0)
@@ -1613,9 +1622,9 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             data["rev_cagr_2y"] = stable_rev_growth or 0.08        # Pass safety values to scoring
         safe_mos = margin_of_safety if margin_of_safety is not None else 0
         safe_median_peg = median_peer_peg if median_peer_peg is not None else 0
-        
+
         from models.scoring import calculate_health_score, calculate_scoring_reform
-        
+
         valuation_data_for_scoring = {
             "margin_of_safety": safe_mos,
             "sector_median_peg": safe_median_peg,
@@ -1626,12 +1635,12 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             "historic_pe": pe_historic if pe_historic else 0,
             "market_cap": data.get("shares_outstanding", 0) * current_price if data.get("shares_outstanding") and current_price else 0.0
         }
-        
+
         def calculate_scenario_score(scenario_type):
             metrics_copy = data.copy()
             eps_ests = metrics_copy.get("eps_estimates", [])
             rev_ests = metrics_copy.get("rev_estimates", [])
-            
+
             if scenario_type == "base":
                 eps_key = "avg"
                 rev_key = "avg"
@@ -1641,25 +1650,25 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             elif scenario_type == "bull":
                 eps_key = "high"
                 rev_key = "high"
-                
-            
+
+
             # Find the first estimate (which represents the current FY / FY1)
             fy1_eps_est = next((e for e in eps_ests if e.get("status") == "estimate"), None)
             fy1_rev_est = next((e for e in rev_ests if e.get("status") == "estimate"), None)
-            
+
             if fy1_eps_est and fy1_eps_est.get(eps_key):
                 eps_val = fy1_eps_est[eps_key]
                 if eps_val != 0:
                     metrics_copy["forward_pe"] = current_price / eps_val
                     metrics_copy["fwd_pe"] = metrics_copy["forward_pe"]
-                
+
             if fy1_rev_est and fy1_rev_est.get(rev_key) and fy1_rev_est.get(rev_key) > 0:
                 rev_val = fy1_rev_est[rev_key]
                 metrics_copy["forward_revenue"] = rev_val
                 if shares and shares > 0:
                     metrics_copy["fwd_ps"] = current_price / (rev_val / shares)
                     metrics_copy["ps_ratio"] = metrics_copy["fwd_ps"]
-                    
+
                 base_rev = fy1_rev_est.get("avg")
                 if base_rev and base_rev > 0:
                     ratio = rev_val / base_rev
@@ -1667,31 +1676,31 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                     if base_ev_ebitda > 0:
                         metrics_copy["forward_ev_ebitda"] = base_ev_ebitda / ratio
                         metrics_copy["ev_to_ebitda"] = metrics_copy["forward_ev_ebitda"]
-            
+
             ttm_rev = data.get("revenue") or data.get("total_revenue")
             if ttm_rev and ttm_rev > 0 and fy1_rev_est and fy1_rev_est.get(rev_key):
                 metrics_copy["forward_revenue_growth"] = (fy1_rev_est[rev_key] - ttm_rev) / ttm_rev
                 metrics_copy["fwd_rev_growth"] = metrics_copy["forward_revenue_growth"]
-            
+
             ttm_eps = data.get("trailing_eps") or data.get("adjusted_eps")
             if ttm_eps and ttm_eps > 0 and fy1_eps_est and fy1_eps_est.get(eps_key):
                 metrics_copy["eps_growth"] = (fy1_eps_est[eps_key] - ttm_eps) / ttm_eps
-                
+
             return calculate_scoring_reform(valuation_data_for_scoring, metrics_copy)
 
         scoring_base = calculate_scenario_score("base")
         scoring_bear = calculate_scenario_score("bear")
         scoring_bull = calculate_scenario_score("bull")
-        
+
         health_results = calculate_health_score(data)
         health_score_total = health_results.get("total")
         health_breakdown = health_results.get("breakdown")
         beneish_data = health_results.get("beneish")
-        
+
         # Fallback to base score for the old keys to prevent breaking changes
         good_to_buy_total = scoring_base.get("good_to_buy_total")
         buy_breakdown = scoring_base.get("buy_breakdown")
-        
+
         # Piotroski F-Score & Rule of 40
         from models.scoring import calculate_piotroski_score, calculate_rule_of_40
         piotroski_result = calculate_piotroski_score(data)
@@ -1701,14 +1710,14 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         all_breakdowns = health_breakdown + buy_breakdown
         top_strengths = []
         risk_factors = []
-        
+
         if all_breakdowns:
             # Strengths: items with max points
             max_point_items = [b for b in all_breakdowns if b.get("points_awarded") == b.get("max_points") and b.get("max_points", 0) > 0]
             # Sort by highest max_points just to show the most impactful ones first
             max_point_items.sort(key=lambda x: x.get("max_points", 0), reverse=True)
             top_strengths = max_point_items[:3]
-            
+
             # Risks: items with 0 points
             zero_point_items = [b for b in all_breakdowns if b.get("points_awarded") == 0]
             if zero_point_items:
@@ -1859,7 +1868,8 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             "overrides": ticker_overrides,
             "archetype": data.get("archetype"),
             "archetype_weights": data.get("archetype_weights"),
-            "ownership": data.get("ownership")
+            "ownership": data.get("ownership"),
+            "scoring_rules": get_scoring_rules(valuation_data_for_scoring, data)
         }
     except Exception as e:
         import traceback
@@ -1873,7 +1883,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
 
     # 3. Save to memory cache (v38: Fix for slowness and desync)
     valuation_cache[cache_key] = response_data
-    
+
     # 3.5 Save to persistent KV cache so that `get_competitors_data` can intercept and sync parity
     try:
         from utils.kv import kv_set
@@ -1893,7 +1903,7 @@ from concurrent.futures import ThreadPoolExecutor
 def get_batch_valuation(req: WatchlistRequest):
     tickers = req.tickers
     results = []
-    
+
     with ThreadPoolExecutor(max_workers=15) as executor:
         # User requested reliable data: We must use fast_mode=False for the watchlist. 
         # Skipping DataFrames completely destroys the Health and Buy scores (e.g. Health 92 -> 62)
@@ -1908,14 +1918,14 @@ def get_batch_valuation(req: WatchlistRequest):
             except Exception as e:
                 ticker = futures[future]
                 print(f"Batch Error for {ticker}: {e}")
-                
+
     return results
 
 @app.get("/api/valuation/{ticker}/synthesis")
 def get_synthesis(ticker: str, response: Response):
     # Set Vercel Edge Cache headers for synthesis (Cache 1hr, stale up to 24hr)
     response.headers["Cache-Control"] = "public, s-maxage=3600, stale-while-revalidate=86400"
-    
+
     ticker_upper = ticker.upper()
     try:
         # 1. Check if we have cached info from get_company_data
@@ -1927,14 +1937,14 @@ def get_synthesis(ticker: str, response: Response):
             info = stock.info
             if info:
                 _company_info_cache[ticker_upper] = info
-                
+
         if not info:
             raise HTTPException(status_code=404, detail="Company profile info not found")
-            
+
         # 3. Call get_company_synthesis with run_ai=True to invoke Gemini API
         synthesis = get_company_synthesis(ticker_upper, info, run_ai=True)
         return {"ticker": ticker_upper, "company_overview_synthesis": synthesis}
-        
+
     except Exception as e:
         import traceback
         print(f"Error in synthesis endpoint for {ticker_upper}: {e}")

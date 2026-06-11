@@ -115,12 +115,22 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const docRef = db.collection('users').doc(currentUser.uid);
-            await docRef.set({
+
+            // Gather overrides data directly from memory cache
+            let overridesToSave = null;
+            if (typeof cachedOverrides !== 'undefined') {
+                overridesToSave = cachedOverrides;
+            }
+
+            const payload = {
                 fairValueWatchlist: watchListData,
                 method_cards_collapsed: collapsedData,
                 customPeers: customPeersData,
                 lastSync: firebase.firestore.FieldValue.serverTimestamp()
-            });
+            };
+            if (overridesToSave) payload.overrides = overridesToSave;
+
+            await docRef.set(payload);
 
         } catch (error) {
             console.error("Cloud Sync Error (Push):", error);
@@ -160,6 +170,29 @@ document.addEventListener('DOMContentLoaded', () => {
                     Object.keys(data.customPeers).forEach(k => {
                         localStorage.setItem(k, JSON.stringify(data.customPeers[k]));
                     });
+                }
+
+                if (data.overrides) {
+                    if (typeof cachedOverrides !== 'undefined') {
+                        cachedOverrides = data.overrides;
+
+                        // Push them back to local backend via fire-and-forget API
+                        // We do it sequentially or batched (sequentially here)
+                        const updateOverrides = async () => {
+                            for (const ticker of Object.keys(data.overrides)) {
+                                try {
+                                    await fetch('/api/overrides', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify(data.overrides[ticker])
+                                    });
+                                } catch(err) {
+                                    console.error('Silent backend sync error:', err);
+                                }
+                            }
+                        };
+                        updateOverrides();
+                    }
                 }
 
                 // Refresh UI Watchlist
@@ -1253,11 +1286,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
         const sList = document.getElementById('top-strengths-list');
         if (sList) {
-            sList.innerHTML = strengths.slice(0, 3).map(s => `<li>${s.metric}: ${s.value}</li>`).join('');
+            sList.innerHTML = strengths.slice(0, 3).map(s => `<li style="margin-bottom: 6px;">${s.metric}: ${s.value}</li>`).join('');
         }
         const rList = document.getElementById('risk-factors-list');
         if (rList) {
-            rList.innerHTML = risks.slice(0, 3).map(r => `<li>${r.metric}: ${r.value}</li>`).join('');
+            rList.innerHTML = risks.slice(0, 3).map(r => `<li style="margin-bottom: 6px;">${r.metric}: ${r.value}</li>`).join('');
         }
     };
 
@@ -1455,16 +1488,16 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             // FCF is calculated on top of projected Revenue
             currentFcf = currentRevenue * yearMargin;
 
-            // Method A: Deduct buyback cash cost from FCF (or add dilution cost if buybackRate < 0)
+            // Method A: Deduct buyback cash cost from FCF
             let buybackCashSpent = 0;
-            if (buybackRate !== 0 && currentPrice && currentPrice > 0) {
+            if (buybackRate > 0 && currentPrice && currentPrice > 0) {
                 const projectedPrice = currentPrice * Math.pow(1 + finalWacc, i);
                 const sharesBought = remainingShares * buybackRate;
                 buybackCashSpent = sharesBought * projectedPrice;
                 remainingShares -= sharesBought;
                 currentFcf -= buybackCashSpent;
-            } else if (buybackRate !== 0) {
-                // Fallback: just reduce/increase shares without FCF deduction
+            } else if (buybackRate > 0) {
+                // Fallback: just reduce shares without FCF deduction
                 remainingShares *= (1 - buybackRate);
             }
 
@@ -3022,7 +3055,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             if (targetEps != null && targetEps > 0) {
                 const fwdPrice = targetEps * selectedMult;
                 lynchVal = fwdPrice / Math.pow(1 + discountRate, 3);
-                currentFormulaData.peter_lynch.dynamic_fwd_price = fwdPrice;
             }
 
             // Store dynamics for modal
@@ -4033,7 +4065,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             } else {
                 cachedWatchlistData.push({ ...data });
             }
-            sessionStorage.setItem(`val_v4_${data.ticker.toUpperCase()}`, JSON.stringify({ data, ts: Date.now() }));
+            sessionStorage.setItem(`val_v3_${data.ticker.toUpperCase()}`, JSON.stringify({ data, ts: Date.now() }));
         }
 
         // DESCRIPTION CARD INJECTION
@@ -4302,48 +4334,23 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                             `;
                         }
                     } else if (activeTab === 'news') {
-                        if (isLoadingAI && !globalData.latest_news) {
+                        if (isLoadingAI) {
                             panel.innerHTML = `
                                 <div class="brief-news-item"><div class="skeleton-text" style="width: 80%;"></div><div class="skeleton-text" style="width: 50%;"></div></div>
                                 <div class="brief-news-item"><div class="skeleton-text" style="width: 75%;"></div><div class="skeleton-text" style="width: 45%;"></div></div>
                             `;
-                        } else if (globalData.latest_news && globalData.latest_news.length > 0) {
-                            panel.innerHTML = globalData.latest_news.map((news, index) => {
-                                const title = news.title;
-                                const source = news.publisher;
-
-                                return `
-                                    <div class="brief-news-item" style="cursor: pointer;" onclick="window.openNewsModalByIndex(${index})">
-                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; gap: 10px;">
-                                            <span style="background: rgba(56, 189, 248, 0.1); color: #38bdf8; font-size: 0.58rem; padding: 2px 6px; border-radius: 4px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3px;">${source}</span>
-                                        </div>
-                                        <div style="color: rgba(255,255,255,0.9); font-size: 0.8rem; line-height: 1.4; font-weight: 600;">${title}</div>
-                                    </div>
-                                `;
-                            }).join('');
                         } else if (parsed.latestMarketIntelligence.length > 0) {
-                            panel.innerHTML = parsed.latestMarketIntelligence.map((item, index) => {
+                            panel.innerHTML = parsed.latestMarketIntelligence.map(item => {
                                 const match = item.match(/^(.*?)\s*\(Source:\s*(.*?)\)$/i);
                                 const title = match ? match[1] : item;
                                 const source = match ? match[2] : "Market News";
 
-                                // Synthesize a fake news object so the modal can still open using the text data
-                                const synthesizedNews = {
-                                    title: title,
-                                    publisher: source,
-                                    summary: "Acesta este un fragment generat din inteligența pieței. Pentru articolul complet sau sumarul detaliat, vă rugăm să actualizați datele."
-                                };
-
-                                // Inject into globalData so openNewsModalByIndex works
-                                if (!globalData.latest_news) globalData.latest_news = [];
-                                globalData.latest_news[index] = synthesizedNews;
-
                                 return `
-                                    <div class="brief-news-item" style="cursor: pointer;" onclick="window.openNewsModalByIndex(${index})">
+                                    <div class="brief-news-item">
                                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; gap: 10px;">
                                             <span style="background: rgba(56, 189, 248, 0.1); color: #38bdf8; font-size: 0.58rem; padding: 2px 6px; border-radius: 4px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3px;">${source}</span>
                                         </div>
-                                        <div style="color: rgba(255,255,255,0.9); font-size: 0.8rem; line-height: 1.4; font-weight: 600;">${title}</div>
+                                        <div style="color: rgba(255,255,255,0.9); font-size: 0.8rem; line-height: 1.4;">${title}</div>
                                     </div>
                                 `;
                             }).join('');
@@ -4876,7 +4883,8 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             inputs: collectOverrideInputs(),
             toggles: collectOverrideToggles(),
             computed: getComputedValues(),
-            weights: customWeights
+            weights: customWeights,
+            custom_scenarios: window._customScenariosData || null
         };
 
         cachedOverrides[ticker] = payload;
@@ -4887,6 +4895,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             body: JSON.stringify(payload)
         }).then(() => {
             sessionStorage.removeItem(`val_v4_${ticker.toUpperCase()}`);
+            if (typeof _syncInProgress !== "undefined" && !_syncInProgress) syncToCloud(); // Push overrides to cloud when they change locally
         }).catch(err => console.error('Override sync error:', err));
 
         pendingOverridePayload = null;
@@ -4902,7 +4911,8 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             inputs: collectOverrideInputs(),
             toggles: collectOverrideToggles(),
             computed: getComputedValues(),
-            weights: { ...customWeights }
+            weights: { ...customWeights },
+            custom_scenarios: window._customScenariosData || null
         };
         pendingOverrideTicker = ticker;
 
@@ -4918,7 +4928,25 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
     const applyOverrides = (ticker) => {
         const ov = cachedOverrides[ticker];
-        if (!ov) return false;
+
+        // If there are no overrides for this ticker, clear out any custom scenarios
+        // so they don't bleed over from a previously viewed ticker.
+        if (!ov) {
+            window._customScenariosData = null;
+            const customScenariosBtn = document.getElementById('open-custom-scenarios-btn');
+            if (customScenariosBtn) {
+                customScenariosBtn.classList.remove('active-custom');
+            }
+            document.querySelectorAll('.cs-input').forEach(inp => inp.value = '');
+            const turnOffCustomBtn = document.getElementById('cs-turn-off-btn');
+            if (turnOffCustomBtn) {
+                turnOffCustomBtn.textContent = 'Turn On';
+                turnOffCustomBtn.style.background = 'rgba(16, 185, 129, 0.1)';
+                turnOffCustomBtn.style.color = '#10b981';
+                turnOffCustomBtn.style.borderColor = '#10b981';
+            }
+            return false;
+        }
         const inputs = ov.inputs || {};
         const toggles = ov.toggles || {};
 
@@ -4962,6 +4990,35 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             if (el) el.checked = checked;
         });
 
+        // Restore Custom Scenarios Data
+        if (ov.custom_scenarios) {
+            window._customScenariosData = ov.custom_scenarios;
+            const customScenariosBtn = document.getElementById('open-custom-scenarios-btn');
+            if (customScenariosBtn) {
+                customScenariosBtn.classList.add('active-custom');
+            }
+            const turnOffCustomBtn = document.getElementById('cs-turn-off-btn');
+            if (turnOffCustomBtn) {
+                turnOffCustomBtn.textContent = 'Turn Off';
+                turnOffCustomBtn.style.background = 'rgba(239, 68, 68, 0.1)';
+                turnOffCustomBtn.style.color = 'var(--danger)';
+                turnOffCustomBtn.style.borderColor = 'var(--danger)';
+            }
+        } else {
+            window._customScenariosData = null;
+            const customScenariosBtn = document.getElementById('open-custom-scenarios-btn');
+            if (customScenariosBtn) {
+                customScenariosBtn.classList.remove('active-custom');
+            }
+            const turnOffCustomBtn = document.getElementById('cs-turn-off-btn');
+            if (turnOffCustomBtn) {
+                turnOffCustomBtn.textContent = 'Turn On';
+                turnOffCustomBtn.style.background = 'rgba(16, 185, 129, 0.1)';
+                turnOffCustomBtn.style.color = '#10b981';
+                turnOffCustomBtn.style.borderColor = '#10b981';
+            }
+        }
+
         window._isApplyingOverrides = false;
         return true;
     };
@@ -4974,7 +5031,10 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     const deleteOverrideFromServer = (ticker) => {
         delete cachedOverrides[ticker];
         fetch(`/api/overrides/${ticker}`, { method: 'DELETE' })
-            .then(() => sessionStorage.removeItem(`val_v4_${ticker.toUpperCase()}`))
+            .then(() => {
+                sessionStorage.removeItem(`val_v4_${ticker.toUpperCase()}`);
+                if (typeof _syncInProgress !== "undefined" && !_syncInProgress) syncToCloud(); // Push overrides deletion to cloud when it happens
+            })
             .catch(err => console.error('Override delete error:', err));
     };
 
@@ -5987,6 +6047,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     const closeCustomScenariosBtn = document.getElementById('close-custom-scenarios-modal');
     const calculateCustomBtn = document.getElementById('cs-calculate-btn');
     const resetCustomBtn = document.getElementById('cs-reset-btn');
+    const turnOffCustomBtn = document.getElementById('cs-turn-off-btn');
 
     if (customScenariosBtn) {
         customScenariosBtn.addEventListener('click', () => {
@@ -6005,6 +6066,21 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                         if (data.pe !== null) document.getElementById(`cs-pe-${scen}`).value = data.pe;
                     });
                 }
+
+                if (turnOffCustomBtn) {
+                    if (window._customScenariosData) {
+                        turnOffCustomBtn.textContent = 'Turn Off';
+                        turnOffCustomBtn.style.background = 'rgba(239, 68, 68, 0.1)';
+                        turnOffCustomBtn.style.color = 'var(--danger)';
+                        turnOffCustomBtn.style.borderColor = 'var(--danger)';
+                    } else {
+                        turnOffCustomBtn.textContent = 'Turn On';
+                        turnOffCustomBtn.style.background = 'rgba(16, 185, 129, 0.1)';
+                        turnOffCustomBtn.style.color = '#10b981';
+                        turnOffCustomBtn.style.borderColor = '#10b981';
+                    }
+                }
+
                 customScenariosModal.style.display = 'flex';
             }
         });
@@ -6022,6 +6098,223 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             }
         });
     }
+
+        // Custom Scenarios Tooltip Logic
+    const tipsTooltip = document.getElementById('cs-tips-tooltip');
+    const tipsContent = document.getElementById('cs-tips-content');
+    const csInputs = document.querySelectorAll('.cs-input');
+
+    const updateTooltipPosition = (e) => {
+        const rect = e.target.getBoundingClientRect();
+        const inputId = e.target.id;
+
+        // Tooltip dimensions
+        const tooltipWidth = tipsTooltip.offsetWidth || 150;
+        const tooltipHeight = tipsTooltip.offsetHeight || 90;
+
+        let leftPos = 0;
+
+        // Position below the input by default
+        let topPos = rect.bottom + window.scrollY + 10;
+
+        // If positioning below pushes it off the bottom of the viewport, place it above instead
+        if (rect.bottom + tooltipHeight + 20 > window.innerHeight) {
+            topPos = rect.top + window.scrollY - tooltipHeight - 10;
+        }
+
+        // Align horizontally based on the input column (bear, base, bull)
+        if (inputId.includes('bear')) {
+            // Align left edge of tooltip with left edge of input
+            leftPos = rect.left + window.scrollX;
+        } else if (inputId.includes('base')) {
+            // Center tooltip relative to input
+            leftPos = rect.left + window.scrollX + (rect.width / 2) - (tooltipWidth / 2);
+        } else if (inputId.includes('bull')) {
+            // Align right edge of tooltip with right edge of input
+            leftPos = rect.right + window.scrollX - tooltipWidth;
+        } else {
+             // Fallback
+             leftPos = rect.left + window.scrollX;
+        }
+
+        // Edge case: if top positioning pushes it off the top of the viewport
+        if (topPos < window.scrollY) {
+            topPos = rect.bottom + window.scrollY + 10; // place below instead
+        }
+
+        // Edge case: if left positioning pushes it off the left of the screen
+        if (leftPos < 0) {
+            leftPos = 10;
+        }
+
+        // Edge case: if right positioning pushes it off the right of the screen
+        if (leftPos + tooltipWidth > window.innerWidth) {
+            leftPos = window.innerWidth - tooltipWidth - 10;
+        }
+
+        tipsTooltip.style.left = leftPos + 'px';
+        tipsTooltip.style.top = topPos + 'px';
+    };
+
+    csInputs.forEach(input => {
+        const showTooltip = (e) => {
+            if (!globalData || !globalData.company_profile) return;
+            const prof = globalData.company_profile;
+            const f = globalData.financials || [];
+            const id = input.id;
+
+            // Default "N/A"
+            let val1y = 'N/A', val3y = 'N/A', valFwd = 'N/A';
+            let title = "TIPS";
+
+            // Helper to get FWD value with bear(-10%)/bull(+10%) logic based on base value
+            const getFwdScenario = (baseValue) => {
+                if (baseValue === 'N/A' || baseValue == null || isNaN(baseValue)) return 'N/A';
+                if (id.includes('bear')) return baseValue * 0.9;
+                if (id.includes('bull')) return baseValue * 1.1;
+                return baseValue;
+            };
+
+            const formatVal = (v) => v !== 'N/A' && !isNaN(v) ? v.toFixed(1) + (title.includes('P/E') || title.includes('MULTIPLE') ? 'x' : '%') : 'N/A';
+
+            if (id.includes('rev-1-3')) {
+                title = "REV GROWTH TIPS";
+                if (f.length >= 1 && f[0].total_revenue && f.length >= 2 && f[1].total_revenue > 0) val1y = ((f[0].total_revenue / f[1].total_revenue) - 1) * 100;
+                if (f.length >= 4 && f[3].total_revenue > 0) val3y = (Math.pow(f[0].total_revenue / f[3].total_revenue, 1/3) - 1) * 100;
+
+                // User requirement: "Unde nu avem estimari, vom folosi valoarea de pe ultimul an pentru base, apoi +10% pentru bull sau -10% pentru bear"
+                // Actually the instructions say: 1y (datele din ultimul an), 3y (cagr pe ultimii 3 ani), FWD (estimarile low, high sau avg pt urmatorul an)
+
+                let fwdBase = null;
+                const est = globalData.analyst_estimates || {};
+                const currentRev = f[0]?.total_revenue;
+
+                if (currentRev > 0) {
+                     if (id.includes('bear') && est.estimatedRevLow != null) valFwd = ((est.estimatedRevLow / currentRev) - 1) * 100;
+                     else if (id.includes('bull') && est.estimatedRevHigh != null) valFwd = ((est.estimatedRevHigh / currentRev) - 1) * 100;
+                     else if (est.estimatedRevAvg != null) valFwd = ((est.estimatedRevAvg / currentRev) - 1) * 100;
+                }
+
+                if (valFwd === 'N/A') {
+                     // Default to 1Y hist for base if no estimates
+                     fwdBase = val1y;
+                     valFwd = getFwdScenario(fwdBase);
+                }
+
+            } else if (id.includes('eps')) {
+                title = "EPS GROWTH TIPS";
+                // 1Y EPS (adjusted) - ensure non-gaap
+                if (f.length >= 2 && f[0].adjusted_eps != null && f[1].adjusted_eps > 0) val1y = ((f[0].adjusted_eps / f[1].adjusted_eps) - 1) * 100;
+                // 3Y EPS (adjusted)
+                if (f.length >= 4 && f[3].adjusted_eps > 0) val3y = (Math.pow(f[0].adjusted_eps / f[3].adjusted_eps, 1/3) - 1) * 100;
+
+                // FWD EPS Est from analyst estimates (Low, Avg, High)
+                let fwdBase = null;
+                const est = globalData.analyst_estimates || {};
+                const currentEps = prof.adjusted_eps || prof.trailing_eps || f[0]?.adjusted_eps;
+
+                if (currentEps > 0) {
+                    if (id.includes('bear') && est.estimatedEpsLow != null) {
+                        valFwd = ((est.estimatedEpsLow / currentEps) - 1) * 100;
+                    } else if (id.includes('bull') && est.estimatedEpsHigh != null) {
+                        valFwd = ((est.estimatedEpsHigh / currentEps) - 1) * 100;
+                    } else if (est.estimatedEpsAvg != null) {
+                        valFwd = ((est.estimatedEpsAvg / currentEps) - 1) * 100;
+                    } else if (prof.eps_growth != null) {
+                        fwdBase = prof.eps_growth * 100;
+                    } else {
+                        fwdBase = val1y;
+                    }
+                } else if (prof.eps_growth != null) {
+                     fwdBase = prof.eps_growth * 100;
+                } else {
+                     fwdBase = val1y;
+                }
+
+                if (valFwd === 'N/A' && fwdBase !== null) {
+                     valFwd = getFwdScenario(fwdBase);
+                }
+
+            } else if (id.includes('pe') || id.includes('exit')) {
+                title = id.includes('pe') ? "FORWARD P/E TIPS" : "EXIT MULTIPLE TIPS";
+
+                val1y = prof.trailing_pe || 'N/A';
+                val3y = 'N/A';
+
+                let epsFwd = 'N/A';
+                const est = globalData.analyst_estimates || {};
+                const currentEps = prof.adjusted_eps || prof.trailing_eps || f[0]?.adjusted_eps;
+
+                if (currentEps > 0) {
+                     if (id.includes('bear') && est.estimatedEpsLow != null) epsFwd = ((est.estimatedEpsLow / currentEps) - 1) * 100;
+                     else if (id.includes('bull') && est.estimatedEpsHigh != null) epsFwd = ((est.estimatedEpsHigh / currentEps) - 1) * 100;
+                     else if (est.estimatedEpsAvg != null) epsFwd = ((est.estimatedEpsAvg / currentEps) - 1) * 100;
+                }
+                if (epsFwd === 'N/A' && prof.eps_growth != null) epsFwd = prof.eps_growth * 100;
+
+                if (epsFwd !== 'N/A' && epsFwd > 0) {
+                     valFwd = epsFwd; // PEG = 1 assumed
+                } else {
+                     valFwd = prof.forward_pe || val1y;
+                     valFwd = getFwdScenario(valFwd);
+                }
+
+            } else if (id.includes('fcf-margin')) {
+                title = "FCF MARGIN TIPS";
+                if (f.length >= 1 && f[0].total_revenue > 0) val1y = (f[0].free_cash_flow / f[0].total_revenue) * 100;
+                if (f.length >= 4) {
+                    let avgMargin = 0;
+                    let count = 0;
+                    for (let i=1; i<4; i++) { // Using historical anchors 1,2,3 for 3y avg
+                        if (f[i].total_revenue > 0) {
+                            avgMargin += (f[i].free_cash_flow / f[i].total_revenue) * 100;
+                            count++;
+                        }
+                    }
+                    if (count > 0) val3y = avgMargin / count;
+                }
+
+                let fwdBase = (f.length > 0 && f[0].total_revenue > 0) ? (f[0].free_cash_flow / f[0].total_revenue) * 100 : val1y;
+                valFwd = getFwdScenario(fwdBase);
+
+            } else if (id.includes('wacc')) {
+                title = "WACC TIPS";
+                val1y = 'N/A';
+                val3y = 'N/A';
+                let baseWacc = globalData.computed_wacc != null ? globalData.computed_wacc * 100 : 9.0;
+                if (id.includes('bear')) valFwd = baseWacc * 1.1;
+                else if (id.includes('bull')) valFwd = baseWacc * 0.9;
+                else valFwd = baseWacc;
+
+            } else if (id.includes('perp')) {
+                 title = "PERPETUAL GR. TIPS";
+                 val1y = 'N/A';
+                 val3y = 'N/A';
+                 let basePerp = 2.5;
+                 if (id.includes('bear')) valFwd = 2.0;
+                 else if (id.includes('bull')) valFwd = 3.0;
+                 else valFwd = basePerp;
+            }
+
+            document.querySelector('#cs-tips-tooltip > div:first-child').textContent = title;
+            tipsContent.innerHTML = `
+                <div style="display:flex; justify-content:space-between; width:130px; margin-bottom:3px;"><span style="color:var(--text-muted);">1Y Hist:</span> <span>${formatVal(val1y)}</span></div>
+                <div style="display:flex; justify-content:space-between; width:130px; margin-bottom:3px;"><span style="color:var(--text-muted);">3Y Avg/CAGR:</span> <span>${formatVal(val3y)}</span></div>
+                <div style="display:flex; justify-content:space-between; width:130px;"><span style="color:var(--text-muted);">FWD Est:</span> <span style="color:#fbbf24;">${formatVal(valFwd)}</span></div>
+            `;
+
+            tipsTooltip.style.display = 'block';
+            updateTooltipPosition(e);
+        };
+
+        // For desktop
+        input.addEventListener('mouseenter', showTooltip);
+        input.addEventListener('mouseleave', () => tipsTooltip.style.display = 'none');
+
+        // For mobile and general interaction
+        input.addEventListener('focus', showTooltip);
+        input.addEventListener('blur', () => tipsTooltip.style.display = 'none');
+    });
 
     const parseCsInput = (id) => {
         const val = document.getElementById(id).value;
@@ -6043,22 +6336,63 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 };
             });
             if (customScenariosBtn) customScenariosBtn.classList.add('active-custom');
+
+            if (turnOffCustomBtn) {
+                turnOffCustomBtn.textContent = 'Turn Off';
+                turnOffCustomBtn.style.background = 'rgba(239, 68, 68, 0.1)';
+                turnOffCustomBtn.style.color = 'var(--danger)';
+                turnOffCustomBtn.style.borderColor = 'var(--danger)';
+            }
+
             if (customScenariosModal) customScenariosModal.style.display = 'none';
             if (typeof updateFairValue === 'function') { updateFairValue(); }
             if (typeof window.triggerRecalculate === 'function') { window.triggerRecalculate(); }
             if (typeof updateScoresDynamic === 'function') { updateScoresDynamic(); }
+            saveOverridesDebounced(currentTicker);
         });
     }
 
     if (resetCustomBtn) {
         resetCustomBtn.addEventListener('click', () => {
-            window._customScenariosData = null;
             document.querySelectorAll('.cs-input').forEach(inp => inp.value = '');
-            if (customScenariosBtn) customScenariosBtn.classList.remove('active-custom');
+        });
+    }
+
+    if (turnOffCustomBtn) {
+        turnOffCustomBtn.addEventListener('click', () => {
+            if (window._customScenariosData) {
+                // Currently ON, turn it OFF
+                window._customScenariosData = null;
+                turnOffCustomBtn.textContent = 'Turn On';
+                turnOffCustomBtn.style.background = 'rgba(16, 185, 129, 0.1)';
+                turnOffCustomBtn.style.color = '#10b981';
+                turnOffCustomBtn.style.borderColor = '#10b981';
+                if (customScenariosBtn) customScenariosBtn.classList.remove('active-custom');
+            } else {
+                // Currently OFF, turn it ON
+                window._customScenariosData = {};
+                ['bear', 'base', 'bull'].forEach(scen => {
+                    window._customScenariosData[scen] = {
+                        rev13: parseCsInput(`cs-rev-1-3-${scen}`),
+                        fcfMargin: parseCsInput(`cs-fcf-margin-${scen}`),
+                        wacc: parseCsInput(`cs-wacc-${scen}`),
+                        exit: parseCsInput(`cs-exit-${scen}`),
+                        perp: parseCsInput(`cs-perp-${scen}`),
+                        eps: parseCsInput(`cs-eps-${scen}`),
+                        pe: parseCsInput(`cs-pe-${scen}`)
+                    };
+                });
+                turnOffCustomBtn.textContent = 'Turn Off';
+                turnOffCustomBtn.style.background = 'rgba(239, 68, 68, 0.1)';
+                turnOffCustomBtn.style.color = 'var(--danger)';
+                turnOffCustomBtn.style.borderColor = 'var(--danger)';
+                if (customScenariosBtn) customScenariosBtn.classList.add('active-custom');
+            }
             if (customScenariosModal) customScenariosModal.style.display = 'none';
             if (typeof updateFairValue === 'function') { updateFairValue(); }
             if (typeof window.triggerRecalculate === 'function') { window.triggerRecalculate(); }
             if (typeof updateScoresDynamic === 'function') { updateScoresDynamic(); }
+            saveOverridesDebounced(currentTicker);
         });
     }
     // --- END CUSTOM SCENARIOS LOGIC ---
@@ -6156,7 +6490,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 // v38: Call individual valuation endpoint. 
                 // skip_peers=false to ensure scores are 100% sync'd with dashboard.
                 // Check client-side cache first (15 min TTL)
-                const cacheKey = `val_v4_${tUpper}`;
+                const cacheKey = `val_v3_${tUpper}`;
                 const cached = sessionStorage.getItem(cacheKey);
                 if (cached) {
                     const { data: cachedData, ts } = JSON.parse(cached);
@@ -6709,15 +7043,12 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             const prof = globalData.company_profile || {};
             title.textContent = '📊 Forward Multiple — Data Transparency';
             const epsLabel = p.valuation_eps !== p.trailing_eps ? 'EPS Base (Normalized)' : 'Trailing EPS (GAAP)';
-            const dynMult = p.dynamic_mult != null ? (Number.isInteger(p.dynamic_mult) ? p.dynamic_mult : p.dynamic_mult.toFixed(2)) : 20;
-            const targetPrice = p.dynamic_fwd_price != null ? p.dynamic_fwd_price : (p.fwd_eps != null ? p.fwd_eps * dynMult : null);
             html = row(epsLabel, '$' + fmt(p.valuation_eps || p.trailing_eps))
                 + row('Growth Estimate', fmtPct(p.dynamic_growth != null ? p.dynamic_growth : p.eps_growth_estimated))
                 + row('Forward EPS (3Y Projection)', '$' + fmt(p.dynamic_fwd_eps != null ? p.dynamic_fwd_eps : p.fwd_eps))
                 + row('5Y Avg P/E', prof.historic_pe ? prof.historic_pe.toFixed(2) + 'x' : 'N/A')
-                + (targetPrice != null ? row(`3Y Target Price (PE ${dynMult})`, '$' + fmt(targetPrice)) : '')
                 + row(`Return Rate (Discount)`, p.dynamic_discount != null ? fmtPct(p.dynamic_discount) : '15.0%')
-                + row(`Present Fair Value`, '$' + fmt(p.dynamic_fv != null ? p.dynamic_fv : p.fair_value_pe_20));
+                + row(`Fair Value (PE ${p.dynamic_mult != null ? (Number.isInteger(p.dynamic_mult) ? p.dynamic_mult : p.dynamic_mult.toFixed(2)) : 20})`, '$' + fmt(p.dynamic_fv != null ? p.dynamic_fv : p.fair_value_pe_20));
         } else if (model === 'peg' && currentFormulaData.peg) {
             const g = currentFormulaData.peg;
             const prof = globalData.company_profile || {};
@@ -6747,6 +7078,56 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         body.innerHTML = html;
         modal.style.display = 'flex';
     });
+
+
+    // ── Scoring Rules Modal Handlers ──────────────────────────────
+    const rulesModal = document.getElementById('rules-modal');
+    const openRulesBtn = document.getElementById('open-rules-modal');
+    const closeRulesBtn = document.getElementById('close-rules-modal');
+    const rulesBody = document.getElementById('rules-modal-body');
+
+    if (openRulesBtn && rulesModal && closeRulesBtn && rulesBody) {
+        openRulesBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!globalData || !globalData.scoring_rules) {
+                rulesBody.innerHTML = '<p style="color:var(--text-muted);">No scoring rules available for this company.</p>';
+            } else {
+                let html = '';
+                const { health_rules, buy_rules } = globalData.scoring_rules;
+
+                if (health_rules && health_rules.length > 0) {
+                    html += '<h4 style="color: var(--accent); margin-bottom: 10px; margin-top: 0; font-size: 1.1rem;">Health Score Rules</h4>';
+                    html += '<ul style="padding-left: 20px; margin-bottom: 20px;">';
+                    health_rules.forEach(rule => {
+                        html += `<li style="margin-bottom: 8px;">${rule}</li>`;
+                    });
+                    html += '</ul>';
+                }
+
+                if (buy_rules && buy_rules.length > 0) {
+                    html += '<h4 style="color: var(--success, #10b981); margin-bottom: 10px; font-size: 1.1rem;">Good to Buy Score Rules</h4>';
+                    html += '<ul style="padding-left: 20px; margin-bottom: 20px;">';
+                    buy_rules.forEach(rule => {
+                        html += `<li style="margin-bottom: 8px;">${rule}</li>`;
+                    });
+                    html += '</ul>';
+                }
+
+                rulesBody.innerHTML = html || '<p style="color:var(--text-muted);">No specific rules found.</p>';
+            }
+            rulesModal.style.display = 'flex';
+        });
+
+        closeRulesBtn.addEventListener('click', () => {
+            rulesModal.style.display = 'none';
+        });
+
+        rulesModal.addEventListener('click', (e) => {
+            if (e.target === rulesModal) {
+                rulesModal.style.display = 'none';
+            }
+        });
+    }
 
     // ── Score Bar Click Handlers ──────────────────────────────
     function renderScoreBreakdown(title, totalScore, breakdown) {
@@ -6845,7 +7226,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 : `<div style="font-weight: 700; font-size: 0.9rem; color: rgba(255,255,255,0.85); font-family: monospace; white-space: nowrap;">${valStr}</div>`;
 
             html += `
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.03); gap: 15px;">
+                <div class="score-breakdown-row">
                     <div style="font-weight: 600; font-size: 0.85rem; color: white; line-height: 1.3;">${label}</div>
                     
                     <div style="display: flex; align-items: center; gap: 15px;">
@@ -6899,7 +7280,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             const dotColor = passed ? 'var(--accent)' : (item.status === 'fail' ? 'var(--danger)' : 'var(--text-muted)');
 
             html += `
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05); gap: 15px;">
+                <div class="score-breakdown-row">
                     <div style="font-weight: 600; font-size: 0.9rem; color: white; line-height: 1.3;">${label}</div>
 
                     <div style="display: flex; align-items: center; gap: 15px;">
@@ -6916,81 +7297,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         body.innerHTML = html;
         modal.style.display = 'flex';
     }
-
-    // ── News Modal ──────────────────────
-    window.openNewsModalByIndex = function(index) {
-        try {
-            if (!globalData || !globalData.latest_news || !globalData.latest_news[index]) {
-                return;
-            }
-            const news = globalData.latest_news[index];
-
-            // create modal container if not exists
-            let modal = document.getElementById('news-modal');
-            if (!modal) {
-                modal = document.createElement('div');
-                modal.id = 'news-modal';
-                modal.style.position = 'fixed';
-                modal.style.top = '0';
-                modal.style.left = '0';
-                modal.style.width = '100vw';
-                modal.style.height = '100vh';
-                modal.style.backgroundColor = 'rgba(0, 0, 0, 0.75)';
-                modal.style.backdropFilter = 'blur(5px)';
-                modal.style.zIndex = '999999';
-                modal.style.display = 'flex';
-                modal.style.alignItems = 'center';
-                modal.style.justifyContent = 'center';
-                modal.style.opacity = '0';
-                modal.style.transition = 'opacity 0.2s ease-out';
-
-                modal.onclick = function(e) {
-                    if (e.target === modal) {
-                        window.closeNewsModal();
-                    }
-                };
-                document.body.appendChild(modal);
-            }
-
-            window.closeNewsModal = function() {
-                const m = document.getElementById('news-modal');
-                if (m) {
-                    m.style.opacity = '0';
-                    setTimeout(() => { m.style.display = 'none'; }, 200);
-                }
-            };
-
-            modal.innerHTML = `
-                <div style="background: var(--bg-surface); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; width: 90%; max-width: 500px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); position: relative; font-family: 'Outfit', sans-serif;">
-                    <button onclick="window.closeNewsModal()" style="position: absolute; top: 12px; right: 12px; background: none; border: none; color: rgba(255,255,255,0.5); font-size: 1.2rem; cursor: pointer; padding: 4px;">&times;</button>
-
-                    <div style="margin-bottom: 15px; display: inline-block;">
-                        <span style="background: rgba(56, 189, 248, 0.1); color: #38bdf8; font-size: 0.7rem; padding: 4px 8px; border-radius: 6px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">${news.publisher || 'News'}</span>
-                    </div>
-
-                    <h2 style="font-size: 1.2rem; color: #fff; line-height: 1.4; margin-top: 0; margin-bottom: 16px; font-weight: 700;">${news.title}</h2>
-
-                    ${news.summary ? `<div style="background: rgba(255,255,255,0.03); border-left: 3px solid #4ade80; padding: 12px 16px; border-radius: 4px; margin-bottom: 20px;">
-                        <p style="color: rgba(255,255,255,0.85); font-size: 0.9rem; line-height: 1.6; margin: 0; font-style: italic;">"${news.summary}"</p>
-                    </div>` : ''}
-
-                    ${news.link ? `<div style="text-align: right;">
-                        <a href="${news.link}" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; gap: 8px; background: rgba(56, 189, 248, 0.15); color: #38bdf8; text-decoration: none; padding: 10px 16px; border-radius: 8px; font-weight: 600; font-size: 0.9rem; transition: all 0.2s;">
-                            Read Full Article <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-                        </a>
-                    </div>` : ''}
-                </div>
-            `;
-
-            modal.style.display = 'flex';
-            // Trigger reflow
-            modal.offsetHeight;
-            modal.style.opacity = '1';
-
-        } catch (err) {
-            console.error("Error parsing news data", err);
-        }
-    };
 
     // ── Piotroski F-Score Breakdown Modal ──────────────────────
     function renderPiotroskiBreakdown(totalScore, breakdown) {
@@ -7033,7 +7339,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             const statusColor = passed === true ? 'var(--accent)' : (passed === false ? 'var(--danger)' : 'var(--text-muted)');
 
             html += `
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.03); gap: 15px;">
+                <div class="score-breakdown-row">
                     <div style="font-weight: 600; font-size: 0.85rem; color: white; line-height: 1.3;">${label}</div>
 
                     <div style="display: flex; align-items: center; gap: 15px;">
@@ -7117,5 +7423,4 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             }
         });
     }
-
 });
