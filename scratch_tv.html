@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TV Test</title>
+    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+    <style>
+        body { background: #111; color: white; font-family: sans-serif; }
+        .btn { padding: 10px; background: #333; color: white; border: none; cursor: pointer; }
+        .btn.active { background: #00ff00; color: black; }
+    </style>
+</head>
+<body>
+    <button class="btn" id="btn-sma50" onclick="toggleSMA(50)">SMA 50</button>
+    <button class="btn" id="btn-sma200" onclick="toggleSMA(200)">SMA 200</button>
+    <div id="tv_container" style="width: 800px; height: 500px; margin-top: 20px;"></div>
+
+    <script>
+        let sma50 = false;
+        let sma200 = false;
+
+        function renderChart() {
+            let studies = [];
+            if (sma50) studies.push({ id: "MASimple@tv-basicstudies", inputs: { length: 50 } });
+            if (sma200) studies.push({ id: "MASimple@tv-basicstudies", inputs: { length: 200 } });
+
+            new TradingView.widget({
+                "autosize": true,
+                "symbol": "NASDAQ:AAPL",
+                "interval": "D",
+                "timezone": "Etc/UTC",
+                "theme": "dark",
+                "style": "2",
+                "locale": "en",
+                "enable_publishing": false,
+                "backgroundColor": "rgba(22, 26, 37, 1)",
+                "gridColor": "rgba(42, 46, 57, 0.06)",
+                "hide_top_toolbar": true,
+                "hide_legend": true,
+                "save_image": false,
+                "container_id": "tv_container",
+                "studies": studies
+            });
+        }
+
+        function toggleSMA(length) {
+            if (length === 50) {
+                sma50 = !sma50;
+                document.getElementById('btn-sma50').classList.toggle('active');
+            }
+            if (length === 200) {
+                sma200 = !sma200;
+                document.getElementById('btn-sma200').classList.toggle('active');
+            }
+            renderChart();
+        }
+
+        renderChart();
+    </script>
+</body>
+</html>

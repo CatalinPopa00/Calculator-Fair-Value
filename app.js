@@ -564,11 +564,104 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     }
 };
 
+    let currentCustomPE = null;
+    let _tvWidgetCreatedFor = null;
+    window.activeSMA = null;
 
+    window.toggleSMA = function(length) {
+        const btn50 = document.getElementById('btn-sma-50');
+        const btn200 = document.getElementById('btn-sma-200');
+
+        if (window.activeSMA === length) {
+            // Turn off
+            window.activeSMA = null;
+            if (length === 50) {
+                btn50.style.background = 'rgba(255,255,255,0.1)';
+                btn50.style.color = 'white';
+            } else {
+                btn200.style.background = 'rgba(255,255,255,0.1)';
+                btn200.style.color = 'white';
+            }
+        } else {
+            // Turn on
+            window.activeSMA = length;
+            if (length === 50) {
+                btn50.style.background = 'var(--primary)';
+                btn50.style.color = 'black';
+                btn200.style.background = 'rgba(255,255,255,0.1)';
+                btn200.style.color = 'white';
+            } else {
+                btn200.style.background = 'var(--primary)';
+                btn200.style.color = 'black';
+                btn50.style.background = 'rgba(255,255,255,0.1)';
+                btn50.style.color = 'white';
+            }
+        }
+        
+        if (globalData && globalData.ticker) {
+            window.renderTVWidget(globalData.ticker, window.activeSMA);
+            _tvWidgetCreatedFor = globalData.ticker;
+        }
+    };
+
+    window.renderTVWidget = function(ticker, smaLength) {
+        const container = document.getElementById('tv-widget-container');
+        if (!container) return;
+        
+        container.innerHTML = ''; // clear old widget
+        const script = document.createElement('script');
+        script.type = 'text/javascript';
+        script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js';
+        script.async = true;
+
+        let tvSymbol = ticker.toUpperCase();
+        if (tvSymbol.endsWith('.DE')) tvSymbol = 'XETR:' + tvSymbol.replace('.DE', '');
+        else if (tvSymbol.endsWith('.L')) tvSymbol = 'LSE:' + tvSymbol.replace('.L', '');
+        else if (tvSymbol.endsWith('.PA')) tvSymbol = 'EURONEXT:' + tvSymbol.replace('.PA', '');
+        else if (tvSymbol.endsWith('.TO')) tvSymbol = 'TSX:' + tvSymbol.replace('.TO', '');
+        else if (tvSymbol.endsWith('.AS')) tvSymbol = 'EURONEXT:' + tvSymbol.replace('.AS', '');
+        else if (tvSymbol.endsWith('.MI')) tvSymbol = 'MIL:' + tvSymbol.replace('.MI', '');
+        else if (tvSymbol.endsWith('.MC')) tvSymbol = 'BME:' + tvSymbol.replace('.MC', '');
+        else if (tvSymbol.endsWith('.SW')) tvSymbol = 'SIX:' + tvSymbol.replace('.SW', '');
+
+        const config = {
+            "symbols": [ [tvSymbol, tvSymbol + "|1D"] ],
+            "chartOnly": false,
+            "width": "100%",
+            "height": "100%",
+            "locale": "en",
+            "colorTheme": "dark",
+            "showVolume": false,
+            "showMA": smaLength !== null,
+            "hideDateRanges": false,
+            "hideMarketStatus": false,
+            "hideSymbolLogo": true,
+            "scalePosition": "right",
+            "scaleMode": "Normal",
+            "fontFamily": "-apple-system, BlinkMacSystemFont, Trebuchet MS, Roboto, Ubuntu, sans-serif",
+            "fontSize": "10",
+            "noTimeScale": false,
+            "valuesTracking": "1",
+            "changeMode": "price-and-percent",
+            "chartType": "area",
+            "lineWidth": 2,
+            "lineType": 0,
+            "dateRanges": ["1d|1", "1m|30", "3m|60", "12m|1D", "60m|1W", "all|1M"],
+            "backgroundColor": "rgba(0, 0, 0, 0)" // transparent
+        };
+
+        if (smaLength !== null) {
+            config["maLineColor"] = "#2962FF";
+            config["maLineWidth"] = 1;
+            config["maLength"] = smaLength;
+        }
+
+        script.innerHTML = JSON.stringify(config);
+        container.appendChild(script);
+    };
 
     // --- CHART TOGGLE ENGINE ---
     let _chartViewActive = false;
-    let _tvWidgetCreatedFor = null;
 
     const initChartToggle = () => {
         const toggleBtn = document.getElementById('toggle-chart-btn');
@@ -603,54 +696,8 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
                     // Inject TradingView widget if needed
                     if (globalData && globalData.ticker && _tvWidgetCreatedFor !== globalData.ticker) {
-                        container.innerHTML = ''; // clear old widget
-                        const script = document.createElement('script');
-                        script.type = 'text/javascript';
-                        script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js';
-                        script.async = true;
-
-                        // Handle formatting (e.g. standardizing for TV)
-                        let tvSymbol = globalData.ticker.toUpperCase();
-                        if (tvSymbol.endsWith('.DE')) tvSymbol = 'XETR:' + tvSymbol.replace('.DE', '');
-                        else if (tvSymbol.endsWith('.L')) tvSymbol = 'LSE:' + tvSymbol.replace('.L', '');
-                        else if (tvSymbol.endsWith('.PA')) tvSymbol = 'EURONEXT:' + tvSymbol.replace('.PA', '');
-                        else if (tvSymbol.endsWith('.TO')) tvSymbol = 'TSX:' + tvSymbol.replace('.TO', '');
-                        else if (tvSymbol.endsWith('.AS')) tvSymbol = 'EURONEXT:' + tvSymbol.replace('.AS', '');
-                        else if (tvSymbol.endsWith('.MI')) tvSymbol = 'MIL:' + tvSymbol.replace('.MI', '');
-                        else if (tvSymbol.endsWith('.MC')) tvSymbol = 'BME:' + tvSymbol.replace('.MC', '');
-                        else if (tvSymbol.endsWith('.SW')) tvSymbol = 'SIX:' + tvSymbol.replace('.SW', '');
-
-                        script.innerHTML = JSON.stringify({
-                            "symbols": [
-                                [tvSymbol, tvSymbol + "|1D"]
-                            ],
-                            "chartOnly": false,
-                            "width": "100%",
-                            "height": "100%",
-                            "locale": "en",
-                            "colorTheme": "dark",
-                            "showVolume": false,
-                            "showMA": false,
-                            "hideDateRanges": false,
-                            "hideMarketStatus": false,
-                            "hideSymbolLogo": true,
-                            "scalePosition": "right",
-                            "scaleMode": "Normal",
-                            "fontFamily": "-apple-system, BlinkMacSystemFont, Trebuchet MS, Roboto, Ubuntu, sans-serif",
-                            "fontSize": "10",
-                            "noTimeScale": false,
-                            "valuesTracking": "1",
-                            "changeMode": "price-and-percent",
-                            "chartType": "area",
-                            "maLineColor": "#2962FF",
-                            "maLineWidth": 1,
-                            "maLength": 9,
-                            "lineWidth": 2,
-                            "lineType": 0,
-                            "dateRanges": ["1d|1", "1m|30", "3m|60", "12m|1D", "60m|1W", "all|1M"],
-                            "backgroundColor": "rgba(0, 0, 0, 0)" // transparent
-                        });
-                        container.appendChild(script);
+                        if (typeof window.activeSMA === 'undefined') window.activeSMA = null;
+                        window.renderTVWidget(globalData.ticker, window.activeSMA);
                         _tvWidgetCreatedFor = globalData.ticker;
                     }
                 }, 300);
