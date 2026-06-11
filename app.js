@@ -566,43 +566,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
     let currentCustomPE = null;
     let _tvWidgetCreatedFor = null;
-    window.activeSMA = null;
-
-    window.toggleSMA = function(length) {
-        const btn50 = document.getElementById('btn-sma-50');
-        const btn200 = document.getElementById('btn-sma-200');
-
-        if (window.activeSMA === length) {
-            // Turn off
-            window.activeSMA = null;
-            if (length === 50) {
-                btn50.style.background = 'rgba(255,255,255,0.1)';
-                btn50.style.color = 'white';
-            } else {
-                btn200.style.background = 'rgba(255,255,255,0.1)';
-                btn200.style.color = 'white';
-            }
-        } else {
-            // Turn on
-            window.activeSMA = length;
-            if (length === 50) {
-                btn50.style.background = 'var(--primary)';
-                btn50.style.color = 'black';
-                btn200.style.background = 'rgba(255,255,255,0.1)';
-                btn200.style.color = 'white';
-            } else {
-                btn200.style.background = 'var(--primary)';
-                btn200.style.color = 'black';
-                btn50.style.background = 'rgba(255,255,255,0.1)';
-                btn50.style.color = 'white';
-            }
-        }
-        
-        if (globalData && globalData.ticker) {
-            window.renderTVWidget(globalData.ticker, window.activeSMA);
-            _tvWidgetCreatedFor = globalData.ticker;
-        }
-    };
 
     window.renderTVWidget = function(ticker, smaLength) {
         const container = document.getElementById('tv-widget-container');
@@ -7491,8 +7454,8 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         // Build header - 3-column grid to center the total and align with X
         const displayTitle = title.replace(' Breakdown', '');
         let html = `
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:10px; gap:15px; flex-wrap:nowrap; border-bottom:1px solid rgba(255,255,255,0.1);">
-                <h3 style="margin:0; font-size:1.05rem; color:white; font-weight:800; white-space:nowrap; border-bottom:none !important; line-height:1.3rem;">${displayTitle}</h3>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:0px; gap:15px; flex-wrap:nowrap; border-bottom:none;">
+                <h3 style="margin:0; font-size:1.05rem; color:white; font-weight:800; white-space:nowrap; line-height:1.3rem;">${displayTitle}</h3>
                 
                 <div style="display:flex; align-items:baseline; gap:6px; flex-shrink:0; line-height:1.3rem;">
                     <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600; text-transform:uppercase;">Total:</span>
