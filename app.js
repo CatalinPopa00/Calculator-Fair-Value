@@ -4899,7 +4899,14 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         'dcf-growth-1-3', 'dcf-growth-4-6', 'dcf-growth-7-8', 'dcf-growth-9-10', 'dcf-custom-wacc', 'dcf-custom-perp', 'dcf-custom-fcf-margin', 'dcf-custom-margin-growth',
         'dcf-buyback-source', 'dcf-custom-buyback', 'relative-variant',
         'lynch-multiple-source', 'lynch-custom-mult', 'lynch-eps-source', 'lynch-custom-growth', 'lynch-return-rate', 'lynch-custom-return',
-        'peg-eps-source', 'peg-custom-growth', 'peg-mode'
+        'peg-eps-source', 'peg-custom-growth', 'peg-mode',
+        'cs-rev-1-3-bear', 'cs-rev-1-3-base', 'cs-rev-1-3-bull',
+        'cs-fcf-margin-bear', 'cs-fcf-margin-base', 'cs-fcf-margin-bull',
+        'cs-wacc-bear', 'cs-wacc-base', 'cs-wacc-bull',
+        'cs-exit-bear', 'cs-exit-base', 'cs-exit-bull',
+        'cs-perp-bear', 'cs-perp-base', 'cs-perp-bull',
+        'cs-eps-bear', 'cs-eps-base', 'cs-eps-bull',
+        'cs-pe-bear', 'cs-pe-base', 'cs-pe-bull'
     ];
     const overrideToggleIds = ['toggle-dcf', 'toggle-relative', 'toggle-peter_lynch', 'toggle-peg'];
 
@@ -6187,46 +6194,43 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         // Tooltip dimensions
         const tooltipWidth = tipsTooltip.offsetWidth || 150;
         const tooltipHeight = tipsTooltip.offsetHeight || 90;
-
+        // Using position: fixed, so rect coords are directly usable
         let leftPos = 0;
+        let topPos = rect.bottom + 10; // Default below
 
-        // Position below the input by default
-        let topPos = rect.bottom + window.scrollY + 10;
-
-        // If positioning below pushes it off the bottom of the viewport, place it above instead
-        if (rect.bottom + tooltipHeight + 20 > window.innerHeight) {
-            topPos = rect.top + window.scrollY - tooltipHeight - 10;
+        // If below pushes it off screen, put it above
+        if (topPos + tooltipHeight + 10 > window.innerHeight) {
+            topPos = rect.top - tooltipHeight - 10;
         }
 
-        // Align horizontally based on the input column (bear, base, bull)
+        // Horizontal alignment based on bear/base/bull
         if (inputId.includes('bear')) {
-            // Align left edge of tooltip with left edge of input
-            leftPos = rect.left + window.scrollX;
+            leftPos = rect.left; // Left aligned
         } else if (inputId.includes('base')) {
-            // Center tooltip relative to input
-            leftPos = rect.left + window.scrollX + (rect.width / 2) - (tooltipWidth / 2);
+            leftPos = rect.left + (rect.width / 2) - (tooltipWidth / 2); // Centered
         } else if (inputId.includes('bull')) {
-            // Align right edge of tooltip with right edge of input
-            leftPos = rect.right + window.scrollX - tooltipWidth;
+            leftPos = rect.right - tooltipWidth; // Right aligned
         } else {
-             // Fallback
-             leftPos = rect.left + window.scrollX;
+            leftPos = rect.left;
         }
 
-        // Edge case: if top positioning pushes it off the top of the viewport
-        if (topPos < window.scrollY) {
-            topPos = rect.bottom + window.scrollY + 10; // place below instead
+        // Desktop specific: place it to the right of the modal if window is wide enough
+        if (window.innerWidth > 768) {
+            const modalContent = input.closest('.modal-content');
+            if (modalContent) {
+                const modalRect = modalContent.getBoundingClientRect();
+                // Place to the right of the modal if there's enough space
+                if (window.innerWidth - modalRect.right > tooltipWidth + 20) {
+                    leftPos = modalRect.right + 20;
+                    topPos = rect.top; // Align vertically with the input
+                }
+            }
         }
 
-        // Edge case: if left positioning pushes it off the left of the screen
-        if (leftPos < 0) {
-            leftPos = 10;
-        }
-
-        // Edge case: if right positioning pushes it off the right of the screen
-        if (leftPos + tooltipWidth > window.innerWidth) {
-            leftPos = window.innerWidth - tooltipWidth - 10;
-        }
+        // Mobile edge cases
+        if (leftPos < 10) leftPos = 10;
+        if (leftPos + tooltipWidth > window.innerWidth - 10) leftPos = window.innerWidth - tooltipWidth - 10;
+        if (topPos < 10) topPos = rect.bottom + 10;
 
         tipsTooltip.style.left = leftPos + 'px';
         tipsTooltip.style.top = topPos + 'px';
@@ -6258,17 +6262,15 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 if (f.length >= 1 && f[0].total_revenue && f.length >= 2 && f[1].total_revenue > 0) val1y = ((f[0].total_revenue / f[1].total_revenue) - 1) * 100;
                 if (f.length >= 4 && f[3].total_revenue > 0) val3y = (Math.pow(f[0].total_revenue / f[3].total_revenue, 1/3) - 1) * 100;
 
-                // User requirement: "Unde nu avem estimari, vom folosi valoarea de pe ultimul an pentru base, apoi +10% pentru bull sau -10% pentru bear"
-                // Actually the instructions say: 1y (datele din ultimul an), 3y (cagr pe ultimii 3 ani), FWD (estimarile low, high sau avg pt urmatorul an)
-
                 let fwdBase = null;
-                const est = globalData.analyst_estimates || {};
+                const rEsts = (globalData.rev_estimates || []).filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
+                const estRev = rEsts.length > 0 ? rEsts[0] : {};
                 const currentRev = f[0]?.total_revenue;
 
                 if (currentRev > 0) {
-                     if (id.includes('bear') && est.estimatedRevLow != null) valFwd = ((est.estimatedRevLow / currentRev) - 1) * 100;
-                     else if (id.includes('bull') && est.estimatedRevHigh != null) valFwd = ((est.estimatedRevHigh / currentRev) - 1) * 100;
-                     else if (est.estimatedRevAvg != null) valFwd = ((est.estimatedRevAvg / currentRev) - 1) * 100;
+                     if (id.includes('bear') && estRev.estimatedRevLow != null) valFwd = ((estRev.estimatedRevLow / currentRev) - 1) * 100;
+                     else if (id.includes('bull') && estRev.estimatedRevHigh != null) valFwd = ((estRev.estimatedRevHigh / currentRev) - 1) * 100;
+                     else if (estRev.estimatedRevAvg != null) valFwd = ((estRev.estimatedRevAvg / currentRev) - 1) * 100;
                 }
 
                 if (valFwd === 'N/A') {
@@ -6286,16 +6288,17 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
                 // FWD EPS Est from analyst estimates (Low, Avg, High)
                 let fwdBase = null;
-                const est = globalData.analyst_estimates || {};
+                const eEsts = (globalData.eps_estimates || []).filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
+                const estEps = eEsts.length > 0 ? eEsts[0] : {};
                 const currentEps = prof.adjusted_eps || prof.trailing_eps || f[0]?.adjusted_eps;
 
                 if (currentEps > 0) {
-                    if (id.includes('bear') && est.estimatedEpsLow != null) {
-                        valFwd = ((est.estimatedEpsLow / currentEps) - 1) * 100;
-                    } else if (id.includes('bull') && est.estimatedEpsHigh != null) {
-                        valFwd = ((est.estimatedEpsHigh / currentEps) - 1) * 100;
-                    } else if (est.estimatedEpsAvg != null) {
-                        valFwd = ((est.estimatedEpsAvg / currentEps) - 1) * 100;
+                    if (id.includes('bear') && estEps.estimatedEpsLow != null) {
+                        valFwd = ((estEps.estimatedEpsLow / currentEps) - 1) * 100;
+                    } else if (id.includes('bull') && estEps.estimatedEpsHigh != null) {
+                        valFwd = ((estEps.estimatedEpsHigh / currentEps) - 1) * 100;
+                    } else if (estEps.estimatedEpsAvg != null) {
+                        valFwd = ((estEps.estimatedEpsAvg / currentEps) - 1) * 100;
                     } else if (prof.eps_growth != null) {
                         fwdBase = prof.eps_growth * 100;
                     } else {
@@ -6318,13 +6321,14 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 val3y = 'N/A';
 
                 let epsFwd = 'N/A';
-                const est = globalData.analyst_estimates || {};
+                const eEsts = (globalData.eps_estimates || []).filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
+                const estEps = eEsts.length > 0 ? eEsts[0] : {};
                 const currentEps = prof.adjusted_eps || prof.trailing_eps || f[0]?.adjusted_eps;
 
                 if (currentEps > 0) {
-                     if (id.includes('bear') && est.estimatedEpsLow != null) epsFwd = ((est.estimatedEpsLow / currentEps) - 1) * 100;
-                     else if (id.includes('bull') && est.estimatedEpsHigh != null) epsFwd = ((est.estimatedEpsHigh / currentEps) - 1) * 100;
-                     else if (est.estimatedEpsAvg != null) epsFwd = ((est.estimatedEpsAvg / currentEps) - 1) * 100;
+                     if (id.includes('bear') && estEps.estimatedEpsLow != null) epsFwd = ((estEps.estimatedEpsLow / currentEps) - 1) * 100;
+                     else if (id.includes('bull') && estEps.estimatedEpsHigh != null) epsFwd = ((estEps.estimatedEpsHigh / currentEps) - 1) * 100;
+                     else if (estEps.estimatedEpsAvg != null) epsFwd = ((estEps.estimatedEpsAvg / currentEps) - 1) * 100;
                 }
                 if (epsFwd === 'N/A' && prof.eps_growth != null) epsFwd = prof.eps_growth * 100;
 
