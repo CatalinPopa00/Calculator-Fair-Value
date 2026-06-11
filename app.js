@@ -1476,7 +1476,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             fcf = fcfObj || 0;
         }
 
-        if (!fcf || !shares || shares <= 0) return null;
+        if (fcf == null || isNaN(fcf) || !shares || shares <= 0) return null;
 
         // WACC Smart Cap
         const finalWacc = Math.max(0.07, Math.min(wacc, 0.105));
@@ -1544,7 +1544,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         const pvTv = tv / Math.pow(1 + finalWacc, years);
         const ev = pv + pvTv;
         const eqVal = ev + (cash || 0) - (debt || 0);
-        if (eqVal <= 0) return null;
         const effectiveShares = remainingShares > 0 ? remainingShares : shares;
         const fair_value = eqVal / effectiveShares;
 
@@ -2559,7 +2558,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     if (sbcSrc === 'custom') {
                         const rawSbcVal = document.getElementById('dcf-custom-sbc')?.value;
                         if (rawSbcVal !== '' && !isNaN(parseLocaleFloat(rawSbcVal))) {
-                            baseFcf -= parseLocaleFloat(rawSbcVal) * 1e9;
+                            baseFcf -= baseRevenue * (parseLocaleFloat(rawSbcVal) / 100);
                         }
                     }
                 }
@@ -6789,7 +6788,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                         if (sbcSrc === 'custom') {
                             const rawSbcVal = document.getElementById('dcf-custom-sbc')?.value;
                             if (rawSbcVal !== '' && !isNaN(parseLocaleFloat(rawSbcVal))) {
-                                baseFcf -= parseLocaleFloat(rawSbcVal) * 1e9;
+                                baseFcf -= baseRevenue * (parseLocaleFloat(rawSbcVal) / 100);
                             }
                         }
                     }
