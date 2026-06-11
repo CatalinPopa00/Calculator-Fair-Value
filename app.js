@@ -7374,6 +7374,8 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
             rulesBody.innerHTML = html || '<p style="color:var(--text-muted);">No specific rules found.</p>';
         }
+        console.log("Opening Scoring Rules Modal");
+        rulesModal.style.zIndex = '999999';
         rulesModal.style.display = 'flex';
     };
 
@@ -7522,9 +7524,9 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
         const scoreVal = beneishData.m_score;
         let html = `
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:10px; gap:15px; border-bottom:1px solid rgba(255,255,255,0.1);">
-                <h3 style="margin:0; font-size:1.05rem; color:white; font-weight:800; line-height:1.3rem;">Beneish M-Score</h3>
-                <div style="display:flex; align-items:baseline; gap:6px; line-height:1.3rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:0px; gap:15px; flex-wrap:nowrap; border-bottom:none;">
+                <h3 style="margin:0; font-size:1.05rem; color:white; font-weight:800; white-space:nowrap; line-height:1.3rem; border-bottom:none !important;">Beneish M-Score</h3>
+                <div style="display:flex; align-items:baseline; gap:6px; flex-shrink:0; line-height:1.3rem;">
                     <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600; text-transform:uppercase;">Total:</span>
                     <span style="font-size:1.3rem; font-weight:900; color:white;">${scoreVal}</span>
                 </div>
@@ -7574,9 +7576,9 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
         const scoreVal = (totalScore != null && totalScore !== 'N/A') ? totalScore : '?';
         let html = `
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:10px; gap:15px; border-bottom:1px solid rgba(255,255,255,0.1);">
-                <h3 style="margin:0; font-size:1.05rem; color:white; font-weight:800; line-height:1.3rem;">Piotroski F-Score</h3>
-                <div style="display:flex; align-items:baseline; gap:6px; line-height:1.3rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:0px; gap:15px; flex-wrap:nowrap; border-bottom:none;">
+                <h3 style="margin:0; font-size:1.05rem; color:white; font-weight:800; white-space:nowrap; line-height:1.3rem; border-bottom:none !important;">Piotroski F-Score</h3>
+                <div style="display:flex; align-items:baseline; gap:6px; flex-shrink:0; line-height:1.3rem;">
                     <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600; text-transform:uppercase;">Total:</span>
                     <span style="font-size:1.3rem; font-weight:900; color:white;">${scoreVal}/9</span>
                 </div>
