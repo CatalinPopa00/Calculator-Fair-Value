@@ -5051,6 +5051,9 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                         cleanVal = parsed % 1 === 0 ? parsed.toString() : parsed.toFixed(1);
                     }
                 }
+                if (id === 'dcf-sbc-source' && cleanVal !== 'none' && cleanVal !== 'custom') cleanVal = 'none';
+                if (id === 'dcf-buyback-source' && cleanVal !== 'none' && cleanVal !== 'custom') cleanVal = 'none';
+                
                 el.value = cleanVal;
                 // Show/hide custom input containers based on select values
                 if (id === 'fcf-source' || id === 'dcf-buyback-source' || id === 'dcf-sbc-source' || id === 'lynch-multiple-source' || id === 'lynch-eps-source' || id === 'peg-eps-source') {
