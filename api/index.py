@@ -20,7 +20,7 @@ import os
 import requests
 import concurrent.futures
 
-from scraper.yahoo import get_company_data, get_competitors_data, get_market_averages, search_companies, get_analyst_data, get_risk_free_rate, get_company_synthesis, _company_info_cache
+from scraper.yahoo import get_company_data, http_session, get_competitors_data, get_market_averages, search_companies, get_analyst_data, get_risk_free_rate, get_company_synthesis, _company_info_cache
 from utils.kv import kv_get, kv_set
 from models.valuation import (
     calculate_peter_lynch, 

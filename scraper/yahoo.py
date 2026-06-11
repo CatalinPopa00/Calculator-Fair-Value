@@ -8,14 +8,26 @@ import concurrent.futures
 import time
 import random
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 import pandas as pd
 _pd = pd
 import re
 import math
+from cachetools import TTLCache, cached
+
+# Create a global session with connection pooling and retries
+http_session = requests.Session()
+retries = Retry(total=3, backoff_factor=0.3, status_forcelist=[ 500, 502, 503, 504 ])
+adapter = HTTPAdapter(pool_connections=10, pool_maxsize=10, max_retries=retries)
+http_session.mount('http://', adapter)
+http_session.mount('https://', adapter)
 
 # Global in-memory cache for raw company info dicts to prevent redundant slow scrapers on decoupled endpoints
 _company_info_cache = {}
 
+from cachetools.keys import hashkey
+@cached(cache=TTLCache(maxsize=500, ttl=300), key=lambda ticker, info=None: hashkey(ticker))
 def get_yahoo_analysis_normalized(ticker, info=None):
     """
     High-fidelity scraper for the Yahoo Finance 'Analysis' tab.
@@ -50,7 +62,7 @@ def get_yahoo_analysis_normalized(ticker, info=None):
         # v265: Force Googlebot UA for Forensic Scrapes to bypass Yahoo Consent (Guce)
         headers = {'User-Agent': "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"}
 
-        response = requests.get(url, headers=headers, timeout=5)
+        response = http_session.get(url, headers=headers, timeout=5)
         if response.status_code == 200:
             html = response.text
 
@@ -485,9 +497,8 @@ def get_nasdaq_comprehensive_estimates(ticker: str, force_refresh: bool = False)
         try:
             url = f'https://api.nasdaq.com/api/analyst/{t_sym}/{endpoint}'
             headers = {'User-Agent': get_random_agent()}
-            req = urllib.request.Request(url, headers=headers)
-            with urllib.request.urlopen(req, timeout=5) as response:
-                return json.loads(response.read())
+            with http_session.get(url, headers=headers, timeout=5) as response:
+                return json.loads(response.content)
         except: return None
 
 
@@ -509,6 +520,8 @@ def get_nasdaq_comprehensive_estimates(ticker: str, force_refresh: bool = False)
         kv_set(cache_key, results, ex=600) # 10 mins cache
     return results
 
+from cachetools.keys import hashkey
+@cached(cache=TTLCache(maxsize=500, ttl=300), key=lambda ticker, info=None: hashkey(ticker))
 def get_yahoo_eps_trend(ticker: str) -> dict:
     """Fetches EPS Trend data (Current, 7 Days Ago, etc.) from Yahoo Finance."""
     # v206: Try yfinance High-Fidelity Fallback first for Estimates/Trends
@@ -554,11 +567,11 @@ def get_yahoo_eps_trend(ticker: str) -> dict:
             'Accept': 'application/json',
             'Referer': 'https://finance.yahoo.com/quote/' + ticker
         }
-        resp = requests.get(url, headers=headers, timeout=10)
+        resp = http_session.get(url, headers=headers, timeout=10)
         if resp.status_code != 200:
              # Fallback to query1
              url = url.replace('query2', 'query1')
-             resp = requests.get(url, headers=headers, timeout=10)
+             resp = http_session.get(url, headers=headers, timeout=10)
         
         if resp.status_code != 200:
              print(f"DEBUG: Yahoo EPS Trend Fetch failed for {ticker} ({resp.status_code})")
@@ -586,11 +599,11 @@ def get_yahoo_eps_trend(ticker: str) -> dict:
         print(f"ERROR: get_yahoo_eps_trend for {ticker}: {e}")
         return {}
 
-def get_nasdaq_historical_eps(ticker: str) -> list:
-    """Fetch quarterly Adjusted (Non-GAAP) EPS from Nasdaq Surprise API."""
+@cached(cache=TTLCache(maxsize=500, ttl=600))
+def get_nasdaq_surprise_data(ticker: str) -> dict:
+    """Centralized, cached fetcher for Nasdaq earnings surprise data."""
     try:
         url = f"https://api.nasdaq.com/api/company/{ticker.upper()}/earnings-surprise"
-        # v92: Enhanced headers for deeper penetration
         headers = {
             'User-Agent': get_random_agent(),
             'Accept': 'application/json, text/plain, */*',
@@ -598,31 +611,42 @@ def get_nasdaq_historical_eps(ticker: str) -> list:
             'Origin': 'https://www.nasdaq.com',
             'Referer': 'https://www.nasdaq.com/'
         }
-        resp = requests.get(url, headers=headers, timeout=10)
+        resp = http_session.get(url, headers=headers, timeout=10)
         if resp.status_code == 200:
-            data = resp.json()
-            rows = data.get('data', {}).get('earningsSurpriseTable', {}).get('rows', [])
-            result = []
-            now = datetime.datetime.now()
-            for row in rows:
-                try:
-                    dt_str = row.get('dateReported')
-                    if not dt_str: continue
-                    dt = datetime.datetime.strptime(dt_str, '%m/%d/%Y')
-                    
-                    # Skip future dates (estimates) in the surprise table
-                    if dt > now + datetime.timedelta(days=1): continue
-                    
-                    val = row.get('eps') or row.get('actualEPS')
-                    if val is not None:
-                        clean_val = str(val).replace('$', '').replace(',', '').strip()
-                        if clean_val and clean_val.upper() != "N/A":
-                            eps = float(clean_val)
-                            result.append({"date": dt, "eps": eps})
-                except: continue
-            return result
+            try:
+                return resp.json()
+            except Exception:
+                pass
     except Exception as e:
-        log(f"Error fetching Nasdaq Historical Adj EPS for {ticker}: {e}")
+        log(f"DEBUG: Nasdaq Surprise fetch fail for {ticker}: {e}")
+    return {}
+
+
+def get_nasdaq_historical_eps(ticker: str) -> list:
+    """Fetch quarterly Adjusted (Non-GAAP) EPS from Nasdaq Surprise API."""
+    try:
+        data = get_nasdaq_surprise_data(ticker)
+        rows = data.get('data', {}).get('earningsSurpriseTable', {}).get('rows', [])
+        result = []
+        now = datetime.datetime.now()
+        for row in rows:
+            try:
+                dt_str = row.get('dateReported')
+                if not dt_str: continue
+                dt = datetime.datetime.strptime(dt_str, '%m/%d/%Y')
+
+                if dt > now + datetime.timedelta(days=1): continue
+
+                val = row.get('eps') or row.get('actualEPS')
+                if val is not None:
+                    clean_val = str(val).replace('$', '').replace(',', '').strip()
+                    if clean_val and clean_val.upper() != "N/A":
+                        eps = float(clean_val)
+                        result.append({"date": dt, "eps": eps})
+            except: continue
+        return result
+    except Exception as e:
+        log(f"Error parsing Nasdaq Historical Adj EPS for {ticker}: {e}")
     return []
 
 def safe_nasdaq_float(val):
@@ -694,35 +718,24 @@ def get_nasdaq_actual_eps(ticker: str) -> float:
     v255: Added Forensic Neutralizer (Comparing Actual vs Consensus to scrub GAAP outliers).
     """
     try:
-        url = f'https://api.nasdaq.com/api/company/{ticker.upper()}/earnings-surprise'
-        # v163: Reduced timeout to 4s to prevent Vercel 500 timeouts
-        req = urllib.request.Request(url, headers={'User-Agent': get_random_agent()})
-        with urllib.request.urlopen(req, timeout=4) as response:
-            raw_data = response.read()
-            data = json.loads(raw_data)
-            
+        data = get_nasdaq_surprise_data(ticker)
         if data and data.get('data'):
             rows = data['data'].get('earningsSurpriseTable', {}).get('rows', [])
             if rows:
                 total_eps = 0.0
-                # Sum the last 4 reported quarters
                 count = 0
                 for row in rows:
-                    # 'eps' is the actual reported EPS in the surprise table
                     val_str = row.get('eps') or row.get('actualEPS')
                     fc_str = row.get('consensusForecast')
                     if val_str and str(val_str).upper() != "N/A":
                         try:
                             val = float(val_str)
                             
-                            # Forensic Neutralization: If Actual differs significantly from Consensus, 
-                            # it's often a GAAP-driven distortion (e.g. UBER tax benefit).
                             if fc_str:
                                 try:
                                     f_fc = float(fc_str)
                                     if f_fc != 0:
                                         diff = abs(val - f_fc)
-                                        # Threshold 25% or $0.15 matches the logic in get_company_data
                                         if (diff / abs(f_fc) > 0.25) or diff > 0.15:
                                             log(f"DEBUG: v280 Nasdaq Forensic Neutralizer for {ticker} ({val} -> {f_fc})")
                                             val = f_fc
@@ -730,15 +743,14 @@ def get_nasdaq_actual_eps(ticker: str) -> float:
                             
                             total_eps += val
                             count += 1
-                            if count >= 4: break # Only need last 4 actuals
+                            if count >= 4: break
                         except ValueError:
                             continue
             
-            if count >= 3: # Require at least 3 quarters for a valid sum
-                # v70: Scale to full year (4 quarters) if one is missing
+            if count >= 3:
                 return (total_eps / count) * 4.0
     except Exception as e:
-        print(f"Error fetching Nasdaq Actual EPS for {ticker}: {e}")
+        print(f"Error parsing Nasdaq Actual EPS for {ticker}: {e}")
     return None
 
 
@@ -860,8 +872,8 @@ def resolve_company_name(query: str) -> str:
         try:
             url = f'https://query2.finance.yahoo.com/v1/finance/search?q={urllib.parse.quote(query)}'
             req = urllib.request.Request(url, headers={'User-Agent': get_random_agent()})
-            with urllib.request.urlopen(req, timeout=3) as response:
-                data = json.loads(response.read())
+            with http_session.get(url, headers=headers, timeout=3) as response:
+                data = json.loads(response.content)
                 quotes = data.get('quotes', [])
                 for q in quotes:
                     if q.get('quoteType') == 'EQUITY':
@@ -900,7 +912,7 @@ def search_companies(query: str) -> list:
             # newsCount=0, enableFuzzyQuery=true to catch MSFT for 'm' etc.
             url = f"https://{host}/v1/finance/search?q={urllib.parse.quote(search_query)}&quotesCount=25&newsCount=0&enableFuzzyQuery=true"
             
-            response = requests.get(url, headers=headers, timeout=4)
+            response = http_session.get(url, headers=headers, timeout=4)
             if response.status_code == 200:
                 data = response.json()
                 quotes = data.get("quotes", [])
@@ -1452,7 +1464,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
             try:
                 c_url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker_symbol}?interval=1d&range=1d"
                 headers = {'User-Agent': get_random_agent()}
-                c_resp = requests.get(c_url, headers=headers, timeout=5).json()
+                c_resp = http_session.get(c_url, headers=headers, timeout=5).json()
                 meta = c_resp.get('chart', {}).get('result', [{}])[0].get('meta', {})
                 if meta.get('regularMarketPrice'):
                     current_price = meta['regularMarketPrice']
@@ -3633,7 +3645,7 @@ def get_competitors_data(target_ticker: str, limit: int = 4, custom_peers: list 
         # B. Yahoo Recommendations - Weight 3
         try:
             url = f"https://query2.finance.yahoo.com/v6/finance/recommendationsbysymbol/{target_ticker}"
-            resp = requests.get(url, headers={'User-Agent': get_random_agent()}, timeout=5).json()
+            resp = http_session.get(url, headers={'User-Agent': get_random_agent()}, timeout=5).json()
             recs = resp.get('finance', {}).get('result', [{}])[0].get('recommendedSymbols', [])
             for r in recs:
                 sym = r.get('symbol', '').upper()
@@ -3646,7 +3658,7 @@ def get_competitors_data(target_ticker: str, limit: int = 4, custom_peers: list 
         if fh_key:
             try:
                 url = f"https://finnhub.io/api/v1/stock/peers?symbol={target_ticker}&token={fh_key}"
-                peers_fh = requests.get(url, timeout=5).json()
+                peers_fh = http_session.get(url, timeout=5).json()
                 if isinstance(peers_fh, list):
                     for sym in peers_fh:
                         sym = sym.upper()
@@ -4011,7 +4023,7 @@ def get_lightweight_company_data(ticker_symbol: str, force_refresh: bool = False
             if fh_key:
                 m_url = f"https://finnhub.io/api/v1/stock/metric?symbol={ticker_symbol}&metric=all&token={fh_key}"
                 q_url = f"https://finnhub.io/api/v1/quote?symbol={ticker_symbol}&token={fh_key}"
-                m_resp = requests.get(m_url, timeout=5); q_resp = requests.get(q_url, timeout=5)
+                m_resp = http_session.get(m_url, timeout=5); q_resp = http_session.get(q_url, timeout=5)
                 if m_resp.status_code == 200 and q_resp.status_code == 200:
                     m = m_resp.json().get('metric', {}); q = q_resp.json()
                     data = data or {"ticker": ticker_symbol, "name": ticker_symbol}
@@ -4034,21 +4046,9 @@ def get_lightweight_company_data(ticker_symbol: str, force_refresh: bool = False
 
 def get_nasdaq_earnings_surprise(ticker_symbol: str) -> list:
     """Fetches historical reported Non-GAAP EPS quarters from Nasdaq."""
-    # v201: Using enhanced headers and consistent logic
     try:
-        url = f"https://api.nasdaq.com/api/company/{ticker_symbol.upper()}/earnings-surprise"
-        headers = {
-            'User-Agent': get_random_agent(),
-            'Accept': 'application/json, text/plain, */*',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Origin': 'https://www.nasdaq.com',
-            'Referer': 'https://www.nasdaq.com/'
-        }
-        req = urllib.request.Request(url, headers=headers)
-        with urllib.request.urlopen(req, timeout=8) as resp:
-            data = json.loads(resp.read())
-            rows = data.get('data', {}).get('earningsSurpriseTable', {}).get('rows', [])
-            return rows
+        data = get_nasdaq_surprise_data(ticker_symbol)
+        return data.get('data', {}).get('earningsSurpriseTable', {}).get('rows', [])
     except Exception as e:
         print(f"DEBUG: Nasdaq Surprise fetch fail for {ticker_symbol}: {e}")
         return []
@@ -4082,18 +4082,16 @@ def get_market_averages():
         try:
             url = "https://finance.yahoo.com/quote/SPY"
             headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36', 'Accept-Encoding': 'gzip'}
-            req = urllib.request.Request(url, headers=headers)
-            with urllib.request.urlopen(req, timeout=10) as response:
-                content = response.read()
-                if response.info().get('Content-Encoding') == 'gzip':
-                    import gzip
-                    content = gzip.decompress(content)
-                html = content.decode('utf-8')
+            response = http_session.get(url, headers=headers, timeout=10)
+            if response.status_code == 200:
+                html = response.text
+            else:
+                html = ""
                 
-                import re
-                # Pattern that worked in test: PE RATIO (TTM) followed by any characters until a value inside a tag
-                match = re.search(r'PE RATIO \(TTM\).*?value[^>]*>([\d\.]+)', html, re.IGNORECASE | re.DOTALL)
-                if match:
+            import re
+            # Pattern that worked in test: PE RATIO (TTM) followed by any characters until a value inside a tag
+            match = re.search(r'PE RATIO \(TTM\).*?value[^>]*>([\d\.]+)', html, re.IGNORECASE | re.DOTALL)
+            if match:
                     pe_t = float(match.group(1))
                     print(f"DEBUG: Market averages Attempt 2 (Scrape) success: PE={pe_t}")
         except Exception as e:
