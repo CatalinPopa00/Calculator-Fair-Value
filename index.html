@@ -140,6 +140,10 @@
 
                             <!-- VIEW B: TradingView Chart -->
                             <div id="view-price-chart" style="width: 100%; height: 350px; display: none; opacity: 0; transition: opacity 0.3s ease-in-out; position: relative;">
+                                <div style="position: absolute; top: 60px; right: 10px; z-index: 10; display: flex; flex-direction: column; gap: 5px;">
+                                    <button id="btn-sma-50" class="sma-btn" onclick="window.toggleSMA(50)" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.7rem; cursor: pointer; transition: 0.2s;">SMA 50</button>
+                                    <button id="btn-sma-200" class="sma-btn" onclick="window.toggleSMA(200)" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.7rem; cursor: pointer; transition: 0.2s;">SMA 200</button>
+                                </div>
                                 <div class="tradingview-widget-container" style="width: 100%; height: 100%;">
                                   <div class="tradingview-widget-container__widget" id="tv-widget-container" style="width: 100%; height: 100%;"></div>
                                 </div>
