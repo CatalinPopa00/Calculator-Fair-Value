@@ -566,6 +566,37 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
     let currentCustomPE = null;
     let _tvWidgetCreatedFor = null;
+    window.activeSMA = null;
+
+    window.toggleSMA = function(length) {
+        const btn50 = document.getElementById('btn-sma-50');
+        const btn200 = document.getElementById('btn-sma-200');
+
+        if (window.activeSMA === length) {
+            // Turn off
+            window.activeSMA = null;
+            if (length === 50) {
+                if (btn50) { btn50.style.background = 'rgba(255,255,255,0.1)'; btn50.style.color = 'white'; }
+            } else {
+                if (btn200) { btn200.style.background = 'rgba(255,255,255,0.1)'; btn200.style.color = 'white'; }
+            }
+        } else {
+            // Turn on
+            window.activeSMA = length;
+            if (length === 50) {
+                if (btn50) { btn50.style.background = 'var(--primary)'; btn50.style.color = 'black'; }
+                if (btn200) { btn200.style.background = 'rgba(255,255,255,0.1)'; btn200.style.color = 'white'; }
+            } else {
+                if (btn200) { btn200.style.background = 'var(--primary)'; btn200.style.color = 'black'; }
+                if (btn50) { btn50.style.background = 'rgba(255,255,255,0.1)'; btn50.style.color = 'white'; }
+            }
+        }
+        
+        if (globalData && globalData.ticker) {
+            window.renderTVWidget(globalData.ticker, window.activeSMA);
+            _tvWidgetCreatedFor = globalData.ticker;
+        }
+    };
 
     window.renderTVWidget = function(ticker, smaLength) {
         const container = document.getElementById('tv-widget-container');
@@ -7345,54 +7376,54 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
     // ── Scoring Rules Modal Handlers ──────────────────────────────
     const rulesModal = document.getElementById('rules-modal');
-    const openRulesBtn = document.getElementById('open-rules-modal');
     const closeRulesBtn = document.getElementById('close-rules-modal');
     const rulesBody = document.getElementById('rules-modal-body');
 
-    if (openRulesBtn && rulesModal && closeRulesBtn && rulesBody) {
-        openRulesBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (!globalData || !globalData.scoring_rules) {
-                rulesBody.innerHTML = '<p style="color:var(--text-muted);">No scoring rules available for this company.</p>';
-            } else {
-                let html = '';
-                const { health_rules, buy_rules } = globalData.scoring_rules;
+    window.openScoringRulesModal = function() {
+        if (!rulesModal || !rulesBody) return;
+        
+        if (!globalData || !globalData.scoring_rules) {
+            rulesBody.innerHTML = '<p style="color:var(--text-muted);">No scoring rules available for this company.</p>';
+        } else {
+            let html = '';
+            const { health_rules, buy_rules } = globalData.scoring_rules;
 
-                if (health_rules && health_rules.length > 0) {
-                    html += '<h4 style="color: var(--accent); margin-bottom: 15px; margin-top: 0; font-size: 1.1rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">Health Score Rules</h4>';
-                    html += '<div style="margin-bottom: 25px;">';
-                    health_rules.forEach((rule, index) => {
-                        html += `<div style="margin-bottom: 15px;">`;
-                        html += `<div style="color: white; font-weight: 500; margin-bottom: 5px;">${index + 1}. ${rule.name}</div>`;
-                        html += `<ul style="padding-left: 20px; margin: 0; color: var(--text-muted); list-style-type: disc;">`;
-                        rule.criteria.forEach(crit => {
-                            html += `<li style="margin-bottom: 3px; font-size: 0.85rem;">${crit}</li>`;
-                        });
-                        html += `</ul></div>`;
+            if (health_rules && health_rules.length > 0) {
+                html += '<h4 style="color: var(--accent); margin-bottom: 15px; margin-top: 0; font-size: 1.1rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">Health Score Rules</h4>';
+                html += '<div style="margin-bottom: 25px;">';
+                health_rules.forEach((rule, index) => {
+                    html += `<div style="margin-bottom: 15px;">`;
+                    html += `<div style="color: white; font-weight: 500; margin-bottom: 5px;">${index + 1}. ${rule.name}</div>`;
+                    html += `<ul style="padding-left: 20px; margin: 0; color: var(--text-muted); list-style-type: disc;">`;
+                    rule.criteria.forEach(crit => {
+                        html += `<li style="margin-bottom: 3px; font-size: 0.85rem;">${crit}</li>`;
                     });
-                    html += '</div>';
-                }
-
-                if (buy_rules && buy_rules.length > 0) {
-                    html += '<h4 style="color: var(--success, #10b981); margin-bottom: 15px; font-size: 1.1rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">Good to Buy Score Rules</h4>';
-                    html += '<div style="margin-bottom: 25px;">';
-                    buy_rules.forEach((rule, index) => {
-                        html += `<div style="margin-bottom: 15px;">`;
-                        html += `<div style="color: white; font-weight: 500; margin-bottom: 5px;">${index + 1}. ${rule.name}</div>`;
-                        html += `<ul style="padding-left: 20px; margin: 0; color: var(--text-muted); list-style-type: disc;">`;
-                        rule.criteria.forEach(crit => {
-                            html += `<li style="margin-bottom: 3px; font-size: 0.85rem;">${crit}</li>`;
-                        });
-                        html += `</ul></div>`;
-                    });
-                    html += '</div>';
-                }
-
-                rulesBody.innerHTML = html || '<p style="color:var(--text-muted);">No specific rules found.</p>';
+                    html += `</ul></div>`;
+                });
+                html += '</div>';
             }
-            rulesModal.style.display = 'flex';
-        });
 
+            if (buy_rules && buy_rules.length > 0) {
+                html += '<h4 style="color: var(--success, #10b981); margin-bottom: 15px; font-size: 1.1rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">Good to Buy Score Rules</h4>';
+                html += '<div style="margin-bottom: 25px;">';
+                buy_rules.forEach((rule, index) => {
+                    html += `<div style="margin-bottom: 15px;">`;
+                    html += `<div style="color: white; font-weight: 500; margin-bottom: 5px;">${index + 1}. ${rule.name}</div>`;
+                    html += `<ul style="padding-left: 20px; margin: 0; color: var(--text-muted); list-style-type: disc;">`;
+                    rule.criteria.forEach(crit => {
+                        html += `<li style="margin-bottom: 3px; font-size: 0.85rem;">${crit}</li>`;
+                    });
+                    html += `</ul></div>`;
+                });
+                html += '</div>';
+            }
+
+            rulesBody.innerHTML = html || '<p style="color:var(--text-muted);">No specific rules found.</p>';
+        }
+        rulesModal.style.display = 'flex';
+    };
+
+    if (closeRulesBtn && rulesModal) {
         closeRulesBtn.addEventListener('click', () => {
             rulesModal.style.display = 'none';
         });
@@ -7455,7 +7486,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         const displayTitle = title.replace(' Breakdown', '');
         let html = `
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:0px; gap:15px; flex-wrap:nowrap; border-bottom:none;">
-                <h3 style="margin:0; font-size:1.05rem; color:white; font-weight:800; white-space:nowrap; line-height:1.3rem;">${displayTitle}</h3>
+                <h3 style="margin:0; font-size:1.05rem; color:white; font-weight:800; white-space:nowrap; line-height:1.3rem; border-bottom:none !important;">${displayTitle}</h3>
                 
                 <div style="display:flex; align-items:baseline; gap:6px; flex-shrink:0; line-height:1.3rem;">
                     <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600; text-transform:uppercase;">Total:</span>
