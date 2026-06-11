@@ -2515,12 +2515,12 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             const buybackEl = document.getElementById('dcf-buyback-source');
             const buybackSrc = buybackEl ? buybackEl.value : 'none';
             const buybackCustomInputs = document.getElementById('dcf-buyback-custom-inputs');
-            if (buybackCustomInputs) buybackCustomInputs.style.display = buybackSrc === 'custom' ? 'flex' : 'none';
+            if (buybackCustomInputs) buybackCustomInputs.style.display = buybackSrc === 'custom' ? 'grid' : 'none';
 
             const sbcEl = document.getElementById('dcf-sbc-source');
             const sbcSrc = sbcEl ? sbcEl.value : 'none';
             const sbcCustomInputs = document.getElementById('dcf-sbc-custom-inputs');
-            if (sbcCustomInputs) sbcCustomInputs.style.display = sbcSrc === 'custom' ? 'flex' : 'none';
+            if (sbcCustomInputs) sbcCustomInputs.style.display = sbcSrc === 'custom' ? 'grid' : 'none';
 
             let buybackRate = 0;
             if (buybackSrc === 'historical') {
@@ -5062,10 +5062,10 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                                     id === 'lynch-eps-source' ? 'lynch-custom-inputs' : 'peg-custom-inputs';
                     const ci = document.getElementById(ciId);
                     if (ci) {
-                        if (ciId === 'lynch-custom-inputs' || ciId === 'peg-custom-inputs' || ciId === 'lynch-custom-multiple-inputs') {
-                            ci.style.display = val === 'custom' ? 'grid' : 'none';
-                        } else {
+                        if (ciId === 'dcf-custom-inputs') {
                             ci.style.display = val === 'custom' ? 'flex' : 'none';
+                        } else {
+                            ci.style.display = val === 'custom' ? 'grid' : 'none';
                         }
                     }
                 }
