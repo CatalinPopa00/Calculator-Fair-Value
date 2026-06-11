@@ -623,7 +623,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 return valuation_cache[full_mode_key]
 
         # 1. Persistent Cache Check
-        persistent_cache_key = f"val_data_v33_{ticker.upper()}"
+        persistent_cache_key = f"val_data_v34_{ticker.upper()}"
         cached_data = kv_get(persistent_cache_key)
         if cached_data and not force_refresh:
             return cached_data
@@ -1955,9 +1955,9 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
     try:
         from utils.kv import kv_set
         if not skip_peers and not fast_mode:
-            kv_set(f"val_data_v33_{ticker_upper}", response_data, ex=86400)
+            kv_set(f"val_data_v34_{ticker_upper}", response_data, ex=86400)
         else:
-            kv_set(f"val_data_v33_skip_{ticker_upper}", response_data, ex=86400)
+            kv_set(f"val_data_v34_skip_{ticker_upper}", response_data, ex=86400)
     except Exception as e:
         print(f"Failed to cache main profile to KV for {ticker_upper}: {e}")
 
