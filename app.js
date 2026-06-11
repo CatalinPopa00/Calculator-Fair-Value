@@ -4209,17 +4209,17 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         }
 
         // RED FLAGS BANNER INJECTION
-        const profileHeader = document.querySelector('.profile-header') || elements.currentPrice.parentElement;
-        if (profileHeader) {
+        const priceDisplaySection = elements.currentPrice.closest('.price-display');
+        if (priceDisplaySection) {
             let rfBanner = document.getElementById('red-flags-banner');
             if (data.red_flags && data.red_flags.length > 0) {
                 if (!rfBanner) {
                     rfBanner = document.createElement('div');
                     rfBanner.id = 'red-flags-banner';
-                    rfBanner.style.cssText = 'background: rgba(239, 68, 68, 0.1); border: 1px solid var(--danger); padding: 12px; border-radius: 8px; margin-bottom: 15px; width: 100%;';
-                    profileHeader.insertAdjacentElement('afterend', rfBanner);
+                    rfBanner.style.cssText = 'background: rgba(239, 68, 68, 0.1); border: 1px solid var(--danger); padding: 8px 12px; border-radius: 8px; margin-top: 12px; margin-bottom: 15px; width: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: center;';
+                    priceDisplaySection.insertAdjacentElement('afterend', rfBanner);
                 }
-                rfBanner.innerHTML = data.red_flags.map(f => `<div style="color: var(--danger); font-weight: bold; font-size: 0.9em; margin-bottom: 4px;">${f}</div>`).join('');
+                rfBanner.innerHTML = data.red_flags.map(f => `<div style="color: var(--danger); font-weight: bold; font-size: 0.8em; margin: 0; line-height: 1.2; text-align: center;">${f}</div>`).join('');
                 rfBanner.style.display = 'block';
             } else if (rfBanner) {
                 rfBanner.style.display = 'none';
