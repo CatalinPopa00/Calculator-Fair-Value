@@ -50,7 +50,9 @@
 <body>
     <div id="sticky-top-banner" class="sticky-banner">
         <span id="sticky-banner-name" class="sticky-banner-name">--</span>
-        <span id="sticky-banner-price" class="sticky-banner-price">--</span><span id="sticky-price-trend-icon" style="margin-left: 5px; font-size: 0.9em; transition: all 0.3s ease;"></span>
+        <span id="sticky-banner-price" class="sticky-banner-price">--</span>
+        <span id="sticky-price-trend-icon" style="margin-left: 5px; font-size: 0.9em; transition: all 0.3s ease;"></span>
+        <span id="sticky-price-change-percent" style="margin-left: 5px; font-size: 0.85em; font-weight: 600; transition: all 0.3s ease;"></span>
     </div>
     <div class="app-container">
         <!-- Header / Search Section -->
@@ -113,6 +115,7 @@
                                 <div style="display: flex; align-items: center; gap: 8px; justify-content: center;">
                                     <span class="value" id="current-price">$0.00</span>
                                     <span id="price-trend-icon" style="font-size: 0.6em; transition: all 0.3s ease; margin-left: 5px;"></span>
+                                    <span id="price-change-percent" style="font-size: 1rem; font-weight: 600; transition: all 0.3s ease; margin-left: 5px;"></span>
                                     <input type="number" id="simulate-price-input" class="simulate-price-input" style="display:none;" step="0.01" min="0" placeholder="0.00">
                                     <button id="simulate-price-btn" class="simulate-price-btn" title="Simulate a different price">⚡</button>
                                 </div>
@@ -1249,7 +1252,7 @@
         <div id="cs-tips-content"></div>
     </div>
 
-    <script src="app.js?v=330"></script>
+    <script src="app.js?v=331"></script>
     <script src="pdf-export.js?v=1"></script>
 <script>
   if ('serviceWorker' in navigator) {

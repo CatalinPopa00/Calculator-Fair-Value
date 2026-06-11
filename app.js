@@ -525,31 +525,49 @@ window._customScenariosData = null;
 
 // --- PRICE ANIMATION UTILITY ---
 const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
+    const ti = document.getElementById('price-trend-icon');
+    const sti = document.getElementById('sticky-price-trend-icon');
+    const pc = document.getElementById('price-change-percent');
+    const spc = document.getElementById('sticky-price-change-percent');
+
     if (!openPrice || openPrice === newPrice) {
-        const ti = document.getElementById('price-trend-icon');
         if (ti) ti.textContent = '';
-        const sti = document.getElementById('sticky-price-trend-icon');
         if (sti) sti.textContent = '';
+        if (pc) pc.textContent = '';
+        if (spc) spc.textContent = '';
         return;
     }
 
     const priceEl = document.getElementById('current-price');
     const stickyPrice = document.getElementById('sticky-banner-price');
-    const trendIcon = document.getElementById('price-trend-icon');
-    const stickyTrendIcon = document.getElementById('sticky-price-trend-icon');
 
+    const changeAmount = newPrice - openPrice;
+    const pctChange = (changeAmount / openPrice) * 100;
+    
     const isUp = newPrice > openPrice;
     const color = isUp ? '#10b981' : '#ef4444';
     const icon = isUp ? '▲' : '▼';
     const pulseClass = isUp ? 'price-flash-green' : 'price-flash-red';
+    
+    const changeText = `${changeAmount > 0 ? '+' : ''}${changeAmount.toFixed(2)} (${changeAmount > 0 ? '+' : ''}${pctChange.toFixed(2)}%)`;
 
-    if (trendIcon && !_simulating) {
-        trendIcon.textContent = icon;
-        trendIcon.style.color = color;
-    }
-    if (stickyTrendIcon && !_simulating) {
-        stickyTrendIcon.textContent = icon;
-        stickyTrendIcon.style.color = color;
+    if (!_simulating) {
+        if (ti) {
+            ti.textContent = icon;
+            ti.style.color = color;
+        }
+        if (sti) {
+            sti.textContent = icon;
+            sti.style.color = color;
+        }
+        if (pc) {
+            pc.textContent = changeText;
+            pc.style.color = color;
+        }
+        if (spc) {
+            spc.textContent = changeText;
+            spc.style.color = color;
+        }
     }
 
     if (triggerFlash && priceEl && !_simulating) {
