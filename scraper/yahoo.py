@@ -2779,6 +2779,48 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
 
         # v241: THE ULTIMATE TRUTH (NON-DESTRUCTIVE SURGERY) removed in v277.
         # Dynamic quarterly healing now handles all tickers without hard-coding.
+        
+        # --- KV ACCUMULATOR MERGE ---
+        # Accumulate historical data to prevent loss when Yahoo drops older years
+        try:
+            accum_key = f"accum_hist_data_v2_{ticker_symbol}"
+            cached_hd = kv_get(accum_key)
+            
+            if cached_hd and isinstance(cached_hd, dict) and "years" in cached_hd and len(cached_hd["years"]) > 0:
+                merged_hd = {k: [] for k in historical_data.keys()}
+                
+                # Sorted unique list of all valid years
+                all_years = list(set(cached_hd.get("years", []) + historical_data.get("years", [])))
+                all_years = sorted([y for y in all_years if str(y).isdigit() or ("FY" in str(y) and "Est" not in str(y))])
+                
+                for y in all_years:
+                    merged_hd["years"].append(y)
+                    fresh_idx = historical_data["years"].index(y) if y in historical_data["years"] else -1
+                    cached_idx = cached_hd["years"].index(y) if y in cached_hd["years"] else -1
+                    
+                    for k in historical_data.keys():
+                        if k == "years": continue
+                        val = None
+                        
+                        # Priority 1: Fresh data
+                        if fresh_idx != -1 and fresh_idx < len(historical_data.get(k, [])):
+                            val = historical_data[k][fresh_idx]
+                            
+                        # Priority 2: Cached data (fallback if fresh is missing/0)
+                        if (val is None or val == 0) and cached_idx != -1 and cached_idx < len(cached_hd.get(k, [])):
+                            val = cached_hd[k][cached_idx]
+                            
+                        merged_hd[k].append(val)
+                
+                historical_data = merged_hd
+                log(f"DEBUG: KV Accumulator Merged {len(all_years)} years for {ticker_symbol}")
+            
+            # Save the fresh/merged historical data back to KV
+            if historical_data and "years" in historical_data and len(historical_data["years"]) > 0:
+                kv_set(accum_key, historical_data, ex=None)
+                
+        except Exception as e_accum:
+            log(f"DEBUG: Failed to merge accumulated historical data: {e_accum}")
 
         # 2. Add Projections (Next 2 FYs)
         try:
@@ -4333,9 +4375,58 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         unified_eps = []
         unified_rev = []
         
+        # --- PREPEND ACCUMULATED HISTORY ---
+        try:
+            if historical_data and "years" in historical_data:
+                for i in range(len(historical_data["years"])):
+                    y_label = str(historical_data["years"][i])
+                    if "Est" in y_label: continue
+                    
+                    # Only prepend years strictly older than fy0_yr to avoid duplicates
+                    try:
+                        y_num = int(y_label)
+                        if y_num >= fy0_yr: continue
+                    except: pass
+                    
+                    hist_eps_val = historical_data["eps"][i] if "eps" in historical_data and i < len(historical_data["eps"]) else None
+                    hist_rev_val = historical_data["revenue"][i] if "revenue" in historical_data and i < len(historical_data["revenue"]) else None
+                    
+                    # Calculate growth vs previous year if possible
+                    eps_g = None
+                    rev_g = None
+                    if i > 0:
+                        prev_eps = historical_data["eps"][i-1] if "eps" in historical_data else None
+                        prev_rev = historical_data["revenue"][i-1] if "revenue" in historical_data else None
+                        eps_g = normalize_growth((hist_eps_val - prev_eps) / abs(prev_eps)) if prev_eps and prev_eps != 0 and hist_eps_val is not None else None
+                        rev_g = normalize_growth((hist_rev_val - prev_rev) / abs(prev_rev)) if prev_rev and prev_rev != 0 and hist_rev_val is not None else None
+                        
+                    unified_eps.append({
+                        "period": f"FY {y_label}",
+                        "avg": hist_eps_val, "low": None, "high": None, "yearAgo": None, "growth": eps_g, "status": "reported", "num_estimates": None
+                    })
+                    unified_rev.append({
+                        "period": f"FY {y_label}",
+                        "avg": hist_rev_val, "low": None, "high": None, "yearAgo": None, "growth": rev_g, "status": "reported"
+                    })
+        except Exception as e_hist_est:
+            log(f"DEBUG: Failed to prepend history to estimates: {e_hist_est}")
+        
         # 1. FY 0 (Reported Anchor)
-        unified_eps.append({"period": f"FY {fy0_yr}", "avg": fy0_eps, "low": None, "high": None, "yearAgo": None, "growth": None, "status": "reported", "num_estimates": None})
-        unified_rev.append({"period": f"FY {fy0_yr}", "avg": fy0_rev, "low": None, "high": None, "yearAgo": None, "growth": None, "status": "reported"})
+        fy0_eps_g = None
+        fy0_rev_g = None
+        try:
+            if unified_eps and len(unified_eps) > 0:
+                prev_e = unified_eps[-1].get("avg")
+                if prev_e and prev_e != 0 and fy0_eps is not None:
+                    fy0_eps_g = normalize_growth((fy0_eps - prev_e) / abs(prev_e))
+            if unified_rev and len(unified_rev) > 0:
+                prev_r = unified_rev[-1].get("avg")
+                if prev_r and prev_r != 0 and fy0_rev is not None:
+                    fy0_rev_g = normalize_growth((fy0_rev - prev_r) / abs(prev_r))
+        except: pass
+
+        unified_eps.append({"period": f"FY {fy0_yr}", "avg": fy0_eps, "low": None, "high": None, "yearAgo": None, "growth": fy0_eps_g, "status": "reported", "num_estimates": None})
+        unified_rev.append({"period": f"FY {fy0_yr}", "avg": fy0_rev, "low": None, "high": None, "yearAgo": None, "growth": fy0_rev_g, "status": "reported"})
         
         # 2. FY 1 (Current Year Forecast)
         fy1_n = nasdaq_map.get(fy1_yr)
