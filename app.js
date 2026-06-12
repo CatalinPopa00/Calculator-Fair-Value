@@ -3805,7 +3805,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         // Reset inputs to clean state...
         ['lynch-eps-source', 'peg-eps-source'].forEach(id => {
             const el = document.getElementById(id);
-            if (el) el.value = 'analyst';
+            if (el) el.value = '5ycagr';
         });
         const fcfSourceEl = document.getElementById('fcf-source');
         if (fcfSourceEl) fcfSourceEl.value = 'revenue';
@@ -5380,7 +5380,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             const lMult = document.getElementById('lynch-multiple-source');
             if (lMult) lMult.value = 'system';
             const lEps = document.getElementById('lynch-eps-source');
-            if (lEps) lEps.value = 'analyst';
+            if (lEps) lEps.value = '5ycagr';
         } else if (method === 'peg') {
             const pEps = document.getElementById('peg-eps-source');
             if (pEps) pEps.value = '5ycagr';
