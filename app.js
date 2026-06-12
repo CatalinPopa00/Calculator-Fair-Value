@@ -139,9 +139,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 fairValueWatchlist: watchListData,
                 method_cards_collapsed: collapsedData,
                 customPeers: customPeersData,
+                overrides: overridesToSave,
                 lastSync: firebase.firestore.FieldValue.serverTimestamp()
             };
-            // Firebase shouldn't store Python backend's overrides anymore.
 
             await docRef.set(payload);
 
@@ -183,6 +183,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     Object.keys(data.customPeers).forEach(k => {
                         localStorage.setItem(k, JSON.stringify(data.customPeers[k]));
                     });
+                }
+
+                if (data.overrides) {
+                    cachedOverrides = data.overrides;
+                    // Automatically apply if looking at a specific ticker
+                    if (typeof currentTicker !== 'undefined' && currentTicker) {
+                        applyOverrides(currentTicker);
+                    }
                 }
 
                 // Firebase shouldn't override Python backend's overrides anymore.
@@ -1398,24 +1406,20 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             // and do NOT sync back to the server.
         });
 
-    // Overrides State (loaded from server on init)
+    // Overrides State (populated via Firebase syncFromCloud)
     let cachedOverrides = {};
     let overrideSaveTimer = null;
 
-    // Load overrides from server on startup
-    fetch('/api/overrides?t=' + Date.now(), { cache: 'no-store' }).then(r => r.json()).then(data => {
-        cachedOverrides = data || {};
-        // v319: Migration to clear stale weights for MA/V that got cached as 0 DCF before the backend fix
-        if (!localStorage.getItem('v319_weights_migrated')) {
-            for (const tk of Object.keys(cachedOverrides)) {
-                if (cachedOverrides[tk] && cachedOverrides[tk].weights) {
-                    cachedOverrides[tk]._v319_stale = true;
-                }
+    // v319: Migration to clear stale weights for MA/V that got cached as 0 DCF before the backend fix
+    if (!localStorage.getItem('v319_weights_migrated')) {
+        for (const tk of Object.keys(cachedOverrides)) {
+            if (cachedOverrides[tk] && cachedOverrides[tk].weights) {
+                cachedOverrides[tk]._v319_stale = true;
             }
-            localStorage.setItem('v319_weights_migrated', 'true');
-            console.log('v319: Marked all existing weight overrides as stale for archetype migration.');
         }
-    }).catch(e => console.error('Overrides load error:', e));
+        localStorage.setItem('v319_weights_migrated', 'true');
+        console.log('v319: Marked all existing weight overrides as stale for archetype migration.');
+    }
 
     // v315: Force clear old customPeers cache to apply new Forward-First backend logic
     if (!localStorage.getItem('v315_peers_reset')) {
@@ -3814,23 +3818,16 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
         try {
             // v305: Parallel fetch for valuation AND fresh overrides to prevent cross-device drift
-            let valUrl = `/api/valuation/${encodeURIComponent(query)}?t=${Date.now()}`;
+            let valUrl = `/api/valuation/${encodeURIComponent(query)}`;
             if (forceRefresh) {
-                valUrl += `&force_refresh=true`;
+                valUrl += `?t=${Date.now()}&force_refresh=true`;
             }
 
-            const [valRes, ovRes] = await Promise.all([
-                fetch(valUrl),
-                fetch(`/api/overrides?t=${Date.now()}`, { cache: 'no-store' })
-            ]);
+            const valRes = await fetch(valUrl);
 
             if (!valRes.ok) { let errMsg = 'Network response was not ok'; try { const errData = await valRes.json(); if (errData.detail) errMsg = errData.detail; } catch (e) {} throw new Error(errMsg); }
 
             const data = await valRes.json();
-            const freshOverrides = await ovRes.json().catch(() => ({}));
-
-            // Sync the global cache before rendering to ensure both mobile and desktop use same rules
-            cachedOverrides = freshOverrides || {};
 
             displayData(data, silent);
 
@@ -5130,14 +5127,8 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
         cachedOverrides[ticker] = payload;
 
-        fetch('/api/overrides', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        }).then(() => {
-            sessionStorage.removeItem(`val_v4_${ticker.toUpperCase()}`);
-            if (typeof _syncInProgress !== "undefined" && !_syncInProgress) syncToCloud(); // Push overrides to cloud when they change locally
-        }).catch(err => console.error('Override sync error:', err));
+        sessionStorage.removeItem(`val_v4_${ticker.toUpperCase()}`);
+        if (typeof _syncInProgress !== "undefined" && !_syncInProgress) syncToCloud(); // Push overrides to cloud when they change locally
 
         pendingOverridePayload = null;
         pendingOverrideTicker = null;
@@ -5275,12 +5266,8 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
     const deleteOverrideFromServer = (ticker) => {
         delete cachedOverrides[ticker];
-        fetch(`/api/overrides/${ticker}`, { method: 'DELETE' })
-            .then(() => {
-                sessionStorage.removeItem(`val_v4_${ticker.toUpperCase()}`);
-                if (typeof _syncInProgress !== "undefined" && !_syncInProgress) syncToCloud(); // Push overrides deletion to cloud when it happens
-            })
-            .catch(err => console.error('Override delete error:', err));
+        sessionStorage.removeItem(`val_v4_${ticker.toUpperCase()}`);
+        if (typeof _syncInProgress !== "undefined" && !_syncInProgress) syncToCloud(); // Push overrides deletion to cloud when it happens
     };
 
     const updateWatchlistButtonState = () => {
@@ -5771,8 +5758,8 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             }
 
             // Tables population exported for re-rendering on scenario switch
-            const eItems = data.eps_estimates || [];
-            const rItems = data.rev_estimates || [];
+            const eItems = (data.eps_estimates || []).slice(0, 4); // Limit to Anchor, FY0, FY1, FY2
+            const rItems = (data.rev_estimates || []).slice(0, 4);
             window._renderEstimatesTable = () => {
                 const eBody = document.querySelector('#eps-est-table tbody');
                 const rBody = document.querySelector('#rev-est-table tbody');
@@ -6020,6 +6007,24 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             btn.classList.add('active');
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
             document.getElementById(`tab-${targetTab}`).classList.add('active');
+            
+            // v306: Re-trigger ownership rendering to fix SVG pie animation when tab 3 opens
+            if (targetTab === '3' && typeof globalData !== 'undefined' && globalData && globalData.ownership) {
+                // Ensure it renders after display block applies
+                setTimeout(() => {
+                    const ins = (globalData.ownership.major_holders?.insiders || 0) * 100;
+                    const inst = (globalData.ownership.major_holders?.institutions || 0) * 100;
+                    const flt = (globalData.ownership.major_holders?.float || 0) * 100;
+                    
+                    const elIns = document.getElementById('ring-insiders');
+                    const elInst = document.getElementById('ring-institutions');
+                    const elFlt = document.getElementById('ring-float');
+                    
+                    if(elIns) { elIns.style.transition = 'none'; elIns.style.strokeDashoffset = '439.8'; elIns.getBoundingClientRect(); elIns.style.transition = 'stroke-dashoffset 1s ease-out'; elIns.style.strokeDashoffset = 439.8 - (439.8 * (ins / 100)); }
+                    if(elInst) { elInst.style.transition = 'none'; elInst.style.strokeDashoffset = '339.3'; elInst.getBoundingClientRect(); elInst.style.transition = 'stroke-dashoffset 1s ease-out 0.2s'; elInst.style.strokeDashoffset = 339.3 - (339.3 * (inst / 100)); }
+                    if(elFlt) { elFlt.style.transition = 'none'; elFlt.style.strokeDashoffset = '238.8'; elFlt.getBoundingClientRect(); elFlt.style.transition = 'stroke-dashoffset 1s ease-out 0.4s'; elFlt.style.strokeDashoffset = 238.8 - (238.8 * (flt / 100)); }
+                }, 50);
+            }
         });
     });
 

@@ -1500,6 +1500,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
             future_est = executor.submit(lambda: getattr(stock, 'earnings_estimate', None))
             future_growth_est = executor.submit(lambda: getattr(stock, 'growth_estimates', None))
             future_fin = executor.submit(lambda: getattr(stock, 'financials', None))
+            future_y_trend = executor.submit(get_yahoo_eps_trend, ticker_symbol)
 
         # Valuation Multiples & EPS (Initial from info tags - will be recalibrated after financials load)
         trailing_eps = (info.get('trailingEps') or info.get('epsTrailingTwelveMonths', 0))
@@ -1558,17 +1559,18 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
         nasdaq_growth_3y = None
         nasdaq_actual_eps = None
         yf_0y_anchor = None
-        try:
-            # v280: Retrieve the Normalized Anchor directly from Trend module if available
-            y_trend = get_yahoo_eps_trend(ticker_symbol)
-            yf_0y_anchor = y_trend.get('0y', {}).get('yearAgoEps')
-        except: pass
 
         if not fast_mode and executor is not None:
             try:
-                # Increased timeout to 10s as Nasdaq can be slow
-                nasdaq_growth_3y = future_nasdaq_cagr.result(timeout=10)
-                nasdaq_actual_eps = future_nasdaq_actual.result(timeout=10)
+                # v280: Retrieve the Normalized Anchor directly from Trend module if available
+                y_trend = future_y_trend.result(timeout=4)
+                yf_0y_anchor = y_trend.get('0y', {}).get('yearAgoEps')
+            except: pass
+
+            try:
+                # Decreased timeout to 4s as Nasdaq can be slow
+                nasdaq_growth_3y = future_nasdaq_cagr.result(timeout=4)
+                nasdaq_actual_eps = future_nasdaq_actual.result(timeout=4)
             except Exception as e:
                 log(f"DEBUG: Nasdaq growth result timeout/fail: {e}")
                 pass
@@ -1647,13 +1649,13 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                     future_qbs = executor.submit(lambda: getattr(stock, 'quarterly_balance_sheet', {}))
                     future_div = executor.submit(lambda: getattr(stock, 'dividends', pd.Series()))
                     
-                    financials = future_fin.result(timeout=10)
-                    q_financials = future_qfin.result(timeout=10)
-                    cashflow = future_cf.result(timeout=10)
-                    q_cashflow = future_qcf.result(timeout=10)
-                    bs = future_bs.result(timeout=10)
-                    q_bs = future_qbs.result(timeout=10)
-                    dividends_raw = future_div.result(timeout=10)
+                    financials = future_fin.result(timeout=5)
+                    q_financials = future_qfin.result(timeout=5)
+                    cashflow = future_cf.result(timeout=5)
+                    q_cashflow = future_qcf.result(timeout=5)
+                    bs = future_bs.result(timeout=5)
+                    q_bs = future_qbs.result(timeout=5)
+                    dividends_raw = future_div.result(timeout=5)
                 else:
                     financials = getattr(stock, 'financials', {})
                     q_financials = getattr(stock, 'quarterly_financials', {})
@@ -3764,7 +3766,7 @@ def get_competitors_data(target_ticker: str, limit: int = 4, custom_peers: list 
                     now = time.time()
                     
                     # 1. ALWAYS PREFER MAIN CACHE IF AVAILABLE
-                    main_cache_key = f"val_data_v32_{t}"
+                    main_cache_key = f"val_data_v34_{t}"
                     if not force_refresh:
                         main_data = kv_get(main_cache_key)
                         if main_data and isinstance(main_data, dict):

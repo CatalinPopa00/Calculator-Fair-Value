@@ -667,7 +667,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         if cached_data and not force_refresh:
             return cached_data
 
-        persistent_skip_key = f"val_data_v33_skip_{ticker.upper()}"
+        persistent_skip_key = f"val_data_v34_skip_{ticker.upper()}"
         if skip_peers:
             cached_skip = kv_get(persistent_skip_key)
             if cached_skip and not force_refresh:
