@@ -12,6 +12,7 @@ import uvicorn
 import math
 import statistics
 from typing import List, Dict, Any, Optional
+from fastapi.responses import FileResponse
 
 import urllib.request
 import urllib.parse
@@ -2167,3 +2168,21 @@ def get_live_price(ticker: str):
         return {"ticker": ticker, "price": price, "open_price": open_price, "currency": "USD"}
     except Exception as e:
         return {"error": str(e)}
+
+# --- SERVE STATIC FILES (For Render / Local execution) ---
+# We check if we are NOT on Vercel. Vercel handles static files automatically at the CDN level.
+if not os.environ.get("VERCEL"):
+    ROOT_DIR = os.path.dirname(os.path.dirname(__file__))
+
+    @app.get("/")
+    def serve_index():
+        return FileResponse(os.path.join(ROOT_DIR, "index.html"))
+
+    @app.get("/{file_path:path}")
+    def serve_static(file_path: str):
+        # Only serve files if they exist and are not in backend folders
+        full_path = os.path.join(ROOT_DIR, file_path)
+        if os.path.isfile(full_path) and not file_path.startswith("api/") and not file_path.startswith("scraper/") and not file_path.startswith("models/") and not file_path.startswith("utils/"):
+            return FileResponse(full_path)
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Not Found")
