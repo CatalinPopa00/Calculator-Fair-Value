@@ -1371,8 +1371,17 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 const localData = JSON.parse(localStorage.getItem('fairValueWatchlist')) || [];
                 // Server is the single source of truth. Prevents deleted items from resurrecting across devices.
                 const hasChanged = JSON.stringify(watchlist) !== JSON.stringify(serverData);
-                watchlist = serverData;
-                localStorage.setItem('fairValueWatchlist', JSON.stringify(watchlist));
+
+                // If server is empty but we have local data, the server was likely wiped or hasn't synced yet.
+                // We should push our local data to the server rather than wiping the local data.
+                if (serverData.length === 0 && localData.length > 0) {
+                    console.warn("Server watchlist empty. Pushing local data to server.");
+                    watchlist = localData;
+                    saveWatchlist();
+                } else {
+                    watchlist = serverData;
+                    localStorage.setItem('fairValueWatchlist', JSON.stringify(watchlist));
+                }
 
                 // If the local device had an outdated list, we DO NOT sync back to the server.
                 // We just accepted the server's list.
