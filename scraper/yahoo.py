@@ -249,7 +249,7 @@ def get_yahoo_analysis_normalized(ticker, info=None):
         try:
             import yfinance as yf
             import pandas as pd
-            yf_ticker = yf.Ticker(t_upper)
+            yf_ticker = yf.Ticker(t_upper, session=http_session)
             
             # Revenue Estimates
             rev_est = yf_ticker.revenue_estimate
@@ -441,7 +441,7 @@ def get_risk_free_rate() -> float:
         return _risk_free_cache["rate"]
         
     try:
-        tnx = yf.Ticker("^TNX")
+        tnx = yf.Ticker("^TNX", session=http_session)
         # currentPrice is usually the yield in percent for ^TNX on yfinance
         rate = tnx.info.get('regularMarketPrice') or tnx.info.get('currentPrice')
         if rate:
@@ -469,7 +469,7 @@ def get_fx_rate(info: dict) -> float:
     try:
         # Construct symbol (e.g., DKKUSD=X)
         fx_symbol = f"{financial_currency}{price_currency}=X"
-        fx_ticker = yf.Ticker(fx_symbol)
+        fx_ticker = yf.Ticker(fx_symbol, session=http_session)
         # Fetch 1d history to get the most recent Close
         fx_hist = fx_ticker.history(period="1d")
         if not fx_hist.empty:
@@ -528,7 +528,7 @@ def get_yahoo_eps_trend(ticker: str) -> dict:
     """Fetches EPS Trend data (Current, 7 Days Ago, etc.) from Yahoo Finance."""
     # v206: Try yfinance High-Fidelity Fallback first for Estimates/Trends
     try:
-        stock = yf.Ticker(ticker)
+        stock = yf.Ticker(ticker, session=http_session)
         ee = getattr(stock, 'earnings_estimate', None)
         if ee is not None and not ee.empty:
             mapping = {}
@@ -963,7 +963,7 @@ def search_companies(query: str) -> list:
 def fetch_latest_news_v2(ticker_symbol: str) -> list:
     """Fetches several recent news headlines for the ticker, scored by relevance."""
     try:
-        stock = yf.Ticker(ticker_symbol)
+        stock = yf.Ticker(ticker_symbol, session=http_session)
         news = stock.news
         if news and len(news) > 0:
             results = []
@@ -1231,7 +1231,7 @@ Strictly adhere to these precise markdown headers (written exactly like this, in
 
 def get_ownership_data(ticker_symbol: str):
     try:
-        stock = yf.Ticker(ticker_symbol)
+        stock = yf.Ticker(ticker_symbol, session=http_session)
         
         # 1. Major Holders
         mh = {}
@@ -1403,14 +1403,14 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
 
     try:
         # --- ATTEMPT 1: yf.Ticker.info (Primary) ---
-        stock = yf.Ticker(ticker_symbol)
+        stock = yf.Ticker(ticker_symbol, session=http_session)
         
         # Parallelize data fetching
         try:
             info = stock.info
             # v163: Ticker transition recovery (FI -> FISV) - yfinance returns 404 for FI currently
             if (not info or not info.get('symbol')) and ticker_symbol.upper() == 'FI':
-                stock = yf.Ticker('FISV')
+                stock = yf.Ticker('FISV', session=http_session)
                 info = stock.info
             
             if not info: info = {}
@@ -3651,7 +3651,7 @@ def get_competitors_data(target_ticker: str, limit: int = 4, custom_peers: list 
             sector = cached_meta.get("sector")
             target_industry = cached_meta.get("industry")
         else:
-            main_yf = yf.Ticker(target_ticker)
+            main_yf = yf.Ticker(target_ticker, session=http_session)
             inf = main_yf.info
             sector = inf.get("sector")
             target_industry = inf.get("industry")
@@ -3755,7 +3755,7 @@ def get_competitors_data(target_ticker: str, limit: int = 4, custom_peers: list 
 
         final_peers = []
         try:
-            batch = yf.Tickers(" ".join(candidates))
+            batch = yf.Tickers(" ".join(candidates), session=http_session)
             def fetch_peer_info(t):
                 try:
                     now = time.time()
@@ -4029,7 +4029,7 @@ def get_lightweight_company_data(ticker_symbol: str, force_refresh: bool = False
     data = None
     try:
         # Use yfinance as it handles Crumbs and Cookies automatically
-        stock = yf.Ticker(ticker_symbol)
+        stock = yf.Ticker(ticker_symbol, session=http_session)
         info = stock.info
         if info and info.get('currentPrice'):
             fx_rate = get_fx_rate(info)
@@ -4115,7 +4115,7 @@ def get_market_averages():
 
     # Attempt 1: yfinance (Fastest if it works)
     try:
-        spy = yf.Ticker("SPY")
+        spy = yf.Ticker("SPY", session=http_session)
         info = spy.info
         pe_t = info.get('trailingPE')
         pe_f = info.get('forwardPE')
@@ -4164,7 +4164,7 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
     try:
         if isinstance(stock, str):
             ticker_symbol = stock.upper()
-            stock = yf.Ticker(ticker_symbol)
+            stock = yf.Ticker(ticker_symbol, session=http_session)
             
         if history_eps is None: history_eps = {}
         if history_rev is None: history_rev = {}
