@@ -2064,6 +2064,10 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
 
 from concurrent.futures import ThreadPoolExecutor
 
+class DummyResponse:
+    def __init__(self):
+        self.headers = {}
+
 @app.post("/api/batch-valuation")
 def get_batch_valuation(req: WatchlistRequest):
     tickers = req.tickers
@@ -2074,12 +2078,20 @@ def get_batch_valuation(req: WatchlistRequest):
         # Skipping DataFrames completely destroys the Health and Buy scores (e.g. Health 92 -> 62)
         # because metrics like buyback_rate and historic_eps_growth become None.
         # Likewise, skipping peers breaks the Fair Value and Buy Score algorithms by removing the relative valuation anchors.
-        futures = {executor.submit(get_valuation, t.upper(), None, False, False): t for t in tickers}
+        futures = {executor.submit(get_valuation, t.upper(), DummyResponse(), None, False, False, False): t for t in tickers}
         for future in futures:
             try:
                 res = future.result()
-                if res and not res.get("error"):
+                if res and not isinstance(res, Response) and not res.get("error"):
                     results.append(res)
+                elif isinstance(res, Response):
+                    import json
+                    try:
+                        content = json.loads(res.body.decode('utf-8'))
+                        if not content.get("error"):
+                            results.append(content)
+                    except:
+                        pass
             except Exception as e:
                 ticker = futures[future]
                 print(f"Batch Error for {ticker}: {e}")
