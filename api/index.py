@@ -117,6 +117,7 @@ class OverrideRequest(BaseModel):
     toggles: dict = {}
     computed: dict = {}
     weights: dict = {}
+    custom_scenarios: Optional[dict] = None
 
 class ValuationResponse(BaseModel):
     ticker: str
@@ -473,7 +474,8 @@ def save_override(req: OverrideRequest):
             "inputs": req.inputs,
             "toggles": req.toggles,
             "computed": req.computed,
-            "weights": req.weights
+            "weights": req.weights,
+            "custom_scenarios": req.custom_scenarios
         }
         _save_overrides(all_overrides)
         return {"status": "success"}
