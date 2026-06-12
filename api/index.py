@@ -59,7 +59,7 @@ def get_usd_fx_rate(currency: str) -> float:
     try:
         import yfinance as yf
         symbol = f"{c_upper}USD=X"
-        fx = yf.Ticker(symbol, session=http_session)
+        fx = yf.Ticker(symbol)
         hist = fx.history(period="1d")
         if not hist.empty:
             rate = float(hist['Close'].iloc[-1])
@@ -2110,7 +2110,7 @@ def get_synthesis(ticker: str, response: Response):
         if not info:
             # 2. Dynamic fallback if info is not cached (e.g. direct synthesis request or container recycle)
             import yfinance as yf
-            stock = yf.Ticker(ticker_upper, session=http_session)
+            stock = yf.Ticker(ticker_upper)
             info = stock.info
             if info:
                 _company_info_cache[ticker_upper] = info
@@ -2151,7 +2151,7 @@ if __name__ == "__main__":
 def get_live_price(ticker: str):
     import yfinance as yf
     try:
-        stock = yf.Ticker(ticker, session=http_session)
+        stock = yf.Ticker(ticker)
         # Using fast_info for speed if available, or fallback to info
         price = None
         currency = "USD"
