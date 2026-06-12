@@ -56,8 +56,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!res.ok) throw new Error("API returned " + res.status);
                 return res.json();
             })
+            .catch(err => {
+                console.warn("Could not fetch Firebase config from API, using fallback:", err);
+                return {
+                    apiKey: "AIzaSyBqnECMrco2mrqLEyo-mTMdIYbaku-N0f4",
+                    authDomain: "babi-calculator-inatorul.firebaseapp.com",
+                    projectId: "babi-calculator-inatorul",
+                    storageBucket: "babi-calculator-inatorul.firebasestorage.app",
+                    messagingSenderId: "332002590695",
+                    appId: "1:332002590695:web:ffaebc5eb3b62548cb8742"
+                };
+            })
             .then(config => {
-                firebase.initializeApp(config);
+                if (!firebase.apps.length) {
+                    firebase.initializeApp(config);
+                }
                 return firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
             })
             .then(() => {
@@ -275,6 +288,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (authSubmit && window.firebase) {
         authSubmit.addEventListener('click', async () => {
+            if (!firebase.apps.length) {
+                authError.textContent = "Firebase is not initialized. Please refresh the page.";
+                authError.style.display = 'block';
+                return;
+            }
             const e = authEmail.value.trim();
             const p = authPass.value;
             if (!e || !p) {
@@ -309,6 +327,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (authGoogle && window.firebase) {
         authGoogle.addEventListener('click', async () => {
+            if (!firebase.apps.length) {
+                authError.textContent = "Firebase is not initialized. Please refresh the page.";
+                authError.style.display = 'block';
+                return;
+            }
             if (authGoogle.disabled) return;
             const provider = new firebase.auth.GoogleAuthProvider();
             const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -1371,8 +1394,17 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 const localData = JSON.parse(localStorage.getItem('fairValueWatchlist')) || [];
                 // Server is the single source of truth. Prevents deleted items from resurrecting across devices.
                 const hasChanged = JSON.stringify(watchlist) !== JSON.stringify(serverData);
-                watchlist = serverData;
-                localStorage.setItem('fairValueWatchlist', JSON.stringify(watchlist));
+
+                // If server is empty but we have local data, the server was likely wiped or hasn't synced yet.
+                // We should push our local data to the server rather than wiping the local data.
+                if (serverData.length === 0 && localData.length > 0) {
+                    console.warn("Server watchlist empty. Pushing local data to server.");
+                    watchlist = localData;
+                    saveWatchlist();
+                } else {
+                    watchlist = serverData;
+                    localStorage.setItem('fairValueWatchlist', JSON.stringify(watchlist));
+                }
 
                 // If the local device had an outdated list, we DO NOT sync back to the server.
                 // We just accepted the server's list.
