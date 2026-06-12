@@ -181,7 +181,7 @@ def get_analyst(ticker: str, response: Response):
         return valuation_cache[cache_key]
         
     # Attempt to extract from full valuation cache to avoid duplicate Yahoo requests
-    full_val_key = f"valuation_{ticker_upper}_False_False_{CACHE_VERSION}_None"
+    full_val_key = f"valuation_{ticker_upper}_False_False_{CACHE_VERSION}_def"
     if full_val_key in valuation_cache:
         val_data = valuation_cache[full_val_key]
         # Build the exact structure get_analyst_data would return
