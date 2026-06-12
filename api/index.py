@@ -197,7 +197,8 @@ def get_analyst(ticker: str, response: Response):
             "currency": "USD" # Already converted
         }
     else:
-        result = get_analyst_data(ticker_upper)
+        info = _company_info_cache.get(ticker_upper)
+        result = get_analyst_data(ticker_upper, info=info)
 
     # --- DYNAMIC FX CURRENCY CONVERSION TO USD ---
     if result:
@@ -250,6 +251,8 @@ def get_analyst(ticker: str, response: Response):
     # v147 Visible Marker for Diagnostic
     if result and "price_target" in result and isinstance(result["price_target"].get("avg"), (int, float)):
         result["price_target"]["avg"] = str(result["price_target"].get("avg", "")) + " (v147)"
+
+    result = deep_clean_data(result)
     valuation_cache[cache_key] = result
     return result
 
