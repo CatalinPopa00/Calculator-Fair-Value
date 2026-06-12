@@ -253,7 +253,7 @@ def get_yahoo_analysis_normalized(ticker, info=None):
             
             # Revenue Estimates
             rev_est = yf_ticker.revenue_estimate
-            if rev_est is not None and not rev_est.empty:
+            if rev_est is not None and not (hasattr(rev_est, 'empty') and rev_est.empty) and not (isinstance(rev_est, dict) and not rev_est):
                 for y in ['0y', '+1y']:
                     if y in rev_est.index:
                         if y not in res['rev']: res['rev'][y] = {}
@@ -269,7 +269,7 @@ def get_yahoo_analysis_normalized(ticker, info=None):
                         
             # EPS Estimates
             eps_est = yf_ticker.earnings_estimate
-            if eps_est is not None and not eps_est.empty:
+            if eps_est is not None and not (hasattr(eps_est, 'empty') and eps_est.empty) and not (isinstance(eps_est, dict) and not eps_est):
                 for y in ['0y', '+1y']:
                     if y in eps_est.index:
                         if y not in res['eps']: res['eps'][y] = {}
@@ -472,7 +472,7 @@ def get_fx_rate(info: dict) -> float:
         fx_ticker = yf.Ticker(fx_symbol, session=http_session)
         # Fetch 1d history to get the most recent Close
         fx_hist = fx_ticker.history(period="1d")
-        if not fx_hist.empty:
+        if not (hasattr(fx_hist, 'empty') and fx_hist.empty) and not (isinstance(fx_hist, dict) and not fx_hist):
             rate = float(fx_hist['Close'].iloc[-1])
             # print(f"DEBUG: FX Rate for {fx_symbol} detected: {rate}")
             return rate
@@ -530,7 +530,7 @@ def get_yahoo_eps_trend(ticker: str) -> dict:
     try:
         stock = yf.Ticker(ticker, session=http_session)
         ee = getattr(stock, 'earnings_estimate', None)
-        if ee is not None and not ee.empty:
+        if ee is not None and not (hasattr(ee, 'empty') and ee.empty) and not (isinstance(ee, dict) and not ee):
             mapping = {}
             for period in ['0y', '+1y', '+2y', '0q', '+1q']:
                 if period in ee.index:
@@ -780,7 +780,7 @@ def calculate_historic_pe(stock, financials, fx_rate=1.0):
         # Fetch 5-year history once
         try:
             hist_5y = stock.history(period="5y")
-            if not hist_5y.empty and hasattr(hist_5y.index, 'tz_localize') and hist_5y.index.tz is not None:
+            if not (hasattr(hist_5y, 'empty') and hist_5y.empty) and not (isinstance(hist_5y, dict) and not hist_5y) and hasattr(hist_5y.index, 'tz_localize') and hist_5y.index.tz is not None:
                 hist_5y.index = hist_5y.index.tz_localize(None)
         except Exception:
             return None
@@ -801,10 +801,10 @@ def calculate_historic_pe(stock, financials, fx_rate=1.0):
                 window = hist_5y[(hist_5y.index >= target_date - pd.Timedelta(days=10)) & 
                                  (hist_5y.index <= target_date + pd.Timedelta(days=10))]
                 
-                if not window.empty:
+                if not (hasattr(window, 'empty') and window.empty) and not (isinstance(window, dict) and not window):
                     # Get the price closest to target date
                     valid_dates = window[window.index <= target_date]
-                    if not valid_dates.empty:
+                    if not (hasattr(valid_dates, 'empty') and valid_dates.empty) and not (isinstance(valid_dates, dict) and not valid_dates):
                         price = float(valid_dates['Close'].iloc[-1])
                     else:
                         price = float(window['Close'].iloc[0])
@@ -1237,7 +1237,7 @@ def get_ownership_data(ticker_symbol: str):
         mh = {}
         try:
             major = stock.major_holders
-            if major is not None and not major.empty:
+            if major is not None and not (hasattr(major, 'empty') and major.empty) and not (isinstance(major, dict) and not major):
                 for idx in major.index:
                     bd = str(idx)
                     val = major.loc[idx, 'Value'] if 'Value' in major.columns else None
@@ -1256,7 +1256,7 @@ def get_ownership_data(ticker_symbol: str):
         top_inst = []
         try:
             ih = stock.institutional_holders
-            if ih is not None and not ih.empty:
+            if ih is not None and not (hasattr(ih, 'empty') and ih.empty) and not (isinstance(ih, dict) and not ih):
                 # Need sharesOutstanding to calculate % Out
                 so = stock.info.get('sharesOutstanding', 0)
                 for idx in ih.head(5).index:
@@ -1276,7 +1276,7 @@ def get_ownership_data(ticker_symbol: str):
         insider_sell = []
         try:
             it = stock.insider_transactions
-            if it is not None and not it.empty:
+            if it is not None and not (hasattr(it, 'empty') and it.empty) and not (isinstance(it, dict) and not it):
                 for idx in it.index:
                     if 'Text' not in it.columns or _pd.isna(it.loc[idx, 'Text']): continue
                     text = str(it.loc[idx, 'Text']).lower()
@@ -1306,7 +1306,7 @@ def get_ownership_data(ticker_symbol: str):
         purchases_stats = []
         try:
             ip = stock.insider_purchases
-            if ip is not None and not ip.empty:
+            if ip is not None and not (hasattr(ip, 'empty') and ip.empty) and not (isinstance(ip, dict) and not ip):
                 for idx in ip.index:
                     purchases_stats.append({
                         "label": str(ip.loc[idx, 'Insider Purchases Last 6m']) if 'Insider Purchases Last 6m' in ip.columns else '',
@@ -1319,7 +1319,7 @@ def get_ownership_data(ticker_symbol: str):
         roster = []
         try:
             ir = stock.insider_roster_holders
-            if ir is not None and not ir.empty:
+            if ir is not None and not (hasattr(ir, 'empty') and ir.empty) and not (isinstance(ir, dict) and not ir):
                 for idx in ir.index:
                     shares_owned = ir.loc[idx, 'Shares Owned Directly'] if 'Shares Owned Directly' in ir.columns else None
                     if _pd.notna(shares_owned):
@@ -1450,7 +1450,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
         if current_price is None:
             try:
                 hist = stock.history(period="1d")
-                if not hist.empty:
+                if not (hasattr(hist, 'empty') and hist.empty) and not (isinstance(hist, dict) and not hist):
                     h_val = float(hist['Close'].iloc[-1])
                     # Sanity Check against PrevClose
                     if prev_close and (h_val < prev_close * 0.7 or h_val > prev_close * 1.3):
@@ -1588,7 +1588,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
         yf_1y_growth = None
         try:
             ee = stock.earnings_estimate
-            if ee is not None and not ee.empty:
+            if ee is not None and not (hasattr(ee, 'empty') and ee.empty) and not (isinstance(ee, dict) and not ee):
                 for idx in ee.index:
                     g = ee.loc[idx, 'growth'] if 'growth' in ee.columns else None
                     if g is not None and not _pd.isna(g):
@@ -1679,7 +1679,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
 
 
 
-                dividends_raw = dividends_raw if not dividends_raw.empty else pd.Series()
+                dividends_raw = dividends_raw if not (hasattr(dividends_raw, 'empty') and dividends_raw.empty) and not (isinstance(dividends_raw, dict) and not dividends_raw) else pd.Series()
             
             if executor is not None:
                 executor.shutdown(wait=False)
@@ -1690,7 +1690,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
         # v206: Prioritize Live/Refined Shares (Significant for massive buyback companies like AAPL)
         shares_outstanding = info.get('impliedSharesOutstanding') or info.get('sharesOutstanding') or 0
         
-        if not shares_outstanding and financials is not None and not financials.empty:
+        if not shares_outstanding and financials is not None and not (hasattr(financials, 'empty') and financials.empty) and not (isinstance(financials, dict) and not financials):
             for k in ['Diluted Average Shares', 'Basic Average Shares']:
                 idx = find_idx(financials, k)
                 if idx:
@@ -1714,7 +1714,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
         # and recalibrate P/E if it differs significantly from the info-tag version
         if not fast_mode and financials is not None:
             try:
-                if not financials.empty:
+                if not (hasattr(financials, 'empty') and financials.empty) and not (isinstance(financials, dict) and not financials):
                     ni_idx = find_idx(financials, 'Net Income Common Stock Holders')
                     if not ni_idx: ni_idx = find_idx(financials, 'Net Income')
                     
@@ -1768,7 +1768,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
         # Financials for DCF & Margins (Prefer normalized DataFrames over info.get for ADR reliability)
         fcf = None
         try:
-            if cashflow is not None and not cashflow.empty:
+            if cashflow is not None and not (hasattr(cashflow, 'empty') and cashflow.empty) and not (isinstance(cashflow, dict) and not cashflow):
                 fcf_idx = find_idx(cashflow, 'Free Cash Flow')
                 if fcf_idx:
                     fcf_obj = cashflow.loc[fcf_idx]
@@ -1800,7 +1800,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                         series = df.loc[idx]
                         if isinstance(series, pd.Series):
                             valid = series.dropna()
-                            if not valid.empty: return float(valid.iloc[0])
+                            if not (hasattr(valid, 'empty') and valid.empty) and not (isinstance(valid, dict) and not valid): return float(valid.iloc[0])
                         else:
                             if not _pd.isna(series): return float(series)
                 return 0
@@ -1843,7 +1843,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                         series = df.loc[idx]
                         if isinstance(series, pd.Series):
                             valid = series.dropna()
-                            if not valid.empty: return float(valid.iloc[0])
+                            if not (hasattr(valid, 'empty') and valid.empty) and not (isinstance(valid, dict) and not valid): return float(valid.iloc[0])
                         else:
                             if not _pd.isna(series): return float(series)
                 return 0
@@ -1859,7 +1859,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
         
         revenue = None
         try:
-            if financials is not None and not financials.empty:
+            if financials is not None and not (hasattr(financials, 'empty') and financials.empty) and not (isinstance(financials, dict) and not financials):
                 rev_idx = find_idx(financials, 'Total Revenue')
                 if rev_idx:
                     rev_obj = financials.loc[rev_idx]
@@ -1963,7 +1963,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
         fcf_history = []
         historic_fcf_growth = None
         try:
-            if cashflow is not None and not cashflow.empty:
+            if cashflow is not None and not (hasattr(cashflow, 'empty') and cashflow.empty) and not (isinstance(cashflow, dict) and not cashflow):
                 fcf_y = []
                 fcf_idx = find_idx(cashflow, 'Free Cash Flow')
                 if fcf_idx:
@@ -2007,7 +2007,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
         historic_eps_growth = None
         eps_last_year = None
         try:
-            if financials is not None and not financials.empty:
+            if financials is not None and not (hasattr(financials, 'empty') and financials.empty) and not (isinstance(financials, dict) and not financials):
                 eps_idx = find_idx(financials, 'Diluted EPS') or find_idx(financials, 'Basic EPS')
                 eps_row = financials.loc[eps_idx] if eps_idx else None
                 
@@ -2049,7 +2049,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
 
         # Calculate Historic BVPS Growth
         historic_bvps_growth = None
-        if not fast_mode and bs is not None and not bs.empty:
+        if not fast_mode and bs is not None and not (hasattr(bs, 'empty') and bs.empty) and not (isinstance(bs, dict) and not bs):
             try:
                 eq_idx = find_idx(bs, ['Total Equity', 'Stockholders Equity', 'Total Equity Gross Minority Interest'])
                 sh_idx = find_idx(bs, ['Ordinary Shares Number', 'Share Issued'])
@@ -2079,7 +2079,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
         interest_coverage = None
         ebit_margin = None
         try:
-            if financials is not None and not financials.empty:
+            if financials is not None and not (hasattr(financials, 'empty') and financials.empty) and not (isinstance(financials, dict) and not financials):
                 ebit_idx = find_idx(financials, 'EBIT')
                 ebit = financials.loc[ebit_idx].dropna() if ebit_idx else None
                 
@@ -2092,21 +2092,21 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                     int_idx = find_idx(financials, 'Interest Expense')
                     if int_idx:
                         interest = financials.loc[int_idx].dropna()
-                        if interest is not None and not ebit.empty and not interest.empty:
+                        if interest is not None and not (hasattr(ebit, 'empty') and ebit.empty) and not (isinstance(ebit, dict) and not ebit) and not (hasattr(interest, 'empty') and interest.empty) and not (isinstance(interest, dict) and not interest):
                             ebit_val = ebit.iloc[0]
                             int_val = abs(interest.iloc[0])
                             if int_val > 0:
                                 interest_coverage = ebit_val / int_val
                             elif ebit_val > 0:
                                 interest_coverage = 999.0
-                    elif not ebit.empty and ebit.iloc[0] > 0:
+                    elif not (hasattr(ebit, 'empty') and ebit.empty) and not (isinstance(ebit, dict) and not ebit) and ebit.iloc[0] > 0:
                         interest_coverage = 999.0
                 
                 # EBIT Margin
                 rev_idx = find_idx(financials, 'Total Revenue')
                 if rev_idx:
                     rev = financials.loc[rev_idx].dropna()
-                    if not ebit.empty and not rev.empty:
+                    if not (hasattr(ebit, 'empty') and ebit.empty) and not (isinstance(ebit, dict) and not ebit) and not (hasattr(rev, 'empty') and rev.empty) and not (isinstance(rev, dict) and not rev):
                         e_val = ebit.iloc[0]
                         r_val = rev.iloc[0]
                         
@@ -2115,7 +2115,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                         op_idx = find_idx(financials, 'Operating Income')
                         if op_idx:
                             op_inc = financials.loc[op_idx].dropna()
-                            if not op_inc.empty and op_inc.iloc[0] > e_val:
+                            if not (hasattr(op_inc, 'empty') and op_inc.empty) and not (isinstance(op_inc, dict) and not op_inc) and op_inc.iloc[0] > e_val:
                                 e_val = op_inc.iloc[0]
 
                         if r_val > 0:
@@ -2140,7 +2140,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
         historic_buyback_rate = 0.0 # Default to 0 instead of None
         try:
             # Method 1: Balance Sheet Share Count Change (PRIMARY - most reliable net calc)
-            if bs is not None and not bs.empty:
+            if bs is not None and not (hasattr(bs, 'empty') and bs.empty) and not (isinstance(bs, dict) and not bs):
                 shares_idx = find_idx(bs, 'Ordinary Shares Number') or \
                              find_idx(bs, 'Share Issued')
                 if shares_idx:
@@ -2167,7 +2167,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
 
             # Method 2: Cash Flow Net Fallback (Only use if Method 1 results in exactly 0.0 or is very small/uncertain)
             # v65: Subtract issuance from repurchases to get the 'Net' cash impact on shares.
-            if abs(historic_buyback_rate or 0) < 0.001 and cashflow is not None and not cashflow.empty:
+            if abs(historic_buyback_rate or 0) < 0.001 and cashflow is not None and not (hasattr(cashflow, 'empty') and cashflow.empty) and not (isinstance(cashflow, dict) and not cashflow):
                 outflow_idx = find_idx(cashflow, 'Repurchase Of Capital Stock') or find_idx(cashflow, 'Common Stock Payments')
                 inflow_idx = find_idx(cashflow, 'Common Stock Issuance')
                 
@@ -2189,7 +2189,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
             pass
         operating_cashflow = fcf # Default to FCF
         try:
-            if cashflow is not None and not cashflow.empty:
+            if cashflow is not None and not (hasattr(cashflow, 'empty') and cashflow.empty) and not (isinstance(cashflow, dict) and not cashflow):
                 ocf_idx = find_idx(cashflow, 'Operating Cash Flow')
                 if ocf_idx:
                     # Get the most recent column (usually TTM or last FY)
@@ -2202,7 +2202,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
         dividend_streak = 0
         dividend_cagr_5y = None
         try:
-            if dividends_raw is not None and not dividends_raw.empty:
+            if dividends_raw is not None and not (hasattr(dividends_raw, 'empty') and dividends_raw.empty) and not (isinstance(dividends_raw, dict) and not dividends_raw):
                 # CRITICAL: Check if dividends are RECENT (within last 2 years)
                 # yfinance can return ancient dividends (e.g. Adobe 2004-2005)
                 import datetime as dt_mod
@@ -2260,7 +2260,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                 red_flags.append('⚠️ Dividend Cut Risk: Payout Ratio exceeds 85%.')
             
             # Dilution Risk
-            if bs is not None and not bs.empty:
+            if bs is not None and not (hasattr(bs, 'empty') and bs.empty) and not (isinstance(bs, dict) and not bs):
                 shares_row = None
                 if 'Ordinary Shares Number' in bs.index: shares_row = bs.loc['Ordinary Shares Number']
                 elif 'Share Issued' in bs.index: shares_row = bs.loc['Share Issued']
@@ -2345,7 +2345,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
             # 1. Source A: Yfinance Earnings Dates (Deep History Forensic Pass)
             try:
                 ed = stock.get_earnings_dates(limit=32)
-                if ed is not None and not ed.empty:
+                if ed is not None and not (hasattr(ed, 'empty') and ed.empty) and not (isinstance(ed, dict) and not ed):
                     # Detect columns dynamically (Estimate vs Reported)
                     est_col = next((c for c in ed.columns if 'Estimate' in c), None)
                     act_col = next((c for c in ed.columns if any(x in c for x in ['Reported', 'Actual', 'EPS', 'Earnings'])), None)
@@ -2385,7 +2385,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
             # 3. Source C: yfinance earnings_history (High Priority - "Analysis" tab chart)
             try:
                 eh = stock.earnings_history
-                if eh is not None and not eh.empty:
+                if eh is not None and not (hasattr(eh, 'empty') and eh.empty) and not (isinstance(eh, dict) and not eh):
                     for idx in eh.index:
                         val = eh.loc[idx, 'epsActual'] if 'epsActual' in eh.columns else None
                         fc_val = eh.loc[idx, 'epsEstimate'] if 'epsEstimate' in eh.columns else None
@@ -2408,7 +2408,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
 
             # 4. Source D: ANALYST-SENSITIVE NORMALIZED RECOVERY (SBC Add-back)
             # v200: Critical for HIMS. Reconstruction by adding back SBC.
-            if not fast_mode and cashflow is not None and not cashflow.empty and financials is not None:
+            if not fast_mode and cashflow is not None and not (hasattr(cashflow, 'empty') and cashflow.empty) and not (isinstance(cashflow, dict) and not cashflow) and financials is not None:
                 sbc_idx = find_idx(cashflow, 'Stock Based Compensation')
                 if sbc_idx:
                     for yr_col in financials.columns:
@@ -2503,7 +2503,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                     q_cf = stock.quarterly_cashflow
                     q_fin = stock.quarterly_financials
                     
-                    if q_eh is not None and not q_eh.empty and q_cf is not None and not q_cf.empty:
+                    if q_eh is not None and not (hasattr(q_eh, 'empty') and q_eh.empty) and not (isinstance(q_eh, dict) and not q_eh) and q_cf is not None and not (hasattr(q_cf, 'empty') and q_cf.empty) and not (isinstance(q_cf, dict) and not q_cf):
                         sbc_q_idx = find_idx(q_cf, 'Stock Based Compensation')
                         sh_q_idx = find_idx(q_fin, 'Diluted Average Shares') or find_idx(q_fin, 'Basic Average Shares')
                         
@@ -2608,7 +2608,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
         adjusted_history = {y: v for y, v in adjusted_history.items() if (int(y) if str(y).isdigit() else 0) < now_dt.year}
         
         # v223: Unified Forensic Pass - We normalize BEFORE building Trends/Anchors
-        if financials is not None and not financials.empty:
+        if financials is not None and not (hasattr(financials, 'empty') and financials.empty) and not (isinstance(financials, dict) and not financials):
             try:
                 is_cols = [c for c in financials.columns if str(c).upper() != "TTM"]
                 for yr_col in is_cols:
@@ -2642,7 +2642,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
              except: pass
         
         # v233: REALITY TIMELINE (Include 2025 as it is reported by Feb 2026)
-        if financials is not None and not financials.empty:
+        if financials is not None and not (hasattr(financials, 'empty') and financials.empty) and not (isinstance(financials, dict) and not financials):
             is_cols = [c for c in financials.columns if str(c).upper() != "TTM"]
             all_known_years = sorted({c.year if hasattr(c, 'year') else int(str(c)[:4]) for c in is_cols})
             
@@ -2679,7 +2679,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                 e_raw = e_raw or 0
                 
                 # v277: HEALING LOGIC (Sum quarters if annual is missing/0)
-                if (not e_raw or abs(e_raw) < 0.001) and q_financials is not None and not q_financials.empty:
+                if (not e_raw or abs(e_raw) < 0.001) and q_financials is not None and not (hasattr(q_financials, 'empty') and q_financials.empty) and not (isinstance(q_financials, dict) and not q_financials):
                     q_eps_idx = find_idx(q_financials, 'Diluted EPS') or find_idx(q_financials, 'Basic EPS')
                     if q_eps_idx:
                         year_sum = 0
@@ -2895,7 +2895,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                     try:
                         # Extract fiscal year for '0y' from earnings_estimate index or info
                         yahoo_fiscal_0y = last_yr # fallback
-                        if ee_data is not None and not ee_data.empty and '0y' in ee_data.index:
+                        if ee_data is not None and not (hasattr(ee_data, 'empty') and ee_data.empty) and not (isinstance(ee_data, dict) and not ee_data) and '0y' in ee_data.index:
                             # Usually Yahoo doesn't explicitly give the year in index, but we can verify it
                             pass
                     except: pass
@@ -2906,7 +2906,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                         # Check if Yahoo's '0y' value is effectively our last anchor. 
                         # If it is, then the first projection (FY 2026) MUST use '+1y'.
                         curr_est_val = None
-                        if ee_data is not None and not ee_data.empty and '0y' in ee_data.index:
+                        if ee_data is not None and not (hasattr(ee_data, 'empty') and ee_data.empty) and not (isinstance(ee_data, dict) and not ee_data) and '0y' in ee_data.index:
                             curr_est_val = float(ee_data.loc['0y'].get('avg') or 0)
                         
                         # If the '0y' estimate is very close to our 2025 anchor, it means Yahoo is stale.
@@ -2928,7 +2928,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                             y_est = float(info.get('forwardEps') or info.get('epsForward')) * fx_rate
                     
                     # Secondary fallback to the estimate table if info tags are missing
-                    if not y_est and ee_data is not None and not ee_data.empty:
+                    if not y_est and ee_data is not None and not (hasattr(ee_data, 'empty') and ee_data.empty) and not (isinstance(ee_data, dict) and not ee_data):
                         target_fy_code = fy_code
                         if i == 1 and str(last_yr) in str(historical_data["years"]):
                             target_fy_code = "+1y" if i == 1 else "+2y"
@@ -2963,7 +2963,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                          elif (historical_data["revenue"][-1] or 0) > 1e6 and nq_rev < 10000000: nq_rev *= 1e6
                          rev_sources.append(nq_rev)
                     
-                    if rf_data is not None and not rf_data.empty:
+                    if rf_data is not None and not (hasattr(rf_data, 'empty') and rf_data.empty) and not (isinstance(rf_data, dict) and not rf_data):
                          r_row = rf_data.loc[fy_code] if fy_code in rf_data.index else rf_data.iloc[i-1] if (i-1) < len(rf_data) else None
                          if r_row is not None:
                              rv = float(r_row.get('avg') or 0)
@@ -3080,14 +3080,14 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                     yr_label = historical_data["years"][i]
                     # Find matching datetime col to pull Balance Sheet data
                     yr_col = None
-                    if financials is not None and not financials.empty:
+                    if financials is not None and not (hasattr(financials, 'empty') and financials.empty) and not (isinstance(financials, dict) and not financials):
                         is_cols = [c for c in financials.columns if str(c).upper() != "TTM"]
                         for c in is_cols:
                             c_label = str(c.year) if hasattr(c, 'year') else str(c)[:4]
                             if c_label == str(yr_label):
                                 yr_col = c; break
                     
-                    if not yr_col and financials is not None and not financials.empty:
+                    if not yr_col and financials is not None and not (hasattr(financials, 'empty') and financials.empty) and not (isinstance(financials, dict) and not financials):
                         # Allow fast mode to continue without strict datetime match
                         if not fast_mode:
                             continue
@@ -3253,7 +3253,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
 
             # --- SYSTEMIC RATIO AUDIT (Calculated > Reported) ---
             net_margin_calc = None
-            if bs is not None and not bs.empty and financials is not None and not financials.empty:
+            if bs is not None and not (hasattr(bs, 'empty') and bs.empty) and not (isinstance(bs, dict) and not bs) and financials is not None and not (hasattr(financials, 'empty') and financials.empty) and not (isinstance(financials, dict) and not financials):
                 try:
                     # Use most recent column (excluding TTM)
                     target_date = [c for c in financials.columns if str(c).upper() != "TTM"]
@@ -3324,7 +3324,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                 ed = None
                 if isinstance(cal, dict):
                     ed = cal.get('Earnings Date')
-                elif hasattr(cal, 'empty') and not cal.empty:
+                elif hasattr(cal, 'empty') and not (hasattr(cal, 'empty') and cal.empty) and not (isinstance(cal, dict) and not cal):
                     ed = cal.get('Earnings Date')
                 
                 if ed is not None:
@@ -3344,7 +3344,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                 # Extract Beneish M-Score Data
         beneish_data = None
         try:
-            if financials is not None and not financials.empty and bs is not None and not bs.empty and cashflow is not None and not cashflow.empty:
+            if financials is not None and not (hasattr(financials, 'empty') and financials.empty) and not (isinstance(financials, dict) and not financials) and bs is not None and not (hasattr(bs, 'empty') and bs.empty) and not (isinstance(bs, dict) and not bs) and cashflow is not None and not (hasattr(cashflow, 'empty') and cashflow.empty) and not (isinstance(cashflow, dict) and not cashflow):
                 # We need the two most recent annual columns
                 cols = [c for c in bs.columns if str(c).upper() != "TTM"]
                 if len(cols) >= 2:
@@ -4271,7 +4271,7 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         }
         try:
             rt = getattr(stock, 'recommendations', None)
-            if rt is not None and not rt.empty:
+            if rt is not None and not (hasattr(rt, 'empty') and rt.empty) and not (isinstance(rt, dict) and not rt):
                 # v280: Robust month selection (prefer current month '0m')
                 latest = None
                 for idx in rt.index:
@@ -4464,7 +4464,7 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         eps_growth_5y_consensus = None
         try:
             ge = stock.growth_estimates
-            if ge is not None and not ge.empty:
+            if ge is not None and not (hasattr(ge, 'empty') and ge.empty) and not (isinstance(ge, dict) and not ge):
                 target_labels = ['Next 5 Years', 'LTG']
                 val = None
                 for lbl in target_labels:
