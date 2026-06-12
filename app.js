@@ -141,7 +141,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 customPeers: customPeersData,
                 lastSync: firebase.firestore.FieldValue.serverTimestamp()
             };
-            if (overridesToSave) payload.overrides = overridesToSave;
+            // Firebase shouldn't store Python backend's overrides anymore.
 
             await docRef.set(payload);
 
@@ -185,31 +185,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                 }
 
-                if (data.overrides) {
-                    if (typeof cachedOverrides !== 'undefined') {
-                        cachedOverrides = data.overrides;
-
-                        // Push them back to local backend via fire-and-forget API
-                        // We do it sequentially or batched (sequentially here)
-                        const updateOverrides = async () => {
-                            for (const ticker of Object.keys(data.overrides)) {
-                                try {
-                                    let payload = data.overrides[ticker];
-                                    if (!payload) continue;
-                                    if (!payload.ticker) payload.ticker = ticker; // Prevent 422 Unprocessable Entity
-                                    await fetch('/api/overrides', {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify(payload)
-                                    });
-                                } catch(err) {
-                                    console.error('Silent backend sync error:', err);
-                                }
-                            }
-                        };
-                        updateOverrides();
-                    }
-                }
+                // Firebase shouldn't override Python backend's overrides anymore.
 
                 // Refresh UI Watchlist
                 if (typeof renderWatchlist === 'function') {
@@ -2892,10 +2868,9 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 fwdPe = globalData.company_profile.forward_pe || null;
             }
 
-            if (window._customScenariosData && window._customScenariosData[_currentScenario] && window._customScenariosData[_currentScenario].pe !== null) {
-                fwdPe = window._customScenariosData[_currentScenario].pe;
-            } else if (window._customScenariosData && window._customScenariosData[_currentScenario] && window._customScenariosData[_currentScenario].eps !== null) {
-                // Also if custom scenarios are used, prioritize standard forward_pe
+            if (window._customScenariosData && window._customScenariosData[_currentScenario]) {
+                // For PEG Custom Scenarios, ALWAYS use the 1-Year Forward P/E from the platform,
+                // ignoring the 3-Year P/E input from the Custom Scenarios modal.
                 fwdPe = globalData.company_profile.forward_pe || null;
             }
 
