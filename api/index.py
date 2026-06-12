@@ -4,7 +4,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from fastapi import FastAPI, HTTPException, Response
-from fastapi.responses import JSONResponse, ORJSONResponse
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from pydantic import BaseModel, ConfigDict
@@ -88,7 +88,7 @@ def get_usd_fx_rate(currency: str) -> float:
     return rate
 
 # 1. Initialize FastAPI App (Systemic Recovery Fix)
-app = FastAPI(title="Fair Value Calculator API", default_response_class=ORJSONResponse)
+app = FastAPI(title="Fair Value Calculator API")
 
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 

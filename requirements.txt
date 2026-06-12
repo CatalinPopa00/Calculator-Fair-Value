@@ -36,4 +36,3 @@ urllib3==2.6.3
 uvicorn==0.41.0
 websockets==16.0
 yfinance>=0.2.50
-orjson==3.10.15
