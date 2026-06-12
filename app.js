@@ -6763,10 +6763,10 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         if (!window._watchlistFetching) window._watchlistFetching = new Set();
         if (!cachedWatchlistData) cachedWatchlistData = [];
 
-        // Progressive Fetch: Call each ticker individually in parallel
-        watchlist.forEach(async (ticker) => {
+        // Progressive Fetch: Call each ticker sequentially to prevent server crash (OOM) on limited RAM hosts
+        for (const ticker of watchlist) {
             const tUpper = ticker.toUpperCase();
-            if (window._watchlistFetching.has(tUpper)) return; // Already fetching
+            if (window._watchlistFetching.has(tUpper)) continue; // Already fetching
 
             window._watchlistFetching.add(tUpper);
             if (watchlistView.style.display === 'block') renderWatchlistUI();
@@ -6783,7 +6783,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                         // Use cached data
                         const idx = cachedWatchlistData.findIndex(d => d.ticker.toUpperCase() === tUpper);
                         if (idx !== -1) cachedWatchlistData[idx] = cachedData; else cachedWatchlistData.push(cachedData);
-                        return; // skip network fetch
+                        continue; // skip network fetch
                     }
                 }
                 const res = await fetch(`/api/valuation/${tUpper}?t=${Date.now()}`);
@@ -6804,7 +6804,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 window._watchlistFetching.delete(tUpper);
                 if (watchlistView.style.display === 'block') renderWatchlistUI();
             }
-        });
+        }
     };
 
     navWatchlistBtn.addEventListener('click', async () => {
