@@ -4378,41 +4378,10 @@ def get_analyst_data(stock, ticker_symbol=None, info=None, history_eps=None, his
         unified_eps = []
         unified_rev = []
         
-        # --- PREPEND ACCUMULATED HISTORY ---
-        try:
-            if historical_data and "years" in historical_data:
-                for i in range(len(historical_data["years"])):
-                    y_label = str(historical_data["years"][i])
-                    if "Est" in y_label: continue
-                    
-                    # Only prepend years strictly older than fy0_yr to avoid duplicates
-                    try:
-                        y_num = int(y_label)
-                        if y_num >= fy0_yr: continue
-                    except: pass
-                    
-                    hist_eps_val = historical_data["eps"][i] if "eps" in historical_data and i < len(historical_data["eps"]) else None
-                    hist_rev_val = historical_data["revenue"][i] if "revenue" in historical_data and i < len(historical_data["revenue"]) else None
-                    
-                    # Calculate growth vs previous year if possible
-                    eps_g = None
-                    rev_g = None
-                    if i > 0:
-                        prev_eps = historical_data["eps"][i-1] if "eps" in historical_data else None
-                        prev_rev = historical_data["revenue"][i-1] if "revenue" in historical_data else None
-                        eps_g = normalize_growth((hist_eps_val - prev_eps) / abs(prev_eps)) if prev_eps and prev_eps != 0 and hist_eps_val is not None else None
-                        rev_g = normalize_growth((hist_rev_val - prev_rev) / abs(prev_rev)) if prev_rev and prev_rev != 0 and hist_rev_val is not None else None
-                        
-                    unified_eps.append({
-                        "period": f"FY {y_label}",
-                        "avg": hist_eps_val, "low": None, "high": None, "yearAgo": None, "growth": eps_g, "status": "reported", "num_estimates": None
-                    })
-                    unified_rev.append({
-                        "period": f"FY {y_label}",
-                        "avg": hist_rev_val, "low": None, "high": None, "yearAgo": None, "growth": rev_g, "status": "reported"
-                    })
-        except Exception as e_hist_est:
-            log(f"DEBUG: Failed to prepend history to estimates: {e_hist_est}")
+        # --- HISTORICAL DATA (Kept in cache/server, not displayed in estimates table) ---
+        # The user requested that older years (FY-1, FY-2) should NOT be displayed in the
+        # EPS/Revenue estimates UI table, but rather kept in the platform's cache history.
+        # So we only populate FY0, FY1, and FY2 below.
         
         # 1. FY 0 (Reported Anchor)
         fy0_eps_g = None

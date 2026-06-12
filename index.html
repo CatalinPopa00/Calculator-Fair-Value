@@ -982,6 +982,7 @@
                                                     track.style.transform = 'translateX(0)';
                                                     void track.offsetWidth;
                                                     isAnimating = false;
+                                                    if (window.rosterPieChart) window.rosterPieChart.update();
                                                 }, 400);
                                             });
 
@@ -1000,6 +1001,7 @@
                                                 
                                                 setTimeout(() => {
                                                     isAnimating = false;
+                                                    if (window.rosterPieChart) window.rosterPieChart.update();
                                                 }, 400);
                                             });
 

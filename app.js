@@ -71,7 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!firebase.apps.length) {
                     firebase.initializeApp(config);
                 }
-                return firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+                return firebase.auth().setPersistence('local');
             })
             .then(() => {
                 db = firebase.firestore();
