@@ -2888,18 +2888,15 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             } else if (pegSrc === 'custom') {
                 const rawG = document.getElementById('peg-custom-growth').value;
                 usedGrowth = (rawG === '' || isNaN(parseFloat(rawG))) ? 0.20 : parseFloat(rawG) / 100;
-                // When Custom Growth is selected, FWD P/E 1Y should be used instead of 3Y Fwd P/E
-                const pegEsts = globalData.eps_estimates?.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
-                if (pegEsts && pegEsts.length > 0) {
-                     const y1 = _currentScenario === 'bear' ? (pegEsts[0].low ?? pegEsts[0].avg) : (_currentScenario === 'bull' ? (pegEsts[0].high ?? pegEsts[0].avg) : pegEsts[0].avg);
-                     fwdPe = (y1 > 0) ? (_realApiPrice / y1) : null;
-                } else {
-                     fwdPe = globalData.company_profile.forward_pe_custom || currentFormulaData.peg.fwd_pe || null;
-                }
+                // When Custom Growth is selected, FWD P/E from Valuation should be used, meaning forward_pe not 3Y custom
+                fwdPe = globalData.company_profile.forward_pe || null;
             }
 
             if (window._customScenariosData && window._customScenariosData[_currentScenario] && window._customScenariosData[_currentScenario].pe !== null) {
                 fwdPe = window._customScenariosData[_currentScenario].pe;
+            } else if (window._customScenariosData && window._customScenariosData[_currentScenario] && window._customScenariosData[_currentScenario].eps !== null) {
+                // Also if custom scenarios are used, prioritize standard forward_pe
+                fwdPe = globalData.company_profile.forward_pe || null;
             }
 
             let eps = globalData.company_profile.adjusted_eps || globalData.company_profile.trailing_eps || 0;
