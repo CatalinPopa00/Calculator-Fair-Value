@@ -353,7 +353,7 @@ def normalize_growth(val):
 
 def find_idx(df, target):
     """Case-insensitive index lookup for pandas DataFrames (supports list of strings)."""
-    if df is None or df.empty: return None
+    if df is None or (hasattr(df, "empty") and df.empty) or (isinstance(df, dict) and not df): return None
     targets = [str(t).lower().strip() for t in (target if isinstance(target, list) else [target])]
     for idx in df.index:
         idx_lower = str(idx).lower().strip()
@@ -365,7 +365,7 @@ def get_metric(df, field, target):
     Robust metric extraction from yfinance DataFrame.
     target can be a date (for fuzzy lookup) or an integer index.
     """
-    if df is None or df.empty: return None
+    if df is None or (hasattr(df, "empty") and df.empty) or (isinstance(df, dict) and not df): return None
     f_idx = find_idx(df, field)
     if not f_idx: return None
     
@@ -389,7 +389,7 @@ def get_metric(df, field, target):
 
 def find_nearest_col(df, target_date, max_days=10):
     """Finds the column index in df that most closely matches target_date within max_days."""
-    if df is None or df.empty or target_date is None:
+    if df is None or (hasattr(df, "empty") and df.empty) or (isinstance(df, dict) and not df) or target_date is None:
         return None
     
     # Normalize target_date to a date-only object for robust comparison
@@ -758,7 +758,7 @@ def get_nasdaq_actual_eps(ticker: str) -> float:
 
 def calculate_historic_pe(stock, financials, fx_rate=1.0):
     """Calculates a 5-year average P/E ratio by matching annual EPS with historical prices."""
-    if financials is None or financials.empty:
+    if financials is None or (hasattr(financials, "empty") and financials.empty) or (isinstance(financials, dict) and not financials):
         return None
     
     try:
@@ -774,7 +774,7 @@ def calculate_historic_pe(stock, financials, fx_rate=1.0):
         
         # Take up to 5 years (latest first)
         eps_values = eps_row.dropna().head(5)
-        if eps_values.empty:
+        if hasattr(eps_values, "empty") and eps_values.empty:
             return None
         
         # Fetch 5-year history once
@@ -1833,7 +1833,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
 
         # --- CASH MAPPING ---
         def get_reported_cash(df):
-            if df is None or df.empty: return 0
+            if df is None or (hasattr(df, "empty") and df.empty) or (isinstance(df, dict) and not df): return 0
             
             def get_latest_valid(row_names):
                 if not row_names: return 0
@@ -1895,7 +1895,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
 
         # v281: Forensic Current Ratio (Total Current Assets / Total Current Liabilities)
         def get_cr(df):
-            if df is None or df.empty: return None
+            if df is None or (hasattr(df, "empty") and df.empty) or (isinstance(df, dict) and not df): return None
             # Try primary labels
             ca_idx = find_idx(df, 'Total Current Assets') or find_idx(df, 'Current Assets') or find_idx(df, 'CurrentAssets')
             cl_idx = find_idx(df, 'Current Liabilities') or find_idx(df, 'Total Current Liabilities') or find_idx(df, 'CurrentLiabilities')
@@ -3100,7 +3100,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                     ni_raw = (r_raw * historical_trends[i]["net_margin"]) if (i < len(historical_trends) and historical_trends[i]["net_margin"]) else 0
 
                     def get_bs_metric(field, target_date):
-                        if bs is None or bs.empty: return None
+                        if bs is None or (hasattr(bs, "empty") and bs.empty) or (isinstance(bs, dict) and not bs): return None
                         idx = find_idx(bs, field)
                         if not idx: return None
                         if not target_date: return None
@@ -3110,7 +3110,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                         return float(val) if not _pd.isna(val) else None
 
                     def get_is_metric(field, target_date):
-                        if financials is None or financials.empty: return None
+                        if financials is None or (hasattr(financials, "empty") and financials.empty) or (isinstance(financials, dict) and not financials): return None
                         idx = find_idx(financials, field)
                         if not idx: return None
                         if not target_date: return None
@@ -3127,7 +3127,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                     # --- DEBT MAPPING (Updated to match Yahoo's Total Debt figure) ---
                     # Rule 1: Prioritize 'Total Debt', fallback to LT Debt + ST Debt
                     def get_hist_metric(fields, target_date):
-                        if bs is None or bs.empty: return None
+                        if bs is None or (hasattr(bs, "empty") and bs.empty) or (isinstance(bs, dict) and not bs): return None
                         if not target_date: return None
                         for field in fields:
                             idx = find_idx(bs, field)
@@ -3652,7 +3652,10 @@ def get_competitors_data(target_ticker: str, limit: int = 4, custom_peers: list 
             target_industry = cached_meta.get("industry")
         else:
             main_yf = yf.Ticker(target_ticker, session=http_session)
-            inf = main_yf.info
+            try:
+                inf = main_yf.info
+            except Exception:
+                inf = {}
             sector = inf.get("sector")
             target_industry = inf.get("industry")
             if sector:

@@ -28,7 +28,7 @@ def kv_get(key: str):
             raise Exception(f"KV API Error: {resp.status_code} - {resp.text}")
     except Exception as e:
         print(f"KV GET Error: {e}")
-        raise e # Propagate error so API can return 500
+        return None # Fail gracefully
 
 def kv_set(key: str, value, ex=None) -> bool:
     if not KV_REST_API_URL or not KV_REST_API_TOKEN:
