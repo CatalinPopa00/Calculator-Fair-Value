@@ -6809,45 +6809,71 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         if (!window._watchlistFetching) window._watchlistFetching = new Set();
         if (!cachedWatchlistData) cachedWatchlistData = [];
 
-        // Progressive Fetch: Call each ticker sequentially to prevent server crash (OOM) on limited RAM hosts
+        const tickersToFetch = [];
+
         for (const ticker of watchlist) {
             const tUpper = ticker.toUpperCase();
             if (window._watchlistFetching.has(tUpper)) continue; // Already fetching
 
-            window._watchlistFetching.add(tUpper);
-            if (watchlistView.style.display === 'block') renderWatchlistUI();
+            const cacheKey = `val_v3_${tUpper}`;
+            const cached = sessionStorage.getItem(cacheKey);
+            let useCache = false;
 
-            try {
-                // v38: Call individual valuation endpoint. 
-                // skip_peers=false to ensure scores are 100% sync'd with dashboard.
-                // Check client-side cache first (15 min TTL)
-                const cacheKey = `val_v3_${tUpper}`;
-                const cached = sessionStorage.getItem(cacheKey);
-                if (cached) {
+            if (cached) {
+                try {
                     const { data: cachedData, ts } = JSON.parse(cached);
                     if (Date.now() - ts < 15 * 60 * 1000) {
-                        // Use cached data
+                        useCache = true;
                         const idx = cachedWatchlistData.findIndex(d => d.ticker.toUpperCase() === tUpper);
-                        if (idx !== -1) cachedWatchlistData[idx] = cachedData; else cachedWatchlistData.push(cachedData);
-                        continue; // skip network fetch
+                        if (idx !== -1) cachedWatchlistData[idx] = cachedData;
+                        else cachedWatchlistData.push(cachedData);
                     }
+                } catch (e) {
+                    console.error("Cache parse error", e);
                 }
-                const res = await fetch(`/api/valuation/${tUpper}?t=${Date.now()}`);
+            }
+
+            if (!useCache) {
+                tickersToFetch.push(tUpper);
+                window._watchlistFetching.add(tUpper);
+            }
+        }
+
+        if (watchlistView.style.display === 'block') renderWatchlistUI();
+
+        if (tickersToFetch.length > 0) {
+            try {
+                const res = await fetch('/api/batch-valuation', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tickers: tickersToFetch })
+                });
+
                 if (res.ok) {
-                    const data = await res.json();
-                    // Store in sessionStorage
-                    sessionStorage.setItem(cacheKey, JSON.stringify({ data, ts: Date.now() }));
-                    const idx = cachedWatchlistData.findIndex(d => d.ticker.toUpperCase() === tUpper);
-                    if (idx !== -1) {
-                        cachedWatchlistData[idx] = data;
-                    } else {
-                        cachedWatchlistData.push(data);
+                    const batchData = await res.json();
+                    for (const data of batchData) {
+                        if (!data || !data.ticker) continue;
+                        const tUpper = data.ticker.toUpperCase();
+                        const cacheKey = `val_v3_${tUpper}`;
+
+                        sessionStorage.setItem(cacheKey, JSON.stringify({ data, ts: Date.now() }));
+
+                        const idx = cachedWatchlistData.findIndex(d => d.ticker.toUpperCase() === tUpper);
+                        if (idx !== -1) {
+                            cachedWatchlistData[idx] = data;
+                        } else {
+                            cachedWatchlistData.push(data);
+                        }
                     }
+                } else {
+                    console.error(`Batch fetch failed: ${res.status}`);
                 }
             } catch (e) {
-                console.error(`Individual fetch failed for ${tUpper}`, e);
+                console.error(`Batch fetch failed`, e);
             } finally {
-                window._watchlistFetching.delete(tUpper);
+                for (const tUpper of tickersToFetch) {
+                    window._watchlistFetching.delete(tUpper);
+                }
                 if (watchlistView.style.display === 'block') renderWatchlistUI();
             }
         }
