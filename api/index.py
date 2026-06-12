@@ -4,8 +4,9 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from fastapi import FastAPI, HTTPException, Response
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, ORJSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from pydantic import BaseModel, ConfigDict
 from cachetools import TTLCache
 import uvicorn
@@ -87,7 +88,9 @@ def get_usd_fx_rate(currency: str) -> float:
     return rate
 
 # 1. Initialize FastAPI App (Systemic Recovery Fix)
-app = FastAPI(title="Fair Value Calculator API")
+app = FastAPI(title="Fair Value Calculator API", default_response_class=ORJSONResponse)
+
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 allowed_origins = os.getenv(
     "ALLOWED_ORIGINS",
@@ -2176,13 +2179,13 @@ if not os.environ.get("VERCEL"):
 
     @app.get("/")
     def serve_index():
-        return FileResponse(os.path.join(ROOT_DIR, "index.html"))
+        return FileResponse(os.path.join(ROOT_DIR, "index.html"), headers={"Cache-Control": "public, max-age=86400"})
 
     @app.get("/{file_path:path}")
     def serve_static(file_path: str):
         # Only serve files if they exist and are not in backend folders
         full_path = os.path.join(ROOT_DIR, file_path)
         if os.path.isfile(full_path) and not file_path.startswith("api/") and not file_path.startswith("scraper/") and not file_path.startswith("models/") and not file_path.startswith("utils/"):
-            return FileResponse(full_path)
+            return FileResponse(full_path, headers={"Cache-Control": "public, max-age=86400"})
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Not Found")
