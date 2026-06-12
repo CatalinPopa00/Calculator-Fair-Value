@@ -2869,9 +2869,15 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             }
 
             if (window._customScenariosData && window._customScenariosData[_currentScenario]) {
-                // For PEG Custom Scenarios, ALWAYS use the 1-Year Forward P/E from the platform,
+                // For PEG Custom Scenarios, ALWAYS use the dynamic 1-Year Forward P/E from the platform,
                 // ignoring the 3-Year P/E input from the Custom Scenarios modal.
-                fwdPe = globalData.company_profile.forward_pe || null;
+                const pegEsts = globalData.eps_estimates?.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
+                if (pegEsts && pegEsts.length > 0) {
+                     const y1 = _currentScenario === 'bear' ? (pegEsts[0].low ?? pegEsts[0].avg) : (_currentScenario === 'bull' ? (pegEsts[0].high ?? pegEsts[0].avg) : pegEsts[0].avg);
+                     fwdPe = (y1 > 0) ? (_realApiPrice / y1) : null;
+                } else {
+                     fwdPe = globalData.company_profile.forward_pe || null;
+                }
             }
 
             let eps = globalData.company_profile.adjusted_eps || globalData.company_profile.trailing_eps || 0;
@@ -5111,7 +5117,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     let pendingOverrideTicker = null;
 
     const saveOverridesToServer = (ticker, payloadObj = null) => {
-        if (!ticker || !watchlist.includes(ticker)) return;
+        if (!ticker) return;
 
         const payload = payloadObj || {
             ticker: ticker,
@@ -5138,7 +5144,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     };
 
     const saveOverridesDebounced = (ticker) => {
-        if (!ticker || !watchlist.includes(ticker)) return;
+        if (!ticker) return;
 
         // Take synchronous snapshot BEFORE potential fast-navigation clears DOM
         pendingOverridePayload = {
@@ -5292,7 +5298,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         if (!currentTicker) return;
         if (watchlist.includes(currentTicker)) {
             watchlist = watchlist.filter(t => t !== currentTicker);
-            deleteOverrideFromServer(currentTicker);
         } else {
             watchlist.push(currentTicker);
             saveOverridesToServer(currentTicker);
