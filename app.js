@@ -2877,11 +2877,25 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 if (window._customScenariosData && window._customScenariosData[_currentScenario] && window._customScenariosData[_currentScenario].eps !== null) {
                     usedGrowth = window._customScenariosData[_currentScenario].eps / 100;
                 }
-                fwdPe = globalData.company_profile.forward_pe_custom || currentFormulaData.peg.fwd_pe || null;
+                // When 5Y CAGR is selected, FWD P/E 1Y should be used instead of 3Y Fwd P/E (which is sometimes stored in forward_pe_custom)
+                const pegEsts = globalData.eps_estimates?.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
+                if (pegEsts && pegEsts.length > 0) {
+                     const y1 = _currentScenario === 'bear' ? (pegEsts[0].low ?? pegEsts[0].avg) : (_currentScenario === 'bull' ? (pegEsts[0].high ?? pegEsts[0].avg) : pegEsts[0].avg);
+                     fwdPe = (y1 > 0) ? (_realApiPrice / y1) : null;
+                } else {
+                     fwdPe = globalData.company_profile.forward_pe_custom || currentFormulaData.peg.fwd_pe || null;
+                }
             } else if (pegSrc === 'custom') {
                 const rawG = document.getElementById('peg-custom-growth').value;
                 usedGrowth = (rawG === '' || isNaN(parseFloat(rawG))) ? 0.20 : parseFloat(rawG) / 100;
-                fwdPe = globalData.company_profile.forward_pe_custom || currentFormulaData.peg.fwd_pe || null;
+                // When Custom Growth is selected, FWD P/E 1Y should be used instead of 3Y Fwd P/E
+                const pegEsts = globalData.eps_estimates?.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
+                if (pegEsts && pegEsts.length > 0) {
+                     const y1 = _currentScenario === 'bear' ? (pegEsts[0].low ?? pegEsts[0].avg) : (_currentScenario === 'bull' ? (pegEsts[0].high ?? pegEsts[0].avg) : pegEsts[0].avg);
+                     fwdPe = (y1 > 0) ? (_realApiPrice / y1) : null;
+                } else {
+                     fwdPe = globalData.company_profile.forward_pe_custom || currentFormulaData.peg.fwd_pe || null;
+                }
             }
 
             if (window._customScenariosData && window._customScenariosData[_currentScenario] && window._customScenariosData[_currentScenario].pe !== null) {
