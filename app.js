@@ -3800,7 +3800,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 fetch(`/api/overrides?t=${Date.now()}`, { cache: 'no-store' })
             ]);
 
-            if (!valRes.ok) throw new Error('Network response was not ok');
+            if (!valRes.ok) { let errMsg = 'Network response was not ok'; try { const errData = await valRes.json(); if (errData.detail) errMsg = errData.detail; } catch (e) {} throw new Error(errMsg); }
 
             const data = await valRes.json();
             const freshOverrides = await ovRes.json().catch(() => ({}));
