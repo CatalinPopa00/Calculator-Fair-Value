@@ -234,8 +234,8 @@ def get_fmp_transcripts(ticker: str) -> str:
 
 def run_ai_kpi_audit(ticker: str) -> Dict[str, Any]:
     ticker = ticker.upper()
-    if ticker in audit_cache:
-        return audit_cache[ticker]
+    # if ticker in audit_cache:
+    #     return audit_cache[ticker]
 
     try:
         from dotenv import load_dotenv
@@ -286,7 +286,7 @@ For each identified KPI, search deeply and track their evolution over time over 
 ADDITIONALLY, for the CURRENT unfinished fiscal year, extract the available individual quarterly data (e.g., FY 2026 Q1, FY 2026 Q2). Do NOT use estimates.
 Format the keys EXACTLY as "FY [Year]" or "FY [Year] Q[X]". Ensure exact numbers are extracted if explicitly stated. Format numbers cleanly (e.g. "1.2 Billion", "34.5%", "450 Million"). 
 
-CRITICAL FALLBACK RULE: If a value for a specific period is completely absent from the provided text (common for European companies), you may briefly check your internal knowledge to fill in the gaps for the most recent years. However, do NOT perform excessive internal searches. If the data is not immediately known, just use "N/A" to ensure a fast response.
+CRITICAL EXTRACTION RULE: You MUST extract the value for EVERY single year provided in the text. You are dealing with a massive text. Do NOT be lazy. Scan every single [Year ...] section carefully. If a value for a specific period is completely absent from the provided text, you may briefly check your internal knowledge to fill in the gaps. Only use "N/A" if the data is truly impossible to find.
 
 Return ONLY a valid JSON object, strictly following this EXACT structure:
 {
@@ -297,11 +297,12 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
       "name": "KPI Name (e.g., Monthly Active Users)",
       "description": "What it represents and why it is important for this company.",
       "values": {
-        "FY 2020": "1.5M",
-        "FY 2021": "1.8M",
-        "FY 2022": "2.2M",
-        "FY 2023": "2.8M",
-        "FY 2024": "3.1M"
+        "FY 2021": "1.5M",
+        "FY 2022": "2.0M",
+        "FY 2023": "2.5M",
+        "FY 2024": "2.8M",
+        "FY 2025": "3.1M",
+        "FY 2026 Q1": "3.2M"
       }
     }
   ]
