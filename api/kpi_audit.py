@@ -284,7 +284,9 @@ CRITICAL KPI SELECTION RULES (STRICTLY ENFORCED):
 VALUE EXTRACTION (5-YEAR HISTORY + RECENT QUARTERS):
 For each identified KPI, search deeply and track their evolution over time over the last 5 full fiscal years (e.g., FY 2021, FY 2022, FY 2023, FY 2024, FY 2025).
 ADDITIONALLY, for the CURRENT unfinished fiscal year, extract the available individual quarterly data (e.g., FY 2026 Q1, FY 2026 Q2). Do NOT use estimates.
-Format the keys EXACTLY as "FY [Year]" or "FY [Year] Q[X]". Ensure exact numbers are extracted if explicitly stated. Format numbers cleanly (e.g. "1.2 Billion", "34.5%", "450 Million"). If a value for a specific period is completely absent from the text, use "N/A", but TRY YOUR BEST to infer the values from textual descriptions if tables are omitted.
+Format the keys EXACTLY as "FY [Year]" or "FY [Year] Q[X]". Ensure exact numbers are extracted if explicitly stated. Format numbers cleanly (e.g. "1.2 Billion", "34.5%", "450 Million"). 
+
+CRITICAL FALLBACK RULE: If a value for a specific period is completely absent from the provided text (which is extremely common for European companies without SEC filings like Rheinmetall), YOU MUST USE YOUR VAST INTERNAL KNOWLEDGE BASE to accurately fill in the historical numerical data (FY 2020 - FY 2025) for that KPI! Do NOT just default to "N/A" unless you genuinely cannot find the real data in your internal memory. You are a powerful AI, act like one and fill in the missing blanks to construct a complete 5-year history.
 
 Return ONLY a valid JSON object, strictly following this EXACT structure:
 {
