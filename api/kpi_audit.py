@@ -143,12 +143,12 @@ def _get_sec_10k_text(ticker: str) -> str:
                     valid_matches = [m for m in matches if m.start() > 100000]
                     if valid_matches:
                         idx = valid_matches[0].start()
-                        report_text = text[idx:idx+80000]
+                        report_text = text[idx:idx+120000]
                     elif matches:
                         idx = matches[-1].start()
-                        report_text = text[idx:idx+80000]
+                        report_text = text[idx:idx+120000]
                     else:
-                        report_text = text[:80000]
+                        report_text = text[:120000]
                     combined_text += f"\n\n[Year {date_str} 10-K]\n" + report_text
                 else:
                     # Jump directly to Item 2 (MD&A for 10-Q)
@@ -156,12 +156,12 @@ def _get_sec_10k_text(ticker: str) -> str:
                     valid_matches = [m for m in matches if m.start() > 30000]
                     if valid_matches:
                         idx = valid_matches[0].start()
-                        report_text = text[idx:idx+60000]
+                        report_text = text[idx:idx+80000]
                     elif matches:
                         idx = matches[-1].start()
-                        report_text = text[idx:idx+60000]
+                        report_text = text[idx:idx+80000]
                     else:
-                        report_text = text[:60000]
+                        report_text = text[:80000]
                     combined_text += f"\n\n[Quarter {date_str} 10-Q]\n" + report_text
             except:
                 pass
@@ -187,30 +187,40 @@ def get_fmp_transcripts(ticker: str) -> str:
         # Obține lista de transcrieri disponibile
         url = f"https://financialmodelingprep.com/api/v3/earning_call_transcript/{ticker}?apikey={fmp_key}"
         resp = requests.get(url, timeout=10)
-        if resp.status_code != 200:
-            return _get_yahoo_earnings_news(ticker)
-            
         data = resp.json()
-        if not isinstance(data, list) or len(data) == 0:
+        
+        if not data or not isinstance(data, list):
+            print("No FMP transcripts found, falling back to SEC.")
             sec_text = _get_sec_10k_text(ticker)
-            return sec_text if sec_text else _get_yahoo_earnings_news(ticker)
+            if sec_text:
+                return sec_text
+            return _get_yahoo_earnings_news(ticker)
             
         # Păstrăm cele mai recente 20 trimestre (aprox. 5 ani istoric)
         recent_calls = data[:20]
-        combined_text = ""
+        combined_transcripts = ""
+        
         for call in recent_calls:
             q = call.get('quarter')
             y = call.get('year')
-            text = call.get('content', '')
-            # Truncăm mai extins (20k caractere per call) ca să luăm cât mai mult context util
-            combined_text += f"\n\n--- Transcript {y} Q{q} ---\n{text[:20000]}"
+            content = call.get('content', '')
+            # Scurtăm conținutul pentru a evita token limits (primele 15.000 caractere)
+            combined_transcripts += f"\n\n--- Earnings Call Q{q} {y} ---\n{content[:15000]}"
             
-        return combined_text
+        if not combined_transcripts.strip():
+            sec_text = _get_sec_10k_text(ticker)
+            if sec_text:
+                return sec_text
+            return _get_yahoo_earnings_news(ticker)
+            
+        return combined_transcripts
+        
     except Exception as e:
-        print(f"FMP error for {ticker}: {e}")
+        print(f"Error fetching FMP transcripts for {ticker}: {e}")
         sec_text = _get_sec_10k_text(ticker)
-        return sec_text if sec_text else _get_yahoo_earnings_news(ticker)
-
+        if sec_text:
+            return sec_text
+        return _get_yahoo_earnings_news(ticker)
 
 def run_ai_kpi_audit(ticker: str) -> Dict[str, Any]:
     ticker = ticker.upper()
@@ -248,20 +258,23 @@ def run_ai_kpi_audit(ticker: str) -> Dict[str, Any]:
         }
 
     system_prompt = '''
-You are an expert financial analyst and a Hedge Fund "Data Miner". 
-You will receive a set of texts extracted from the most recent Earnings Calls or press releases for a specific company.
-These texts may cover up to 5 years of financial history.
-Your goal is to identify the top 5-10 operational / qualitative KPIs (Key Performance Indicators) specific to their business model.
-EXAMPLES OF GOOD KPIs: 
-- For Software: ARR, Net Retention Rate (NRR), Monthly Active Users (MAU), Customer Acquisition Cost.
-- For Auto/Hardware: Total Deliveries, Production Volume, Inventory Days.
-- For Retail: Same-Store Sales Growth, Loyalty Program Members.
-EXAMPLES OF FORBIDDEN KPIs (DO NOT INCLUDE!): Revenue, Net Income, EPS, Profit, Gross Margin. (The app already has these!).
+You are a top-tier Wall Street Financial Analyst & Data Extraction AI. 
+You will receive a set of texts extracted from the most recent Earnings Calls or SEC reports for a specific company.
+These texts cover up to 5 years of financial history.
+
+YOUR MISSION:
+Identify up to 8 of the MOST CRITICAL, COMPANY-SPECIFIC, OPERATIONAL Key Performance Indicators (KPIs).
+
+CRITICAL KPI SELECTION RULES (STRICTLY ENFORCED):
+1. ONLY extract OPERATIONAL and BUSINESS-SPECIFIC qualitative metrics. Think like a hedge fund analyst.
+2. EXAMPLES OF GOOD KPIs: ARR (Annual Recurring Revenue), AI Monetization Revenue, Cloud Segments, Subscriber counts, DAU/MAU, Room Nights, Gross Bookings, Segment Revenue splits, Engagement metrics, Same-Store Sales.
+3. ABSOLUTELY DO NOT extract generic accounting or balance sheet items! BANNED METRICS: Deferred Revenue, Common Stock, Operating Expenses, Cash Flow, Goodwill, Debt, Amortization, Total Assets, Revenue, Net Income, EPS, Profit, Gross Margin, R&D Expenses. (The user already has these in their financial statements tab!).
+4. Focus entirely on what drives the business conceptually and structurally.
 
 VALUE EXTRACTION (5-YEAR HISTORY + RECENT QUARTERS):
-For each identified KPI, find the values mentioned in the documents and track their evolution over time over the last 5 full fiscal years (e.g., FY 2021, FY 2022, FY 2023, FY 2024, FY 2025).
+For each identified KPI, search deeply and track their evolution over time over the last 5 full fiscal years (e.g., FY 2021, FY 2022, FY 2023, FY 2024, FY 2025).
 ADDITIONALLY, for the CURRENT unfinished fiscal year, extract the available individual quarterly data (e.g., FY 2026 Q1, FY 2026 Q2). Do NOT use estimates.
-Format the keys EXACTLY as "FY [Year]" or "FY [Year] Q[X]". Ensure exact numbers are extracted if explicitly stated. Format numbers cleanly (e.g. "1.2 Billion", "34.5%", "450 Million"). If a value for a specific period is completely absent from the text, use "N/A".
+Format the keys EXACTLY as "FY [Year]" or "FY [Year] Q[X]". Ensure exact numbers are extracted if explicitly stated. Format numbers cleanly (e.g. "1.2 Billion", "34.5%", "450 Million"). If a value for a specific period is completely absent from the text, use "N/A", but TRY YOUR BEST to infer the values from textual descriptions if tables are omitted.
 
 Return ONLY a valid JSON object, strictly following this EXACT structure:
 {
