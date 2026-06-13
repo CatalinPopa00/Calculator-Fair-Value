@@ -8069,7 +8069,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             resultsEl.style.display = 'block';
         } catch (err) {
             console.error("AI KPI Audit Error:", err);
-            errorEl.textContent = "Failed to run AI Audit: " + err.message;
+            let displayMsg = err.message;
+            if (!displayMsg || displayMsg === 'true' || displayMsg.includes('Unexpected')) {
+                displayMsg = "Conexiunea cu serverul s-a întrerupt. Încearcă din nou în câteva secunde.";
+            }
+            errorEl.textContent = "Failed to run AI Audit: " + displayMsg;
             errorEl.style.display = 'block';
         } finally {
             loadingEl.style.display = 'none';

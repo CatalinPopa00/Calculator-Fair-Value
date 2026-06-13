@@ -151,10 +151,10 @@ def _get_sec_10k_text(ticker: str) -> str:
                     # Find end boundary Item 8
                     matches_end = list(re.finditer(r'(?i)Item\s*8[\.\:]?\s*Financial', text))
                     valid_end = [m for m in matches_end if m.start() > idx]
-                    if valid_end and valid_end[0].start() - idx < 60000:
+                    if valid_end and valid_end[0].start() - idx < 20000:
                         report_text = text[idx:valid_end[0].start()]
                     else:
-                        report_text = text[idx:idx+60000]
+                        report_text = text[idx:idx+20000]
                         
                     combined_text += f"\n\n[Year {date_str} 10-K]\n" + report_text
                 else:
@@ -171,10 +171,10 @@ def _get_sec_10k_text(ticker: str) -> str:
                     # Find end boundary Item 3
                     matches_end = list(re.finditer(r'(?i)Item\s*3[\.\:]?\s*Quantitative', text))
                     valid_end = [m for m in matches_end if m.start() > idx]
-                    if valid_end and valid_end[0].start() - idx < 40000:
+                    if valid_end and valid_end[0].start() - idx < 10000:
                         report_text = text[idx:valid_end[0].start()]
                     else:
-                        report_text = text[idx:idx+40000]
+                        report_text = text[idx:idx+10000]
                         
                     combined_text += f"\n\n[Year {date_str} 10-Q]\n" + report_text
             except:
