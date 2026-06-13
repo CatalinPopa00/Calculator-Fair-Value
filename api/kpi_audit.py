@@ -243,6 +243,7 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
         data = None
         error_msg = "Unknown Error"
 
+        all_errors = []
         for model in models_to_try:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
             resp = requests.post(url, headers=headers, json=payload, timeout=55)
@@ -258,10 +259,11 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
                         error_msg = error_data["error"]["message"]
                 except:
                     pass
+                all_errors.append(f"{model}: {error_msg}")
                 print(f"Model {model} failed for {ticker}: {error_msg}. Trying next...")
 
         if not data:
-            return {"error": True, "detail": f"Gemini API Error (all models failed): {error_msg}"}
+            return {"error": True, "detail": f"Gemini API Error (all models failed): " + " | ".join(all_errors)}
 
 
         if "candidates" not in data or not data["candidates"]:
