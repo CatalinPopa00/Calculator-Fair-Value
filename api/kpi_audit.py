@@ -118,8 +118,17 @@ def _get_sec_10k_text(ticker: str) -> str:
                 # Fast HTML stripping using regex to prevent Vercel Serverless Function timeouts
                 text = re.sub(r'<[^>]+>', ' ', doc_resp.text)
                 text = re.sub(r'\s+', ' ', text).strip()
-                # 400k characters per report ensures we capture Item 7 (MD&A) which is often past index 200,000
-                combined_text += f"\n\n[Year {year} 10-K]\n" + text[:400000]
+                
+                # Smart extraction: Jump directly to Item 7 (MD&A) to save massive amounts of tokens
+                # This prevents hitting the Gemini Free Tier limit of 250k tokens per minute!
+                matches = list(re.finditer(r'(?i)Item\s*7[\.\:]?\s*Management', text))
+                if matches:
+                    idx = matches[-1].start()
+                    report_text = text[idx:idx+80000]
+                else:
+                    report_text = text[:80000]
+                    
+                combined_text += f"\n\n[Year {year} 10-K]\n" + report_text
             except:
                 pass
 
