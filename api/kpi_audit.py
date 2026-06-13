@@ -156,7 +156,7 @@ def run_ai_kpi_audit(ticker: str) -> Dict[str, Any]:
         return audit_cache[ticker]
         
     # 2. Try persistent Redis (Upstash) cache
-    redis_key = f"ai_kpi_audit_v2_{ticker}"
+    redis_key = f"ai_kpi_audit_v3_{ticker}"
     cached_data = kv_get(redis_key)
     if cached_data:
         audit_cache[ticker] = cached_data
@@ -189,10 +189,11 @@ EXAMPLES OF GOOD KPIs:
 - For Retail: Same-Store Sales Growth, Loyalty Program Members.
 EXAMPLES OF FORBIDDEN KPIs (DO NOT INCLUDE!): Revenue, Net Income, EPS, Profit, Gross Margin. (The app already has these!).
 
-VALUE EXTRACTION (5-YEAR HISTORY):
-For each identified KPI, find the values mentioned in the documents and track their evolution over time, over the last 5 years (by periods - e.g., FY 2020, FY 2021, FY 2022, Q1 2023, Q4 2023, etc).
-Also, if you detect future estimates (Guidance), add them as future periods (e.g., FY 2025 Est.).
-If you cannot find exact values for certain older historical periods, do not add them or put "N/A".
+CRITICAL EXTRACTION INSTRUCTION (5-YEAR HISTORY):
+You are receiving concatenated transcripts spanning the LAST 5 YEARS. DO NOT stop reading after the first document. You MUST process the ENTIRE provided text.
+For each identified KPI, you MUST meticulously dig through the older transcripts provided to find and populate the historical values for the past 5 years (e.g., FY 2020, FY 2021, FY 2022, 2023, 2024, etc).
+If you detect future estimates (Guidance), add them as future periods (e.g., FY 2025 Est.).
+Only use "N/A" if the metric was definitively not reported in the older transcripts provided. Do not be lazy.
 
 Return ONLY a valid JSON object, strictly following this EXACT structure:
 {
