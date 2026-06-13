@@ -36,4 +36,5 @@ tzdata==2025.3
 urllib3==2.6.3
 uvicorn==0.41.0
 websockets==16.0
-yfinance>=0.2.50python-dotenv
+yfinance>=0.2.50
+python-dotenv
