@@ -7956,9 +7956,43 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     const chartData = periods.map(p => parseKpiValue(vals[p]));
                     const formattedTooltips = periods.map(p => vals[p]);
 
-                    const ctx = document.getElementById('kpi-chart').getContext('2d');
+                    const chartCanvas = document.getElementById('kpi-chart');
+                    const ctx = chartCanvas.getContext('2d');
                     if (window.kpiChartInstance) {
                         window.kpiChartInstance.destroy();
+                    }
+
+                    // Check if we have valid plottable data
+                    const hasValidData = chartData.some(v => v !== null && v !== undefined && !isNaN(v));
+
+                    if (!hasValidData || periods.length === 0) {
+                        chartCanvas.style.display = 'none';
+                        let noDataMsg = document.getElementById('kpi-no-data-msg');
+                        if (!noDataMsg) {
+                            noDataMsg = document.createElement('div');
+                            noDataMsg.id = 'kpi-no-data-msg';
+                            noDataMsg.style.position = 'absolute';
+                            noDataMsg.style.top = '0';
+                            noDataMsg.style.left = '0';
+                            noDataMsg.style.width = '100%';
+                            noDataMsg.style.height = '100%';
+                            noDataMsg.style.display = 'flex';
+                            noDataMsg.style.flexDirection = 'column';
+                            noDataMsg.style.alignItems = 'center';
+                            noDataMsg.style.justifyContent = 'center';
+                            noDataMsg.style.color = 'rgba(255,255,255,0.5)';
+                            noDataMsg.style.textAlign = 'center';
+                            noDataMsg.style.padding = '20px';
+                            chartCanvas.parentElement.appendChild(noDataMsg);
+                        }
+                        noDataMsg.style.display = 'flex';
+                        const firstMention = Object.values(vals)[0] || 'N/A';
+                        noDataMsg.innerHTML = `<span style="font-size: 1.5rem; margin-bottom: 10px;">📉</span><i>Numerical history could not be plotted for this KPI.</i><br><span style="margin-top: 10px; font-size: 0.9rem;">Most recent mention: <strong style="color:var(--accent);">${firstMention}</strong></span>`;
+                        return; // Skip rendering chart
+                    } else {
+                        chartCanvas.style.display = 'block';
+                        const noDataMsg = document.getElementById('kpi-no-data-msg');
+                        if (noDataMsg) noDataMsg.style.display = 'none';
                     }
 
                     window.kpiChartInstance = new Chart(ctx, {
