@@ -96,11 +96,11 @@ def run_ai_kpi_audit(ticker: str) -> Dict[str, Any]:
     if ticker in audit_cache:
         return audit_cache[ticker]
         
-    openai_key = os.getenv("OPENAI_API_KEY")
-    if not openai_key:
+    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("OPENAI_API_KEY")
+    if not api_key:
         return {
             "error": True, 
-            "detail": "Cheia OPENAI_API_KEY lipsește din backend. Nu putem apela AI-ul pentru audit. Te rog adaugă-o în fișierul .env."
+            "detail": "Cheia API (GEMINI_API_KEY) lipsește. Te rog adaugă-o în fișierul .env sau pe Vercel."
         }
         
     if not OpenAI:
@@ -115,8 +115,11 @@ def run_ai_kpi_audit(ticker: str) -> Dict[str, Any]:
             "detail": f"Nu am putut găsi suficiente rapoarte financiare recente sau press releases pentru {ticker}."
         }
 
-    # 2. Apelăm OpenAI LLM
-    client = OpenAI(api_key=openai_key)
+    # 2. Apelăm AI-ul prin OpenAI SDK către serverul de Gemini
+    client = OpenAI(
+        api_key=api_key,
+        base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
+    )
     
     system_prompt = '''
 Ești un analist financiar expert și un "Data Miner" de tip Hedge Fund. 
@@ -152,7 +155,7 @@ Returnează DOAR un obiect JSON valid, respectând această structură EXACTĂ:
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gemini-2.5-flash",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"Aici sunt textele pentru {ticker}:\n\n{raw_text}"}
@@ -169,5 +172,5 @@ Returnează DOAR un obiect JSON valid, respectând această structură EXACTĂ:
         return parsed_result
         
     except Exception as e:
-        print(f"OpenAI Error for {ticker}: {e}")
+        print(f"Gemini/OpenAI Error for {ticker}: {e}")
         return {"error": True, "detail": f"Eroare la procesarea AI: {str(e)}"}
