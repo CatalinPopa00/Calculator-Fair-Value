@@ -7989,7 +7989,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                             },
                             scales: {
                                 y: {
-                                    beginAtZero: false,
+                                    beginAtZero: true,
                                     grid: { color: 'rgba(255,255,255,0.05)' },
                                     ticks: {
                                         color: 'rgba(255,255,255,0.5)',

@@ -80,14 +80,14 @@ def _get_sec_10k_text(ticker: str) -> str:
         sub_data = sub_resp.json()
         recent = sub_data.get('filings', {}).get('recent', {})
 
-        # 3. Find up to 3 latest 10-Ks to guarantee full 5-year coverage
+        # 3. Find up to 5 latest 10-Ks to guarantee full 5-year coverage
         doc_urls = []
         for i, form in enumerate(recent.get('form', [])):
             if form == '10-K':
                 acc_no = recent['accessionNumber'][i].replace('-', '')
                 doc = recent['primaryDocument'][i]
                 doc_urls.append((recent['reportDate'][i][:4], f'https://www.sec.gov/Archives/edgar/data/{cik}/{acc_no}/{doc}'))
-                if len(doc_urls) >= 3:
+                if len(doc_urls) >= 5:
                     break
 
         if not doc_urls:
@@ -102,8 +102,8 @@ def _get_sec_10k_text(ticker: str) -> str:
                 # Fast HTML stripping using regex to prevent Vercel Serverless Function timeouts
                 text = re.sub(r'<[^>]+>', ' ', doc_resp.text)
                 text = re.sub(r'\s+', ' ', text).strip()
-                # 80k characters per report should easily cover Item 1 (Business) and Item 7 (MD&A)
-                combined_text += f"\n\n[Year {year} 10-K]\n" + text[:80000]
+                # 150k characters per report should easily cover Item 1 (Business) and Item 7 (MD&A)
+                combined_text += f"\n\n[Year {year} 10-K]\n" + text[:150000]
             except:
                 pass
 
