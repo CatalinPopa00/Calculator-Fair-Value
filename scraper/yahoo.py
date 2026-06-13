@@ -3375,7 +3375,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                             "long_term_debt": get_val(bs, ['Long Term Debt', 'Total Long Term Debt'], col_curr),
                             "cfo": get_val(cashflow, ['Operating Cash Flow', 'Total Cash From Operating Activities'], col_curr),
                             "net_income_cont": get_val(financials, ['Net Income From Continuing Ops', 'Net Income', 'Net Income Common Stockholders'], col_curr),
-                            "net_income": info.get('netIncomeToCommon') or get_val(financials, ['Net Income', 'Net Income Common Stockholders'], col_curr)
+                            "net_income": info.get('netIncomeToCommon') or get_val(financials, ['Net Income', 'Net Income Common Stockholders'], col_curr),
+                            "securities": get_val(bs, ['Available For Sale Securities', 'Other Short Term Investments', 'Other Investments', 'Investmentin Financial Assets', 'Long Term Equity Investment', 'Investments And Advances'], col_curr)
                         },
                         "prev": {
                             "net_receivables": get_val(bs, ['Net Receivables', 'Accounts Receivable'], col_prev),
@@ -3387,7 +3388,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                             "depreciation": get_val(cashflow, ['Depreciation And Amortization', 'Depreciation'], col_prev) or get_val(financials, ['Reconciled Depreciation'], col_prev),
                             "sga": get_val(financials, ['Selling General And Administration', 'SG&A'], col_prev),
                             "current_liabilities": get_val(bs, ['Total Current Liabilities', 'Current Liabilities'], col_prev),
-                            "long_term_debt": get_val(bs, ['Long Term Debt', 'Total Long Term Debt'], col_prev)
+                            "long_term_debt": get_val(bs, ['Long Term Debt', 'Total Long Term Debt'], col_prev),
+                            "securities": get_val(bs, ['Available For Sale Securities', 'Other Short Term Investments', 'Other Investments', 'Investmentin Financial Assets', 'Long Term Equity Investment', 'Investments And Advances'], col_prev)
                         }
                     }
         except Exception as e_beneish:
