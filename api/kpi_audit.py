@@ -342,10 +342,10 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
         # Try Gemini if OpenAI failed or wasn't configured
         if not result_content and gemini_key:
             models_to_try = [
+                "gemini-3.5-flash",
+                "gemini-2.5-flash",
                 "gemini-2.0-flash",
-                "gemini-1.5-flash-latest",
-                "gemini-1.5-pro-latest",
-                "gemini-pro"
+                "gemini-flash-latest"
             ]
             headers = {"Content-Type": "application/json"}
             payload = {
