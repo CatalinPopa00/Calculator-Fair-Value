@@ -98,7 +98,7 @@ def run_ai_kpi_audit(ticker: str) -> Dict[str, Any]:
     if ticker in audit_cache:
         return audit_cache[ticker]
         
-    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("OPENAI_API_KEY")
+    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("OPENAI_API_KEY") or os.getenv("gemini")
     if not api_key:
         return {
             "error": True, 

@@ -7842,7 +7842,12 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 });
                 
                 if (!res.ok) {
-                    throw new Error(`Audit failed: ${res.statusText}`);
+                    let errText = res.statusText;
+                    try {
+                        const errData = await res.json();
+                        if (errData && errData.detail) errText = errData.detail;
+                    } catch (e) {}
+                    throw new Error(errText);
                 }
                 
                 const data = await res.json();
