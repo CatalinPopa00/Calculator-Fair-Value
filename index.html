@@ -1026,10 +1026,10 @@
                                     <h3 class="research-title collapsible-trigger" data-card="historical-anchors" style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin: 0; width: 100%;">
                                         Historical Anchors & Trends
                                         
-                                        <!-- Tabs for Carousel -->
-                                        <div class="hist-tabs" style="display: flex; gap: 8px; margin-left: auto; margin-right: 15px;" onclick="event.stopPropagation();">
-                                            <button id="tab-financials" class="hist-tab active" style="background: rgba(0, 210, 255, 0.2); color: #00d2ff; border: 1px solid #00d2ff; border-radius: 4px; padding: 4px 12px; font-size: 0.8rem; cursor: pointer; transition: 0.2s;">Financials</button>
-                                            <button id="tab-ai-kpis" class="hist-tab" style="background: transparent; color: var(--text-muted); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; padding: 4px 12px; font-size: 0.8rem; cursor: pointer; transition: 0.2s;">✨ AI KPIs Audit</button>
+                                        <!-- Premium Tabs for Carousel -->
+                                        <div class="hist-tabs-container" style="display: flex; gap: 4px; margin-left: auto; margin-right: 15px; background: rgba(0,0,0,0.2); padding: 4px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);" onclick="event.stopPropagation();">
+                                            <button id="tab-financials" class="hist-tab active" style="background: rgba(0, 210, 255, 0.15); color: #00d2ff; border: 1px solid rgba(0, 210, 255, 0.4); border-radius: 6px; padding: 6px 14px; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 0 10px rgba(0,210,255,0.1);">📊 Financials</button>
+                                            <button id="tab-ai-kpis" class="hist-tab" style="background: transparent; color: var(--text-muted); border: 1px solid transparent; border-radius: 6px; padding: 6px 14px; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease;">✨ AI Audit</button>
                                         </div>
 
                                         <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
@@ -1109,21 +1109,25 @@
                                                 track.style.transform = `translateX(-${index * 50}%)`;
                                                 
                                                 if (index === 0) {
-                                                    tabFin.style.background = 'rgba(0, 210, 255, 0.2)';
+                                                    tabFin.style.background = 'rgba(0, 210, 255, 0.15)';
                                                     tabFin.style.color = '#00d2ff';
-                                                    tabFin.style.borderColor = '#00d2ff';
+                                                    tabFin.style.borderColor = 'rgba(0, 210, 255, 0.4)';
+                                                    tabFin.style.boxShadow = '0 0 10px rgba(0,210,255,0.1)';
                                                     
                                                     tabAI.style.background = 'transparent';
                                                     tabAI.style.color = 'var(--text-muted)';
-                                                    tabAI.style.borderColor = 'rgba(255,255,255,0.2)';
+                                                    tabAI.style.borderColor = 'transparent';
+                                                    tabAI.style.boxShadow = 'none';
                                                 } else {
-                                                    tabAI.style.background = 'rgba(139, 92, 246, 0.2)';
+                                                    tabAI.style.background = 'rgba(139, 92, 246, 0.15)';
                                                     tabAI.style.color = '#c084fc';
-                                                    tabAI.style.borderColor = '#c084fc';
+                                                    tabAI.style.borderColor = 'rgba(139, 92, 246, 0.4)';
+                                                    tabAI.style.boxShadow = '0 0 10px rgba(139,92,246,0.1)';
                                                     
                                                     tabFin.style.background = 'transparent';
                                                     tabFin.style.color = 'var(--text-muted)';
-                                                    tabFin.style.borderColor = 'rgba(255,255,255,0.2)';
+                                                    tabFin.style.borderColor = 'transparent';
+                                                    tabFin.style.boxShadow = 'none';
                                                 }
                                             };
 

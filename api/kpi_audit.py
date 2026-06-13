@@ -11,10 +11,7 @@ try:
 except ImportError:
     pass
 
-try:
-    from openai import OpenAI
-except ImportError:
-    OpenAI = None
+
 
 # Cache rezultate audit (valabil 7 zile, se schimbă doar trimestrial)
 audit_cache = TTLCache(maxsize=200, ttl=86400 * 7)
@@ -102,11 +99,8 @@ def run_ai_kpi_audit(ticker: str) -> Dict[str, Any]:
     if not api_key:
         return {
             "error": True, 
-            "detail": "Cheia API (GEMINI_API_KEY) lipsește. Te rog adaugă-o în fișierul .env sau pe Vercel."
+            "detail": "Cheia API Gemini lipsește. Te rog adaugă variabila 'gemini' sau 'GEMINI_API_KEY' în panoul Vercel."
         }
-        
-    if not OpenAI:
-        return {"error": True, "detail": "Librăria OpenAI nu este instalată. Rulează `pip install openai`."}
 
     # 1. Obținem textele din rapoarte (Transcripts / Press Releases)
     raw_text = get_fmp_transcripts(ticker)
@@ -117,12 +111,6 @@ def run_ai_kpi_audit(ticker: str) -> Dict[str, Any]:
             "detail": f"Nu am putut găsi suficiente rapoarte financiare recente sau press releases pentru {ticker}."
         }
 
-    # 2. Apelăm AI-ul prin OpenAI SDK către serverul de Gemini
-    client = OpenAI(
-        api_key=api_key,
-        base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
-    )
-    
     system_prompt = '''
 Ești un analist financiar expert și un "Data Miner" de tip Hedge Fund. 
 Vei primi un set de texte extrase din cele mai recente apeluri de venituri (Earnings Calls) sau comunicate de presă pentru o anumită companie.
@@ -155,24 +143,53 @@ Returnează DOAR un obiect JSON valid, respectând această structură EXACTĂ:
 }
 '''
 
+    # 2. Apelăm API-ul Gemini nativ prin requests (fără SDK extern pentru a evita probleme de instalare pe Vercel)
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+    
+    headers = {
+        "Content-Type": "application/json"
+    }
+    
+    payload = {
+        "systemInstruction": {
+            "parts": [{"text": system_prompt}]
+        },
+        "contents": [{
+            "parts": [{"text": f"Aici sunt textele pentru {ticker}:\n\n{raw_text}"}]
+        }],
+        "generationConfig": {
+            "temperature": 0.2,
+            "responseMimeType": "application/json"
+        }
+    }
+
     try:
-        response = client.chat.completions.create(
-            model="gemini-2.5-flash",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Aici sunt textele pentru {ticker}:\n\n{raw_text}"}
-            ],
-            response_format={ "type": "json_object" },
-            temperature=0.2
-        )
+        resp = requests.post(url, headers=headers, json=payload, timeout=30)
         
-        result_content = response.choices[0].message.content
+        if resp.status_code != 200:
+            error_msg = resp.text
+            try:
+                error_data = resp.json()
+                if "error" in error_data and "message" in error_data["error"]:
+                    error_msg = error_data["error"]["message"]
+            except:
+                pass
+            return {"error": True, "detail": f"Gemini API Error: {error_msg}"}
+            
+        data = resp.json()
+        
+        if "candidates" not in data or not data["candidates"]:
+            return {"error": True, "detail": "Gemini a returnat un răspuns gol."}
+            
+        result_content = data["candidates"][0]["content"]["parts"][0]["text"]
         parsed_result = json.loads(result_content)
         
         # Salvare în cache
         audit_cache[ticker] = parsed_result
         return parsed_result
         
+    except json.JSONDecodeError:
+        return {"error": True, "detail": "Gemini nu a returnat un format JSON valid. Încearcă din nou."}
     except Exception as e:
-        print(f"Gemini/OpenAI Error for {ticker}: {e}")
+        print(f"Gemini API Error for {ticker}: {e}")
         return {"error": True, "detail": f"Eroare la procesarea AI: {str(e)}"}
