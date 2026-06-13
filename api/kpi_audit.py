@@ -241,6 +241,13 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
             return {"error": True, "detail": "Gemini returned an empty response."}
             
         result_content = data["candidates"][0]["content"]["parts"][0]["text"]
+
+        # Clean markdown formatting if present (e.g. ```json ... ```)
+        result_content = result_content.strip()
+        if result_content.startswith("```"):
+            import re
+            result_content = re.sub(r"^```(?:json)?\s*", "", result_content)
+            result_content = re.sub(r"\s*```$", "", result_content)
         parsed_result = json.loads(result_content)
         
         # Salvare în cache
