@@ -200,9 +200,11 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
       "name": "KPI Name (e.g., Monthly Active Users)",
       "description": "What it represents and why it is important for this company.",
       "values": {
-        "Q3 2023": "2.5M",
-        "Q4 2023": "2.8M",
-        "Q1 2024": "3.1M"
+        "FY 2020": "1.5M",
+        "FY 2021": "1.8M",
+        "FY 2022": "2.2M",
+        "FY 2023": "2.8M",
+        "FY 2024": "3.1M"
       }
     }
   ]
@@ -212,9 +214,12 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
     # 2. Apelăm API-ul Gemini nativ prin requests (fără SDK extern pentru a evita probleme de instalare pe Vercel)
     # Folosim fallback pentru modele
     models_to_try = [
-        "gemini-2.0-flash",
+        "gemini-1.5-pro-latest",
+        "gemini-1.5-flash-latest",
+        "gemini-1.5-pro",
         "gemini-1.5-flash",
-        "gemini-1.5-pro"
+        "gemini-1.0-pro",
+        "gemini-pro"
     ]
     
     headers = {
