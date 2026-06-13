@@ -126,12 +126,15 @@ def _get_sec_10k_text(ticker: str) -> str:
 
         # 4. Fetch HTML and extract text
         import re
+        import html
         combined_text = f"\n\n--- SEC Reports for {ticker} ---\n"
         for form_type, date_str, doc_url in doc_urls:
             try:
                 doc_resp = requests.get(doc_url, headers=headers, timeout=10)
+                # Unescape HTML entities (like &#160; for spaces) before stripping tags!
+                text = html.unescape(doc_resp.text)
                 # Fast HTML stripping using regex to prevent Vercel Serverless Function timeouts
-                text = re.sub(r'<[^>]+>', ' ', doc_resp.text)
+                text = re.sub(r'<[^>]+>', ' ', text)
                 text = re.sub(r'\s+', ' ', text).strip()
                 
                 if form_type == '10-K':
