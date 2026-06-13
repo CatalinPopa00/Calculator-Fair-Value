@@ -100,8 +100,8 @@ def _get_sec_10k_text(ticker: str) -> str:
         text = re.sub(r'<[^>]+>', ' ', doc_resp.text)
         text = re.sub(r'\s+', ' ', text).strip()
         
-        # 10-K can be huge. The MD&A and Financials are usually in the first half. We take the first 300,000 characters.
-        return f"\n\n--- SEC 10-K Report ({ticker}) ---\n" + text[:300000]
+        # 10-K can be huge. The MD&A and Financials are usually in the first half. We take the first 200,000 characters.
+        return f"\n\n--- SEC 10-K Report ({ticker}) ---\n" + text[:200000]
 
     except Exception as e:
         print(f"Error fetching SEC 10-K for {ticker}: {e}")
@@ -223,7 +223,7 @@ Returnează DOAR un obiect JSON valid, respectând această structură EXACTĂ:
     }
 
     try:
-        resp = requests.post(url, headers=headers, json=payload, timeout=30)
+        resp = requests.post(url, headers=headers, json=payload, timeout=55)
         
         if resp.status_code != 200:
             error_msg = resp.text
