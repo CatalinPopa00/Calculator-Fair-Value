@@ -213,8 +213,8 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
 }
 '''
 
-    # 2. Apelăm API-ul Gemini nativ prin requests (fără SDK extern pentru a evita probleme de instalare pe Vercel)
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
+    # 2. Apelăm API-ul Gemini nativ prin requests. Folosim un fallback de modele pentru a depăși limitele de cotă (429)
+    models = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
     
     headers = {
         "Content-Type": "application/json"
@@ -233,43 +233,67 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
         }
     }
 
-    try:
-        resp = requests.post(url, headers=headers, json=payload, timeout=55)
-        
-        if resp.status_code != 200:
-            error_msg = resp.text
-            try:
-                error_data = resp.json()
-                if "error" in error_data and "message" in error_data["error"]:
-                    error_msg = error_data["error"]["message"]
-            except:
-                pass
-            return {"error": True, "detail": f"Gemini API Error: {error_msg}"}
-            
-        data = resp.json()
-        
-        if "candidates" not in data or not data["candidates"]:
-            return {"error": True, "detail": "Gemini returned an empty response."}
-            
-        result_content = data["candidates"][0]["content"]["parts"][0]["text"]
+    last_error_msg = None
 
-        # Clean markdown formatting if present (e.g. ```json ... ```)
-        result_content = result_content.strip()
-        if result_content.startswith("```"):
-            import re
-            result_content = re.sub(r"^```(?:json)?\s*", "", result_content)
-            result_content = re.sub(r"\s*```$", "", result_content)
-        parsed_result = json.loads(result_content)
-        
-        # Salvare în cache
-        audit_cache[ticker] = parsed_result
-        # Save to Redis for 30 days
-        kv_set(redis_key, parsed_result, ex=2592000)
+    for model in models:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+        try:
+            resp = requests.post(url, headers=headers, json=payload, timeout=55)
+            
+            if resp.status_code == 429:
+                # Extragem mesajul de eroare pentru 429
+                error_msg = resp.text
+                try:
+                    error_data = resp.json()
+                    if "error" in error_data and "message" in error_data["error"]:
+                        error_msg = error_data["error"]["message"]
+                except:
+                    pass
+                last_error_msg = f"Model {model} limit hit: {error_msg}"
+                print(f"Rate limit (429) for {model}. Trying next model...")
+                continue # Try the next model
 
-        return parsed_result
-        
-    except json.JSONDecodeError:
-        return {"error": True, "detail": "Gemini nu a returnat un format JSON valid. Încearcă din nou."}
-    except Exception as e:
-        print(f"Gemini API Error for {ticker}: {e}")
-        return {"error": True, "detail": f"Eroare la procesarea AI: {str(e)}"}
+            if resp.status_code != 200:
+                error_msg = resp.text
+                try:
+                    error_data = resp.json()
+                    if "error" in error_data and "message" in error_data["error"]:
+                        error_msg = error_data["error"]["message"]
+                except:
+                    pass
+                return {"error": True, "detail": f"Gemini API Error ({model}): {error_msg}"}
+
+            data = resp.json()
+            
+            if "candidates" not in data or not data["candidates"]:
+                return {"error": True, "detail": f"Gemini ({model}) returned an empty response."}
+
+            result_content = data["candidates"][0]["content"]["parts"][0]["text"]
+
+            # Clean markdown formatting if present (e.g. ```json ... ```)
+            result_content = result_content.strip()
+            if result_content.startswith("```"):
+                import re
+                result_content = re.sub(r"^```(?:json)?\s*", "", result_content)
+                result_content = re.sub(r"\s*```$", "", result_content)
+            parsed_result = json.loads(result_content)
+
+            # Salvare în cache
+            audit_cache[ticker] = parsed_result
+            # Save to Redis for 30 days
+            kv_set(redis_key, parsed_result, ex=2592000)
+
+            return parsed_result
+
+        except requests.exceptions.RequestException as e:
+            last_error_msg = f"Network error for {model}: {str(e)}"
+            print(last_error_msg)
+            continue # Try next model if timeout or connection error
+        except json.JSONDecodeError:
+            return {"error": True, "detail": "Gemini nu a returnat un format JSON valid. Încearcă din nou."}
+        except Exception as e:
+            print(f"Gemini API Error for {ticker} using {model}: {e}")
+            return {"error": True, "detail": f"Eroare la procesarea AI ({model}): {str(e)}"}
+
+    # If all models failed
+    return {"error": True, "detail": f"Toate modelele AI au eșuat. Ultima eroare: {last_error_msg}"}
