@@ -132,14 +132,14 @@ def get_fmp_transcripts(ticker: str) -> str:
             return sec_text if sec_text else _get_yahoo_earnings_news(ticker)
             
         # Păstrăm cele mai recente 20 trimestre (aprox. 5 ani istoric)
-        recent_calls = data[:20]
+        recent_calls = data[:12]
         combined_text = ""
         for call in recent_calls:
             q = call.get('quarter')
             y = call.get('year')
             text = call.get('content', '')
             # Truncăm mai extins (20k caractere per call) ca să luăm cât mai mult context util
-            combined_text += f"\n\n--- Transcript {y} Q{q} ---\n{text[:35000]}"
+            combined_text += f"\n\n--- Transcript {y} Q{q} ---\n{text[:25000]}"
             
         return combined_text
     except Exception as e:
@@ -156,7 +156,7 @@ def run_ai_kpi_audit(ticker: str) -> Dict[str, Any]:
         return audit_cache[ticker]
         
     # 2. Try persistent Redis (Upstash) cache
-    redis_key = f"ai_kpi_audit_v3_{ticker}"
+    redis_key = f"ai_kpi_audit_v4_{ticker}"
     cached_data = kv_get(redis_key)
     if cached_data:
         audit_cache[ticker] = cached_data
@@ -214,7 +214,7 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
 '''
 
     # 2. Apelăm API-ul Gemini nativ prin requests (fără SDK extern pentru a evita probleme de instalare pe Vercel)
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
     
     headers = {
         "Content-Type": "application/json"
