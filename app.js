@@ -5031,6 +5031,17 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         watchlistView.style.display = 'none';
         dashboard.style.display = 'block';
 
+        // Auto-load AI KPI Audit if we have previously loaded it
+        if (typeof window.displayAiKpiAudit === 'function' && currentTicker) {
+            try {
+                let cachedList = JSON.parse(localStorage.getItem('kpiAuditCacheList') || '[]');
+                if (cachedList.includes(currentTicker)) {
+                    // It was loaded before, load it again silently (without forcing network)
+                    window.displayAiKpiAudit(currentTicker, false);
+                }
+            } catch(e) {}
+        }
+
         // Show deep research section (hidden by default to prevent empty state on page load)
         const deepResearch = document.getElementById('deep-research-section');
         if (deepResearch) deepResearch.style.display = '';
@@ -7815,37 +7826,42 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
     // --- AI KPI AUDIT LOGIC ---
     const runKpiAuditBtn = document.getElementById('run-kpi-audit-btn');
-    if (runKpiAuditBtn) {
-        runKpiAuditBtn.addEventListener('click', async () => {
-            if (!globalData || !globalData.ticker) {
-                alert("Please analyze a company first before running an audit.");
-                return;
-            }
-            
-            const ticker = globalData.ticker;
-            const loadingEl = document.getElementById('ai-audit-loading');
-            const errorEl = document.getElementById('ai-audit-error');
-            const resultsEl = document.getElementById('ai-audit-results');
-            const summaryEl = document.getElementById('ai-audit-summary');
-            
-            const kpiTitleEl = document.getElementById('kpi-current-title');
-            const kpiDescEl = document.getElementById('kpi-current-desc');
-            const kpiCounterEl = document.getElementById('kpi-counter');
-            const kpiPrevBtn = document.getElementById('kpi-prev-btn');
-            const kpiNextBtn = document.getElementById('kpi-next-btn');
-            const kpiDotsEl = document.getElementById('kpi-dots');
 
+    window.displayAiKpiAudit = async function(ticker, forceNetwork = false) {
+        const loadingEl = document.getElementById('ai-audit-loading');
+        const errorEl = document.getElementById('ai-audit-error');
+        const resultsEl = document.getElementById('ai-audit-results');
+        const summaryEl = document.getElementById('ai-audit-summary');
+
+        const kpiTitleEl = document.getElementById('kpi-current-title');
+        const kpiDescEl = document.getElementById('kpi-current-desc');
+        const kpiCounterEl = document.getElementById('kpi-counter');
+        const kpiPrevBtn = document.getElementById('kpi-prev-btn');
+        const kpiNextBtn = document.getElementById('kpi-next-btn');
+        const kpiDotsEl = document.getElementById('kpi-dots');
+
+        if (runKpiAuditBtn) {
             runKpiAuditBtn.disabled = true;
             runKpiAuditBtn.style.opacity = '0.5';
-            loadingEl.style.display = 'block';
-            errorEl.style.display = 'none';
-            resultsEl.style.display = 'none';
-            
+        }
+        loadingEl.style.display = 'block';
+        errorEl.style.display = 'none';
+        resultsEl.style.display = 'none';
+
+        try {
+            let data = null;
+            let cachedList = [];
             try {
-                const res = await fetch(`/api/ai-kpi-audit/${ticker}`, {
-                    method: 'POST'
-                });
-                
+                cachedList = JSON.parse(localStorage.getItem('kpiAuditCacheList') || '[]');
+            } catch(e) {}
+
+            if (!forceNetwork && cachedList.includes(ticker)) {
+                const res = await fetch(`/api/ai-kpi-audit/${ticker}`, { method: 'POST' });
+                if (res.ok) {
+                    data = await res.json();
+                }
+            } else if (forceNetwork) {
+                const res = await fetch(`/api/ai-kpi-audit/${ticker}`, { method: 'POST' });
                 if (!res.ok) {
                     let errText = res.statusText;
                     try {
@@ -7854,150 +7870,177 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     } catch (e) {}
                     throw new Error(errText);
                 }
+                data = await res.json();
                 
-                const data = await res.json();
-                
-                if (data.error) {
-                    throw new Error(data.error);
+                if (!data.error && !cachedList.includes(ticker)) {
+                    cachedList.push(ticker);
+                    localStorage.setItem('kpiAuditCacheList', JSON.stringify(cachedList));
                 }
+            }
 
-                // Render Summary
-                if (data.summary) {
-                    summaryEl.textContent = data.summary;
-                } else {
-                    summaryEl.textContent = "AI Audit completed successfully.";
+            if (!data) {
+                loadingEl.style.display = 'none';
+                if (runKpiAuditBtn) {
+                    runKpiAuditBtn.disabled = false;
+                    runKpiAuditBtn.style.opacity = '1';
                 }
+                return;
+            }
 
-                if (data.kpis && data.kpis.length > 0) {
-                    let currentKpiIndex = 0;
-                    let kpiChartInstance = null;
+            if (data.error) {
+                throw new Error(data.error);
+            }
 
-                    const parseKpiValue = (val) => {
-                        if (typeof val === 'number') return val;
-                        if (!val || val === '--' || val === 'N/A') return null;
+            // Render Summary
+            if (data.summary) {
+                summaryEl.textContent = data.summary;
+            } else {
+                summaryEl.textContent = "AI Audit completed successfully.";
+            }
 
-                        const valStr = String(val).replace(/,/g, '');
-                        const match = valStr.match(/-?\d+(\.\d+)?/);
-                        if (match) {
-                            let num = parseFloat(match[0]);
-                            const upperVal = valStr.toUpperCase();
-                            if (upperVal.includes('T') || upperVal.includes('TRILLION')) num *= 1000000000000;
-                            else if (upperVal.includes('B') || upperVal.includes('BILLION')) num *= 1000000000;
-                            else if (upperVal.includes('M') || upperVal.includes('MILLION')) num *= 1000000;
-                            else if (upperVal.includes('K') || upperVal.includes('THOUSAND')) num *= 1000;
-                            return num;
-                        }
-                        return null;
-                    };
+            if (data.kpis && data.kpis.length > 0) {
+                let currentKpiIndex = 0;
+                let kpiChartInstance = null;
 
-                    const renderKpiPage = (index) => {
-                        const kpi = data.kpis[index];
-                        kpiTitleEl.textContent = kpi.name || "Unknown KPI";
-                        kpiDescEl.textContent = kpi.description || "";
-                        kpiCounterEl.textContent = `${index + 1} / ${data.kpis.length}`;
+                const parseKpiValue = (val) => {
+                    if (typeof val === 'number') return val;
+                    if (!val || val === '--' || val === 'N/A') return null;
 
-                        kpiDotsEl.innerHTML = '';
-                        for(let i=0; i<data.kpis.length; i++) {
-                            const dot = document.createElement('div');
-                            dot.style.width = '8px';
-                            dot.style.height = '8px';
-                            dot.style.borderRadius = '50%';
-                            dot.style.background = i === index ? 'var(--accent)' : 'rgba(255,255,255,0.2)';
-                            dot.style.transition = '0.3s';
-                            kpiDotsEl.appendChild(dot);
-                        }
+                    const valStr = String(val).replace(/,/g, '');
+                    const match = valStr.match(/-?\d+(\.\d+)?/);
+                    if (match) {
+                        let num = parseFloat(match[0]);
+                        const upperVal = valStr.toUpperCase();
+                        if (upperVal.includes('T') || upperVal.includes('TRILLION')) num *= 1000000000000;
+                        else if (upperVal.includes('B') || upperVal.includes('BILLION')) num *= 1000000000;
+                        else if (upperVal.includes('M') || upperVal.includes('MILLION')) num *= 1000000;
+                        else if (upperVal.includes('K') || upperVal.includes('THOUSAND')) num *= 1000;
+                        return num;
+                    }
+                    return null;
+                };
 
-                        const vals = kpi.values || kpi.history || {};
-                        const periods = Object.keys(vals).sort();
-                        const chartData = periods.map(p => parseKpiValue(vals[p]));
-                        const formattedTooltips = periods.map(p => vals[p]);
+                const renderKpiPage = (index) => {
+                    const kpi = data.kpis[index];
+                    kpiTitleEl.textContent = kpi.name || "Unknown KPI";
+                    kpiDescEl.textContent = kpi.description || "";
+                    kpiCounterEl.textContent = `${index + 1} / ${data.kpis.length}`;
 
-                        const ctx = document.getElementById('kpi-chart').getContext('2d');
-                        if (window.kpiChartInstance) {
-                            window.kpiChartInstance.destroy();
-                        }
+                    kpiDotsEl.innerHTML = '';
+                    for(let i=0; i<data.kpis.length; i++) {
+                        const dot = document.createElement('div');
+                        dot.style.width = '8px';
+                        dot.style.height = '8px';
+                        dot.style.borderRadius = '50%';
+                        dot.style.background = i === index ? 'var(--accent)' : 'rgba(255,255,255,0.2)';
+                        dot.style.transition = '0.3s';
+                        kpiDotsEl.appendChild(dot);
+                    }
 
-                        window.kpiChartInstance = new Chart(ctx, {
-                            type: 'bar',
-                            data: {
-                                labels: periods,
-                                datasets: [{
-                                    label: kpi.name,
-                                    data: chartData,
-                                    backgroundColor: 'rgba(0, 210, 255, 0.4)',
-                                    borderColor: 'rgba(0, 210, 255, 1)',
-                                    borderWidth: 1,
-                                    borderRadius: 4
-                                }]
+                    const vals = kpi.values || kpi.history || {};
+                    const periods = Object.keys(vals).sort();
+                    const chartData = periods.map(p => parseKpiValue(vals[p]));
+                    const formattedTooltips = periods.map(p => vals[p]);
+
+                    const ctx = document.getElementById('kpi-chart').getContext('2d');
+                    if (window.kpiChartInstance) {
+                        window.kpiChartInstance.destroy();
+                    }
+
+                    window.kpiChartInstance = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: periods,
+                            datasets: [{
+                                label: kpi.name,
+                                data: chartData,
+                                backgroundColor: 'rgba(0, 210, 255, 0.4)',
+                                borderColor: 'rgba(0, 210, 255, 1)',
+                                borderWidth: 1,
+                                borderRadius: 4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            return ' ' + formattedTooltips[context.dataIndex];
+                                        }
+                                    }
+                                }
                             },
-                            options: {
-                                responsive: true,
-                                maintainAspectRatio: false,
-                                plugins: {
-                                    legend: { display: false },
-                                    tooltip: {
-                                        callbacks: {
-                                            label: function(context) {
-                                                return ' ' + formattedTooltips[context.dataIndex];
-                                            }
+                            scales: {
+                                y: {
+                                    beginAtZero: false,
+                                    grid: { color: 'rgba(255,255,255,0.05)' },
+                                    ticks: {
+                                        color: 'rgba(255,255,255,0.5)',
+                                        callback: function(value) {
+                                            if (Math.abs(value) >= 1000000000000) return (value / 1000000000000).toFixed(1) + 'T';
+                                            if (Math.abs(value) >= 1000000000) return (value / 1000000000).toFixed(1) + 'B';
+                                            if (Math.abs(value) >= 1000000) return (value / 1000000).toFixed(1) + 'M';
+                                            if (Math.abs(value) >= 1000) return (value / 1000).toFixed(1) + 'K';
+                                            return value;
                                         }
                                     }
                                 },
-                                scales: {
-                                    y: {
-                                        beginAtZero: false,
-                                        grid: { color: 'rgba(255,255,255,0.05)' },
-                                        ticks: {
-                                            color: 'rgba(255,255,255,0.5)',
-                                            callback: function(value) {
-                                                if (Math.abs(value) >= 1000000000000) return (value / 1000000000000).toFixed(1) + 'T';
-                                                if (Math.abs(value) >= 1000000000) return (value / 1000000000).toFixed(1) + 'B';
-                                                if (Math.abs(value) >= 1000000) return (value / 1000000).toFixed(1) + 'M';
-                                                if (Math.abs(value) >= 1000) return (value / 1000).toFixed(1) + 'K';
-                                                return value;
-                                            }
-                                        }
-                                    },
-                                    x: {
-                                        grid: { display: false },
-                                        ticks: { color: 'rgba(255,255,255,0.7)' }
-                                    }
+                                x: {
+                                    grid: { display: false },
+                                    ticks: { color: 'rgba(255,255,255,0.7)' }
                                 }
                             }
-                        });
-                    };
-
-                    kpiPrevBtn.onclick = () => {
-                        if (currentKpiIndex > 0) {
-                            currentKpiIndex--;
-                            renderKpiPage(currentKpiIndex);
                         }
-                    };
+                    });
+                };
 
-                    kpiNextBtn.onclick = () => {
-                        if (currentKpiIndex < data.kpis.length - 1) {
-                            currentKpiIndex++;
-                            renderKpiPage(currentKpiIndex);
-                        }
-                    };
+                kpiPrevBtn.onclick = () => {
+                    if (currentKpiIndex > 0) {
+                        currentKpiIndex--;
+                        renderKpiPage(currentKpiIndex);
+                    }
+                };
 
-                    renderKpiPage(0);
-                } else {
-                    kpiTitleEl.textContent = "No KPIs found";
-                    kpiDescEl.textContent = "Try running the audit again or check data availability.";
-                    document.getElementById('kpi-chart').style.display = 'none';
-                }
+                kpiNextBtn.onclick = () => {
+                    if (currentKpiIndex < data.kpis.length - 1) {
+                        currentKpiIndex++;
+                        renderKpiPage(currentKpiIndex);
+                    }
+                };
 
-                resultsEl.style.display = 'block';
-            } catch (err) {
-                console.error("AI KPI Audit Error:", err);
-                errorEl.textContent = "Failed to run AI Audit: " + err.message;
-                errorEl.style.display = 'block';
-            } finally {
-                loadingEl.style.display = 'none';
+                renderKpiPage(0);
+            } else {
+                kpiTitleEl.textContent = "No KPIs found";
+                kpiDescEl.textContent = "Try running the audit again or check data availability.";
+                document.getElementById('kpi-chart').style.display = 'none';
+            }
+
+            resultsEl.style.display = 'block';
+        } catch (err) {
+            console.error("AI KPI Audit Error:", err);
+            errorEl.textContent = "Failed to run AI Audit: " + err.message;
+            errorEl.style.display = 'block';
+        } finally {
+            loadingEl.style.display = 'none';
+            if (runKpiAuditBtn) {
                 runKpiAuditBtn.disabled = false;
                 runKpiAuditBtn.style.opacity = '1';
             }
+        }
+    };
+
+    if (runKpiAuditBtn) {
+        runKpiAuditBtn.addEventListener('click', async () => {
+            if (!globalData || !globalData.ticker) {
+                alert("Please analyze a company first before running an audit.");
+                return;
+            }
+
+            const ticker = globalData.ticker;
+            await window.displayAiKpiAudit(ticker, true);
         });
     }
 });
