@@ -84,23 +84,30 @@ def _get_sec_10k_text(ticker: str) -> str:
         doc_urls = []
         k_count = 0
         q_count = 0
+        most_recent_k_year = None
         
         def extract_filings(filings_obj):
-            nonlocal k_count, q_count
+            nonlocal k_count, q_count, most_recent_k_year
             for i, form in enumerate(filings_obj.get('form', [])):
+                year = filings_obj['reportDate'][i][:4]
                 if form == '10-K' and k_count < 5:
+                    if most_recent_k_year is None:
+                        most_recent_k_year = year
                     acc_no = filings_obj['accessionNumber'][i].replace('-', '')
                     doc = filings_obj['primaryDocument'][i]
-                    doc_urls.append(('10-K', filings_obj['reportDate'][i][:4], f'https://www.sec.gov/Archives/edgar/data/{cik}/{acc_no}/{doc}'))
+                    doc_urls.append(('10-K', year, f'https://www.sec.gov/Archives/edgar/data/{cik}/{acc_no}/{doc}'))
                     k_count += 1
                 elif form == '10-Q' and q_count < 3:
+                    # Only accept 10-Qs if they are for a year strictly newer than the most recent 10-K year
+                    if most_recent_k_year is not None and year <= most_recent_k_year:
+                        continue
                     acc_no = filings_obj['accessionNumber'][i].replace('-', '')
                     doc = filings_obj['primaryDocument'][i]
                     # Format as Year Qx. SEC reportDate is YYYY-MM-DD.
                     # Simplistic quarter mapping based on month.
                     month = int(filings_obj['reportDate'][i][5:7])
                     quarter = 'Q1' if month <= 3 else ('Q2' if month <= 6 else ('Q3' if month <= 9 else 'Q4'))
-                    year_q = f"{filings_obj['reportDate'][i][:4]} {quarter}"
+                    year_q = f"{year} {quarter}"
                     doc_urls.append(('10-Q', year_q, f'https://www.sec.gov/Archives/edgar/data/{cik}/{acc_no}/{doc}'))
                     q_count += 1
                     
@@ -151,10 +158,10 @@ def _get_sec_10k_text(ticker: str) -> str:
                     # Find end boundary Item 8
                     matches_end = list(re.finditer(r'(?i)Item\s*8[\.\:]?\s*Financial', text))
                     valid_end = [m for m in matches_end if m.start() > idx]
-                    if valid_end and valid_end[0].start() - idx < 20000:
+                    if valid_end and valid_end[0].start() - idx < 60000:
                         report_text = text[idx:valid_end[0].start()]
                     else:
-                        report_text = text[idx:idx+20000]
+                        report_text = text[idx:idx+60000]
                         
                     combined_text += f"\n\n[Year {date_str} 10-K]\n" + report_text
                 else:
@@ -171,14 +178,61 @@ def _get_sec_10k_text(ticker: str) -> str:
                     # Find end boundary Item 3
                     matches_end = list(re.finditer(r'(?i)Item\s*3[\.\:]?\s*Quantitative', text))
                     valid_end = [m for m in matches_end if m.start() > idx]
-                    if valid_end and valid_end[0].start() - idx < 10000:
+                    if valid_end and valid_end[0].start() - idx < 40000:
                         report_text = text[idx:valid_end[0].start()]
                     else:
-                        report_text = text[idx:idx+10000]
+                        report_text = text[idx:idx+40000]
                         
                     combined_text += f"\n\n[Year {date_str} 10-Q]\n" + report_text
             except:
                 pass
+
+        if not combined_text:
+            return ""
+
+        # Dynamically tell the AI what periods are available based on what we fetched
+        available_periods_str = ", ".join([f"{u[1]} ({u[0]})" for u in doc_urls])
+
+        system_prompt = f"""
+You are a top-tier Wall Street Financial Analyst AI.
+Your objective is to read the provided SEC 10-K and 10-Q excerpts for a company and extract their historical Key Performance Indicators (KPIs).
+
+AVAILABLE PERIODS IN TEXT: {available_periods_str}
+
+YOUR MISSION:
+Identify up to 8 of the MOST CRITICAL, COMPANY-SPECIFIC, OPERATIONAL Key Performance Indicators (KPIs).
+- Focus ONLY on user/customer metrics (e.g. Monthly Active Users, Subscriptions), volume metrics (e.g. Total Payment Volume, Deliveries), or operational financial metrics deeply specific to their business model (e.g. Annualized Recurring Revenue (ARR), Gross Merchandise Volume (GMV)).
+- DO NOT extract generic accounting metrics (e.g. Net Income, Gross Profit, Total Assets, EPS). We already have those.
+- Only extract KPIs that have numerical data available across the years.
+
+CRITICAL EXTRACTION RULE:
+You MUST extract the value ONLY for the specific periods provided in the text tags. 
+Do NOT invent keys that are not present in the text tags. 
+If a value for a specific period is completely absent from the provided text, you may briefly check your internal knowledge to fill in the gaps. Only use "N/A" if the data is truly impossible to find.
+
+FORMATTING RULES:
+Format the keys EXACTLY matching the period string from the tags (e.g., "FY 2025" for 10-K, or "FY 2025 Q1" for 10-Q).
+Ensure exact numbers are extracted if explicitly stated. Format numbers cleanly (e.g. "1.2 Billion", "34.5%", "450 Million"). Do not write raw large numbers.
+Make sure the description is concise (max 2 sentences) and professional.
+
+Return ONLY a valid JSON matching this exact structure:
+{{
+  "kpis": [
+    {{
+      "name": "Annualized Recurring Revenue (ARR)",
+      "description": "Represents the annualized value of all active subscription contracts.",
+      "values": {{
+        "FY 2021": "1.5 Billion",
+        "FY 2022": "2.0 Billion"
+      }}
+    }}
+  ]
+}}
+"""
+
+        # Choose the Gemini models that are extremely fast to avoid Vercel 60s timeout
+        if not os.getenv("GEMINI_API_KEY") and not os.getenv("gemini"):
+            return combined_text
 
         return combined_text
 
@@ -298,11 +352,7 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
       "description": "What it represents and why it is important for this company.",
       "values": {
         "FY 2021": "1.5M",
-        "FY 2022": "2.0M",
-        "FY 2023": "2.5M",
-        "FY 2024": "2.8M",
-        "FY 2025": "3.1M",
-        "FY 2026 Q1": "3.2M"
+        "FY 2022": "2.0M"
       }
     }
   ]
@@ -343,10 +393,10 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
         # Try Gemini if OpenAI failed or wasn't configured
         if not result_content and gemini_key:
             models_to_try = [
+                "gemini-1.5-flash-latest",
                 "gemini-3.5-flash",
                 "gemini-2.5-flash",
-                "gemini-2.0-flash",
-                "gemini-flash-latest"
+                "gemini-2.0-flash"
             ]
             headers = {"Content-Type": "application/json"}
             payload = {
