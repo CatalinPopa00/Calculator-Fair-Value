@@ -687,11 +687,12 @@ def calculate_beneish_m_score(metrics):
         # 2. GMI = Gross Margin_prev / Gross Margin_current
         gmi = safe_div(safe_div(prev['gross_profit'], prev['sales']), safe_div(curr['gross_profit'], curr['sales']))
         
-        # 3. AQI = [1 - (Current Assets_current + PP&E_current) / Total Assets_current] / [1 - (Current Assets_prev + PP&E_prev) / Total Assets_prev]
-        def get_aqi_part(ca, ppe, ta):
+        # 3. AQI = [1 - (Current Assets_current + PP&E_current + Securities_current) / Total Assets_current] / [1 - (Current Assets_prev + PP&E_prev + Securities_prev) / Total Assets_prev]
+        def get_aqi_part(ca, ppe, sec, ta):
             if ca is None or ppe is None or ta is None or ta == 0: return None
-            return 1 - ((float(ca) + float(ppe)) / float(ta))
-        aqi = safe_div(get_aqi_part(curr['current_assets'], curr['ppe'], curr['total_assets']), get_aqi_part(prev['current_assets'], prev['ppe'], prev['total_assets']))
+            sec_val = float(sec) if sec is not None else 0.0
+            return 1 - ((float(ca) + float(ppe) + sec_val) / float(ta))
+        aqi = safe_div(get_aqi_part(curr['current_assets'], curr['ppe'], curr.get('securities', 0.0), curr['total_assets']), get_aqi_part(prev['current_assets'], prev['ppe'], prev.get('securities', 0.0), prev['total_assets']))
         
         # 4. SGI = Sales_current / Sales_prev
         sgi = safe_div(curr['sales'], prev['sales'])
