@@ -82,13 +82,29 @@ def _get_sec_10k_text(ticker: str) -> str:
 
         # 3. Find up to 5 latest 10-Ks to guarantee full 5-year coverage
         doc_urls = []
-        for i, form in enumerate(recent.get('form', [])):
-            if form == '10-K':
-                acc_no = recent['accessionNumber'][i].replace('-', '')
-                doc = recent['primaryDocument'][i]
-                doc_urls.append((recent['reportDate'][i][:4], f'https://www.sec.gov/Archives/edgar/data/{cik}/{acc_no}/{doc}'))
-                if len(doc_urls) >= 5:
-                    break
+        
+        def extract_10k_from_filings(filings_obj):
+            for i, form in enumerate(filings_obj.get('form', [])):
+                if form == '10-K':
+                    acc_no = filings_obj['accessionNumber'][i].replace('-', '')
+                    doc = filings_obj['primaryDocument'][i]
+                    doc_urls.append((filings_obj['reportDate'][i][:4], f'https://www.sec.gov/Archives/edgar/data/{cik}/{acc_no}/{doc}'))
+                    if len(doc_urls) >= 5:
+                        break
+                        
+        extract_10k_from_filings(recent)
+        
+        if len(doc_urls) < 5:
+            for file_info in sub_data.get('filings', {}).get('files', []):
+                try:
+                    older_url = f"https://data.sec.gov/submissions/{file_info['name']}"
+                    older_resp = requests.get(older_url, headers=headers, timeout=5)
+                    older_data = older_resp.json()
+                    extract_10k_from_filings(older_data)
+                    if len(doc_urls) >= 5:
+                        break
+                except:
+                    pass
 
         if not doc_urls:
             return ""
