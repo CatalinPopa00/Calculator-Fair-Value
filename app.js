@@ -7875,8 +7875,18 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     const parseKpiValue = (val) => {
                         if (typeof val === 'number') return val;
                         if (!val || val === '--' || val === 'N/A') return null;
-                        const match = val.match(/-?[\d,]+(\.\d+)?/);
-                        if (match) return parseFloat(match[0].replace(/,/g, ''));
+
+                        const valStr = String(val).replace(/,/g, '');
+                        const match = valStr.match(/-?\d+(\.\d+)?/);
+                        if (match) {
+                            let num = parseFloat(match[0]);
+                            const upperVal = valStr.toUpperCase();
+                            if (upperVal.includes('T') || upperVal.includes('TRILLION')) num *= 1000000000000;
+                            else if (upperVal.includes('B') || upperVal.includes('BILLION')) num *= 1000000000;
+                            else if (upperVal.includes('M') || upperVal.includes('MILLION')) num *= 1000000;
+                            else if (upperVal.includes('K') || upperVal.includes('THOUSAND')) num *= 1000;
+                            return num;
+                        }
                         return null;
                     };
 
@@ -7937,7 +7947,16 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                                     y: {
                                         beginAtZero: false,
                                         grid: { color: 'rgba(255,255,255,0.05)' },
-                                        ticks: { color: 'rgba(255,255,255,0.5)' }
+                                        ticks: {
+                                            color: 'rgba(255,255,255,0.5)',
+                                            callback: function(value) {
+                                                if (Math.abs(value) >= 1000000000000) return (value / 1000000000000).toFixed(1) + 'T';
+                                                if (Math.abs(value) >= 1000000000) return (value / 1000000000).toFixed(1) + 'B';
+                                                if (Math.abs(value) >= 1000000) return (value / 1000000).toFixed(1) + 'M';
+                                                if (Math.abs(value) >= 1000) return (value / 1000).toFixed(1) + 'K';
+                                                return value;
+                                            }
+                                        }
                                     },
                                     x: {
                                         grid: { display: false },

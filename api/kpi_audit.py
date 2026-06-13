@@ -14,6 +14,7 @@ except ImportError:
 
 
 # Cache rezultate audit (valabil 7 zile, se schimbă doar trimestrial)
+from utils.kv import kv_get, kv_set
 audit_cache = TTLCache(maxsize=200, ttl=86400 * 7)
 
 def _get_yahoo_earnings_news(ticker: str) -> str:
@@ -138,7 +139,7 @@ def get_fmp_transcripts(ticker: str) -> str:
             y = call.get('year')
             text = call.get('content', '')
             # Truncăm mai extins (20k caractere per call) ca să luăm cât mai mult context util
-            combined_text += f"\n\n--- Transcript {y} Q{q} ---\n{text[:20000]}"
+            combined_text += f"\n\n--- Transcript {y} Q{q} ---\n{text[:35000]}"
             
         return combined_text
     except Exception as e:
@@ -149,9 +150,18 @@ def get_fmp_transcripts(ticker: str) -> str:
 
 def run_ai_kpi_audit(ticker: str) -> Dict[str, Any]:
     ticker = ticker.upper()
+
+    # 1. Try local memory cache
     if ticker in audit_cache:
         return audit_cache[ticker]
         
+    # 2. Try persistent Redis (Upstash) cache
+    redis_key = f"ai_kpi_audit_v2_{ticker}"
+    cached_data = kv_get(redis_key)
+    if cached_data:
+        audit_cache[ticker] = cached_data
+        return cached_data
+
     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("OPENAI_API_KEY") or os.getenv("gemini")
     if not api_key:
         return {
@@ -241,10 +251,20 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
             return {"error": True, "detail": "Gemini returned an empty response."}
             
         result_content = data["candidates"][0]["content"]["parts"][0]["text"]
+
+        # Clean markdown formatting if present (e.g. ```json ... ```)
+        result_content = result_content.strip()
+        if result_content.startswith("```"):
+            import re
+            result_content = re.sub(r"^```(?:json)?\s*", "", result_content)
+            result_content = re.sub(r"\s*```$", "", result_content)
         parsed_result = json.loads(result_content)
         
         # Salvare în cache
         audit_cache[ticker] = parsed_result
+        # Save to Redis for 30 days
+        kv_set(redis_key, parsed_result, ex=2592000)
+
         return parsed_result
         
     except json.JSONDecodeError:
