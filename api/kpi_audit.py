@@ -227,15 +227,11 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
     }
     
     payload = {
-        "systemInstruction": {
-            "parts": [{"text": system_prompt}]
-        },
         "contents": [{
-            "parts": [{"text": f"Aici sunt textele pentru {ticker}:\n\n{raw_text}"}]
+            "parts": [{"text": f"{system_prompt}\n\nAici sunt textele pentru {ticker}:\n\n{raw_text}"}]
         }],
         "generationConfig": {
-            "temperature": 0.2,
-            "responseMimeType": "application/json"
+            "temperature": 0.2
         }
     }
 
@@ -270,7 +266,16 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
             return {"error": True, "detail": "Gemini returned an empty response."}
             
         result_content = data["candidates"][0]["content"]["parts"][0]["text"]
-        parsed_result = json.loads(result_content)
+        
+        # Remove potential markdown formatting
+        if result_content.strip().startswith("```json"):
+            result_content = result_content.strip()[7:]
+        if result_content.strip().startswith("```"):
+            result_content = result_content.strip()[3:]
+        if result_content.strip().endswith("```"):
+            result_content = result_content.strip()[:-3]
+            
+        parsed_result = json.loads(result_content.strip())
 
         # Salvare în cache
         audit_cache[ticker] = parsed_result
