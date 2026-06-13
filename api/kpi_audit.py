@@ -158,11 +158,19 @@ def run_ai_kpi_audit(ticker: str) -> Dict[str, Any]:
     if ticker in audit_cache:
         return audit_cache[ticker]
         
-    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("OPENAI_API_KEY") or os.getenv("gemini")
-    if not api_key:
+    openai_key = os.getenv("OPENAI_API_KEY")
+    gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("gemini")
+
+    # Auto-detect if user accidentally put an OpenAI key in a Gemini variable
+    if gemini_key and gemini_key.startswith("sk-"):
+        if not openai_key:
+            openai_key = gemini_key
+        gemini_key = None
+
+    if not openai_key and not gemini_key:
         return {
             "error": True, 
-            "detail": "Gemini API Key is missing. Please add the 'gemini' or 'GEMINI_API_KEY' variable in the Vercel panel."
+            "detail": "No API Key found. Please add 'OPENAI_API_KEY' or 'GEMINI_API_KEY' in the Vercel panel."
         }
 
     # 1. Obținem textele din rapoarte (Transcripts / Press Releases)
@@ -211,62 +219,75 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
 }
 '''
 
-    # 2. Apelăm API-ul Gemini nativ prin requests (fără SDK extern pentru a evita probleme de instalare pe Vercel)
-    # Folosim fallback pentru modele
-    models_to_try = [
-        "gemini-1.5-pro-latest",
-        "gemini-1.5-flash-latest",
-        "gemini-1.5-pro",
-        "gemini-1.5-flash",
-        "gemini-1.0-pro",
-        "gemini-pro"
-    ]
-    
-    headers = {
-        "Content-Type": "application/json"
-    }
-    
-    payload = {
-        "contents": [{
-            "parts": [{"text": f"{system_prompt}\n\nAici sunt textele pentru {ticker}:\n\n{raw_text}"}]
-        }],
-        "generationConfig": {
-            "temperature": 0.2
-        }
-    }
-
     try:
-        data = None
-        error_msg = "Unknown Error"
-
+        result_content = None
         all_errors = []
-        for model in models_to_try:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
-            resp = requests.post(url, headers=headers, json=payload, timeout=55)
 
+        # Try OpenAI First if available
+        if openai_key:
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {openai_key}"
+            }
+            payload = {
+                "model": "gpt-4o-mini",
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"Aici sunt textele pentru {ticker}:\n\n{raw_text}"}
+                ],
+                "response_format": {"type": "json_object"},
+                "temperature": 0.2
+            }
+            resp = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload, timeout=55)
             if resp.status_code == 200:
                 data = resp.json()
-                break
+                result_content = data["choices"][0]["message"]["content"]
             else:
                 error_msg = resp.text
                 try:
-                    error_data = resp.json()
-                    if "error" in error_data and "message" in error_data["error"]:
-                        error_msg = error_data["error"]["message"]
+                    error_msg = resp.json().get("error", {}).get("message", resp.text)
                 except:
                     pass
-                all_errors.append(f"{model}: {error_msg}")
-                print(f"Model {model} failed for {ticker}: {error_msg}. Trying next...")
+                all_errors.append(f"OpenAI Error: {error_msg}")
 
-        if not data:
-            return {"error": True, "detail": f"Gemini API Error (all models failed): " + " | ".join(all_errors)}
+        # Try Gemini if OpenAI failed or wasn't configured
+        if not result_content and gemini_key:
+            models_to_try = [
+                "gemini-1.5-pro-latest",
+                "gemini-1.5-flash-latest",
+                "gemini-1.5-pro",
+                "gemini-1.5-flash",
+                "gemini-1.0-pro",
+                "gemini-pro"
+            ]
+            headers = {"Content-Type": "application/json"}
+            payload = {
+                "contents": [{
+                    "parts": [{"text": f"{system_prompt}\n\nAici sunt textele pentru {ticker}:\n\n{raw_text}"}]
+                }],
+                "generationConfig": {"temperature": 0.2}
+            }
+            for model in models_to_try:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={gemini_key}"
+                resp = requests.post(url, headers=headers, json=payload, timeout=55)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    if "candidates" in data and data["candidates"]:
+                        result_content = data["candidates"][0]["content"]["parts"][0]["text"]
+                        break
+                else:
+                    error_msg = resp.text
+                    try:
+                        err_data = resp.json()
+                        if "error" in err_data and "message" in err_data["error"]:
+                            error_msg = err_data["error"]["message"]
+                    except:
+                        pass
+                    all_errors.append(f"Gemini {model}: {error_msg}")
 
+        if not result_content:
+            return {"error": True, "detail": "AI API Error: " + " | ".join(all_errors)}
 
-        if "candidates" not in data or not data["candidates"]:
-            return {"error": True, "detail": "Gemini returned an empty response."}
-            
-        result_content = data["candidates"][0]["content"]["parts"][0]["text"]
-        
         # Remove potential markdown formatting
         if result_content.strip().startswith("```json"):
             result_content = result_content.strip()[7:]
@@ -282,7 +303,7 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
         return parsed_result
 
     except json.JSONDecodeError:
-        return {"error": True, "detail": "Gemini nu a returnat un format JSON valid. Încearcă din nou."}
+        return {"error": True, "detail": "AI nu a returnat un format JSON valid. Încearcă din nou."}
     except Exception as e:
-        print(f"Gemini API Error for {ticker}: {e}")
+        print(f"AI API Error for {ticker}: {e}")
         return {"error": True, "detail": f"Eroare la procesarea AI: {str(e)}"}
