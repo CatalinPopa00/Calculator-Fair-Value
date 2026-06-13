@@ -26,19 +26,23 @@ def _get_yahoo_earnings_news(ticker: str) -> str:
         news = t.news
         earnings_news = []
         for n in news:
-            title = n.get('title', '').lower()
-            if 'earnings' in title or 'results' in title or 'quarter' in title or 'q1' in title or 'q2' in title or 'q3' in title or 'q4' in title:
-                earnings_news.append(n)
+            # Handle new yfinance nested structure vs old flat structure
+            item = n.get('content', n) 
+            title = item.get('title', '').lower()
+            
+            # Allow general news if we can't find 'earnings' so we don't fail
+            earnings_news.append(item)
                 
-        # Limit to 5 most recent earnings news
+        # Limit to 5 most recent news
         earnings_news = earnings_news[:5]
         if not earnings_news:
             return ""
             
         combined_text = ""
-        # Function from index.py bypass_article logic
         for item in earnings_news:
-            url = item.get('link')
+            url_dict = item.get('clickThroughUrl', {})
+            url = url_dict.get('url') if isinstance(url_dict, dict) else item.get('link')
+            
             if url:
                 try:
                     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
