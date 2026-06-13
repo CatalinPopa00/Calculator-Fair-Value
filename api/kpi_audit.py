@@ -358,7 +358,7 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
             for model in models_to_try:
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={gemini_key}"
                 try:
-                    resp = requests.post(url, headers=headers, json=payload, timeout=40)
+                    resp = requests.post(url, headers=headers, json=payload, timeout=90)
                     if resp.status_code == 200:
                         data = resp.json()
                         if "candidates" in data and data["candidates"]:
