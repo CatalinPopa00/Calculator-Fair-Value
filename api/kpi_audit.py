@@ -137,7 +137,11 @@ def _get_sec_10k_text(ticker: str) -> str:
                 if form_type == '10-K':
                     # Jump directly to Item 7 (MD&A)
                     matches = list(re.finditer(r'(?i)Item\s*7[\.\:]?\s*Management', text))
-                    if matches:
+                    valid_matches = [m for m in matches if m.start() > 100000]
+                    if valid_matches:
+                        idx = valid_matches[0].start()
+                        report_text = text[idx:idx+80000]
+                    elif matches:
                         idx = matches[-1].start()
                         report_text = text[idx:idx+80000]
                     else:
@@ -146,7 +150,11 @@ def _get_sec_10k_text(ticker: str) -> str:
                 else:
                     # Jump directly to Item 2 (MD&A for 10-Q)
                     matches = list(re.finditer(r'(?i)Item\s*2[\.\:]?\s*Management', text))
-                    if matches:
+                    valid_matches = [m for m in matches if m.start() > 30000]
+                    if valid_matches:
+                        idx = valid_matches[0].start()
+                        report_text = text[idx:idx+60000]
+                    elif matches:
                         idx = matches[-1].start()
                         report_text = text[idx:idx+60000]
                     else:
