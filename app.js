@@ -7850,17 +7850,23 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
         try {
             let data = null;
+            const cacheKey = `kpiAudit_${ticker}`;
             let cachedList = [];
+
             try {
                 cachedList = JSON.parse(localStorage.getItem('kpiAuditCacheList') || '[]');
             } catch(e) {}
 
             if (!forceNetwork && cachedList.includes(ticker)) {
-                const res = await fetch(`/api/ai-kpi-audit/${ticker}`, { method: 'POST' });
-                if (res.ok) {
-                    data = await res.json();
-                }
-            } else if (forceNetwork) {
+                try {
+                    const localData = localStorage.getItem(cacheKey);
+                    if (localData) {
+                        data = JSON.parse(localData);
+                    }
+                } catch(e) {}
+            }
+
+            if (!data) {
                 const res = await fetch(`/api/ai-kpi-audit/${ticker}`, { method: 'POST' });
                 if (!res.ok) {
                     let errText = res.statusText;
@@ -7872,9 +7878,12 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 }
                 data = await res.json();
                 
-                if (!data.error && !cachedList.includes(ticker)) {
-                    cachedList.push(ticker);
-                    localStorage.setItem('kpiAuditCacheList', JSON.stringify(cachedList));
+                if (!data.error) {
+                    if (!cachedList.includes(ticker)) {
+                        cachedList.push(ticker);
+                        localStorage.setItem('kpiAuditCacheList', JSON.stringify(cachedList));
+                    }
+                    localStorage.setItem(cacheKey, JSON.stringify(data));
                 }
             }
 
@@ -7906,15 +7915,20 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     if (typeof val === 'number') return val;
                     if (!val || val === '--' || val === 'N/A') return null;
 
-                    const valStr = String(val).replace(/,/g, '');
-                    const match = valStr.match(/-?\d+(\.\d+)?/);
+                    const valStr = String(val).replace(/,/g, '').trim();
+                    const match = valStr.match(/^.*?(-?\d+(?:\.\d+)?)\s*(T|B|M|K|TRILLION|BILLION|MILLION|THOUSAND)?\b/i);
                     if (match) {
-                        let num = parseFloat(match[0]);
-                        const upperVal = valStr.toUpperCase();
-                        if (upperVal.includes('T') || upperVal.includes('TRILLION')) num *= 1000000000000;
-                        else if (upperVal.includes('B') || upperVal.includes('BILLION')) num *= 1000000000;
-                        else if (upperVal.includes('M') || upperVal.includes('MILLION')) num *= 1000000;
-                        else if (upperVal.includes('K') || upperVal.includes('THOUSAND')) num *= 1000;
+                        let num = parseFloat(match[1]);
+                        const suffix = (match[2] || '').toUpperCase();
+                        if (suffix === 'T' || suffix === 'TRILLION') num *= 1000000000000;
+                        else if (suffix === 'B' || suffix === 'BILLION') num *= 1000000000;
+                        else if (suffix === 'M' || suffix === 'MILLION') num *= 1000000;
+                        else if (suffix === 'K' || suffix === 'THOUSAND') num *= 1000;
+
+                        // Fallback logic for text string containing "No specific numerical values"
+                        if (valStr.toLowerCase().includes("no specific numerical values") || valStr.toLowerCase().includes("not reported")) {
+                             return null;
+                        }
                         return num;
                     }
                     return null;
