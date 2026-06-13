@@ -14,7 +14,6 @@ except ImportError:
 
 
 # Cache rezultate audit (valabil 7 zile, se schimbă doar trimestrial)
-from utils.kv import kv_get, kv_set
 audit_cache = TTLCache(maxsize=200, ttl=86400 * 7)
 
 def _get_yahoo_earnings_news(ticker: str) -> str:
@@ -132,14 +131,14 @@ def get_fmp_transcripts(ticker: str) -> str:
             return sec_text if sec_text else _get_yahoo_earnings_news(ticker)
             
         # Păstrăm cele mai recente 20 trimestre (aprox. 5 ani istoric)
-        recent_calls = data[:12]
+        recent_calls = data[:20]
         combined_text = ""
         for call in recent_calls:
             q = call.get('quarter')
             y = call.get('year')
             text = call.get('content', '')
             # Truncăm mai extins (20k caractere per call) ca să luăm cât mai mult context util
-            combined_text += f"\n\n--- Transcript {y} Q{q} ---\n{text[:25000]}"
+            combined_text += f"\n\n--- Transcript {y} Q{q} ---\n{text[:20000]}"
             
         return combined_text
     except Exception as e:
@@ -150,18 +149,9 @@ def get_fmp_transcripts(ticker: str) -> str:
 
 def run_ai_kpi_audit(ticker: str) -> Dict[str, Any]:
     ticker = ticker.upper()
-
-    # 1. Try local memory cache
     if ticker in audit_cache:
         return audit_cache[ticker]
         
-    # 2. Try persistent Redis (Upstash) cache
-    redis_key = f"ai_kpi_audit_v4_{ticker}"
-    cached_data = kv_get(redis_key)
-    if cached_data:
-        audit_cache[ticker] = cached_data
-        return cached_data
-
     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("OPENAI_API_KEY") or os.getenv("gemini")
     if not api_key:
         return {
@@ -189,11 +179,10 @@ EXAMPLES OF GOOD KPIs:
 - For Retail: Same-Store Sales Growth, Loyalty Program Members.
 EXAMPLES OF FORBIDDEN KPIs (DO NOT INCLUDE!): Revenue, Net Income, EPS, Profit, Gross Margin. (The app already has these!).
 
-CRITICAL EXTRACTION INSTRUCTION (5-YEAR HISTORY):
-You are receiving concatenated transcripts spanning the LAST 5 YEARS. DO NOT stop reading after the first document. You MUST process the ENTIRE provided text.
-For each identified KPI, you MUST meticulously dig through the older transcripts provided to find and populate the historical values for the past 5 years (e.g., FY 2020, FY 2021, FY 2022, 2023, 2024, etc).
-If you detect future estimates (Guidance), add them as future periods (e.g., FY 2025 Est.).
-Only use "N/A" if the metric was definitively not reported in the older transcripts provided. Do not be lazy.
+VALUE EXTRACTION (5-YEAR HISTORY):
+For each identified KPI, find the values mentioned in the documents and track their evolution over time, over the last 5 years (by periods - e.g., FY 2020, FY 2021, FY 2022, Q1 2023, Q4 2023, etc).
+Also, if you detect future estimates (Guidance), add them as future periods (e.g., FY 2025 Est.).
+If you cannot find exact values for certain older historical periods, do not add them or put "N/A".
 
 Return ONLY a valid JSON object, strictly following this EXACT structure:
 {
@@ -213,8 +202,8 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
 }
 '''
 
-    # 2. Apelăm API-ul Gemini nativ prin requests. Folosim un fallback de modele pentru a depăși limitele de cotă (429)
-    models = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
+    # 2. Apelăm API-ul Gemini nativ prin requests (fără SDK extern pentru a evita probleme de instalare pe Vercel)
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
     
     headers = {
         "Content-Type": "application/json"
@@ -233,67 +222,33 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
         }
     }
 
-    last_error_msg = None
+    try:
+        resp = requests.post(url, headers=headers, json=payload, timeout=55)
 
-    for model in models:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
-        try:
-            resp = requests.post(url, headers=headers, json=payload, timeout=55)
+        if resp.status_code != 200:
+            error_msg = resp.text
+            try:
+                error_data = resp.json()
+                if "error" in error_data and "message" in error_data["error"]:
+                    error_msg = error_data["error"]["message"]
+            except:
+                pass
+            return {"error": True, "detail": f"Gemini API Error: {error_msg}"}
             
-            if resp.status_code == 429:
-                # Extragem mesajul de eroare pentru 429
-                error_msg = resp.text
-                try:
-                    error_data = resp.json()
-                    if "error" in error_data and "message" in error_data["error"]:
-                        error_msg = error_data["error"]["message"]
-                except:
-                    pass
-                last_error_msg = f"Model {model} limit hit: {error_msg}"
-                print(f"Rate limit (429) for {model}. Trying next model...")
-                continue # Try the next model
+        data = resp.json()
 
-            if resp.status_code != 200:
-                error_msg = resp.text
-                try:
-                    error_data = resp.json()
-                    if "error" in error_data and "message" in error_data["error"]:
-                        error_msg = error_data["error"]["message"]
-                except:
-                    pass
-                return {"error": True, "detail": f"Gemini API Error ({model}): {error_msg}"}
-
-            data = resp.json()
+        if "candidates" not in data or not data["candidates"]:
+            return {"error": True, "detail": "Gemini returned an empty response."}
             
-            if "candidates" not in data or not data["candidates"]:
-                return {"error": True, "detail": f"Gemini ({model}) returned an empty response."}
+        result_content = data["candidates"][0]["content"]["parts"][0]["text"]
+        parsed_result = json.loads(result_content)
 
-            result_content = data["candidates"][0]["content"]["parts"][0]["text"]
+        # Salvare în cache
+        audit_cache[ticker] = parsed_result
+        return parsed_result
 
-            # Clean markdown formatting if present (e.g. ```json ... ```)
-            result_content = result_content.strip()
-            if result_content.startswith("```"):
-                import re
-                result_content = re.sub(r"^```(?:json)?\s*", "", result_content)
-                result_content = re.sub(r"\s*```$", "", result_content)
-            parsed_result = json.loads(result_content)
-
-            # Salvare în cache
-            audit_cache[ticker] = parsed_result
-            # Save to Redis for 30 days
-            kv_set(redis_key, parsed_result, ex=2592000)
-
-            return parsed_result
-
-        except requests.exceptions.RequestException as e:
-            last_error_msg = f"Network error for {model}: {str(e)}"
-            print(last_error_msg)
-            continue # Try next model if timeout or connection error
-        except json.JSONDecodeError:
-            return {"error": True, "detail": "Gemini nu a returnat un format JSON valid. Încearcă din nou."}
-        except Exception as e:
-            print(f"Gemini API Error for {ticker} using {model}: {e}")
-            return {"error": True, "detail": f"Eroare la procesarea AI ({model}): {str(e)}"}
-
-    # If all models failed
-    return {"error": True, "detail": f"Toate modelele AI au eșuat. Ultima eroare: {last_error_msg}"}
+    except json.JSONDecodeError:
+        return {"error": True, "detail": "Gemini nu a returnat un format JSON valid. Încearcă din nou."}
+    except Exception as e:
+        print(f"Gemini API Error for {ticker}: {e}")
+        return {"error": True, "detail": f"Eroare la procesarea AI: {str(e)}"}
