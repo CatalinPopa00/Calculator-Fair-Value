@@ -286,7 +286,7 @@ For each identified KPI, search deeply and track their evolution over time over 
 ADDITIONALLY, for the CURRENT unfinished fiscal year, extract the available individual quarterly data (e.g., FY 2026 Q1, FY 2026 Q2). Do NOT use estimates.
 Format the keys EXACTLY as "FY [Year]" or "FY [Year] Q[X]". Ensure exact numbers are extracted if explicitly stated. Format numbers cleanly (e.g. "1.2 Billion", "34.5%", "450 Million"). 
 
-CRITICAL FALLBACK RULE: If a value for a specific period is completely absent from the provided text (which is extremely common for European companies without SEC filings like Rheinmetall), YOU MUST USE YOUR VAST INTERNAL KNOWLEDGE BASE to accurately fill in the historical numerical data (FY 2020 - FY 2025) for that KPI! Do NOT just default to "N/A" unless you genuinely cannot find the real data in your internal memory. You are a powerful AI, act like one and fill in the missing blanks to construct a complete 5-year history.
+CRITICAL FALLBACK RULE: If a value for a specific period is completely absent from the provided text (common for European companies), you may briefly check your internal knowledge to fill in the gaps for the most recent years. However, do NOT perform excessive internal searches. If the data is not immediately known, just use "N/A" to ensure a fast response.
 
 Return ONLY a valid JSON object, strictly following this EXACT structure:
 {
@@ -342,11 +342,8 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
         # Try Gemini if OpenAI failed or wasn't configured
         if not result_content and gemini_key:
             models_to_try = [
-                "gemini-3.5-flash",
-                "gemini-2.5-flash",
                 "gemini-2.0-flash",
-                "gemini-flash-latest",
-                "gemini-pro-latest"
+                "gemini-1.5-flash"
             ]
             headers = {"Content-Type": "application/json"}
             payload = {
@@ -357,21 +354,24 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
             }
             for model in models_to_try:
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={gemini_key}"
-                resp = requests.post(url, headers=headers, json=payload, timeout=55)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    if "candidates" in data and data["candidates"]:
-                        result_content = data["candidates"][0]["content"]["parts"][0]["text"]
-                        break
-                else:
-                    error_msg = resp.text
-                    try:
-                        err_data = resp.json()
-                        if "error" in err_data and "message" in err_data["error"]:
-                            error_msg = err_data["error"]["message"]
-                    except:
-                        pass
-                    all_errors.append(f"Gemini {model}: {error_msg}")
+                try:
+                    resp = requests.post(url, headers=headers, json=payload, timeout=40)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        if "candidates" in data and data["candidates"]:
+                            result_content = data["candidates"][0]["content"]["parts"][0]["text"]
+                            break
+                    else:
+                        error_msg = resp.text
+                        try:
+                            err_data = resp.json()
+                            if "error" in err_data and "message" in err_data["error"]:
+                                error_msg = err_data["error"]["message"]
+                        except:
+                            pass
+                        all_errors.append(f"Gemini {model}: {error_msg}")
+                except Exception as e:
+                    all_errors.append(f"Gemini {model} Timeout/Error: {str(e)}")
 
         if not result_content:
             return {"error": True, "detail": "AI API Error: " + " | ".join(all_errors)}
