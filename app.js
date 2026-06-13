@@ -7871,8 +7871,9 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     // Extract all unique period keys from all KPIs to form columns
                     const periodSet = new Set();
                     data.kpis.forEach(kpi => {
-                        if (kpi.history) {
-                            Object.keys(kpi.history).forEach(p => periodSet.add(p));
+                        const vals = kpi.values || kpi.history;
+                        if (vals) {
+                            Object.keys(vals).forEach(p => periodSet.add(p));
                         }
                     });
 
@@ -7895,7 +7896,8 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                         `;
                         
                         periods.forEach(p => {
-                            const val = (kpi.history && kpi.history[p]) !== undefined ? kpi.history[p] : '--';
+                            const vals = kpi.values || kpi.history;
+                            const val = (vals && vals[p]) !== undefined ? vals[p] : '--';
                             rowHtml += `<td style="text-align:right; font-family: monospace;">${val}</td>`;
                         });
 
