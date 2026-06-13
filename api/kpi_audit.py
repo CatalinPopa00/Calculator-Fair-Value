@@ -118,8 +118,8 @@ def _get_sec_10k_text(ticker: str) -> str:
                 # Fast HTML stripping using regex to prevent Vercel Serverless Function timeouts
                 text = re.sub(r'<[^>]+>', ' ', doc_resp.text)
                 text = re.sub(r'\s+', ' ', text).strip()
-                # 150k characters per report should easily cover Item 1 (Business) and Item 7 (MD&A)
-                combined_text += f"\n\n[Year {year} 10-K]\n" + text[:150000]
+                # 400k characters per report ensures we capture Item 7 (MD&A) which is often past index 200,000
+                combined_text += f"\n\n[Year {year} 10-K]\n" + text[:400000]
             except:
                 pass
 
