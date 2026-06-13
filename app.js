@@ -1520,7 +1520,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         if (fcf == null || isNaN(fcf) || !shares || shares <= 0) return null;
 
         // WACC Smart Cap
-        const finalWacc = Math.max(0.07, Math.min(wacc, 0.105));
+        const finalWacc = Math.max(0.01, wacc);
 
         // 1. Determine base Revenue and starting FCF Margin
         let currentRevenue = revenue;
@@ -2640,12 +2640,12 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 let g;
                 if (fcfSource === 'revenue') {
                     const revBase = getDynamicRevGrowth();
-                    const g13 = Math.min(Math.round(revBase * 1000) / 1000, 0.50);
+                    const g13 = Math.round(revBase * 1000) / 1000;
 
-                    const g46 = Math.min(revBase * 0.75, 0.30);
+                    const g46 = revBase * 0.75;
 
-                    const g78 = Math.min(revBase * 0.50, 0.15);
-                    const g910 = Math.min(revBase * 0.25, 0.05);
+                    const g78 = revBase * 0.50;
+                    const g910 = revBase * 0.25;
                     g = [];
                     for (let y = 1; y <= 10; y++) {
                         if (y <= 3) g.push(g13);
@@ -2655,10 +2655,10 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     }
                 } else {
                     const epsBase = getDynamicEpsGrowth();
-                    const epsG13 = Math.min(Math.round(epsBase * 1000) / 1000, 0.50);
-                    const epsG46 = Math.min(epsBase * 0.75, 0.30);
-                    const epsG78 = Math.min(epsBase * 0.50, 0.15);
-                    const epsG910 = Math.min(epsBase * 0.25, 0.05);
+                    const epsG13 = Math.round(epsBase * 1000) / 1000;
+                    const epsG46 = epsBase * 0.75;
+                    const epsG78 = epsBase * 0.50;
+                    const epsG910 = epsBase * 0.25;
                     g = [];
                     for (let y = 1; y <= 10; y++) {
                         if (y <= 3) g.push(epsG13);
@@ -2674,10 +2674,10 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             }
             else if (fcfSource === 'historical') {
                 const histBase = (prof.historic_fcf_growth != null ? prof.historic_fcf_growth : 0.05);
-                const hg13 = Math.min(Math.round(histBase * 1000) / 1000, 0.50);
-                const hg46 = Math.min(histBase * 0.75, 0.30);
-                const hg78 = Math.min(histBase * 0.50, 0.15);
-                const hg910 = Math.min(histBase * 0.25, 0.05);
+                const hg13 = Math.round(histBase * 1000) / 1000;
+                const hg46 = histBase * 0.75;
+                const hg78 = histBase * 0.50;
+                const hg910 = histBase * 0.25;
                 const hgArray = [];
                 for (let y = 1; y <= 10; y++) {
                     if (y <= 3) hgArray.push(hg13);
@@ -2701,9 +2701,9 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     const g46Input = document.getElementById('dcf-growth-4-6');
                     const g78Input = document.getElementById('dcf-growth-7-8');
                     const g910Input = document.getElementById('dcf-growth-9-10');
-                    if (g46Input && (g46Input.dataset.isDefault === 'true' || !g46Input.value || g46Input.value === '')) g46Input.value = formatCleanInputVal(Math.min(sg * 0.75, 30));
-                    if (g78Input && (g78Input.dataset.isDefault === 'true' || !g78Input.value || g78Input.value === '')) g78Input.value = formatCleanInputVal(Math.min(sg * 0.50, 15));
-                    if (g910Input && (g910Input.dataset.isDefault === 'true' || !g910Input.value || g910Input.value === '')) g910Input.value = formatCleanInputVal(Math.min(sg * 0.25, 5));
+                    if (g46Input && (g46Input.dataset.isDefault === 'true' || !g46Input.value || g46Input.value === '')) g46Input.value = formatCleanInputVal(sg * 0.75);
+                    if (g78Input && (g78Input.dataset.isDefault === 'true' || !g78Input.value || g78Input.value === '')) g78Input.value = formatCleanInputVal(sg * 0.50);
+                    if (g910Input && (g910Input.dataset.isDefault === 'true' || !g910Input.value || g910Input.value === '')) g910Input.value = formatCleanInputVal(sg * 0.25);
                 }
 
                 const getVal = (id) => {
@@ -2732,10 +2732,10 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     // Override all growths if custom scenario provides 1-3Y growth
                     if (window._customScenariosData && window._customScenariosData[_currentScenario] && window._customScenariosData[_currentScenario].rev13 !== null) {
                         const baseRev = window._customScenariosData[_currentScenario].rev13 / 100;
-                        g13 = Math.min(Math.round(baseRev * 1000) / 1000, 0.50);
-                        g46 = Math.min(baseRev * 0.75, 0.30);
-                        g78 = Math.min(baseRev * 0.50, 0.15);
-                        g910 = Math.min(baseRev * 0.25, 0.05);
+                        g13 = Math.round(baseRev * 1000) / 1000;
+                        g46 = baseRev * 0.75;
+                        g78 = baseRev * 0.50;
+                        g910 = baseRev * 0.25;
                     }
 
                     // Build per-year growth array
