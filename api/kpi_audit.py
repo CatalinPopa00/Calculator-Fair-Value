@@ -59,12 +59,63 @@ def _get_yahoo_earnings_news(ticker: str) -> str:
         print(f"Error fetching Yahoo news for {ticker}: {e}")
         return ""
 
+def _get_sec_10k_text(ticker: str) -> str:
+    """Fetches the latest 10-K (Annual Report) from SEC EDGAR, which contains 3-5 years of historical KPIs."""
+    headers = {'User-Agent': 'CalculatorFairValue calculator@fairvalue.com'}
+    try:
+        # 1. Get CIK for ticker
+        resp = requests.get('https://www.sec.gov/files/company_tickers.json', headers=headers, timeout=5)
+        data = resp.json()
+        cik = None
+        for k, v in data.items():
+            if v['ticker'].upper() == ticker.upper():
+                cik = str(v['cik_str']).zfill(10)
+                break
+        
+        if not cik:
+            return ""
+
+        # 2. Get recent submissions
+        sub_resp = requests.get(f'https://data.sec.gov/submissions/CIK{cik}.json', headers=headers, timeout=5)
+        sub_data = sub_resp.json()
+        recent = sub_data.get('filings', {}).get('recent', {})
+
+        # 3. Find latest 10-K
+        doc_url = None
+        for i, form in enumerate(recent.get('form', [])):
+            if form == '10-K':
+                acc_no = recent['accessionNumber'][i].replace('-', '')
+                doc = recent['primaryDocument'][i]
+                doc_url = f'https://www.sec.gov/Archives/edgar/data/{cik}/{acc_no}/{doc}'
+                break
+
+        if not doc_url:
+            return ""
+
+        # 4. Fetch 10-K HTML and extract text
+        import re
+        doc_resp = requests.get(doc_url, headers=headers, timeout=10)
+        
+        # Fast HTML stripping using regex to prevent Vercel Serverless Function timeouts (BeautifulSoup is too slow for 15MB files)
+        text = re.sub(r'<[^>]+>', ' ', doc_resp.text)
+        text = re.sub(r'\s+', ' ', text).strip()
+        
+        # 10-K can be huge. The MD&A and Financials are usually in the first half. We take the first 300,000 characters.
+        return f"\n\n--- SEC 10-K Report ({ticker}) ---\n" + text[:300000]
+
+    except Exception as e:
+        print(f"Error fetching SEC 10-K for {ticker}: {e}")
+        return ""
+
 
 def get_fmp_transcripts(ticker: str) -> str:
     """Încearcă extragerea transcrierilor oficiale dacă există API Key FMP, altfel Fallback pe Yahoo News."""
     fmp_key = os.getenv("FMP_API_KEY")
     if not fmp_key:
-        print("FMP_API_KEY missing, falling back to Yahoo News Press Releases.")
+        print("FMP_API_KEY missing, falling back to SEC 10-K Reports.")
+        sec_text = _get_sec_10k_text(ticker)
+        if sec_text:
+            return sec_text
         return _get_yahoo_earnings_news(ticker)
         
     try:
@@ -76,22 +127,24 @@ def get_fmp_transcripts(ticker: str) -> str:
             
         data = resp.json()
         if not isinstance(data, list) or len(data) == 0:
-            return _get_yahoo_earnings_news(ticker)
+            sec_text = _get_sec_10k_text(ticker)
+            return sec_text if sec_text else _get_yahoo_earnings_news(ticker)
             
-        # Păstrăm cele mai recente 4 trimestre
-        recent_calls = data[:4]
+        # Păstrăm cele mai recente 20 trimestre (aprox. 5 ani istoric)
+        recent_calls = data[:20]
         combined_text = ""
         for call in recent_calls:
             q = call.get('quarter')
             y = call.get('year')
             text = call.get('content', '')
-            # Truncăm puțin din transcript ca să încapă în context (primele 10000 caractere, acolo unde managementul discută KPIs)
-            combined_text += f"\n\n--- Transcript {y} Q{q} ---\n{text[:10000]}"
+            # Truncăm mai extins (20k caractere per call) ca să luăm cât mai mult context util
+            combined_text += f"\n\n--- Transcript {y} Q{q} ---\n{text[:20000]}"
             
         return combined_text
     except Exception as e:
         print(f"FMP error for {ticker}: {e}")
-        return _get_yahoo_earnings_news(ticker)
+        sec_text = _get_sec_10k_text(ticker)
+        return sec_text if sec_text else _get_yahoo_earnings_news(ticker)
 
 
 def run_ai_kpi_audit(ticker: str) -> Dict[str, Any]:
@@ -118,16 +171,18 @@ def run_ai_kpi_audit(ticker: str) -> Dict[str, Any]:
     system_prompt = '''
 Ești un analist financiar expert și un "Data Miner" de tip Hedge Fund. 
 Vei primi un set de texte extrase din cele mai recente apeluri de venituri (Earnings Calls) sau comunicate de presă pentru o anumită companie.
-Scopul tău este să identifici cei mai importanți 3-5 KPI (Key Performance Indicators) operaționali / calitativi specifici modelului lor de business.
+Aceste texte pot acoperi până la 5 ani de istoric financiar.
+Scopul tău este să identifici cei mai importanți 5-10 KPI (Key Performance Indicators) operaționali / calitativi specifici modelului lor de business.
 EXEMPLE DE KPI BUNI: 
 - Pentru Software: ARR, Net Retention Rate (NRR), Monthly Active Users (MAU), Customer Acquisition Cost.
 - Pentru Auto/Hardware: Total Deliveries, Production Volume, Inventory Days.
 - Pentru Retail: Same-Store Sales Growth, Loyalty Program Members.
 EXEMPLE DE KPI INTERZIȘI (NU ÎI INCLUDE!): Revenue, Net Income, EPS, Profit, Gross Margin. (Aplicația le are deja!).
 
-EXTRAGEREA VALORILOR:
-Pentru fiecare KPI identificat, găsește valorile menționate în documente (în funcție de perioade - ex: Q1 2023, Q2 2023, FY 2023, etc).
-Dacă nu găsești valori exacte pentru toate perioadele, pune "N/A" sau lasă valoarea pe care ai găsit-o ultima dată.
+EXTRAGEREA VALORILOR (ISTORIC PE 5 ANI):
+Pentru fiecare KPI identificat, găsește valorile menționate în documente și urmărește evoluția lor în timp, pe ultimii 5 ani (în funcție de perioade - ex: FY 2020, FY 2021, FY 2022, Q1 2023, Q4 2023, etc).
+De asemenea, dacă detectezi estimări pentru viitor (Guidance), adaugă-le ca perioade viitoare (ex: FY 2025 Est.).
+Dacă nu găsești valori exacte pentru anumite perioade istorice vechi, nu le adăuga sau pune "N/A".
 
 Returnează DOAR un obiect JSON valid, respectând această structură EXACTĂ:
 {
