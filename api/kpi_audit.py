@@ -80,28 +80,34 @@ def _get_sec_10k_text(ticker: str) -> str:
         sub_data = sub_resp.json()
         recent = sub_data.get('filings', {}).get('recent', {})
 
-        # 3. Find latest 10-K
-        doc_url = None
+        # 3. Find up to 3 latest 10-Ks to guarantee full 5-year coverage
+        doc_urls = []
         for i, form in enumerate(recent.get('form', [])):
             if form == '10-K':
                 acc_no = recent['accessionNumber'][i].replace('-', '')
                 doc = recent['primaryDocument'][i]
-                doc_url = f'https://www.sec.gov/Archives/edgar/data/{cik}/{acc_no}/{doc}'
-                break
+                doc_urls.append((recent['reportDate'][i][:4], f'https://www.sec.gov/Archives/edgar/data/{cik}/{acc_no}/{doc}'))
+                if len(doc_urls) >= 3:
+                    break
 
-        if not doc_url:
+        if not doc_urls:
             return ""
 
         # 4. Fetch 10-K HTML and extract text
         import re
-        doc_resp = requests.get(doc_url, headers=headers, timeout=10)
-        
-        # Fast HTML stripping using regex to prevent Vercel Serverless Function timeouts (BeautifulSoup is too slow for 15MB files)
-        text = re.sub(r'<[^>]+>', ' ', doc_resp.text)
-        text = re.sub(r'\s+', ' ', text).strip()
-        
-        # 10-K can be huge. The MD&A and Financials are usually in the first half. We take the first 200,000 characters.
-        return f"\n\n--- SEC 10-K Report ({ticker}) ---\n" + text[:200000]
+        combined_text = f"\n\n--- SEC 10-K Reports for {ticker} ---\n"
+        for year, doc_url in doc_urls:
+            try:
+                doc_resp = requests.get(doc_url, headers=headers, timeout=10)
+                # Fast HTML stripping using regex to prevent Vercel Serverless Function timeouts
+                text = re.sub(r'<[^>]+>', ' ', doc_resp.text)
+                text = re.sub(r'\s+', ' ', text).strip()
+                # 80k characters per report should easily cover Item 1 (Business) and Item 7 (MD&A)
+                combined_text += f"\n\n[Year {year} 10-K]\n" + text[:80000]
+            except:
+                pass
+
+        return combined_text
 
     except Exception as e:
         print(f"Error fetching SEC 10-K for {ticker}: {e}")
@@ -180,9 +186,10 @@ EXAMPLES OF GOOD KPIs:
 EXAMPLES OF FORBIDDEN KPIs (DO NOT INCLUDE!): Revenue, Net Income, EPS, Profit, Gross Margin. (The app already has these!).
 
 VALUE EXTRACTION (5-YEAR HISTORY):
-For each identified KPI, find the values mentioned in the documents and track their evolution over time, over the last 5 years (by periods - e.g., FY 2020, FY 2021, FY 2022, Q1 2023, Q4 2023, etc).
+For each identified KPI, find the values mentioned in the documents and track their evolution over time, over the last 5 years (by periods - e.g., FY 2020, FY 2021, FY 2022, FY 2023, FY 2024).
+CRITICAL: You MUST extract values for the ENTIRE 5-year history. Look carefully through ALL the provided texts/reports. Do NOT just output the most recent year.
 Also, if you detect future estimates (Guidance), add them as future periods (e.g., FY 2025 Est.).
-If you cannot find exact values for certain older historical periods, do not add them or put "N/A".
+If you absolutely cannot find exact values for older historical periods, put "N/A".
 
 Return ONLY a valid JSON object, strictly following this EXACT structure:
 {
@@ -203,7 +210,12 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
 '''
 
     # 2. Apelăm API-ul Gemini nativ prin requests (fără SDK extern pentru a evita probleme de instalare pe Vercel)
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+    # Folosim fallback pentru modele
+    models_to_try = [
+        "gemini-2.0-flash",
+        "gemini-1.5-flash",
+        "gemini-1.5-pro"
+    ]
     
     headers = {
         "Content-Type": "application/json"
@@ -223,19 +235,29 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
     }
 
     try:
-        resp = requests.post(url, headers=headers, json=payload, timeout=55)
+        data = None
+        error_msg = "Unknown Error"
 
-        if resp.status_code != 200:
-            error_msg = resp.text
-            try:
-                error_data = resp.json()
-                if "error" in error_data and "message" in error_data["error"]:
-                    error_msg = error_data["error"]["message"]
-            except:
-                pass
-            return {"error": True, "detail": f"Gemini API Error: {error_msg}"}
-            
-        data = resp.json()
+        for model in models_to_try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+            resp = requests.post(url, headers=headers, json=payload, timeout=55)
+
+            if resp.status_code == 200:
+                data = resp.json()
+                break
+            else:
+                error_msg = resp.text
+                try:
+                    error_data = resp.json()
+                    if "error" in error_data and "message" in error_data["error"]:
+                        error_msg = error_data["error"]["message"]
+                except:
+                    pass
+                print(f"Model {model} failed for {ticker}: {error_msg}. Trying next...")
+
+        if not data:
+            return {"error": True, "detail": f"Gemini API Error (all models failed): {error_msg}"}
+
 
         if "candidates" not in data or not data["candidates"]:
             return {"error": True, "detail": "Gemini returned an empty response."}
