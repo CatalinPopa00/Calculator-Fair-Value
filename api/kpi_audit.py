@@ -157,7 +157,13 @@ def run_ai_kpi_audit(ticker: str) -> Dict[str, Any]:
     ticker = ticker.upper()
     if ticker in audit_cache:
         return audit_cache[ticker]
-        
+
+    try:
+        from dotenv import load_dotenv
+        load_dotenv(override=True)
+    except:
+        pass
+
     openai_key = os.getenv("OPENAI_API_KEY")
     gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("gemini")
 
