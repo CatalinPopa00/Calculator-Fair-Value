@@ -1025,7 +1025,14 @@
                                     <div class="header-icon">⏳</div>
                                     <h3 class="research-title collapsible-trigger" data-card="historical-anchors" style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin: 0; width: 100%;">
                                         Historical Anchors & Trends
-                                        <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="margin-left: auto;"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                                        
+                                        <!-- Tabs for Carousel -->
+                                        <div class="hist-tabs" style="display: flex; gap: 8px; margin-left: auto; margin-right: 15px;" onclick="event.stopPropagation();">
+                                            <button id="tab-financials" class="hist-tab active" style="background: rgba(0, 210, 255, 0.2); color: #00d2ff; border: 1px solid #00d2ff; border-radius: 4px; padding: 4px 12px; font-size: 0.8rem; cursor: pointer; transition: 0.2s;">Financials</button>
+                                            <button id="tab-ai-kpis" class="hist-tab" style="background: transparent; color: var(--text-muted); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; padding: 4px 12px; font-size: 0.8rem; cursor: pointer; transition: 0.2s;">✨ AI KPIs Audit</button>
+                                        </div>
+
+                                        <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
                                     </h3>
                                 </div>
                                 <div class="card-body-collapsible" style="padding-top: 1.5rem; position: relative;">
@@ -1034,24 +1041,10 @@
                                         .historical-carousel-viewport { overflow: hidden; width: 100%; position: relative; }
                                         .historical-carousel-track { display: flex; width: 200%; transition: transform 0.4s ease-in-out; }
                                         .historical-carousel-slide { width: 50%; padding: 0 1rem; box-sizing: border-box; }
-                                        .hist-nav-btn {
-                                            position: absolute; top: 50%; transform: translateY(-50%);
-                                            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
-                                            color: white; border-radius: 50%; width: 36px; height: 36px;
-                                            display: flex; align-items: center; justify-content: center;
-                                            cursor: pointer; z-index: 10; transition: all 0.2s ease;
-                                        }
-                                        .hist-nav-btn:hover { background: rgba(255,255,255,0.15); }
-                                        .hist-nav-btn.prev { left: 5px; }
-                                        .hist-nav-btn.next { right: 5px; }
                                         @media (max-width: 768px) {
                                             .historical-carousel-slide { padding: 0 10px; }
-                                            .hist-nav-btn { width: 28px; height: 28px; font-size: 0.8rem; }
                                         }
                                     </style>
-
-                                    <button class="hist-nav-btn prev" id="hist-prev-btn" style="display: none;">&#10094;</button>
-                                    <button class="hist-nav-btn next" id="hist-next-btn">&#10095;</button>
 
                                     <div class="historical-carousel-viewport">
                                         <div class="historical-carousel-track" id="historical-carousel-track">
@@ -1108,30 +1101,35 @@
                                     <script>
                                         document.addEventListener('DOMContentLoaded', () => {
                                             const track = document.getElementById('historical-carousel-track');
-                                            const prevBtn = document.getElementById('hist-prev-btn');
-                                            const nextBtn = document.getElementById('hist-next-btn');
-                                            let curSlide = 0;
+                                            const tabFin = document.getElementById('tab-financials');
+                                            const tabAI = document.getElementById('tab-ai-kpis');
 
-                                            const updateSlide = () => {
-                                                track.style.transform = `translateX(-${curSlide * 50}%)`;
-                                                prevBtn.style.display = curSlide === 0 ? 'none' : 'flex';
-                                                nextBtn.style.display = curSlide === 1 ? 'none' : 'flex';
+                                            const updateSlide = (index) => {
+                                                if (!track) return;
+                                                track.style.transform = `translateX(-${index * 50}%)`;
+                                                
+                                                if (index === 0) {
+                                                    tabFin.style.background = 'rgba(0, 210, 255, 0.2)';
+                                                    tabFin.style.color = '#00d2ff';
+                                                    tabFin.style.borderColor = '#00d2ff';
+                                                    
+                                                    tabAI.style.background = 'transparent';
+                                                    tabAI.style.color = 'var(--text-muted)';
+                                                    tabAI.style.borderColor = 'rgba(255,255,255,0.2)';
+                                                } else {
+                                                    tabAI.style.background = 'rgba(139, 92, 246, 0.2)';
+                                                    tabAI.style.color = '#c084fc';
+                                                    tabAI.style.borderColor = '#c084fc';
+                                                    
+                                                    tabFin.style.background = 'transparent';
+                                                    tabFin.style.color = 'var(--text-muted)';
+                                                    tabFin.style.borderColor = 'rgba(255,255,255,0.2)';
+                                                }
                                             };
 
-                                            if (nextBtn && prevBtn && track) {
-                                                nextBtn.addEventListener('click', () => {
-                                                    if (curSlide < 1) {
-                                                        curSlide++;
-                                                        updateSlide();
-                                                    }
-                                                });
-
-                                                prevBtn.addEventListener('click', () => {
-                                                    if (curSlide > 0) {
-                                                        curSlide--;
-                                                        updateSlide();
-                                                    }
-                                                });
+                                            if (tabFin && tabAI) {
+                                                tabFin.addEventListener('click', () => updateSlide(0));
+                                                tabAI.addEventListener('click', () => updateSlide(1));
                                             }
                                         });
                                     </script>
