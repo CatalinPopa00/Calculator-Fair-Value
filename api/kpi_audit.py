@@ -80,28 +80,43 @@ def _get_sec_10k_text(ticker: str) -> str:
         sub_data = sub_resp.json()
         recent = sub_data.get('filings', {}).get('recent', {})
 
-        # 3. Find up to 5 latest 10-Ks to guarantee full 5-year coverage
+        # 3. Find up to 5 latest 10-Ks and 3 latest 10-Qs to get both historical and current year data
         doc_urls = []
+        k_count = 0
+        q_count = 0
         
-        def extract_10k_from_filings(filings_obj):
+        def extract_filings(filings_obj):
+            nonlocal k_count, q_count
             for i, form in enumerate(filings_obj.get('form', [])):
-                if form == '10-K':
+                if form == '10-K' and k_count < 5:
                     acc_no = filings_obj['accessionNumber'][i].replace('-', '')
                     doc = filings_obj['primaryDocument'][i]
-                    doc_urls.append((filings_obj['reportDate'][i][:4], f'https://www.sec.gov/Archives/edgar/data/{cik}/{acc_no}/{doc}'))
-                    if len(doc_urls) >= 5:
-                        break
+                    doc_urls.append(('10-K', filings_obj['reportDate'][i][:4], f'https://www.sec.gov/Archives/edgar/data/{cik}/{acc_no}/{doc}'))
+                    k_count += 1
+                elif form == '10-Q' and q_count < 3:
+                    acc_no = filings_obj['accessionNumber'][i].replace('-', '')
+                    doc = filings_obj['primaryDocument'][i]
+                    # Format as Year Qx. SEC reportDate is YYYY-MM-DD.
+                    # Simplistic quarter mapping based on month.
+                    month = int(filings_obj['reportDate'][i][5:7])
+                    quarter = 'Q1' if month <= 3 else ('Q2' if month <= 6 else ('Q3' if month <= 9 else 'Q4'))
+                    year_q = f"{filings_obj['reportDate'][i][:4]} {quarter}"
+                    doc_urls.append(('10-Q', year_q, f'https://www.sec.gov/Archives/edgar/data/{cik}/{acc_no}/{doc}'))
+                    q_count += 1
+                    
+                if k_count >= 5 and q_count >= 3:
+                    break
                         
-        extract_10k_from_filings(recent)
+        extract_filings(recent)
         
-        if len(doc_urls) < 5:
+        if k_count < 5 or q_count < 3:
             for file_info in sub_data.get('filings', {}).get('files', []):
                 try:
                     older_url = f"https://data.sec.gov/submissions/{file_info['name']}"
                     older_resp = requests.get(older_url, headers=headers, timeout=5)
                     older_data = older_resp.json()
-                    extract_10k_from_filings(older_data)
-                    if len(doc_urls) >= 5:
+                    extract_filings(older_data)
+                    if k_count >= 5 and q_count >= 3:
                         break
                 except:
                     pass
@@ -109,26 +124,34 @@ def _get_sec_10k_text(ticker: str) -> str:
         if not doc_urls:
             return ""
 
-        # 4. Fetch 10-K HTML and extract text
+        # 4. Fetch HTML and extract text
         import re
-        combined_text = f"\n\n--- SEC 10-K Reports for {ticker} ---\n"
-        for year, doc_url in doc_urls:
+        combined_text = f"\n\n--- SEC Reports for {ticker} ---\n"
+        for form_type, date_str, doc_url in doc_urls:
             try:
                 doc_resp = requests.get(doc_url, headers=headers, timeout=10)
                 # Fast HTML stripping using regex to prevent Vercel Serverless Function timeouts
                 text = re.sub(r'<[^>]+>', ' ', doc_resp.text)
                 text = re.sub(r'\s+', ' ', text).strip()
                 
-                # Smart extraction: Jump directly to Item 7 (MD&A) to save massive amounts of tokens
-                # This prevents hitting the Gemini Free Tier limit of 250k tokens per minute!
-                matches = list(re.finditer(r'(?i)Item\s*7[\.\:]?\s*Management', text))
-                if matches:
-                    idx = matches[-1].start()
-                    report_text = text[idx:idx+80000]
+                if form_type == '10-K':
+                    # Jump directly to Item 7 (MD&A)
+                    matches = list(re.finditer(r'(?i)Item\s*7[\.\:]?\s*Management', text))
+                    if matches:
+                        idx = matches[-1].start()
+                        report_text = text[idx:idx+80000]
+                    else:
+                        report_text = text[:80000]
+                    combined_text += f"\n\n[Year {date_str} 10-K]\n" + report_text
                 else:
-                    report_text = text[:80000]
-                    
-                combined_text += f"\n\n[Year {year} 10-K]\n" + report_text
+                    # Jump directly to Item 2 (MD&A for 10-Q)
+                    matches = list(re.finditer(r'(?i)Item\s*2[\.\:]?\s*Management', text))
+                    if matches:
+                        idx = matches[-1].start()
+                        report_text = text[idx:idx+60000]
+                    else:
+                        report_text = text[:60000]
+                    combined_text += f"\n\n[Quarter {date_str} 10-Q]\n" + report_text
             except:
                 pass
 
@@ -224,11 +247,10 @@ EXAMPLES OF GOOD KPIs:
 - For Retail: Same-Store Sales Growth, Loyalty Program Members.
 EXAMPLES OF FORBIDDEN KPIs (DO NOT INCLUDE!): Revenue, Net Income, EPS, Profit, Gross Margin. (The app already has these!).
 
-VALUE EXTRACTION (5-YEAR HISTORY):
-For each identified KPI, find the values mentioned in the documents and track their evolution over time, over the last 5 years (by periods - e.g., FY 2020, FY 2021, FY 2022, FY 2023, FY 2024).
-CRITICAL: You MUST extract values for the ENTIRE 5-year history. Look carefully through ALL the provided texts/reports. Do NOT just output the most recent year.
-Also, if you detect future estimates (Guidance), add them as future periods (e.g., FY 2025 Est.).
-If you absolutely cannot find exact values for older historical periods, put "N/A".
+VALUE EXTRACTION (5-YEAR HISTORY + RECENT QUARTERS):
+For each identified KPI, find the values mentioned in the documents and track their evolution over time over the last 5 full fiscal years (e.g., FY 2021, FY 2022, FY 2023, FY 2024, FY 2025).
+ADDITIONALLY, for the CURRENT unfinished fiscal year, extract the available individual quarterly data (e.g., FY 2026 Q1, FY 2026 Q2). Do NOT use estimates.
+Format the keys EXACTLY as "FY [Year]" or "FY [Year] Q[X]". Ensure exact numbers are extracted if explicitly stated. Format numbers cleanly (e.g. "1.2 Billion", "34.5%", "450 Million"). If a value for a specific period is completely absent from the text, use "N/A".
 
 Return ONLY a valid JSON object, strictly following this EXACT structure:
 {
