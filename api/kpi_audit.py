@@ -179,9 +179,8 @@ def get_fmp_transcripts(ticker: str) -> str:
     if not fmp_key:
         print("FMP_API_KEY missing, falling back to SEC 10-K Reports.")
         sec_text = _get_sec_10k_text(ticker)
-        if sec_text:
-            return sec_text
-        return _get_yahoo_earnings_news(ticker)
+        yahoo_text = _get_yahoo_earnings_news(ticker)
+        return sec_text + "\n\n" + yahoo_text
         
     try:
         # Obține lista de transcrieri disponibile
@@ -192,9 +191,8 @@ def get_fmp_transcripts(ticker: str) -> str:
         if not data or not isinstance(data, list):
             print("No FMP transcripts found, falling back to SEC.")
             sec_text = _get_sec_10k_text(ticker)
-            if sec_text:
-                return sec_text
-            return _get_yahoo_earnings_news(ticker)
+            yahoo_text = _get_yahoo_earnings_news(ticker)
+            return sec_text + "\n\n" + yahoo_text
             
         # Păstrăm cele mai recente 20 trimestre (aprox. 5 ani istoric)
         recent_calls = data[:20]
@@ -209,18 +207,16 @@ def get_fmp_transcripts(ticker: str) -> str:
             
         if not combined_transcripts.strip():
             sec_text = _get_sec_10k_text(ticker)
-            if sec_text:
-                return sec_text
-            return _get_yahoo_earnings_news(ticker)
+            yahoo_text = _get_yahoo_earnings_news(ticker)
+            return sec_text + "\n\n" + yahoo_text
             
         return combined_transcripts
         
     except Exception as e:
         print(f"Error fetching FMP transcripts for {ticker}: {e}")
         sec_text = _get_sec_10k_text(ticker)
-        if sec_text:
-            return sec_text
-        return _get_yahoo_earnings_news(ticker)
+        yahoo_text = _get_yahoo_earnings_news(ticker)
+        return sec_text + "\n\n" + yahoo_text
 
 def run_ai_kpi_audit(ticker: str) -> Dict[str, Any]:
     ticker = ticker.upper()
