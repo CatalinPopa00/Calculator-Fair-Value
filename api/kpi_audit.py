@@ -4,10 +4,12 @@ import json
 import concurrent.futures
 from typing import List, Dict, Any
 from cachetools import TTLCache
-from dotenv import load_dotenv
-
-# Încărcăm variabilele de mediu din .env
-load_dotenv()
+try:
+    from dotenv import load_dotenv
+    # Încărcăm variabilele de mediu din .env (local)
+    load_dotenv()
+except ImportError:
+    pass
 
 try:
     from openai import OpenAI
