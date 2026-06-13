@@ -21,6 +21,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css?v=336">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
    <style>
         #version-badge {
             position: fixed;
@@ -1081,15 +1082,32 @@
                                                     </div>
                                                     <div id="ai-audit-error" style="display: none; color: var(--danger); margin: 20px 0; text-align: center; font-size: 0.9rem;"></div>
                                                     
-                                                    <div id="ai-audit-results" style="display: none; text-align: left;">
+                                                    <div id="ai-audit-results" style="display: none; text-align: left; width: 100%;">
                                                         <p id="ai-audit-summary" style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; line-height: 1.4;"></p>
-                                                        <div class="table-responsive">
-                                                            <table class="mini-research-table" id="ai-audit-table" style="width: 100%; font-size: 0.8rem;">
-                                                                <thead>
-                                                                    <tr id="ai-audit-thead-row"></tr>
-                                                                </thead>
-                                                                <tbody id="ai-audit-tbody"></tbody>
-                                                            </table>
+                                                        
+                                                        <div id="kpi-carousel-container" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: clamp(1rem, 3vw, 1.5rem); position: relative;">
+                                                            
+                                                            <!-- KPI Info -->
+                                                            <div style="margin-bottom: 1.5rem;">
+                                                                <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px;">
+                                                                    <h5 id="kpi-current-title" style="margin: 0; color: var(--accent); font-size: 1.1rem; font-weight: 600;">--</h5>
+                                                                    <span id="kpi-counter" style="font-size: 0.8rem; color: var(--text-muted); background: rgba(255,255,255,0.1); padding: 2px 8px; border-radius: 12px;">0 / 0</span>
+                                                                </div>
+                                                                <p id="kpi-current-desc" style="font-size: 0.9rem; color: var(--text-muted); margin-top: 8px; line-height: 1.4;">--</p>
+                                                            </div>
+
+                                                            <!-- Chart Container -->
+                                                            <div style="position: relative; height: 250px; width: 100%;">
+                                                                <canvas id="kpi-chart"></canvas>
+                                                            </div>
+
+                                                            <!-- Navigation Controls -->
+                                                            <div style="display: flex; justify-content: space-between; margin-top: 1.5rem; align-items: center;">
+                                                                <button id="kpi-prev-btn" class="base-btn" style="background: rgba(255,255,255,0.05); color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; transition: 0.2s; font-size: 0.85rem;">&larr; Prev</button>
+                                                                <div id="kpi-dots" style="display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; max-width: 50%;"></div>
+                                                                <button id="kpi-next-btn" class="base-btn" style="background: var(--accent); color: #0f172a; border: none; padding: 8px 12px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 0.85rem;">Next &rarr;</button>
+                                                            </div>
+                                                            
                                                         </div>
                                                     </div>
                                                 </div>

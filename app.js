@@ -7826,9 +7826,14 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             const loadingEl = document.getElementById('ai-audit-loading');
             const errorEl = document.getElementById('ai-audit-error');
             const resultsEl = document.getElementById('ai-audit-results');
-            const tbody = document.getElementById('ai-audit-tbody');
             const summaryEl = document.getElementById('ai-audit-summary');
-            const theadRow = document.getElementById('ai-audit-thead-row');
+            
+            const kpiTitleEl = document.getElementById('kpi-current-title');
+            const kpiDescEl = document.getElementById('kpi-current-desc');
+            const kpiCounterEl = document.getElementById('kpi-counter');
+            const kpiPrevBtn = document.getElementById('kpi-prev-btn');
+            const kpiNextBtn = document.getElementById('kpi-next-btn');
+            const kpiDotsEl = document.getElementById('kpi-dots');
 
             runKpiAuditBtn.disabled = true;
             runKpiAuditBtn.style.opacity = '0.5';
@@ -7863,49 +7868,105 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     summaryEl.textContent = "AI Audit completed successfully.";
                 }
 
-                // Prepare table
-                theadRow.innerHTML = '';
-                tbody.innerHTML = '';
-
                 if (data.kpis && data.kpis.length > 0) {
-                    // Extract all unique period keys from all KPIs to form columns
-                    const periodSet = new Set();
-                    data.kpis.forEach(kpi => {
-                        const vals = kpi.values || kpi.history;
-                        if (vals) {
-                            Object.keys(vals).forEach(p => periodSet.add(p));
+                    let currentKpiIndex = 0;
+                    let kpiChartInstance = null;
+
+                    const parseKpiValue = (val) => {
+                        if (typeof val === 'number') return val;
+                        if (!val || val === '--' || val === 'N/A') return null;
+                        const match = val.match(/-?[\d,]+(\.\d+)?/);
+                        if (match) return parseFloat(match[0].replace(/,/g, ''));
+                        return null;
+                    };
+
+                    const renderKpiPage = (index) => {
+                        const kpi = data.kpis[index];
+                        kpiTitleEl.textContent = kpi.name || "Unknown KPI";
+                        kpiDescEl.textContent = kpi.description || "";
+                        kpiCounterEl.textContent = `${index + 1} / ${data.kpis.length}`;
+
+                        kpiDotsEl.innerHTML = '';
+                        for(let i=0; i<data.kpis.length; i++) {
+                            const dot = document.createElement('div');
+                            dot.style.width = '8px';
+                            dot.style.height = '8px';
+                            dot.style.borderRadius = '50%';
+                            dot.style.background = i === index ? 'var(--accent)' : 'rgba(255,255,255,0.2)';
+                            dot.style.transition = '0.3s';
+                            kpiDotsEl.appendChild(dot);
                         }
-                    });
 
-                    // Sort periods (assuming format like "Q1 2023", "2023-03-31", or similar)
-                    // We'll just sort them alphabetically which usually works for YYYY-MM-DD
-                    const periods = Array.from(periodSet).sort();
+                        const vals = kpi.values || kpi.history || {};
+                        const periods = Object.keys(vals).sort();
+                        const chartData = periods.map(p => parseKpiValue(vals[p]));
+                        const formattedTooltips = periods.map(p => vals[p]);
 
-                    // Create Header
-                    theadRow.innerHTML = `<th>Metric</th><th>Description</th>`;
-                    periods.forEach(p => {
-                        theadRow.innerHTML += `<th style="text-align:right">${p}</th>`;
-                    });
+                        const ctx = document.getElementById('kpi-chart').getContext('2d');
+                        if (window.kpiChartInstance) {
+                            window.kpiChartInstance.destroy();
+                        }
 
-                    // Create Rows
-                    data.kpis.forEach(kpi => {
-                        let rowHtml = `
-                            <tr>
-                                <td style="font-weight: bold; color: var(--accent); white-space: nowrap;">${kpi.name}</td>
-                                <td style="font-size: 0.85rem; color: var(--text-muted); max-width: 250px;">${kpi.description}</td>
-                        `;
-                        
-                        periods.forEach(p => {
-                            const vals = kpi.values || kpi.history;
-                            const val = (vals && vals[p]) !== undefined ? vals[p] : '--';
-                            rowHtml += `<td style="text-align:right; font-family: monospace;">${val}</td>`;
+                        window.kpiChartInstance = new Chart(ctx, {
+                            type: 'bar',
+                            data: {
+                                labels: periods,
+                                datasets: [{
+                                    label: kpi.name,
+                                    data: chartData,
+                                    backgroundColor: 'rgba(0, 210, 255, 0.4)',
+                                    borderColor: 'rgba(0, 210, 255, 1)',
+                                    borderWidth: 1,
+                                    borderRadius: 4
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    legend: { display: false },
+                                    tooltip: {
+                                        callbacks: {
+                                            label: function(context) {
+                                                return ' ' + formattedTooltips[context.dataIndex];
+                                            }
+                                        }
+                                    }
+                                },
+                                scales: {
+                                    y: {
+                                        beginAtZero: false,
+                                        grid: { color: 'rgba(255,255,255,0.05)' },
+                                        ticks: { color: 'rgba(255,255,255,0.5)' }
+                                    },
+                                    x: {
+                                        grid: { display: false },
+                                        ticks: { color: 'rgba(255,255,255,0.7)' }
+                                    }
+                                }
+                            }
                         });
+                    };
 
-                        rowHtml += `</tr>`;
-                        tbody.innerHTML += rowHtml;
-                    });
+                    kpiPrevBtn.onclick = () => {
+                        if (currentKpiIndex > 0) {
+                            currentKpiIndex--;
+                            renderKpiPage(currentKpiIndex);
+                        }
+                    };
+
+                    kpiNextBtn.onclick = () => {
+                        if (currentKpiIndex < data.kpis.length - 1) {
+                            currentKpiIndex++;
+                            renderKpiPage(currentKpiIndex);
+                        }
+                    };
+
+                    renderKpiPage(0);
                 } else {
-                    tbody.innerHTML = `<tr><td colspan="100%" style="text-align:center;">No specific KPIs extracted.</td></tr>`;
+                    kpiTitleEl.textContent = "No KPIs found";
+                    kpiDescEl.textContent = "Try running the audit again or check data availability.";
+                    document.getElementById('kpi-chart').style.display = 'none';
                 }
 
                 resultsEl.style.display = 'block';

@@ -156,7 +156,7 @@ def run_ai_kpi_audit(ticker: str) -> Dict[str, Any]:
     if not api_key:
         return {
             "error": True, 
-            "detail": "Cheia API Gemini lipsește. Te rog adaugă variabila 'gemini' sau 'GEMINI_API_KEY' în panoul Vercel."
+            "detail": "Gemini API Key is missing. Please add the 'gemini' or 'GEMINI_API_KEY' variable in the Vercel panel."
         }
 
     # 1. Obținem textele din rapoarte (Transcripts / Press Releases)
@@ -165,33 +165,33 @@ def run_ai_kpi_audit(ticker: str) -> Dict[str, Any]:
     if not raw_text or len(raw_text) < 500:
         return {
             "error": True,
-            "detail": f"Nu am putut găsi suficiente rapoarte financiare recente sau press releases pentru {ticker}."
+            "detail": f"Could not find enough recent financial reports or press releases for {ticker}."
         }
 
     system_prompt = '''
-Ești un analist financiar expert și un "Data Miner" de tip Hedge Fund. 
-Vei primi un set de texte extrase din cele mai recente apeluri de venituri (Earnings Calls) sau comunicate de presă pentru o anumită companie.
-Aceste texte pot acoperi până la 5 ani de istoric financiar.
-Scopul tău este să identifici cei mai importanți 5-10 KPI (Key Performance Indicators) operaționali / calitativi specifici modelului lor de business.
-EXEMPLE DE KPI BUNI: 
-- Pentru Software: ARR, Net Retention Rate (NRR), Monthly Active Users (MAU), Customer Acquisition Cost.
-- Pentru Auto/Hardware: Total Deliveries, Production Volume, Inventory Days.
-- Pentru Retail: Same-Store Sales Growth, Loyalty Program Members.
-EXEMPLE DE KPI INTERZIȘI (NU ÎI INCLUDE!): Revenue, Net Income, EPS, Profit, Gross Margin. (Aplicația le are deja!).
+You are an expert financial analyst and a Hedge Fund "Data Miner". 
+You will receive a set of texts extracted from the most recent Earnings Calls or press releases for a specific company.
+These texts may cover up to 5 years of financial history.
+Your goal is to identify the top 5-10 operational / qualitative KPIs (Key Performance Indicators) specific to their business model.
+EXAMPLES OF GOOD KPIs: 
+- For Software: ARR, Net Retention Rate (NRR), Monthly Active Users (MAU), Customer Acquisition Cost.
+- For Auto/Hardware: Total Deliveries, Production Volume, Inventory Days.
+- For Retail: Same-Store Sales Growth, Loyalty Program Members.
+EXAMPLES OF FORBIDDEN KPIs (DO NOT INCLUDE!): Revenue, Net Income, EPS, Profit, Gross Margin. (The app already has these!).
 
-EXTRAGEREA VALORILOR (ISTORIC PE 5 ANI):
-Pentru fiecare KPI identificat, găsește valorile menționate în documente și urmărește evoluția lor în timp, pe ultimii 5 ani (în funcție de perioade - ex: FY 2020, FY 2021, FY 2022, Q1 2023, Q4 2023, etc).
-De asemenea, dacă detectezi estimări pentru viitor (Guidance), adaugă-le ca perioade viitoare (ex: FY 2025 Est.).
-Dacă nu găsești valori exacte pentru anumite perioade istorice vechi, nu le adăuga sau pune "N/A".
+VALUE EXTRACTION (5-YEAR HISTORY):
+For each identified KPI, find the values mentioned in the documents and track their evolution over time, over the last 5 years (by periods - e.g., FY 2020, FY 2021, FY 2022, Q1 2023, Q4 2023, etc).
+Also, if you detect future estimates (Guidance), add them as future periods (e.g., FY 2025 Est.).
+If you cannot find exact values for certain older historical periods, do not add them or put "N/A".
 
-Returnează DOAR un obiect JSON valid, respectând această structură EXACTĂ:
+Return ONLY a valid JSON object, strictly following this EXACT structure:
 {
   "company": "Ticker",
-  "audit_summary": "Un paragraf scurt în română despre calitatea business-ului dedusă din acești indicatori.",
+  "audit_summary": "A short paragraph summarizing the quality of the business deduced from these indicators.",
   "kpis": [
     {
-      "name": "Numele KPI-ului (ex: Monthly Active Users)",
-      "description": "Ce reprezintă și de ce e important pentru această companie (în română)",
+      "name": "KPI Name (e.g., Monthly Active Users)",
+      "description": "What it represents and why it is important for this company.",
       "values": {
         "Q3 2023": "2.5M",
         "Q4 2023": "2.8M",
@@ -238,7 +238,7 @@ Returnează DOAR un obiect JSON valid, respectând această structură EXACTĂ:
         data = resp.json()
         
         if "candidates" not in data or not data["candidates"]:
-            return {"error": True, "detail": "Gemini a returnat un răspuns gol."}
+            return {"error": True, "detail": "Gemini returned an empty response."}
             
         result_content = data["candidates"][0]["content"]["parts"][0]["text"]
         parsed_result = json.loads(result_content)
