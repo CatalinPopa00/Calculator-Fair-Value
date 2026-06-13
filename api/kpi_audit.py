@@ -104,19 +104,19 @@ def _get_sec_10k_text(ticker: str) -> str:
                     doc_urls.append(('10-Q', year_q, f'https://www.sec.gov/Archives/edgar/data/{cik}/{acc_no}/{doc}'))
                     q_count += 1
                     
-                if k_count >= 5 and q_count >= 3:
+                if k_count >= 5 and q_count >= 4:
                     break
                         
         extract_filings(recent)
         
-        if k_count < 5 or q_count < 3:
+        if k_count < 5 or q_count < 4:
             for file_info in sub_data.get('filings', {}).get('files', []):
                 try:
                     older_url = f"https://data.sec.gov/submissions/{file_info['name']}"
                     older_resp = requests.get(older_url, headers=headers, timeout=5)
                     older_data = older_resp.json()
                     extract_filings(older_data)
-                    if k_count >= 5 and q_count >= 3:
+                    if k_count >= 5 and q_count >= 4:
                         break
                 except:
                     pass
@@ -143,12 +143,19 @@ def _get_sec_10k_text(ticker: str) -> str:
                     valid_matches = [m for m in matches if m.start() > 100000]
                     if valid_matches:
                         idx = valid_matches[0].start()
-                        report_text = text[idx:idx+120000]
                     elif matches:
                         idx = matches[-1].start()
-                        report_text = text[idx:idx+120000]
                     else:
-                        report_text = text[:120000]
+                        idx = 0
+                        
+                    # Find end boundary Item 8
+                    matches_end = list(re.finditer(r'(?i)Item\s*8[\.\:]?\s*Financial', text))
+                    valid_end = [m for m in matches_end if m.start() > idx]
+                    if valid_end and valid_end[0].start() - idx < 250000:
+                        report_text = text[idx:valid_end[0].start()]
+                    else:
+                        report_text = text[idx:idx+150000]
+                        
                     combined_text += f"\n\n[Year {date_str} 10-K]\n" + report_text
                 else:
                     # Jump directly to Item 2 (MD&A for 10-Q)
@@ -156,13 +163,20 @@ def _get_sec_10k_text(ticker: str) -> str:
                     valid_matches = [m for m in matches if m.start() > 30000]
                     if valid_matches:
                         idx = valid_matches[0].start()
-                        report_text = text[idx:idx+80000]
                     elif matches:
                         idx = matches[-1].start()
-                        report_text = text[idx:idx+80000]
                     else:
-                        report_text = text[:80000]
-                    combined_text += f"\n\n[Quarter {date_str} 10-Q]\n" + report_text
+                        idx = 0
+                        
+                    # Find end boundary Item 3
+                    matches_end = list(re.finditer(r'(?i)Item\s*3[\.\:]?\s*Quantitative', text))
+                    valid_end = [m for m in matches_end if m.start() > idx]
+                    if valid_end and valid_end[0].start() - idx < 150000:
+                        report_text = text[idx:valid_end[0].start()]
+                    else:
+                        report_text = text[idx:idx+100000]
+                        
+                    combined_text += f"\n\n[Year {date_str} 10-Q]\n" + report_text
             except:
                 pass
 
