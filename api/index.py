@@ -33,6 +33,7 @@ from models.valuation import (
     calculate_reverse_dcf
 )
 from models.scoring import calculate_scoring_reform, calculate_piotroski_score, get_scoring_rules
+from api.kpi_audit import run_ai_kpi_audit
 
 # Cache for search results (30 mins TTL)
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
@@ -495,6 +496,17 @@ def delete_override(ticker: str):
     except Exception as e:
         print(f"Error deleting override: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+@app.post("/api/ai-kpi-audit/{ticker}")
+def kpi_audit(ticker: str):
+    try:
+        result = run_ai_kpi_audit(ticker)
+        if result.get("error"):
+            return JSONResponse(status_code=400, content=result)
+        return result
+    except Exception as e:
+        print(f"Error in KPI Audit for {ticker}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/article-bypass")
 def bypass_article(url: str):

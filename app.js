@@ -3762,6 +3762,15 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             if (ti) ti.textContent = '';
             autocompleteList.style.display = 'none';
             watchlistView.style.display = 'none';
+            
+            // Reset AI KPI Audit Section
+            const aiResults = document.getElementById('ai-audit-results');
+            const aiError = document.getElementById('ai-audit-error');
+            const aiLoading = document.getElementById('ai-audit-loading');
+            if(aiResults) aiResults.style.display = 'none';
+            if(aiError) aiError.style.display = 'none';
+            if(aiLoading) aiLoading.style.display = 'none';
+
             dashboard.style.display = 'none';
             loadingState.style.display = 'flex';
             if (elements.fairValue) elements.fairValue.textContent = '$0.00';
@@ -7800,6 +7809,107 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     installBtn.style.display = 'none';
                 }
                 deferredPrompt = null;
+            }
+        });
+    }
+
+    // --- AI KPI AUDIT LOGIC ---
+    const runKpiAuditBtn = document.getElementById('run-kpi-audit-btn');
+    if (runKpiAuditBtn) {
+        runKpiAuditBtn.addEventListener('click', async () => {
+            if (!globalData || !globalData.ticker) {
+                alert("Please analyze a company first before running an audit.");
+                return;
+            }
+            
+            const ticker = globalData.ticker;
+            const loadingEl = document.getElementById('ai-audit-loading');
+            const errorEl = document.getElementById('ai-audit-error');
+            const resultsEl = document.getElementById('ai-audit-results');
+            const tbody = document.getElementById('ai-audit-tbody');
+            const summaryEl = document.getElementById('ai-audit-summary');
+            const theadRow = document.getElementById('ai-audit-thead-row');
+
+            runKpiAuditBtn.disabled = true;
+            runKpiAuditBtn.style.opacity = '0.5';
+            loadingEl.style.display = 'block';
+            errorEl.style.display = 'none';
+            resultsEl.style.display = 'none';
+            
+            try {
+                const res = await fetch(`/api/ai-kpi-audit/${ticker}`, {
+                    method: 'POST'
+                });
+                
+                if (!res.ok) {
+                    throw new Error(`Audit failed: ${res.statusText}`);
+                }
+                
+                const data = await res.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                // Render Summary
+                if (data.summary) {
+                    summaryEl.textContent = data.summary;
+                } else {
+                    summaryEl.textContent = "AI Audit completed successfully.";
+                }
+
+                // Prepare table
+                theadRow.innerHTML = '';
+                tbody.innerHTML = '';
+
+                if (data.kpis && data.kpis.length > 0) {
+                    // Extract all unique period keys from all KPIs to form columns
+                    const periodSet = new Set();
+                    data.kpis.forEach(kpi => {
+                        if (kpi.history) {
+                            Object.keys(kpi.history).forEach(p => periodSet.add(p));
+                        }
+                    });
+
+                    // Sort periods (assuming format like "Q1 2023", "2023-03-31", or similar)
+                    // We'll just sort them alphabetically which usually works for YYYY-MM-DD
+                    const periods = Array.from(periodSet).sort();
+
+                    // Create Header
+                    theadRow.innerHTML = `<th>Metric</th><th>Description</th>`;
+                    periods.forEach(p => {
+                        theadRow.innerHTML += `<th style="text-align:right">${p}</th>`;
+                    });
+
+                    // Create Rows
+                    data.kpis.forEach(kpi => {
+                        let rowHtml = `
+                            <tr>
+                                <td style="font-weight: bold; color: var(--accent); white-space: nowrap;">${kpi.name}</td>
+                                <td style="font-size: 0.85rem; color: var(--text-muted); max-width: 250px;">${kpi.description}</td>
+                        `;
+                        
+                        periods.forEach(p => {
+                            const val = (kpi.history && kpi.history[p]) !== undefined ? kpi.history[p] : '--';
+                            rowHtml += `<td style="text-align:right; font-family: monospace;">${val}</td>`;
+                        });
+
+                        rowHtml += `</tr>`;
+                        tbody.innerHTML += rowHtml;
+                    });
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="100%" style="text-align:center;">No specific KPIs extracted.</td></tr>`;
+                }
+
+                resultsEl.style.display = 'block';
+            } catch (err) {
+                console.error("AI KPI Audit Error:", err);
+                errorEl.textContent = "Failed to run AI Audit: " + err.message;
+                errorEl.style.display = 'block';
+            } finally {
+                loadingEl.style.display = 'none';
+                runKpiAuditBtn.disabled = false;
+                runKpiAuditBtn.style.opacity = '1';
             }
         });
     }
