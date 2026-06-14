@@ -8101,11 +8101,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 // --- Mobile Carousel Navigation for Cards ---
 window.cycleMobileCarousel = function(btnElement, direction, event) {
     if (event) event.stopPropagation();
-    const card = btnElement.closest(\'.research-card\');
+    const card = btnElement.closest('.research-card');
     if (!card) return;
-    const tabs = Array.from(card.querySelectorAll(\'.analyst-tab-btn\'));
+    const tabs = Array.from(card.querySelectorAll('.analyst-tab-btn'));
     if (!tabs.length) return;
-    let activeIdx = tabs.findIndex(t => t.classList.contains(\'active\'));
+    let activeIdx = tabs.findIndex(t => t.classList.contains('active'));
     if (activeIdx === -1) activeIdx = 0;
     let nextIdx = (activeIdx + direction) % tabs.length;
     if (nextIdx < 0) nextIdx = tabs.length - 1;
