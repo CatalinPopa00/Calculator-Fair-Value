@@ -2976,28 +2976,32 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 let statusColor = "var(--text-muted)";
                 let subText = "";
 
+                const sector_thresholds = globalData.company_profile.sector || "";
+                const industry_thresholds = globalData.company_profile.industry || "";
+                const isTelecom_thresholds = industry_thresholds.toLowerCase().includes("telecom");
+
                 if (pegMode === 'industry' && targetPeg) {
                     if (peg < targetPeg * 0.8) { statusText = "UNDERVALUED (vs Sector)"; statusColor = "var(--accent)"; }
                     else if (peg <= targetPeg * 1.2) { statusText = "FAIR VALUE (vs Sector)"; statusColor = "#fbbf24"; }
                     else { statusText = "OVERVALUED (vs Sector)"; statusColor = "var(--danger)"; }
                     subText = `Sector Median PEG: ${targetPeg.toFixed(2)}`;
-                } else if (sector === "Technology" || (sector === "Communication Services" && !isTelecom) || industry.toLowerCase().includes("health information") || industry.toLowerCase().includes("information services")) {
+                } else if (sector_thresholds === "Technology" || (sector_thresholds === "Communication Services" && !isTelecom_thresholds) || industry_thresholds.toLowerCase().includes("health information") || industry_thresholds.toLowerCase().includes("information services")) {
                     if (peg < 1.5) { statusText = "UNDERVALUED"; statusColor = "var(--accent)"; }
                     else if (peg <= 2.5) { statusText = "FAIR VALUE"; statusColor = "#fbbf24"; }
                     else { statusText = "OVERVALUED"; statusColor = "var(--danger)"; }
-                } else if (sector === "Utilities" || isTelecom) {
+                } else if (sector_thresholds === "Utilities" || isTelecom_thresholds) {
                     if (peg < 1.0) { statusText = "UNDERVALUED / FAIR VALUE"; statusColor = "var(--accent)"; }
                     else { statusText = "OVERVALUED"; statusColor = "var(--danger)"; }
                     subText = "Note: PEGY is more accurate for this sector.";
-                } else if (sector === "Consumer Defensive") {
+                } else if (sector_thresholds === "Consumer Defensive") {
                     if (peg < 1.5) { statusText = "UNDERVALUED"; statusColor = "var(--accent)"; }
                     else if (peg <= 2.0) { statusText = "FAIR VALUE"; statusColor = "#fbbf24"; }
                     else { statusText = "OVERVALUED"; statusColor = "var(--danger)"; }
-                } else if (sector === "Financial Services") {
+                } else if (sector_thresholds === "Financial Services") {
                     if (peg < 0.8) { statusText = "UNDERVALUED"; statusColor = "var(--accent)"; }
                     else if (peg <= 1.2) { statusText = "FAIR VALUE"; statusColor = "#fbbf24"; }
                     else { statusText = "OVERVALUED"; statusColor = "var(--danger)"; }
-                } else if (["Industrials", "Energy", "Basic Materials"].includes(sector)) {
+                } else if (["Industrials", "Energy", "Basic Materials"].includes(sector_thresholds)) {
                     statusText = "CYCLICAL VERDICT";
                     statusColor = "#a855f7";
                     subText = "Compare directly with industry benchmarks (Cyclical Sector).";
