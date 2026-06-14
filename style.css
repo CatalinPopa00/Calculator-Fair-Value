@@ -4015,3 +4015,14 @@ body.has-searched .floating-login-btn {
     scrollbar-width: thin;
     scrollbar-color: rgba(255, 255, 255, 0.15) rgba(255, 255, 255, 0.02);
 }
+
+
+/* Mobile Carousel for Ownership and Analyst Cards */
+@media (max-width: 768px) {
+    .analyst-tabs-wrapper, .analyst-tabs {
+        display: none !important;
+    }
+    .mobile-carousel-nav {
+        display: flex !important;
+    }
+}

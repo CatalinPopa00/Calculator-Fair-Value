@@ -663,9 +663,16 @@
                             
                             <!-- 2. Analyst Consensus Segment -->
                             <div class="research-card glass-card" id="analyst-estimates-card">
-                                <div class="research-header card-header" style="margin-bottom: 0;">
-                                    <div class="header-icon">🎯</div>
-                                    <h3 class="research-title collapsible-trigger" data-card="analyst-estimates" style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin: 0; width: 100%;">Analyst Consensus & Projections<svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="margin-left: auto;"><polyline points="6 9 12 15 18 9"></polyline></svg></h3>
+                                <div class="research-header card-header" style="margin-bottom: 0; display: flex; align-items: center; justify-content: space-between;">
+                                    <h3 class="research-title collapsible-trigger" data-card="analyst" style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin: 0; flex: 1;">
+                                        <div class="header-icon">🎯</div>
+                                        Analyst Consensus & Projections
+                                    </h3>
+                                    <div class="mobile-carousel-nav" style="display: none; align-items: center; gap: 10px; margin-right: 15px;">
+                                        <button class="mobile-prev-btn" onclick="cycleMobileCarousel(this, -1, event)" style="background: rgba(255,255,255,0.1); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer;">&larr;</button>
+                                        <button class="mobile-next-btn" onclick="cycleMobileCarousel(this, 1, event)" style="background: var(--accent); color: #000; border: none; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-weight: bold;">&rarr;</button>
+                                    </div>
+                                    <svg class="chevron-icon collapsible-trigger" data-card="analyst" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="cursor: pointer;"><polyline points="6 9 12 15 18 9"></polyline></svg>
                                 </div>
                                 <div class="card-body-collapsible" style="padding-top: 1.5rem;">
                                 
@@ -738,12 +745,16 @@
                             
 <!-- 1. Ownership Segment -->
                             <div class="research-card glass-card" id="ownership-card">
-                                <div class="research-header card-header" style="margin-bottom: 0;">
-                                    <div class="header-icon">👥</div>
-                                    <h3 class="research-title collapsible-trigger" data-card="ownership" style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin: 0; width: 100%;">
+                                <div class="research-header card-header" style="margin-bottom: 0; display: flex; align-items: center; justify-content: space-between;">
+                                    <h3 class="research-title collapsible-trigger" data-card="ownership" style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin: 0; flex: 1;">
+                                        <div class="header-icon">👥</div>
                                         Ownership
-                                        <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="margin-left: auto;"><polyline points="6 9 12 15 18 9"></polyline></svg>
                                     </h3>
+                                    <div class="mobile-carousel-nav" style="display: none; align-items: center; gap: 10px; margin-right: 15px;">
+                                        <button class="mobile-prev-btn" onclick="cycleMobileCarousel(this, -1, event)" style="background: rgba(255,255,255,0.1); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer;">&larr;</button>
+                                        <button class="mobile-next-btn" onclick="cycleMobileCarousel(this, 1, event)" style="background: var(--accent); color: #000; border: none; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-weight: bold;">&rarr;</button>
+                                    </div>
+                                    <svg class="chevron-icon collapsible-trigger" data-card="ownership" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="cursor: pointer;"><polyline points="6 9 12 15 18 9"></polyline></svg>
                                 </div>
                                 <div class="card-body-collapsible" style="padding-top: 1.5rem;">
                                 
@@ -1023,18 +1034,21 @@
 <!-- 2. Historical Trends Segment -->
                             <div class="research-card glass-card" id="historical-anchors-card">
                                 <div class="research-header card-header" style="margin-bottom: 0;">
-                                    <div class="header-icon">⏳</div>
-                                    <h3 class="research-title collapsible-trigger" data-card="historical-anchors" style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin: 0; width: 100%;">
-                                        Historical Anchors & Trends
-                                        
-                                        <!-- Premium Tabs for Carousel -->
-                                        <div class="hist-tabs-container" style="display: flex; gap: 4px; margin-left: auto; margin-right: 15px; background: rgba(0,0,0,0.2); padding: 4px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);" onclick="event.stopPropagation();">
-                                            <button id="tab-financials" class="hist-tab active" style="background: rgba(0, 210, 255, 0.15); color: #00d2ff; border: 1px solid rgba(0, 210, 255, 0.4); border-radius: 6px; padding: 6px 14px; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 0 10px rgba(0,210,255,0.1);">📊 Financials</button>
-                                            <button id="tab-ai-kpis" class="hist-tab" style="background: transparent; color: var(--text-muted); border: 1px solid transparent; border-radius: 6px; padding: 6px 14px; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease;">✨ AI Audit</button>
+                                    <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                                        <h3 class="research-title collapsible-trigger" data-card="historical-anchors" style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin: 0; width: 100%;">
+                                            <div class="header-icon">⏳</div>
+                                            Historical Anchors & Trends
+                                        </h3>
+                                        <svg class="chevron-icon collapsible-trigger" data-card="historical-anchors" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="cursor:pointer;"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                                    </div>
+                                    
+                                    <div class="hist-toggle-wrapper" style="width: 100%; display: flex; justify-content: center; margin-top: 15px; margin-bottom: 5px;" onclick="event.stopPropagation();">
+                                        <div class="hist-tabs-container" style="position: relative; display: flex; width: 280px; background: rgba(0,0,0,0.4); padding: 4px; border-radius: 30px; border: 1px solid rgba(255,255,255,0.05); box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);">
+                                            <div id="hist-toggle-slider" style="position: absolute; top: 4px; left: 4px; width: calc(50% - 4px); height: calc(100% - 8px); background: linear-gradient(135deg, rgba(0, 210, 255, 0.2), rgba(0, 210, 255, 0.05)); border: 1px solid rgba(0, 210, 255, 0.4); border-radius: 26px; transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1); box-shadow: 0 4px 12px rgba(0, 210, 255, 0.15);"></div>
+                                            <button id="tab-financials" class="hist-tab active" style="flex: 1; position: relative; z-index: 1; background: transparent; color: #00d2ff; border: none; padding: 8px 16px; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: color 0.3s ease; text-shadow: 0 0 10px rgba(0,210,255,0.2);">📊 Financials</button>
+                                            <button id="tab-ai-kpis" class="hist-tab" style="flex: 1; position: relative; z-index: 1; background: transparent; color: var(--text-muted); border: none; padding: 8px 16px; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: color 0.3s ease;">✨ AI Audit</button>
                                         </div>
-
-                                        <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                                    </h3>
+                                    </div>
                                 </div>
                                 <div class="card-body-collapsible" style="padding-top: 1.5rem; position: relative;">
                                     
@@ -1121,31 +1135,34 @@
                                             const track = document.getElementById('historical-carousel-track');
                                             const tabFin = document.getElementById('tab-financials');
                                             const tabAI = document.getElementById('tab-ai-kpis');
+                                            const slider = document.getElementById('hist-toggle-slider');
 
                                             const updateSlide = (index) => {
                                                 if (!track) return;
                                                 track.style.transform = `translateX(-${index * 50}%)`;
                                                 
                                                 if (index === 0) {
-                                                    tabFin.style.background = 'rgba(0, 210, 255, 0.15)';
+                                                    if (slider) {
+                                                        slider.style.transform = 'translateX(0)';
+                                                        slider.style.background = 'linear-gradient(135deg, rgba(0, 210, 255, 0.2), rgba(0, 210, 255, 0.05))';
+                                                        slider.style.borderColor = 'rgba(0, 210, 255, 0.4)';
+                                                        slider.style.boxShadow = '0 4px 12px rgba(0, 210, 255, 0.15)';
+                                                    }
                                                     tabFin.style.color = '#00d2ff';
-                                                    tabFin.style.borderColor = 'rgba(0, 210, 255, 0.4)';
-                                                    tabFin.style.boxShadow = '0 0 10px rgba(0,210,255,0.1)';
-                                                    
-                                                    tabAI.style.background = 'transparent';
+                                                    tabFin.style.textShadow = '0 0 10px rgba(0,210,255,0.2)';
                                                     tabAI.style.color = 'var(--text-muted)';
-                                                    tabAI.style.borderColor = 'transparent';
-                                                    tabAI.style.boxShadow = 'none';
+                                                    tabAI.style.textShadow = 'none';
                                                 } else {
-                                                    tabAI.style.background = 'rgba(139, 92, 246, 0.15)';
+                                                    if (slider) {
+                                                        slider.style.transform = 'translateX(100%)';
+                                                        slider.style.background = 'linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(139, 92, 246, 0.05))';
+                                                        slider.style.borderColor = 'rgba(139, 92, 246, 0.4)';
+                                                        slider.style.boxShadow = '0 4px 12px rgba(139, 92, 246, 0.15)';
+                                                    }
                                                     tabAI.style.color = '#c084fc';
-                                                    tabAI.style.borderColor = 'rgba(139, 92, 246, 0.4)';
-                                                    tabAI.style.boxShadow = '0 0 10px rgba(139,92,246,0.1)';
-                                                    
-                                                    tabFin.style.background = 'transparent';
+                                                    tabAI.style.textShadow = '0 0 10px rgba(139,92,246,0.2)';
                                                     tabFin.style.color = 'var(--text-muted)';
-                                                    tabFin.style.borderColor = 'transparent';
-                                                    tabFin.style.boxShadow = 'none';
+                                                    tabFin.style.textShadow = 'none';
                                                 }
                                             };
 
