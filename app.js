@@ -8167,7 +8167,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!indicatorWrapper) {
                 indicatorWrapper = document.createElement('div');
                 indicatorWrapper.className = 'mobile-carousel-indicators';
-                tabsWrapper.appendChild(indicatorWrapper);
+                const contentArea = card.querySelector('.analyst-content-area');
+                if (contentArea) {
+                    contentArea.parentNode.insertBefore(indicatorWrapper, contentArea);
+                } else {
+                    tabsWrapper.parentNode.insertBefore(indicatorWrapper, tabsWrapper.nextSibling);
+                }
             }
             
             indicatorWrapper.innerHTML = '';
