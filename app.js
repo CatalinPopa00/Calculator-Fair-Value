@@ -2895,21 +2895,10 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             // Sector Median Logic for PEG
             const cachedSectorPeg = localStorage.getItem('sectorMedianPeg_' + sector);
 
-            // Calculate median of peg_custom from peers
-            let medianPegCustom = null;
-            if (globalData.company_profile && globalData.company_profile.competitor_metrics && globalData.company_profile.competitor_metrics.length > 0) {
-                const validPegs = globalData.company_profile.competitor_metrics
-                    .map(p => parseFloat(p.peg_custom))
-                    .filter(val => !isNaN(val) && val > 0)
-                    .sort((a, b) => a - b);
+            // Calculate median of peg from peers using unified logic
+            let medianPegCustom = recalcIndustryPeg(globalData.company_profile);
 
-                if (validPegs.length > 0) {
-                    const mid = Math.floor(validPegs.length / 2);
-                    medianPegCustom = validPegs.length % 2 !== 0 ? validPegs[mid] : (validPegs[mid - 1] + validPegs[mid]) / 2;
-                }
-            }
-
-            // Prioritize dynamically calculated median from custom peers over cached global sector median
+            // Prioritize dynamically calculated median from peers over cached global sector median
             const industryPegRaw = medianPegCustom != null ? medianPegCustom : ((currentFormulaData.peg && currentFormulaData.peg.industry_peg != null)
                 ? currentFormulaData.peg.industry_peg
                 : (cachedSectorPeg ? parseFloat(cachedSectorPeg) : 1.0));
@@ -2964,37 +2953,9 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         if (pegStatusElem && pegCompareElem) {
             const pegMode = document.getElementById('peg-mode')?.value || 'standard';
             
-            // Prefer dynamically calculated sector median based on current peers in table
-            let industryPeg = null;
-            if (globalData && globalData.company_profile) {
-                industryPeg = recalcIndustryPeg(globalData.company_profile);
-            }
-            if (industryPeg == null && currentFormulaData.peg) {
-                industryPeg = currentFormulaData.peg.industry_peg || currentFormulaData.peg.sector_median_peg;
-            }
-            
             if (pegVal != null && currentPegToDisplay != null) {
-                const sector = globalData.company_profile.sector || "";
-                const industry = globalData.company_profile.industry || "";
-                const isTelecom = industry.toLowerCase().includes("telecom");
-
-                let targetPeg = 1.0;
-                if (pegMode === 'industry') {
-                    targetPeg = industryPeg;
-                } else {
-                    if (sector === "Technology" || (sector === "Communication Services" && !isTelecom) || industry.toLowerCase().includes("health information") || industry.toLowerCase().includes("information services")) {
-                        targetPeg = 1.50;
-                    } else if (sector === "Utilities" || isTelecom) {
-                        targetPeg = 1.00;
-                    } else if (sector === "Consumer Defensive") {
-                        targetPeg = 1.50;
-                    } else if (sector === "Financial Services") {
-                        targetPeg = 1.20;
-                    }
-                }
-
                 const displayCurrent = currentPegToDisplay;
-                const displayTarget = targetPeg;
+                const displayTarget = targetPeg; // Use the exactly same targetPeg used in math calculation
                 
                 if (displayCurrent != null && displayTarget != null) {
                     pegCompareElem.textContent = `PEG = ${displayCurrent.toFixed(2)} vs PEG ${pegMode === 'industry' ? 'Sector' : 'Std'} = ${displayTarget.toFixed(2)}`;
@@ -3014,11 +2975,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 let statusColor = "var(--text-muted)";
                 let subText = "";
 
-                if (pegMode === 'industry' && industryPeg) {
-                    if (peg < industryPeg * 0.8) { statusText = "UNDERVALUED (vs Sector)"; statusColor = "var(--accent)"; }
-                    else if (peg <= industryPeg * 1.2) { statusText = "FAIR VALUE (vs Sector)"; statusColor = "#fbbf24"; }
+                if (pegMode === 'industry' && targetPeg) {
+                    if (peg < targetPeg * 0.8) { statusText = "UNDERVALUED (vs Sector)"; statusColor = "var(--accent)"; }
+                    else if (peg <= targetPeg * 1.2) { statusText = "FAIR VALUE (vs Sector)"; statusColor = "#fbbf24"; }
                     else { statusText = "OVERVALUED (vs Sector)"; statusColor = "var(--danger)"; }
-                    subText = `Sector Median PEG: ${industryPeg.toFixed(2)}`;
+                    subText = `Sector Median PEG: ${targetPeg.toFixed(2)}`;
                 } else if (sector === "Technology" || (sector === "Communication Services" && !isTelecom) || industry.toLowerCase().includes("health information") || industry.toLowerCase().includes("information services")) {
                     if (peg < 1.5) { statusText = "UNDERVALUED"; statusColor = "var(--accent)"; }
                     else if (peg <= 2.5) { statusText = "FAIR VALUE"; statusColor = "#fbbf24"; }
