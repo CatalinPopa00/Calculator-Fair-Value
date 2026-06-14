@@ -4076,15 +4076,7 @@ body.has-searched .floating-login-btn {
     display: none !important;
 }
 
-/* Prevent mobile carousel arrows from overlapping content */
-@media (max-width: 768px) {
-    .analyst-tab-content {
-        padding-left: 42px !important;
-        padding-right: 42px !important;
-        box-sizing: border-box !important;
-        width: 100% !important;
-    }
-}
+/* Mobile carousel padding removed since arrows are gone */
 
 
 /* Force titles to stay on one row on mobile */
@@ -4126,5 +4118,36 @@ body.has-searched .floating-login-btn {
     /* Default animation for standard tab click without arrows */
     .analyst-content-area:not([data-slide-dir]) .analyst-tab-content.active {
         animation: slideInScale 0.3s ease-out forwards;
+    }
+}
+
+/* Mobile Carousel Page Indicators */
+@media (max-width: 768px) {
+    .mobile-carousel-indicators {
+        display: flex;
+        gap: 6px;
+        margin-top: 15px;
+        margin-bottom: 5px;
+        padding: 0 15px;
+        justify-content: center;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    .carousel-indicator-line {
+        flex: 1;
+        max-width: 40px;
+        height: 4px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 2px;
+        transition: background 0.3s ease, transform 0.3s ease;
+    }
+    .carousel-indicator-line.active {
+        background: var(--accent, #00d2ff);
+        transform: scaleY(1.2);
+    }
+}
+@media (min-width: 769px) {
+    .mobile-carousel-indicators {
+        display: none !important;
     }
 }
