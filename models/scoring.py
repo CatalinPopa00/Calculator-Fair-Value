@@ -166,7 +166,7 @@ def calculate_scoring_reform(valuation_data, metrics):
     is_energy = 'energy' in sector or 'basic materials' in sector or 'materials' in sector
     is_utilities = 'utilities' in sector or 'telecommunication' in sector or 'telecom' in industry
     is_defensive = 'consumer defensive' in sector or 'staples' in sector or 'healthcare' in sector or 'health care' in sector
-    is_tech = 'technology' in sector or 'communication services' in sector or 'software' in industry or 'internet' in industry or 'information services' in industry
+    is_tech = 'technology' in sector or 'communication services' in sector or 'software' in industry or 'internet' in industry or 'information services' in industry or 'health information' in industry
 
     # Fintech / Payments Categorization
     is_payment_network = False
@@ -1069,7 +1069,7 @@ def get_scoring_rules(valuation_data: dict, metrics: dict) -> dict:
     is_energy = 'energy' in sector or 'basic materials' in sector or 'materials' in sector
     is_utilities = 'utilities' in sector or 'telecommunication' in sector or 'telecom' in industry
     is_defensive = 'consumer defensive' in sector or 'staples' in sector or 'healthcare' in sector or 'health care' in sector
-    is_tech = 'technology' in sector or 'communication services' in sector or 'software' in industry or 'internet' in industry or 'information services' in industry
+    is_tech = 'technology' in sector or 'communication services' in sector or 'software' in industry or 'internet' in industry or 'information services' in industry or 'health information' in industry
 
     is_payment_network = False
     is_fintech = False
