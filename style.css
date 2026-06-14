@@ -4026,3 +4026,46 @@ body.has-searched .floating-login-btn {
         display: flex !important;
     }
 }
+
+
+/* Mobile Absolute Carousel Nav */
+.mobile-carousel-nav-absolute {
+    display: none !important;
+}
+@media (max-width: 768px) {
+    .mobile-carousel-nav-absolute {
+        display: flex !important;
+    }
+}
+
+
+.card-body-collapsible {
+    position: relative;
+}
+
+
+/* Historical Header Flexbox Rules */
+.historical-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 15px;
+    width: 100%;
+}
+.historical-header .research-title {
+    flex: 1 1 auto;
+}
+.historical-header .hist-toggle-wrapper {
+    flex: 0 0 auto;
+}
+.historical-header .chevron-icon {
+    flex: 0 0 auto;
+}
+@media (max-width: 768px) {
+    .historical-header .hist-toggle-wrapper {
+        order: 3;
+        width: 100%;
+        margin-top: 5px;
+    }
+}

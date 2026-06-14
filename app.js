@@ -5693,7 +5693,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     };
 
     const renderAnalystEstimatesInline = async (ticker) => {
-        const analystCard = document.getElementById('analyst-estimates-card');
+        const analystCard = document.getElementById('analyst-card');
         if (!ticker || !analystCard) return;
 
         // V304: Prevent previous company's closure from persisting if new company fails to load estimates
@@ -8111,3 +8111,26 @@ window.cycleMobileCarousel = function(btnElement, direction, event) {
     if (nextIdx < 0) nextIdx = tabs.length - 1;
     tabs[nextIdx].click();
 };
+
+
+// --- Mobile Swipe Gestures ---
+let touchStartX = 0;
+let touchStartY = 0;
+document.addEventListener('touchstart', (e) => {
+    touchStartX = e.changedTouches[0].screenX;
+    touchStartY = e.changedTouches[0].screenY;
+}, { passive: true });
+document.addEventListener('touchend', (e) => {
+    let touchEndX = e.changedTouches[0].screenX;
+    let touchEndY = e.changedTouches[0].screenY;
+    const swipeThreshold = 50;
+    const verticalTolerance = 60;
+    if (Math.abs(touchStartY - touchEndY) > verticalTolerance) return;
+    const card = e.target.closest('.research-card');
+    if (!card) return;
+    if (touchStartX - touchEndX > swipeThreshold) {
+        if (card.querySelector('.mobile-next-btn')) card.querySelector('.mobile-next-btn').click();
+    } else if (touchEndX - touchStartX > swipeThreshold) {
+        if (card.querySelector('.mobile-prev-btn')) card.querySelector('.mobile-prev-btn').click();
+    }
+}, { passive: true });
