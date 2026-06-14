@@ -986,7 +986,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 const isEnergy = sector.includes('energy') || sector.includes('basic materials') || sector.includes('materials');
                 const isUtilities = sector.includes('utilities') || sector.includes('telecommunication') || industry.includes('telecom');
                 const isDefensive = sector.includes('consumer defensive') || sector.includes('staples') || sector.includes('healthcare') || sector.includes('health care');
-                const isTech = sector.includes('technology') || sector.includes('communication services') || industry.includes('software') || industry.includes('internet');
+                const isTech = sector.includes('technology') || sector.includes('communication services') || industry.includes('software') || industry.includes('internet') || industry.includes('information services') || industry.includes('health information');
 
                 // Extract simulation anchors
                 let eps_5yr_g = cleanPercent(globalData.company_profile.eps_growth_5y_consensus || globalData.company_profile.eps_5yr_growth);
@@ -2918,7 +2918,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             if (pegMode === 'industry') {
                 targetPeg = industryPegRaw;
             } else {
-                if (sector === "Technology" || (sector === "Communication Services" && !isTelecom)) {
+                if (sector === "Technology" || (sector === "Communication Services" && !isTelecom) || industry.toLowerCase().includes("health information") || industry.toLowerCase().includes("information services")) {
                     targetPeg = 1.50;
                 } else if (sector === "Utilities" || isTelecom) {
                     targetPeg = 1.00;
@@ -2982,7 +2982,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 if (pegMode === 'industry') {
                     targetPeg = industryPeg;
                 } else {
-                    if (sector === "Technology" || (sector === "Communication Services" && !isTelecom)) {
+                    if (sector === "Technology" || (sector === "Communication Services" && !isTelecom) || industry.toLowerCase().includes("health information") || industry.toLowerCase().includes("information services")) {
                         targetPeg = 1.50;
                     } else if (sector === "Utilities" || isTelecom) {
                         targetPeg = 1.00;
@@ -3019,7 +3019,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     else if (peg <= industryPeg * 1.2) { statusText = "FAIR VALUE (vs Sector)"; statusColor = "#fbbf24"; }
                     else { statusText = "OVERVALUED (vs Sector)"; statusColor = "var(--danger)"; }
                     subText = `Sector Median PEG: ${industryPeg.toFixed(2)}`;
-                } else if (sector === "Technology" || (sector === "Communication Services" && !isTelecom)) {
+                } else if (sector === "Technology" || (sector === "Communication Services" && !isTelecom) || industry.toLowerCase().includes("health information") || industry.toLowerCase().includes("information services")) {
                     if (peg < 1.5) { statusText = "UNDERVALUED"; statusColor = "var(--accent)"; }
                     else if (peg <= 2.5) { statusText = "FAIR VALUE"; statusColor = "#fbbf24"; }
                     else { statusText = "OVERVALUED"; statusColor = "var(--danger)"; }
@@ -4163,7 +4163,9 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         const isTech = (data.company_profile?.sector || '').toLowerCase().includes('technology') ||
             (data.company_profile?.sector || '').toLowerCase().includes('communication') ||
             (data.company_profile?.industry || '').toLowerCase().includes('software') ||
-            (data.company_profile?.industry || '').toLowerCase().includes('internet');
+            (data.company_profile?.industry || '').toLowerCase().includes('internet') ||
+            (data.company_profile?.industry || '').toLowerCase().includes('information services') ||
+            (data.company_profile?.industry || '').toLowerCase().includes('health information');
         const isHealth = (data.company_profile?.sector || '').toLowerCase().includes('healthcare');
 
         const anchorPEItem = data.buy_breakdown?.find(i => i.metric && i.metric.includes('P/E Ratio'));
