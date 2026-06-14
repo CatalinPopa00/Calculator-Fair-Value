@@ -340,7 +340,8 @@ For each identified KPI, search deeply and track their evolution over time over 
 ADDITIONALLY, for the CURRENT unfinished fiscal year, extract the available individual quarterly data (e.g., FY 2026 Q1, FY 2026 Q2). Do NOT use estimates.
 Format the keys EXACTLY as "FY [Year]" or "FY [Year] Q[X]". Ensure exact numbers are extracted if explicitly stated. Format numbers cleanly (e.g. "1.2 Billion", "34.5%", "450 Million"). 
 
-CRITICAL EXTRACTION RULE: You MUST extract the value for EVERY single year provided in the text. You are dealing with a massive text. Do NOT be lazy. Scan every single [Year ...] section carefully. If a value for a specific period is completely absent from the provided text, you may briefly check your internal knowledge to fill in the gaps. Only use "N/A" if the data is truly impossible to find.
+CRITICAL EXTRACTION RULE: You MUST extract the value for EVERY single year provided in the text. You are dealing with a massive text. Do NOT be lazy. Scan every single [Year ...] section carefully.
+CRITICAL FALLBACK FOR FOREIGN COMPANIES: If a value for a specific period (e.g., FY 2021-2025) is completely absent from the provided text (which often happens for European companies without SEC filings), YOU MUST USE YOUR OWN INTERNAL KNOWLEDGE BASE to fill in the real historical numerical data for that KPI! Do NOT use "N/A" unless you genuinely cannot find the data in your vast internal memory! You are a powerful AI, act like one and fill in the missing historical blanks to create a full 5-year trend.
 
 Return ONLY a valid JSON object, strictly following this EXACT structure:
 {
