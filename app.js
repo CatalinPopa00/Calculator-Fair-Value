@@ -8211,23 +8211,45 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Add Swipe Support
+    // Add Swipe Support (Touch & Mouse)
     document.querySelectorAll('.analyst-content-area').forEach(area => {
-        let touchStartX = 0;
-        let touchEndX = 0;
+        let startX = 0;
+        let endX = 0;
+        let isDragging = false;
 
+        // Touch
         area.addEventListener('touchstart', e => {
-            touchStartX = e.changedTouches[0].screenX;
+            startX = e.changedTouches[0].screenX;
         }, {passive: true});
 
         area.addEventListener('touchend', e => {
-            touchEndX = e.changedTouches[0].screenX;
+            endX = e.changedTouches[0].screenX;
             handleSwipe(area);
         }, {passive: true});
 
+        // Mouse
+        area.addEventListener('mousedown', e => {
+            isDragging = true;
+            startX = e.screenX;
+        });
+
+        area.addEventListener('mouseup', e => {
+            if (!isDragging) return;
+            isDragging = false;
+            endX = e.screenX;
+            handleSwipe(area);
+        });
+
+        area.addEventListener('mouseleave', e => {
+            if (!isDragging) return;
+            isDragging = false;
+            endX = e.screenX;
+            handleSwipe(area);
+        });
+
         function handleSwipe(area) {
             const threshold = 50; 
-            const diff = touchEndX - touchStartX;
+            const diff = endX - startX;
             
             const card = area.closest('.research-card');
             if (!card) return;
