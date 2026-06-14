@@ -4069,3 +4069,28 @@ body.has-searched .floating-login-btn {
         margin-top: 5px;
     }
 }
+
+
+/* Hide historical buttons when collapsed */
+.research-card.collapsed .hist-toggle-wrapper {
+    display: none !important;
+}
+
+/* Prevent mobile carousel arrows from overlapping content */
+@media (max-width: 768px) {
+    .analyst-tab-content {
+        padding-left: 42px !important;
+        padding-right: 42px !important;
+    }
+}
+
+
+/* Force titles to stay on one row on mobile */
+@media (max-width: 768px) {
+    .research-title {
+        font-size: 1.05rem !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+}
