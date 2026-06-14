@@ -2504,6 +2504,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     };
 
     const updateFairValue = () => {
+        let targetPeg = 1.0;
         const getDynamicEpsGrowth = () => {
             if (window._customScenariosData && window._customScenariosData[_currentScenario] && window._customScenariosData[_currentScenario].eps !== null) {
                 return window._customScenariosData[_currentScenario].eps / 100;
@@ -2903,7 +2904,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 ? currentFormulaData.peg.industry_peg
                 : (cachedSectorPeg ? parseFloat(cachedSectorPeg) : 1.0));
 
-            let targetPeg = 1.0;
+            targetPeg = 1.0;
             if (pegMode === 'industry') {
                 targetPeg = industryPegRaw;
             } else {
