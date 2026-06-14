@@ -4081,6 +4081,8 @@ body.has-searched .floating-login-btn {
     .analyst-tab-content {
         padding-left: 42px !important;
         padding-right: 42px !important;
+        box-sizing: border-box !important;
+        width: 100% !important;
     }
 }
 
@@ -4089,8 +4091,40 @@ body.has-searched .floating-login-btn {
 @media (max-width: 768px) {
     .research-title {
         font-size: 1.05rem !important;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        white-space: normal;
+        overflow: visible;
+        text-overflow: clip;
+    }
+}
+
+
+/* Mobile Carousel Slide Animations */
+@keyframes slideInRight {
+    0% { transform: translateX(100%); opacity: 0; }
+    100% { transform: translateX(0); opacity: 1; }
+}
+@keyframes slideInLeft {
+    0% { transform: translateX(-100%); opacity: 0; }
+    100% { transform: translateX(0); opacity: 1; }
+}
+@keyframes slideInScale {
+    0% { transform: scale(0.95); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+@media (max-width: 768px) {
+    .analyst-content-area {
+        overflow-x: hidden;
+        position: relative;
+    }
+    .analyst-content-area[data-slide-dir="right"] .analyst-tab-content.active {
+        animation: slideInRight 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+    }
+    .analyst-content-area[data-slide-dir="left"] .analyst-tab-content.active {
+        animation: slideInLeft 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+    }
+    /* Default animation for standard tab click without arrows */
+    .analyst-content-area:not([data-slide-dir]) .analyst-tab-content.active {
+        animation: slideInScale 0.3s ease-out forwards;
     }
 }

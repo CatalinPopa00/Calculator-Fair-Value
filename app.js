@@ -8103,6 +8103,13 @@ window.cycleMobileCarousel = function(btnElement, direction, event) {
     if (event) event.stopPropagation();
     const card = btnElement.closest('.research-card');
     if (!card) return;
+    
+    // Add slide direction for animation
+    const contentArea = card.querySelector('.analyst-content-area');
+    if (contentArea) {
+        contentArea.setAttribute('data-slide-dir', direction === 1 ? 'right' : 'left');
+    }
+    
     const tabs = Array.from(card.querySelectorAll('.analyst-tab-btn'));
     if (!tabs.length) return;
     let activeIdx = tabs.findIndex(t => t.classList.contains('active'));
@@ -8110,6 +8117,12 @@ window.cycleMobileCarousel = function(btnElement, direction, event) {
     let nextIdx = (activeIdx + direction) % tabs.length;
     if (nextIdx < 0) nextIdx = tabs.length - 1;
     tabs[nextIdx].click();
+    
+    if (contentArea) {
+        setTimeout(() => {
+            contentArea.removeAttribute('data-slide-dir');
+        }, 400); // Matches animation duration
+    }
 };
 
 
