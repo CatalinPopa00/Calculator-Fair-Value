@@ -8394,10 +8394,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 let currentPrice = document.getElementById('current-price')?.textContent || 'N/A';
                 let kpiSummary = 'N/A';
                 
-                const kpiAuditText = document.getElementById('kpi-audit-text');
-                if (kpiAuditText && kpiAuditText.innerHTML) {
-                    // Extract just text, no html
-                    kpiSummary = kpiAuditText.innerText.substring(0, 500) + '...'; 
+                const kpiAuditText = document.getElementById('ai-audit-summary');
+                if (kpiAuditText && kpiAuditText.textContent) {
+                    kpiSummary = kpiAuditText.textContent.substring(0, 500) + '...'; 
                 }
 
                 const context = {
@@ -8407,9 +8406,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     kpiSummary: kpiSummary
                 };
 
-                const _chatTicker = (typeof currentTicker !== 'undefined' && currentTicker)
-                    ? currentTicker
-                    : (document.getElementById('ticker-input')?.value || document.getElementById('banner-ticker')?.textContent || 'UNKNOWN').trim().toUpperCase();
+                const _chatTicker = (document.getElementById('company-ticker')?.textContent || document.getElementById('ticker-input')?.value || 'UNKNOWN').trim().toUpperCase();
 
                 const response = await fetch('/api/chat', {
                     method: 'POST',
