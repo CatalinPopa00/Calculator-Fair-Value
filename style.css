@@ -1785,8 +1785,6 @@ body.banner-visible .modal-content {
 .research-card {
     padding: 1.5rem;
     border-radius: 16px;
-    background: rgba(15, 23, 42, 0.5);
-    border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .deep-research-section .research-card + .research-card {
@@ -4192,7 +4190,8 @@ body.has-searched .floating-login-btn {
     }
     
     @media (min-width: 769px) {
-        #analyst-card .mobile-carousel-indicators {
+        .mobile-carousel-indicators,
+        .carousel-nav-btn {
             display: none !important;
         }
         
@@ -4458,5 +4457,7 @@ body.has-searched .floating-login-btn {
     }
 }
 
-/* Hide original tabs universally for Corporate Summary to show only dashes */
-.corporate-tabs-wrapper { display: none !important; }
+/* Hide original tabs for Corporate Summary on mobile only to show dashes */
+@media (max-width: 768px) {
+    .corporate-tabs-wrapper { display: none !important; }
+}
