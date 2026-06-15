@@ -33,7 +33,7 @@ from models.valuation import (
     calculate_reverse_dcf
 )
 from models.scoring import calculate_scoring_reform, calculate_piotroski_score, get_scoring_rules
-from api.kpi_audit import run_ai_kpi_audit
+from api.kpi_audit import run_ai_kpi_audit, run_ai_chat
 
 # Cache for search results (30 mins TTL)
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
@@ -120,6 +120,16 @@ class OverrideRequest(BaseModel):
     computed: dict = {}
     weights: dict = {}
     custom_scenarios: Optional[dict] = None
+
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+class ChatRequest(BaseModel):
+    ticker: str
+    context: dict
+    history: List[ChatMessage]
+    message: str
 
 class ValuationResponse(BaseModel):
     ticker: str
@@ -510,6 +520,21 @@ def kpi_audit(ticker: str):
         return result
     except Exception as e:
         print(f"Error in KPI Audit for {ticker}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/chat")
+def chat_endpoint(req: ChatRequest):
+    try:
+        # Convert Pydantic models to dicts/lists for the handler
+        history = [{"role": msg.role, "content": msg.content} for msg in req.history]
+        response_text = run_ai_chat(req.ticker, req.context, history, req.message)
+        
+        if response_text.startswith("Eroare:"):
+            return JSONResponse(status_code=400, content={"error": True, "detail": response_text})
+            
+        return {"response": response_text}
+    except Exception as e:
+        print(f"Error in AI Chat for {req.ticker}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/article-bypass")

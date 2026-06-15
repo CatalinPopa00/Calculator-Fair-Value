@@ -299,6 +299,7 @@ def run_ai_kpi_audit(ticker: str) -> Dict[str, Any]:
 
     openai_key = os.getenv("OPENAI_API_KEY")
     gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("gemini")
+    groq_key = os.getenv("GROQ_API_KEY")
 
     # Auto-detect if user accidentally put an OpenAI key in a Gemini variable
     if gemini_key and gemini_key.startswith("sk-"):
@@ -306,10 +307,10 @@ def run_ai_kpi_audit(ticker: str) -> Dict[str, Any]:
             openai_key = gemini_key
         gemini_key = None
 
-    if not openai_key and not gemini_key:
+    if not openai_key and not gemini_key and not groq_key:
         return {
             "error": True, 
-            "detail": "No API Key found. Please add 'OPENAI_API_KEY' or 'GEMINI_API_KEY' in the Vercel panel."
+            "detail": "No API Key found. Please add 'GROQ_API_KEY', 'OPENAI_API_KEY' or 'GEMINI_API_KEY' in the Vercel panel."
         }
 
     # 1. Obținem textele din rapoarte (Transcripts / Press Releases)
@@ -370,8 +371,38 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
         result_content = None
         all_errors = []
 
-        # Try OpenAI First if available
-        if openai_key:
+        # Try Groq First if available (Free and Fast)
+        if groq_key:
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {groq_key}"
+            }
+            payload = {
+                "model": "llama-3.3-70b-versatile",
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"Aici sunt textele pentru {ticker}:\n\n{raw_text}"}
+                ],
+                "response_format": {"type": "json_object"},
+                "temperature": 0.2
+            }
+            try:
+                resp = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=55)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    result_content = data["choices"][0]["message"]["content"]
+                else:
+                    error_msg = resp.text
+                    try:
+                        error_msg = resp.json().get("error", {}).get("message", resp.text)
+                    except:
+                        pass
+                    all_errors.append(f"Groq Error: {error_msg}")
+            except Exception as e:
+                all_errors.append(f"Groq Timeout/Error: {str(e)}")
+
+        # Try OpenAI if Groq failed or wasn't configured
+        if not result_content and openai_key:
             headers = {
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {openai_key}"
@@ -455,3 +486,80 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
     except Exception as e:
         print(f"AI API Error for {ticker}: {e}")
         return {"error": True, "detail": f"Eroare la procesarea AI: {str(e)}"}
+
+def run_ai_chat(ticker: str, context: dict, history: list, message: str) -> str:
+    """Handles conversational queries from the frontend Chat Widget."""
+    openai_key = os.getenv("OPENAI_API_KEY")
+    gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("gemini")
+    groq_key = os.getenv("GROQ_API_KEY")
+
+    if gemini_key and gemini_key.startswith("sk-"):
+        if not openai_key:
+            openai_key = gemini_key
+        gemini_key = None
+
+    if not openai_key and not gemini_key and not groq_key:
+        return "Eroare: Niciun API Key configurat (Groq, OpenAI sau Gemini)."
+
+    # Build system prompt with context
+    system_prompt = f"""
+You are "Babi AI", an elite Wall Street Financial Assistant integrated into the 'Babi Calculator-inatorul' dashboard.
+The user is currently analyzing the ticker: {ticker}.
+Here is the context of what the user sees on their screen:
+- Current Price: {context.get('price')}
+- Estimated Fair Value: {context.get('fairValue')}
+- Margin of Safety: {context.get('marginOfSafety')}
+- AI KPI Audit Summary: {context.get('kpiSummary')}
+
+Instructions:
+1. Answer the user's question concisely and professionally.
+2. If the user asks about the company, refer to the context provided. If you need more info, use your internal knowledge.
+3. Keep responses relatively short (1-3 paragraphs) as they will be displayed in a small chat widget.
+4. You speak Romanian natively but can answer in whatever language the user asks.
+5. Use markdown formatting (bold, bullet points) to make it easy to read.
+"""
+
+    messages = [{"role": "system", "content": system_prompt}]
+    
+    # Append history
+    for msg in history:
+        # Convert frontend roles to API roles
+        api_role = "assistant" if msg["role"] == "ai" else "user"
+        messages.append({"role": api_role, "content": msg["content"]})
+        
+    messages.append({"role": "user", "content": message})
+
+    result_content = None
+
+    # Try Groq
+    if groq_key:
+        try:
+            resp = requests.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={"Content-Type": "application/json", "Authorization": f"Bearer {groq_key}"},
+                json={"model": "llama-3.3-70b-versatile", "messages": messages, "temperature": 0.5},
+                timeout=30
+            )
+            if resp.status_code == 200:
+                result_content = resp.json()["choices"][0]["message"]["content"]
+        except Exception as e:
+            print(f"Groq Chat Error: {e}")
+
+    # Try OpenAI
+    if not result_content and openai_key:
+        try:
+            resp = requests.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers={"Content-Type": "application/json", "Authorization": f"Bearer {openai_key}"},
+                json={"model": "gpt-4o-mini", "messages": messages, "temperature": 0.5},
+                timeout=30
+            )
+            if resp.status_code == 200:
+                result_content = resp.json()["choices"][0]["message"]["content"]
+        except Exception as e:
+            print(f"OpenAI Chat Error: {e}")
+
+    if result_content:
+        return result_content
+        
+    return "Eroare: Nu am putut obține un răspuns de la API (Groq/OpenAI)."

@@ -8316,4 +8316,146 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
+        /* ==========================================================================
+           AI Chat Widget Logic
+           ========================================================================== */
+        const chatWidgetBtn = document.getElementById('ai-chat-btn');
+        const chatWindow = document.getElementById('ai-chat-window');
+        const chatCloseBtn = document.getElementById('ai-chat-close');
+        const chatInput = document.getElementById('ai-chat-input');
+        const chatSendBtn = document.getElementById('ai-chat-send');
+        const chatMessages = document.getElementById('ai-chat-messages');
+
+        let chatHistory = [];
+
+        function toggleChat() {
+            chatWindow.classList.toggle('open');
+            if (chatWindow.classList.contains('open')) {
+                chatInput.focus();
+            }
+        }
+
+        if (chatWidgetBtn) chatWidgetBtn.addEventListener('click', toggleChat);
+        if (chatCloseBtn) chatCloseBtn.addEventListener('click', toggleChat);
+
+        function appendMessage(role, text) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `chat-msg ${role}`;
+            
+            if (role === 'ai') {
+                // Parse simple markdown
+                let formattedText = text
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                    .replace(/\n\n/g, '</p><p>')
+                    .replace(/\n- /g, '<br>• ');
+                
+                msgDiv.innerHTML = `<p>${formattedText}</p>`;
+            } else {
+                msgDiv.textContent = text;
+            }
+            
+            chatMessages.appendChild(msgDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function showLoading() {
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'chat-msg ai chat-loading-dots';
+            loadingDiv.id = 'chat-loading';
+            loadingDiv.innerHTML = '<span></span><span></span><span></span>';
+            chatMessages.appendChild(loadingDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function removeLoading() {
+            const loadingDiv = document.getElementById('chat-loading');
+            if (loadingDiv) {
+                loadingDiv.remove();
+            }
+        }
+
+        async function sendChatMessage() {
+            const message = chatInput.value.trim();
+            if (!message) return;
+
+            // Clear input and append user message
+            chatInput.value = '';
+            appendMessage('user', message);
+            
+            chatSendBtn.disabled = true;
+            chatInput.disabled = true;
+            showLoading();
+
+            try {
+                // Gather Context
+                let currentFairValue = document.getElementById('fv-value')?.textContent || 'N/A';
+                let currentMos = document.getElementById('fv-mos')?.textContent || 'N/A';
+                let currentPrice = document.getElementById('current-price')?.textContent || 'N/A';
+                let kpiSummary = 'N/A';
+                
+                const kpiAuditText = document.getElementById('kpi-audit-text');
+                if (kpiAuditText && kpiAuditText.innerHTML) {
+                    // Extract just text, no html
+                    kpiSummary = kpiAuditText.innerText.substring(0, 500) + '...'; 
+                }
+
+                const context = {
+                    price: currentPrice,
+                    fairValue: currentFairValue,
+                    marginOfSafety: currentMos,
+                    kpiSummary: kpiSummary
+                };
+
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        ticker: currentTicker || 'UNKNOWN',
+                        context: context,
+                        history: chatHistory,
+                        message: message
+                    })
+                });
+
+                const data = await response.json();
+                removeLoading();
+
+                if (response.ok && data.response) {
+                    appendMessage('ai', data.response);
+                    chatHistory.push({ role: 'user', content: message });
+                    chatHistory.push({ role: 'ai', content: data.response });
+                    
+                    // Keep history manageable
+                    if (chatHistory.length > 10) {
+                        chatHistory = chatHistory.slice(-10);
+                    }
+                } else {
+                    appendMessage('ai', 'Eroare: ' + (data.detail || 'Nu am putut comunica cu serverul.'));
+                }
+            } catch (error) {
+                console.error('Chat Error:', error);
+                removeLoading();
+                appendMessage('ai', 'A apărut o eroare la conexiune.');
+            } finally {
+                chatSendBtn.disabled = false;
+                chatInput.disabled = false;
+                chatInput.focus();
+            }
+        }
+
+        if (chatSendBtn) {
+            chatSendBtn.addEventListener('click', sendChatMessage);
+        }
+
+        if (chatInput) {
+            chatInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    sendChatMessage();
+                }
+            });
+        }
+
 });
