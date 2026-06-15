@@ -489,17 +489,24 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
 
 def run_ai_chat(ticker: str, context: dict, history: list, message: str) -> str:
     """Handles conversational queries from the frontend Chat Widget."""
+    try:
+        from dotenv import load_dotenv
+        load_dotenv(override=True)
+    except:
+        pass
+
     openai_key = os.getenv("OPENAI_API_KEY")
     gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("gemini")
-    groq_key = os.getenv("GROQ_API_KEY")
+    groq_key = os.getenv("GROQ_API_KEY") or os.getenv("Groq")
 
+    # Auto-detect if user accidentally put an OpenAI key in a Gemini variable
     if gemini_key and gemini_key.startswith("sk-"):
         if not openai_key:
             openai_key = gemini_key
         gemini_key = None
 
     if not openai_key and not gemini_key and not groq_key:
-        return "Eroare: Niciun API Key configurat (Groq, OpenAI sau Gemini)."
+        return "Eroare: Niciun API Key configurat (Groq, OpenAI sau Gemini). Adaugă GROQ_API_KEY, OPENAI_API_KEY sau GEMINI_API_KEY în Vercel Environment Variables."
 
     # Build system prompt with context
     system_prompt = f"""
@@ -523,15 +530,15 @@ Instructions:
     
     # Append history
     for msg in history:
-        # Convert frontend roles to API roles
         api_role = "assistant" if msg["role"] == "ai" else "user"
         messages.append({"role": api_role, "content": msg["content"]})
         
     messages.append({"role": "user", "content": message})
 
     result_content = None
+    all_errors = []
 
-    # Try Groq
+    # Try Groq First
     if groq_key:
         try:
             resp = requests.post(
@@ -542,8 +549,13 @@ Instructions:
             )
             if resp.status_code == 200:
                 result_content = resp.json()["choices"][0]["message"]["content"]
+            else:
+                error_msg = resp.text[:200]
+                print(f"Groq Chat Error (status {resp.status_code}): {error_msg}")
+                all_errors.append(f"Groq({resp.status_code}): {error_msg}")
         except Exception as e:
-            print(f"Groq Chat Error: {e}")
+            print(f"Groq Chat Exception: {e}")
+            all_errors.append(f"Groq: {str(e)}")
 
     # Try OpenAI
     if not result_content and openai_key:
@@ -556,10 +568,42 @@ Instructions:
             )
             if resp.status_code == 200:
                 result_content = resp.json()["choices"][0]["message"]["content"]
+            else:
+                error_msg = resp.text[:200]
+                print(f"OpenAI Chat Error (status {resp.status_code}): {error_msg}")
+                all_errors.append(f"OpenAI({resp.status_code}): {error_msg}")
         except Exception as e:
-            print(f"OpenAI Chat Error: {e}")
+            print(f"OpenAI Chat Exception: {e}")
+            all_errors.append(f"OpenAI: {str(e)}")
+
+    # Try Gemini
+    if not result_content and gemini_key:
+        try:
+            gemini_messages = [{"role": "user" if m["role"] == "user" else "model", "parts": [{"text": m["content"]}]} for m in messages if m["role"] != "system"]
+            gemini_payload = {
+                "contents": gemini_messages,
+                "systemInstruction": {"parts": [{"text": system_prompt}]},
+                "generationConfig": {"temperature": 0.5, "maxOutputTokens": 1024}
+            }
+            resp = requests.post(
+                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}",
+                headers={"Content-Type": "application/json"},
+                json=gemini_payload,
+                timeout=30
+            )
+            if resp.status_code == 200:
+                result_content = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+            else:
+                error_msg = resp.text[:200]
+                print(f"Gemini Chat Error (status {resp.status_code}): {error_msg}")
+                all_errors.append(f"Gemini({resp.status_code}): {error_msg}")
+        except Exception as e:
+            print(f"Gemini Chat Exception: {e}")
+            all_errors.append(f"Gemini: {str(e)}")
 
     if result_content:
         return result_content
-        
-    return "Eroare: Nu am putut obține un răspuns de la API (Groq/OpenAI)."
+    
+    error_detail = " | ".join(all_errors) if all_errors else "Niciun API Key valid."
+    return f"Eroare: Nu am putut obține un răspuns. Detalii: {error_detail}"
+
