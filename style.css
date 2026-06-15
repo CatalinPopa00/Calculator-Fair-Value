@@ -4124,8 +4124,7 @@ body.has-searched .floating-login-btn {
     }
 }
 
-/* Mobile Carousel Page Indicators */
-@media (max-width: 768px) {
+/* Carousel Page Indicators (All Devices) */
     .mobile-carousel-indicators {
         display: flex;
         gap: 6px;
@@ -4143,17 +4142,12 @@ body.has-searched .floating-login-btn {
         background: rgba(255, 255, 255, 0.2);
         border-radius: 2px;
         transition: background 0.3s ease, transform 0.3s ease;
+        cursor: pointer;
     }
     .carousel-indicator-line.active {
         background: var(--accent, #00d2ff);
         transform: scaleY(1.2);
     }
-}
-@media (min-width: 769px) {
-    .mobile-carousel-indicators {
-        display: none !important;
-    }
-}
 
 /* Hide Historical toggle when collapsed */
 #historical-anchors-card.collapsed .hist-toggle-wrapper {
@@ -4396,8 +4390,6 @@ body.has-searched .floating-login-btn {
     }
 }
 
-/* Hide original tabs on mobile for carousels to show only dashes */
-@media (max-width: 768px) {
-    .hist-toggle-wrapper { display: none !important; }
-    .corporate-tabs-wrapper { display: none !important; }
-}
+/* Hide original tabs universally to show only dashes */
+.hist-toggle-wrapper { display: none !important; }
+.corporate-tabs-wrapper { display: none !important; }

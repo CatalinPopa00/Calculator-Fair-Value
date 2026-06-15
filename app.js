@@ -8186,153 +8186,162 @@ document.addEventListener('touchend', (e) => {
 // ---------------------------------------------
 // MOBILE SWIPE & CAROUSEL INDICATORS LOGIC
 // ---------------------------------------------
-document.addEventListener('DOMContentLoaded', () => {
-    
-    // Initialize Page Indicators for Mobile Carousels
-    function initCarouselIndicators() {
-        document.querySelectorAll('.research-card, .company-profile-box').forEach(card => {
-            let tabs = Array.from(card.querySelectorAll('.analyst-tab-btn'));
-            if (!tabs.length) tabs = Array.from(card.querySelectorAll('.hist-tab'));
-            if (!tabs.length) tabs = Array.from(card.querySelectorAll('.brief-tab'));
-            if (!tabs.length) return;
-            
-            const tabsWrapper = card.querySelector('.analyst-tabs-wrapper');
-            if (!tabsWrapper) return;
-            
-            let indicatorWrapper = card.querySelector('.mobile-carousel-indicators');
-            if (!indicatorWrapper) {
-                indicatorWrapper = document.createElement('div');
-                indicatorWrapper.className = 'mobile-carousel-indicators';
-                const contentArea = card.querySelector('.analyst-content-area');
-                if (contentArea) {
-                    contentArea.parentNode.insertBefore(indicatorWrapper, contentArea);
-                } else {
-                    tabsWrapper.parentNode.insertBefore(indicatorWrapper, tabsWrapper.nextSibling);
-                }
+
+window.refreshCarousels = function() {
+    document.querySelectorAll('.research-card, .company-profile-box').forEach(card => {
+        let tabs = Array.from(card.querySelectorAll('.analyst-tab-btn'));
+        if (!tabs.length) tabs = Array.from(card.querySelectorAll('.hist-tab'));
+        if (!tabs.length) tabs = Array.from(card.querySelectorAll('.brief-tab'));
+        if (!tabs.length) return;
+        
+        let tabsWrapper = card.querySelector('.analyst-tabs-wrapper');
+        if (!tabsWrapper) tabsWrapper = card.querySelector('.hist-toggle-wrapper');
+        if (!tabsWrapper) tabsWrapper = card.querySelector('.corporate-tabs-wrapper');
+        if (!tabsWrapper) return;
+        
+        let indicatorWrapper = card.querySelector('.mobile-carousel-indicators');
+        if (!indicatorWrapper) {
+            indicatorWrapper = document.createElement('div');
+            indicatorWrapper.className = 'mobile-carousel-indicators';
+            const contentArea = card.querySelector('.analyst-content-area') || card.querySelector('.card-body-collapsible');
+            if (contentArea) {
+                contentArea.parentNode.insertBefore(indicatorWrapper, contentArea);
+            } else {
+                tabsWrapper.parentNode.insertBefore(indicatorWrapper, tabsWrapper.nextSibling);
+            }
+        }
+        
+        indicatorWrapper.innerHTML = '';
+        tabs.forEach((tab, i) => {
+            const line = document.createElement('div');
+            line.className = 'carousel-indicator-line';
+            if (tab.classList.contains('active')) {
+                line.classList.add('active');
             }
             
-            indicatorWrapper.innerHTML = '';
-            tabs.forEach((tab, i) => {
-                const line = document.createElement('div');
-                line.className = 'carousel-indicator-line';
-                if (tab.classList.contains('active')) {
-                    line.classList.add('active');
-                }
-                indicatorWrapper.appendChild(line);
+            // Allow clicking the dashes to change tabs!
+            line.addEventListener('click', () => {
+                tab.click();
             });
-        });
-    }
-    
-    initCarouselIndicators();
-
-    // Update indicators on tab click
-    document.querySelectorAll('.analyst-tab-btn, .hist-tab, .brief-tab').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const card = this.closest('.research-card') || this.closest('.company-profile-box');
-            if (!card) return;
             
-            setTimeout(() => { 
-                let tabs = Array.from(card.querySelectorAll('.analyst-tab-btn'));
-            if (!tabs.length) tabs = Array.from(card.querySelectorAll('.hist-tab'));
-            if (!tabs.length) tabs = Array.from(card.querySelectorAll('.brief-tab'));
-                const activeIdx = tabs.findIndex(t => t.classList.contains('active'));
-                
-                const indicatorLines = card.querySelectorAll('.carousel-indicator-line');
-                indicatorLines.forEach((line, i) => {
-                    if (i === activeIdx) {
-                        line.classList.add('active');
-                    } else {
-                        line.classList.remove('active');
-                    }
-                });
-            }, 50);
+            indicatorWrapper.appendChild(line);
         });
     });
+};
 
-    // Add Swipe Support (Touch & Mouse)
-        document.querySelectorAll('.research-card .card-body-collapsible').forEach(area => {
-            let startX = 0;
-            let endX = 0;
-            let isDragging = false;
+document.addEventListener('DOMContentLoaded', () => {
+    window.refreshCarousels();
 
-            // Touch
-            area.addEventListener('touchstart', e => {
-                startX = e.changedTouches[0].screenX;
-            }, {passive: true});
+    // Add Swipe Support
+    document.querySelectorAll('.analyst-content-area, .historical-carousel-viewport, #profile-body').forEach(area => {
+        let isDragging = false;
+        let startX = 0;
+        let endX = 0;
 
-            area.addEventListener('touchend', e => {
-                endX = e.changedTouches[0].screenX;
-                handleSwipe(area, e.target);
-            }, {passive: true});
+        // Touch
+        area.addEventListener('touchstart', e => {
+            startX = e.changedTouches[0].screenX;
+        }, {passive: true});
 
-            // Mouse
-            area.addEventListener('mousedown', e => {
-                isDragging = true;
-                startX = e.screenX;
-            });
+        area.addEventListener('touchend', e => {
+            endX = e.changedTouches[0].screenX;
+            handleSwipe(area, e.target);
+        }, {passive: true});
 
-            area.addEventListener('mouseup', e => {
-                if (!isDragging) return;
-                isDragging = false;
-                endX = e.screenX;
-                handleSwipe(area, e.target);
-            });
-
-            area.addEventListener('mouseleave', e => {
-                if (!isDragging) return;
-                isDragging = false;
-                endX = e.screenX;
-                handleSwipe(area, e.target);
-            });
-
-            function handleSwipe(area, target) {
-                const threshold = 50; 
-                const diff = endX - startX;
-                
-                const card = area.closest('.research-card');
-                if (!card) return;
-                
-                if (diff > threshold) {
-                    // Swipe Right (Prev)
-                    if (target.closest('.ai-audit-section') || target.closest('#kpi-carousel-wrapper')) {
-                        const prevBtn = document.getElementById('kpi-prev-btn');
-                        if (prevBtn) prevBtn.click();
-                    } else if (card.id === 'historical-anchors-card') {
-                        const tabs = Array.from(card.querySelectorAll('.hist-tab'));
-                        let activeIdx = tabs.findIndex(t => t.classList.contains('active'));
-                        if (activeIdx > 0) tabs[activeIdx - 1].click();
-                        else if (tabs.length) tabs[tabs.length - 1].click();
-                    } else if (card.classList.contains('company-profile-box')) {
-                        const tabs = Array.from(card.querySelectorAll('.brief-tab'));
-                        let activeIdx = tabs.findIndex(t => t.classList.contains('active'));
-                        if (activeIdx > 0) tabs[activeIdx - 1].click();
-                        else if (tabs.length) tabs[tabs.length - 1].click();
-                    } else {
-                        if (window.cycleMobileCarousel) window.cycleMobileCarousel({ closest: () => card }, -1);
-                    }
-                } else if (diff < -threshold) {
-                    // Swipe Left (Next)
-                    if (target.closest('.ai-audit-section') || target.closest('#kpi-carousel-wrapper')) {
-                        const nextBtn = document.getElementById('kpi-next-btn');
-                        if (nextBtn) nextBtn.click();
-                    } else if (card.id === 'historical-anchors-card') {
-                        const tabs = Array.from(card.querySelectorAll('.hist-tab'));
-                        let activeIdx = tabs.findIndex(t => t.classList.contains('active'));
-                        if (activeIdx < tabs.length - 1) tabs[activeIdx + 1].click();
-                        else if (tabs.length) tabs[0].click();
-                    } else if (card.classList.contains('company-profile-box')) {
-                        const tabs = Array.from(card.querySelectorAll('.brief-tab'));
-                        let activeIdx = tabs.findIndex(t => t.classList.contains('active'));
-                        if (activeIdx < tabs.length - 1) tabs[activeIdx + 1].click();
-                        else if (tabs.length) tabs[0].click();
-                    } else {
-                        if (window.cycleMobileCarousel) window.cycleMobileCarousel({ closest: () => card }, 1);
-                    }
-                }
-            }
+        // Mouse
+        area.addEventListener('mousedown', e => {
+            isDragging = true;
+            startX = e.screenX;
         });
 
-        /* ==========================================================================
+        area.addEventListener('mouseup', e => {
+            if (!isDragging) return;
+            isDragging = false;
+            endX = e.screenX;
+            handleSwipe(area, e.target);
+        });
+
+        area.addEventListener('mouseleave', e => {
+            if (!isDragging) return;
+            isDragging = false;
+            endX = e.screenX;
+            handleSwipe(area, e.target);
+        });
+
+        function handleSwipe(area, target) {
+            const threshold = 50; 
+            const diff = endX - startX;
+            
+            const card = area.closest('.research-card') || area.closest('.company-profile-box');
+            if (!card) return;
+            
+            if (diff > threshold) {
+                // Swipe Right (Prev)
+                if (target.closest('.ai-audit-section') || target.closest('#kpi-carousel-wrapper')) {
+                    const prevBtn = document.getElementById('kpi-prev-btn');
+                    if (prevBtn) prevBtn.click();
+                } else if (card.id === 'historical-anchors-card') {
+                    const tabs = Array.from(card.querySelectorAll('.hist-tab'));
+                    let activeIdx = tabs.findIndex(t => t.classList.contains('active'));
+                    if (activeIdx > 0) tabs[activeIdx - 1].click();
+                    else if (tabs.length) tabs[tabs.length - 1].click();
+                } else if (card.classList.contains('company-profile-box')) {
+                    const tabs = Array.from(card.querySelectorAll('.brief-tab'));
+                    let activeIdx = tabs.findIndex(t => t.classList.contains('active'));
+                    if (activeIdx > 0) tabs[activeIdx - 1].click();
+                    else if (tabs.length) tabs[tabs.length - 1].click();
+                } else {
+                    if (window.cycleMobileCarousel) window.cycleMobileCarousel({ closest: () => card }, -1);
+                }
+            } else if (diff < -threshold) {
+                // Swipe Left (Next)
+                if (target.closest('.ai-audit-section') || target.closest('#kpi-carousel-wrapper')) {
+                    const nextBtn = document.getElementById('kpi-next-btn');
+                    if (nextBtn) nextBtn.click();
+                } else if (card.id === 'historical-anchors-card') {
+                    const tabs = Array.from(card.querySelectorAll('.hist-tab'));
+                    let activeIdx = tabs.findIndex(t => t.classList.contains('active'));
+                    if (activeIdx < tabs.length - 1) tabs[activeIdx + 1].click();
+                    else if (tabs.length) tabs[0].click();
+                } else if (card.classList.contains('company-profile-box')) {
+                    const tabs = Array.from(card.querySelectorAll('.brief-tab'));
+                    let activeIdx = tabs.findIndex(t => t.classList.contains('active'));
+                    if (activeIdx < tabs.length - 1) tabs[activeIdx + 1].click();
+                    else if (tabs.length) tabs[0].click();
+                } else {
+                    if (window.cycleMobileCarousel) window.cycleMobileCarousel({ closest: () => card }, 1);
+                }
+            }
+        }
+    });
+});
+
+// Event Delegation for tab clicks to update indicators
+document.addEventListener('click', function(e) {
+    const btn = e.target.closest('.analyst-tab-btn, .hist-tab, .brief-tab');
+    if (!btn) return;
+    const card = btn.closest('.research-card') || btn.closest('.company-profile-box');
+    if (!card) return;
+    
+    setTimeout(() => { 
+        let tabs = Array.from(card.querySelectorAll('.analyst-tab-btn'));
+        if (!tabs.length) tabs = Array.from(card.querySelectorAll('.hist-tab'));
+        if (!tabs.length) tabs = Array.from(card.querySelectorAll('.brief-tab'));
+        
+        const activeIdx = tabs.findIndex(t => t.classList.contains('active'));
+        
+        const indicatorLines = card.querySelectorAll('.carousel-indicator-line');
+        indicatorLines.forEach((line, i) => {
+            if (i === activeIdx) {
+                line.classList.add('active');
+            } else {
+                line.classList.remove('active');
+            }
+        });
+    }, 50);
+});
+
+/* ==========================================================================
            AI Chat Widget Logic
            ========================================================================== */
         const chatWidgetBtn = document.getElementById('ai-chat-btn');
