@@ -4348,7 +4348,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 if (isLoadingAI) {
                     badgeHtml = `<div id="ai-synthesis-badge" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2); font-size: 0.6rem; padding: 3px 8px; border-radius: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; animation: skeleton-pulse 1.5s infinite;">⏳ GENERATING AI ANALYSIS...</div>`;
                 } else if (synthesisText) {
-                    badgeHtml = `<div id="ai-synthesis-badge" style="background: linear-gradient(135deg, #38bdf8, #818cf8); color: white; font-size: 0.6rem; padding: 3px 8px; border-radius: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">✨ AI ANALYSIS</div>`;
+                    badgeHtml = `<div id="ai-synthesis-badge" style="background: #38bdf8; color: white; font-size: 0.6rem; padding: 3px 8px; border-radius: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">✨ AI ANALYSIS</div>`;
                 }
 
                 descCard.innerHTML = `
@@ -4751,7 +4751,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     badge.className = 'hg-badge';
                     badge.style.marginLeft = '10px';
                     badge.style.fontSize = '0.7rem';
-                    badge.style.background = 'linear-gradient(90deg, #ec4899, #f43f5e)';
+                    badge.style.background = '#ec4899';
                     badge.style.color = 'white';
                     badge.style.padding = '2px 8px';
                     badge.style.borderRadius = '12px';
@@ -6800,7 +6800,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                                 badge.className = 'hg-badge';
                                 badge.style.marginLeft = '10px';
                                 badge.style.fontSize = '0.7rem';
-                                badge.style.background = 'linear-gradient(90deg, #ec4899, #f43f5e)';
+                                badge.style.background = '#ec4899';
                                 badge.style.color = 'white';
                                 badge.style.padding = '2px 8px';
                                 badge.style.borderRadius = '12px';

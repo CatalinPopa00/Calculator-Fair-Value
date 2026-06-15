@@ -42,14 +42,26 @@ body {
     background: rgba(255, 255, 255, 0.25);
 }
 
+/* Global Hover Effects for Fields and Buttons */
+input, select, textarea, button {
+    transition: all 0.2s ease;
+}
+input:hover, select:hover, textarea:hover {
+    background: rgba(255,255,255,0.08) !important;
+    border-color: rgba(255,255,255,0.3) !important;
+    box-shadow: 0 0 10px rgba(255,255,255,0.1) !important;
+}
+button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
 body {
     font-family: 'Outfit', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
     background-color: var(--bg-dark);
     color: var(--text-main);
     min-height: 100vh;
-    background-image:
-        radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.15), transparent 25%),
-        radial-gradient(circle at 85% 30%, rgba(16, 185, 129, 0.15), transparent 25%);
+    background-color: var(--bg-dark);
     background-attachment: fixed;
 }
 
@@ -68,15 +80,18 @@ body {
 /* Glassmorphism Card Style */
 .glass-card {
     background: var(--card-bg);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     border: 1px solid var(--card-border);
     border-radius: 16px;
     padding: 1.5rem;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-    transform: translateZ(0); /* Hardware acceleration to fix backdrop-filter bleed */
-    will-change: transform;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.glass-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.5);
 }
 
 /* Header Base (Mobile First) */
@@ -740,7 +755,7 @@ body {
 
 /* Fair Value Box Highlight */
 .accent-card {
-    background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%);
+    background: rgba(30, 41, 59, 0.9);
     border-color: var(--accent);
     box-shadow: 0 0 30px var(--accent-glow);
     display: flex;
@@ -1976,7 +1991,7 @@ body.banner-visible .modal-content {
 .details-toggle-btn {
     width: auto;
     min-width: 130px;
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
+    background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 255, 255, 0.06);
     border-radius: 20px;
     padding: 0.45rem 1.1rem;
@@ -1997,7 +2012,7 @@ body.banner-visible .modal-content {
 }
 
 .details-toggle-btn:hover {
-    background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%);
+    background: rgba(16, 185, 129, 0.08);
     border-color: rgba(16, 185, 129, 0.35);
     color: var(--accent);
     box-shadow: 0 0 12px rgba(16, 185, 129, 0.2);
@@ -2024,7 +2039,7 @@ body.banner-visible .modal-content {
 
 .details-toggle-btn.active {
     color: var(--accent);
-    background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(16, 185, 129, 0.03) 100%);
+    background: rgba(16, 185, 129, 0.15);
     border-color: var(--accent);
     box-shadow: 0 0 15px rgba(16, 185, 129, 0.3);
 }
@@ -2481,17 +2496,17 @@ body.banner-visible .modal-content {
 }
 
 .mini-score-green {
-    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    background: #10b981;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .mini-score-yellow {
-    background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%);
+    background: #fbbf24;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .mini-score-red {
-    background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+    background: #ef4444;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
@@ -3058,7 +3073,7 @@ body.banner-visible .modal-content {
     left: 0;
     right: 0;
     bottom: 0;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.03), transparent);
+    background: rgba(255, 255, 255, 0.03);
     background-size: 200% 100%;
     animation: wlShimmer 2s infinite linear;
     border-radius: 16px;
@@ -4232,7 +4247,7 @@ body.has-searched .floating-login-btn {
     width: 60px;
     height: 60px;
     border-radius: 50%;
-    background: linear-gradient(135deg, var(--accent) 0%, #0ea5e9 100%);
+    background: var(--accent);
     color: #0f172a;
     font-size: 1.8rem;
     border: none;
