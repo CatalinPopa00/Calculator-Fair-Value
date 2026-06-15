@@ -22,6 +22,24 @@ body {
     overflow-x: hidden;
     width: 100%;
     position: relative;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+/* Global Custom Scrollbar (Webkit) */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.25);
 }
 
 body {
@@ -4159,7 +4177,7 @@ body.has-searched .floating-login-btn {
     }
     
     @media (min-width: 769px) {
-        #analyst-consensus-card .mobile-carousel-indicators {
+        #analyst-card .mobile-carousel-indicators {
             display: none !important;
         }
         
