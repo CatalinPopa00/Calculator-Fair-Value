@@ -4082,10 +4082,13 @@ body.has-searched .floating-login-btn {
 /* Force titles to stay on one row on mobile */
 @media (max-width: 768px) {
     .research-title {
-        font-size: 1.05rem !important;
-        white-space: normal;
+        font-size: clamp(0.7rem, 3.5vw, 1.05rem) !important;
+        white-space: nowrap !important;
         overflow: visible;
-        text-overflow: clip;
+    }
+    .research-title span {
+        white-space: nowrap !important;
+        display: inline !important;
     }
 }
 
