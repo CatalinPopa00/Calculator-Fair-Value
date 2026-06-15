@@ -1147,6 +1147,11 @@ You must structure your response EXACTLY according to the format below, using th
 • [Bullet 2: The risk related to valuation or balance sheet structure (e.g. if the PE multiple is very high, what correction risks it implies, or how high debt affects the cost of capital).]
 • [Bullet 3: Regulatory risks, specific operational risks, clinical trial failures, or risks related to integrating recent acquisitions.]
 
+**EARNINGS WATCHOUTS**
+• [Bullet 1: Analyze the transcript text provided. Extract the most important future growth guidance, numerical targets, or strategic roadmap explicitly mentioned by management in the latest earnings call.]
+• [Bullet 2: Identify a key operational initiative, product launch, or restructuring effort discussed in the recent SEC reports or earnings call.]
+• [Bullet 3: Extract a specific warning, headwind, or challenge that management highlighted in the latest quarter.]
+
 **LATEST MARKET INTELLIGENCE**
 • [Translate the first relevant news into English (Source: Publication Name) - Provide a brief analysis of the financial or strategic impact of this news on the company in maximum one sentence.]
 • [Translate the second relevant news into English (Source: Publication Name) - Provide a brief analysis of the financial or strategic impact of this news on the company in maximum one sentence.]
@@ -1239,7 +1244,12 @@ Strictly adhere to these precise markdown headers (written exactly like this, in
         except:
             fallback_news = ["No recent news or market developments available."]
 
-    output += f"**LATEST MARKET INTELLIGENCE**\n" + "\n".join([f"• {n}" for n in fallback_news])
+    output += f"**EARNINGS WATCHOUTS**
+• [Bullet 1: Analyze the transcript text provided. Extract the most important future growth guidance, numerical targets, or strategic roadmap explicitly mentioned by management in the latest earnings call.]
+• [Bullet 2: Identify a key operational initiative, product launch, or restructuring effort discussed in the recent SEC reports or earnings call.]
+• [Bullet 3: Extract a specific warning, headwind, or challenge that management highlighted in the latest quarter.]
+
+**LATEST MARKET INTELLIGENCE**\n" + "\n".join([f"• {n}" for n in fallback_news])
 
     return output
 
