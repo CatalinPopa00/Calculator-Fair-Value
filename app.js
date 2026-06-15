@@ -8407,13 +8407,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     kpiSummary: kpiSummary
                 };
 
+                const _chatTicker = (typeof currentTicker !== 'undefined' && currentTicker)
+                    ? currentTicker
+                    : (document.getElementById('ticker-input')?.value || document.getElementById('banner-ticker')?.textContent || 'UNKNOWN').trim().toUpperCase();
+
                 const response = await fetch('/api/chat', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        ticker: currentTicker || 'UNKNOWN',
+                        ticker: _chatTicker,
                         context: context,
                         history: chatHistory,
                         message: message
