@@ -6222,34 +6222,52 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                             <h3 class="wl-ticker">${data.ticker}</h3>
                             <p class="wl-name">${data.is_loading ? 'Fetching latest data...' : data.name}</p>
                         </div>
-                        <div class="wl-scores-row" style="margin-bottom: 8px;">
-                            <div class="wl-score-pill" style="flex: 1; flex-direction: column; align-items: center; gap: 4px;">
-                                <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Price</span>
-                                <span style="font-size: 1.1rem; font-weight: 700;">${data.is_loading ? loadingSpinner : formatCurrency(data.current_price)}</span>
-                            </div>
-                            <div class="wl-score-pill" style="flex: 1; flex-direction: column; align-items: center; gap: 4px;">
-                                <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Fair Val ${hasOverride ? '✏️' : ''}</span>
-                                <span style="font-size: 1.1rem; font-weight: 700;">${data.is_loading ? loadingSpinner : fvStr}</span>
-                            </div>
-                            <div class="wl-score-pill" style="flex: 1; flex-direction: column; align-items: center; gap: 4px;">
-                                <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Margin</span>
-                                <span style="font-size: 1.1rem; font-weight: 700; color: ${mosColor}">${data.is_loading ? loadingSpinner : mosStr}</span>
-                            </div>
-                        </div>
                         <div class="wl-scores-row">
-                            <div class="wl-score-pill">
-                                <div class="wl-dot ${hDotClass}"></div>
-                                <span>Health: ${displayHealth || 'N/A'}</span>
-                            </div>
-                            <div class="wl-score-pill">
-                                <div class="wl-dot ${dotClass}"></div>
-                                <span>Buy: ${displayBuy || 'N/A'}</span>
-                            </div>
-                            <div class="wl-score-pill" title="Piotroski F-Score">
-                                <span>Piotroski:</span>
-                                <span style="font-size: 0.85rem; font-weight: 600; margin-left: -2px; color: ${(data.piotroski?.score >= 7) ? 'var(--accent)' : (data.piotroski?.score >= 4 ? '#fbbf24' : (data.piotroski?.score == null ? 'var(--text-muted)' : 'var(--danger)'))}">
-                                    ${data.piotroski?.score != null ? data.piotroski.score : '--'}
-                                </span>
+                            <div class="wl-score-pill" style="flex: 1; flex-direction: column; align-items: center; gap: 12px; padding: 1rem;">
+                                <!-- Row 1: Price -->
+                                <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; width: 100%;">
+                                    <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Price</span>
+                                    <span style="font-size: 1.1rem; font-weight: 700;">${data.is_loading ? loadingSpinner : formatCurrency(data.current_price)}</span>
+                                </div>
+
+                                <!-- Divider -->
+                                <div style="width: 100%; height: 1px; background: rgba(255,255,255,0.05);"></div>
+
+                                <!-- Row 2: Fair Value -->
+                                <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; width: 100%;">
+                                    <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Fair Val ${hasOverride ? '✏️' : ''}</span>
+                                    <span style="font-size: 1.1rem; font-weight: 700;">${data.is_loading ? loadingSpinner : fvStr}</span>
+                                </div>
+
+                                <!-- Divider -->
+                                <div style="width: 100%; height: 1px; background: rgba(255,255,255,0.05);"></div>
+
+                                <!-- Row 3: Margin -->
+                                <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; width: 100%;">
+                                    <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Margin</span>
+                                    <span style="font-size: 1.1rem; font-weight: 700; color: ${mosColor}">${data.is_loading ? loadingSpinner : mosStr}</span>
+                                </div>
+
+                                <!-- Divider -->
+                                <div style="width: 100%; height: 1px; background: rgba(255,255,255,0.05);"></div>
+
+                                <!-- Row 4: Scores Inline -->
+                                <div style="display: flex; flex-direction: row; justify-content: center; gap: 1rem; width: 100%; flex-wrap: wrap;">
+                                    <div style="display: flex; align-items: center; gap: 4px;">
+                                        <div class="wl-dot ${hDotClass}"></div>
+                                        <span style="font-size: 0.85rem; font-weight: 600;">Health: ${displayHealth || 'N/A'}</span>
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 4px;">
+                                        <div class="wl-dot ${dotClass}"></div>
+                                        <span style="font-size: 0.85rem; font-weight: 600;">Buy: ${displayBuy || 'N/A'}</span>
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 4px;" title="Piotroski F-Score">
+                                        <span style="font-size: 0.85rem; font-weight: 600;">Piotroski:</span>
+                                        <span style="font-size: 0.85rem; font-weight: 600; color: ${(data.piotroski?.score >= 7) ? 'var(--accent)' : (data.piotroski?.score >= 4 ? '#fbbf24' : (data.piotroski?.score == null ? 'var(--text-muted)' : 'var(--danger)'))}">
+                                            ${data.piotroski?.score != null ? data.piotroski.score : '--'}
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     `;
