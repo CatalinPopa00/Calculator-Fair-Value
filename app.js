@@ -4233,7 +4233,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             } else {
                 cachedWatchlistData.push({ ...data });
             }
-            sessionStorage.setItem(`val_v3_${data.ticker.toUpperCase()}`, JSON.stringify({ data, ts: Date.now() }));
+            localStorage.setItem(`val_v3_${data.ticker.toUpperCase()}`, JSON.stringify({ data, ts: Date.now() }));
         }
 
         // DESCRIPTION CARD INJECTION
@@ -6780,23 +6780,31 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         if (!cachedWatchlistData) cachedWatchlistData = [];
 
         const tickersToFetch = [];
+        const tickersToUpdateLivePrice = [];
 
         for (const ticker of watchlist) {
             const tUpper = ticker.toUpperCase();
             if (window._watchlistFetching.has(tUpper)) continue; // Already fetching
 
             const cacheKey = `val_v3_${tUpper}`;
-            const cached = sessionStorage.getItem(cacheKey);
+            // Use localStorage for watchlist data so it persists across sessions
+            const cached = localStorage.getItem(cacheKey) || sessionStorage.getItem(cacheKey);
             let useCache = false;
 
             if (cached) {
                 try {
                     const { data: cachedData, ts } = JSON.parse(cached);
-                    if (Date.now() - ts < 15 * 60 * 1000) {
+                    // Use cache if it's less than 24 hours old (avoids heavy batch valuation)
+                    if (Date.now() - ts < 24 * 60 * 60 * 1000) {
                         useCache = true;
                         const idx = cachedWatchlistData.findIndex(d => d.ticker.toUpperCase() === tUpper);
                         if (idx !== -1) cachedWatchlistData[idx] = cachedData;
                         else cachedWatchlistData.push(cachedData);
+                        
+                        // Queue to update only the live price if cache is older than 5 minutes
+                        if (Date.now() - ts > 5 * 60 * 1000) {
+                            tickersToUpdateLivePrice.push({ tUpper, cacheKey, data: cachedData, ts });
+                        }
                     }
                 } catch (e) {
                     console.error("Cache parse error", e);
@@ -6826,7 +6834,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                         const tUpper = data.ticker.toUpperCase();
                         const cacheKey = `val_v3_${tUpper}`;
 
-                        sessionStorage.setItem(cacheKey, JSON.stringify({ data, ts: Date.now() }));
+                        localStorage.setItem(cacheKey, JSON.stringify({ data, ts: Date.now() }));
 
                         const idx = cachedWatchlistData.findIndex(d => d.ticker.toUpperCase() === tUpper);
                         if (idx !== -1) {
@@ -6846,6 +6854,27 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 }
                 if (watchlistView.style.display === 'block') renderWatchlistUI();
             }
+        }
+
+        if (tickersToUpdateLivePrice.length > 0) {
+            tickersToUpdateLivePrice.forEach(async (item) => {
+                try {
+                    const res = await fetch(`/api/live-price/${item.tUpper}`);
+                    if (res.ok) {
+                        const priceData = await res.json();
+                        if (priceData.price) {
+                            item.data.current_price = priceData.price;
+                            if (item.data.fair_value) {
+                                item.data.margin_of_safety = ((item.data.fair_value - priceData.price) / priceData.price) * 100;
+                            }
+                            localStorage.setItem(item.cacheKey, JSON.stringify({ data: item.data, ts: Date.now() }));
+                            if (watchlistView.style.display === 'block') renderWatchlistUI();
+                        }
+                    }
+                } catch (e) {
+                    console.error(`Live price update failed for ${item.tUpper}`, e);
+                }
+            });
         }
     };
 
