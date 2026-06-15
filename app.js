@@ -6222,18 +6222,18 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                             <h3 class="wl-ticker">${data.ticker}</h3>
                             <p class="wl-name">${data.is_loading ? 'Fetching latest data...' : data.name}</p>
                         </div>
-                        <div class="wl-metrics-bar">
-                            <div class="wl-metric-item">
-                                <span class="wl-m-label">Price</span>
-                                <span class="wl-m-value">${data.is_loading ? loadingSpinner : formatCurrency(data.current_price)}</span>
+                        <div class="wl-scores-row" style="margin-bottom: 8px;">
+                            <div class="wl-score-pill" style="flex: 1; flex-direction: column; align-items: center; gap: 4px;">
+                                <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Price</span>
+                                <span style="font-size: 1.1rem; font-weight: 700;">${data.is_loading ? loadingSpinner : formatCurrency(data.current_price)}</span>
                             </div>
-                            <div class="wl-metric-item">
-                                <span class="wl-m-label">Fair Val ${hasOverride ? '✏️' : ''}</span>
-                                <span class="wl-m-value">${data.is_loading ? loadingSpinner : fvStr}</span>
+                            <div class="wl-score-pill" style="flex: 1; flex-direction: column; align-items: center; gap: 4px;">
+                                <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Fair Val ${hasOverride ? '✏️' : ''}</span>
+                                <span style="font-size: 1.1rem; font-weight: 700;">${data.is_loading ? loadingSpinner : fvStr}</span>
                             </div>
-                            <div class="wl-metric-item">
-                                <span class="wl-m-label">Margin</span>
-                                <span class="wl-m-value" style="color: ${mosColor}">${data.is_loading ? loadingSpinner : mosStr}</span>
+                            <div class="wl-score-pill" style="flex: 1; flex-direction: column; align-items: center; gap: 4px;">
+                                <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Margin</span>
+                                <span style="font-size: 1.1rem; font-weight: 700; color: ${mosColor}">${data.is_loading ? loadingSpinner : mosStr}</span>
                             </div>
                         </div>
                         <div class="wl-scores-row">
@@ -6246,10 +6246,10 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                                 <span>Buy: ${displayBuy || 'N/A'}</span>
                             </div>
                             <div class="wl-score-pill" title="Piotroski F-Score">
-                                <span style="font-size: 0.75rem; font-weight: 800; margin-right: 4px; color: ${(data.piotroski?.score >= 7) ? 'var(--accent)' : (data.piotroski?.score >= 4 ? '#fbbf24' : (data.piotroski?.score == null ? 'var(--text-muted)' : 'var(--danger)'))}">
+                                <span>Piotroski:</span>
+                                <span style="font-size: 0.85rem; font-weight: 600; margin-left: -2px; color: ${(data.piotroski?.score >= 7) ? 'var(--accent)' : (data.piotroski?.score >= 4 ? '#fbbf24' : (data.piotroski?.score == null ? 'var(--text-muted)' : 'var(--danger)'))}">
                                     ${data.piotroski?.score != null ? data.piotroski.score : '--'}
                                 </span>
-                                <span style="font-size: 0.7rem; color: var(--text-muted);">Piotroski</span>
                             </div>
                         </div>
                     `;
