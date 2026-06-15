@@ -3825,31 +3825,9 @@ body.banner-visible .modal-content {
     }
 }
 
-#ai-chat-btn {
-    position: fixed;
-    bottom: 30px;
-    right: 20px;
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    background: rgba(var(--invert-rgb), 0.05);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(var(--invert-rgb), 0.15);
-    color: var(--text-main);
-    font-size: 1.8rem;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    cursor: pointer;
-    z-index: 1000;
-    transition: all 0.3s ease;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-}
-
 .floating-login-btn {
     position: fixed;
-    bottom: 110px;
+    bottom: 95px;
     right: 20px;
     width: 65px;
     height: 65px;
@@ -4254,9 +4232,11 @@ body.has-searched .floating-login-btn {
     display: flex;
     flex-direction: column;
     align-items: flex-end;
+    pointer-events: none;
 }
 
 #ai-chat-btn {
+    pointer-events: auto;
     width: 60px;
     height: 60px;
     border-radius: 50%;
@@ -4278,6 +4258,7 @@ body.has-searched .floating-login-btn {
 }
 
 #ai-chat-window {
+    pointer-events: auto;
     width: 380px;
     height: 550px;
     max-height: 80vh;
