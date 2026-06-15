@@ -508,8 +508,8 @@ def run_ai_chat(ticker: str, context: dict, history: list, message: str) -> str:
     if not openai_key and not gemini_key and not groq_key:
         return "Eroare: Niciun API Key configurat (Groq, OpenAI sau Gemini). Adaugă GROQ_API_KEY, OPENAI_API_KEY sau GEMINI_API_KEY în Vercel Environment Variables."
 
-    # Build system prompt with context
-    system_prompt = f"""
+    # Build base system prompt (without live research yet)
+    base_system_prompt = f"""
 You are "Babi AI", an elite, highly critical Wall Street Financial Analyst integrated into the 'Babi Calculator-inatorul' dashboard.
 The user is currently analyzing the ticker: {ticker}.
 Here is the real-time context of the company you MUST use to answer their questions:
@@ -521,27 +521,56 @@ Here is the real-time context of the company you MUST use to answer their questi
 - Risk Red Flags: {context.get('redFlags', 'N/A')}
 - Business Summary: {context.get('businessSummary', 'N/A')}
 - Analyst Estimates & Targets: {context.get('estimates', 'N/A')}
-
-Instructions:
-1. **Critical Analyst Perspective:** Do NOT take company claims or news at face value. Analyze critically. Point out red flags, potential risks, and if a valuation seems unjustified. 
-2. **Live Research:** You have access to the internet. If asked about recent financial reports, earnings estimates, or the current situation, SEARCH THE WEB for the latest data from today, do not rely on past training data.
-3. **Structure & Conciseness:** Do NOT just output walls of text. Structure your responses with bullet points. Provide short, punchy answers if the situation allows, but expand if complex analysis is needed.
-4. **Tone:** Be highly confident, professional, yet pleasant and engaging. Speak natively in Romanian unless asked otherwise.
 """
 
-    messages = [{"role": "system", "content": system_prompt}]
-    
-    # Append history
-    for msg in history:
-        api_role = "assistant" if msg["role"] == "ai" else "user"
-        messages.append({"role": api_role, "content": msg["content"]})
-        
-    messages.append({"role": "user", "content": message})
+    instructions = """
+Instructions:
+1. **Conversational Continuity:** Actively track the flow of the conversation. Pay close attention to pronouns (it, they) and implicit references. If the user asks a follow-up question without naming a company, assume they are asking about the subject of the immediately preceding messages. If they explicitly introduce a new company or topic, switch your focus smoothly.
+2. **Sharp & Clear Ideas:** Do not give vague or generic advice. Have a strong, clear, and critical opinion. Point out exact risks, specific numbers, and logical deductions. Give the user a sharp analyst perspective, not a Wikipedia summary.
+3. **Live Research Integration:** If LIVE RESEARCH DATA is provided above, use it extensively to answer the user's question with facts from TODAY.
+4. **Structure:** Use bullet points. Provide short, punchy answers if the situation allows.
+5. **Tone:** Be highly confident, professional, yet pleasant and engaging. Speak natively in Romanian.
+"""
 
+    live_research_data = ""
     result_content = None
     all_errors = []
 
-    # Try Groq First
+    # MULTI-MODEL PIPELINE: Phase 1 (Gemini Researcher)
+    if gemini_key and groq_key:
+        try:
+            gemini_payload = {
+                "contents": [{"role": "user", "parts": [{"text": f"Search the web for recent data regarding this query: '{message}' for the company {ticker}. Return ONLY bullet points of raw data, news, and facts. Do not write a conversational response."}]}],
+                "generationConfig": {"temperature": 0.2, "maxOutputTokens": 600},
+                "tools": [{"googleSearch": {}}]
+            }
+            resp = requests.post(
+                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}",
+                headers={"Content-Type": "application/json"},
+                json=gemini_payload,
+                timeout=15
+            )
+            if resp.status_code == 200:
+                live_research_data = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+            else:
+                print(f"Gemini Research Error (status {resp.status_code}): {resp.text[:200]}")
+        except Exception as e:
+            print(f"Gemini Research Exception: {e}")
+
+    # Build Final System Prompt
+    system_prompt = base_system_prompt
+    if live_research_data:
+        system_prompt += f"- LIVE RESEARCH DATA (from your AI Assistant): {live_research_data}\n"
+    system_prompt += instructions
+
+    # Prepare message history
+    messages = [{"role": "system", "content": system_prompt}]
+    for msg in history:
+        api_role = "assistant" if msg["role"] == "ai" else "user"
+        messages.append({"role": api_role, "content": msg["content"]})
+    messages.append({"role": "user", "content": message})
+
+    # MULTI-MODEL PIPELINE: Phase 2 (Groq Analyst)
     if groq_key:
         try:
             resp = requests.post(
@@ -560,26 +589,7 @@ Instructions:
             print(f"Groq Chat Exception: {e}")
             all_errors.append(f"Groq: {str(e)}")
 
-    # Try OpenAI
-    if not result_content and openai_key:
-        try:
-            resp = requests.post(
-                "https://api.openai.com/v1/chat/completions",
-                headers={"Content-Type": "application/json", "Authorization": f"Bearer {openai_key}"},
-                json={"model": "gpt-4o-mini", "messages": messages, "temperature": 0.5},
-                timeout=30
-            )
-            if resp.status_code == 200:
-                result_content = resp.json()["choices"][0]["message"]["content"]
-            else:
-                error_msg = resp.text[:200]
-                print(f"OpenAI Chat Error (status {resp.status_code}): {error_msg}")
-                all_errors.append(f"OpenAI({resp.status_code}): {error_msg}")
-        except Exception as e:
-            print(f"OpenAI Chat Exception: {e}")
-            all_errors.append(f"OpenAI: {str(e)}")
-
-    # Try Gemini
+    # Fallback: If pipeline failed (or Groq is missing), just use Gemini as a standard chat model
     if not result_content and gemini_key:
         try:
             gemini_messages = [{"role": "user" if m["role"] == "user" else "model", "parts": [{"text": m["content"]}]} for m in messages if m["role"] != "system"]
@@ -604,6 +614,25 @@ Instructions:
         except Exception as e:
             print(f"Gemini Chat Exception: {e}")
             all_errors.append(f"Gemini: {str(e)}")
+
+    # Fallback: OpenAI
+    if not result_content and openai_key:
+        try:
+            resp = requests.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers={"Content-Type": "application/json", "Authorization": f"Bearer {openai_key}"},
+                json={"model": "gpt-4o-mini", "messages": messages, "temperature": 0.5},
+                timeout=30
+            )
+            if resp.status_code == 200:
+                result_content = resp.json()["choices"][0]["message"]["content"]
+            else:
+                error_msg = resp.text[:200]
+                print(f"OpenAI Chat Error (status {resp.status_code}): {error_msg}")
+                all_errors.append(f"OpenAI({resp.status_code}): {error_msg}")
+        except Exception as e:
+            print(f"OpenAI Chat Exception: {e}")
+            all_errors.append(f"OpenAI: {str(e)}")
 
     if result_content:
         return result_content
