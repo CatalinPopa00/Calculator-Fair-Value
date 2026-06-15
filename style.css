@@ -3780,6 +3780,28 @@ body.banner-visible .modal-content {
     }
 }
 
+#ai-chat-btn {
+    position: fixed;
+    bottom: 80px;
+    right: 20px;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: white;
+    font-size: 1.8rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    z-index: 1000;
+    transition: all 0.3s ease;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
 .floating-login-btn {
     position: fixed;
     bottom: 40px;
@@ -4390,6 +4412,5 @@ body.has-searched .floating-login-btn {
     }
 }
 
-/* Hide original tabs universally to show only dashes */
-.hist-toggle-wrapper { display: none !important; }
+/* Hide original tabs universally for Corporate Summary to show only dashes */
 .corporate-tabs-wrapper { display: none !important; }

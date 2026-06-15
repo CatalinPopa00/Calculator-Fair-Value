@@ -4962,6 +4962,12 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         };
         window._renderProfile = renderProfileSection;
         renderProfileSection();
+        
+        setTimeout(() => {
+            if (window.refreshCarousels) {
+                window.refreshCarousels();
+            }
+        }, 100);
 
         // --- ADDITIONAL SECTIONS ---
         const trendsBody = document.getElementById('trends-body');
@@ -7975,11 +7981,14 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     kpiDotsEl.innerHTML = '';
                     for(let i=0; i<data.kpis.length; i++) {
                         const dot = document.createElement('div');
-                        dot.style.width = '8px';
-                        dot.style.height = '8px';
-                        dot.style.borderRadius = '50%';
-                        dot.style.background = i === index ? 'var(--accent)' : 'rgba(255,255,255,0.2)';
-                        dot.style.transition = '0.3s';
+                        dot.className = 'carousel-indicator-line';
+                        if (i === index) dot.classList.add('active');
+                        
+                        // Allow clicking the dashes to jump to a specific KPI slide
+                        dot.addEventListener('click', () => {
+                            currentKpiIndex = i;
+                            renderKpiPage(currentKpiIndex);
+                        });
                         kpiDotsEl.appendChild(dot);
                     }
 
