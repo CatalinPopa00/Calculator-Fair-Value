@@ -8403,7 +8403,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     price: currentPrice,
                     fairValue: currentFairValue,
                     marginOfSafety: currentMos,
-                    kpiSummary: kpiSummary
+                    kpiSummary: kpiSummary,
+                    news: typeof globalData !== 'undefined' && globalData?.latest_news ? globalData.latest_news.map(n => `${n.title} - ${n.publisher}`).join(' | ') : 'N/A',
+                    redFlags: typeof globalData !== 'undefined' && globalData?.red_flags ? globalData.red_flags.join(' | ') : 'N/A',
+                    businessSummary: typeof globalData !== 'undefined' && globalData?.company_profile?.business_summary ? globalData.company_profile.business_summary : 'N/A'
                 };
 
                 const _chatTicker = (document.getElementById('company-ticker')?.textContent || document.getElementById('ticker-input')?.value || 'UNKNOWN').trim().toUpperCase();
