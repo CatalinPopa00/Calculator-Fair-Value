@@ -1,0 +1,75 @@
+{
+  "major_holders": {
+    "insiders": 0.01657,
+    "institutions": 0.4647,
+    "float": 0.51873
+  },
+  "top_institutional": [
+    {
+      "holder": "Generali Investments Cee, Investicni Spolecnost, A.s.",
+      "shares": 2538.0,
+      "pct_out": 0.00005453137108346637,
+      "value": 2953724.0
+    },
+    {
+      "holder": "Gamma Investing LLC",
+      "shares": 40.0,
+      "pct_out": 8.594384725526614E-7,
+      "value": 46552.0
+    },
+    {
+      "holder": "Pacer Advisors, Inc.",
+      "shares": 615.0,
+      "pct_out": 0.000013213866515497168,
+      "value": 715737.0
+    },
+    {
+      "holder": "Financial Gravity Asset Management, Inc.",
+      "shares": 20.0,
+      "pct_out": 4.297192362763307E-7,
+      "value": 23276.0
+    }
+  ],
+  "insider_transactions": {
+    "buy": [],
+    "sell": []
+  },
+  "insider_purchases_6m": [
+    {
+      "label": "Purchases",
+      "shares": 0.0,
+      "trans": 0
+    },
+    {
+      "label": "Sales",
+      "shares": 0,
+      "trans": 0
+    },
+    {
+      "label": "Net Shares Purchased (Sold)",
+      "shares": 0.0,
+      "trans": 0
+    },
+    {
+      "label": "Total Insider Shares Held",
+      "shares": 771201.0,
+      "trans": 0
+    },
+    {
+      "label": "% Net Shares Purchased (Sold)",
+      "shares": 0,
+      "trans": 0
+    },
+    {
+      "label": "% Buy Shares",
+      "shares": 0,
+      "trans": 0
+    },
+    {
+      "label": "% Sell Shares",
+      "shares": 0,
+      "trans": 0
+    }
+  ],
+  "insider_roster": []
+}
