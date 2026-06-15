@@ -3782,7 +3782,7 @@ body.banner-visible .modal-content {
 
 #ai-chat-btn {
     position: fixed;
-    bottom: 80px;
+    bottom: 30px;
     right: 20px;
     width: 60px;
     height: 60px;
@@ -3804,7 +3804,7 @@ body.banner-visible .modal-content {
 
 .floating-login-btn {
     position: fixed;
-    bottom: 40px;
+    bottom: 110px;
     right: 20px;
     width: 65px;
     height: 65px;

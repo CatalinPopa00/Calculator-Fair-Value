@@ -8197,7 +8197,7 @@ document.addEventListener('touchend', (e) => {
 // ---------------------------------------------
 
 window.refreshCarousels = function() {
-    document.querySelectorAll('.research-card, .company-profile-box').forEach(card => {
+    document.querySelectorAll('.research-card, .company-profile-box, #company-desc-card').forEach(card => {
         let tabs = Array.from(card.querySelectorAll('.analyst-tab-btn'));
         if (!tabs.length) tabs = Array.from(card.querySelectorAll('.hist-tab'));
         if (!tabs.length) tabs = Array.from(card.querySelectorAll('.brief-tab'));
@@ -8242,7 +8242,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.refreshCarousels();
 
     // Add Swipe Support
-    document.querySelectorAll('.analyst-content-area, .historical-carousel-viewport, #profile-body').forEach(area => {
+    document.querySelectorAll('.analyst-content-area, .historical-carousel-viewport, #profile-body, #company-desc-card').forEach(area => {
         let isDragging = false;
         let startX = 0;
         let endX = 0;
@@ -8281,7 +8281,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const threshold = 50; 
             const diff = endX - startX;
             
-            const card = area.closest('.research-card') || area.closest('.company-profile-box');
+            const card = area.closest('.research-card') || area.closest('.company-profile-box') || area.closest('#company-desc-card');
             if (!card) return;
             
             if (diff > threshold) {
@@ -8294,7 +8294,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     let activeIdx = tabs.findIndex(t => t.classList.contains('active'));
                     if (activeIdx > 0) tabs[activeIdx - 1].click();
                     else if (tabs.length) tabs[tabs.length - 1].click();
-                } else if (card.classList.contains('company-profile-box')) {
+                } else if (card.classList.contains('company-profile-box') || card.id === 'company-desc-card') {
                     const tabs = Array.from(card.querySelectorAll('.brief-tab'));
                     let activeIdx = tabs.findIndex(t => t.classList.contains('active'));
                     if (activeIdx > 0) tabs[activeIdx - 1].click();
@@ -8312,7 +8312,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     let activeIdx = tabs.findIndex(t => t.classList.contains('active'));
                     if (activeIdx < tabs.length - 1) tabs[activeIdx + 1].click();
                     else if (tabs.length) tabs[0].click();
-                } else if (card.classList.contains('company-profile-box')) {
+                } else if (card.classList.contains('company-profile-box') || card.id === 'company-desc-card') {
                     const tabs = Array.from(card.querySelectorAll('.brief-tab'));
                     let activeIdx = tabs.findIndex(t => t.classList.contains('active'));
                     if (activeIdx < tabs.length - 1) tabs[activeIdx + 1].click();
@@ -8329,7 +8329,7 @@ document.addEventListener('DOMContentLoaded', () => {
 document.addEventListener('click', function(e) {
     const btn = e.target.closest('.analyst-tab-btn, .hist-tab, .brief-tab');
     if (!btn) return;
-    const card = btn.closest('.research-card') || btn.closest('.company-profile-box');
+    const card = btn.closest('.research-card') || btn.closest('.company-profile-box') || btn.closest('#company-desc-card');
     if (!card) return;
     
     setTimeout(() => { 
