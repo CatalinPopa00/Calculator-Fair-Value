@@ -759,15 +759,13 @@
 
 
                                 
-                                <div class="analyst-tabs-wrapper">
-                                    <div class="analyst-tabs-control">
-                                        <button class="analyst-tab-btn ownership-tab-btn active" data-tab="holders">Holders</button>
-                                        <button class="analyst-tab-btn ownership-tab-btn" data-tab="top-holders">Top</button>
-                                        <button class="analyst-tab-btn ownership-tab-btn" data-tab="insiders">Insiders</button>
-                                        <button class="analyst-tab-btn ownership-tab-btn" data-tab="stats">Stats</button>
-                                        <button class="analyst-tab-btn ownership-tab-btn" data-tab="roster-table">Roster</button>
-                                        <button class="analyst-tab-btn ownership-tab-btn" data-tab="roster-chart">Pie</button>
-                                    </div>
+                                <div class="corporate-tabs-wrapper" style="display: flex; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; gap: 10px; overflow-x: auto; scrollbar-width: none;">
+                                    <button class="brief-tab ownership-tab-btn active" data-tab="holders">👥 Holders</button>
+                                    <button class="brief-tab ownership-tab-btn" data-tab="top-holders">🔝 Top</button>
+                                    <button class="brief-tab ownership-tab-btn" data-tab="insiders">🕵️ Insiders</button>
+                                    <button class="brief-tab ownership-tab-btn" data-tab="stats">📊 Stats</button>
+                                    <button class="brief-tab ownership-tab-btn" data-tab="roster-table">📋 Roster</button>
+                                    <button class="brief-tab ownership-tab-btn" data-tab="roster-chart">🥧 Pie</button>
                                 </div>
 
                                 <div class="analyst-content-area ownership-content-area">
@@ -1128,6 +1126,12 @@
                                         </div>
                                     </div>
 
+                                    <!-- Navigation Controls (Dashes) for Historical Anchors -->
+                                    <div class="mobile-carousel-indicators" style="display: flex; gap: 6px; justify-content: center; width: 100%; margin-top: 15px;">
+                                        <div class="carousel-indicator-line active" id="hist-dot-0" onclick="document.getElementById('tab-financials').click()"></div>
+                                        <div class="carousel-indicator-line" id="hist-dot-1" onclick="document.getElementById('tab-ai-kpis').click()"></div>
+                                    </div>
+
                                     <script>
                                         document.addEventListener('DOMContentLoaded', () => {
                                             const track = document.getElementById('historical-carousel-track');
@@ -1139,6 +1143,8 @@
                                                 if (!track) return;
                                                 track.style.transform = `translateX(-${index * 50}%)`;
                                                 
+                                                document.getElementById('hist-dot-0')?.classList.toggle('active', index === 0);
+                                                document.getElementById('hist-dot-1')?.classList.toggle('active', index === 1);
                                                 if (index === 0) {
                                                     if (slider) {
                                                         slider.style.transform = 'translateX(0)';
