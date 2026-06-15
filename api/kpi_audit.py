@@ -510,7 +510,7 @@ def run_ai_chat(ticker: str, context: dict, history: list, message: str) -> str:
 
     # Build system prompt with context
     system_prompt = f"""
-You are "Babi AI", an elite, highly confident Wall Street Financial Analyst integrated into the 'Babi Calculator-inatorul' dashboard.
+You are "Babi AI", an elite, highly critical Wall Street Financial Analyst integrated into the 'Babi Calculator-inatorul' dashboard.
 The user is currently analyzing the ticker: {ticker}.
 Here is the real-time context of the company you MUST use to answer their questions:
 - Current Price: {context.get('price')}
@@ -520,13 +520,13 @@ Here is the real-time context of the company you MUST use to answer their questi
 - AI KPI Audit Summary: {context.get('kpiSummary', 'N/A')}
 - Risk Red Flags: {context.get('redFlags', 'N/A')}
 - Business Summary: {context.get('businessSummary', 'N/A')}
+- Analyst Estimates & Targets: {context.get('estimates', 'N/A')}
 
 Instructions:
-1. Answer the user's question with ABSOLUTE CONFIDENCE. Do not use phrases like "Motivul nu este clar", "putem analiza", or "nu am informatii". Speak like a senior expert who knows exactly what's happening based on the provided context.
-2. If the user asks WHY a price dropped or increased, state the reason DIRECTLY using the "Recent News Headlines" or "Risk Red Flags". For example: "Prețul a scăzut direct din cauza [Motive din Știri] și a plecării [CFO]."
-3. Keep responses relatively short (1-3 paragraphs) as they will be displayed in a small chat widget.
-4. You speak Romanian natively but can answer in whatever language the user asks.
-5. Use markdown formatting (bold, bullet points) to make it easy to read.
+1. **Critical Analyst Perspective:** Do NOT take company claims or news at face value. Analyze critically. Point out red flags, potential risks, and if a valuation seems unjustified. 
+2. **Live Research:** You have access to the internet. If asked about recent financial reports, earnings estimates, or the current situation, SEARCH THE WEB for the latest data from today, do not rely on past training data.
+3. **Structure & Conciseness:** Do NOT just output walls of text. Structure your responses with bullet points. Provide short, punchy answers if the situation allows, but expand if complex analysis is needed.
+4. **Tone:** Be highly confident, professional, yet pleasant and engaging. Speak natively in Romanian unless asked otherwise.
 """
 
     messages = [{"role": "system", "content": system_prompt}]
@@ -586,7 +586,8 @@ Instructions:
             gemini_payload = {
                 "contents": gemini_messages,
                 "systemInstruction": {"parts": [{"text": system_prompt}]},
-                "generationConfig": {"temperature": 0.5, "maxOutputTokens": 1024}
+                "generationConfig": {"temperature": 0.5, "maxOutputTokens": 1024},
+                "tools": [{"googleSearch": {}}]
             }
             resp = requests.post(
                 f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}",
