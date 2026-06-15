@@ -1159,7 +1159,12 @@ You must structure your response EXACTLY according to the format below, using th
 
 Strictly adhere to these precise markdown headers (written exactly like this, in uppercase and between double asterisks). Do not use other custom headers or additional characters. Maintain a sober, analytical tone, worthy of an investment banking report.
 """
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+            models_to_try = [
+                "gemini-2.5-flash",
+                "gemini-2.0-flash",
+                "gemini-1.5-flash",
+                "gemini-1.5-pro"
+            ]
             headers = {"Content-Type": "application/json"}
             payload = {
                 "contents": [{
@@ -1169,19 +1174,21 @@ Strictly adhere to these precise markdown headers (written exactly like this, in
                 }]
             }
             
-            try:
-                response = requests.post(url, json=payload, headers=headers, timeout=30)
-                if response.status_code == 200:
-                    res_json = response.json()
-                    generated_text = res_json['candidates'][0]['content']['parts'][0]['text']
-                    if generated_text and ("**EXECUTIVE SUMMARY**" in generated_text or "**SINTEZĂ EXECUTIVĂ**" in generated_text):
-                        # Clean up triple backticks if model wraps markdown
-                        cleaned_text = generated_text.replace("```markdown", "").replace("```", "").strip()
-                        return cleaned_text
-                else:
-                    print(f"Gemini API returned error code {response.status_code}: {response.text}")
-            except Exception as e:
-                print(f"Error calling Gemini API for {ticker_upper}: {e}")
+            for model_name in models_to_try:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+                try:
+                    response = requests.post(url, json=payload, headers=headers, timeout=30)
+                    if response.status_code == 200:
+                        res_json = response.json()
+                        generated_text = res_json['candidates'][0]['content']['parts'][0]['text']
+                        if generated_text and ("**EXECUTIVE SUMMARY**" in generated_text or "**SINTEZĂ EXECUTIVĂ**" in generated_text):
+                            # Clean up triple backticks if model wraps markdown
+                            cleaned_text = generated_text.replace("```markdown", "").replace("```", "").strip()
+                            return cleaned_text
+                    else:
+                        print(f"Gemini API ({model_name}) returned error code {response.status_code}: {response.text}")
+                except Exception as e:
+                    print(f"Error calling Gemini API ({model_name}) for {ticker_upper}: {e}")
 
     # 2. HEURISTIC FALLBACK (Rule-based local generation) - Used if run_ai=False or Gemini API fails
     presentation = f"{name} is a leading company operating in the {sector} sector, with a primary focus on the {industry} segment."
@@ -1244,7 +1251,11 @@ Strictly adhere to these precise markdown headers (written exactly like this, in
         except:
             fallback_news = ["No recent news or market developments available."]
 
-    output += f"**EARNINGS WATCHOUTS**\n" + "\n".join(["• Loading AI watchouts..."]) + "\n\n"
+    watchouts_fallback = "• Loading AI watchouts..."
+    if run_ai:
+        watchouts_fallback = "• AI analysis temporarily unavailable or rate limited. Please try again later."
+
+    output += f"**EARNINGS WATCHOUTS**\n" + watchouts_fallback + "\n\n"
     output += f"**LATEST MARKET INTELLIGENCE**\n" + "\n".join([f"• {n}" for n in fallback_news])
 
     return output
