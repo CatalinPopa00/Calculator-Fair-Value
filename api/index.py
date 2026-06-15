@@ -40,7 +40,7 @@ search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
 synthesis_cache = TTLCache(maxsize=500, ttl=86400 * 7)
-CACHE_VERSION = "v320"
+CACHE_VERSION = "v321"
 import threading
 in_flight_requests = {}
 in_flight_lock = threading.Lock()
@@ -678,12 +678,12 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 return valuation_cache[full_mode_key]
 
         # 1. Persistent Cache Check
-        persistent_cache_key = f"val_data_v36_{ticker.upper()}"
+        persistent_cache_key = f"val_data_v37_{ticker.upper()}"
         cached_data = kv_get(persistent_cache_key)
         if cached_data and not force_refresh:
             return cached_data
 
-        persistent_skip_key = f"val_data_v36_skip_{ticker.upper()}"
+        persistent_skip_key = f"val_data_v37_skip_{ticker.upper()}"
         if skip_peers:
             cached_skip = kv_get(persistent_skip_key)
             if cached_skip and not force_refresh:
@@ -2068,9 +2068,9 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
     try:
         from utils.kv import kv_set
         if not skip_peers and not fast_mode:
-            kv_set(f"val_data_v36_{ticker_upper}", response_data, ex=86400)
+            kv_set(f"val_data_v37_{ticker_upper}", response_data, ex=86400)
         else:
-            kv_set(f"val_data_v36_skip_{ticker_upper}", response_data, ex=86400)
+            kv_set(f"val_data_v37_skip_{ticker_upper}", response_data, ex=86400)
     except Exception as e:
         print(f"Failed to cache main profile to KV for {ticker_upper}: {e}")
 

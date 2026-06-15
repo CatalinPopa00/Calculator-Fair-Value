@@ -1058,7 +1058,7 @@ def load_gemini_api_key() -> str:
                         line = line.strip()
                         if line and not line.startswith("#") and "=" in line:
                             k, v = line.split("=", 1)
-                            key_name = k.strip()
+                            key_name = k.strip().lstrip("\ufeff")
                             if key_name in ["GEMINI_API_KEY", "Gemini", "gemini", "GEMINI"]:
                                 return v.strip().strip('"').strip("'")
     except Exception as e:
@@ -1159,7 +1159,7 @@ You must structure your response EXACTLY according to the format below, using th
 
 Strictly adhere to these precise markdown headers (written exactly like this, in uppercase and between double asterisks). Do not use other custom headers or additional characters. Maintain a sober, analytical tone, worthy of an investment banking report.
 """
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
             headers = {"Content-Type": "application/json"}
             payload = {
                 "contents": [{
@@ -1170,7 +1170,7 @@ Strictly adhere to these precise markdown headers (written exactly like this, in
             }
             
             try:
-                response = requests.post(url, json=payload, headers=headers, timeout=12)
+                response = requests.post(url, json=payload, headers=headers, timeout=30)
                 if response.status_code == 200:
                     res_json = response.json()
                     generated_text = res_json['candidates'][0]['content']['parts'][0]['text']

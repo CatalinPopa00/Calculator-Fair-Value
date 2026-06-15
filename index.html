@@ -626,9 +626,12 @@
                             <!-- Historical Financial Stability Charts -->
                             <section class="historical-charts-section" style="margin-top: 1.5rem; display: none;" id="historical-charts-container">
                                 <div class="research-card glass-card" id="historical-charts-card" style="margin-bottom: 0; width: 100%;">
-                                    <div class="research-header card-header" style="margin-bottom: 0;">
-                                        <div class="header-icon">📊</div>
-                                        <h3 id="historical-title" class="research-title collapsible-trigger" data-card="historical-charts" style="display: flex; align-items: center; justify-content: flex-start; gap: 10px; cursor: pointer; margin: 0; width: 100%;">Historical Stability & Analyst Projections<svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="margin-left: auto;"><polyline points="6 9 12 15 18 9"></polyline></svg></h3>
+                                    <div class="research-header card-header" style="margin-bottom: 0; display: flex; align-items: center; justify-content: space-between;">
+                                        <h3 id="historical-title" class="research-title collapsible-trigger" data-card="historical-charts" style="display: flex; align-items: center; justify-content: flex-start; gap: 10px; cursor: pointer; margin: 0; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                            <div class="header-icon">📊</div>
+                                            <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Historical Stability & Projections</span>
+                                        </h3>
+                                        <svg class="chevron-icon collapsible-trigger" data-card="historical-charts" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="cursor: pointer; flex-shrink: 0;"><polyline points="6 9 12 15 18 9"></polyline></svg>
                                     </div>
                                     <div class="card-body-collapsible" style="padding-top: 1.5rem;">
                                                               <div class="charts-flex-column" id="historical-charts-grid">
@@ -664,12 +667,12 @@
                             <!-- 2. Analyst Consensus Segment -->
                             <div class="research-card glass-card" id="analyst-card">
                                 <div class="research-header card-header" style="margin-bottom: 0; display: flex; align-items: center; justify-content: space-between;">
-                                    <h3 class="research-title collapsible-trigger" data-card="analyst" style="display: flex; align-items: center; justify-content: flex-start; gap: 10px; cursor: pointer; margin: 0; flex: 1;">
+                                    <h3 class="research-title collapsible-trigger" data-card="analyst" style="display: flex; align-items: center; justify-content: flex-start; gap: 10px; cursor: pointer; margin: 0; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                                         <div class="header-icon">🎯</div>
-                                        Analyst Consensus & Projections
+                                        <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Analyst Consensus & Projections</span>
                                     </h3>
                                     
-                                    <svg class="chevron-icon collapsible-trigger" data-card="analyst" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="cursor: pointer;"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                                    <svg class="chevron-icon collapsible-trigger" data-card="analyst" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="cursor: pointer; flex-shrink: 0;"><polyline points="6 9 12 15 18 9"></polyline></svg>
                                 </div>
                                 <div class="card-body-collapsible" style="padding-top: 1.5rem;">
 
@@ -1032,10 +1035,10 @@
 <!-- 2. Historical Trends Segment -->
                             <div class="research-card glass-card" id="historical-anchors-card">
 
-<div class="research-header card-header historical-header" style="margin-bottom: 0;">
-    <h3 class="research-title collapsible-trigger" data-card="historical-anchors" style="display: flex; align-items: center; justify-content: flex-start; gap: 10px; cursor: pointer; margin: 0;">
+<div class="research-header card-header historical-header" style="margin-bottom: 0; display: flex; align-items: center; justify-content: space-between;">
+    <h3 class="research-title collapsible-trigger" data-card="historical-anchors" style="display: flex; align-items: center; justify-content: flex-start; gap: 10px; cursor: pointer; margin: 0; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
         <div class="header-icon">⏳</div>
-        Historical Anchors & Trends
+        <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Historical Anchors & Trends</span>
     </h3>
     
     <div class="hist-toggle-wrapper" style="display: flex; justify-content: center;" onclick="event.stopPropagation();">
@@ -1045,7 +1048,7 @@
                                             <button id="tab-ai-kpis" class="hist-tab" style="flex: 1; position: relative; z-index: 1; background: transparent; color: var(--text-muted); border: none; padding: 8px 16px; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: color 0.3s ease;">✨ AI Audit</button>
                                         </div>
     </div>
-    <svg class="chevron-icon collapsible-trigger" data-card="historical-anchors" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="cursor:pointer;"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    <svg class="chevron-icon collapsible-trigger" data-card="historical-anchors" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="cursor:pointer; flex-shrink: 0;"><polyline points="6 9 12 15 18 9"></polyline></svg>
 </div>
 <div class="card-body-collapsible" style="padding-top: 1.5rem; position: relative;">
                                     

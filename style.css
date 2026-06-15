@@ -4151,3 +4151,15 @@ body.has-searched .floating-login-btn {
         display: none !important;
     }
 }
+
+/* Hide Historical toggle when collapsed */
+#historical-anchors-card.collapsed .hist-toggle-wrapper {
+    display: none !important;
+}
+
+/* Hide carousel arrows on mobile */
+@media (max-width: 768px) {
+    .carousel-nav-btn, #kpi-prev-btn, #kpi-next-btn {
+        display: none !important;
+    }
+}

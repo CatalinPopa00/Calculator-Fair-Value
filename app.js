@@ -4970,11 +4970,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 const config = [
                     { label: 'Year', key: 'year', isHeader: true },
                     { label: 'Revenue (B)', key: 'revenue_b', formatter: v => (v != null) ? v.toFixed(2) + ' B' : 'N/A', sparkKey: 'revenue_b' },
-                    { label: 'EPS (GAAP)', key: 'eps', formatter: v => (v != null) ? '$' + v.toFixed(2) : 'N/A', sparkKey: 'eps' },
+                    { label: 'EPS (Adj.)', key: 'eps', formatter: v => (v != null) ? '$' + v.toFixed(2) : 'N/A', sparkKey: 'eps' },
                     { label: 'FCF (B)', key: 'fcf_b', formatter: v => (v != null) ? v.toFixed(2) + ' B' : 'N/A', sparkKey: 'fcf_b' },
                     { label: 'FCF Margin', key: 'fcf_margin_pct', formatter: v => (v != null) ? v : 'N/A', sparkKey: 'fcf_margin_pct' },
-                    { label: 'Net Income (B)', key: 'net_income_b', formatter: v => (v != null) ? v.toFixed(2) + ' B' : 'N/A', sparkKey: 'net_income_b' },
-                    { label: 'Net Margin', key: 'net_margin_pct', formatter: v => (v != null) ? v : 'N/A', sparkKey: 'net_margin_pct' },
+                    { label: 'Net Inc. (Adj, B)', key: 'net_income_b', formatter: v => (v != null) ? v.toFixed(2) + ' B' : 'N/A', sparkKey: 'net_income_b' },
+                    { label: 'Net Margin (Adj)', key: 'net_margin_pct', formatter: v => (v != null) ? v : 'N/A', sparkKey: 'net_margin_pct' },
                     { label: 'Cash (B)', key: 'cash_b', formatter: v => (v != null) ? v.toFixed(2) + ' B' : 'N/A', sparkKey: 'cash_b' },
                     { label: 'Debt (B)', key: 'total_debt_b', formatter: v => (v != null) ? v.toFixed(2) + ' B' : 'N/A', sparkKey: 'total_debt_b' },
                     { label: 'Current Ratio', key: 'current_ratio', formatter: v => (v != null) ? v.toFixed(2) : 'N/A', sparkKey: 'current_ratio' },
@@ -8241,15 +8241,139 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Add Swipe Support (Touch & Mouse)
-    document.querySelectorAll('.analyst-content-area').forEach(area => {
-        let startX = 0;
-        let endX = 0;
-        let isDragging = false;
+        document.querySelectorAll('.research-card .card-body-collapsible').forEach(area => {
+            let startX = 0;
+            let endX = 0;
+            let isDragging = false;
 
-        // Touch
-        area.addEventListener('touchstart', e => {
-            startX = e.changedTouches[0].screenX;
-        }, {passive: true});
+            // Touch
+            area.addEventListener('touchstart', e => {
+                startX = e.changedTouches[0].screenX;
+            }, {passive: true});
+
+            area.addEventListener('touchend', e => {
+                endX = e.changedTouches[0].screenX;
+                handleSwipe(area, e.target);
+            }, {passive: true});
+
+            // Mouse
+            area.addEventListener('mousedown', e => {
+                isDragging = true;
+                startX = e.screenX;
+            });
+
+            area.addEventListener('mouseup', e => {
+                if (!isDragging) return;
+                isDragging = false;
+                endX = e.screenX;
+                handleSwipe(area, e.target);
+            });
+
+            area.addEventListener('mouseleave', e => {
+                if (!isDragging) return;
+                isDragging = false;
+                endX = e.screenX;
+                handleSwipe(area, e.target);
+            });
+
+            function handleSwipe(area, target) {
+                const threshold = 50; 
+                const diff = endX - startX;
+                
+                const card = area.closest('.research-card');
+                if (!card) return;
+                
+                if (diff > threshold) {
+                    // Swipe Right (Prev)
+                    if (target.closest('.ai-audit-section') || target.closest('#kpi-carousel-wrapper')) {
+                        const prevBtn = document.getElementById('kpi-prev-btn');
+                        if (prevBtn) prevBtn.click();
+                    } else if (card.id === 'historical-anchors-card') {
+                        const tabs = Array.from(card.querySelectorAll('.hist-tab'));
+                        let activeIdx = tabs.findIndex(t => t.classList.contains('active'));
+                        if (activeIdx > 0) tabs[activeIdx - 1].click();
+                        else if (tabs.length) tabs[tabs.length - 1].click();
+                    } else {
+                        if (window.cycleMobileCarousel) window.cycleMobileCarousel({ closest: () => card }, -1);
+                    }
+                } else if (diff < -threshold) {
+                    // Swipe Left (Next)
+                    if (target.closest('.ai-audit-section') || target.closest('#kpi-carousel-wrapper')) {
+                        const nextBtn = document.getElementById('kpi-next-btn');
+                        if (nextBtn) nextBtn.click();
+                    } else if (card.id === 'historical-anchors-card') {
+                        const tabs = Array.from(card.querySelectorAll('.hist-tab'));
+                        let activeIdx = tabs.findIndex(t => t.classList.contains('active'));
+                        if (activeIdx < tabs.length - 1) tabs[activeIdx + 1].click();
+                        else if (tabs.length) tabs[0].click();
+                    } else {
+                        if (window.cycleMobileCarousel) window.cycleMobileCarousel({ closest: () => card }, 1);
+                    }
+                }
+            }
+        });
+
+            area.addEventListener('touchend', e => {
+                endX = e.changedTouches[0].screenX;
+                handleSwipe(area);
+            }, {passive: true});
+
+            // Mouse
+            area.addEventListener('mousedown', e => {
+                isDragging = true;
+                startX = e.screenX;
+            });
+
+            area.addEventListener('mouseup', e => {
+                if (!isDragging) return;
+                isDragging = false;
+                endX = e.screenX;
+                handleSwipe(area);
+            });
+
+            area.addEventListener('mouseleave', e => {
+                if (!isDragging) return;
+                isDragging = false;
+                endX = e.screenX;
+                handleSwipe(area);
+            });
+
+            function handleSwipe(area) {
+                const threshold = 50; 
+                const diff = endX - startX;
+                
+                const card = area.closest('.research-card');
+                if (!card) return;
+                
+                if (diff > threshold) {
+                    // Swipe Right (Prev)
+                    if (card.id === 'corporate-brief-card') {
+                        const prevBtn = document.getElementById('kpi-prev-btn');
+                        if (prevBtn) prevBtn.click();
+                    } else if (card.id === 'historical-anchors-card') {
+                        const tabs = Array.from(card.querySelectorAll('.hist-tab'));
+                        let activeIdx = tabs.findIndex(t => t.classList.contains('active'));
+                        if (activeIdx > 0) tabs[activeIdx - 1].click();
+                        else if (tabs.length) tabs[tabs.length - 1].click();
+                    } else {
+                        if (window.cycleMobileCarousel) window.cycleMobileCarousel({ closest: () => card }, -1);
+                    }
+                } else if (diff < -threshold) {
+                    // Swipe Left (Next)
+                    if (card.id === 'corporate-brief-card') {
+                        const nextBtn = document.getElementById('kpi-next-btn');
+                        if (nextBtn) nextBtn.click();
+                    } else if (card.id === 'historical-anchors-card') {
+                        const tabs = Array.from(card.querySelectorAll('.hist-tab'));
+                        let activeIdx = tabs.findIndex(t => t.classList.contains('active'));
+                        if (activeIdx < tabs.length - 1) tabs[activeIdx + 1].click();
+                        else if (tabs.length) tabs[0].click();
+                    } else {
+                        if (window.cycleMobileCarousel) window.cycleMobileCarousel({ closest: () => card }, 1);
+                    }
+                }
+            }
+        });
 
         area.addEventListener('touchend', e => {
             endX = e.changedTouches[0].screenX;
