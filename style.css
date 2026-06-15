@@ -4392,3 +4392,9 @@ body.has-searched .floating-login-btn {
         border: none;
     }
 }
+
+/* Hide original tabs on mobile for carousels to show only dashes */
+@media (max-width: 768px) {
+    .hist-toggle-wrapper { display: none !important; }
+    .corporate-tabs-wrapper { display: none !important; }
+}

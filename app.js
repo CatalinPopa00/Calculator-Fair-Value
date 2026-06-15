@@ -4417,7 +4417,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     </div>
 
                     <!-- Tabs Navigation -->
-                    <div style="display: flex; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; gap: 10px; overflow-x: auto; scrollbar-width: none;">
+                    <div class="corporate-tabs-wrapper" style="display: flex; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; gap: 10px; overflow-x: auto; scrollbar-width: none;">
                         <button class="brief-tab ${activeTab === 'overview' ? 'active' : ''}" data-tab="overview">🏢 Overview</button>
                         <button class="brief-tab ${activeTab === 'swot' ? 'active' : ''}" data-tab="swot">⚖️ SWOT Analysis</button>
                         <button class="brief-tab ${activeTab === 'watchouts' ? 'active' : ''}" data-tab="watchouts">⚠️ Watchouts</button>
@@ -8142,7 +8142,9 @@ window.cycleMobileCarousel = function(btnElement, direction, event) {
         contentArea.setAttribute('data-slide-dir', direction === 1 ? 'right' : 'left');
     }
     
-    const tabs = Array.from(card.querySelectorAll('.analyst-tab-btn'));
+    let tabs = Array.from(card.querySelectorAll('.analyst-tab-btn'));
+            if (!tabs.length) tabs = Array.from(card.querySelectorAll('.hist-tab'));
+            if (!tabs.length) tabs = Array.from(card.querySelectorAll('.brief-tab'));
     if (!tabs.length) return;
     let activeIdx = tabs.findIndex(t => t.classList.contains('active'));
     if (activeIdx === -1) activeIdx = 0;
@@ -8188,8 +8190,10 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Initialize Page Indicators for Mobile Carousels
     function initCarouselIndicators() {
-        document.querySelectorAll('.research-card').forEach(card => {
-            const tabs = Array.from(card.querySelectorAll('.analyst-tab-btn'));
+        document.querySelectorAll('.research-card, .company-profile-box').forEach(card => {
+            let tabs = Array.from(card.querySelectorAll('.analyst-tab-btn'));
+            if (!tabs.length) tabs = Array.from(card.querySelectorAll('.hist-tab'));
+            if (!tabs.length) tabs = Array.from(card.querySelectorAll('.brief-tab'));
             if (!tabs.length) return;
             
             const tabsWrapper = card.querySelector('.analyst-tabs-wrapper');
@@ -8222,13 +8226,15 @@ document.addEventListener('DOMContentLoaded', () => {
     initCarouselIndicators();
 
     // Update indicators on tab click
-    document.querySelectorAll('.analyst-tab-btn').forEach(btn => {
+    document.querySelectorAll('.analyst-tab-btn, .hist-tab, .brief-tab').forEach(btn => {
         btn.addEventListener('click', function() {
-            const card = this.closest('.research-card');
+            const card = this.closest('.research-card') || this.closest('.company-profile-box');
             if (!card) return;
             
             setTimeout(() => { 
-                const tabs = Array.from(card.querySelectorAll('.analyst-tab-btn'));
+                let tabs = Array.from(card.querySelectorAll('.analyst-tab-btn'));
+            if (!tabs.length) tabs = Array.from(card.querySelectorAll('.hist-tab'));
+            if (!tabs.length) tabs = Array.from(card.querySelectorAll('.brief-tab'));
                 const activeIdx = tabs.findIndex(t => t.classList.contains('active'));
                 
                 const indicatorLines = card.querySelectorAll('.carousel-indicator-line');
@@ -8296,6 +8302,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         let activeIdx = tabs.findIndex(t => t.classList.contains('active'));
                         if (activeIdx > 0) tabs[activeIdx - 1].click();
                         else if (tabs.length) tabs[tabs.length - 1].click();
+                    } else if (card.classList.contains('company-profile-box')) {
+                        const tabs = Array.from(card.querySelectorAll('.brief-tab'));
+                        let activeIdx = tabs.findIndex(t => t.classList.contains('active'));
+                        if (activeIdx > 0) tabs[activeIdx - 1].click();
+                        else if (tabs.length) tabs[tabs.length - 1].click();
                     } else {
                         if (window.cycleMobileCarousel) window.cycleMobileCarousel({ closest: () => card }, -1);
                     }
@@ -8306,6 +8317,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (nextBtn) nextBtn.click();
                     } else if (card.id === 'historical-anchors-card') {
                         const tabs = Array.from(card.querySelectorAll('.hist-tab'));
+                        let activeIdx = tabs.findIndex(t => t.classList.contains('active'));
+                        if (activeIdx < tabs.length - 1) tabs[activeIdx + 1].click();
+                        else if (tabs.length) tabs[0].click();
+                    } else if (card.classList.contains('company-profile-box')) {
+                        const tabs = Array.from(card.querySelectorAll('.brief-tab'));
                         let activeIdx = tabs.findIndex(t => t.classList.contains('active'));
                         if (activeIdx < tabs.length - 1) tabs[activeIdx + 1].click();
                         else if (tabs.length) tabs[0].click();
