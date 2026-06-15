@@ -1,7 +1,8 @@
+
 :root {
     --bg-dark: #0f172a;
     --card-bg: rgba(30, 41, 59, 0.7);
-    --card-border: rgba(255, 255, 255, 0.1);
+    --card-border: rgba(var(--invert-rgb), 0.1);
     --primary: #3b82f6;
     --primary-hover: #2563eb;
     --accent: #10b981;
@@ -9,9 +10,27 @@
     --text-main: #f8fafc;
     --text-muted: #94a3b8;
     --danger: #ef4444;
+    --invert-rgb: 255, 255, 255;
+    --invert-black-rgb: 0, 0, 0;
+}
+
+[data-theme="light"] {
+    --bg-dark: #f8fafc;
+    --card-bg: rgba(255, 255, 255, 0.9);
+    --card-border: rgba(0, 0, 0, 0.1);
+    --primary: #2563eb;
+    --primary-hover: #1d4ed8;
+    --accent: #059669;
+    --accent-glow: rgba(5, 150, 105, 0.2);
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+    --danger: #dc2626;
+    --invert-rgb: 0, 0, 0;
+    --invert-black-rgb: 255, 255, 255;
 }
 
 * {
+    transition: background-color 0.3s, color 0.3s, border-color 0.3s;
     margin: 0;
     padding: 0;
     box-sizing: border-box;
@@ -19,11 +38,12 @@
 
 html,
 body {
+    transition: background-color 0.3s, color 0.3s;
     overflow-x: hidden;
     width: 100%;
     position: relative;
     scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+    scrollbar-color: rgba(var(--invert-rgb), 0.2) transparent;
 }
 
 /* Global Custom Scrollbar (Webkit) */
@@ -35,11 +55,11 @@ body {
     background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(var(--invert-rgb), 0.15);
     border-radius: 10px;
 }
 ::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.25);
+    background: rgba(var(--invert-rgb), 0.25);
 }
 
 /* Global Hover Effects for Fields and Buttons */
@@ -47,13 +67,13 @@ input, select, textarea, button {
     transition: all 0.2s ease;
 }
 input:hover, select:hover, textarea:hover {
-    background: rgba(255,255,255,0.08) !important;
-    border-color: rgba(255,255,255,0.3) !important;
-    box-shadow: 0 0 10px rgba(255,255,255,0.1) !important;
+    background: rgba(var(--invert-rgb),0.08) !important;
+    border-color: rgba(var(--invert-rgb),0.3) !important;
+    box-shadow: 0 0 10px rgba(var(--invert-rgb),0.1) !important;
 }
 button:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    box-shadow: 0 4px 12px rgba(0, 0, 0,0.3);
 }
 
 body {
@@ -91,7 +111,7 @@ body {
 
 .glass-card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(0,0,0,0.5);
+    box-shadow: 0 8px 25px rgba(0, 0, 0,0.5);
 }
 
 /* Header Base (Mobile First) */
@@ -131,7 +151,7 @@ body {
 }
 
 .profile-table-wrapper tr {
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-top: 1px solid rgba(var(--invert-rgb), 0.08);
 }
 
 .profile-table-wrapper tr:first-child {
@@ -151,7 +171,7 @@ body {
 .profile-value {
     text-align: right;
     font-weight: bold;
-    color: white;
+    color: var(--text-main);
     font-size: 0.95rem;
 }
 
@@ -171,7 +191,7 @@ body {
     left: 50%;
     transform: translate(-50%, -150%);
     width: auto;
-    background: rgba(30, 41, 59, 0.85);
+    background: rgba(0, 0, 0, 0.85);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     z-index: 10000;
@@ -180,7 +200,7 @@ body {
     align-items: center;
     padding: 10px 24px;
     gap: 15px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(var(--invert-rgb), 0.1);
     border-radius: 30px;
     transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
@@ -216,13 +236,13 @@ body {
 
     .trends-table td {
         padding: 1.25rem 0.5rem;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        border-bottom: 1px solid rgba(var(--invert-rgb), 0.05);
         font-weight: 600;
         font-size: 0.95rem;
     }
 
     .trends-table tr:hover {
-        background: rgba(255, 255, 255, 0.02);
+        background: rgba(var(--invert-rgb), 0.02);
     }
 
     .header {
@@ -318,7 +338,7 @@ body {
     padding: 0.8rem 1.2rem;
     border-radius: 8px;
     border: 1px solid var(--card-border);
-    background: rgba(15, 23, 42, 0.6);
+    background: rgba(var(--invert-rgb), 0.1);
     color: var(--text-main);
     font-size: 1rem;
     font-family: inherit;
@@ -335,10 +355,10 @@ body {
     top: calc(100% + 8px);
     left: 0;
     right: 0;
-    background: rgba(15, 23, 42, 0.95);
+    background: rgba(0, 0, 0, 0.95);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(var(--invert-rgb), 0.1);
     border-radius: 12px;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
     z-index: 10000;
@@ -367,7 +387,7 @@ body {
     padding: 12px 16px;
     cursor: pointer;
     transition: all 0.2s;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid rgba(var(--invert-rgb), 0.05);
     align-items: center;
 }
 
@@ -415,12 +435,12 @@ body {
 }
 
 .autocomplete-dropdown::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(var(--invert-rgb), 0.1);
     border-radius: 10px;
 }
 
 .autocomplete-dropdown::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(var(--invert-rgb), 0.2);
 }
 
 #search-btn {
@@ -428,7 +448,7 @@ body {
     border-radius: 8px;
     border: none;
     background: var(--primary);
-    color: white;
+    color: var(--text-main);
     font-weight: 600;
     font-family: inherit;
     cursor: pointer;
@@ -448,7 +468,7 @@ body {
     border-radius: 8px;
     border: none;
     background: #8b5cf6;
-    color: white;
+    color: var(--text-main);
     font-weight: 600;
     font-family: inherit;
     cursor: pointer;
@@ -556,7 +576,7 @@ body {
 
     .analyst-grid>div {
         border-right: none !important;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        border-bottom: 1px solid rgba(var(--invert-rgb), 0.1);
         padding: 1.5rem 0 !important;
     }
 
@@ -825,7 +845,7 @@ body {
 .score-bar-wrapper {
     flex-grow: 1;
     height: 6px;
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(var(--invert-rgb), 0.1);
     border-radius: 4px;
     overflow: hidden;
 }
@@ -897,8 +917,8 @@ body {
 }
 
 .chart-item-wrapper {
-    background: rgba(15, 23, 42, 0.4);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(var(--invert-rgb), 0.05);
     border-radius: 12px;
     padding: 1.25rem;
     display: flex;
@@ -1024,7 +1044,7 @@ body {
     background: rgba(0, 0, 0, 0.2);
     border-radius: 12px;
     padding: 0.85rem;
-    border: 1px solid rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(var(--invert-rgb), 0.03);
     margin-bottom: 1rem;
     min-height: 220px;
     /* v304: Rigorous fixed height for input blocks across all methods */
@@ -1063,7 +1083,7 @@ body {
 .spinner {
     width: 50px;
     height: 50px;
-    border: 4px solid rgba(255, 255, 255, 0.1);
+    border: 4px solid rgba(var(--invert-rgb), 0.1);
     border-top-color: var(--primary);
     border-radius: 50%;
     animation: spin 1s infinite linear;
@@ -1135,7 +1155,7 @@ body {
         display: flex;
         flex-direction: column;
         padding: 8px 0;
-        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        border-top: 1px solid rgba(var(--invert-rgb), 0.1);
     }
 
     .profile-table-wrapper td {
@@ -1173,9 +1193,9 @@ body {
 .view-data-btn {
     margin-top: auto;
     align-self: center;
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    color: white;
+    background: rgba(var(--invert-rgb), 0.1);
+    border: 1px solid rgba(var(--invert-rgb), 0.2);
+    color: var(--text-main);
     padding: 0.6rem 1.2rem;
     border-radius: 8px;
     cursor: pointer;
@@ -1213,7 +1233,7 @@ body {
 
 .watchlist-card:hover {
     background: rgba(30, 41, 59, 0.8);
-    border-color: rgba(255, 255, 255, 0.2);
+    border-color: rgba(var(--invert-rgb), 0.2);
 }
 
 .watchlist-row {
@@ -1291,7 +1311,7 @@ body {
     width: 200px;
     padding: 0 1rem;
     margin-left: 2rem;
-    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    border-left: 1px solid rgba(var(--invert-rgb), 0.1);
 }
 
 .watchlist-score-item {
@@ -1311,7 +1331,7 @@ body {
 .mini-score-bar {
     flex-grow: 1;
     height: 6px;
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(var(--invert-rgb), 0.1);
     border-radius: 3px;
     overflow: hidden;
 }
@@ -1339,7 +1359,7 @@ body {
     width: 160px;
     display: flex;
     justify-content: flex-end;
-    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    border-left: 1px solid rgba(var(--invert-rgb), 0.1);
     padding-left: 1.5rem;
 }
 
@@ -1347,7 +1367,7 @@ body {
     width: 160px;
     display: flex;
     justify-content: flex-end;
-    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    border-left: 1px solid rgba(var(--invert-rgb), 0.1);
     padding-left: 1.5rem;
 }
 
@@ -1357,7 +1377,7 @@ body {
     align-items: center;
     justify-content: space-between;
     padding: 0 1.5rem 0.5rem 1.5rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid rgba(var(--invert-rgb), 0.1);
     margin-bottom: 0.5rem;
     color: var(--text-muted);
     font-size: 0.85rem;
@@ -1407,7 +1427,7 @@ body {
 
     .watchlist-left {
         width: 100%;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        border-bottom: 1px solid rgba(var(--invert-rgb), 0.05);
         padding-bottom: 0.5rem;
     }
 
@@ -1437,7 +1457,7 @@ body {
         margin-left: 0;
         padding: 1rem 0;
         border-left: none;
-        border-top: 1px solid rgba(255, 255, 255, 0.05);
+        border-top: 1px solid rgba(var(--invert-rgb), 0.05);
         flex-direction: row;
         flex-wrap: wrap;
     }
@@ -1583,7 +1603,7 @@ body {
     display: none;
     margin-top: 1.5rem;
     padding-top: 1.5rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: 1px solid rgba(var(--invert-rgb), 0.1);
 }
 
 .watchlist-card.expanded .watchlist-expanded {
@@ -1638,7 +1658,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: 1rem;
-    background: rgba(15, 23, 42, 0.4);
+    background: rgba(0, 0, 0, 0.4);
     padding: 1.2rem;
     border-radius: 8px;
     border: 1px solid var(--card-border);
@@ -1705,7 +1725,7 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(15, 23, 42, 0.8);
+    background: rgba(0, 0, 0, 0.8);
     backdrop-filter: blur(5px);
     display: flex;
     justify-content: center;
@@ -1773,7 +1793,7 @@ body.banner-visible .modal-content {
     background: rgba(0, 0, 0, 0.2);
     padding: 1rem;
     border-radius: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(var(--invert-rgb), 0.05);
 }
 
 /* Unified Deep Research Styling */
@@ -1824,15 +1844,15 @@ body.banner-visible .modal-content {
     background: transparent;
     padding: 2px;
     border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(var(--invert-rgb), 0.08);
     gap: 6px;
 }
 
 .analyst-tab-btn {
     flex: 1;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    color: rgba(255, 255, 255, 0.5);
+    background: rgba(var(--invert-rgb), 0.03);
+    border: 1px solid rgba(var(--invert-rgb), 0.05);
+    color: rgba(var(--invert-rgb), 0.5);
     padding: 10px 12px;
     font-size: 0.8rem;
     font-weight: 600;
@@ -1856,19 +1876,19 @@ body.banner-visible .modal-content {
     .analyst-tab-btn {
         padding: 12px 8px;
         font-size: 0.85rem;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(var(--invert-rgb), 0.1);
+        background: rgba(var(--invert-rgb), 0.05);
     }
 }
 
 .analyst-tab-btn:hover {
-    color: white;
-    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-main);
+    background: rgba(var(--invert-rgb), 0.05);
 }
 
 .analyst-tab-btn.active {
     background: var(--primary);
-    color: white;
+    color: var(--text-main);
     box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
 }
 
@@ -1919,9 +1939,9 @@ body.banner-visible .modal-content {
     position: absolute;
     top: 12px;
     left: 12px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.6);
+    background: rgba(var(--invert-rgb), 0.05);
+    border: 1px solid rgba(var(--invert-rgb), 0.1);
+    color: rgba(var(--invert-rgb), 0.6);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1941,8 +1961,8 @@ body.banner-visible .modal-content {
 }
 
 .reset-btn:hover {
-    background: rgba(255, 255, 255, 0.15);
-    color: white;
+    background: rgba(var(--invert-rgb), 0.15);
+    color: var(--text-main);
     border-color: var(--accent);
     transform: scale(1.05);
 }
@@ -1967,7 +1987,7 @@ body.banner-visible .modal-content {
 .card-inputs {
     background: rgba(0, 0, 0, 0.2);
     border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(var(--invert-rgb), 0.03);
     padding: 0.75rem;
     /* v310: More compact layout */
     margin-bottom: 1rem;
@@ -1989,8 +2009,8 @@ body.banner-visible .modal-content {
 .details-toggle-btn {
     width: auto;
     min-width: 130px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(var(--invert-rgb), 0.03);
+    border: 1px solid rgba(var(--invert-rgb), 0.06);
     border-radius: 20px;
     padding: 0.45rem 1.1rem;
     color: var(--text-muted);
@@ -2142,7 +2162,7 @@ body.banner-visible .modal-content {
 .premium-label {
     font-size: 0.75rem;
     /* v310: Slightly smaller to guarantee one-line fit */
-    color: rgba(255, 255, 255, 0.7);
+    color: rgba(var(--invert-rgb), 0.7);
     font-weight: 600;
     line-height: 1.2;
     text-align: left;
@@ -2163,9 +2183,9 @@ body.banner-visible .modal-content {
 
 .premium-select,
 .premium-input {
-    background: rgba(15, 23, 42, 0.6);
-    color: white;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(var(--invert-rgb), 0.1);
+    color: var(--text-main);
+    border: 1px solid rgba(var(--invert-rgb), 0.1);
     border-radius: 8px;
     padding: 6px 10px;
     font-family: 'Outfit', sans-serif;
@@ -2240,7 +2260,7 @@ body.banner-visible .modal-content {
 .premium-select:focus,
 .premium-input:focus {
     border-color: var(--primary);
-    background: rgba(15, 23, 42, 0.8);
+    background: rgba(0, 0, 0, 0.8);
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
 }
 
@@ -2260,7 +2280,7 @@ body.banner-visible .modal-content {
 
 .view-data-btn:hover {
     background: var(--primary);
-    color: white;
+    color: var(--text-main);
     transform: translateY(-2px);
     box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
 }
@@ -2281,7 +2301,7 @@ body.banner-visible .modal-content {
     display: block;
     width: 40px;
     height: 22px;
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(var(--invert-rgb), 0.1);
     border-radius: 20px;
     position: relative;
     cursor: pointer;
@@ -2309,13 +2329,13 @@ body.banner-visible .modal-content {
 }
 
 .analyst-tab-btn:hover {
-    color: white;
-    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-main);
+    background: rgba(var(--invert-rgb), 0.05);
 }
 
 .analyst-tab-btn.active {
     background: var(--primary);
-    color: white;
+    color: var(--text-main);
     box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
 }
 
@@ -2353,7 +2373,7 @@ body.banner-visible .modal-content {
 
 .pt-range {
     margin-top: 1.5rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    border-top: 1px solid rgba(var(--invert-rgb), 0.05);
     padding-top: 12px;
 }
 
@@ -2365,7 +2385,7 @@ body.banner-visible .modal-content {
 }
 
 .range-line b {
-    color: white;
+    color: var(--text-main);
     margin-left: 4px;
 }
 
@@ -2393,12 +2413,12 @@ body.banner-visible .modal-content {
     color: var(--text-muted);
     text-align: left;
     padding-bottom: 8px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid rgba(var(--invert-rgb), 0.1);
 }
 
 .mini-research-table td {
     padding: 10px 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid rgba(var(--invert-rgb), 0.03);
 }
 
 .research-footer {
@@ -2488,9 +2508,9 @@ body.banner-visible .modal-content {
     justify-content: center;
     font-size: 0.95rem;
     font-weight: 800;
-    color: white;
+    color: var(--text-main);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    border: 2px solid rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(var(--invert-rgb), 0.1);
 }
 
 .mini-score-green {
@@ -2537,12 +2557,12 @@ body.banner-visible .modal-content {
     padding: 0.75rem 1rem;
     color: var(--text-muted);
     font-weight: 500;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid rgba(var(--invert-rgb), 0.1);
 }
 
 .trends-table td {
     padding: 0.75rem 1rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid rgba(var(--invert-rgb), 0.05);
 }
 
 .trends-table tr:last-child td {
@@ -2559,7 +2579,7 @@ body.banner-visible .modal-content {
 
 .sensitivity-matrix th,
 .sensitivity-matrix td {
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(var(--invert-rgb), 0.1);
     padding: 0.6rem 0.4rem;
     text-align: center;
     min-width: 65px;
@@ -2585,7 +2605,7 @@ body.banner-visible .modal-content {
     -webkit-appearance: none;
     width: 32px;
     height: 18px;
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(var(--invert-rgb), 0.2);
     border-radius: 9px;
     outline: none;
     position: relative;
@@ -2633,7 +2653,7 @@ body.banner-visible .modal-content {
 
 #top-strengths-list li strong,
 #risk-factors-list li strong {
-    color: white;
+    color: var(--text-main);
     white-space: nowrap;
 }
 
@@ -2712,12 +2732,12 @@ body.banner-visible .modal-content {
 
 .wl-metrics-bar {
     display: flex;
-    background: rgba(15, 23, 42, 0.4);
+    background: rgba(0, 0, 0, 0.4);
     border-radius: 12px;
     width: 100%;
     padding: 1rem 0;
     margin-bottom: 1.2rem;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(var(--invert-rgb), 0.05);
 }
 
 @media (max-width: 480px) {
@@ -2746,7 +2766,7 @@ body.banner-visible .modal-content {
     top: 20%;
     height: 60%;
     width: 1px;
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(var(--invert-rgb), 0.1);
 }
 
 .wl-m-label {
@@ -2863,7 +2883,7 @@ body.banner-visible .modal-content {
     .table-responsive.transposed-view {
         border-radius: 12px;
         border: 1px solid var(--card-border);
-        background: rgba(15, 23, 42, 0.4);
+        background: rgba(0, 0, 0, 0.4);
         position: relative;
     }
 
@@ -2871,13 +2891,13 @@ body.banner-visible .modal-content {
         position: sticky;
         left: 0;
         z-index: 10;
-        border-right: 2px solid rgba(255, 255, 255, 0.1) !important;
+        border-right: 2px solid rgba(var(--invert-rgb), 0.1) !important;
         box-shadow: 8px 0 12px rgba(0, 0, 0, 0.4);
         min-width: 140px;
     }
 
     .trends-table tr:nth-child(even) td:not(.sticky-col) {
-        background: rgba(255, 255, 255, 0.02);
+        background: rgba(var(--invert-rgb), 0.02);
     }
 
     .trends-table tr:hover td {
@@ -2920,7 +2940,7 @@ body.banner-visible .modal-content {
     display: none;
     justify-content: space-around;
     align-items: center;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid rgba(var(--invert-rgb), 0.1);
     margin-bottom: 1.5rem;
     padding-bottom: 15px;
     gap: 1rem;
@@ -2950,8 +2970,8 @@ body.banner-visible .modal-content {
 }
 
 .tab-btn {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(var(--invert-rgb), 0.05);
+    border: 1px solid rgba(var(--invert-rgb), 0.1);
     color: var(--text-muted);
     padding: 8px 16px;
     border-radius: 20px;
@@ -2963,7 +2983,7 @@ body.banner-visible .modal-content {
 
 .tab-btn.active {
     background: var(--accent);
-    color: white;
+    color: var(--text-main);
     border-color: var(--accent);
     box-shadow: 0 0 15px rgba(0, 212, 255, 0.3);
 }
@@ -3027,7 +3047,7 @@ body.banner-visible .modal-content {
 .rec-bar-bg {
     flex-grow: 1;
     height: 6px;
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(var(--invert-rgb), 0.1);
     border-radius: 3px;
     overflow: hidden;
 }
@@ -3071,7 +3091,7 @@ body.banner-visible .modal-content {
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(var(--invert-rgb), 0.03);
     background-size: 200% 100%;
     animation: wlShimmer 2s infinite linear;
     border-radius: 16px;
@@ -3091,7 +3111,7 @@ body.banner-visible .modal-content {
 .wl-spinner {
     width: 14px;
     height: 14px;
-    border: 2px solid rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(var(--invert-rgb), 0.1);
     border-top: 2px solid var(--accent);
     border-radius: 50%;
     animation: wlSpin 0.8s linear infinite;
@@ -3182,7 +3202,7 @@ body.banner-visible .modal-content {
 
     .analyst-tab-btn.active {
         background: var(--primary);
-        color: white;
+        color: var(--text-main);
         border-color: var(--primary);
         box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
     }
@@ -3279,26 +3299,26 @@ body.banner-visible .modal-content {
 }
 
 .profile-row:hover {
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(var(--invert-rgb), 0.03);
 }
 
 .profile-label {
     padding: 12px 0;
-    color: rgba(255, 255, 255, 0.4);
+    color: rgba(var(--invert-rgb), 0.4);
     font-size: 0.75rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid rgba(var(--invert-rgb), 0.05);
 }
 
 .profile-value {
     padding: 12px 0;
-    color: white;
+    color: var(--text-main);
     font-size: 0.9rem;
     font-weight: 700;
     text-align: right;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid rgba(var(--invert-rgb), 0.05);
 }
 
 .peer-btn {
@@ -3318,7 +3338,7 @@ body.banner-visible .modal-content {
 
 .peer-btn:hover {
     background: #38bdf8;
-    color: white;
+    color: var(--text-main);
     box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
 }
 
@@ -3331,7 +3351,7 @@ body.banner-visible .modal-content {
 }
 
 #company-desc-text::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(var(--invert-rgb), 0.1);
     border-radius: 10px;
 }
 
@@ -3369,7 +3389,7 @@ body.banner-visible .modal-content {
 .wl-spinner {
     width: 14px;
     height: 14px;
-    border: 2px solid rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(var(--invert-rgb), 0.1);
     border-top: 2px solid var(--accent);
     border-radius: 50%;
     animation: wlSpin 0.8s linear infinite;
@@ -3460,7 +3480,7 @@ body.banner-visible .modal-content {
 
     .analyst-tab-btn.active {
         background: var(--primary);
-        color: white;
+        color: var(--text-main);
         border-color: var(--primary);
         box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
     }
@@ -3557,26 +3577,26 @@ body.banner-visible .modal-content {
 }
 
 .profile-row:hover {
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(var(--invert-rgb), 0.03);
 }
 
 .profile-label {
     padding: 12px 0;
-    color: rgba(255, 255, 255, 0.4);
+    color: rgba(var(--invert-rgb), 0.4);
     font-size: 0.75rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid rgba(var(--invert-rgb), 0.05);
 }
 
 .profile-value {
     padding: 12px 0;
-    color: white;
+    color: var(--text-main);
     font-size: 0.9rem;
     font-weight: 700;
     text-align: right;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid rgba(var(--invert-rgb), 0.05);
 }
 
 .peer-btn {
@@ -3596,7 +3616,7 @@ body.banner-visible .modal-content {
 
 .peer-btn:hover {
     background: #38bdf8;
-    color: white;
+    color: var(--text-main);
     box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
 }
 
@@ -3609,7 +3629,7 @@ body.banner-visible .modal-content {
 }
 
 #company-desc-text::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(var(--invert-rgb), 0.1);
     border-radius: 10px;
 }
 
@@ -3669,7 +3689,7 @@ body.banner-visible .modal-content {
         margin-bottom: 0 !important;
         text-align: left !important;
         font-size: 0.72rem !important;
-        color: rgba(255,255,255,0.7) !important;
+        color: rgba(var(--invert-rgb),0.7) !important;
         flex: 1 !important;
         white-space: nowrap !important;
         overflow: hidden;
@@ -3812,11 +3832,11 @@ body.banner-visible .modal-content {
     width: 60px;
     height: 60px;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(var(--invert-rgb), 0.05);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    color: white;
+    border: 1px solid rgba(var(--invert-rgb), 0.15);
+    color: var(--text-main);
     font-size: 1.8rem;
     display: flex;
     justify-content: center;
@@ -3834,11 +3854,11 @@ body.banner-visible .modal-content {
     width: 65px;
     height: 65px;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(var(--invert-rgb), 0.05);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    color: white;
+    border: 1px solid rgba(var(--invert-rgb), 0.15);
+    color: var(--text-main);
     font-size: 1.8rem;
     display: flex;
     justify-content: center;
@@ -3850,7 +3870,7 @@ body.banner-visible .modal-content {
 }
 
 .floating-login-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(var(--invert-rgb), 0.1);
     transform: scale(1.05);
 }
 
@@ -3872,8 +3892,8 @@ body.has-searched .floating-login-btn {
     margin: 10px 0;
 }
 .scenario-btn {
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(var(--invert-rgb), 0.1);
+    border: 1px solid rgba(var(--invert-rgb), 0.2);
     color: var(--text-muted);
     padding: 4px 12px;
     border-radius: 20px;
@@ -3883,8 +3903,8 @@ body.has-searched .floating-login-btn {
     transition: all 0.2s ease;
 }
 .scenario-btn:hover {
-    background: rgba(255, 255, 255, 0.2);
-    color: white;
+    background: rgba(var(--invert-rgb), 0.2);
+    color: var(--text-main);
 }
 .scenario-btn.active.bear-btn {
     background: rgba(239, 68, 68, 0.2);
@@ -3935,20 +3955,20 @@ body.has-searched .floating-login-btn {
 .premium-data-table th {
     text-align: left;
     padding: 10px;
-    background: rgba(0,0,0,0.2);
+    background: rgba(0, 0, 0,0.2);
     color: var(--text-muted);
-    border-bottom: 1px solid rgba(255,255,255,0.1);
+    border-bottom: 1px solid rgba(var(--invert-rgb),0.1);
 }
 
 .premium-data-table td {
     padding: 10px;
-    border-bottom: 1px solid rgba(255,255,255,0.05);
+    border-bottom: 1px solid rgba(var(--invert-rgb),0.05);
     color: var(--text-main);
     white-space: nowrap;
 }
 
 .premium-data-table tr:hover td {
-    background: rgba(255,255,255,0.02);
+    background: rgba(var(--invert-rgb),0.02);
 }
 
 /* Custom Scenarios Modal Styles */
@@ -3960,9 +3980,9 @@ body.has-searched .floating-login-btn {
     width: 100%;
     padding: 8px;
     border-radius: 4px;
-    border: 1px solid rgba(255,255,255,0.1);
-    background: rgba(0,0,0,0.2);
-    color: white;
+    border: 1px solid rgba(var(--invert-rgb),0.1);
+    background: rgba(0, 0, 0,0.2);
+    color: var(--text-main);
     font-family: inherit;
     font-size: 0.85rem;
     box-sizing: border-box;
@@ -3971,7 +3991,7 @@ body.has-searched .floating-login-btn {
 .cs-input:focus {
     outline: none;
     border-color: var(--accent);
-    background: rgba(0,0,0,0.4);
+    background: rgba(0, 0, 0,0.4);
 }
 .cs-input.bear-input:focus { border-color: var(--danger); }
 .cs-input.bull-input:focus { border-color: var(--accent); }
@@ -3980,7 +4000,7 @@ body.has-searched .floating-login-btn {
     background: #00b4d8;
 }
 #cs-reset-btn:hover {
-    background: rgba(255,255,255,0.1);
+    background: rgba(var(--invert-rgb),0.1);
 }
 
 .custom-scenarios-btn.active-custom {
@@ -3998,7 +4018,7 @@ body.has-searched .floating-login-btn {
         grid-column: span 3;
         text-align: center;
         margin-top: 10px;
-        border-bottom: 1px solid rgba(255,255,255,0.1);
+        border-bottom: 1px solid rgba(var(--invert-rgb),0.1);
         padding-bottom: 4px;
     }
     .custom-scenarios-grid > div:nth-child(1),
@@ -4027,7 +4047,7 @@ body.has-searched .floating-login-btn {
     justify-content: space-between;
     align-items: center;
     padding: 10px 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid rgba(var(--invert-rgb), 0.03);
     gap: 15px;
 }
 
@@ -4048,19 +4068,19 @@ body.has-searched .floating-login-btn {
 .table-responsive::-webkit-scrollbar-thumb,
 .custom-scrollbar::-webkit-scrollbar-thumb,
 .modal-content::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(var(--invert-rgb), 0.15);
     border-radius: 10px;
 }
 
 .table-responsive::-webkit-scrollbar-thumb:hover,
 .custom-scrollbar::-webkit-scrollbar-thumb:hover,
 .modal-content::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.25);
+    background: rgba(var(--invert-rgb), 0.25);
 }
 
 .table-responsive, .custom-scrollbar, .modal-content {
     scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.15) rgba(255, 255, 255, 0.02);
+    scrollbar-color: rgba(var(--invert-rgb), 0.15) rgba(var(--invert-rgb), 0.02);
 }
 
 
@@ -4200,7 +4220,7 @@ body.has-searched .floating-login-btn {
         flex: 1;
         max-width: 40px;
         height: 4px;
-        background: rgba(255, 255, 255, 0.2);
+        background: rgba(var(--invert-rgb), 0.2);
         border-radius: 2px;
         transition: background 0.3s ease, transform 0.3s ease;
         cursor: pointer;
@@ -4261,9 +4281,9 @@ body.has-searched .floating-login-btn {
     width: 380px;
     height: 550px;
     max-height: 80vh;
-    background: rgba(15, 23, 42, 0.95);
+    background: rgba(0, 0, 0, 0.95);
     backdrop-filter: blur(15px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(var(--invert-rgb), 0.1);
     border-radius: 16px;
     margin-bottom: 15px;
     display: flex;
@@ -4284,9 +4304,9 @@ body.has-searched .floating-login-btn {
 }
 
 #ai-chat-header {
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(var(--invert-rgb), 0.05);
     padding: 15px 20px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid rgba(var(--invert-rgb), 0.1);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -4342,10 +4362,10 @@ body.has-searched .floating-login-btn {
 
 .chat-msg.ai {
     align-self: flex-start;
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(var(--invert-rgb), 0.08);
     color: var(--text-main);
     border-bottom-left-radius: 4px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(var(--invert-rgb), 0.05);
 }
 
 .chat-msg.ai p {
@@ -4367,7 +4387,7 @@ body.has-searched .floating-login-btn {
 
 #ai-chat-input-area {
     padding: 15px;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: 1px solid rgba(var(--invert-rgb), 0.1);
     background: rgba(0, 0, 0, 0.2);
     display: flex;
     gap: 10px;
@@ -4375,9 +4395,9 @@ body.has-searched .floating-login-btn {
 
 #ai-chat-input {
     flex: 1;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: white;
+    background: rgba(var(--invert-rgb), 0.05);
+    border: 1px solid rgba(var(--invert-rgb), 0.1);
+    color: var(--text-main);
     padding: 10px 15px;
     border-radius: 20px;
     outline: none;
@@ -4454,4 +4474,8 @@ body.has-searched .floating-login-btn {
 /* Hide original tabs for Corporate Summary on mobile only to show dashes */
 @media (max-width: 768px) {
     .corporate-tabs-wrapper { display: none !important; }
+}
+
+[data-theme="light"] input::placeholder {
+    color: var(--text-muted);
 }

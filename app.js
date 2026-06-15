@@ -1,4 +1,36 @@
 document.addEventListener('DOMContentLoaded', () => {
+
+// ── Theme Toggling ──
+const themeToggleBtn = document.getElementById('theme-toggle-btn');
+let currentTheme = localStorage.getItem('theme') || 'dark';
+
+function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    if (themeToggleBtn) {
+        themeToggleBtn.textContent = theme === 'light' ? '🌙' : '🌞';
+    }
+
+    // Update Chart.js if active
+    if (typeof Chart !== 'undefined') {
+        const textColor = theme === 'light' ? '#0f172a' : '#f8fafc';
+        const gridColor = theme === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)';
+
+        Chart.defaults.color = textColor;
+        Chart.defaults.scale.grid.color = gridColor;
+    }
+}
+
+// Initial apply
+applyTheme(currentTheme);
+
+if (themeToggleBtn) {
+    themeToggleBtn.addEventListener('click', () => {
+        currentTheme = currentTheme === 'light' ? 'dark' : 'light';
+        localStorage.setItem('theme', currentTheme);
+        applyTheme(currentTheme);
+    });
+}
+
     const searchBtn = document.getElementById('search-btn');
     const tickerInput = document.getElementById('ticker-input');
 
@@ -612,7 +644,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             "width": "100%",
             "height": "100%",
             "locale": "en",
-            "colorTheme": "dark",
+            "colorTheme": currentTheme,
             "showVolume": false,
             "hideDateRanges": false,
             "hideMarketStatus": false,
