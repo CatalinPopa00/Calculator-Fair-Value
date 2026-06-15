@@ -4419,16 +4419,21 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                         ${kpiHtml}
                     </div>
 
-                    <!-- Tabs Navigation -->
-                    <div class="corporate-tabs-wrapper" style="display: flex; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; gap: 10px; overflow-x: auto; scrollbar-width: none;">
-                        <button class="brief-tab ${activeTab === 'overview' ? 'active' : ''}" data-tab="overview">🏢 Overview</button>
-                        <button class="brief-tab ${activeTab === 'swot' ? 'active' : ''}" data-tab="swot">⚖️ SWOT Analysis</button>
-                        <button class="brief-tab ${activeTab === 'watchouts' ? 'active' : ''}" data-tab="watchouts">⚠️ Watchouts</button>
-                        <button class="brief-tab ${activeTab === 'news' ? 'active' : ''}" data-tab="news">📰 Market News</button>
-                    </div>
+                    <div class="corp-summary-container" style="position: relative; width: 100%;">
+                        <button class="carousel-nav-btn prev" id="corp-prev-btn" style="position: absolute; left: 0; top: 50%; transform: translateY(-50%); z-index: 10;">&#10094;</button>
+                        <button class="carousel-nav-btn next" id="corp-next-btn" style="position: absolute; right: 0; top: 50%; transform: translateY(-50%); z-index: 10;">&#10095;</button>
 
-                    <!-- Active Tab Content -->
-                    <div id="brief-panel-content" style="font-size: 0.9rem; line-height: 1.6; color: rgba(255,255,255,0.85); max-height: 250px; overflow-y: auto; padding-right: 6px; font-family: 'Outfit', sans-serif;"></div>
+                        <!-- Tabs Navigation -->
+                        <div class="corporate-tabs-wrapper" style="display: flex; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; gap: 10px; overflow-x: auto; scrollbar-width: none;">
+                            <button class="brief-tab ${activeTab === 'overview' ? 'active' : ''}" data-tab="overview">🏢 Overview</button>
+                            <button class="brief-tab ${activeTab === 'swot' ? 'active' : ''}" data-tab="swot">⚖️ SWOT Analysis</button>
+                            <button class="brief-tab ${activeTab === 'watchouts' ? 'active' : ''}" data-tab="watchouts">⚠️ Watchouts</button>
+                            <button class="brief-tab ${activeTab === 'news' ? 'active' : ''}" data-tab="news">📰 Market News</button>
+                        </div>
+
+                        <!-- Active Tab Content -->
+                        <div id="brief-panel-content" style="font-size: 0.9rem; line-height: 1.6; color: rgba(255,255,255,0.85); max-height: 250px; overflow-y: auto; padding-right: 6px; font-family: 'Outfit', sans-serif;"></div>
+                    </div>
                     
                     <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
                         <button id="copy-brief-btn" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 4px 8px; color: rgba(255,255,255,0.7); cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 0.72rem; transition: all 0.2s; font-family: 'Outfit', sans-serif;" title="Copy summary to clipboard">
@@ -4642,6 +4647,27 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 setTimeout(() => {
                     if (window.refreshCarousels) window.refreshCarousels();
                 }, 50);
+
+                const corpPrevBtn = document.getElementById('corp-prev-btn');
+                const corpNextBtn = document.getElementById('corp-next-btn');
+
+                if (corpPrevBtn) {
+                    corpPrevBtn.addEventListener('click', () => {
+                        const tabs = Array.from(descCard.querySelectorAll('.brief-tab'));
+                        let activeIdx = tabs.findIndex(t => t.classList.contains('active'));
+                        if (activeIdx > 0) tabs[activeIdx - 1].click();
+                        else if (tabs.length) tabs[tabs.length - 1].click();
+                    });
+                }
+                
+                if (corpNextBtn) {
+                    corpNextBtn.addEventListener('click', () => {
+                        const tabs = Array.from(descCard.querySelectorAll('.brief-tab'));
+                        let activeIdx = tabs.findIndex(t => t.classList.contains('active'));
+                        if (activeIdx < tabs.length - 1) tabs[activeIdx + 1].click();
+                        else if (tabs.length) tabs[0].click();
+                    });
+                }
             };
 
             // Determine if the loaded synthesis is just a fallback (either empty, or containing our specific fallback marker)

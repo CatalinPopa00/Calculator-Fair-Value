@@ -1111,16 +1111,15 @@
                                                             </div>
 
                                                             <!-- Chart Container -->
-                                                            <div style="position: relative; height: 250px; width: 100%;">
+                                                            <div class="kpi-chart-container" style="position: relative; height: 250px; width: 100%;">
+                                                                <button class="carousel-nav-btn prev" id="kpi-prev-btn" style="position: absolute; left: 0; top: 50%; transform: translateY(-50%); z-index: 10;">&#10094;</button>
                                                                 <canvas id="kpi-chart"></canvas>
-                                                                <!-- Navigation Controls (Dashes instead of buttons) -->
+                                                                <button class="carousel-nav-btn next" id="kpi-next-btn" style="position: absolute; right: 0; top: 50%; transform: translateY(-50%); z-index: 10;">&#10095;</button>
+                                                            </div>
+                                                            <!-- Navigation Controls (Dashes) -->
                                                             <div style="display: flex; justify-content: center; margin-top: 1.5rem; align-items: center; width: 100%;">
-                                                                <button id="kpi-prev-btn" class="base-btn" style="display: none;">&larr; Prev</button>
                                                                 <div id="kpi-dots" class="mobile-carousel-indicators" style="display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; width: 100%; margin: 0;"></div>
-                                                                <button id="kpi-next-btn" class="base-btn" style="display: none;">Next &rarr;</button>
                                                             </div>
-                                                            </div>
-                                                            
                                                         </div>
                                                     </div>
                                                 </div>

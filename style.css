@@ -4157,6 +4157,19 @@ body.has-searched .floating-login-btn {
         width: 100%;
         box-sizing: border-box;
     }
+    
+    @media (min-width: 769px) {
+        #analyst-consensus-card .mobile-carousel-indicators {
+            display: none !important;
+        }
+        
+        .kpi-chart-container,
+        .corp-summary-container {
+            padding: 0 45px !important;
+            box-sizing: border-box;
+        }
+    }
+    
     .carousel-indicator-line {
         flex: 1;
         max-width: 40px;
