@@ -425,7 +425,10 @@ def get_watchlist():
     except Exception as e:
         # v37 Fix: If database errors, do NOT return []. Return 500.
         print(f"Database error in get_watchlist: {e}")
-        raise HTTPException(status_code=500, detail="Database unreachable")
+        raise HTTPException(
+            status_code=500,
+            detail="Database unreachable"
+        )
 
 @app.post("/api/watchlist")
 def save_watchlist(req: WatchlistRequest):
