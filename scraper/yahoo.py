@@ -606,6 +606,15 @@ def get_yahoo_eps_trend(ticker: str) -> dict:
 def get_nasdaq_surprise_data(ticker: str) -> dict:
     """Centralized, cached fetcher for Nasdaq earnings surprise data."""
     try:
+        from utils.kv import kv_get, kv_set
+        cache_key = f"nq_surprise_v1_{ticker.upper()}"
+        cached = kv_get(cache_key)
+        if cached:
+            return cached
+    except:
+        cache_key = None
+
+    try:
         url = f"https://api.nasdaq.com/api/company/{ticker.upper()}/earnings-surprise"
         headers = {
             'User-Agent': get_random_agent(),
@@ -614,10 +623,16 @@ def get_nasdaq_surprise_data(ticker: str) -> dict:
             'Origin': 'https://www.nasdaq.com',
             'Referer': 'https://www.nasdaq.com/'
         }
-        resp = http_session.get(url, headers=headers, timeout=10)
+        resp = http_session.get(url, headers=headers, timeout=5)
         if resp.status_code == 200:
             try:
-                return resp.json()
+                data = resp.json()
+                if cache_key:
+                    try:
+                        from utils.kv import kv_set
+                        kv_set(cache_key, data, ex=21600) # 6 hours cache
+                    except: pass
+                return data
             except Exception:
                 pass
     except Exception as e:
@@ -1526,7 +1541,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
         # Start background fetches while processing info
         executor = None
         if not fast_mode:
-            executor = concurrent.futures.ThreadPoolExecutor(max_workers=8)
+            executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
             future_nasdaq_cagr = executor.submit(get_nasdaq_earnings_growth, ticker_symbol, info.get('trailingEps'))
             future_nasdaq_actual = executor.submit(get_nasdaq_actual_eps, ticker_symbol)
             future_est = executor.submit(lambda: getattr(stock, 'earnings_estimate', None))
@@ -4028,7 +4043,7 @@ def get_competitors_data(target_ticker: str, limit: int = 4, custom_peers: list 
                     print(f"DEBUG: Error extracting {t}: {e}")
                     return None
 
-            ex = concurrent.futures.ThreadPoolExecutor(max_workers=min(len(candidates), 5))
+            ex = concurrent.futures.ThreadPoolExecutor(max_workers=min(len(candidates), 3))
             futs = {ex.submit(fetch_peer_info, t): t for t in candidates}
             for f in concurrent.futures.as_completed(futs, timeout=12):
                 res = f.result()

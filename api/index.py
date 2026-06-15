@@ -2119,7 +2119,7 @@ def get_batch_valuation(req: WatchlistRequest):
     tickers = req.tickers
     results = []
 
-    with ThreadPoolExecutor(max_workers=15) as executor:
+    with ThreadPoolExecutor(max_workers=5) as executor:
         # User requested reliable data: We must use fast_mode=False for the watchlist. 
         # Skipping DataFrames completely destroys the Health and Buy scores (e.g. Health 92 -> 62)
         # because metrics like buyback_rate and historic_eps_growth become None.
