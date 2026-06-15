@@ -39,6 +39,7 @@ from api.kpi_audit import run_ai_kpi_audit
 search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
+synthesis_cache = TTLCache(maxsize=500, ttl=86400 * 7)
 CACHE_VERSION = "v318"
 import threading
 in_flight_requests = {}
@@ -2124,6 +2125,11 @@ def get_synthesis(ticker: str, response: Response):
     response.headers["Cache-Control"] = "public, s-maxage=3600, stale-while-revalidate=86400"
 
     ticker_upper = ticker.upper()
+    
+    # Check memory cache first to avoid re-running Gemini on large transcripts
+    if ticker_upper in synthesis_cache:
+        return {"ticker": ticker_upper, "company_overview_synthesis": synthesis_cache[ticker_upper]}
+
     try:
         # 1. Check if we have cached info from get_company_data
         info = _company_info_cache.get(ticker_upper)
@@ -2140,6 +2146,7 @@ def get_synthesis(ticker: str, response: Response):
 
         # 3. Call get_company_synthesis with run_ai=True to invoke Gemini API
         synthesis = get_company_synthesis(ticker_upper, info, run_ai=True)
+        synthesis_cache[ticker_upper] = synthesis
         return {"ticker": ticker_upper, "company_overview_synthesis": synthesis}
 
     except Exception as e:

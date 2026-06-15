@@ -8,6 +8,7 @@ import concurrent.futures
 import time
 import random
 import requests
+from api.kpi_audit import get_fmp_transcripts
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 import pandas as pd
@@ -1082,6 +1083,16 @@ def get_company_synthesis(ticker: str, info: dict, run_ai: bool = False) -> str:
     if run_ai:
         api_key = load_gemini_api_key()
         if api_key:
+            # Fetch transcripts
+            try:
+                transcript_text = get_fmp_transcripts(ticker_upper)
+                # truncate to ~60000 chars to avoid prompt blowing up and taking forever
+                if transcript_text and len(transcript_text) > 60000:
+                    transcript_text = transcript_text[:60000]
+            except Exception as e:
+                print(f"Error fetching transcripts for synthesis: {e}")
+                transcript_text = "No transcript data available."
+
             # Fetch news first (only when running AI)
             news_items = fetch_latest_news_v2(ticker_upper)
             # Format news as list text
@@ -1114,6 +1125,9 @@ RELEVANT FINANCIAL DATA:
 
 LATEST NEWS AND MARKET EVENTS:
 {news_text}
+
+LATEST EARNINGS TRANSCRIPTS & SEC REPORTS:
+{transcript_text}
 
 Provide a highly professional, structured, and detailed analytical synthesis written directly in English.
 Strictly avoid useless generalities or boilerplate descriptions that offer no real value (like "is a top tech company..."). Be extremely specific, technical, and focused on numbers and strategic details.

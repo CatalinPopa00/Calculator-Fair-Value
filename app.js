@@ -4254,10 +4254,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                         executiveSummary: "",
                         strategicStrengths: [],
                         vulnerabilitiesRisks: [],
+                        earningsWatchouts: [],
                         latestMarketIntelligence: []
                     };
                     if (!text) return sections;
-                    const parts = text.split(/\*\*(EXECUTIVE SUMMARY|SINTEZĂ EXECUTIVĂ|STRATEGIC STRENGTHS|PUNCTE FORTE STRATEGICE|VULNERABILITIES \& RISKS|VULNERABILITĂȚI ȘI RISCURI|LATEST MARKET INTELLIGENCE|ULTIMELE INFORMAȚII DE PIAȚĂ)\*\*/i);
+                    const parts = text.split(/\*\*(EXECUTIVE SUMMARY|SINTEZĂ EXECUTIVĂ|STRATEGIC STRENGTHS|PUNCTE FORTE STRATEGICE|VULNERABILITIES \& RISKS|VULNERABILITĂȚI ȘI RISCURI|EARNINGS WATCHOUTS|LATEST MARKET INTELLIGENCE|ULTIMELE INFORMAȚII DE PIAȚĂ)\*\*/i);
                     for (let i = 1; i < parts.length; i += 2) {
                         const title = parts[i].trim().toUpperCase();
                         const content = parts[i + 1] ? parts[i + 1].trim() : "";
@@ -4270,6 +4271,10 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                         } else if (title === "VULNERABILITIES & RISKS" || title === "VULNERABILITĂȚI ȘI RISCURI") {
                             sections.vulnerabilitiesRisks = content.split('\n')
                                 .map(line => line.replace(/^•\s*/, '').trim())
+                                .filter(Boolean);
+                        } else if (title === "EARNINGS WATCHOUTS") {
+                            sections.earningsWatchouts = content.split('\n')
+                                .map(line => line.replace(/^•\s*/, '').replace(/^\s*/, '').trim())
                                 .filter(Boolean);
                         } else if (title === "LATEST MARKET INTELLIGENCE" || title === "ULTIMELE INFORMAȚII DE PIAȚĂ") {
                             sections.latestMarketIntelligence = content.split('\n')
@@ -4415,6 +4420,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     <div style="display: flex; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; gap: 10px; overflow-x: auto; scrollbar-width: none;">
                         <button class="brief-tab ${activeTab === 'overview' ? 'active' : ''}" data-tab="overview">🏢 Overview</button>
                         <button class="brief-tab ${activeTab === 'swot' ? 'active' : ''}" data-tab="swot">⚖️ SWOT Analysis</button>
+                        <button class="brief-tab ${activeTab === 'watchouts' ? 'active' : ''}" data-tab="watchouts">⚠️ Watchouts</button>
                         <button class="brief-tab ${activeTab === 'news' ? 'active' : ''}" data-tab="news">📰 Market News</button>
                     </div>
 
