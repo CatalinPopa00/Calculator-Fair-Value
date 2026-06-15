@@ -1,4 +1,36 @@
 document.addEventListener('DOMContentLoaded', () => {
+
+// ── Theme Toggling ──
+const themeToggleBtn = document.getElementById('theme-toggle-btn');
+let currentTheme = localStorage.getItem('theme') || 'dark';
+
+function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    if (themeToggleBtn) {
+        themeToggleBtn.textContent = theme === 'light' ? '🌙' : '🌞';
+    }
+
+    // Update Chart.js if active
+    if (typeof Chart !== 'undefined') {
+        const textColor = theme === 'light' ? '#0f172a' : '#f8fafc';
+        const gridColor = theme === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)';
+
+        Chart.defaults.color = textColor;
+        Chart.defaults.scale.grid.color = gridColor;
+    }
+}
+
+// Initial apply
+applyTheme(currentTheme);
+
+if (themeToggleBtn) {
+    themeToggleBtn.addEventListener('click', () => {
+        currentTheme = currentTheme === 'light' ? 'dark' : 'light';
+        localStorage.setItem('theme', currentTheme);
+        applyTheme(currentTheme);
+    });
+}
+
     const searchBtn = document.getElementById('search-btn');
     const tickerInput = document.getElementById('ticker-input');
 
@@ -612,7 +644,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             "width": "100%",
             "height": "100%",
             "locale": "en",
-            "colorTheme": "dark",
+            "colorTheme": currentTheme,
             "showVolume": false,
             "hideDateRanges": false,
             "hideMarketStatus": false,
@@ -3844,6 +3876,19 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             if (ownershipCard) ownershipCard.style.display = 'none';
             return;
         }
+        if (ownershipCard) {
+            // Also hide the whole card if essential data is missing (handles cases like RHM.DE)
+            const hasMajor = ownership.major_holders && Object.keys(ownership.major_holders).length > 0;
+            const hasTop = ownership.top_institutional && ownership.top_institutional.length > 0;
+            const hasTx = ownership.insider_transactions && (ownership.insider_transactions.buy?.length > 0 || ownership.insider_transactions.sell?.length > 0);
+            const hasRoster = ownership.insider_roster && ownership.insider_roster.length > 0;
+
+            if (!hasMajor && !hasTop && !hasTx && !hasRoster) {
+                ownershipCard.style.display = 'none';
+                return;
+            }
+        }
+
         if (ownershipCard) ownershipCard.style.display = 'block';
 
         // 1. Holders
@@ -3988,8 +4033,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 if (ctx) {
                     if (window.rosterPieChart) window.rosterPieChart.destroy();
                     
+
                     const labels = sortedRoster.map(r => r.name);
                     const data = sortedRoster.map(r => r.shares / 1000); // in thousands
+                    // Only attempt to render chart if we have data to prevent errors
+                    if (data.length === 0) return;
                     const totalShares = data.reduce((a, b) => a + b, 0);
 
                     const pluginsArray = typeof ChartDataLabels !== 'undefined' ? [ChartDataLabels] : [];
