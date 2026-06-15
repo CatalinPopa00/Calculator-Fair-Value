@@ -8389,8 +8389,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             try {
                 // Gather Context
-                let currentFairValue = document.getElementById('fv-value')?.textContent || 'N/A';
-                let currentMos = document.getElementById('fv-mos')?.textContent || 'N/A';
+                let currentFairValue = document.getElementById('fair-value')?.textContent || 'N/A';
+                let currentMos = document.getElementById('margin-safety')?.textContent || 'N/A';
                 let currentPrice = document.getElementById('current-price')?.textContent || 'N/A';
                 let kpiSummary = 'N/A';
                 
