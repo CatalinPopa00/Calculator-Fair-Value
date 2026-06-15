@@ -4640,7 +4640,10 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             const synthTextLower = (data.company_overview_synthesis || "").toLowerCase();
             const isFallback = !data.company_overview_synthesis ||
                 synthTextLower.includes("generation is active") ||
-                synthTextLower.includes("generarea analizei ai este activ");
+                synthTextLower.includes("generarea analizei ai este activ") ||
+                synthTextLower.includes("loading ai watchouts") ||
+                synthTextLower.includes("temporarily unavailable") ||
+                !synthTextLower.includes("earnings watchouts");
 
             // Fast rendering of local heuristic fallback initially. If fallback, show loading state
             renderCorporateBrief(data.company_overview_synthesis, isFallback);

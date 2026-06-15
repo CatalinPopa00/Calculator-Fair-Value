@@ -2128,7 +2128,19 @@ def get_synthesis(ticker: str, response: Response):
     
     # Check memory cache first to avoid re-running Gemini on large transcripts
     if ticker_upper in synthesis_cache:
-        return {"ticker": ticker_upper, "company_overview_synthesis": synthesis_cache[ticker_upper]}
+        cached_synth = synthesis_cache[ticker_upper]
+        synth_lower = cached_synth.lower()
+        if "temporarily unavailable" not in synth_lower and "loading ai watchouts" not in synth_lower:
+            return {"ticker": ticker_upper, "company_overview_synthesis": cached_synth}
+
+    # Check persistent KV cache
+    kv_key = f"synth_{CACHE_VERSION}_{ticker_upper}"
+    kv_cached = kv_get(kv_key)
+    if kv_cached and isinstance(kv_cached, str):
+        synth_lower = kv_cached.lower()
+        if "temporarily unavailable" not in synth_lower and "loading ai watchouts" not in synth_lower:
+            synthesis_cache[ticker_upper] = kv_cached
+            return {"ticker": ticker_upper, "company_overview_synthesis": kv_cached}
 
     try:
         # 1. Check if we have cached info from get_company_data
@@ -2146,7 +2158,17 @@ def get_synthesis(ticker: str, response: Response):
 
         # 3. Call get_company_synthesis with run_ai=True to invoke Gemini API
         synthesis = get_company_synthesis(ticker_upper, info, run_ai=True)
-        synthesis_cache[ticker_upper] = synthesis
+
+        # Only cache if it's a valid successful response (not our error/fallback)
+        synth_lower = synthesis.lower()
+        if "temporarily unavailable" not in synth_lower and "loading ai watchouts" not in synth_lower:
+            synthesis_cache[ticker_upper] = synthesis
+            # Cache to KV asynchronously/fire-and-forget
+            try:
+                kv_set(kv_key, synthesis, ex=86400 * 7) # 7 days
+            except:
+                pass
+
         return {"ticker": ticker_upper, "company_overview_synthesis": synthesis}
 
     except Exception as e:
