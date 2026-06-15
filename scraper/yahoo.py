@@ -1244,12 +1244,8 @@ Strictly adhere to these precise markdown headers (written exactly like this, in
         except:
             fallback_news = ["No recent news or market developments available."]
 
-    output += f"**EARNINGS WATCHOUTS**
-• [Bullet 1: Analyze the transcript text provided. Extract the most important future growth guidance, numerical targets, or strategic roadmap explicitly mentioned by management in the latest earnings call.]
-• [Bullet 2: Identify a key operational initiative, product launch, or restructuring effort discussed in the recent SEC reports or earnings call.]
-• [Bullet 3: Extract a specific warning, headwind, or challenge that management highlighted in the latest quarter.]
-
-**LATEST MARKET INTELLIGENCE**\n" + "\n".join([f"• {n}" for n in fallback_news])
+    output += f"**EARNINGS WATCHOUTS**\n" + "\n".join(["• Loading AI watchouts..."]) + "\n\n"
+    output += f"**LATEST MARKET INTELLIGENCE**\n" + "\n".join([f"• {n}" for n in fallback_news])
 
     return output
 
