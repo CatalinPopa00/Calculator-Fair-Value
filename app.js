@@ -4243,6 +4243,9 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             if (!descCard) {
                 fvContainer.insertAdjacentHTML('afterend', `<div id="company-desc-card" class="glass-card" style="margin-top: 15px; padding: 20px; border-left: 4px solid #38bdf8; position: relative;"></div>`);
                 descCard = document.getElementById('company-desc-card');
+                if (window.attachSwipeSupport) {
+                    window.attachSwipeSupport(descCard);
+                }
             }
 
             let activeTab = 'overview';
@@ -8244,8 +8247,10 @@ window.refreshCarousels = function() {
 document.addEventListener('DOMContentLoaded', () => {
     window.refreshCarousels();
 
-    // Add Swipe Support
-    document.querySelectorAll('.analyst-content-area, .historical-carousel-viewport, #profile-body, #company-desc-card').forEach(area => {
+    window.attachSwipeSupport = function(area) {
+        if (!area || area.dataset.swipeAttached) return;
+        area.dataset.swipeAttached = 'true';
+
         let isDragging = false;
         let startX = 0;
         let endX = 0;
@@ -8325,6 +8330,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         }
+    };
+
+    document.querySelectorAll('.analyst-content-area, .historical-carousel-viewport, #profile-body').forEach(area => {
+        window.attachSwipeSupport(area);
     });
 });
 
