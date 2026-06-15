@@ -14,20 +14,7 @@
     --invert-black-rgb: 0, 0, 0;
 }
 
-[data-theme="light"] {
-    --bg-dark: #f0f2f5;
-    --card-bg: #ffffff;
-    --card-border: rgba(0, 0, 0, 0.1);
-    --primary: #2563eb;
-    --primary-hover: #1d4ed8;
-    --accent: #059669;
-    --accent-glow: rgba(5, 150, 105, 0.2);
-    --text-main: #111827;
-    --text-muted: #4b5563;
-    --danger: #dc2626;
-    --invert-rgb: 0, 0, 0;
-    --invert-black-rgb: 255, 255, 255;
-}
+
 
 * {
     transition: background-color 0.3s, color 0.3s, border-color 0.3s;
@@ -4457,6 +4444,3 @@ body.has-searched .floating-login-btn {
     .corporate-tabs-wrapper { display: none !important; }
 }
 
-[data-theme="light"] input::placeholder {
-    color: var(--text-muted);
-}
