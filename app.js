@@ -6245,34 +6245,31 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                             <h3 class="wl-ticker">${data.ticker}</h3>
                             <p class="wl-name">${data.is_loading ? 'Fetching latest data...' : data.name}</p>
                         </div>
-                        <div class="wl-metrics-bar">
-                            <div class="wl-metric-item">
-                                <span class="wl-m-label">Price</span>
-                                <span class="wl-m-value">${data.is_loading ? loadingSpinner : formatCurrency(data.current_price)}</span>
+                        <div class="wl-metrics-grid">
+                            <div class="wl-metric-item-new">
+                                <span class="wl-m-label-new">PRICE</span>
+                                <span class="wl-m-value-new">${data.is_loading ? loadingSpinner : formatCurrency(data.current_price)}</span>
                             </div>
-                            <div class="wl-metric-item">
-                                <span class="wl-m-label">Fair Val ${hasOverride ? '✏️' : ''}</span>
-                                <span class="wl-m-value">${data.is_loading ? loadingSpinner : fvStr}</span>
+                            <div class="wl-metric-item-new">
+                                <span class="wl-m-label-new">FAIR VAL ${hasOverride ? '✏️' : ''}</span>
+                                <span class="wl-m-value-new">${data.is_loading ? loadingSpinner : fvStr}</span>
                             </div>
-                            <div class="wl-metric-item">
-                                <span class="wl-m-label">Margin</span>
-                                <span class="wl-m-value" style="color: ${mosColor}">${data.is_loading ? loadingSpinner : mosStr}</span>
+                            <div class="wl-metric-item-new margin-full-width">
+                                <span class="wl-m-label-new">MARGIN</span>
+                                <span class="wl-m-value-new margin-value" style="color: ${mosColor}">${data.is_loading ? loadingSpinner : mosStr}</span>
                             </div>
                         </div>
-                        <div class="wl-scores-row">
-                            <div class="wl-score-pill">
+                        <div class="wl-scores-row-new">
+                            <div class="wl-score-pill-new">
                                 <div class="wl-dot ${hDotClass}"></div>
-                                <span>Health: ${displayHealth || 'N/A'}</span>
+                                <span><span class="score-label">Health:</span> <b>${displayHealth || 'N/A'}</b></span>
                             </div>
-                            <div class="wl-score-pill">
+                            <div class="wl-score-pill-new">
                                 <div class="wl-dot ${dotClass}"></div>
-                                <span>Buy: ${displayBuy || 'N/A'}</span>
+                                <span><span class="score-label">Buy:</span> <b>${displayBuy || 'N/A'}</b></span>
                             </div>
-                            <div class="wl-score-pill" title="Piotroski F-Score">
-                                <span style="font-size: 0.75rem; font-weight: 800; margin-right: 4px; color: ${(data.piotroski?.score >= 7) ? 'var(--accent)' : (data.piotroski?.score >= 4 ? '#fbbf24' : (data.piotroski?.score == null ? 'var(--text-muted)' : 'var(--danger)'))}">
-                                    ${data.piotroski?.score != null ? data.piotroski.score : '--'}
-                                </span>
-                                <span style="font-size: 0.7rem; color: var(--text-muted);">Piotroski</span>
+                            <div class="wl-score-pill-new" title="Piotroski F-Score">
+                                <span><span class="score-label">Piotroski:</span> <b style="color: ${(data.piotroski?.score >= 7) ? 'var(--accent)' : (data.piotroski?.score >= 4 ? '#fbbf24' : (data.piotroski?.score == null ? 'var(--text-muted)' : 'var(--danger)'))}">${data.piotroski?.score != null ? data.piotroski.score : '--'}</b></span>
                             </div>
                         </div>
                     `;

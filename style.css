@@ -4460,3 +4460,89 @@ body.has-searched .floating-login-btn {
 [data-theme="light"] input::placeholder {
     color: var(--text-muted);
 }
+
+
+/* New Watchlist Grid Styles */
+.wl-metrics-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    width: 100%;
+    margin-bottom: 1.2rem;
+}
+
+.wl-metric-item-new {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.margin-full-width {
+    grid-column: 1 / -1;
+}
+
+.wl-m-label-new {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    margin-bottom: 0.4rem;
+    font-weight: 600;
+}
+
+.wl-m-value-new {
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: var(--white);
+}
+
+.margin-value {
+    font-size: 1.4rem;
+}
+
+.wl-scores-row-new {
+    display: flex;
+    gap: 0.8rem;
+    width: 100%;
+    justify-content: space-between;
+}
+
+.wl-score-pill-new {
+    flex: 1;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: 0.8rem 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 0.9rem;
+    white-space: nowrap;
+}
+
+.wl-score-pill-new .score-label {
+    color: var(--white);
+}
+
+.wl-score-pill-new b {
+    font-size: 1rem;
+}
+
+@media (max-width: 480px) {
+    .wl-scores-row-new {
+        gap: 0.4rem;
+    }
+    .wl-score-pill-new {
+        font-size: 0.75rem;
+        padding: 0.6rem 0.3rem;
+    }
+    .wl-score-pill-new b {
+        font-size: 0.85rem;
+    }
+}
