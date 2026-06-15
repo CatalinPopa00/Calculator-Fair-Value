@@ -4634,6 +4634,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                         });
                     };
                 }
+                
+                // Regenerate dashes since we overwrote the HTML
+                setTimeout(() => {
+                    if (window.refreshCarousels) window.refreshCarousels();
+                }, 50);
             };
 
             // Determine if the loaded synthesis is just a fallback (either empty, or containing our specific fallback marker)
@@ -8152,8 +8157,7 @@ window.cycleMobileCarousel = function(btnElement, direction, event) {
     }
     
     let tabs = Array.from(card.querySelectorAll('.analyst-tab-btn'));
-            if (!tabs.length) tabs = Array.from(card.querySelectorAll('.hist-tab'));
-            if (!tabs.length) tabs = Array.from(card.querySelectorAll('.brief-tab'));
+    if (!tabs.length) tabs = Array.from(card.querySelectorAll('.brief-tab'));
     if (!tabs.length) return;
     let activeIdx = tabs.findIndex(t => t.classList.contains('active'));
     if (activeIdx === -1) activeIdx = 0;
@@ -8199,7 +8203,6 @@ document.addEventListener('touchend', (e) => {
 window.refreshCarousels = function() {
     document.querySelectorAll('.research-card, .company-profile-box, #company-desc-card').forEach(card => {
         let tabs = Array.from(card.querySelectorAll('.analyst-tab-btn'));
-        if (!tabs.length) tabs = Array.from(card.querySelectorAll('.hist-tab'));
         if (!tabs.length) tabs = Array.from(card.querySelectorAll('.brief-tab'));
         if (!tabs.length) return;
         
@@ -8334,7 +8337,6 @@ document.addEventListener('click', function(e) {
     
     setTimeout(() => { 
         let tabs = Array.from(card.querySelectorAll('.analyst-tab-btn'));
-        if (!tabs.length) tabs = Array.from(card.querySelectorAll('.hist-tab'));
         if (!tabs.length) tabs = Array.from(card.querySelectorAll('.brief-tab'));
         
         const activeIdx = tabs.findIndex(t => t.classList.contains('active'));
@@ -8353,6 +8355,7 @@ document.addEventListener('click', function(e) {
 /* ==========================================================================
            AI Chat Widget Logic
            ========================================================================== */
+document.addEventListener('DOMContentLoaded', () => {
         const chatWidgetBtn = document.getElementById('ai-chat-btn');
         const chatWindow = document.getElementById('ai-chat-window');
         const chatCloseBtn = document.getElementById('ai-chat-close');
@@ -8508,4 +8511,5 @@ document.addEventListener('click', function(e) {
                 }
             });
         }
+});
 
