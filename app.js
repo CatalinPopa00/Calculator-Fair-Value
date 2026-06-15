@@ -3876,6 +3876,19 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             if (ownershipCard) ownershipCard.style.display = 'none';
             return;
         }
+        if (ownershipCard) {
+            // Also hide the whole card if essential data is missing (handles cases like RHM.DE)
+            const hasMajor = ownership.major_holders && Object.keys(ownership.major_holders).length > 0;
+            const hasTop = ownership.top_institutional && ownership.top_institutional.length > 0;
+            const hasTx = ownership.insider_transactions && (ownership.insider_transactions.buy?.length > 0 || ownership.insider_transactions.sell?.length > 0);
+            const hasRoster = ownership.insider_roster && ownership.insider_roster.length > 0;
+
+            if (!hasMajor && !hasTop && !hasTx && !hasRoster) {
+                ownershipCard.style.display = 'none';
+                return;
+            }
+        }
+
         if (ownershipCard) ownershipCard.style.display = 'block';
 
         // 1. Holders
@@ -4020,8 +4033,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 if (ctx) {
                     if (window.rosterPieChart) window.rosterPieChart.destroy();
                     
+
                     const labels = sortedRoster.map(r => r.name);
                     const data = sortedRoster.map(r => r.shares / 1000); // in thousands
+                    // Only attempt to render chart if we have data to prevent errors
+                    if (data.length === 0) return;
                     const totalShares = data.reduce((a, b) => a + b, 0);
 
                     const pluginsArray = typeof ChartDataLabels !== 'undefined' ? [ChartDataLabels] : [];
