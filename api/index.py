@@ -2258,6 +2258,32 @@ def get_live_price(ticker: str):
     except Exception as e:
         return {"error": str(e)}
 
+# --- AI CHAT WIDGET ---
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+class ChatRequest(BaseModel):
+    ticker: str
+    context: Dict[str, Any] = {}
+    history: List[ChatMessage] = []
+    message: str
+
+@app.post("/api/chat")
+def ai_chat(req: ChatRequest):
+    try:
+        history_dicts = [{"role": m.role, "content": m.content} for m in req.history]
+        response_text = run_ai_chat(
+            ticker=req.ticker,
+            context=req.context,
+            history=history_dicts,
+            message=req.message
+        )
+        return {"response": response_text}
+    except Exception as e:
+        print(f"Chat endpoint error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # --- SERVE STATIC FILES (For Render / Local execution) ---
 # We check if we are NOT on Vercel. Vercel handles static files automatically at the CDN level.
 if not os.environ.get("VERCEL"):

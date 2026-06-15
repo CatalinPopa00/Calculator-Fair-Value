@@ -8420,8 +8420,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     })
                 });
 
-                const data = await response.json();
+                const textData = await response.text();
                 removeLoading();
+
+                let data = {};
+                try {
+                    data = JSON.parse(textData);
+                } catch (e) {
+                    console.error("Failed to parse JSON response. Server returned:", textData);
+                    appendMessage('ai', 'Eroare server: (Verifică dacă ai repornit backend-ul). Serverul a returnat: ' + textData.substring(0, 50));
+                    chatSendBtn.disabled = false;
+                    chatInput.disabled = false;
+                    chatInput.focus();
+                    return;
+                }
 
                 if (response.ok && data.response) {
                     appendMessage('ai', data.response);
@@ -8438,7 +8450,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (error) {
                 console.error('Chat Error:', error);
                 removeLoading();
-                appendMessage('ai', 'A apărut o eroare la conexiune.');
+                appendMessage('ai', 'A apărut o eroare la conexiune: ' + error.message + '. (Asigură-te că serverul backend este pornit).');
             } finally {
                 chatSendBtn.disabled = false;
                 chatInput.disabled = false;
