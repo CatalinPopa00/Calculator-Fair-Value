@@ -4415,7 +4415,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     </div>
                     
                     <!-- KPI Row -->
-                    <div id="brief-kpis" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; max-width: 100%; margin: 0 auto 20px auto;">
+                    <div id="brief-kpis" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; max-width: 450px; margin: 0 auto 20px auto;">
                         ${kpiHtml}
                     </div>
 
