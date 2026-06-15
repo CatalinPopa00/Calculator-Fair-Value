@@ -1,0 +1,274 @@
+{
+  "incomeStatement": {
+    "_meta": {
+      "companyId": "0C000098V0",
+      "statementType": "income-statement",
+      "periodReport": "Success",
+      "latestReport": "Success"
+    },
+    "columnDefs": [
+      "2023",
+      "2024",
+      "2025",
+      "TTM"
+    ],
+    "filingIdList": [
+      "492231024",
+      "565164868",
+      "642887728",
+      null
+    ],
+    "columnDefs_labels": [
+      "20231231",
+      "20241231",
+      "20251231",
+      "20260331"
+    ],
+    "rows": [
+      {
+        "label": "Total Revenue",
+        "dataPointId": "IFIS001170",
+        "datum": [
+          134.9,
+          164.5,
+          200.97,
+          214.96
+        ]
+      },
+      {
+        "label": "Total Operating Profit/Loss",
+        "dataPointId": "IFIS001230",
+        "datum": [
+          46.75,
+          69.38,
+          83.28,
+          88.59
+        ]
+      },
+      {
+        "label": "Net Income Available to Common Stockholders",
+        "dataPointId": "IFIS001100",
+        "datum": [
+          39.1,
+          62.36,
+          60.46,
+          70.59
+        ]
+      },
+      {
+        "label": "EBITDA",
+        "dataPointId": "SAL0000003",
+        "datum": [
+          59.05,
+          86.88,
+          105.71,
+          111.5
+        ]
+      },
+      {
+        "label": "Diluted EPS",
+        "dataPointId": "IFIS000280",
+        "datum": [
+          14.87,
+          23.86,
+          23.49,
+          27.5
+        ]
+      },
+      {
+        "label": "Normalized EPS",
+        "dataPointId": "IFIS101213",
+        "datum": [
+          14.98,
+          24.09,
+          23.39,
+          27.92
+        ]
+      }
+    ],
+    "footer": {
+      "currency": "USD",
+      "currencySymbol": "$",
+      "orderOfMagnitude": "Billion",
+      "fiscalYearEndDate": "12-31"
+    }
+  },
+  "balanceSheet": {
+    "_meta": {
+      "companyId": "0C000098V0",
+      "statementType": "balance-sheet",
+      "periodReport": "Success",
+      "latestReport": "Success"
+    },
+    "columnDefs": [
+      "2023",
+      "2024",
+      "2025",
+      "Q1 2026"
+    ],
+    "filingIdList": [
+      "492231024",
+      "565164868",
+      "642887728",
+      "658259838"
+    ],
+    "columnDefs_labels": [
+      "20231231",
+      "20241231",
+      "20251231",
+      "20260331"
+    ],
+    "rows": [
+      {
+        "label": "Total Assets",
+        "dataPointId": "IFBS002270",
+        "datum": [
+          229.62,
+          276.05,
+          366.02,
+          395.25
+        ]
+      },
+      {
+        "label": "Total Liabilities",
+        "dataPointId": "IFBS002646",
+        "datum": [
+          76.46,
+          93.42,
+          148.78,
+          151.57
+        ]
+      },
+      {
+        "label": "Total Debt",
+        "dataPointId": "SAL0000001",
+        "datum": [
+          37.23,
+          49.06,
+          83.9,
+          86.77
+        ]
+      },
+      {
+        "label": "Total Equity",
+        "dataPointId": "IFBS002220",
+        "datum": [
+          153.17,
+          182.64,
+          217.24,
+          243.68
+        ]
+      },
+      {
+        "label": "Cash, Cash Equivalents and Short Term Investments",
+        "dataPointId": "IFBS000350",
+        "datum": [
+          65.4,
+          77.82,
+          81.59,
+          81.18
+        ]
+      },
+      {
+        "label": "Working Capital",
+        "dataPointId": "SAL0000004",
+        "datum": [
+          53.41,
+          66.45,
+          66.89,
+          63.01
+        ]
+      }
+    ],
+    "footer": {
+      "currency": "USD",
+      "currencySymbol": "$",
+      "orderOfMagnitude": "Billion",
+      "fiscalYearEndDate": "12-31"
+    }
+  },
+  "cashFlow": {
+    "_meta": {
+      "companyId": "0C000098V0",
+      "statementType": "cash-flow",
+      "periodReport": "Success",
+      "latestReport": "Success"
+    },
+    "columnDefs": [
+      "2023",
+      "2024",
+      "2025",
+      "TTM"
+    ],
+    "filingIdList": [
+      "492231024",
+      "565164868",
+      "642887728",
+      null
+    ],
+    "columnDefs_labels": [
+      "20231231",
+      "20241231",
+      "20251231",
+      "20260331"
+    ],
+    "rows": [
+      {
+        "label": "Cash Flow from Operating Activities, Indirect",
+        "dataPointId": "IFCF000150",
+        "datum": [
+          71.11,
+          91.33,
+          115.8,
+          124.0
+        ]
+      },
+      {
+        "label": "Cash Flow from Investing Activities",
+        "dataPointId": "IFCF000140",
+        "datum": [
+          -24.5,
+          -47.15,
+          -102.0,
+          -115.67
+        ]
+      },
+      {
+        "label": "Cash Flow from Financing Activities",
+        "dataPointId": "IFCF000130",
+        "datum": [
+          -19.5,
+          -40.78,
+          -20.37,
+          -7.43
+        ]
+      },
+      {
+        "label": "Capital Expenditure",
+        "dataPointId": "SAL0000005",
+        "datum": [
+          -27.27,
+          -37.26,
+          -69.69,
+          -75.75
+        ]
+      },
+      {
+        "label": "Free Cash Flow",
+        "dataPointId": "SAL0000002",
+        "datum": [
+          43.85,
+          54.07,
+          46.11,
+          48.25
+        ]
+      }
+    ],
+    "footer": {
+      "currency": "USD",
+      "currencySymbol": "$",
+      "orderOfMagnitude": "Billion",
+      "fiscalYearEndDate": "12-31"
+    }
+  }
+}
