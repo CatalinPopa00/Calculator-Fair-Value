@@ -231,7 +231,7 @@ def calculate_scoring_reform(valuation_data, metrics):
             return default
 
     def get_roe_pts(roe_val, expr_pts):
-        if roe_val < 0:
+        if roe_val <= 0:
             ni_val = safe_float(metrics.get("net_income"))
             fcf_val = safe_float(metrics.get("fcf"))
             if ni_val is not None and ni_val > 0 and fcf_val is not None and fcf_val > 0:
@@ -1140,7 +1140,7 @@ def get_scoring_rules(valuation_data: dict, metrics: dict) -> dict:
             {"name": "Bank Leverage (Assets/Eq)", "criteria": ["7.0 - 12.0 => 20p", "6.0-7.0 or 12.0-15.0 => 10p", "Other => 0p"]},
             {"name": "Efficiency Ratio", "criteria": ["< 55% => 20p", "55% - 70% => 10p", "> 70% => 0p"]},
             {"name": "ROA", "criteria": ["> 1.5% => 20p", "0.5% - 1.5% => 10p", "< 0.5% => 0p"]},
-            {"name": "ROE", "criteria": ["> 15% => 20p", "5% - 15% => 10p", "< 5% => 0p (<0% but Net Income & FCF > 0 => 10p)"]},
+            {"name": "ROE", "criteria": ["> 15% => 20p", "5% - 15% => 10p", "< 5% => 0p (<=0% but Net Income & FCF > 0 => 10p)"]},
             {"name": "NIM", "criteria": ["> 4.0% => 20p", "2.5% - 4.0% => 10p", "< 2.5% => 0p"]}
         ]
     elif is_financial and is_bank:
@@ -1148,7 +1148,7 @@ def get_scoring_rules(valuation_data: dict, metrics: dict) -> dict:
             {"name": "Net Interest Margin", "criteria": ["> 2.8% => 10p", "2.0% - 2.8% => 5p", "< 2.0% => 0p"]},
             {"name": "Efficiency Ratio", "criteria": ["< 55% => 10p", "55% - 65% => 5p", "> 65% => 0p"]},
             {"name": "CET1 Ratio", "criteria": [">= 12% => 20p", "10% - 12% => 10p", "< 10% => 0p"]},
-            {"name": "ROE", "criteria": ["> 15% => 20p", "8% - 15% => 10p", "< 8% => 0p (<0% but Net Income & FCF > 0 => 10p)"]},
+            {"name": "ROE", "criteria": ["> 15% => 20p", "8% - 15% => 10p", "< 8% => 0p (<=0% but Net Income & FCF > 0 => 10p)"]},
             {"name": "ROA", "criteria": [">= 1.0% => 20p", "0.5% - 1.0% => 10p", "< 0.5% => 0p"]},
             {"name": "BVPS Growth", "criteria": ["> 8% => 20p", "3% - 8% => 10p", "< 3% => 0p"]}
         ]
@@ -1156,7 +1156,7 @@ def get_scoring_rules(valuation_data: dict, metrics: dict) -> dict:
         h_rules = [
             {"name": "Float / Net Interest", "criteria": ["> 3.0% => 20p", "1.5% - 3.0% => 10p", "< 1.5% => 0p"]},
             {"name": "Debt-to-Equity", "criteria": ["< 1.0 => 20p", "1.0 - 2.0 => 10p", "> 2.0 => 0p"]},
-            {"name": "ROE", "criteria": ["> 12% => 20p", "8% - 12% => 10p", "< 8% => 0p (<0% but Net Income & FCF > 0 => 10p)"]},
+            {"name": "ROE", "criteria": ["> 12% => 20p", "8% - 12% => 10p", "< 8% => 0p (<=0% but Net Income & FCF > 0 => 10p)"]},
             {"name": "ROA", "criteria": [">= 1.0% => 20p", "0.5% - 1.0% => 10p", "< 0.5% => 0p"]},
             {"name": "BVPS Growth", "criteria": ["> 8% => 20p", "3% - 8% => 10p", "< 3% => 0p"]}
         ]
@@ -1171,7 +1171,7 @@ def get_scoring_rules(valuation_data: dict, metrics: dict) -> dict:
         h_rules = [
             {"name": "Debt-to-Equity", "criteria": ["< 0.6 => 20p", "0.6 - 1.0 => 10p", "> 1.0 => 0p"]},
             {"name": "Current Ratio", "criteria": [">= 1.5 => 20p", "1.0 - 1.5 => 10p", "< 1.0 => 0p"]},
-            {"name": "ROE", "criteria": ["> 15% => 20p", "8% - 15% => 10p", "< 8% => 0p (<0% but Net Income & FCF > 0 => 10p)"]},
+            {"name": "ROE", "criteria": ["> 15% => 20p", "8% - 15% => 10p", "< 8% => 0p (<=0% but Net Income & FCF > 0 => 10p)"]},
             {"name": "ROIC", "criteria": ["> 12% => 25p", "7% - 12% => 12.5p", "< 7% => 0p"]},
             {"name": "FCF Trend", "criteria": ["Growing => 15p", "Other => 0p"]}
         ]
@@ -1180,7 +1180,7 @@ def get_scoring_rules(valuation_data: dict, metrics: dict) -> dict:
             {"name": "Debt-to-Equity", "criteria": ["<= 2.0 => 20p", "2.0 - 3.0 => 10p", "> 3.0 => 0p"]},
             {"name": "Current Ratio", "criteria": [">= 0.7 => 20p", "0.5 - 0.7 => 10p", "< 0.5 => 0p"]},
             {"name": "Interest Coverage", "criteria": ["> 3.0 => 20p", "1.5 - 3.0 => 10p", "< 1.5 => 0p"]},
-            {"name": "ROE", "criteria": ["> 10% => 20p", "6% - 10% => 10p", "< 6% => 0p (<0% but Net Income & FCF > 0 => 10p)"]},
+            {"name": "ROE", "criteria": ["> 10% => 20p", "6% - 10% => 10p", "< 6% => 0p (<=0% but Net Income & FCF > 0 => 10p)"]},
             {"name": "ROIC", "criteria": ["> 6% => 20p", "4% - 6% => 10p", "< 4% => 0p"]}
         ]
     elif is_defensive:
@@ -1188,7 +1188,7 @@ def get_scoring_rules(valuation_data: dict, metrics: dict) -> dict:
             {"name": "Debt-to-Equity", "criteria": ["< 1.0 => 20p", "1.0 - 1.5 => 10p", "> 1.5 => 0p"]},
             {"name": "Current Ratio", "criteria": [">= 1.2 => 20p", "0.9 - 1.2 => 10p", "< 0.9 => 0p"]},
             {"name": "Interest Coverage", "criteria": ["> 5.0 => 20p", "3.0 - 5.0 => 10p", "< 3.0 => 0p"]},
-            {"name": "ROE", "criteria": ["> 15% => 20p", "10% - 15% => 10p", "< 10% => 0p (<0% but Net Income & FCF > 0 => 10p)"]},
+            {"name": "ROE", "criteria": ["> 15% => 20p", "10% - 15% => 10p", "< 10% => 0p (<=0% but Net Income & FCF > 0 => 10p)"]},
             {"name": "ROIC", "criteria": ["> 12% => 20p", "8% - 12% => 10p", "< 8% => 0p"]}
         ]
     elif is_tech:
@@ -1196,7 +1196,7 @@ def get_scoring_rules(valuation_data: dict, metrics: dict) -> dict:
             {"name": "Debt-to-Equity", "criteria": ["<= 1.0 => 20p", "1.0 - 2.0 => 10p", "> 2.0 => 0p"]},
             {"name": "Current Ratio", "criteria": [">= 1.0 => 20p", "0.8 - 1.0 => 10p", "< 0.8 => 0p"]},
             {"name": "Interest Coverage", "criteria": ["> 5.0 => 20p", "3.0 - 5.0 => 10p", "< 3.0 => 0p"]},
-            {"name": "ROE", "criteria": ["> 15% => 20p", "10% - 15% => 10p", "< 10% => 0p (<0% but Net Income & FCF > 0 => 10p)"]},
+            {"name": "ROE", "criteria": ["> 15% => 20p", "10% - 15% => 10p", "< 10% => 0p (<=0% but Net Income & FCF > 0 => 10p)"]},
             {"name": "ROIC", "criteria": ["> 15% => 20p", "10% - 15% => 10p", "< 10% => 0p"]}
         ]
     else:
@@ -1204,7 +1204,7 @@ def get_scoring_rules(valuation_data: dict, metrics: dict) -> dict:
             {"name": "Debt-to-Equity", "criteria": ["< 1.0 => 20p", "1.0 - 1.5 => 10p", "> 1.5 => 0p"]},
             {"name": "Current Ratio", "criteria": [">= 1.2 => 20p", "1.0 - 1.2 => 10p", "< 1.0 => 0p"]},
             {"name": "Interest Coverage", "criteria": ["> 4.0 => 20p", "2.0 - 4.0 => 10p", "< 2.0 => 0p"]},
-            {"name": "ROE", "criteria": ["> 12% => 20p", "8% - 12% => 10p", "< 8% => 0p (<0% but Net Income & FCF > 0 => 10p)"]},
+            {"name": "ROE", "criteria": ["> 12% => 20p", "8% - 12% => 10p", "< 8% => 0p (<=0% but Net Income & FCF > 0 => 10p)"]},
             {"name": "ROIC", "criteria": ["> 10% => 20p", "6% - 10% => 10p", "< 6% => 0p"]}
         ]
 
