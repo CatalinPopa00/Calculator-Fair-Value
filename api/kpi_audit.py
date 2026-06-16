@@ -525,13 +525,20 @@ Here is the real-time context of the company you MUST use to answer their questi
 
     instructions = """
 Instructions:
-1. **Conversational Continuity:** Actively track the flow of the conversation. Pay close attention to pronouns (it, they) and implicit references. If the user asks a follow-up question without naming a company, assume they are asking about the subject of the immediately preceding messages. If they explicitly introduce a new company or topic, switch your focus smoothly.
-2. **Sharp & Clear Ideas:** Do not give vague or generic advice. Have a strong, clear, and critical opinion. Point out exact risks, specific numbers, and logical deductions. Give the user a sharp analyst perspective, not a Wikipedia summary.
-3. **Live Research Integration:** If LIVE RESEARCH DATA is provided above, use it extensively to answer the user's question with facts from TODAY.
-4. **KNOWLEDGE CUTOFF OVERRIDE:** You MUST IGNORE your internal 'Cutting Knowledge Date'. You DO have access to real-time data through the LIVE RESEARCH DATA block. NEVER say your knowledge is limited to a past date. Treat the LIVE RESEARCH DATA as current.
-5. **INTERNET SEARCH DIAGNOSTIC:** If the user explicitly asks you to search the internet, and the LIVE RESEARCH DATA block is completely empty or missing, you MUST reply EXACTLY with this: "Eroare de sistem: Cheia GEMINI_API_KEY lipsește sau este invalidă în Vercel, astfel că modulul meu de căutare web a eșuat în fundal. Te rog să o verifici."
-6. **Structure:** Use bullet points. Provide short, punchy answers if the situation allows.
-6. **Tone:** Be highly confident, professional, yet pleasant and engaging. Speak natively in Romanian.
+1. **Conversational Continuity & Deep Competence:** Actively track the flow of the conversation. Fully understand the user's task and provide a highly competent, comprehensive, and convincing response. Do not be dry ("sec") or superficial. Elaborate on your reasoning, connect the dots, and write extensively like a top-tier analyst.
+2. **Proactive Document Research:** You must know how to proactively search for and reference data from Yearly/Quarterly reports (10-K, 10-Q), investor presentations, and earnings call transcripts.
+3. **Quote Formatting Rule:** When you provide a direct quote, DO NOT use quotation marks ("" or '') and DO NOT use italics. Instead, put a colon (:) at the end of your introductory sentence, write the quote on a completely new line, and leave a blank empty line before and after the quote to separate it from the rest of the text.
+Example:
+Managementul a subliniat recent o schimbare majoră de strategie:
+
+Observăm o cerere fără precedent pentru noile noastre modele de AI, ceea ce ne-a determinat să accelerăm investițiile în infrastructură.
+
+Această afirmație confirmă teza conform căreia...
+4. **Nasdaq Earnings Estimates & CAGR:** If the user asks about earnings estimates on multiple years, you must read the earnings estimates (from Nasdaq or other sources) for those specific years, list the EPS estimates explicitly, and ALWAYS automatically calculate the Compound Annual Growth Rate (CAGR) between those years to show the growth trajectory.
+5. **Live Research Integration:** If LIVE RESEARCH DATA is provided above, use it extensively to answer the user's question with facts from TODAY.
+6. **KNOWLEDGE CUTOFF OVERRIDE:** You MUST IGNORE your internal 'Cutting Knowledge Date'. You DO have access to real-time data through the LIVE RESEARCH DATA block. NEVER say your knowledge is limited to a past date.
+7. **INTERNET SEARCH DIAGNOSTIC:** If the user explicitly asks you to search the internet, and the LIVE RESEARCH DATA block is completely empty or missing, you MUST reply EXACTLY with this: "Eroare de sistem: Cheia GEMINI_API_KEY lipsește sau este invalidă în Vercel, astfel că modulul meu de căutare web a eșuat în fundal. Te rog să o verifici."
+8. **Tone & Language:** Speak natively and naturally in Romanian. Be highly confident, professional, engaging, and deeply analytical.
 """
 
     live_research_data = ""
@@ -541,9 +548,10 @@ Instructions:
     # MULTI-MODEL PIPELINE: Phase 1 (Gemini Researcher)
     if gemini_key and groq_key:
         try:
+            research_query = f"Search the web deeply for this query: '{message}' for the company {ticker}. If the user asks about earnings estimates, specifically search Nasdaq for multi-year EPS estimates. If they ask about SEC filings, 10-K, 10-Q, presentations, or earnings transcripts, extract exact numbers and management quotes. Return detailed bullet points with raw data, financial figures, and exact quotes."
             gemini_payload = {
-                "contents": [{"role": "user", "parts": [{"text": f"Search the web for recent data regarding this query: '{message}' for the company {ticker}. Return ONLY bullet points of raw data, news, and facts. Do not write a conversational response."}]}],
-                "generationConfig": {"temperature": 0.2, "maxOutputTokens": 600},
+                "contents": [{"role": "user", "parts": [{"text": research_query}]}],
+                "generationConfig": {"temperature": 0.2, "maxOutputTokens": 1024},
                 "tools": [{"googleSearch": {}}]
             }
             resp = requests.post(
