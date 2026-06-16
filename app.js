@@ -7080,7 +7080,22 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             return prefix + v.toLocaleString();
         };
 
-        const row = (label, value) => `<div style="display:flex; justify-content:space-between; padding:12px 0; border-bottom:1px solid rgba(255,255,255,0.05);"><span style="color:var(--text-muted);">${label}</span><span style="font-weight:600;">${value}</span></div>`;
+        const sectionHeader = (text) => `
+            <div style="margin-top:20px; margin-bottom:10px; padding-bottom:5px; border-bottom:1px solid rgba(255,255,255,0.1); display:flex; align-items:center; gap:8px;">
+                <h4 style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin:0;">${text}</h4>
+            </div>`;
+
+        const row = (label, value, isHighlight = false) => {
+            const valColor = isHighlight ? 'var(--accent)' : 'var(--text-main)';
+            const valWeight = isHighlight ? '700' : '500';
+            const bgClass = isHighlight ? 'background: rgba(var(--accent-rgb), 0.05); border-radius:4px; padding: 12px 8px; margin: 4px -8px;' : 'border-bottom:1px solid rgba(255,255,255,0.05); padding:12px 0;';
+
+            return `
+                <div style="display:flex; justify-content:space-between; align-items:center; ${bgClass}">
+                    <span style="color:var(--text-muted); font-size:0.85rem; font-weight:500; white-space:nowrap;">${label}</span>
+                    <span style="color:${valColor}; font-weight:${valWeight}; font-family:var(--font-mono); font-size:0.85rem; white-space:nowrap;">${value}</span>
+                </div>`;
+        };
 
         if (model === 'dcf' && currentFormulaData.dcf) {
             const d = currentFormulaData.dcf;
