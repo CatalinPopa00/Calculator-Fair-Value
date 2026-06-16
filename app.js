@@ -5038,7 +5038,8 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 const config = [
                     { label: 'Year', key: 'year', isHeader: true },
                     { label: 'Revenue (B)', key: 'revenue_b', formatter: v => (v != null) ? v.toFixed(2) + ' B' : 'N/A', sparkKey: 'revenue_b' },
-                    { label: 'EPS (Adj.)', key: 'eps', formatter: v => (v != null) ? '$' + v.toFixed(2) : 'N/A', sparkKey: 'eps' },
+                    { label: 'EPS', key: 'eps', formatter: v => (v != null) ? '$' + v.toFixed(2) : 'N/A', sparkKey: 'eps' },
+                    { label: 'EPS (Adj.)', key: 'eps_adj', formatter: v => (v != null) ? '$' + v.toFixed(2) : 'N/A', sparkKey: 'eps_adj' },
                     { label: 'FCF (B)', key: 'fcf_b', formatter: v => (v != null) ? v.toFixed(2) + ' B' : 'N/A', sparkKey: 'fcf_b' },
                     { label: 'FCF Margin', key: 'fcf_margin_pct', formatter: v => (v != null) ? v : 'N/A', sparkKey: 'fcf_margin_pct' },
                     { label: 'Net Inc. (Adj, B)', key: 'net_income_b', formatter: v => (v != null) ? v.toFixed(2) + ' B' : 'N/A', sparkKey: 'net_income_b' },
