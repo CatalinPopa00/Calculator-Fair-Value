@@ -1,5 +1,0 @@
-refactor: update PEG, Peter Lynch, and Relative Valuation models UI
-
-- Replaced custom layout components with standard modal helper functions `row()` and `sectionHeader()`.
-- Updated table margins, paddings, and font sizes to use the uniform dark-theme format `var(--text-main)`, `var(--text-muted)`, and `var(--font-mono)` with `white-space: nowrap`.
-- Ensured consistent single-row value alignment for calculation breakdowns matching the platform-wide visual style.
