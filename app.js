@@ -2131,45 +2131,45 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     if (!peerProf) throw new Error('Invalid peer metrics received');
                     peerProf.ticker = peerProf.ticker || peerData.ticker || rawVal;
 
-                    const exists = (prof.competitor_metrics || []).some(p => p.ticker.toUpperCase() === rawVal);
+                    const exists = (prof.competitor_metrics || []).some(p => p.ticker && p.ticker.toUpperCase() === rawVal);
                     if (exists) throw new Error('Peer is already in comparison');
 
                     const mainFcf = peerData.formula_data?.dcf?.fcf || peerProf.fcf;
                     const pfcf = peerProf.pfcf_ratio;
 
                     const newPeerObj = {
-                        ticker: peerProf.ticker.toUpperCase(),
+                        ticker: (peerProf.ticker || '').toUpperCase() || '-',
                         name: peerProf.name || 'Competitor',
-                        market_cap: peerProf.market_cap,
-                        pe_ratio: peerProf.fwd_eps > 0 ? (peerData.current_price / peerProf.fwd_eps) : peerProf.trailing_pe,
-                        fwd_pe: peerProf.fwd_eps > 0 ? (peerData.current_price / peerProf.fwd_eps) : null,
-                        forward_pe: peerProf.forward_pe || (peerProf.fwd_eps > 0 ? (peerData.current_price / peerProf.fwd_eps) : null),
-                        peg_ratio: peerProf.peg_ratio,
-                        trailing_eps: peerProf.trailing_eps,
-                        eps: peerProf.trailing_eps,
-                        fwd_eps: peerProf.fwd_eps,
-                        ps_ratio: peerProf.ps_ratio,
-                        fwd_ps: peerProf.fwd_ps,
-                        forward_ev_sales: peerProf.forward_ev_sales || peerProf.fwd_ps,
-                        price_to_book: peerProf.price_to_book,
-                        ev_to_ebitda: peerData.formula_data?.relative?.company_ev_ebitda || peerProf.ev_to_ebitda,
-                        forward_ev_ebitda: peerProf.forward_ev_ebitda || peerData.formula_data?.relative?.company_ev_ebitda || peerProf.ev_to_ebitda,
-                        revenue: peerData.revenue || peerProf.revenue,
-                        pfcf_ratio: pfcf,
-                        fcf: mainFcf,
-                        margin: peerProf.operating_margin,
-                        operating_margin: peerProf.operating_margin,
-                        eps_growth: peerProf.earnings_growth,
-                        rev_growth: peerProf.revenue_growth,
-                        earnings_growth: peerProf.earnings_growth,
-                        revenue_growth: peerProf.revenue_growth,
-                        forward_revenue: peerProf.forward_revenue,
-                        forward_pe_custom: peerProf.forward_pe_custom || (peerProf.fwd_eps > 0 ? (peerData.current_price / peerProf.fwd_eps) : null),
-                        cagr_5y_custom: peerProf.cagr_5y_custom,
-                        peg_custom: peerProf.peg_custom || peerProf.peg_ratio,
-                        ps_forward_custom: peerProf.ps_forward_custom,
-                        fcf_margin_custom: peerProf.fcf_margin_custom,
-                        pfcf_forward_custom: peerProf.pfcf_forward_custom
+                        market_cap: peerProf.market_cap ?? '-',
+                        pe_ratio: (peerProf.fwd_eps > 0 ? (peerData.current_price / peerProf.fwd_eps) : peerProf.trailing_pe) ?? '-',
+                        fwd_pe: (peerProf.fwd_eps > 0 ? (peerData.current_price / peerProf.fwd_eps) : null) ?? '-',
+                        forward_pe: (peerProf.forward_pe || (peerProf.fwd_eps > 0 ? (peerData.current_price / peerProf.fwd_eps) : null)) ?? '-',
+                        peg_ratio: peerProf.peg_ratio ?? '-',
+                        trailing_eps: peerProf.trailing_eps ?? '-',
+                        eps: peerProf.trailing_eps ?? '-',
+                        fwd_eps: peerProf.fwd_eps ?? '-',
+                        ps_ratio: peerProf.ps_ratio ?? '-',
+                        fwd_ps: peerProf.fwd_ps ?? '-',
+                        forward_ev_sales: (peerProf.forward_ev_sales || peerProf.fwd_ps) ?? '-',
+                        price_to_book: peerProf.price_to_book ?? '-',
+                        ev_to_ebitda: (peerData.formula_data?.relative?.company_ev_ebitda || peerProf.ev_to_ebitda) ?? '-',
+                        forward_ev_ebitda: (peerProf.forward_ev_ebitda || peerData.formula_data?.relative?.company_ev_ebitda || peerProf.ev_to_ebitda) ?? '-',
+                        revenue: (peerData.revenue || peerProf.revenue) ?? '-',
+                        pfcf_ratio: pfcf ?? '-',
+                        fcf: mainFcf ?? '-',
+                        margin: peerProf.operating_margin ?? '-',
+                        operating_margin: peerProf.operating_margin ?? '-',
+                        eps_growth: peerProf.earnings_growth ?? '-',
+                        rev_growth: peerProf.revenue_growth ?? '-',
+                        earnings_growth: peerProf.earnings_growth ?? '-',
+                        revenue_growth: peerProf.revenue_growth ?? '-',
+                        forward_revenue: peerProf.forward_revenue ?? '-',
+                        forward_pe_custom: (peerProf.forward_pe_custom || (peerProf.fwd_eps > 0 ? (peerData.current_price / peerProf.fwd_eps) : null)) ?? '-',
+                        cagr_5y_custom: peerProf.cagr_5y_custom ?? '-',
+                        peg_custom: (peerProf.peg_custom || peerProf.peg_ratio) ?? '-',
+                        ps_forward_custom: peerProf.ps_forward_custom ?? '-',
+                        fcf_margin_custom: peerProf.fcf_margin_custom ?? '-',
+                        pfcf_forward_custom: peerProf.pfcf_forward_custom ?? '-'
                     };
 
                     if (!prof.competitor_metrics) prof.competitor_metrics = [];
@@ -2222,7 +2222,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 const t = btn.getAttribute('data-ticker');
                 if (!t) return;
 
-                prof.competitor_metrics = prof.competitor_metrics.filter(p => p.ticker.toUpperCase() !== t.toUpperCase());
+                prof.competitor_metrics = prof.competitor_metrics.filter(p => p.ticker && p.ticker.toUpperCase() !== t.toUpperCase());
                 if (prof.competitors) {
                     prof.competitors = prof.competitors.filter(tk => tk.toUpperCase() !== t.toUpperCase());
                 }
@@ -7345,12 +7345,12 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             if (peers.length > 0) {
                 peerTableHTML = `
                     <h4 style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:10px;">Peer Benchmarks</h4>
-                    <div style="width:100%; margin-bottom:1.5rem;">
-                    <table style="width:100%; border-collapse:collapse; font-size:0.65rem; table-layout:fixed;">
+                    <div style="overflow-x:auto; margin-bottom:1.5rem;">
+                    <table class="premium-data-table" style="font-size:0.75rem;">
                         <thead>
                             <tr style="border-bottom:1px solid rgba(255,255,255,0.15);">
-                                <th style="text-align:left; padding:4px 0px; color:white; white-space:nowrap;">Ticker</th>
-                                ${activeKeys.map(k => `<th style="text-align:right; padding:4px 0px; color:white; white-space:nowrap;">${(LABEL[k] || k).replace('FWD ','')}</th>`).join('')}
+                                <th style="text-align:left; padding:4px 2px; color:white; white-space:nowrap;">Ticker</th>
+                                ${activeKeys.map(k => `<th style="text-align:right; padding:4px 2px; color:white; white-space:nowrap;">${LABEL[k] || k}</th>`).join('')}
                             </tr>
                         </thead>
                         <tbody>
@@ -7503,10 +7503,10 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 const implColor = safeImpl > 0 ? 'white' : 'var(--text-muted)';
                 breakdownRows += `
                         <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
-                            <td style="padding:4px 0px; color:var(--text-muted); font-weight:500; white-space:nowrap;">${(LABEL[k] || k).replace('FWD ','')}</td>
-                            <td style="text-align:right; padding:4px 0px; color:var(--text-main); font-family:var(--font-mono); font-weight:500; white-space:nowrap;">${(bench || 0).toFixed(1)}x</td>
-                            <td style="text-align:right; padding:4px 0px; color:${safeImpl > 0 ? 'var(--text-main)' : 'var(--text-muted)'}; font-family:var(--font-mono); font-weight:600; white-space:nowrap;">${safeImpl > 0 ? '$' + fmt(safeImpl) : 'N/A'}</td>
-                            <td style="text-align:right; padding:4px 0px; color:var(--accent); font-family:var(--font-mono); font-weight:700; white-space:nowrap;" class="rel-weight-cell" data-key="${k}">${(w * 100).toFixed(0)}%</td>
+                            <td style="padding:8px 4px; color:var(--text-muted); font-weight:500; font-size:0.85rem; white-space:nowrap;">${LABEL[k]}</td>
+                            <td style="text-align:right; padding:8px 4px; color:var(--text-main); font-family:var(--font-mono); font-weight:500; font-size:0.85rem; white-space:nowrap;">${(bench || 0).toFixed(1)}x</td>
+                            <td style="text-align:right; padding:8px 4px; color:${safeImpl > 0 ? 'var(--text-main)' : 'var(--text-muted)'}; font-family:var(--font-mono); font-weight:600; font-size:0.85rem; white-space:nowrap;">${safeImpl > 0 ? '$' + fmt(safeImpl) : 'N/A'}</td>
+                            <td style="text-align:right; padding:8px 4px; color:var(--accent); font-family:var(--font-mono); font-weight:700; font-size:0.85rem; white-space:nowrap;" class="rel-weight-cell" data-key="${k}">${(w * 100).toFixed(0)}%</td>
                         </tr>`;
             });
 
