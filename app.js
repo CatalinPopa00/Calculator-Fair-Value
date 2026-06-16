@@ -2131,45 +2131,45 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     if (!peerProf) throw new Error('Invalid peer metrics received');
                     peerProf.ticker = peerProf.ticker || peerData.ticker || rawVal;
 
-                    const exists = (prof.competitor_metrics || []).some(p => p.ticker.toUpperCase() === rawVal);
+                    const exists = (prof.competitor_metrics || []).some(p => p.ticker && p.ticker.toUpperCase() === rawVal);
                     if (exists) throw new Error('Peer is already in comparison');
 
                     const mainFcf = peerData.formula_data?.dcf?.fcf || peerProf.fcf;
                     const pfcf = peerProf.pfcf_ratio;
 
                     const newPeerObj = {
-                        ticker: peerProf.ticker.toUpperCase(),
+                        ticker: (peerProf.ticker || '').toUpperCase() || '-',
                         name: peerProf.name || 'Competitor',
-                        market_cap: peerProf.market_cap,
-                        pe_ratio: peerProf.fwd_eps > 0 ? (peerData.current_price / peerProf.fwd_eps) : peerProf.trailing_pe,
-                        fwd_pe: peerProf.fwd_eps > 0 ? (peerData.current_price / peerProf.fwd_eps) : null,
-                        forward_pe: peerProf.forward_pe || (peerProf.fwd_eps > 0 ? (peerData.current_price / peerProf.fwd_eps) : null),
-                        peg_ratio: peerProf.peg_ratio,
-                        trailing_eps: peerProf.trailing_eps,
-                        eps: peerProf.trailing_eps,
-                        fwd_eps: peerProf.fwd_eps,
-                        ps_ratio: peerProf.ps_ratio,
-                        fwd_ps: peerProf.fwd_ps,
-                        forward_ev_sales: peerProf.forward_ev_sales || peerProf.fwd_ps,
-                        price_to_book: peerProf.price_to_book,
-                        ev_to_ebitda: peerData.formula_data?.relative?.company_ev_ebitda || peerProf.ev_to_ebitda,
-                        forward_ev_ebitda: peerProf.forward_ev_ebitda || peerData.formula_data?.relative?.company_ev_ebitda || peerProf.ev_to_ebitda,
-                        revenue: peerData.revenue || peerProf.revenue,
-                        pfcf_ratio: pfcf,
-                        fcf: mainFcf,
-                        margin: peerProf.operating_margin,
-                        operating_margin: peerProf.operating_margin,
-                        eps_growth: peerProf.earnings_growth,
-                        rev_growth: peerProf.revenue_growth,
-                        earnings_growth: peerProf.earnings_growth,
-                        revenue_growth: peerProf.revenue_growth,
-                        forward_revenue: peerProf.forward_revenue,
-                        forward_pe_custom: peerProf.forward_pe_custom || (peerProf.fwd_eps > 0 ? (peerData.current_price / peerProf.fwd_eps) : null),
-                        cagr_5y_custom: peerProf.cagr_5y_custom,
-                        peg_custom: peerProf.peg_custom || peerProf.peg_ratio,
-                        ps_forward_custom: peerProf.ps_forward_custom,
-                        fcf_margin_custom: peerProf.fcf_margin_custom,
-                        pfcf_forward_custom: peerProf.pfcf_forward_custom
+                        market_cap: peerProf.market_cap ?? '-',
+                        pe_ratio: (peerProf.fwd_eps > 0 ? (peerData.current_price / peerProf.fwd_eps) : peerProf.trailing_pe) ?? '-',
+                        fwd_pe: (peerProf.fwd_eps > 0 ? (peerData.current_price / peerProf.fwd_eps) : null) ?? '-',
+                        forward_pe: (peerProf.forward_pe || (peerProf.fwd_eps > 0 ? (peerData.current_price / peerProf.fwd_eps) : null)) ?? '-',
+                        peg_ratio: peerProf.peg_ratio ?? '-',
+                        trailing_eps: peerProf.trailing_eps ?? '-',
+                        eps: peerProf.trailing_eps ?? '-',
+                        fwd_eps: peerProf.fwd_eps ?? '-',
+                        ps_ratio: peerProf.ps_ratio ?? '-',
+                        fwd_ps: peerProf.fwd_ps ?? '-',
+                        forward_ev_sales: (peerProf.forward_ev_sales || peerProf.fwd_ps) ?? '-',
+                        price_to_book: peerProf.price_to_book ?? '-',
+                        ev_to_ebitda: (peerData.formula_data?.relative?.company_ev_ebitda || peerProf.ev_to_ebitda) ?? '-',
+                        forward_ev_ebitda: (peerProf.forward_ev_ebitda || peerData.formula_data?.relative?.company_ev_ebitda || peerProf.ev_to_ebitda) ?? '-',
+                        revenue: (peerData.revenue || peerProf.revenue) ?? '-',
+                        pfcf_ratio: pfcf ?? '-',
+                        fcf: mainFcf ?? '-',
+                        margin: peerProf.operating_margin ?? '-',
+                        operating_margin: peerProf.operating_margin ?? '-',
+                        eps_growth: peerProf.earnings_growth ?? '-',
+                        rev_growth: peerProf.revenue_growth ?? '-',
+                        earnings_growth: peerProf.earnings_growth ?? '-',
+                        revenue_growth: peerProf.revenue_growth ?? '-',
+                        forward_revenue: peerProf.forward_revenue ?? '-',
+                        forward_pe_custom: (peerProf.forward_pe_custom || (peerProf.fwd_eps > 0 ? (peerData.current_price / peerProf.fwd_eps) : null)) ?? '-',
+                        cagr_5y_custom: peerProf.cagr_5y_custom ?? '-',
+                        peg_custom: (peerProf.peg_custom || peerProf.peg_ratio) ?? '-',
+                        ps_forward_custom: peerProf.ps_forward_custom ?? '-',
+                        fcf_margin_custom: peerProf.fcf_margin_custom ?? '-',
+                        pfcf_forward_custom: peerProf.pfcf_forward_custom ?? '-'
                     };
 
                     if (!prof.competitor_metrics) prof.competitor_metrics = [];
@@ -2222,7 +2222,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 const t = btn.getAttribute('data-ticker');
                 if (!t) return;
 
-                prof.competitor_metrics = prof.competitor_metrics.filter(p => p.ticker.toUpperCase() !== t.toUpperCase());
+                prof.competitor_metrics = prof.competitor_metrics.filter(p => p.ticker && p.ticker.toUpperCase() !== t.toUpperCase());
                 if (prof.competitors) {
                     prof.competitors = prof.competitors.filter(tk => tk.toUpperCase() !== t.toUpperCase());
                 }
