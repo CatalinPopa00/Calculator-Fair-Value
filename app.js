@@ -7525,17 +7525,19 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     ${peerTableHTML}
 
                     <h4 style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:10px;">Implied Values & Weights</h4>
-                    <table style="width:100%; border-collapse:collapse; margin-bottom:1rem;">
-                        <thead>
-                            <tr style="border-bottom:1px solid rgba(255,255,255,0.15);">
-                                <th style="text-align:left; padding:8px 4px; color:var(--text-muted); font-size:0.8rem; font-weight:600; text-transform:uppercase; white-space:nowrap;">Metric</th>
-                                <th style="text-align:right; padding:8px 4px; color:var(--text-muted); font-size:0.8rem; font-weight:600; text-transform:uppercase; white-space:nowrap;">Benchmark</th>
-                                <th style="text-align:right; padding:8px 4px; color:var(--text-muted); font-size:0.8rem; font-weight:600; text-transform:uppercase; white-space:nowrap;">Implied FV</th>
-                                <th style="text-align:right; padding:8px 4px; color:var(--text-muted); font-size:0.8rem; font-weight:600; text-transform:uppercase; white-space:nowrap;">Weight</th>
-                            </tr>
-                        </thead>
-                        <tbody>${breakdownRows}</tbody>
-                    </table>
+                    <div style="overflow-x:auto; width:100%; margin-bottom:1rem;">
+                        <table style="width:100%; border-collapse:collapse;">
+                            <thead>
+                                <tr style="border-bottom:1px solid rgba(255,255,255,0.15);">
+                                    <th style="text-align:left; padding:8px 4px; color:var(--text-muted); font-size:0.8rem; font-weight:600; text-transform:uppercase; white-space:nowrap;">Metric</th>
+                                    <th style="text-align:right; padding:8px 4px; color:var(--text-muted); font-size:0.8rem; font-weight:600; text-transform:uppercase; white-space:nowrap;">Benchmark</th>
+                                    <th style="text-align:right; padding:8px 4px; color:var(--text-muted); font-size:0.8rem; font-weight:600; text-transform:uppercase; white-space:nowrap;">Implied FV</th>
+                                    <th style="text-align:right; padding:8px 4px; color:var(--text-muted); font-size:0.8rem; font-weight:600; text-transform:uppercase; white-space:nowrap;">Weight</th>
+                                </tr>
+                            </thead>
+                            <tbody>${breakdownRows}</tbody>
+                        </table>
+                    </div>
 
                     <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-top:1px solid rgba(255,255,255,0.1);">
                         <span style="font-size:0.85rem; color:white; font-weight:600;">Weighted Fair Value</span>
