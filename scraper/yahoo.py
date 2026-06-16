@@ -3238,7 +3238,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                     historical_anchors.append({
                         "year": yr_label,
                         "revenue_b": round(r_raw / 1e9, 2), # Already USD
-                        "eps": round(e_raw, 2), # Already USD
+                        "eps": round(e_raw, 2), "eps_adj": round(historical_data["eps"][i], 2),
                         "fcf_b": round(f_raw / 1e9, 2), # Already USD
                         "sbc_b": round(sbc_raw / 1e9, 2),
                         "fcf_margin_pct": f"{fcf_margin_v:.1f}%" if fcf_margin_v is not None else "N/A",
