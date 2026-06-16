@@ -108,6 +108,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     const el = document.querySelector(selector);
                     if (el) {
                         const clone = el.cloneNode(true);
+                        clone.removeAttribute('id');
+                        clone.querySelectorAll('[id]').forEach(child => child.removeAttribute('id'));
                         clone.style.margin = '0 0 30px 0';
                         clone.style.width = '100%';
                         clone.style.maxWidth = '100%';
