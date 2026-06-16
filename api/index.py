@@ -636,13 +636,31 @@ def get_recommended_exit_multiple(sector: str, industry: str) -> float:
 
     return 10.0
 
+def is_nan(val):
+    if isinstance(val, float) and math.isnan(val):
+        return True
+    try:
+        import pandas as pd
+        if pd.isna(val) and not isinstance(val, (str, list, dict)):
+            return True
+    except ImportError:
+        pass
+    return False
+
 def deep_clean_data(val):
     if isinstance(val, dict):
         return {k: deep_clean_data(v) for k, v in val.items()}
     if isinstance(val, list):
         return [deep_clean_data(v) for v in val]
+    if is_nan(val):
+        return None
     if hasattr(val, "item"): # Handle numpy scalars
-        return val.item()
+        try:
+            item_val = val.item()
+            if is_nan(item_val): return None
+            return item_val
+        except:
+            pass
     if isinstance(val, (int, float)):
         if not math.isfinite(val): return None
         return val
