@@ -637,12 +637,24 @@ def get_recommended_exit_multiple(sector: str, industry: str) -> float:
     return 10.0
 
 def deep_clean_data(val):
+    if type(val).__module__ == 'numpy':
+        import numpy as np
+        if isinstance(val, np.ndarray):
+            return [deep_clean_data(v) for v in val]
+        elif hasattr(val, 'item'):
+            try:
+                return val.item()
+            except Exception:
+                pass
     if isinstance(val, dict):
         return {k: deep_clean_data(v) for k, v in val.items()}
     if isinstance(val, list):
         return [deep_clean_data(v) for v in val]
-    if hasattr(val, "item"): # Handle numpy scalars
-        return val.item()
+    if hasattr(val, "item"): # Handle numpy scalars fallback
+        try:
+            return val.item()
+        except Exception:
+            pass
     if isinstance(val, (int, float)):
         if not math.isfinite(val): return None
         return val

@@ -7345,12 +7345,12 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             if (peers.length > 0) {
                 peerTableHTML = `
                     <h4 style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:10px;">Peer Benchmarks</h4>
-                    <div style="overflow-x:auto; margin-bottom:1.5rem;">
-                    <table class="premium-data-table" style="font-size:0.75rem;">
+                    <div style="width:100%; margin-bottom:1.5rem;">
+                    <table style="width:100%; border-collapse:collapse; font-size:0.65rem; table-layout:fixed;">
                         <thead>
                             <tr style="border-bottom:1px solid rgba(255,255,255,0.15);">
-                                <th style="text-align:left; padding:4px 2px; color:white; white-space:nowrap;">Ticker</th>
-                                ${activeKeys.map(k => `<th style="text-align:right; padding:4px 2px; color:white; white-space:nowrap;">${LABEL[k] || k}</th>`).join('')}
+                                <th style="text-align:left; padding:4px 0px; color:white; white-space:nowrap;">Ticker</th>
+                                ${activeKeys.map(k => `<th style="text-align:right; padding:4px 0px; color:white; white-space:nowrap;">${(LABEL[k] || k).replace('FWD ','')}</th>`).join('')}
                             </tr>
                         </thead>
                         <tbody>
@@ -7503,10 +7503,10 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 const implColor = safeImpl > 0 ? 'white' : 'var(--text-muted)';
                 breakdownRows += `
                         <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
-                            <td style="padding:8px 4px; color:var(--text-muted); font-weight:500; font-size:0.85rem; white-space:nowrap;">${LABEL[k]}</td>
-                            <td style="text-align:right; padding:8px 4px; color:var(--text-main); font-family:var(--font-mono); font-weight:500; font-size:0.85rem; white-space:nowrap;">${(bench || 0).toFixed(1)}x</td>
-                            <td style="text-align:right; padding:8px 4px; color:${safeImpl > 0 ? 'var(--text-main)' : 'var(--text-muted)'}; font-family:var(--font-mono); font-weight:600; font-size:0.85rem; white-space:nowrap;">${safeImpl > 0 ? '$' + fmt(safeImpl) : 'N/A'}</td>
-                            <td style="text-align:right; padding:8px 4px; color:var(--accent); font-family:var(--font-mono); font-weight:700; font-size:0.85rem; white-space:nowrap;" class="rel-weight-cell" data-key="${k}">${(w * 100).toFixed(0)}%</td>
+                            <td style="padding:4px 0px; color:var(--text-muted); font-weight:500; white-space:nowrap;">${(LABEL[k] || k).replace('FWD ','')}</td>
+                            <td style="text-align:right; padding:4px 0px; color:var(--text-main); font-family:var(--font-mono); font-weight:500; white-space:nowrap;">${(bench || 0).toFixed(1)}x</td>
+                            <td style="text-align:right; padding:4px 0px; color:${safeImpl > 0 ? 'var(--text-main)' : 'var(--text-muted)'}; font-family:var(--font-mono); font-weight:600; white-space:nowrap;">${safeImpl > 0 ? '$' + fmt(safeImpl) : 'N/A'}</td>
+                            <td style="text-align:right; padding:4px 0px; color:var(--accent); font-family:var(--font-mono); font-weight:700; white-space:nowrap;" class="rel-weight-cell" data-key="${k}">${(w * 100).toFixed(0)}%</td>
                         </tr>`;
             });
 
@@ -7525,14 +7525,14 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     ${peerTableHTML}
 
                     <h4 style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:10px;">Implied Values & Weights</h4>
-                    <div style="overflow-x:auto; width:100%; margin-bottom:1rem;">
-                        <table style="width:100%; border-collapse:collapse;">
+                    <div style="width:100%; margin-bottom:1rem;">
+                        <table style="width:100%; border-collapse:collapse; font-size:0.65rem; table-layout:fixed;">
                             <thead>
                                 <tr style="border-bottom:1px solid rgba(255,255,255,0.15);">
-                                    <th style="text-align:left; padding:8px 4px; color:var(--text-muted); font-size:0.8rem; font-weight:600; text-transform:uppercase; white-space:nowrap;">Metric</th>
-                                    <th style="text-align:right; padding:8px 4px; color:var(--text-muted); font-size:0.8rem; font-weight:600; text-transform:uppercase; white-space:nowrap;">Benchmark</th>
-                                    <th style="text-align:right; padding:8px 4px; color:var(--text-muted); font-size:0.8rem; font-weight:600; text-transform:uppercase; white-space:nowrap;">Implied FV</th>
-                                    <th style="text-align:right; padding:8px 4px; color:var(--text-muted); font-size:0.8rem; font-weight:600; text-transform:uppercase; white-space:nowrap;">Weight</th>
+                                    <th style="text-align:left; padding:4px 0px; color:var(--text-muted); font-weight:600; text-transform:uppercase; white-space:nowrap;">Metric</th>
+                                    <th style="text-align:right; padding:4px 0px; color:var(--text-muted); font-weight:600; text-transform:uppercase; white-space:nowrap;">Bench</th>
+                                    <th style="text-align:right; padding:4px 0px; color:var(--text-muted); font-weight:600; text-transform:uppercase; white-space:nowrap;">Fair Value</th>
+                                    <th style="text-align:right; padding:4px 0px; color:var(--text-muted); font-weight:600; text-transform:uppercase; white-space:nowrap;">Weight</th>
                                 </tr>
                             </thead>
                             <tbody>${breakdownRows}</tbody>
