@@ -408,7 +408,7 @@ if (themeToggleBtn) {
 
     // --- Analyst Tabs Logic ---
     document.addEventListener('click', (e) => {
-        const btn = e.target.closest('.analyst-tab-btn');
+        const btn = e.target.closest('.analyst-tab-btn, .ownership-tab-btn');
         if (!btn) return;
 
         const targetTab = btn.getAttribute('data-tab');
@@ -418,7 +418,7 @@ if (themeToggleBtn) {
         if (!card) return;
 
         // Update buttons within the same card
-        card.querySelectorAll('.analyst-tab-btn').forEach(b => b.classList.remove('active'));
+        card.querySelectorAll('.analyst-tab-btn, .ownership-tab-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
 
         // Update contents within the same card
@@ -8233,7 +8233,7 @@ window.cycleMobileCarousel = function(btnElement, direction, event) {
         contentArea.setAttribute('data-slide-dir', direction === 1 ? 'right' : 'left');
     }
     
-    let tabs = Array.from(card.querySelectorAll('.analyst-tab-btn'));
+    let tabs = Array.from(card.querySelectorAll('.analyst-tab-btn, .ownership-tab-btn'));
     if (!tabs.length) tabs = Array.from(card.querySelectorAll('.brief-tab'));
     if (!tabs.length) return;
     let activeIdx = tabs.findIndex(t => t.classList.contains('active'));
@@ -8279,7 +8279,7 @@ document.addEventListener('touchend', (e) => {
 
 window.refreshCarousels = function() {
     document.querySelectorAll('.research-card, .company-profile-box, #company-desc-card').forEach(card => {
-        let tabs = Array.from(card.querySelectorAll('.analyst-tab-btn'));
+        let tabs = Array.from(card.querySelectorAll('.analyst-tab-btn, .ownership-tab-btn'));
         if (!tabs.length) tabs = Array.from(card.querySelectorAll('.brief-tab'));
         if (!tabs.length) return;
         
@@ -8413,13 +8413,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Event Delegation for tab clicks to update indicators
 document.addEventListener('click', function(e) {
-    const btn = e.target.closest('.analyst-tab-btn, .hist-tab, .brief-tab');
+    const btn = e.target.closest('.analyst-tab-btn, .hist-tab, .brief-tab, .ownership-tab-btn');
     if (!btn) return;
     const card = btn.closest('.research-card') || btn.closest('.company-profile-box') || btn.closest('#company-desc-card');
     if (!card) return;
     
     setTimeout(() => { 
-        let tabs = Array.from(card.querySelectorAll('.analyst-tab-btn'));
+        let tabs = Array.from(card.querySelectorAll('.analyst-tab-btn, .ownership-tab-btn'));
         if (!tabs.length) tabs = Array.from(card.querySelectorAll('.brief-tab'));
         
         const activeIdx = tabs.findIndex(t => t.classList.contains('active'));
