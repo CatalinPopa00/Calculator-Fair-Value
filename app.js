@@ -8347,14 +8347,18 @@ document.addEventListener('DOMContentLoaded', () => {
         let isDragging = false;
         let startX = 0;
         let endX = 0;
+        let startY = 0;
+        let endY = 0;
 
         // Touch
         area.addEventListener('touchstart', e => {
             startX = e.changedTouches[0].screenX;
+            startY = e.changedTouches[0].screenY;
         }, {passive: true});
 
         area.addEventListener('touchend', e => {
             endX = e.changedTouches[0].screenX;
+            endY = e.changedTouches[0].screenY;
             handleSwipe(area, e.target);
         }, {passive: true});
 
@@ -8362,12 +8366,14 @@ document.addEventListener('DOMContentLoaded', () => {
         area.addEventListener('mousedown', e => {
             isDragging = true;
             startX = e.screenX;
+            startY = e.screenY;
         });
 
         area.addEventListener('mouseup', e => {
             if (!isDragging) return;
             isDragging = false;
             endX = e.screenX;
+            endY = e.screenY;
             handleSwipe(area, e.target);
         });
 
@@ -8375,17 +8381,22 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!isDragging) return;
             isDragging = false;
             endX = e.screenX;
+            endY = e.screenY;
             handleSwipe(area, e.target);
         });
 
         function handleSwipe(area, target) {
-            const threshold = 50; 
-            const diff = endX - startX;
+            const threshold = 70; // Increased threshold
+            const verticalTolerance = 50; // Prevent swipe if vertical scroll is dominant
+            const diffX = endX - startX;
+            const diffY = Math.abs(endY - startY);
+
+            if (diffY > verticalTolerance) return; // Cancel if scrolling vertically
             
             const card = area.closest('.research-card') || area.closest('.company-profile-box') || area.closest('#company-desc-card');
             if (!card) return;
             
-            if (diff > threshold) {
+            if (diffX > threshold) {
                 // Swipe Right (Prev)
                 if (target.closest('.ai-audit-section') || target.closest('#kpi-carousel-wrapper')) {
                     const prevBtn = document.getElementById('kpi-prev-btn');
@@ -8403,7 +8414,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     if (window.cycleMobileCarousel) window.cycleMobileCarousel({ closest: () => card }, -1);
                 }
-            } else if (diff < -threshold) {
+            } else if (diffX < -threshold) {
                 // Swipe Left (Next)
                 if (target.closest('.ai-audit-section') || target.closest('#kpi-carousel-wrapper')) {
                     const nextBtn = document.getElementById('kpi-next-btn');
