@@ -3,3 +3,5 @@ node_modules/
 myenv/
 venv/
 .env
+venv_linux/
+*.log
