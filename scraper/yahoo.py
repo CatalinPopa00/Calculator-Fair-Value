@@ -644,7 +644,7 @@ def get_nasdaq_historical_eps(ticker: str) -> list:
     """Fetch quarterly Adjusted (Non-GAAP) EPS from Nasdaq Surprise API."""
     try:
         data = get_nasdaq_surprise_data(ticker)
-        rows = data.get('data', {}).get('earningsSurpriseTable', {}).get('rows', [])
+        rows = (data.get('data') or {}).get('earningsSurpriseTable', {}).get('rows', [])
         result = []
         now = datetime.datetime.now()
         for row in rows:
@@ -738,7 +738,7 @@ def get_nasdaq_actual_eps(ticker: str) -> float:
     try:
         data = get_nasdaq_surprise_data(ticker)
         if data and data.get('data'):
-            rows = data['data'].get('earningsSurpriseTable', {}).get('rows', [])
+            rows = (data.get('data') or {}).get('earningsSurpriseTable', {}).get('rows', [])
             if rows:
                 total_eps = 0.0
                 count = 0
@@ -4147,7 +4147,7 @@ def get_nasdaq_earnings_surprise(ticker_symbol: str) -> list:
     """Fetches historical reported Non-GAAP EPS quarters from Nasdaq."""
     try:
         data = get_nasdaq_surprise_data(ticker_symbol)
-        return data.get('data', {}).get('earningsSurpriseTable', {}).get('rows', [])
+        return (data.get('data') or {}).get('earningsSurpriseTable', {}).get('rows', [])
     except Exception as e:
         print(f"DEBUG: Nasdaq Surprise fetch fail for {ticker_symbol}: {e}")
         return []
