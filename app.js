@@ -7080,13 +7080,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             return prefix + v.toLocaleString();
         };
 
-        const row = (label, value, isResult = false) => `
-            <div style="display:flex; justify-content:space-between; align-items:center; padding:${isResult ? '18px 0' : '14px 0'}; border-bottom:1px solid rgba(255,255,255,0.05); gap:15px;">
-                <span style="color:var(--text-muted); white-space:nowrap; font-size:${isResult ? '1rem' : '0.95rem'};">${label}</span>
-                <span style="font-weight:${isResult ? '800' : '600'}; color:${isResult ? 'var(--accent)' : 'white'}; font-size:${isResult ? '1.15rem' : '0.95rem'}; text-align:right;">${value}</span>
-            </div>`;
-        const sectionHeader = (title) => `<h4 style="margin: 24px 0 12px 0; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 5px;">${title}</h4>`;
-
+        const row = (label, value) => `<div style="display:flex; justify-content:space-between; padding:12px 0; border-bottom:1px solid rgba(255,255,255,0.05);"><span style="color:var(--text-muted);">${label}</span><span style="font-weight:600;">${value}</span></div>`;
 
         if (model === 'dcf' && currentFormulaData.dcf) {
             const d = currentFormulaData.dcf;
@@ -7494,10 +7488,10 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 const implColor = safeImpl > 0 ? 'white' : 'var(--text-muted)';
                 breakdownRows += `
                         <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
-                            <td style="padding:4px 2px; color:var(--text-main); white-space:nowrap;">${LABEL[k]}</td>
-                            <td style="text-align:right; padding:4px 2px; color:var(--text-main); white-space:nowrap;">${(bench || 0).toFixed(1)}x</td>
-                            <td style="text-align:right; padding:4px 2px; color:${implColor}; font-weight:600; white-space:nowrap;">${safeImpl > 0 ? '$' + fmt(safeImpl) : 'N/A'}</td>
-                            <td style="text-align:right; padding:4px 2px; color:var(--accent); font-weight:700; white-space:nowrap;" class="rel-weight-cell" data-key="${k}">${(w * 100).toFixed(0)}%</td>
+                            <td style="padding:8px 4px; color:var(--text-muted); font-weight:500; font-size:0.85rem; white-space:nowrap;">${LABEL[k]}</td>
+                            <td style="text-align:right; padding:8px 4px; color:var(--text-main); font-family:var(--font-mono); font-weight:500; font-size:0.85rem; white-space:nowrap;">${(bench || 0).toFixed(1)}x</td>
+                            <td style="text-align:right; padding:8px 4px; color:${safeImpl > 0 ? 'var(--text-main)' : 'var(--text-muted)'}; font-family:var(--font-mono); font-weight:600; font-size:0.85rem; white-space:nowrap;">${safeImpl > 0 ? '$' + fmt(safeImpl) : 'N/A'}</td>
+                            <td style="text-align:right; padding:8px 4px; color:var(--accent); font-family:var(--font-mono); font-weight:700; font-size:0.85rem; white-space:nowrap;" class="rel-weight-cell" data-key="${k}">${(w * 100).toFixed(0)}%</td>
                         </tr>`;
             });
 
@@ -7516,13 +7510,13 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     ${peerTableHTML}
 
                     <h4 style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:10px;">Implied Values & Weights</h4>
-                    <table style="width:100%; border-collapse:collapse; font-size:0.65rem; margin-bottom:1rem;">
+                    <table style="width:100%; border-collapse:collapse; margin-bottom:1rem;">
                         <thead>
                             <tr style="border-bottom:1px solid rgba(255,255,255,0.15);">
-                                <th style="text-align:left; padding:4px 2px; color:white; white-space:nowrap;">Metric</th>
-                                <th style="text-align:right; padding:4px 2px; color:white; white-space:nowrap;">Benchmark</th>
-                                <th style="text-align:right; padding:4px 2px; color:white; white-space:nowrap;">Implied FV</th>
-                                <th style="text-align:right; padding:4px 2px; color:white; white-space:nowrap;">Weight</th>
+                                <th style="text-align:left; padding:8px 4px; color:var(--text-muted); font-size:0.8rem; font-weight:600; text-transform:uppercase; white-space:nowrap;">Metric</th>
+                                <th style="text-align:right; padding:8px 4px; color:var(--text-muted); font-size:0.8rem; font-weight:600; text-transform:uppercase; white-space:nowrap;">Benchmark</th>
+                                <th style="text-align:right; padding:8px 4px; color:var(--text-muted); font-size:0.8rem; font-weight:600; text-transform:uppercase; white-space:nowrap;">Implied FV</th>
+                                <th style="text-align:right; padding:8px 4px; color:var(--text-muted); font-size:0.8rem; font-weight:600; text-transform:uppercase; white-space:nowrap;">Weight</th>
                             </tr>
                         </thead>
                         <tbody>${breakdownRows}</tbody>
@@ -7543,21 +7537,18 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         } else if (model === 'peter_lynch' && currentFormulaData.peter_lynch) {
             const p = currentFormulaData.peter_lynch;
             const prof = globalData.company_profile || {};
-            title.textContent = '📊 Forward Multiple Valuation';
+            title.textContent = '📊 Forward Multiple — Data Transparency';
             const epsLabel = p.valuation_eps !== p.trailing_eps ? 'EPS Base (Normalized)' : 'Trailing EPS (GAAP)';
-            html = sectionHeader('Earnings Projection')
-                + row(epsLabel, '$' + fmt(p.valuation_eps || p.trailing_eps))
+            html = row(epsLabel, '$' + fmt(p.valuation_eps || p.trailing_eps))
                 + row('Growth Estimate', fmtPct(p.dynamic_growth != null ? p.dynamic_growth : p.eps_growth_estimated))
                 + row('Forward EPS (3Y Projection)', '$' + fmt(p.dynamic_fwd_eps != null ? p.dynamic_fwd_eps : p.fwd_eps))
-                + sectionHeader('Valuation Multiples')
                 + row('5Y Avg P/E', prof.historic_pe ? prof.historic_pe.toFixed(2) + 'x' : 'N/A')
                 + row(`Return Rate (Discount)`, p.dynamic_discount != null ? fmtPct(p.dynamic_discount) : '15.0%')
-                + sectionHeader('Valuation Output')
-                + row(`Fair Value (PE ${p.dynamic_mult != null ? (Number.isInteger(p.dynamic_mult) ? p.dynamic_mult : p.dynamic_mult.toFixed(2)) : 20})`, '$' + fmt(p.dynamic_fv != null ? p.dynamic_fv : p.fair_value_pe_20), true);
+                + row(`Fair Value (PE ${p.dynamic_mult != null ? (Number.isInteger(p.dynamic_mult) ? p.dynamic_mult : p.dynamic_mult.toFixed(2)) : 20})`, '$' + fmt(p.dynamic_fv != null ? p.dynamic_fv : p.fair_value_pe_20));
         } else if (model === 'peg' && currentFormulaData.peg) {
             const g = currentFormulaData.peg;
             const prof = globalData.company_profile || {};
-            title.textContent = '📊 PEG Ratio Valuation';
+            title.textContent = '📊 PEG Valuation — Data Transparency';
             const periodLabel = g.eps_growth_period || '2Y EPS CAGR';
             const displayPe = g.dynamic_pe != null ? g.dynamic_pe : g.current_pe;
             const epsTypeLabel = prof.peg_eps_type === 'GAAP' ? '(GAAP)' : '(Non-GAAP)';
@@ -7569,15 +7560,12 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 peLabel = 'P/E FWD';
             }
 
-            html = sectionHeader('Current Metrics')
-                + row(peLabel, displayPe ? displayPe.toFixed(2) + 'x' : 'N/A')
+            html = row(peLabel, displayPe ? displayPe.toFixed(2) + 'x' : 'N/A')
                 + row('Growth Estimate', fmtPct(g.dynamic_growth != null ? g.dynamic_growth : g.eps_growth_estimated))
                 + row('Current PEG', g.dynamic_peg ? g.dynamic_peg.toFixed(2) + 'x' : (g.current_peg ? g.current_peg.toFixed(2) + 'x' : 'N/A'))
-                + sectionHeader('Valuation Target')
                 + row('Industry PEG', g.industry_peg ? g.industry_peg.toFixed(2) + 'x' : 'N/A')
-                + sectionHeader('Valuation Output')
-                + row('Fair Value', '$' + fmt(g.dynamic_fv != null ? g.dynamic_fv : g.fair_value), true)
-                + row('Margin of Safety', (() => { const cp = globalData.current_price; const fv = (g.dynamic_fv != null ? g.dynamic_fv : g.fair_value); if (fv != null && cp > 0) { const mos = (fv - cp) / cp; return fmtPct(mos); } return 'N/A'; })(), true);
+                + row('Fair Value', '$' + fmt(g.dynamic_fv != null ? g.dynamic_fv : g.fair_value))
+                + row('Margin of Safety', (() => { const cp = globalData.current_price; const fv = (g.dynamic_fv != null ? g.dynamic_fv : g.fair_value); if (fv != null && cp > 0) { const mos = (fv - cp) / cp; return fmtPct(mos); } return 'N/A'; })());
         } else {
             title.textContent = 'Data Transparency';
             html = '<p style="color:var(--text-muted);">No data available for this model.</p>';
@@ -7781,7 +7769,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         if (!modal || !body) return;
 
         if (!beneishData || beneishData.m_score == null || !beneishData.breakdown || beneishData.breakdown.length === 0) {
-            if (titleEl) titleEl.textContent = 'Beneish M-Score';
+            if (titleEl) titleEl.textContent = '';
             body.innerHTML = '<p style="color:var(--text-muted);">No Beneish data available for this ticker.</p>';
             modal.style.display = 'flex';
             return;
@@ -7833,7 +7821,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         if (!modal || !body) return;
 
         if (!breakdown || breakdown.length === 0) {
-            if (titleEl) titleEl.textContent = 'Piotroski F-Score';
+            if (titleEl) titleEl.textContent = '';
             body.innerHTML = '<p style="color:var(--text-muted);">No Piotroski data available for this ticker.</p>';
             modal.style.display = 'flex';
             return;
