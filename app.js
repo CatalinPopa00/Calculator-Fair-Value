@@ -7525,14 +7525,14 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     ${peerTableHTML}
 
                     <h4 style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:10px;">Implied Values & Weights</h4>
-                    <div style="overflow-x:auto; width:100%; margin-bottom:1rem;">
-                        <table style="width:100%; border-collapse:collapse;">
+                    <div style="width:100%; margin-bottom:1rem;">
+                        <table style="width:100%; border-collapse:collapse; font-size:0.65rem; table-layout:fixed;">
                             <thead>
                                 <tr style="border-bottom:1px solid rgba(255,255,255,0.15);">
-                                    <th style="text-align:left; padding:8px 4px; color:var(--text-muted); font-size:0.8rem; font-weight:600; text-transform:uppercase; white-space:nowrap;">Metric</th>
-                                    <th style="text-align:right; padding:8px 4px; color:var(--text-muted); font-size:0.8rem; font-weight:600; text-transform:uppercase; white-space:nowrap;">Benchmark</th>
-                                    <th style="text-align:right; padding:8px 4px; color:var(--text-muted); font-size:0.8rem; font-weight:600; text-transform:uppercase; white-space:nowrap;">Implied FV</th>
-                                    <th style="text-align:right; padding:8px 4px; color:var(--text-muted); font-size:0.8rem; font-weight:600; text-transform:uppercase; white-space:nowrap;">Weight</th>
+                                    <th style="text-align:left; padding:4px 0px; color:var(--text-muted); font-weight:600; text-transform:uppercase; white-space:nowrap;">Metric</th>
+                                    <th style="text-align:right; padding:4px 0px; color:var(--text-muted); font-weight:600; text-transform:uppercase; white-space:nowrap;">Bench</th>
+                                    <th style="text-align:right; padding:4px 0px; color:var(--text-muted); font-weight:600; text-transform:uppercase; white-space:nowrap;">Fair Value</th>
+                                    <th style="text-align:right; padding:4px 0px; color:var(--text-muted); font-weight:600; text-transform:uppercase; white-space:nowrap;">Weight</th>
                                 </tr>
                             </thead>
                             <tbody>${breakdownRows}</tbody>
