@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const ind = p.industry || 'N/A';
                 const name = p.companyName || d.ticker || 'Company';
                 const ticker = d.ticker || 'N/A';
-                const logoHtml = p.logo ? `<img src="${p.logo}" style="width: 48px; height: 48px; border-radius: 50%; object-fit: contain; background: white; padding: 4px;" crossorigin="anonymous">` : `<div style="width: 48px; height: 48px; border-radius: 50%; background: var(--primary); display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 20px;">${ticker.charAt(0)}</div>`;
+                const logoHtml = p.logo ? `<img src="${p.logo}" style="width: 42px; height: 42px; border-radius: 50%; object-fit: contain; background: white; padding: 4px;" crossorigin="anonymous">` : `<div style="width: 42px; height: 42px; border-radius: 50%; background: var(--primary); display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px;">${ticker.charAt(0)}</div>`;
 
                 const scenarioBtns = Array.from(document.querySelectorAll('.scenario-btn:not(.custom-scenarios-btn)'));
                 const activeBtn = document.querySelector('.scenario-btn.active:not(.custom-scenarios-btn)');
@@ -64,24 +64,64 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 const getVal = (id) => document.getElementById(id) ? document.getElementById(id).value : '';
                 
-                // Helper to extract SWOT
-                const getSwotBlock = (titleKeyword) => {
-                    const headings = Array.from(document.querySelectorAll('#company-desc-card h4, .panel h4'));
-                    const h4 = headings.find(el => el.textContent.toUpperCase().includes(titleKeyword));
-                    if (h4 && h4.parentElement) {
-                        return h4.parentElement.innerHTML;
-                    }
-                    return `<h4 style="color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin-top: 0; margin-bottom: 10px; font-weight: 800;">${titleKeyword}</h4><p style="color: rgba(255,255,255,0.5); font-size: 0.8rem; font-style:italic;">Not available.</p>`;
-                };
+                // Extract SWOT from raw text to ensure it's captured even if the tab wasn't opened
+                let strengthsText = '<p style="color: rgba(255,255,255,0.5); font-size: 0.8rem; font-style:italic;">Not available.</p>';
+                let risksText = '<p style="color: rgba(255,255,255,0.5); font-size: 0.8rem; font-style:italic;">Not available.</p>';
+                let watchoutsText = '<p style="color: rgba(255,255,255,0.5); font-size: 0.8rem; font-style:italic;">Not available.</p>';
 
-                const strengthsHtml = getSwotBlock('STRATEGIC STRENGTHS');
-                const risksHtml = getSwotBlock('VULNERABILITIES & RISKS');
-                const keyPointsHtml = getSwotBlock('KEY POINTS');
+                if (d.company_overview_synthesis) {
+                    const lines = d.company_overview_synthesis.split('\n');
+                    let currentSection = '';
+                    let strengths = [];
+                    let risks = [];
+                    let watchouts = [];
+
+                    for (let line of lines) {
+                        line = line.trim();
+                        if (!line) continue;
+                        
+                        const upperLine = line.toUpperCase();
+                        if (upperLine.includes('STRATEGIC STRENGTHS') || upperLine.includes('PUNCTE FORTE STRATEGICE')) {
+                            currentSection = 'strengths';
+                            continue;
+                        } else if (upperLine.includes('VULNERABILITIES & RISKS') || upperLine.includes('VULNERABILITĂȚI ȘI RISCURI')) {
+                            currentSection = 'risks';
+                            continue;
+                        } else if (upperLine.includes('LATEST MARKET INTELLIGENCE') || upperLine.includes('ULTIMELE INFORMAȚII DE PIAȚĂ') || upperLine.includes('KEY POINTS')) {
+                            currentSection = 'watchouts';
+                            continue;
+                        } else if (upperLine.includes('VALUATION SYNOPSIS') || upperLine.includes('SINOPSIS DE EVALUARE')) {
+                            currentSection = 'valuation';
+                            continue;
+                        }
+
+                        if (line.startsWith('-') || line.startsWith('*')) {
+                            const val = line.replace(/^[-*]\s*/, '');
+                            if (currentSection === 'strengths') strengths.push(val);
+                            else if (currentSection === 'risks') risks.push(val);
+                            else if (currentSection === 'watchouts') watchouts.push(val);
+                        }
+                    }
+
+                    if (strengths.length > 0) {
+                        strengthsText = '<ul style="margin:0; padding-left: 20px;">' + strengths.map(l => `<li style="margin-bottom:12px; line-height: 1.4; color: #f8fafc;">${l}</li>`).join('') + '</ul>';
+                    }
+                    if (risks.length > 0) {
+                        risksText = '<ul style="margin:0; padding-left: 20px;">' + risks.map(l => `<li style="margin-bottom:12px; line-height: 1.4; color: #f8fafc;">${l}</li>`).join('') + '</ul>';
+                    }
+                    if (watchouts.length > 0) {
+                        watchoutsText = '<ul style="margin:0; padding-left: 20px;">' + watchouts.map(l => `<li style="margin-bottom:12px; line-height: 1.4; color: #f8fafc;">${l}</li>`).join('') + '</ul>';
+                    }
+                }
+                
+                const strengthsHtml = `<h4 style="color: #10b981; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin-top: 0; margin-bottom: 15px; font-weight: 800;">Strategic Strengths</h4>${strengthsText}`;
+                const risksHtml = `<h4 style="color: #ef4444; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin-top: 0; margin-bottom: 15px; font-weight: 800;">Vulnerabilities & Risks</h4>${risksText}`;
+                const keyPointsHtml = `<h4 style="color: #fbbf24; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin-top: 0; margin-bottom: 15px; font-weight: 800;">Key Points from Latest Reports</h4>${watchoutsText}`;
 
                 const container = document.createElement('div');
                 container.id = 'pdf-export-temp-container';
                 container.style.width = '1200px';
-                container.style.background = '#0f172a'; // Match body bg
+                container.style.background = '#0f172a';
                 container.style.color = '#f8fafc';
                 container.style.fontFamily = "'Outfit', sans-serif";
                 container.style.padding = '40px';
@@ -96,14 +136,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Layout Building
                 container.innerHTML = `
-                    <!-- Header -->
-                    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px;">
-                        <div style="display: flex; align-items: center; gap: 15px;">
-                            ${logoHtml}
-                            <div>
-                                <h2 style="margin: 0; font-size: 2rem; font-weight: 800;">${name} <span style="color: #94a3b8; font-weight: 400; font-size: 1.5rem;">${ticker}</span></h2>
-                            </div>
-                        </div>
+                    <!-- Top Header Info -->
+                    <div style="display: flex; justify-content: flex-end; align-items: flex-end; margin-bottom: 10px;">
                         <div style="text-align: right; color: #94a3b8; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px;">
                             <div style="margin-bottom: 4px;">INDUSTRY</div>
                             <div style="color: #f8fafc; font-weight: 600; font-size: 1.1rem; margin-bottom: 12px;">${ind}</div>
@@ -114,8 +148,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     <!-- Price & Scenarios -->
                     <div style="display: flex; gap: 20px; margin-bottom: 20px; align-items: stretch;">
-                        <div style="${cardStyle} padding: 25px; min-width: 200px;">
-                            <div style="font-size: 0.9rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">CURRENT PRICE</div>
+                        <div style="${cardStyle} padding: 25px; min-width: 250px; display: flex; flex-direction: column; justify-content: center;">
+                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px;">
+                                ${logoHtml}
+                                <div style="display: flex; flex-direction: column;">
+                                    <div style="font-size: 1.6rem; font-weight: 800; line-height: 1.1;">${name}</div>
+                                    <div style="color: #94a3b8; font-weight: 500; font-size: 1rem;">${ticker}</div>
+                                </div>
+                            </div>
+                            <div style="font-size: 0.8rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">CURRENT PRICE</div>
                             <div style="font-size: 2.8rem; font-weight: 800;">$${price}</div>
                         </div>
                         <div style="${cardStyle} flex: 1; display: flex; padding: 20px; justify-content: space-between; align-items: center;">
@@ -151,13 +192,13 @@ document.addEventListener('DOMContentLoaded', () => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr><td style="text-align:left; padding:8px 0; color: #94a3b8;">Rev. Growth (%)</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-rev-growth-bear')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-rev-growth-base')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-rev-growth-bull')}</td></tr>
+                                    <tr><td style="text-align:left; padding:8px 0; color: #94a3b8;">Rev. Growth (%)</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-rev-1-3-bear')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-rev-1-3-base')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-rev-1-3-bull')}</td></tr>
                                     <tr><td style="text-align:left; padding:8px 0; color: #94a3b8;">FCF Margin (%)</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-fcf-margin-bear')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-fcf-margin-base')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-fcf-margin-bull')}</td></tr>
                                     <tr><td style="text-align:left; padding:8px 0; color: #94a3b8;">WACC (%)</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-wacc-bear')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-wacc-base')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-wacc-bull')}</td></tr>
-                                    <tr><td style="text-align:left; padding:8px 0; color: #94a3b8;">Exit Multiple (x)</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-exit-multiple-bear')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-exit-multiple-base')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-exit-multiple-bull')}</td></tr>
-                                    <tr><td style="text-align:left; padding:8px 0; color: #94a3b8;">Perpetual Gr. (%)</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-perpetual-growth-bear')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-perpetual-growth-base')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-perpetual-growth-bull')}</td></tr>
-                                    <tr><td style="text-align:left; padding:8px 0; color: #94a3b8;">EPS Growth (%)</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-eps-growth-bear')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-eps-growth-base')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-eps-growth-bull')}</td></tr>
-                                    <tr><td style="text-align:left; padding:8px 0; color: #94a3b8;">Forward P/E 3y</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-forward-pe-bear')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-forward-pe-base')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-forward-pe-bull')}</td></tr>
+                                    <tr><td style="text-align:left; padding:8px 0; color: #94a3b8;">Exit Multiple (x)</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-exit-bear')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-exit-base')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-exit-bull')}</td></tr>
+                                    <tr><td style="text-align:left; padding:8px 0; color: #94a3b8;">Perpetual Gr. (%)</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-perp-bear')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-perp-base')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-perp-bull')}</td></tr>
+                                    <tr><td style="text-align:left; padding:8px 0; color: #94a3b8;">EPS Growth (%)</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-eps-bear')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-eps-base')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-eps-bull')}</td></tr>
+                                    <tr><td style="text-align:left; padding:8px 0; color: #94a3b8;">Forward P/E 3y</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-pe-bear')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-pe-base')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-pe-bull')}</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -166,7 +207,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <!-- Valuation Models -->
                     <div style="display: flex; gap: 10px; margin-bottom: 20px; align-items: stretch;" id="pdf-methods-container">
                         <!-- Clones go here -->
-                        <div id="pdf-weights-container" style="${cardStyle} flex: 0.8; padding: 15px; font-size: 0.85rem; display: flex; flex-direction: column; justify-content: center;">
+                        <div id="pdf-weights-container" style="${cardStyle} flex: 1; padding: 15px; font-size: 0.85rem; display: flex; flex-direction: column; justify-content: center;">
                             <div style="text-align: center; font-weight: 600; margin-bottom: 10px; color: #94a3b8;">Model Weights (%)</div>
                             <div style="display: flex; justify-content: space-between; margin-bottom: 5px;"><span>DCF Model</span> <span style="background:rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px;">${weights.dcf}</span></div>
                             <div style="display: flex; justify-content: space-between; margin-bottom: 5px;"><span>Rel Valuation</span> <span style="background:rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px;">${weights.relative}</span></div>
@@ -227,7 +268,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     scoresClone.style.background = 'transparent';
                     scoresClone.style.border = 'none';
                     scoresClone.style.boxShadow = 'none';
-                    scoresClone.style.padding = '20px';
+                    scoresClone.style.padding = '15px';
+                    
+                    // Remove top strengths & risk factors from the score panel
+                    const rightPanel = scoresClone.querySelector('.scores-right-panel') || scoresClone.querySelector('.strengths-risks-container');
+                    if (rightPanel) rightPanel.remove();
+                    
+                    const leftPanel = scoresClone.querySelector('.scores-column');
+                    if (leftPanel) {
+                        leftPanel.style.width = '100%';
+                        leftPanel.style.borderRight = 'none';
+                        leftPanel.style.paddingRight = '0';
+                    }
                 }
 
                 // Append Models (Left 2, then Weights, then Right 2)
@@ -245,6 +297,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         c.style.background = 'rgba(30, 41, 59, 1)';
                         c.classList.remove('collapsed');
                         c.style.height = '100%';
+                        c.style.padding = '15px';
+                        
+                        const detailsBtn = c.querySelector('.details-toggle-btn');
+                        if (detailsBtn) detailsBtn.remove();
+                        const viewDataBtn = c.querySelector('.view-data-btn');
+                        if (viewDataBtn) viewDataBtn.remove();
+
                         const body = c.querySelector('.card-body-collapsible');
                         if (body) {
                             body.style.maxHeight = 'none';
@@ -255,7 +314,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
 
                 // Generate KPI Charts
-                const kpiAuditCache = localStorage.getItem('kpiAudit_' + ticker);
+                const kpiAuditCache = localStorage.getItem('kpiAudit_' + ticker) || localStorage.getItem('kpiAudit' + ticker);
                 if (kpiAuditCache) {
                     try {
                         const kpiData = JSON.parse(kpiAuditCache);
@@ -263,7 +322,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             const kpiContainer = document.getElementById('pdf-kpi-container');
                             kpiData.kpis.forEach((kpi, index) => {
                                 const chartDiv = document.createElement('div');
-                                chartDiv.style.cssText = cardStyle + ' padding: 25px; margin-bottom: 20px;';
+                                chartDiv.style.cssText = cardStyle + ' padding: 25px; margin-bottom: 20px; page-break-inside: avoid;';
                                 
                                 const descDiv = document.createElement('div');
                                 descDiv.style.marginBottom = '15px';
