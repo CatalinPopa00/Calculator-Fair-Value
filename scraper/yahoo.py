@@ -3143,6 +3143,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
 
                     r_raw = historical_data["revenue"][i]
                     e_raw = historical_data["diluted_eps"][i] if "diluted_eps" in historical_data else historical_data["eps"][i]
+                    e_adj_raw = historical_data["eps"][i]
                     f_raw = historical_data["fcf"][i]
                     sbc_raw = historical_data.get("sbc", [])[i] if "sbc" in historical_data and i < len(historical_data["sbc"]) else 0
                     s_raw = historical_data["shares"][i]
@@ -3238,7 +3239,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                     historical_anchors.append({
                         "year": yr_label,
                         "revenue_b": round(r_raw / 1e9, 2), # Already USD
-                        "eps": round(e_raw, 2), "eps_adj": round(historical_data["eps"][i], 2),
+                        "eps": round(e_raw, 2) if e_raw is not None else None,
+                        "eps_adj": round(e_adj_raw, 2) if e_adj_raw is not None else None,
                         "fcf_b": round(f_raw / 1e9, 2), # Already USD
                         "sbc_b": round(sbc_raw / 1e9, 2),
                         "fcf_margin_pct": f"{fcf_margin_v:.1f}%" if fcf_margin_v is not None else "N/A",
