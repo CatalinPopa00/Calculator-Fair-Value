@@ -8410,7 +8410,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (diffX > threshold) {
                 // Swipe Right (Prev)
-                if (target.closest('.ai-audit-section') || target.closest('#kpi-carousel-wrapper')) {
+                if (target.closest('.ai-audit-section') || target.closest('#kpi-carousel-container')) {
                     const prevBtn = document.getElementById('kpi-prev-btn');
                     if (prevBtn) prevBtn.click();
 
@@ -8424,7 +8424,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } else if (diffX < -threshold) {
                 // Swipe Left (Next)
-                if (target.closest('.ai-audit-section') || target.closest('#kpi-carousel-wrapper')) {
+                if (target.closest('.ai-audit-section') || target.closest('#kpi-carousel-container')) {
                     const nextBtn = document.getElementById('kpi-next-btn');
                     if (nextBtn) nextBtn.click();
 
@@ -8440,7 +8440,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    document.querySelectorAll('.analyst-content-area, #profile-body, #kpi-carousel-wrapper').forEach(area => {
+    document.querySelectorAll('.analyst-content-area, #profile-body, #kpi-carousel-container, .ai-audit-section').forEach(area => {
         window.attachSwipeSupport(area);
     });
 });
