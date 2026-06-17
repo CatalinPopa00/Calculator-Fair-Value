@@ -4452,12 +4452,12 @@ body.has-searched #install-app-btn {
         row-gap: 15px;
     }
     .header-grid .center-col {
-        justify-content: flex-start;
+        justify-content: center;
         margin: 0;
     }
     .header-grid .center-col .text-wrapper {
-        align-items: flex-start;
-        text-align: left;
+        align-items: center;
+        text-align: center;
     }
     .header-grid .center-col h2 {
         white-space: nowrap;

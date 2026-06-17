@@ -4267,7 +4267,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 if (!rfBanner) {
                     rfBanner = document.createElement('div');
                     rfBanner.id = 'red-flags-banner';
-                    rfBanner.style.cssText = 'background: rgba(239, 68, 68, 0.1); border: 1px solid var(--danger); padding: 8px 12px; border-radius: 8px; margin-top: 12px; margin-bottom: 15px; width: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: center;';
+                    rfBanner.style.cssText = 'grid-column: 1 / -1; background: rgba(239, 68, 68, 0.1); border: 1px solid var(--danger); padding: 8px 12px; border-radius: 8px; margin-top: 12px; margin-bottom: 15px; width: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: center;';
                     priceDisplaySection.insertAdjacentElement('afterend', rfBanner);
                 }
                 rfBanner.innerHTML = data.red_flags.map(f => `<div style="color: var(--danger); font-weight: bold; font-size: 0.8em; margin: 0; line-height: 1.2; text-align: center;">${f}</div>`).join('');
