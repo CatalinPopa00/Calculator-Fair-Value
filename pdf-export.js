@@ -44,36 +44,45 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 let base64Logo = null;
                 if (logoUrl) {
-                    const fetchImage = (url) => {
-                        return new Promise((resolve, reject) => {
-                            const img = new Image();
-                            img.crossOrigin = 'anonymous';
-                            img.onload = () => resolve(img);
-                            img.onerror = reject;
-                            setTimeout(reject, 2000);
-                            img.src = url;
-                        });
+                    const fetchImageAsBase64 = async (url) => {
+                        const blobToBase64 = (blob) => {
+                            return new Promise((resolve, reject) => {
+                                const reader = new FileReader();
+                                reader.onloadend = () => resolve(reader.result);
+                                reader.onerror = reject;
+                                reader.readAsDataURL(blob);
+                            });
+                        };
+
+                        try {
+                            const response = await fetch(url);
+                            if (!response.ok) throw new Error('Direct fetch failed');
+                            const blob = await response.blob();
+                            return await blobToBase64(blob);
+                        } catch (err) {
+                            console.log('Direct logo fetch failed, trying proxies...', err);
+                            const proxies = [
+                                `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+                                `https://corsproxy.io/?${encodeURIComponent(url)}`
+                            ];
+                            for (let proxy of proxies) {
+                                try {
+                                    const pRes = await fetch(proxy);
+                                    if (!pRes.ok) continue;
+                                    const pBlob = await pRes.blob();
+                                    return await blobToBase64(pBlob);
+                                } catch (e) {
+                                    console.log('Proxy failed: ' + proxy);
+                                }
+                            }
+                            throw new Error('All logo fetch attempts failed');
+                        }
                     };
 
                     try {
-                        // Attempt direct load first, then allorigins proxy
-                        let img;
-                        try {
-                            img = await fetchImage(logoUrl);
-                        } catch (e1) {
-                            console.log('Direct logo fetch failed, trying proxy...', e1);
-                            img = await fetchImage(`https://api.allorigins.win/raw?url=${encodeURIComponent(logoUrl)}`);
-                        }
-
-                        if (img) {
-                            const canvas = document.createElement('canvas');
-                            canvas.width = img.width;
-                            canvas.height = img.height;
-                            canvas.getContext('2d').drawImage(img, 0, 0);
-                            base64Logo = canvas.toDataURL('image/png');
-                        }
+                        base64Logo = await fetchImageAsBase64(logoUrl);
                     } catch (e) {
-                        console.log('Failed to proxy logo', e);
+                        console.log('Failed to fetch logo as base64', e);
                     }
                 }
 
@@ -495,7 +504,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 window.scrollTo(0, 0);
 
                 // Wait for layout/charts to render
-                await new Promise(r => setTimeout(r, 1200));
+                await new Promise(r => setTimeout(r, 3500));
 
                 const canvas1 = await html2canvas(container1, {
                     scale: 2,
@@ -505,6 +514,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     scrollX: 0,
                     width: 1200,
                     windowWidth: 1200,
+                    height: container1.scrollHeight,
+                    windowHeight: container1.scrollHeight,
                     backgroundColor: '#0f172a'
                 });
 
@@ -516,6 +527,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     scrollX: 0,
                     width: 1200,
                     windowWidth: 1200,
+                    height: container2.scrollHeight,
+                    windowHeight: container2.scrollHeight,
                     backgroundColor: '#0f172a'
                 });
 
