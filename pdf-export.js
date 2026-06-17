@@ -33,14 +33,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 const ind = p.industry || 'N/A';
                 const name = d.name || p.companyName || p.name || d.ticker || 'Company';
                 const ticker = d.ticker || 'N/A';
-                let logoUrl = p.image || p.logo;
-                if (!logoUrl && d.website) {
-                    let domain = d.website.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
-                    if (domain) {
-                        logoUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent('https://www.google.com/s2/favicons?domain=' + domain + '&sz=128')}`;
-                    }
+                
+                let logoUrl = '';
+                const logoEl = document.getElementById('company-logo');
+                if (logoEl && logoEl.src && logoEl.src.startsWith('http') && logoEl.style.display !== 'none') {
+                    logoUrl = logoEl.src;
+                } else if (p.image || p.logo) {
+                    logoUrl = p.image || p.logo;
                 }
+                
+                if (logoUrl) {
+                    logoUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(logoUrl)}`;
+                }
+
                 const logoHtml = logoUrl ? `<img src="${logoUrl}" style="width: 42px; height: 42px; border-radius: 50%; object-fit: contain; background: white; padding: 4px;" crossorigin="anonymous">` : `<div style="width: 42px; height: 42px; border-radius: 50%; background: #3b82f6; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px; color: white;">${ticker.charAt(0)}</div>`;
+
+                // Capture current widths of score bars before scenario switch resets them
+                const originalWidths = [];
+                const row2Card = document.querySelector('.row-2-card');
+                if (row2Card) {
+                    row2Card.querySelectorAll('.score-bar-fill').forEach(fill => {
+                        originalWidths.push(fill.style.width);
+                    });
+                }
 
                 const scenarioBtns = Array.from(document.querySelectorAll('.scenario-btn:not(.custom-scenarios-btn)'));
                 const activeBtn = document.querySelector('.scenario-btn.active:not(.custom-scenarios-btn)');
@@ -259,6 +274,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Append Scores
                 const scoresClone = appendCloned('.row-2-card', 'pdf-scores-container');
                 if (scoresClone) {
+                    scoresClone.querySelectorAll('.score-bar-fill').forEach((fill, index) => {
+                        if (originalWidths[index] !== undefined) {
+                            fill.style.width = originalWidths[index];
+                            fill.style.transition = 'none'; // Ensure html2canvas captures it immediately
+                        }
+                    });
+                    
                     scoresClone.style.background = 'transparent';
                     scoresClone.style.border = 'none';
                     scoresClone.style.boxShadow = 'none';
@@ -326,10 +348,25 @@ document.addEventListener('DOMContentLoaded', () => {
                         c.style.border = '1px solid rgba(255,255,255,0.05)';
                         c.style.boxShadow = 'none';
                         c.style.borderRadius = '12px';
-                        c.style.height = '100%';
+                        c.style.height = 'auto';
                         c.style.padding = '15px';
                         c.style.display = 'flex';
                         c.style.flexDirection = 'column';
+                        c.style.justifyContent = 'flex-start';
+
+                        // Remove input groups and unnecessary elements
+                        c.querySelectorAll('.card-inputs, .info-icon, .toggle-container, button').forEach(el => el.remove());
+                        
+                        // Shrink fixed heights
+                        c.querySelectorAll('.card-metrics').forEach(m => { 
+                            m.style.minHeight = 'auto'; 
+                            m.style.marginBottom = '5px';
+                        });
+
+                        const footer = c.querySelector('.card-footer');
+                        if (footer) {
+                            footer.style.marginTop = '10px';
+                        }
                         
                         const detailsBtn = c.querySelector('.details-toggle-btn');
                         if (detailsBtn) detailsBtn.remove();
@@ -347,8 +384,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         // Add Weight Share
                         const shareDiv = document.createElement('div');
-                        shareDiv.style.marginTop = 'auto'; // pushes it to the bottom
-                        shareDiv.style.paddingTop = '15px';
+                        shareDiv.style.marginTop = '15px'; // pushes it to the bottom without stretching
+                        shareDiv.style.paddingTop = '10px';
                         shareDiv.style.textAlign = 'center';
                         shareDiv.style.fontSize = '0.9rem';
                         shareDiv.style.color = '#94a3b8';
