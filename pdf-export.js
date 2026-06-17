@@ -36,7 +36,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 const ticker = d.ticker || 'N/A';
 
                 // Use the dynamically stored scenarios from globalData if available, else default
-                const formatFv = (val) => val != null ? '$' + val.toFixed(2) : 'N/A';
+                const formatFv = (val) => {
+                    if (val == null) return 'N/A';
+                    if (typeof val === 'number') return '$' + val.toFixed(2);
+                    if (val && typeof val === 'object' && val.value != null) return '$' + val.value.toFixed(2);
+                    if (typeof val === 'string') {
+                        const parsed = parseFloat(val.replace(/[^0-9.-]+/g,""));
+                        if (!isNaN(parsed)) return '$' + parsed.toFixed(2);
+                    }
+                    return 'N/A';
+                };
 
                 const scenarioFvs = window._scenarioFvData || {};
                 const fallbackFvs = (d.scoring_results) ? d.scoring_results : {};
@@ -149,6 +158,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Force layout calculation
                 window.scrollTo(0, 0);
+
+                // Fix grid layouts and collapsed states inside the cloned container
+                const clonedContainer = document.getElementById('pdf-export-temp-container');
+                if (clonedContainer) {
+                    // Force the methods grid to layout cleanly
+                    const methodGrids = clonedContainer.querySelectorAll('.methods-grid');
+                    methodGrids.forEach(grid => {
+                        grid.style.display = 'grid';
+                        grid.style.gridTemplateColumns = 'repeat(2, 1fr)'; // 2x2 grid for export
+                        grid.style.gap = '20px';
+                        grid.style.width = '100%';
+                    });
+
+                    // Force all method cards to be fully expanded
+                    const collapsedCards = clonedContainer.querySelectorAll('.method-card.collapsed');
+                    collapsedCards.forEach(card => {
+                        card.classList.remove('collapsed');
+                        card.style.height = '100%'; // Revert height back to full
+                    });
+
+                    // Ensure card bodies are visible
+                    const cardBodies = clonedContainer.querySelectorAll('.card-body-collapsible');
+                    cardBodies.forEach(body => {
+                        body.style.maxHeight = 'none';
+                        body.style.opacity = '1';
+                        body.style.display = 'flex'; // It's usually a flex layout
+                        body.style.flexDirection = 'column';
+                        body.style.pointerEvents = 'auto';
+                    });
+                }
                 await new Promise(r => setTimeout(r, 500));
 
                 // 2. Generate Canvas manually via html2canvas
