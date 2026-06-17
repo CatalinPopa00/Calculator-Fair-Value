@@ -5223,7 +5223,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             toggles: collectOverrideToggles(),
             computed: getComputedValues(),
             weights: customWeights,
-            custom_scenarios: window._customScenariosData || null
+            custom_scenarios: window._customScenariosData ? JSON.parse(JSON.stringify(window._customScenariosData)) : null
         };
 
         cachedOverrides[ticker] = payload;
@@ -5245,7 +5245,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             toggles: collectOverrideToggles(),
             computed: getComputedValues(),
             weights: { ...customWeights },
-            custom_scenarios: window._customScenariosData || null
+            custom_scenarios: window._customScenariosData ? JSON.parse(JSON.stringify(window._customScenariosData)) : null
         };
         pendingOverrideTicker = ticker;
 
@@ -5260,24 +5260,26 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     };
 
     const applyOverrides = (ticker) => {
+        // UNCONDITIONALLY clear out any custom scenarios from the DOM and memory
+        // BEFORE checking for overrides, so they don't bleed over.
+        window._customScenariosData = null;
+        const customScenariosBtn = document.getElementById('open-custom-scenarios-btn');
+        if (customScenariosBtn) {
+            customScenariosBtn.classList.remove('active-custom');
+        }
+        document.querySelectorAll('.cs-input').forEach(inp => inp.value = '');
+        const turnOffCustomBtn = document.getElementById('cs-turn-off-btn');
+        if (turnOffCustomBtn) {
+            turnOffCustomBtn.textContent = 'Turn On';
+            turnOffCustomBtn.style.background = 'rgba(16, 185, 129, 0.1)';
+            turnOffCustomBtn.style.color = '#10b981';
+            turnOffCustomBtn.style.borderColor = '#10b981';
+        }
+
         const ov = cachedOverrides[ticker];
 
-        // If there are no overrides for this ticker, clear out any custom scenarios
-        // so they don't bleed over from a previously viewed ticker.
+        // If there are no overrides for this ticker, we are done.
         if (!ov) {
-            window._customScenariosData = null;
-            const customScenariosBtn = document.getElementById('open-custom-scenarios-btn');
-            if (customScenariosBtn) {
-                customScenariosBtn.classList.remove('active-custom');
-            }
-            document.querySelectorAll('.cs-input').forEach(inp => inp.value = '');
-            const turnOffCustomBtn = document.getElementById('cs-turn-off-btn');
-            if (turnOffCustomBtn) {
-                turnOffCustomBtn.textContent = 'Turn On';
-                turnOffCustomBtn.style.background = 'rgba(16, 185, 129, 0.1)';
-                turnOffCustomBtn.style.color = '#10b981';
-                turnOffCustomBtn.style.borderColor = '#10b981';
-            }
             return false;
         }
         const inputs = ov.inputs || {};
@@ -5329,7 +5331,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
         // Restore Custom Scenarios Data
         if (ov.custom_scenarios) {
-            window._customScenariosData = ov.custom_scenarios;
+            window._customScenariosData = JSON.parse(JSON.stringify(ov.custom_scenarios));
             const customScenariosBtn = document.getElementById('open-custom-scenarios-btn');
             if (customScenariosBtn) {
                 customScenariosBtn.classList.add('active-custom');
@@ -5340,19 +5342,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 turnOffCustomBtn.style.background = 'rgba(239, 68, 68, 0.1)';
                 turnOffCustomBtn.style.color = 'var(--danger)';
                 turnOffCustomBtn.style.borderColor = 'var(--danger)';
-            }
-        } else {
-            window._customScenariosData = null;
-            const customScenariosBtn = document.getElementById('open-custom-scenarios-btn');
-            if (customScenariosBtn) {
-                customScenariosBtn.classList.remove('active-custom');
-            }
-            const turnOffCustomBtn = document.getElementById('cs-turn-off-btn');
-            if (turnOffCustomBtn) {
-                turnOffCustomBtn.textContent = 'Turn On';
-                turnOffCustomBtn.style.background = 'rgba(16, 185, 129, 0.1)';
-                turnOffCustomBtn.style.color = '#10b981';
-                turnOffCustomBtn.style.borderColor = '#10b981';
             }
         }
 
