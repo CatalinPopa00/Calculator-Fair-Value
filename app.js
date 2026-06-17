@@ -4197,7 +4197,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 let domain = data.website.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
                 if (domain) {
                     elements.logo.onerror = () => { elements.logo.style.display = 'none'; };
-                    elements.logo.src = `https://img.logo.dev/${domain}?token=pk_a8V2xpGqSYWZN-8CkYKxOw&size=80&format=png`;
+                    elements.logo.src = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
                     elements.logo.style.display = 'block';
                 } else {
                     elements.logo.style.display = 'none';
