@@ -3753,8 +3753,9 @@ body.banner-visible .modal-content {
 
     .fair-value-box .value,
     .price-display .value {
-        word-break: break-word;
-        overflow-wrap: break-word;
+        white-space: nowrap;
+        word-break: normal;
+        overflow-wrap: normal;
     }
 
     /* Peer comparison buttons */

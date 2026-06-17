@@ -7719,8 +7719,36 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     else dynFwdEps = eEsts[0].avg;
                 }
             }
+            
+            let dynFwdRev = globalData.company_profile ? globalData.company_profile.forward_revenue : null;
+            if (globalData.rev_estimates) {
+                const rEsts = globalData.rev_estimates.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
+                if (rEsts.length >= 1) {
+                    if (window._currentScenario === 'bear') dynFwdRev = rEsts[0].low ?? rEsts[0].avg;
+                    else if (window._currentScenario === 'bull') dynFwdRev = rEsts[0].high ?? rEsts[0].avg;
+                    else dynFwdRev = rEsts[0].avg;
+                }
+            }
+            
             const currentPrice = globalData.current_price || (globalData.company_profile ? globalData.company_profile.price : null);
+            const origPrice = globalData.company_profile ? (globalData.company_profile.price || globalData.company_profile.currentPrice || 1) : 1;
+            const priceRatio = currentPrice / origPrice;
+            
             const dynFwdPe = (dynFwdEps && dynFwdEps > 0 && currentPrice) ? currentPrice / dynFwdEps : null;
+            
+            let mCap = currentPrice ? (currentPrice * (globalData.company_profile?.shares_outstanding || 1)) : (globalData.company_profile ? globalData.company_profile.market_cap : null);
+            const dynFwdPs = (dynFwdRev && dynFwdRev > 0 && mCap) ? (mCap / dynFwdRev) : null;
+            
+            let ev = mCap ? (mCap + (globalData.total_debt || 0) - (globalData.total_cash || 0)) : null;
+            let dynFwdEbitda = (globalData.ebitda || 0);
+            if ((globalData.revenue || 0) > 0 && dynFwdRev) {
+                dynFwdEbitda = dynFwdRev * ((globalData.ebitda || 0) / globalData.revenue);
+            }
+            const dynFwdEvEbitda = (ev && dynFwdEbitda > 0) ? ev / dynFwdEbitda : null;
+
+            const dynPb = (currentPrice && globalData.price_to_book) ? globalData.price_to_book * priceRatio : null;
+            const dynPaffo = (currentPrice && globalData.company_profile?.price_to_affo) ? globalData.company_profile.price_to_affo * priceRatio : null;
+            const dynPfcf = (currentPrice && globalData.company_profile?.pfcf_ratio) ? globalData.company_profile.pfcf_ratio * priceRatio : null;
 
             breakdown.forEach(item => {
                 if (item.metric.includes('P/E Ratio') && item.metric.includes('Fwd') && dynFwdPe) {
@@ -7733,6 +7761,16 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     if (globalData.computed_eps_growth != null && !isNaN(globalData.computed_eps_growth)) {
                         item.value = (globalData.computed_eps_growth * 100).toFixed(1) + '%';
                     }
+                } else if (item.metric.includes('P/S Ratio') && item.metric.includes('Fwd') && dynFwdPs) {
+                    item.value = dynFwdPs.toFixed(2) + 'x';
+                } else if ((item.metric.includes('EV/EBITDA') || item.metric.includes('EV / EBITDA')) && dynFwdEvEbitda) {
+                    item.value = dynFwdEvEbitda.toFixed(2) + 'x';
+                } else if (item.metric.includes('Price-to-Book') && dynPb) {
+                    item.value = dynPb.toFixed(2) + 'x';
+                } else if (item.metric.includes('P/AFFO') && dynPaffo) {
+                    item.value = dynPaffo.toFixed(2) + 'x';
+                } else if (item.metric.includes('P/FCF') && dynPfcf) {
+                    item.value = dynPfcf.toFixed(2) + 'x';
                 }
             });
         }
