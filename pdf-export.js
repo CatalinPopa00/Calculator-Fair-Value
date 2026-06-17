@@ -89,13 +89,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
                     if (strengths.length > 0) {
-                        strengthsText = '<ul style="margin:0; padding-left: 20px;">' + strengths.map(l => `<li style="margin-bottom:12px; line-height: 1.4; color: #f8fafc;">${l}</li>`).join('') + '</ul>';
+                        strengthsText = '<div style="display:flex; flex-direction:column; gap:12px; margin-top: 15px;">' + strengths.map(l => `<div style="line-height: 1.5; color: #f8fafc; font-size: 0.95rem;">- ${l}</div>`).join('') + '</div>';
                     }
                     if (risks.length > 0) {
-                        risksText = '<ul style="margin:0; padding-left: 20px;">' + risks.map(l => `<li style="margin-bottom:12px; line-height: 1.4; color: #f8fafc;">${l}</li>`).join('') + '</ul>';
+                        risksText = '<div style="display:flex; flex-direction:column; gap:12px; margin-top: 15px;">' + risks.map(l => `<div style="line-height: 1.5; color: #f8fafc; font-size: 0.95rem;">- ${l}</div>`).join('') + '</div>';
                     }
                     if (watchouts.length > 0) {
-                        watchoutsText = '<ul style="margin:0; padding-left: 20px;">' + watchouts.map(l => `<li style="margin-bottom:12px; line-height: 1.4; color: #f8fafc;">${l}</li>`).join('') + '</ul>';
+                        watchoutsText = '<div style="display:flex; flex-direction:column; gap:12px; margin-top: 15px;">' + watchouts.map(l => `<div style="line-height: 1.5; color: #f8fafc; font-size: 0.95rem;">- ${l}</div>`).join('') + '</div>';
                     }
                 }
                 
@@ -126,15 +126,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div style="display: flex; align-items: center; gap: 15px;">
                             ${logoHtml}
                             <div style="display: flex; flex-direction: column; line-height: 1.1;">
-                                <div style="display: flex; align-items: baseline; gap: 10px;">
-                                    <h2 style="margin: 0; font-size: 2.2rem; font-weight: 800;">${name}</h2>
-                                    <span style="color: #94a3b8; font-weight: 500; font-size: 1.2rem;">${ticker}</span>
-                                </div>
-                                <div style="display: flex; align-items: center; gap: 10px; margin-top: 8px;">
-                                    <span style="font-size: 0.85rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px;">CURRENT PRICE</span>
-                                    <span style="font-size: 1.8rem; font-weight: 800; color: #f8fafc;">$${price}</span>
-                                </div>
+                                <h2 style="margin: 0; font-size: 2.2rem; font-weight: 800; color: #f8fafc;">${ticker}</h2>
+                                <span style="color: #94a3b8; font-weight: 500; font-size: 1.4rem;">${name}</span>
                             </div>
+                        </div>
+                        <div style="${cardStyle} padding: 10px 30px; display: flex; flex-direction: column; align-items: center; position: relative; margin-top: 10px;">
+                            <div style="background: rgba(30, 41, 59, 1); padding: 4px 16px; border-radius: 4px; font-size: 0.9rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; position: absolute; top: 0; transform: translateY(-50%); border: 1px solid rgba(255,255,255,0.05);">CURRENT PRICE</div>
+                            <div style="font-size: 2.8rem; font-weight: 800; color: #f8fafc; margin-top: 5px;">$${price}</div>
                         </div>
                         <div style="text-align: right; color: #94a3b8; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px;">
                             <div style="margin-bottom: 4px;">INDUSTRY</div>
@@ -145,63 +143,64 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
 
                     <!-- Price & Scenarios -->
-                    <div style="display: flex; gap: 20px; margin-bottom: 20px; align-items: stretch; justify-content: center;">
-                        <div style="${cardStyle} flex: 1; text-align: center; padding: 20px;">
+                    <div style="display: flex; gap: 20px; margin-bottom: 20px; align-items: stretch; justify-content: space-between;">
+                        <div style="${cardStyle} flex: 1; text-align: center; padding: 25px;">
                             <h3 style="margin: 0 0 10px 0; color: #ef4444; font-size: 1.2rem;">Bear</h3>
-                            <div style="font-size: 2rem; font-weight: 800;">${bearVal}</div>
+                            <div style="font-size: 2.2rem; font-weight: 800;">${bearVal}</div>
                         </div>
-                        <div style="${cardStyle} flex: 1; text-align: center; padding: 20px; border: 2px solid #3b82f6;">
+                        <div style="${cardStyle} flex: 1.2; text-align: center; padding: 25px; border: 2px solid #3b82f6;">
                             <h3 style="margin: 0 0 10px 0; color: #3b82f6; font-size: 1.4rem;">Base</h3>
-                            <div style="font-size: 2.5rem; font-weight: 800; color: #3b82f6;">${baseVal}</div>
+                            <div style="font-size: 2.6rem; font-weight: 800; color: #3b82f6;">${baseVal}</div>
                         </div>
-                        <div style="${cardStyle} flex: 1; text-align: center; padding: 20px;">
+                        <div style="${cardStyle} flex: 1; text-align: center; padding: 25px;">
                             <h3 style="margin: 0 0 10px 0; color: #10b981; font-size: 1.2rem;">Bull</h3>
-                            <div style="font-size: 2rem; font-weight: 800;">${bullVal}</div>
+                            <div style="font-size: 2.2rem; font-weight: 800;">${bullVal}</div>
                         </div>
                     </div>
 
                     <!-- Middle Grid: Scores & Custom Scenarios -->
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
-                        <div id="pdf-scores-container" style="${cardStyle}"></div>
-                        <div style="${cardStyle} padding: 20px;">
+                        <div id="pdf-scores-container" style="${cardStyle} padding: 25px;"></div>
+                        <div style="${cardStyle} padding: 25px;">
                             <h3 style="margin: 0 0 20px 0; font-size: 1.2rem;">Custom Scenarios</h3>
-                            <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; text-align: center;">
+                            <table style="width: 100%; border-collapse: collapse; font-size: 0.95rem; text-align: center;">
                                 <thead>
                                     <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); color: #94a3b8;">
-                                        <th style="text-align: left; padding: 8px 0; font-weight: 500; text-transform: uppercase;">Parameter</th>
-                                        <th style="padding: 8px 0; font-weight: 600; color: #ef4444;">Bear</th>
-                                        <th style="padding: 8px 0; font-weight: 600; color: #f8fafc;">Base</th>
-                                        <th style="padding: 8px 0; font-weight: 600; color: #10b981;">Bull</th>
+                                        <th style="text-align: left; padding: 12px 0; font-weight: 500; text-transform: uppercase;">Parameter</th>
+                                        <th style="padding: 12px 0; font-weight: 600; color: #ef4444;">Bear</th>
+                                        <th style="padding: 12px 0; font-weight: 600; color: #f8fafc;">Base</th>
+                                        <th style="padding: 12px 0; font-weight: 600; color: #10b981;">Bull</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr><td style="text-align:left; padding:8px 0; color: #94a3b8;">Rev. Growth (%)</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-rev-1-3-bear')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-rev-1-3-base')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-rev-1-3-bull')}</td></tr>
-                                    <tr><td style="text-align:left; padding:8px 0; color: #94a3b8;">FCF Margin (%)</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-fcf-margin-bear')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-fcf-margin-base')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-fcf-margin-bull')}</td></tr>
-                                    <tr><td style="text-align:left; padding:8px 0; color: #94a3b8;">WACC (%)</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-wacc-bear')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-wacc-base')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-wacc-bull')}</td></tr>
-                                    <tr><td style="text-align:left; padding:8px 0; color: #94a3b8;">Exit Multiple (x)</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-exit-bear')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-exit-base')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-exit-bull')}</td></tr>
-                                    <tr><td style="text-align:left; padding:8px 0; color: #94a3b8;">Perpetual Gr. (%)</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-perp-bear')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-perp-base')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-perp-bull')}</td></tr>
-                                    <tr><td style="text-align:left; padding:8px 0; color: #94a3b8;">EPS Growth (%)</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-eps-bear')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-eps-base')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-eps-bull')}</td></tr>
-                                    <tr><td style="text-align:left; padding:8px 0; color: #94a3b8;">Forward P/E 3y</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-pe-bear')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-pe-base')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-pe-bull')}</td></tr>
+                                    <tr><td style="text-align:left; padding:12px 0; color: #94a3b8; border-bottom: 1px solid rgba(255,255,255,0.02);">Rev. Growth (%)</td><td style="background:rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.02);">${getVal('cs-rev-1-3-bear')}</td><td style="background:rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.02);">${getVal('cs-rev-1-3-base')}</td><td style="background:rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.02);">${getVal('cs-rev-1-3-bull')}</td></tr>
+                                    <tr><td style="text-align:left; padding:12px 0; color: #94a3b8; border-bottom: 1px solid rgba(255,255,255,0.02);">FCF Margin (%)</td><td style="background:rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.02);">${getVal('cs-fcf-margin-bear')}</td><td style="background:rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.02);">${getVal('cs-fcf-margin-base')}</td><td style="background:rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.02);">${getVal('cs-fcf-margin-bull')}</td></tr>
+                                    <tr><td style="text-align:left; padding:12px 0; color: #94a3b8; border-bottom: 1px solid rgba(255,255,255,0.02);">WACC (%)</td><td style="background:rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.02);">${getVal('cs-wacc-bear')}</td><td style="background:rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.02);">${getVal('cs-wacc-base')}</td><td style="background:rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.02);">${getVal('cs-wacc-bull')}</td></tr>
+                                    <tr><td style="text-align:left; padding:12px 0; color: #94a3b8; border-bottom: 1px solid rgba(255,255,255,0.02);">Exit Multiple (x)</td><td style="background:rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.02);">${getVal('cs-exit-bear')}</td><td style="background:rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.02);">${getVal('cs-exit-base')}</td><td style="background:rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.02);">${getVal('cs-exit-bull')}</td></tr>
+                                    <tr><td style="text-align:left; padding:12px 0; color: #94a3b8; border-bottom: 1px solid rgba(255,255,255,0.02);">Perpetual Gr. (%)</td><td style="background:rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.02);">${getVal('cs-perp-bear')}</td><td style="background:rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.02);">${getVal('cs-perp-base')}</td><td style="background:rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.02);">${getVal('cs-perp-bull')}</td></tr>
+                                    <tr><td style="text-align:left; padding:12px 0; color: #94a3b8; border-bottom: 1px solid rgba(255,255,255,0.02);">EPS Growth (%)</td><td style="background:rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.02);">${getVal('cs-eps-bear')}</td><td style="background:rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.02);">${getVal('cs-eps-base')}</td><td style="background:rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.02);">${getVal('cs-eps-bull')}</td></tr>
+                                    <tr><td style="text-align:left; padding:12px 0; color: #94a3b8; border-bottom: 1px solid rgba(255,255,255,0.02);">Forward P/E 3y</td><td style="background:rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.02);">${getVal('cs-pe-bear')}</td><td style="background:rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.02);">${getVal('cs-pe-base')}</td><td style="background:rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.02);">${getVal('cs-pe-bull')}</td></tr>
                                 </tbody>
                             </table>
                         </div>
                     </div>
 
                     <!-- Valuation Models -->
-                    <div style="display: flex; gap: 10px; margin-bottom: 20px; align-items: stretch;" id="pdf-methods-container">
+                    <div style="display: flex; gap: 15px; margin-bottom: 20px; align-items: stretch;" id="pdf-methods-container">
                         <!-- Clones go here -->
                     </div>
 
                     <!-- SWOT Insights -->
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
-                        <div style="${cardStyle} padding: 20px;">
+                        <div style="${cardStyle} padding: 25px;">
                             ${strengthsHtml}
                         </div>
-                        <div style="${cardStyle} padding: 20px;">
+                        <div style="${cardStyle} padding: 25px;">
                             ${risksHtml}
                         </div>
                     </div>
-                    <div style="${cardStyle} padding: 20px; margin-bottom: 20px;">
+                    
+                    <div style="${cardStyle} padding: 25px; margin-bottom: 20px;">
                         ${keyPointsHtml}
                     </div>
                     
@@ -247,7 +246,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     scoresClone.style.padding = '15px';
                     
                     // Remove top strengths & risk factors from the score panel
-                    const rightPanel = scoresClone.querySelector('.scores-right-panel') || scoresClone.querySelector('.strengths-risks-container');
+                    const rightPanel = scoresClone.querySelector('.insights-column') || scoresClone.querySelector('.strengths-risks-container');
                     if (rightPanel) rightPanel.remove();
                     
                     const leftPanel = scoresClone.querySelector('.scores-column');
@@ -255,6 +254,22 @@ document.addEventListener('DOMContentLoaded', () => {
                         leftPanel.style.width = '100%';
                         leftPanel.style.borderRight = 'none';
                         leftPanel.style.paddingRight = '0';
+                        
+                        // Enforce full width on all score bars
+                        leftPanel.querySelectorAll('.score-bar-wrapper').forEach(wrapper => {
+                            wrapper.style.width = '100%';
+                            wrapper.style.flex = '1';
+                        });
+                        leftPanel.querySelectorAll('.score-row').forEach(row => {
+                            row.style.display = 'flex';
+                            row.style.flexDirection = 'column';
+                        });
+                        leftPanel.querySelectorAll('.score-display').forEach(disp => {
+                            disp.style.display = 'flex';
+                            disp.style.alignItems = 'center';
+                            disp.style.gap = '15px';
+                            disp.style.width = '100%';
+                        });
                     }
                 }
 
