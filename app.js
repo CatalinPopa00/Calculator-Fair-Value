@@ -8428,7 +8428,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    document.querySelectorAll('.analyst-content-area, #profile-body').forEach(area => {
+    document.querySelectorAll('.analyst-content-area, #profile-body, #kpi-carousel-wrapper').forEach(area => {
         window.attachSwipeSupport(area);
     });
 });
