@@ -44,21 +44,34 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 let base64Logo = null;
                 if (logoUrl) {
-                    try {
-                        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(logoUrl)}`;
-                        const img = new Image();
-                        img.crossOrigin = 'anonymous';
-                        img.src = proxyUrl;
-                        await new Promise((resolve, reject) => {
-                            img.onload = resolve;
+                    const fetchImage = (url) => {
+                        return new Promise((resolve, reject) => {
+                            const img = new Image();
+                            img.crossOrigin = 'anonymous';
+                            img.onload = () => resolve(img);
                             img.onerror = reject;
-                            setTimeout(reject, 3000); // timeout after 3s
+                            setTimeout(reject, 2000);
+                            img.src = url;
                         });
-                        const canvas = document.createElement('canvas');
-                        canvas.width = img.width;
-                        canvas.height = img.height;
-                        canvas.getContext('2d').drawImage(img, 0, 0);
-                        base64Logo = canvas.toDataURL('image/png');
+                    };
+
+                    try {
+                        // Attempt direct load first, then allorigins proxy
+                        let img;
+                        try {
+                            img = await fetchImage(logoUrl);
+                        } catch (e1) {
+                            console.log('Direct logo fetch failed, trying proxy...', e1);
+                            img = await fetchImage(`https://api.allorigins.win/raw?url=${encodeURIComponent(logoUrl)}`);
+                        }
+
+                        if (img) {
+                            const canvas = document.createElement('canvas');
+                            canvas.width = img.width;
+                            canvas.height = img.height;
+                            canvas.getContext('2d').drawImage(img, 0, 0);
+                            base64Logo = canvas.toDataURL('image/png');
+                        }
                     } catch (e) {
                         console.log('Failed to proxy logo', e);
                     }
@@ -161,16 +174,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 // --- PAGE 2 CONTAINER ---
                 const container2 = document.createElement('div');
                 container2.id = 'pdf-export-temp-container-2';
-                container2.style.position = 'absolute';
-                container2.style.left = '-9999px';
+                container2.style.position = 'fixed';
+                container2.style.left = '0';
                 container2.style.top = '0';
                 container2.style.width = '1200px';
+                container2.style.zIndex = '-9999';
                 container2.style.background = '#0f172a';
                 container2.style.color = '#f8fafc';
                 container2.style.fontFamily = "'Inter', sans-serif";
                 container2.style.padding = '40px';
                 container2.style.boxSizing = 'border-box';
-                container2.style.zIndex = '-1';
                 document.body.appendChild(container2);
 
                 const cardStyle = "background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px;";
@@ -482,7 +495,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 window.scrollTo(0, 0);
 
                 // Wait for layout/charts to render
-                await new Promise(r => setTimeout(r, 800));
+                await new Promise(r => setTimeout(r, 1200));
 
                 const canvas1 = await html2canvas(container1, {
                     scale: 2,
@@ -496,7 +509,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
 
                 const canvas2 = await html2canvas(container2, {
-                    scale: 2,
+                    scale: 1,
                     useCORS: true,
                     logging: false,
                     scrollY: 0,
