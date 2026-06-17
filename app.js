@@ -8050,6 +8050,12 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 let currentKpiIndex = 0;
                 let kpiChartInstance = null;
 
+                // Expose to window for global swipe handler
+                window.kpiContext = {
+                    next: () => kpiNextBtn.click(),
+                    prev: () => kpiPrevBtn.click()
+                };
+
                 const parseKpiValue = (val) => {
                     if (typeof val === 'number') return val;
                     if (!val || val === '--' || val === 'N/A') return null;
@@ -8359,8 +8365,8 @@ document.addEventListener('DOMContentLoaded', () => {
         area.addEventListener('touchend', e => {
             endX = e.changedTouches[0].screenX;
             endY = e.changedTouches[0].screenY;
-            handleSwipe(area, e.target);
-        }, {passive: true});
+            handleSwipe(area, e.target, e);
+        }, {passive: false}); // passive false to allow preventDefault if needed, but we mainly need stopPropagation
 
         // Mouse
         area.addEventListener('mousedown', e => {
@@ -8385,7 +8391,7 @@ document.addEventListener('DOMContentLoaded', () => {
             handleSwipe(area, e.target);
         });
 
-        function handleSwipe(area, target) {
+        function handleSwipe(area, target, event) {
             const threshold = 120; // Increased threshold for longer swipe gestures
             const verticalTolerance = 50; // Prevent swipe if vertical scroll is dominant
             const diffX = endX - startX;
@@ -8399,30 +8405,30 @@ document.addEventListener('DOMContentLoaded', () => {
             if (diffX > threshold) {
                 // Swipe Right (Prev)
                 if (target.closest('.ai-audit-section') || target.closest('#kpi-carousel-container')) {
-                    const prevBtn = document.getElementById('kpi-prev-btn');
-                    if (prevBtn) prevBtn.click();
-
+                    if (event && event.stopPropagation) event.stopPropagation(); // Prevent bubbling up to parent containers
+                    if (window.kpiContext && window.kpiContext.prev) window.kpiContext.prev();
                 } else if (card.classList.contains('company-profile-box') || card.id === 'company-desc-card') {
+                    if (event && event.stopPropagation) event.stopPropagation();
                     const tabs = Array.from(card.querySelectorAll('.brief-tab'));
                     let activeIdx = tabs.findIndex(t => t.classList.contains('active'));
                     if (activeIdx > 0) tabs[activeIdx - 1].click();
                     else if (tabs.length) tabs[tabs.length - 1].click();
                 } else {
-                    if (window.cycleMobileCarousel) window.cycleMobileCarousel({ closest: () => card }, -1);
+                    if (window.cycleMobileCarousel) window.cycleMobileCarousel({ closest: () => card }, -1, event);
                 }
             } else if (diffX < -threshold) {
                 // Swipe Left (Next)
                 if (target.closest('.ai-audit-section') || target.closest('#kpi-carousel-container')) {
-                    const nextBtn = document.getElementById('kpi-next-btn');
-                    if (nextBtn) nextBtn.click();
-
+                    if (event && event.stopPropagation) event.stopPropagation(); // Prevent bubbling up to parent containers
+                    if (window.kpiContext && window.kpiContext.next) window.kpiContext.next();
                 } else if (card.classList.contains('company-profile-box') || card.id === 'company-desc-card') {
+                    if (event && event.stopPropagation) event.stopPropagation();
                     const tabs = Array.from(card.querySelectorAll('.brief-tab'));
                     let activeIdx = tabs.findIndex(t => t.classList.contains('active'));
                     if (activeIdx < tabs.length - 1) tabs[activeIdx + 1].click();
                     else if (tabs.length) tabs[0].click();
                 } else {
-                    if (window.cycleMobileCarousel) window.cycleMobileCarousel({ closest: () => card }, 1);
+                    if (window.cycleMobileCarousel) window.cycleMobileCarousel({ closest: () => card }, 1, event);
                 }
             }
         }
