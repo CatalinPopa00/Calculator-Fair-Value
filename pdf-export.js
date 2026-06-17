@@ -33,7 +33,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 const ind = p.industry || 'N/A';
                 const name = p.companyName || d.ticker || 'Company';
                 const ticker = d.ticker || 'N/A';
-                const logoHtml = p.logo ? `<img src="${p.logo}" style="width: 42px; height: 42px; border-radius: 50%; object-fit: contain; background: white; padding: 4px;" crossorigin="anonymous">` : `<div style="width: 42px; height: 42px; border-radius: 50%; background: var(--primary); display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px;">${ticker.charAt(0)}</div>`;
+                let logoUrl = p.logo;
+                if (!logoUrl && d.website) {
+                    let domain = d.website.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
+                    if (domain) {
+                        logoUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent('https://www.google.com/s2/favicons?domain=' + domain + '&sz=128')}`;
+                    }
+                }
+                const logoHtml = logoUrl ? `<img src="${logoUrl}" style="width: 42px; height: 42px; border-radius: 50%; object-fit: contain; background: white; padding: 4px;" crossorigin="anonymous">` : `<div style="width: 42px; height: 42px; border-radius: 50%; background: var(--primary); display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px;">${ticker.charAt(0)}</div>`;
 
                 const scenarioBtns = Array.from(document.querySelectorAll('.scenario-btn:not(.custom-scenarios-btn)'));
                 const activeBtn = document.querySelector('.scenario-btn.active:not(.custom-scenarios-btn)');
@@ -137,25 +144,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 container1.innerHTML = `
                     <!-- Top Header Info -->
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                        <div style="display: flex; align-items: center; gap: 40px;">
-                            <div style="display: flex; align-items: center; gap: 15px;">
-                                ${logoHtml}
-                                <div style="display: flex; flex-direction: column; line-height: 1.1;">
-                                    <h2 style="margin: 0; font-size: 2.2rem; font-weight: 800; color: #f8fafc;">${ticker}</h2>
-                                    <span style="color: #94a3b8; font-weight: 500; font-size: 1.1rem; margin-top: 4px;">${name}</span>
-                                </div>
+                    <div style="display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; margin-bottom: 20px;">
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            ${logoHtml}
+                            <div style="display: flex; flex-direction: column; line-height: 1.1;">
+                                <h2 style="margin: 0; font-size: 2.2rem; font-weight: 800; color: #f8fafc;">${ticker}</h2>
+                                <span style="color: #94a3b8; font-weight: 500; font-size: 1.1rem; margin-top: 4px;">${name}</span>
                             </div>
-                            <div style="display: flex; flex-direction: column; align-items: center;">
-                                <div style="font-size: 0.9rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px;">CURRENT PRICE</div>
-                                <div style="font-size: 2.8rem; font-weight: 800; color: #f8fafc; margin-top: 5px;">$${price}</div>
-                            </div>
+                        </div>
+                        <div style="display: flex; flex-direction: column; align-items: center;">
+                            <div style="font-size: 0.9rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px;">CURRENT PRICE</div>
+                            <div style="font-size: 2.8rem; font-weight: 800; color: #f8fafc; margin-top: 5px;">${price}</div>
                         </div>
                         <div style="text-align: right; color: #94a3b8; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px;">
                             <div style="margin-bottom: 4px;">INDUSTRY</div>
                             <div style="color: #f8fafc; font-weight: 600; font-size: 1.1rem; margin-bottom: 12px;">${ind}</div>
                             <div style="margin-bottom: 4px;">MARKET CAP</div>
-                            <div style="color: #f8fafc; font-weight: 600; font-size: 1.1rem;">$${mktCap}</div>
+                            <div style="color: #f8fafc; font-weight: 600; font-size: 1.1rem;">${mktCap}</div>
                         </div>
                     </div>
 
@@ -279,10 +284,17 @@ document.addEventListener('DOMContentLoaded', () => {
                             row.style.flexDirection = 'column';
                         });
                         leftPanel.querySelectorAll('.score-display').forEach(disp => {
-                            disp.style.display = 'flex';
+                            disp.style.display = 'grid';
+                            disp.style.gridTemplateColumns = '5rem 1fr 3rem';
                             disp.style.alignItems = 'center';
                             disp.style.gap = '15px';
                             disp.style.width = '100%';
+                        });
+                        leftPanel.querySelectorAll('.score-circle').forEach(circle => {
+                            circle.style.textAlign = 'right';
+                        });
+                        leftPanel.querySelectorAll('.score-max').forEach(max => {
+                            max.style.textAlign = 'left';
                         });
                     }
                 }
