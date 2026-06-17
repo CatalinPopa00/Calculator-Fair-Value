@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (exportBtn) {
         exportBtn.addEventListener('click', async () => {
             if (!window.globalData || !window.globalData.ticker) {
-                alert('Te rog să cauți o companie mai întâi.');
+                alert('Te rog sÄƒ cauÈ›i o companie mai Ã®ntÃ¢i.');
                 return;
             }
 
@@ -70,7 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 let watchoutsText = '<p style="color: rgba(255,255,255,0.5); font-size: 0.8rem; font-style:italic;">Not available.</p>';
 
                 if (d.company_overview_synthesis) {
-                    const parts = d.company_overview_synthesis.split(/\*\*(EXECUTIVE SUMMARY|SINTEZA EXECUTIVA|STRATEGIC STRENGTHS|PUNCTE FORTE STRATEGICE|VULNERABILITIES \& RISKS|VULNERABILITĂȚI ȘI RISCURI|EARNINGS WATCHOUTS|LATEST MARKET INTELLIGENCE|ULTIMELE INFORMAȚII DE PIAȚĂ)\*\*/i);
+                    const parts = d.company_overview_synthesis.split(/\*\*(EXECUTIVE SUMMARY|SINTEZA EXECUTIVA|STRATEGIC STRENGTHS|PUNCTE FORTE STRATEGICE|VULNERABILITIES \& RISKS|VULNERABILITÄ‚ÈšI È˜I RISCURI|EARNINGS WATCHOUTS|LATEST MARKET INTELLIGENCE|ULTIMELE INFORMAÈšII DE PIAÈšÄ‚)\*\*/i);
                     let strengths = [];
                     let risks = [];
                     let watchouts = [];
@@ -81,9 +81,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         
                         if (title === "STRATEGIC STRENGTHS" || title === "PUNCTE FORTE STRATEGICE") {
                             strengths = content.split('\n').map(line => line.replace(/^[-*]\s*/, '').trim()).filter(Boolean);
-                        } else if (title === "VULNERABILITIES & RISKS" || title === "VULNERABILITĂȚI ȘI RISCURI") {
+                        } else if (title === "VULNERABILITIES & RISKS" || title === "VULNERABILITÄ‚ÈšI È˜I RISCURI") {
                             risks = content.split('\n').map(line => line.replace(/^[-*]\s*/, '').trim()).filter(Boolean);
-                        } else if (title === "EARNINGS WATCHOUTS" || title === "LATEST MARKET INTELLIGENCE" || title === "ULTIMELE INFORMAȚII DE PIAȚĂ") {
+                        } else if (title === "EARNINGS WATCHOUTS" || title === "LATEST MARKET INTELLIGENCE" || title === "ULTIMELE INFORMAÈšII DE PIAÈšÄ‚") {
                             watchouts = content.split('\n').map(line => line.replace(/^[-*]\s*/, '').trim()).filter(Boolean);
                         }
                     }
@@ -103,7 +103,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const risksHtml = `<h4 style="color: #ef4444; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin-top: 0; margin-bottom: 15px; font-weight: 800;">Vulnerabilities & Risks</h4>${risksText}`;
                 const keyPointsHtml = `<h4 style="color: #fbbf24; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin-top: 0; margin-bottom: 15px; font-weight: 800;">Key Points from Latest Reports</h4>${watchoutsText}`;
 
-                
                 // --- PAGE 1 CONTAINER ---
                 const container1 = document.createElement('div');
                 container1.id = 'pdf-export-temp-container-1';
@@ -224,11 +223,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div style="${cardStyle} padding: 25px; margin-bottom: 20px;">
                         ${keyPointsHtml}
                     </div>
-
-                    <div id="pdf-kpi-container" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                        <!-- KPI Charts appended here -->
                     </div>
                 `;
+
+                document.body.appendChild(container);
 
                 const appendCloned = (selector, targetContainerId) => {
                     const el = document.querySelector(selector);
@@ -401,7 +399,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Wait for layout/charts to render
                 await new Promise(r => setTimeout(r, 800));
 
-
                 const canvas1 = await html2canvas(container1, {
                     scale: 2,
                     useCORS: true,
@@ -458,56 +455,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     pdf.addPage();
                     pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
                     pdf.addImage(imgData2, 'JPEG', 0, position, pdfWidth, imgHeightInMm2);
-                    heightLeft -= pdfHeight;
-                }
-
-                pdf.save(`${ticker}_Fair_Value_Report.pdf`);
-
-            } catch (e) {
-                        console.error('Error rendering KPI charts for PDF:', e);
-                    }
-                } else {
-                    document.getElementById('pdf-kpi-container').style.display = 'none';
-                }
-
-                window.scrollTo(0, 0);
-
-                // Wait for layout/charts to render
-                await new Promise(r => setTimeout(r, 800));
-
-                const canvas = await html2canvas(container, {
-                    scale: 2,
-                    useCORS: true,
-                    logging: false,
-                    scrollY: 0,
-                    scrollX: 0,
-                    width: 1200,
-                    windowWidth: 1200,
-                    backgroundColor: '#0f172a'
-                });
-
-                const imgData = canvas.toDataURL('image/jpeg', 0.95);
-                const pdf = new jsPDF('p', 'mm', 'a4');
-                pdf.setFillColor(15, 23, 42); // match #0f172a
-
-                const pdfWidth = 210;
-                const pdfHeight = 297;
-                const imgProps = pdf.getImageProperties(imgData);
-                const ratio = imgProps.width / pdfWidth;
-                const imgHeightInMm = imgProps.height / ratio;
-
-                let heightLeft = imgHeightInMm;
-                let position = 0;
-
-                pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
-                pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, imgHeightInMm);
-                heightLeft -= pdfHeight;
-
-                while (heightLeft > 0) {
-                    position -= pdfHeight;
-                    pdf.addPage();
-                    pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
-                    pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, imgHeightInMm);
                     heightLeft -= pdfHeight;
                 }
 
