@@ -42,11 +42,29 @@ document.addEventListener('DOMContentLoaded', () => {
                     logoUrl = p.image || p.logo;
                 }
                 
+                let base64Logo = null;
                 if (logoUrl) {
-                    logoUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(logoUrl)}`;
+                    try {
+                        const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(logoUrl)}`;
+                        const img = new Image();
+                        img.crossOrigin = 'anonymous';
+                        img.src = proxyUrl;
+                        await new Promise((resolve, reject) => {
+                            img.onload = resolve;
+                            img.onerror = reject;
+                            setTimeout(reject, 2000); // timeout after 2s
+                        });
+                        const canvas = document.createElement('canvas');
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        canvas.getContext('2d').drawImage(img, 0, 0);
+                        base64Logo = canvas.toDataURL('image/png');
+                    } catch (e) {
+                        console.log('Failed to proxy logo', e);
+                    }
                 }
 
-                const logoHtml = logoUrl ? `<img src="${logoUrl}" style="width: 42px; height: 42px; border-radius: 50%; object-fit: contain; background: white; padding: 4px;" crossorigin="anonymous">` : `<div style="width: 42px; height: 42px; border-radius: 50%; background: #3b82f6; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px; color: white;">${ticker.charAt(0)}</div>`;
+                const logoHtml = base64Logo ? `<img src="${base64Logo}" style="width: 42px; height: 42px; border-radius: 50%; object-fit: contain; background: white; padding: 4px;">` : `<div style="width: 42px; height: 42px; border-radius: 50%; background: #3b82f6; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px; color: white;">${ticker.charAt(0)}</div>`;
 
                 // Capture current widths of score bars before scenario switch resets them
                 const originalWidths = [];
@@ -286,9 +304,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     scoresClone.style.boxShadow = 'none';
                     scoresClone.style.padding = '15px';
                     
-                    // Remove "i" emoji button
-                    const rulesBtn = scoresClone.querySelector('#open-rules-modal');
-                    if (rulesBtn) rulesBtn.remove();
+                    // Remove "i" emoji button and info icons
+                    scoresClone.querySelectorAll('button, .info-icon').forEach(el => el.remove());
                     
                     // Fix grid so it occupies full width instead of 50%
                     const row2Grid = scoresClone.querySelector('.row-2-grid');
