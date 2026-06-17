@@ -70,36 +70,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 let watchoutsText = '<p style="color: rgba(255,255,255,0.5); font-size: 0.8rem; font-style:italic;">Not available.</p>';
 
                 if (d.company_overview_synthesis) {
-                    const lines = d.company_overview_synthesis.split('\n');
-                    let currentSection = '';
+                    const parts = d.company_overview_synthesis.split(/\*\*(EXECUTIVE SUMMARY|SINTEZA EXECUTIVA|STRATEGIC STRENGTHS|PUNCTE FORTE STRATEGICE|VULNERABILITIES \& RISKS|VULNERABILITĂȚI ȘI RISCURI|EARNINGS WATCHOUTS|LATEST MARKET INTELLIGENCE|ULTIMELE INFORMAȚII DE PIAȚĂ)\*\*/i);
                     let strengths = [];
                     let risks = [];
                     let watchouts = [];
 
-                    for (let line of lines) {
-                        line = line.trim();
-                        if (!line) continue;
+                    for (let i = 1; i < parts.length; i += 2) {
+                        const title = parts[i].trim().toUpperCase();
+                        const content = parts[i + 1] ? parts[i + 1].trim() : "";
                         
-                        const upperLine = line.toUpperCase();
-                        if (upperLine.includes('STRATEGIC STRENGTHS') || upperLine.includes('PUNCTE FORTE STRATEGICE')) {
-                            currentSection = 'strengths';
-                            continue;
-                        } else if (upperLine.includes('VULNERABILITIES & RISKS') || upperLine.includes('VULNERABILITĂȚI ȘI RISCURI')) {
-                            currentSection = 'risks';
-                            continue;
-                        } else if (upperLine.includes('LATEST MARKET INTELLIGENCE') || upperLine.includes('ULTIMELE INFORMAȚII DE PIAȚĂ') || upperLine.includes('KEY POINTS')) {
-                            currentSection = 'watchouts';
-                            continue;
-                        } else if (upperLine.includes('VALUATION SYNOPSIS') || upperLine.includes('SINOPSIS DE EVALUARE')) {
-                            currentSection = 'valuation';
-                            continue;
-                        }
-
-                        if (line.startsWith('-') || line.startsWith('*')) {
-                            const val = line.replace(/^[-*]\s*/, '');
-                            if (currentSection === 'strengths') strengths.push(val);
-                            else if (currentSection === 'risks') risks.push(val);
-                            else if (currentSection === 'watchouts') watchouts.push(val);
+                        if (title === "STRATEGIC STRENGTHS" || title === "PUNCTE FORTE STRATEGICE") {
+                            strengths = content.split('\n').map(line => line.replace(/^[-*]\s*/, '').trim()).filter(Boolean);
+                        } else if (title === "VULNERABILITIES & RISKS" || title === "VULNERABILITĂȚI ȘI RISCURI") {
+                            risks = content.split('\n').map(line => line.replace(/^[-*]\s*/, '').trim()).filter(Boolean);
+                        } else if (title === "EARNINGS WATCHOUTS" || title === "LATEST MARKET INTELLIGENCE" || title === "ULTIMELE INFORMAȚII DE PIAȚĂ") {
+                            watchouts = content.split('\n').map(line => line.replace(/^[-*]\s*/, '').trim()).filter(Boolean);
                         }
                     }
 
@@ -137,7 +122,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Layout Building
                 container.innerHTML = `
                     <!-- Top Header Info -->
-                    <div style="display: flex; justify-content: flex-end; align-items: flex-end; margin-bottom: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            ${logoHtml}
+                            <div style="display: flex; flex-direction: column; line-height: 1.1;">
+                                <div style="display: flex; align-items: baseline; gap: 10px;">
+                                    <h2 style="margin: 0; font-size: 2.2rem; font-weight: 800;">${name}</h2>
+                                    <span style="color: #94a3b8; font-weight: 500; font-size: 1.2rem;">${ticker}</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 10px; margin-top: 8px;">
+                                    <span style="font-size: 0.85rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px;">CURRENT PRICE</span>
+                                    <span style="font-size: 1.8rem; font-weight: 800; color: #f8fafc;">$${price}</span>
+                                </div>
+                            </div>
+                        </div>
                         <div style="text-align: right; color: #94a3b8; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px;">
                             <div style="margin-bottom: 4px;">INDUSTRY</div>
                             <div style="color: #f8fafc; font-weight: 600; font-size: 1.1rem; margin-bottom: 12px;">${ind}</div>
@@ -147,33 +145,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
 
                     <!-- Price & Scenarios -->
-                    <div style="display: flex; gap: 20px; margin-bottom: 20px; align-items: stretch;">
-                        <div style="${cardStyle} padding: 25px; min-width: 250px; display: flex; flex-direction: column; justify-content: center;">
-                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px;">
-                                ${logoHtml}
-                                <div style="display: flex; flex-direction: column;">
-                                    <div style="font-size: 1.6rem; font-weight: 800; line-height: 1.1;">${name}</div>
-                                    <div style="color: #94a3b8; font-weight: 500; font-size: 1rem;">${ticker}</div>
-                                </div>
-                            </div>
-                            <div style="font-size: 0.8rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">CURRENT PRICE</div>
-                            <div style="font-size: 2.8rem; font-weight: 800;">$${price}</div>
+                    <div style="display: flex; gap: 20px; margin-bottom: 20px; align-items: stretch; justify-content: center;">
+                        <div style="${cardStyle} flex: 1; text-align: center; padding: 20px;">
+                            <h3 style="margin: 0 0 10px 0; color: #ef4444; font-size: 1.2rem;">Bear</h3>
+                            <div style="font-size: 2rem; font-weight: 800;">${bearVal}</div>
                         </div>
-                        <div style="${cardStyle} flex: 1; display: flex; padding: 20px; justify-content: space-between; align-items: center;">
-                            <div style="text-align: center; flex: 1;">
-                                <h3 style="margin: 0 0 10px 0; color: #ef4444; font-size: 1.2rem;">Bear</h3>
-                                <div style="font-size: 1.8rem; font-weight: 800;">${bearVal}</div>
-                            </div>
-                            <div style="width: 1px; background: rgba(255,255,255,0.1); height: 80%;"></div>
-                            <div style="text-align: center; flex: 1.2;">
-                                <h3 style="margin: 0 0 10px 0; color: #3b82f6; font-size: 1.4rem;">Base</h3>
-                                <div style="font-size: 2.2rem; font-weight: 800; color: #3b82f6;">${baseVal}</div>
-                            </div>
-                            <div style="width: 1px; background: rgba(255,255,255,0.1); height: 80%;"></div>
-                            <div style="text-align: center; flex: 1;">
-                                <h3 style="margin: 0 0 10px 0; color: #10b981; font-size: 1.2rem;">Bull</h3>
-                                <div style="font-size: 1.8rem; font-weight: 800;">${bullVal}</div>
-                            </div>
+                        <div style="${cardStyle} flex: 1; text-align: center; padding: 20px; border: 2px solid #3b82f6;">
+                            <h3 style="margin: 0 0 10px 0; color: #3b82f6; font-size: 1.4rem;">Base</h3>
+                            <div style="font-size: 2.5rem; font-weight: 800; color: #3b82f6;">${baseVal}</div>
+                        </div>
+                        <div style="${cardStyle} flex: 1; text-align: center; padding: 20px;">
+                            <h3 style="margin: 0 0 10px 0; color: #10b981; font-size: 1.2rem;">Bull</h3>
+                            <div style="font-size: 2rem; font-weight: 800;">${bullVal}</div>
                         </div>
                     </div>
 
@@ -207,13 +190,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     <!-- Valuation Models -->
                     <div style="display: flex; gap: 10px; margin-bottom: 20px; align-items: stretch;" id="pdf-methods-container">
                         <!-- Clones go here -->
-                        <div id="pdf-weights-container" style="${cardStyle} flex: 1; padding: 15px; font-size: 0.85rem; display: flex; flex-direction: column; justify-content: center;">
-                            <div style="text-align: center; font-weight: 600; margin-bottom: 10px; color: #94a3b8;">Model Weights (%)</div>
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;"><span>DCF Model</span> <span style="background:rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px;">${weights.dcf}</span></div>
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;"><span>Rel Valuation</span> <span style="background:rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px;">${weights.relative}</span></div>
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;"><span>Fwd Multiple</span> <span style="background:rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px;">${weights.lynch}</span></div>
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;"><span>PEG Valuation</span> <span style="background:rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px;">${weights.peg}</span></div>
-                        </div>
                     </div>
 
                     <!-- SWOT Insights -->
@@ -282,22 +258,24 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
 
-                // Append Models (Left 2, then Weights, then Right 2)
+                // Append Models
                 const methodsContainer = document.getElementById('pdf-methods-container');
-                const weightsContainer = document.getElementById('pdf-weights-container');
                 
                 const m1 = appendCloned('#dcf-card', 'pdf-methods-container');
                 const m2 = appendCloned('#relative-card', 'pdf-methods-container');
-                methodsContainer.appendChild(weightsContainer); // move weights to middle
                 const m3 = appendCloned('#fwd-multiple-card', 'pdf-methods-container');
                 const m4 = appendCloned('#peg-card', 'pdf-methods-container');
 
-                [m1, m2, m3, m4].forEach(c => {
+                const mWeights = [weights.dcf, weights.relative, weights.lynch, weights.peg];
+
+                [m1, m2, m3, m4].forEach((c, idx) => {
                     if (c) {
                         c.style.background = 'rgba(30, 41, 59, 1)';
                         c.classList.remove('collapsed');
                         c.style.height = '100%';
                         c.style.padding = '15px';
+                        c.style.display = 'flex';
+                        c.style.flexDirection = 'column';
                         
                         const detailsBtn = c.querySelector('.details-toggle-btn');
                         if (detailsBtn) detailsBtn.remove();
@@ -309,7 +287,20 @@ document.addEventListener('DOMContentLoaded', () => {
                             body.style.maxHeight = 'none';
                             body.style.opacity = '1';
                             body.style.display = 'flex';
+                            body.style.flexDirection = 'column';
+                            body.style.flex = '1';
                         }
+
+                        // Add Weight Share
+                        const shareDiv = document.createElement('div');
+                        shareDiv.style.marginTop = 'auto'; // pushes it to the bottom
+                        shareDiv.style.paddingTop = '15px';
+                        shareDiv.style.textAlign = 'center';
+                        shareDiv.style.fontSize = '0.9rem';
+                        shareDiv.style.color = '#94a3b8';
+                        shareDiv.style.fontWeight = 'bold';
+                        shareDiv.innerHTML = `<span style="background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 4px; color: #f8fafc;">${mWeights[idx]}% SHARE</span>`;
+                        c.appendChild(shareDiv);
                     }
                 });
 
