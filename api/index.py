@@ -1932,6 +1932,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
 
         response_data = {
             "ticker": ticker_upper,
+            "website": data.get("website", ""),
             "name": data.get("name", "Unknown"),
             "current_price": float(current_price or 0.0),
             "fair_value": sanitize(fair_value),

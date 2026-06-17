@@ -20,7 +20,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=336">
+    <link rel="stylesheet" href="style.css?v=340">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
    <style>
         #version-badge {
@@ -100,11 +100,12 @@
                                 <div class="chart-col">
                                     <button id="toggle-chart-btn" title="Toggle Price Chart" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 1.1rem; transition: 0.2s; z-index: 10;">📈</button>
                                 </div>
-                                <div class="name-col">
-                                    <h2 style="margin: 0; text-align: center;"><span id="company-name">Loading...</span></h2>
-                                </div>
-                                <div class="ticker-col">
-                                    <span class="ticker" id="company-ticker"></span>
+                                <div class="center-col">
+                                    <img id="company-logo" src="" style="width: 48px; height: 48px; border-radius: 50%; display: none; object-fit: contain; background: white; padding: 2px;">
+                                    <div class="text-wrapper">
+                                        <span class="ticker" id="company-ticker"></span>
+                                        <h2><span id="company-name">Loading...</span></h2>
+                                    </div>
                                 </div>
                                 <div class="star-col">
                                     <button id="add-to-watchlist-btn" class="star-btn" title="Toggle Watchlist" style="margin-left: 0;">☆</button>
@@ -759,13 +760,13 @@
 
 
                                 
-                                <div class="corporate-tabs-wrapper" style="display: flex; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; gap: 10px; overflow-x: auto; scrollbar-width: none;">
-                                    <button class="brief-tab ownership-tab-btn active" data-tab="holders">👥 Holders</button>
-                                    <button class="brief-tab ownership-tab-btn" data-tab="top-holders">🔝 Top</button>
-                                    <button class="brief-tab ownership-tab-btn" data-tab="insiders">🕵️ Insiders</button>
-                                    <button class="brief-tab ownership-tab-btn" data-tab="stats">📊 Stats</button>
-                                    <button class="brief-tab ownership-tab-btn" data-tab="roster-table">📋 Roster</button>
-                                    <button class="brief-tab ownership-tab-btn" data-tab="roster-chart">🥧 Pie</button>
+                                <div class="corporate-tabs-wrapper" style="display: flex; justify-content: center; border-bottom: none; margin-bottom: 15px; gap: 8px; width: 100%; flex-wrap: wrap;">
+                                    <div class="carousel-indicator-line ownership-tab-btn active" data-tab="holders"></div>
+                                    <div class="carousel-indicator-line ownership-tab-btn" data-tab="top-holders"></div>
+                                    <div class="carousel-indicator-line ownership-tab-btn" data-tab="insiders"></div>
+                                    <div class="carousel-indicator-line ownership-tab-btn" data-tab="stats"></div>
+                                    <div class="carousel-indicator-line ownership-tab-btn" data-tab="roster-table"></div>
+                                    <div class="carousel-indicator-line ownership-tab-btn" data-tab="roster-chart"></div>
                                 </div>
 
                                 <div class="analyst-content-area ownership-content-area">
@@ -773,6 +774,7 @@
                                         /* Desktop Carousel for Ownership */
                                         .carousel-nav-btn { display: none; }
                                         @media (min-width: 769px) {
+                                            .corporate-tabs-wrapper { display: none !important; }
                                             .ownership-carousel-wrapper {
                                                 position: relative;
                                                 padding: 0 40px;
@@ -1392,7 +1394,7 @@
         <div id="cs-tips-content"></div>
     </div>
 
-    <script src="app.js?v=334"></script>
+    <script src="app.js?v=337"></script>
     <script src="pdf-export.js?v=1"></script>
 <script>
   if ('serviceWorker' in navigator) {

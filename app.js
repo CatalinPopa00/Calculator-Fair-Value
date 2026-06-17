@@ -1619,6 +1619,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
     // Data elements
     const elements = {
+        logo: document.getElementById('company-logo'),
         name: document.getElementById('company-name'),
         ticker: document.getElementById('company-ticker'),
         currentPrice: document.getElementById('current-price'),
@@ -4190,6 +4191,20 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
         elements.name.textContent = data.name;
         elements.ticker.textContent = data.ticker;
+        
+        if (elements.logo) {
+            if (data.website) {
+                let domain = data.website.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
+                if (domain) {
+                    elements.logo.src = `https://logo.clearbit.com/${domain}`;
+                    elements.logo.style.display = 'block';
+                } else {
+                    elements.logo.style.display = 'none';
+                }
+            } else {
+                elements.logo.style.display = 'none';
+            }
+        }
         elements.currentPrice.textContent = formatCurrency(data.current_price);
         if (data.company_profile && data.company_profile.open_price) {
             animatePriceUI(data.company_profile.open_price, data.current_price, false);
@@ -4288,6 +4303,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             let activeTab = 'overview';
 
             const renderCorporateBrief = (synthesisText, isLoadingAI = false) => {
+                const formatMd = (t) => t.replace(/\*\*(.*?)\*\*:?/g, '<strong style="display: block; font-size: 0.95rem; font-weight: 700; color: #fff; margin-bottom: 2px;">$1</strong>');
                 // v301: Smart client-side regex parser for the AI Synthesis sections
                 const parseSynthesis = (text) => {
                     const sections = {
@@ -4527,7 +4543,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                                 ? parsed.strategicStrengths.map(s => `
                                     <div style="display: flex; gap: 10px; margin-bottom: 8px; align-items: flex-start; background: rgba(34, 197, 94, 0.04); border: 1px solid rgba(34, 197, 94, 0.1); padding: 8px 12px; border-radius: 6px;">
                                         <span style="color: #4ade80; font-weight: bold; font-size: 0.9rem; flex-shrink:0;">✔️</span>
-                                        <span style="color: rgba(255,255,255,0.85); font-size: 0.8rem;">${s}</span>
+                                        <span style="color: rgba(255,255,255,0.85); font-size: 0.8rem;">${formatMd(s)}</span>
                                     </div>`).join('')
                                 : '<div style="color: rgba(255,255,255,0.5); font-size: 0.8rem; padding: 10px; font-style:italic;">Diversified commercial operations.</div>';
 
@@ -4535,7 +4551,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                                 ? parsed.vulnerabilitiesRisks.map(r => `
                                     <div style="display: flex; gap: 10px; margin-bottom: 8px; align-items: flex-start; background: rgba(239, 68, 68, 0.04); border: 1px solid rgba(239, 68, 68, 0.1); padding: 8px 12px; border-radius: 6px;">
                                         <span style="color: #f87171; font-weight: bold; font-size: 0.9rem; flex-shrink:0;">⚠️</span>
-                                        <span style="color: rgba(255,255,255,0.85); font-size: 0.8rem;">${r}</span>
+                                        <span style="color: rgba(255,255,255,0.85); font-size: 0.8rem;">${formatMd(r)}</span>
                                     </div>`).join('')
                                 : '<div style="color: rgba(255,255,255,0.5); font-size: 0.8rem; padding: 10px; font-style:italic;">Exposure to global market cycles.</div>';
 
@@ -4567,7 +4583,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                                 ? parsed.earningsWatchouts.map(w => `
                                     <div style="display: flex; gap: 10px; margin-bottom: 8px; align-items: flex-start; background: rgba(251, 191, 36, 0.04); border: 1px solid rgba(251, 191, 36, 0.1); padding: 8px 12px; border-radius: 6px;">
                                         <span style="color: #fbbf24; font-weight: bold; font-size: 0.9rem; flex-shrink:0;">📌</span>
-                                        <span style="color: rgba(255,255,255,0.85); font-size: 0.8rem;">${w}</span>
+                                        <span style="color: rgba(255,255,255,0.85); font-size: 0.8rem;">${formatMd(w)}</span>
                                     </div>`).join('')
                                 : '<div style="color: rgba(255,255,255,0.5); font-size: 0.8rem; padding: 10px; font-style:italic;">No specific earnings watchouts identified.</div>';
 
