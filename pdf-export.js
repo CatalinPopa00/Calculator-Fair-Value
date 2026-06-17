@@ -35,14 +35,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 const name = p.companyName || d.ticker || 'Company';
                 const ticker = d.ticker || 'N/A';
 
-                const baseVal = document.getElementById('fair-value-display')?.innerText || 'N/A';
-                const bearVal = document.getElementById('bear-value-display')?.innerText || 'N/A';
-                const bullVal = document.getElementById('bull-value-display')?.innerText || 'N/A';
+                // Use the dynamically stored scenarios from globalData if available, else default
+                const formatFv = (val) => val != null ? '$' + val.toFixed(2) : 'N/A';
 
-                const wDcf = document.getElementById('dcf-weight')?.value || '25';
-                const wRel = document.getElementById('rel-weight')?.value || '10';
-                const wFwd = document.getElementById('fwd-weight')?.value || '40';
-                const wPeg = document.getElementById('peg-weight')?.value || '25';
+                const scenarioFvs = window._scenarioFvData || {};
+                const fallbackFvs = (d.scoring_results) ? d.scoring_results : {};
+
+                const baseVal = formatFv(scenarioFvs.base ?? fallbackFvs.base?.fair_value);
+                const bearVal = formatFv(scenarioFvs.bear ?? fallbackFvs.bear?.fair_value);
+                const bullVal = formatFv(scenarioFvs.bull ?? fallbackFvs.bull?.fair_value);
+
+                // Fetch weights correctly from window.customWeights
+                const weights = window.customWeights || { dcf: 25, relative: 25, lynch: 25, peg: 25 };
+                const wDcf = weights.dcf || 0;
+                const wRel = weights.relative || 0;
+                const wFwd = weights.lynch || 0;
+                const wPeg = weights.peg || 0;
 
                 // 1. Build the clone container
                 const container = document.createElement('div');

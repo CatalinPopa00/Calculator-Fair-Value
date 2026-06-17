@@ -1373,6 +1373,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
     // Custom Weights Logic (v34: Now ticker-specific via overrides)
     let customWeights = { dcf: 25, peg: 25, relative: 25, lynch: 25 };
+    window.customWeights = customWeights;
 
     // Watchlist State (already initialized at the top of the file)
 
@@ -1495,6 +1496,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     const setSmartWeights = (sector, industry, archetypeWeights) => {
         const w = getSmartWeights(sector, industry, archetypeWeights);
         customWeights = w;
+        window.customWeights = customWeights;
 
         // Sync UI
         const dcfInput = document.getElementById('weight-dcf');
@@ -3508,6 +3510,10 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
         if (finalFv != null) {
             window._lastFinalFv = finalFv;
+            // Store scenario-specific fair value for PDF export
+            if (!window._scenarioFvData) window._scenarioFvData = {};
+            window._scenarioFvData[_currentScenario] = finalFv;
+
             elements.fairValue.textContent = formatCurrency(finalFv);
             elements.marginSafety.textContent = `${formatPercent(finalMos)} Margin of Safety`;
             elements.marginSafety.style.color = finalMos > 0 ? 'var(--accent)' : 'var(--danger)';
@@ -4073,6 +4079,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         startLivePricePolling();
         if (!data) return;
 
+        // Reset scenarioFVData across tickers
+        if (!isSilentUpdate) {
+            window._scenarioFvData = {};
+        }
+
         // Preserve current simulator state locally before overriding globals
         const wasSimulating = _simulating;
         const currentSimInput = document.getElementById('simulate-price-input');
@@ -4139,6 +4150,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         if (override.weights && !override._v319_stale && !isStaleFintechOverride) {
             // Restore saved weights for this specific company
             customWeights = { ...override.weights };
+            window.customWeights = customWeights;
         } else if (backendArchWeights) {
             // v319: Use backend archetype-determined weights (replaces old sector-based logic)
             customWeights = setSmartWeights(data.company_profile.sector, data.company_profile.industry, backendArchWeights);
