@@ -146,7 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             strengths = content.split('\n').map(line => line.replace(/^[-*]\s*/, '').trim()).filter(Boolean);
                         } else if (title === "VULNERABILITIES & RISKS" || title === "VULNERABILITÄ‚ÈšI È˜I RISCURI") {
                             risks = content.split('\n').map(line => line.replace(/^[-*]\s*/, '').trim()).filter(Boolean);
-                        } else if (title === "EARNINGS WATCHOUTS" || title === "LATEST MARKET INTELLIGENCE" || title === "ULTIMELE INFORMAÈšII DE PIAÈšÄ‚") {
+                        } else if (title === "EARNINGS WATCHOUTS") {
                             watchouts = content.split('\n').map(line => line.replace(/^[-*]\s*/, '').trim()).filter(Boolean);
                         }
                     }

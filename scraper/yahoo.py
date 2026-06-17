@@ -1082,14 +1082,10 @@ def load_groq_api_key() -> str:
 
 def load_gemini_api_key() -> str:
     """Helper to load the Gemini API Key from system env or local .env file."""
-    # Check multiple environment variable names to be fully resilient with user Vercel configuration
     for var_name in ["GEMINI_API_KEY", "Gemini", "gemini", "GEMINI"]:
         key = os.environ.get(var_name)
-        if key:
-            return key.strip()
-    
+        if key: return key.strip()
     try:
-        # Search in current directory and parent directory of current file
         for base_dir in [os.getcwd(), os.path.dirname(os.path.dirname(__file__))]:
             env_path = os.path.join(base_dir, ".env")
             if os.path.exists(env_path):
@@ -1103,7 +1099,46 @@ def load_gemini_api_key() -> str:
                                 return v.strip().strip('"').strip("'")
     except Exception as e:
         print(f"Error loading .env file for Gemini Key: {e}")
-        
+    return ""
+
+def load_groq_api_key() -> str:
+    for var_name in ["GROQ_API_KEY", "Groq", "groq", "GROQ"]:
+        key = os.environ.get(var_name)
+        if key: return key.strip()
+    try:
+        for base_dir in [os.getcwd(), os.path.dirname(os.path.dirname(__file__))]:
+            env_path = os.path.join(base_dir, ".env")
+            if os.path.exists(env_path):
+                with open(env_path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#") and "=" in line:
+                            k, v = line.split("=", 1)
+                            key_name = k.strip().lstrip("\ufeff")
+                            if key_name in ["GROQ_API_KEY", "Groq", "groq", "GROQ"]:
+                                return v.strip().strip('"').strip("'")
+    except Exception:
+        pass
+    return ""
+
+def load_openai_api_key() -> str:
+    for var_name in ["OPENAI_API_KEY", "OpenAI", "openai", "OPENAI"]:
+        key = os.environ.get(var_name)
+        if key: return key.strip()
+    try:
+        for base_dir in [os.getcwd(), os.path.dirname(os.path.dirname(__file__))]:
+            env_path = os.path.join(base_dir, ".env")
+            if os.path.exists(env_path):
+                with open(env_path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#") and "=" in line:
+                            k, v = line.split("=", 1)
+                            key_name = k.strip().lstrip("\ufeff")
+                            if key_name in ["OPENAI_API_KEY", "OpenAI", "openai", "OPENAI"]:
+                                return v.strip().strip('"').strip("'")
+    except Exception:
+        pass
     return ""
 
 
@@ -1123,8 +1158,9 @@ def get_company_synthesis(ticker: str, info: dict, run_ai: bool = False) -> str:
     if run_ai:
         gemini_api_key = load_gemini_api_key()
         groq_api_key = load_groq_api_key()
+        openai_api_key = load_openai_api_key()
 
-        if gemini_api_key or groq_api_key:
+        if gemini_api_key or groq_api_key or openai_api_key:
             # Fetch transcripts
             try:
                 transcript_text = get_fmp_transcripts(ticker_upper)
@@ -1271,7 +1307,35 @@ Strictly adhere to these precise markdown headers (written exactly like this, in
                     except Exception as e:
                         print(f"Error calling Gemini API ({model_name}) for {ticker_upper}: {e}")
 
-    # 2. HEURISTIC FALLBACK (Rule-based local generation) - Used if run_ai=False or APIs fail
+            # Try OpenAI API as Final Fallback
+            if openai_api_key:
+                print(f"Groq and Gemini failed or rate limited for {ticker_upper}, trying OpenAI Fallback...")
+                headers_openai = {
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {openai_api_key}"
+                }
+                payload_openai = {
+                    "model": "gpt-4o-mini",
+                    "messages": [
+                        {"role": "system", "content": "You are a senior financial analyst and top industry researcher."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    "temperature": 0.2
+                }
+                try:
+                    resp_openai = requests.post("https://api.openai.com/v1/chat/completions", headers=headers_openai, json=payload_openai, timeout=45)
+                    if resp_openai.status_code == 200:
+                        data = resp_openai.json()
+                        generated_text = data["choices"][0]["message"]["content"]
+                        if generated_text and ("**EXECUTIVE SUMMARY**" in generated_text or "**SINTEZĂ EXECUTIVĂ**" in generated_text):
+                            cleaned_text = generated_text.replace("```markdown", "").replace("```", "").strip()
+                            return cleaned_text
+                    else:
+                        print(f"OpenAI API returned error code {resp_openai.status_code}: {resp_openai.text}")
+                except Exception as e:
+                    print(f"Error calling OpenAI API for {ticker_upper}: {e}")
+
+    # 2. HEURISTIC FALLBACK (Rule-based local generation) - Used if run_ai=False or all AI APIs fail
     presentation = f"{name} is a leading company operating in the {sector} sector, with a primary focus on the {industry} segment."
     if summary:
         # Extract first 2-3 sentences for a professional description
