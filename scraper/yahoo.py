@@ -1057,14 +1057,10 @@ def fetch_latest_news_v2(ticker_symbol: str) -> list:
 
 def load_gemini_api_key() -> str:
     """Helper to load the Gemini API Key from system env or local .env file."""
-    # Check multiple environment variable names to be fully resilient with user Vercel configuration
     for var_name in ["GEMINI_API_KEY", "Gemini", "gemini", "GEMINI"]:
         key = os.environ.get(var_name)
-        if key:
-            return key.strip()
-    
+        if key: return key.strip()
     try:
-        # Search in current directory and parent directory of current file
         for base_dir in [os.getcwd(), os.path.dirname(os.path.dirname(__file__))]:
             env_path = os.path.join(base_dir, ".env")
             if os.path.exists(env_path):
@@ -1078,7 +1074,46 @@ def load_gemini_api_key() -> str:
                                 return v.strip().strip('"').strip("'")
     except Exception as e:
         print(f"Error loading .env file for Gemini Key: {e}")
-        
+    return ""
+
+def load_groq_api_key() -> str:
+    for var_name in ["GROQ_API_KEY", "Groq", "groq", "GROQ"]:
+        key = os.environ.get(var_name)
+        if key: return key.strip()
+    try:
+        for base_dir in [os.getcwd(), os.path.dirname(os.path.dirname(__file__))]:
+            env_path = os.path.join(base_dir, ".env")
+            if os.path.exists(env_path):
+                with open(env_path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#") and "=" in line:
+                            k, v = line.split("=", 1)
+                            key_name = k.strip().lstrip("\ufeff")
+                            if key_name in ["GROQ_API_KEY", "Groq", "groq", "GROQ"]:
+                                return v.strip().strip('"').strip("'")
+    except Exception:
+        pass
+    return ""
+
+def load_openai_api_key() -> str:
+    for var_name in ["OPENAI_API_KEY", "OpenAI", "openai", "OPENAI"]:
+        key = os.environ.get(var_name)
+        if key: return key.strip()
+    try:
+        for base_dir in [os.getcwd(), os.path.dirname(os.path.dirname(__file__))]:
+            env_path = os.path.join(base_dir, ".env")
+            if os.path.exists(env_path):
+                with open(env_path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#") and "=" in line:
+                            k, v = line.split("=", 1)
+                            key_name = k.strip().lstrip("\ufeff")
+                            if key_name in ["OPENAI_API_KEY", "OpenAI", "openai", "OPENAI"]:
+                                return v.strip().strip('"').strip("'")
+    except Exception:
+        pass
     return ""
 
 
@@ -1097,7 +1132,9 @@ def get_company_synthesis(ticker: str, info: dict, run_ai: bool = False) -> str:
     # 1. Try Gemini API first if run_ai is True and a key is available
     if run_ai:
         api_key = load_gemini_api_key()
-        if api_key:
+        groq_key = load_groq_api_key()
+        openai_key = load_openai_api_key()
+        if api_key or groq_key or openai_key:
             # Fetch transcripts
             try:
                 transcript_text = get_fmp_transcripts(ticker_upper)
@@ -1188,31 +1225,88 @@ Strictly adhere to these precise markdown headers (written exactly like this, in
                 }]
             }
             
-            for idx, model_name in enumerate(models_to_try):
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
-                try:
-                    response = requests.post(url, json=payload, headers=headers, timeout=30)
-                    if response.status_code == 200:
-                        res_json = response.json()
-                        try:
-                            generated_text = res_json['candidates'][0]['content']['parts'][0]['text']
-                            if generated_text and ("**EXECUTIVE SUMMARY**" in generated_text or "**SINTEZĂ EXECUTIVĂ**" in generated_text):
-                                # Clean up triple backticks if model wraps markdown
-                                cleaned_text = generated_text.replace("```markdown", "").replace("```", "").strip()
-                                return cleaned_text
-                        except (KeyError, IndexError) as e:
-                            print(f"Gemini API ({model_name}) blocked or returned unexpected format for {ticker_upper}: {res_json}")
-                    elif response.status_code == 429:
-                        print(f"Gemini API Rate Limit (429) hit for {model_name}. Retrying next model...")
-                        if idx < len(models_to_try) - 1:
-                            import time
-                            time.sleep(2)
-                    else:
-                        print(f"Gemini API ({model_name}) returned error code {response.status_code}: {response.text}")
-                except Exception as e:
-                    print(f"Error calling Gemini API ({model_name}) for {ticker_upper}: {e}")
+            if api_key:
+                for idx, model_name in enumerate(models_to_try):
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+                    try:
+                        response = requests.post(url, json=payload, headers=headers, timeout=30)
+                        if response.status_code == 200:
+                            res_json = response.json()
+                            try:
+                                generated_text = res_json['candidates'][0]['content']['parts'][0]['text']
+                                if generated_text and ("**EXECUTIVE SUMMARY**" in generated_text or "**SINTEZĂ EXECUTIVĂ**" in generated_text):
+                                    # Clean up triple backticks if model wraps markdown
+                                    cleaned_text = generated_text.replace("```markdown", "").replace("```", "").strip()
+                                    return cleaned_text
+                            except (KeyError, IndexError) as e:
+                                print(f"Gemini API ({model_name}) blocked or returned unexpected format for {ticker_upper}: {res_json}")
+                        elif response.status_code == 429:
+                            print(f"Gemini API Rate Limit (429) hit for {model_name}. Retrying next model...")
+                            if idx < len(models_to_try) - 1:
+                                import time
+                                time.sleep(2)
+                        else:
+                            print(f"Gemini API ({model_name}) returned error code {response.status_code}: {response.text}")
+                    except Exception as e:
+                        print(f"Error calling Gemini API ({model_name}) for {ticker_upper}: {e}")
 
-    # 2. HEURISTIC FALLBACK (Rule-based local generation) - Used if run_ai=False or Gemini API fails
+            # Try Groq API as Fallback
+            if groq_key:
+                print(f"Gemini failed or rate limited for {ticker_upper}, trying Groq Fallback...")
+                headers_groq = {
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {groq_key}"
+                }
+                payload_groq = {
+                    "model": "llama-3.3-70b-versatile",
+                    "messages": [
+                        {"role": "system", "content": "You are a senior financial analyst and top industry researcher."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    "temperature": 0.2
+                }
+                try:
+                    resp_groq = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers_groq, json=payload_groq, timeout=45)
+                    if resp_groq.status_code == 200:
+                        data = resp_groq.json()
+                        generated_text = data["choices"][0]["message"]["content"]
+                        if generated_text and ("**EXECUTIVE SUMMARY**" in generated_text or "**SINTEZĂ EXECUTIVĂ**" in generated_text):
+                            cleaned_text = generated_text.replace("```markdown", "").replace("```", "").strip()
+                            return cleaned_text
+                    else:
+                        print(f"Groq API returned error code {resp_groq.status_code}: {resp_groq.text}")
+                except Exception as e:
+                    print(f"Error calling Groq API for {ticker_upper}: {e}")
+
+            # Try OpenAI API as Fallback
+            if openai_key:
+                print(f"Groq failed or rate limited for {ticker_upper}, trying OpenAI Fallback...")
+                headers_openai = {
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {openai_key}"
+                }
+                payload_openai = {
+                    "model": "gpt-4o-mini",
+                    "messages": [
+                        {"role": "system", "content": "You are a senior financial analyst and top industry researcher."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    "temperature": 0.2
+                }
+                try:
+                    resp_openai = requests.post("https://api.openai.com/v1/chat/completions", headers=headers_openai, json=payload_openai, timeout=45)
+                    if resp_openai.status_code == 200:
+                        data = resp_openai.json()
+                        generated_text = data["choices"][0]["message"]["content"]
+                        if generated_text and ("**EXECUTIVE SUMMARY**" in generated_text or "**SINTEZĂ EXECUTIVĂ**" in generated_text):
+                            cleaned_text = generated_text.replace("```markdown", "").replace("```", "").strip()
+                            return cleaned_text
+                    else:
+                        print(f"OpenAI API returned error code {resp_openai.status_code}: {resp_openai.text}")
+                except Exception as e:
+                    print(f"Error calling OpenAI API for {ticker_upper}: {e}")
+
+    # 2. HEURISTIC FALLBACK (Rule-based local generation) - Used if run_ai=False or all AI APIs fail
     presentation = f"{name} is a leading company operating in the {sector} sector, with a primary focus on the {industry} segment."
     if summary:
         # Extract first 2-3 sentences for a professional description
