@@ -1156,11 +1156,10 @@ def get_company_synthesis(ticker: str, info: dict, run_ai: bool = False) -> str:
 
     # 1. Try AI first if run_ai is True
     if run_ai:
-        gemini_api_key = load_gemini_api_key()
-        groq_api_key = load_groq_api_key()
-        openai_api_key = load_openai_api_key()
-
-        if gemini_api_key or groq_api_key or openai_api_key:
+        api_key = load_gemini_api_key()
+        groq_key = load_groq_api_key()
+        openai_key = load_openai_api_key()
+        if api_key or groq_key or openai_key:
             # Fetch transcripts
             try:
                 transcript_text = get_fmp_transcripts(ticker_upper)
@@ -1238,20 +1237,22 @@ You must structure your response EXACTLY according to the format below, using th
 Strictly adhere to these precise markdown headers (written exactly like this, in uppercase and between double asterisks). Do not use other custom headers or additional characters. Maintain a sober, analytical tone, worthy of an investment banking report.
 """
             
+
             # Try Groq API first
-            if groq_api_key:
+            if groq_key:
                 try:
                     groq_url = "https://api.groq.com/openai/v1/chat/completions"
                     groq_headers = {
-                        "Authorization": f"Bearer {groq_api_key}",
+                        "Authorization": f"Bearer {groq_key}",
                         "Content-Type": "application/json"
                     }
                     groq_payload = {
                         "model": "llama-3.3-70b-versatile",
                         "messages": [
+                            {"role": "system", "content": "You are a senior financial analyst and top industry researcher."},
                             {"role": "user", "content": prompt}
                         ],
-                        "temperature": 0.5
+                        "temperature": 0.2
                     }
                     response = requests.post(groq_url, json=groq_payload, headers=groq_headers, timeout=45)
                     if response.status_code == 200:
@@ -1261,14 +1262,14 @@ Strictly adhere to these precise markdown headers (written exactly like this, in
                             cleaned_text = generated_text.replace("```markdown", "").replace("```", "").strip()
                             return cleaned_text
                     elif response.status_code == 429:
-                        print(f"Groq API Rate Limit (429) hit for llama-3.3-70b-versatile. Falling back to Gemini...")
+                        print(f"Groq API Rate Limit (429) hit for llama-3.3-70b-versatile. Falling back...")
                     else:
                         print(f"Groq API returned error code {response.status_code}: {response.text}")
                 except Exception as e:
                     print(f"Error calling Groq API for {ticker_upper}: {e}")
 
             # Fallback to Gemini if Groq fails or no key
-            if gemini_api_key:
+            if api_key:
                 models_to_try = [
                     "gemini-2.0-flash",
                     "gemini-1.5-flash",
@@ -1284,7 +1285,7 @@ Strictly adhere to these precise markdown headers (written exactly like this, in
                 }
 
                 for idx, model_name in enumerate(models_to_try):
-                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={gemini_api_key}"
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
                     try:
                         response = requests.post(url, json=payload, headers=headers, timeout=30)
                         if response.status_code == 200:
@@ -1308,11 +1309,11 @@ Strictly adhere to these precise markdown headers (written exactly like this, in
                         print(f"Error calling Gemini API ({model_name}) for {ticker_upper}: {e}")
 
             # Try OpenAI API as Final Fallback
-            if openai_api_key:
+            if openai_key:
                 print(f"Groq and Gemini failed or rate limited for {ticker_upper}, trying OpenAI Fallback...")
                 headers_openai = {
                     "Content-Type": "application/json",
-                    "Authorization": f"Bearer {openai_api_key}"
+                    "Authorization": f"Bearer {openai_key}"
                 }
                 payload_openai = {
                     "model": "gpt-4o-mini",
