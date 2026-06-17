@@ -31,16 +31,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 const mktCapRaw = p.mktCap || q.marketCap || d.market_cap || p.marketCap || p.market_cap;
                 const mktCap = mktCapRaw ? (mktCapRaw / 1e9).toFixed(2) + 'B' : 'N/A';
                 const ind = p.industry || 'N/A';
-                const name = p.companyName || d.ticker || 'Company';
+                const name = d.name || p.companyName || p.name || d.ticker || 'Company';
                 const ticker = d.ticker || 'N/A';
-                let logoUrl = p.logo;
+                let logoUrl = p.image || p.logo;
                 if (!logoUrl && d.website) {
                     let domain = d.website.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
                     if (domain) {
                         logoUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent('https://www.google.com/s2/favicons?domain=' + domain + '&sz=128')}`;
                     }
                 }
-                const logoHtml = logoUrl ? `<img src="${logoUrl}" style="width: 42px; height: 42px; border-radius: 50%; object-fit: contain; background: white; padding: 4px;" crossorigin="anonymous">` : `<div style="width: 42px; height: 42px; border-radius: 50%; background: var(--primary); display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px;">${ticker.charAt(0)}</div>`;
+                const logoHtml = logoUrl ? `<img src="${logoUrl}" style="width: 42px; height: 42px; border-radius: 50%; object-fit: contain; background: white; padding: 4px;" crossorigin="anonymous">` : `<div style="width: 42px; height: 42px; border-radius: 50%; background: #3b82f6; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px; color: white;">${ticker.charAt(0)}</div>`;
 
                 const scenarioBtns = Array.from(document.querySelectorAll('.scenario-btn:not(.custom-scenarios-btn)'));
                 const activeBtn = document.querySelector('.scenario-btn.active:not(.custom-scenarios-btn)');
@@ -264,6 +264,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     scoresClone.style.boxShadow = 'none';
                     scoresClone.style.padding = '15px';
                     
+                    // Remove "i" emoji button
+                    const rulesBtn = scoresClone.querySelector('#open-rules-modal');
+                    if (rulesBtn) rulesBtn.remove();
+                    
+                    // Fix grid so it occupies full width instead of 50%
+                    const row2Grid = scoresClone.querySelector('.row-2-grid');
+                    if (row2Grid) {
+                        row2Grid.style.display = 'block';
+                    }
+
                     // Remove top strengths & risk factors from the score panel
                     const rightPanel = scoresClone.querySelector('.insights-column') || scoresClone.querySelector('.strengths-risks-container');
                     if (rightPanel) rightPanel.remove();
@@ -311,8 +321,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 [m1, m2, m3, m4].forEach((c, idx) => {
                     if (c) {
-                        c.style.background = 'rgba(30, 41, 59, 1)';
-                        c.classList.remove('collapsed');
+                        c.style.background = '#1e293b';
+                        c.classList.remove('glass-card', 'collapsed');
+                        c.style.border = '1px solid rgba(255,255,255,0.05)';
+                        c.style.boxShadow = 'none';
+                        c.style.borderRadius = '12px';
                         c.style.height = '100%';
                         c.style.padding = '15px';
                         c.style.display = 'flex';
