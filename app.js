@@ -621,7 +621,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             "width": "100%",
             "height": "100%",
             "locale": "en",
-            "colorTheme": currentTheme,
+            "colorTheme": "dark",
             "showVolume": false,
             "hideDateRanges": false,
             "hideMarketStatus": false,
