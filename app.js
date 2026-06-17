@@ -7582,8 +7582,15 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 + sectionHeader('Valuation Multiples')
                 + row('5Y Avg P/E', prof.historic_pe ? prof.historic_pe.toFixed(2) + 'x' : 'N/A')
                 + row(`Return Rate (Discount)`, p.dynamic_discount != null ? fmtPct(p.dynamic_discount) : '15.0%')
-                + sectionHeader('Valuation Output')
-                + row(`Fair Value (PE ${p.dynamic_mult != null ? (Number.isInteger(p.dynamic_mult) ? p.dynamic_mult : p.dynamic_mult.toFixed(2)) : 20})`, '$' + fmt(p.dynamic_fv != null ? p.dynamic_fv : p.fair_value_pe_20), true);
+                + sectionHeader('Valuation Output');
+            // Calculate Fair Value (3Y) = fwd_eps * exit multiple
+            const fwdEps3Y = p.dynamic_fwd_eps != null ? p.dynamic_fwd_eps : p.fwd_eps;
+            const exitMult = p.dynamic_mult != null ? p.dynamic_mult : (prof.historic_pe || 20);
+            const fv3Y = fwdEps3Y * exitMult;
+            const fvToday = p.dynamic_fv != null ? p.dynamic_fv : p.fair_value_pe_20;
+            const multLabel = p.dynamic_mult != null ? (Number.isInteger(p.dynamic_mult) ? p.dynamic_mult : p.dynamic_mult.toFixed(2)) : (prof.historic_pe ? prof.historic_pe.toFixed(2) : '20');
+            html += row(`Fair Value (3Y)`, '$' + fmt(fv3Y), true)
+                + row(`Fair Value (Today)`, '$' + fmt(fvToday), true);
         } else if (model === 'peg' && currentFormulaData.peg) {
             const g = currentFormulaData.peg;
             const prof = globalData.company_profile || {};
@@ -7604,6 +7611,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 + row('Growth Estimate', fmtPct(g.dynamic_growth != null ? g.dynamic_growth : g.eps_growth_estimated))
                 + row('Current PEG', g.dynamic_peg ? g.dynamic_peg.toFixed(2) + 'x' : (g.current_peg ? g.current_peg.toFixed(2) + 'x' : 'N/A'))
                 + sectionHeader('Valuation Target')
+                + row('Standard PEG', '1.00x')
                 + row('Industry PEG', g.industry_peg ? g.industry_peg.toFixed(2) + 'x' : 'N/A')
                 + sectionHeader('Valuation Output')
                 + row('Fair Value', '$' + fmt(g.dynamic_fv != null ? g.dynamic_fv : g.fair_value), true)
@@ -8322,6 +8330,9 @@ document.addEventListener('touchend', (e) => {
 
 window.refreshCarousels = function() {
     document.querySelectorAll('.research-card, .company-profile-box, #company-desc-card').forEach(card => {
+        // Skip ownership card — it has its own native tab indicators
+        if (card.id === 'ownership-card') return;
+        
         let tabs = Array.from(card.querySelectorAll('.analyst-tab-btn, .ownership-tab-btn'));
         if (!tabs.length) tabs = Array.from(card.querySelectorAll('.brief-tab'));
         if (!tabs.length) return;
