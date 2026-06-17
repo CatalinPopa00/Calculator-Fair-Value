@@ -288,8 +288,8 @@ def get_fmp_transcripts(ticker: str) -> str:
 
 def run_ai_kpi_audit(ticker: str) -> Dict[str, Any]:
     ticker = ticker.upper()
-    # if ticker in audit_cache:
-    #     return audit_cache[ticker]
+    if ticker in audit_cache:
+        return audit_cache[ticker]
 
     try:
         from dotenv import load_dotenv
@@ -371,65 +371,8 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
         result_content = None
         all_errors = []
 
-        # Try Groq First if available (Free and Fast)
-        if groq_key:
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {groq_key}"
-            }
-            payload = {
-                "model": "llama-3.3-70b-versatile",
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"Aici sunt textele pentru {ticker}:\n\n{raw_text}"}
-                ],
-                "response_format": {"type": "json_object"},
-                "temperature": 0.2
-            }
-            try:
-                resp = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=55)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    result_content = data["choices"][0]["message"]["content"]
-                else:
-                    error_msg = resp.text
-                    try:
-                        error_msg = resp.json().get("error", {}).get("message", resp.text)
-                    except:
-                        pass
-                    all_errors.append(f"Groq Error: {error_msg}")
-            except Exception as e:
-                all_errors.append(f"Groq Timeout/Error: {str(e)}")
-
-        # Try OpenAI if Groq failed or wasn't configured
-        if not result_content and openai_key:
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {openai_key}"
-            }
-            payload = {
-                "model": "gpt-4o-mini",
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"Aici sunt textele pentru {ticker}:\n\n{raw_text}"}
-                ],
-                "response_format": {"type": "json_object"},
-                "temperature": 0.2
-            }
-            resp = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload, timeout=55)
-            if resp.status_code == 200:
-                data = resp.json()
-                result_content = data["choices"][0]["message"]["content"]
-            else:
-                error_msg = resp.text
-                try:
-                    error_msg = resp.json().get("error", {}).get("message", resp.text)
-                except:
-                    pass
-                all_errors.append(f"OpenAI Error: {error_msg}")
-
-        # Try Gemini if OpenAI failed or wasn't configured
-        if not result_content and gemini_key:
+        # Try Gemini First
+        if gemini_key:
             models_to_try = [
                 "gemini-2.0-flash",
                 "gemini-1.5-flash",
@@ -471,6 +414,63 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
                         all_errors.append(f"Gemini {model}: {error_msg}")
                 except Exception as e:
                     all_errors.append(f"Gemini {model} Timeout/Error: {str(e)}")
+
+        # Try Groq as fallback
+        if not result_content and groq_key:
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {groq_key}"
+            }
+            payload = {
+                "model": "llama-3.3-70b-versatile",
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"Aici sunt textele pentru {ticker}:\n\n{raw_text}"}
+                ],
+                "response_format": {"type": "json_object"},
+                "temperature": 0.2
+            }
+            try:
+                resp = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=55)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    result_content = data["choices"][0]["message"]["content"]
+                else:
+                    error_msg = resp.text
+                    try:
+                        error_msg = resp.json().get("error", {}).get("message", resp.text)
+                    except:
+                        pass
+                    all_errors.append(f"Groq Error: {error_msg}")
+            except Exception as e:
+                all_errors.append(f"Groq Timeout/Error: {str(e)}")
+
+        # Try OpenAI as final fallback
+        if not result_content and openai_key:
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {openai_key}"
+            }
+            payload = {
+                "model": "gpt-4o-mini",
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"Aici sunt textele pentru {ticker}:\n\n{raw_text}"}
+                ],
+                "response_format": {"type": "json_object"},
+                "temperature": 0.2
+            }
+            resp = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload, timeout=55)
+            if resp.status_code == 200:
+                data = resp.json()
+                result_content = data["choices"][0]["message"]["content"]
+            else:
+                error_msg = resp.text
+                try:
+                    error_msg = resp.json().get("error", {}).get("message", resp.text)
+                except:
+                    pass
+                all_errors.append(f"OpenAI Error: {error_msg}")
 
         if not result_content:
             return {"error": True, "detail": "AI API Error: " + " | ".join(all_errors)}

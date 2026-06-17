@@ -589,24 +589,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     backgroundColor: '#0f172a'
                 });
 
-                const canvas2 = await html2canvas(container2, {
-                    scale: 1,
-                    useCORS: true,
-                    logging: false,
-                    scrollY: 0,
-                    scrollX: 0,
-                    width: 1200,
-                    windowWidth: 1200,
-                    height: container2.scrollHeight,
-                    windowHeight: container2.scrollHeight,
-                    backgroundColor: '#0f172a'
-                });
-
                 const pdf = new jsPDF('p', 'mm', 'a4');
                 pdf.setFillColor(15, 23, 42); // match #0f172a
-
                 const pdfWidth = 210;
-                let pdfHeight = 297;
+                const pdfHeight = 297;
 
                 // --- Page 1 ---
                 let imgData1 = canvas1.toDataURL('image/jpeg', 0.95);
@@ -617,26 +603,66 @@ document.addEventListener('DOMContentLoaded', () => {
                 pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
                 pdf.addImage(imgData1, 'JPEG', 0, 0, pdfWidth, imgHeightInMm1);
 
-                // --- Page 2 ---
-                pdf.addPage();
-                let imgData2 = canvas2.toDataURL('image/jpeg', 0.95);
-                let imgProps2 = pdf.getImageProperties(imgData2);
-                let ratio2 = imgProps2.width / pdfWidth;
-                let imgHeightInMm2 = imgProps2.height / ratio2;
+                // --- Page 2 and beyond (Iterating through KPI charts to prevent cutting) ---
 
-                let heightLeft = imgHeightInMm2;
-                let position = 0;
+                // Get the KPI container and title
+                const titleSection = container2.querySelector('#pdf-export-audit-section');
+                const kpiContainer = container2.querySelector('#pdf-export-kpi-container');
 
-                pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
-                pdf.addImage(imgData2, 'JPEG', 0, position, pdfWidth, imgHeightInMm2);
-                heightLeft -= pdfHeight;
+                // Keep track of current height used on the current page
+                let currentHeightUsed = 0;
 
-                while (heightLeft > 0) {
-                    position -= pdfHeight;
+                if (titleSection || (kpiContainer && kpiContainer.children.length > 0)) {
                     pdf.addPage();
                     pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
-                    pdf.addImage(imgData2, 'JPEG', 0, position, pdfWidth, imgHeightInMm2);
-                    heightLeft -= pdfHeight;
+
+                    if (titleSection) {
+                         const titleCanvas = await html2canvas(titleSection, {
+                            scale: 2,
+                            useCORS: true,
+                            logging: false,
+                            backgroundColor: '#0f172a'
+                         });
+                         let titleImg = titleCanvas.toDataURL('image/jpeg', 0.95);
+                         let titleProps = pdf.getImageProperties(titleImg);
+                         let titleRatio = titleProps.width / pdfWidth;
+                         let titleH = titleProps.height / titleRatio;
+
+                         pdf.addImage(titleImg, 'JPEG', 0, currentHeightUsed, pdfWidth, titleH);
+                         currentHeightUsed += titleH + 5; // 5mm gap
+                    }
+
+                    if (kpiContainer) {
+                        const charts = Array.from(kpiContainer.children);
+                        for (let i = 0; i < charts.length; i++) {
+                            const chartCard = charts[i];
+                            const chartCanvas = await html2canvas(chartCard, {
+                                scale: 2,
+                                useCORS: true,
+                                logging: false,
+                                backgroundColor: '#1e293b' // match card background
+                            });
+
+                            let chartImg = chartCanvas.toDataURL('image/jpeg', 0.95);
+                            let chartProps = pdf.getImageProperties(chartImg);
+                            let chartRatio = (chartProps.width + 40) / pdfWidth; // slightly pad the width ratio to leave margins
+                            let chartW = chartProps.width / chartRatio;
+                            let chartH = chartProps.height / chartRatio;
+
+                            // Center horizontally roughly by adding 10mm margin
+                            let marginX = (pdfWidth - chartW) / 2;
+
+                            // Check if adding this chart will overflow the page
+                            if (currentHeightUsed + chartH > pdfHeight - 10) { // 10mm bottom margin
+                                pdf.addPage();
+                                pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
+                                currentHeightUsed = 10; // Start with 10mm top margin on new page
+                            }
+
+                            pdf.addImage(chartImg, 'JPEG', marginX, currentHeightUsed, chartW, chartH);
+                            currentHeightUsed += chartH + 10; // 10mm gap between cards
+                        }
+                    }
                 }
 
                 pdf.save(`${ticker}_Fair_Value_Report.pdf`);
