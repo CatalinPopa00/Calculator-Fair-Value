@@ -36,6 +36,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 const ticker = d.ticker || 'N/A';
 
                 // Use the dynamically stored scenarios from globalData if available, else default
+                // Ensure all scenario values are calculated before export
+                const scenarioBtns = Array.from(document.querySelectorAll('.scenario-btn:not(.custom-scenarios-btn)'));
+                const activeBtn = document.querySelector('.scenario-btn.active:not(.custom-scenarios-btn)');
+                if (scenarioBtns.length > 0) {
+                    // Click all scenarios to populate window._scenarioFvData sequentially
+                    scenarioBtns.forEach(btn => {
+                        if (btn && btn.click) btn.click();
+                    });
+                    // Restore original active scenario
+                    if (activeBtn && activeBtn.click) activeBtn.click();
+                }
+
                 const formatFv = (val) => {
                     if (val == null) return 'N/A';
                     if (typeof val === 'number') return '$' + val.toFixed(2);
