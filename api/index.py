@@ -710,7 +710,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 return valuation_cache[full_mode_key]
 
         # 1. Persistent Cache Check
-        persistent_cache_key = f"val_data_v37_{ticker.upper()}"
+        persistent_cache_key = f"val_data_v38_{ticker.upper()}"
         cached_data = kv_get(persistent_cache_key)
         if cached_data and not force_refresh:
             return cached_data

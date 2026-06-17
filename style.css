@@ -4408,11 +4408,21 @@ body.has-searched #install-app-btn {
     }
 }
 
-/* Show Corporate Summary tabs on mobile, fitted without scroll, and hide the dashes */
-@media (max-width: 768px) {
-    #company-desc-card .mobile-carousel-indicators {
+/* Hide auto-generated dots for cards that have native dashes */
+#company-desc-card .mobile-carousel-indicators,
+#ownership-card .mobile-carousel-indicators {
+    display: none !important;
+}
+
+/* Hide ownership tab indicators on desktop */
+@media (min-width: 769px) {
+    #ownership-card .corporate-tabs-wrapper {
         display: none !important;
     }
+}
+
+/* Show Corporate Summary tabs on mobile, fitted without scroll, and hide the dashes */
+@media (max-width: 768px) {
     .corporate-tabs-wrapper { 
         display: flex !important;
         gap: 4px !important;

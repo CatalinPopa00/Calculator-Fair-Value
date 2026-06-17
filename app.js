@@ -4196,7 +4196,8 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             if (data.website) {
                 let domain = data.website.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
                 if (domain) {
-                    elements.logo.src = `https://logo.clearbit.com/${domain}`;
+                    elements.logo.onerror = () => { elements.logo.style.display = 'none'; };
+                    elements.logo.src = `https://img.logo.dev/${domain}?token=pk_a8V2xpGqSYWZN-8CkYKxOw&size=80&format=png`;
                     elements.logo.style.display = 'block';
                 } else {
                     elements.logo.style.display = 'none';
