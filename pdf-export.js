@@ -28,8 +28,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const p = d.company_profile || {};
                 const q = d.quote || {};
 
-                const price = q.price ? q.price.toFixed(2) : 'N/A';
-                const mktCapRaw = p.mktCap || q.marketCap;
+                const priceVal = d.current_price || q.price || p.price;
+                const price = priceVal ? priceVal.toFixed(2) : 'N/A';
+                const mktCapRaw = p.mktCap || q.marketCap || d.market_cap || p.marketCap || p.market_cap;
                 const mktCap = mktCapRaw ? (mktCapRaw / 1e9).toFixed(2) + 'B' : 'N/A';
                 const ind = p.industry || 'N/A';
                 const name = p.companyName || d.ticker || 'Company';
