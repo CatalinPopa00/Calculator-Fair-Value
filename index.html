@@ -20,7 +20,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=345">
+    <link rel="stylesheet" href="style.css?v=346">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
    <style>
         #version-badge {
@@ -94,24 +94,18 @@
                 <section class="hero-layout">
                     <!-- Column 1: Identity & Fair Value -->
                     <div class="hero-left-col">
-                        <div class="company-header glass-card"
-                            style="display: flex; flex-direction: column; align-items: center; text-align: center;">
-                            <div class="name-watchlist-row">
-                                <div class="chart-col">
-                                    <button id="toggle-chart-btn" title="Toggle Price Chart" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 1.1rem; transition: 0.2s; z-index: 10;">📈</button>
-                                </div>
-                                <div class="center-col">
-                                    <img id="company-logo" src="" style="width: 48px; height: 48px; border-radius: 50%; display: none; object-fit: contain; background: white; padding: 2px;">
-                                    <div class="text-wrapper">
-                                        <span class="ticker" id="company-ticker"></span>
-                                        <h2><span id="company-name">Loading...</span></h2>
-                                    </div>
-                                </div>
-                                <div class="star-col">
-                                    <button id="add-to-watchlist-btn" class="star-btn" title="Toggle Watchlist" style="margin-left: 0;">☆</button>
+                        <div class="company-header glass-card header-grid">
+                            <div class="chart-col">
+                                <button id="toggle-chart-btn" title="Toggle Price Chart" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 1.1rem; transition: 0.2s; z-index: 10;">📈</button>
+                            </div>
+                            <div class="center-col">
+                                <img id="company-logo" src="" style="width: 48px; height: 48px; border-radius: 50%; display: none; object-fit: contain; background: white; padding: 2px;">
+                                <div class="text-wrapper">
+                                    <span class="ticker" id="company-ticker"></span>
+                                    <h2><span id="company-name">Loading...</span></h2>
                                 </div>
                             </div>
-                            <div class="price-display" style="align-items: center; margin-top: 10px;">
+                            <div class="price-display">
                                 <span class="label">Current Price</span>
                                 <div style="display: flex; align-items: center; gap: 8px; justify-content: center;">
                                     <span class="value" id="current-price">$0.00</span>
@@ -123,6 +117,9 @@
                                     <span id="price-change-percent" style="font-size: 1rem; font-weight: 600; transition: all 0.3s ease;"></span>
                                 </div>
                                 <div id="simulate-price-label" class="simulate-label" style="display:none;">Simulated Price</div>
+                            </div>
+                            <div class="star-col">
+                                <button id="add-to-watchlist-btn" class="star-btn" title="Toggle Watchlist" style="margin-left: 0;">☆</button>
                             </div>
                         </div>
 

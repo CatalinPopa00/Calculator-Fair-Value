@@ -635,19 +635,23 @@ body {
     border-left-color: var(--danger);
 }
 
-.name-watchlist-row {
-    display: flex;
-    justify-content: space-between;
+.header-grid {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas:
+        "chart center star"
+        ". price .";
     align-items: center;
     width: 100%;
-    margin-bottom: 5px;
 }
-.chart-col { display: flex; align-items: center; }
-.center-col { display: flex; align-items: center; justify-content: center; gap: 12px; flex: 1; margin: 0 10px; }
+
+.chart-col { grid-area: chart; display: flex; align-items: center; }
+.center-col { grid-area: center; display: flex; align-items: center; justify-content: center; gap: 12px; margin: 0 10px; }
 .center-col .text-wrapper { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
 .center-col .ticker { font-size: 1.6rem !important; font-weight: 800 !important; letter-spacing: 1px; margin: 0; line-height: 1.1; color: #fff; }
 .center-col h2 { font-size: 1.15rem !important; font-weight: 600; color: var(--text-muted); margin: 0; line-height: 1.1; margin-top: 4px; }
-.star-col { display: flex; align-items: center; }
+.price-display { grid-area: price; display: flex; flex-direction: column; align-items: center; margin-top: 10px; justify-self: center; }
+.star-col { grid-area: star; display: flex; align-items: center; justify-content: flex-end; }
 
 .company-overview h3 {
     color: var(--text-muted);
@@ -4436,6 +4440,30 @@ body.has-searched #install-app-btn {
         justify-content: center;
         text-align: center;
         white-space: nowrap;
+    }
+}
+
+
+@media (max-width: 768px) {
+    .header-grid {
+        grid-template-areas:
+            "center center center"
+            "chart price star";
+        row-gap: 15px;
+    }
+    .header-grid .center-col {
+        justify-content: flex-start;
+        margin: 0;
+    }
+    .header-grid .center-col .text-wrapper {
+        align-items: flex-start;
+        text-align: left;
+    }
+    .header-grid .center-col h2 {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: calc(100vw - 120px);
     }
 }
 
