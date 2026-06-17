@@ -2263,6 +2263,12 @@ body.banner-visible .modal-content {
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
 }
 
+.premium-select option {
+    background-color: #0f172a; /* Fallback to a dark color */
+    background-color: var(--bg-main, #0f172a);
+    color: var(--text-main, #f8fafc);
+}
+
 .view-data-btn {
     width: 100%;
     margin-top: 1rem;
