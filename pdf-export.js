@@ -15,7 +15,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const jsPDF = window.jspdf.jsPDF;
             console.log("PDF export process started...");
 
-            // Save state
             const btnOriginalHtml = exportBtn.innerHTML;
             exportBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> GENERATING...';
             exportBtn.disabled = true;
@@ -23,7 +22,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const originalScrollY = window.scrollY;
 
             try {
-                // Fetch data
                 const d = window.globalData || {};
                 const p = d.company_profile || {};
                 const q = d.quote || {};
@@ -35,17 +33,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 const ind = p.industry || 'N/A';
                 const name = p.companyName || d.ticker || 'Company';
                 const ticker = d.ticker || 'N/A';
+                const logoHtml = p.logo ? `<img src="${p.logo}" style="width: 48px; height: 48px; border-radius: 50%; object-fit: contain; background: white; padding: 4px;" crossorigin="anonymous">` : `<div style="width: 48px; height: 48px; border-radius: 50%; background: var(--primary); display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 20px;">${ticker.charAt(0)}</div>`;
 
-                // Use the dynamically stored scenarios from globalData if available, else default
-                // Ensure all scenario values are calculated before export
                 const scenarioBtns = Array.from(document.querySelectorAll('.scenario-btn:not(.custom-scenarios-btn)'));
                 const activeBtn = document.querySelector('.scenario-btn.active:not(.custom-scenarios-btn)');
                 if (scenarioBtns.length > 0) {
-                    // Click all scenarios to populate window._scenarioFvData sequentially
-                    scenarioBtns.forEach(btn => {
-                        if (btn && btn.click) btn.click();
-                    });
-                    // Restore original active scenario
+                    scenarioBtns.forEach(btn => { if (btn && btn.click) btn.click(); });
                     if (activeBtn && activeBtn.click) activeBtn.click();
                 }
 
@@ -67,166 +60,282 @@ document.addEventListener('DOMContentLoaded', () => {
                 const bearVal = formatFv(scenarioFvs.bear ?? fallbackFvs.bear?.fair_value);
                 const bullVal = formatFv(scenarioFvs.bull ?? fallbackFvs.bull?.fair_value);
 
-                // Fetch weights correctly from window.customWeights
                 const weights = window.customWeights || { dcf: 25, relative: 25, lynch: 25, peg: 25 };
-                const wDcf = weights.dcf || 0;
-                const wRel = weights.relative || 0;
-                const wFwd = weights.lynch || 0;
-                const wPeg = weights.peg || 0;
+                
+                const getVal = (id) => document.getElementById(id) ? document.getElementById(id).value : '';
+                
+                // Helper to extract SWOT
+                const getSwotBlock = (titleKeyword) => {
+                    const headings = Array.from(document.querySelectorAll('#company-desc-card h4, .panel h4'));
+                    const h4 = headings.find(el => el.textContent.toUpperCase().includes(titleKeyword));
+                    if (h4 && h4.parentElement) {
+                        return h4.parentElement.innerHTML;
+                    }
+                    return `<h4 style="color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin-top: 0; margin-bottom: 10px; font-weight: 800;">${titleKeyword}</h4><p style="color: rgba(255,255,255,0.5); font-size: 0.8rem; font-style:italic;">Not available.</p>`;
+                };
 
-                // 1. Build the clone container
+                const strengthsHtml = getSwotBlock('STRATEGIC STRENGTHS');
+                const risksHtml = getSwotBlock('VULNERABILITIES & RISKS');
+                const keyPointsHtml = getSwotBlock('KEY POINTS');
+
                 const container = document.createElement('div');
                 container.id = 'pdf-export-temp-container';
                 container.style.width = '1200px';
-                container.style.background = '#0b1320';
+                container.style.background = '#0f172a'; // Match body bg
                 container.style.color = '#f8fafc';
                 container.style.fontFamily = "'Outfit', sans-serif";
                 container.style.padding = '40px';
-                container.style.boxSizing = 'border-box'; // Ensure padding doesn't affect 1200px
+                container.style.boxSizing = 'border-box';
                 container.style.position = 'absolute';
                 container.style.top = '0';
                 container.style.left = '0';
-                container.style.zIndex = '-9999'; // hide behind actual UI
-                // Prevent inherited flexbox weirdness
+                container.style.zIndex = '-9999';
                 container.style.display = 'block';
 
-                // Row 1
+                const cardStyle = "background: rgba(30, 41, 59, 1); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);";
+
+                // Layout Building
                 container.innerHTML = `
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 30px; background: rgba(30, 41, 59, 1); border-radius: 16px; margin-bottom: 25px; border: 1px solid rgba(255,255,255,0.1);">
-                        <div>
-                            <h2 style="margin: 0 0 15px 0; font-size: 2.5rem; font-weight: 800;">${name} <span style="color: #94a3b8; font-weight: 400;">${ticker}</span></h2>
-                            <div style="font-size: 1.1rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 8px;">CURRENT PRICE</div>
-                            <div style="font-size: 3rem; font-weight: 800;">$${price}</div>
+                    <!-- Header -->
+                    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px;">
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            ${logoHtml}
+                            <div>
+                                <h2 style="margin: 0; font-size: 2rem; font-weight: 800;">${name} <span style="color: #94a3b8; font-weight: 400; font-size: 1.5rem;">${ticker}</span></h2>
+                            </div>
                         </div>
-                        <div style="text-align: right;">
-                            <div style="font-size: 1.1rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 8px;">INDUSTRY</div>
-                            <div style="font-size: 1.4rem; font-weight: 600; margin-bottom: 25px;">${ind}</div>
-                            <div style="font-size: 1.1rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 8px;">MARKET CAP</div>
-                            <div style="font-size: 1.4rem; font-weight: 600;">$${mktCap}</div>
+                        <div style="text-align: right; color: #94a3b8; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px;">
+                            <div style="margin-bottom: 4px;">INDUSTRY</div>
+                            <div style="color: #f8fafc; font-weight: 600; font-size: 1.1rem; margin-bottom: 12px;">${ind}</div>
+                            <div style="margin-bottom: 4px;">MARKET CAP</div>
+                            <div style="color: #f8fafc; font-weight: 600; font-size: 1.1rem;">$${mktCap}</div>
                         </div>
                     </div>
 
-                    <div style="display: flex; gap: 20px; margin-bottom: 35px; align-items: stretch;">
-                        <div style="flex: 1; text-align: center; padding: 30px; background: rgba(30, 41, 59, 1); border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; justify-content: center;">
-                            <h3 style="margin: 0 0 15px 0; color: #94a3b8; font-size: 1.2rem; text-transform: uppercase; letter-spacing: 1px;">Bear Scenario</h3>
-                            <div style="font-size: 2.2rem; font-weight: 800;">${bearVal}</div>
+                    <!-- Price & Scenarios -->
+                    <div style="display: flex; gap: 20px; margin-bottom: 20px; align-items: stretch;">
+                        <div style="${cardStyle} padding: 25px; min-width: 200px;">
+                            <div style="font-size: 0.9rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">CURRENT PRICE</div>
+                            <div style="font-size: 2.8rem; font-weight: 800;">$${price}</div>
                         </div>
-                        <div style="flex: 1; text-align: center; padding: 30px; background: rgba(30, 41, 59, 1); border-radius: 16px; border: 2px solid #3b82f6; display: flex; flex-direction: column; justify-content: center;">
-                            <h3 style="margin: 0 0 15px 0; color: #3b82f6; font-size: 1.3rem; text-transform: uppercase; letter-spacing: 1px;">Base Scenario</h3>
-                            <div style="font-size: 2.8rem; font-weight: 800; color: #3b82f6;">${baseVal}</div>
-                        </div>
-                        <div style="flex: 1; text-align: center; padding: 30px; background: rgba(30, 41, 59, 1); border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; justify-content: center;">
-                            <h3 style="margin: 0 0 15px 0; color: #94a3b8; font-size: 1.2rem; text-transform: uppercase; letter-spacing: 1px;">Bull Scenario</h3>
-                            <div style="font-size: 2.2rem; font-weight: 800;">${bullVal}</div>
-                        </div>
-                        <div style="flex: 1.2; padding: 30px; background: rgba(30, 41, 59, 1); border-radius: 16px; border: 1px solid rgba(255,255,255,0.1);">
-                            <h3 style="margin: 0 0 25px 0; font-size: 1.3rem; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px;">Model Weights (%)</h3>
-                            <div style="display: grid; grid-template-columns: 1fr auto; gap: 18px; font-size: 1.15rem; color: #94a3b8; align-items: center;">
-                                <div>DCF Model</div><div style="font-weight:bold; color: #f8fafc; background: rgba(0,0,0,0.3); padding: 4px 12px; border-radius: 6px;">${wDcf}</div>
-                                <div>Relative Valuation</div><div style="font-weight:bold; color: #f8fafc; background: rgba(0,0,0,0.3); padding: 4px 12px; border-radius: 6px;">${wRel}</div>
-                                <div>Forward Multiple</div><div style="font-weight:bold; color: #f8fafc; background: rgba(0,0,0,0.3); padding: 4px 12px; border-radius: 6px;">${wFwd}</div>
-                                <div>PEG Valuation</div><div style="font-weight:bold; color: #f8fafc; background: rgba(0,0,0,0.3); padding: 4px 12px; border-radius: 6px;">${wPeg}</div>
+                        <div style="${cardStyle} flex: 1; display: flex; padding: 20px; justify-content: space-between; align-items: center;">
+                            <div style="text-align: center; flex: 1;">
+                                <h3 style="margin: 0 0 10px 0; color: #ef4444; font-size: 1.2rem;">Bear</h3>
+                                <div style="font-size: 1.8rem; font-weight: 800;">${bearVal}</div>
+                            </div>
+                            <div style="width: 1px; background: rgba(255,255,255,0.1); height: 80%;"></div>
+                            <div style="text-align: center; flex: 1.2;">
+                                <h3 style="margin: 0 0 10px 0; color: #3b82f6; font-size: 1.4rem;">Base</h3>
+                                <div style="font-size: 2.2rem; font-weight: 800; color: #3b82f6;">${baseVal}</div>
+                            </div>
+                            <div style="width: 1px; background: rgba(255,255,255,0.1); height: 80%;"></div>
+                            <div style="text-align: center; flex: 1;">
+                                <h3 style="margin: 0 0 10px 0; color: #10b981; font-size: 1.2rem;">Bull</h3>
+                                <div style="font-size: 1.8rem; font-weight: 800;">${bullVal}</div>
                             </div>
                         </div>
                     </div>
+
+                    <!-- Middle Grid: Scores & Custom Scenarios -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                        <div id="pdf-scores-container" style="${cardStyle}"></div>
+                        <div style="${cardStyle} padding: 20px;">
+                            <h3 style="margin: 0 0 20px 0; font-size: 1.2rem;">Custom Scenarios</h3>
+                            <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; text-align: center;">
+                                <thead>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); color: #94a3b8;">
+                                        <th style="text-align: left; padding: 8px 0; font-weight: 500; text-transform: uppercase;">Parameter</th>
+                                        <th style="padding: 8px 0; font-weight: 600; color: #ef4444;">Bear</th>
+                                        <th style="padding: 8px 0; font-weight: 600; color: #f8fafc;">Base</th>
+                                        <th style="padding: 8px 0; font-weight: 600; color: #10b981;">Bull</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td style="text-align:left; padding:8px 0; color: #94a3b8;">Rev. Growth (%)</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-rev-growth-bear')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-rev-growth-base')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-rev-growth-bull')}</td></tr>
+                                    <tr><td style="text-align:left; padding:8px 0; color: #94a3b8;">FCF Margin (%)</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-fcf-margin-bear')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-fcf-margin-base')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-fcf-margin-bull')}</td></tr>
+                                    <tr><td style="text-align:left; padding:8px 0; color: #94a3b8;">WACC (%)</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-wacc-bear')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-wacc-base')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-wacc-bull')}</td></tr>
+                                    <tr><td style="text-align:left; padding:8px 0; color: #94a3b8;">Exit Multiple (x)</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-exit-multiple-bear')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-exit-multiple-base')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-exit-multiple-bull')}</td></tr>
+                                    <tr><td style="text-align:left; padding:8px 0; color: #94a3b8;">Perpetual Gr. (%)</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-perpetual-growth-bear')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-perpetual-growth-base')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-perpetual-growth-bull')}</td></tr>
+                                    <tr><td style="text-align:left; padding:8px 0; color: #94a3b8;">EPS Growth (%)</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-eps-growth-bear')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-eps-growth-base')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-eps-growth-bull')}</td></tr>
+                                    <tr><td style="text-align:left; padding:8px 0; color: #94a3b8;">Forward P/E 3y</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-forward-pe-bear')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-forward-pe-base')}</td><td style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05);">${getVal('cs-forward-pe-bull')}</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Valuation Models -->
+                    <div style="display: flex; gap: 10px; margin-bottom: 20px; align-items: stretch;" id="pdf-methods-container">
+                        <!-- Clones go here -->
+                        <div id="pdf-weights-container" style="${cardStyle} flex: 0.8; padding: 15px; font-size: 0.85rem; display: flex; flex-direction: column; justify-content: center;">
+                            <div style="text-align: center; font-weight: 600; margin-bottom: 10px; color: #94a3b8;">Model Weights (%)</div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;"><span>DCF Model</span> <span style="background:rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px;">${weights.dcf}</span></div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;"><span>Rel Valuation</span> <span style="background:rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px;">${weights.relative}</span></div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;"><span>Fwd Multiple</span> <span style="background:rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px;">${weights.lynch}</span></div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;"><span>PEG Valuation</span> <span style="background:rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px;">${weights.peg}</span></div>
+                        </div>
+                    </div>
+
+                    <!-- SWOT Insights -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                        <div style="${cardStyle} padding: 20px;">
+                            ${strengthsHtml}
+                        </div>
+                        <div style="${cardStyle} padding: 20px;">
+                            ${risksHtml}
+                        </div>
+                    </div>
+                    <div style="${cardStyle} padding: 20px; margin-bottom: 20px;">
+                        ${keyPointsHtml}
+                    </div>
+                    
+                    <!-- AI Business Pulse Audit -->
+                    <div style="margin-top: 40px; padding-top: 20px; border-top: 2px solid rgba(255,255,255,0.05);" id="pdf-kpi-container">
+                        <h2 style="text-align: center; font-size: 1.8rem; margin-bottom: 30px;">✨ AI Business Pulse Audit</h2>
+                        <!-- KPI charts will be appended here -->
+                    </div>
                 `;
 
-                // Add to body so clones work properly
                 document.body.appendChild(container);
 
-                const appendCloned = (selector) => {
+                const appendCloned = (selector, targetContainerId) => {
                     const el = document.querySelector(selector);
-                    if (el) {
+                    const target = document.getElementById(targetContainerId);
+                    if (el && target) {
                         const clone = el.cloneNode(true);
                         clone.removeAttribute('id');
                         clone.querySelectorAll('[id]').forEach(child => child.removeAttribute('id'));
-                        clone.style.margin = '0 0 30px 0';
+                        
+                        // Strip hover effects or styles if needed
+                        clone.style.margin = '0';
                         clone.style.width = '100%';
                         clone.style.maxWidth = '100%';
-                                                clone.style.boxSizing = 'border-box';
-
-                        // We do NOT set display: block here, let it inherit its grid/flex from CSS
-
-                        // Convert canvases to images
-                        const originalCanvases = el.querySelectorAll('canvas');
-                        const clonedCanvases = clone.querySelectorAll('canvas');
-
-                        originalCanvases.forEach((orig, idx) => {
-                            try {
-                                const dataUrl = orig.toDataURL('image/png');
-                                const img = document.createElement('img');
-                                img.src = dataUrl;
-                                img.style.width = orig.style.width || orig.width + 'px';
-                                img.style.height = orig.style.height || orig.height + 'px';
-                                clonedCanvases[idx].parentNode.replaceChild(img, clonedCanvases[idx]);
-                            } catch(e) {}
-                        });
-                        container.appendChild(clone);
+                        clone.style.boxSizing = 'border-box';
+                        
+                        if (targetContainerId === 'pdf-methods-container') {
+                            clone.style.flex = '1';
+                        }
+                        
+                        target.appendChild(clone);
+                        return clone;
                     }
+                    return null;
                 };
 
-                appendCloned('.row-2-card');
-                appendCloned('#methods-container');
-                appendCloned('#analyst-estimates-card');
+                // Append Scores
+                const scoresClone = appendCloned('.row-2-card', 'pdf-scores-container');
+                if (scoresClone) {
+                    scoresClone.style.background = 'transparent';
+                    scoresClone.style.border = 'none';
+                    scoresClone.style.boxShadow = 'none';
+                    scoresClone.style.padding = '20px';
+                }
 
-                // Force layout calculation
+                // Append Models (Left 2, then Weights, then Right 2)
+                const methodsContainer = document.getElementById('pdf-methods-container');
+                const weightsContainer = document.getElementById('pdf-weights-container');
+                
+                const m1 = appendCloned('#dcf-card', 'pdf-methods-container');
+                const m2 = appendCloned('#relative-card', 'pdf-methods-container');
+                methodsContainer.appendChild(weightsContainer); // move weights to middle
+                const m3 = appendCloned('#fwd-multiple-card', 'pdf-methods-container');
+                const m4 = appendCloned('#peg-card', 'pdf-methods-container');
+
+                [m1, m2, m3, m4].forEach(c => {
+                    if (c) {
+                        c.style.background = 'rgba(30, 41, 59, 1)';
+                        c.classList.remove('collapsed');
+                        c.style.height = '100%';
+                        const body = c.querySelector('.card-body-collapsible');
+                        if (body) {
+                            body.style.maxHeight = 'none';
+                            body.style.opacity = '1';
+                            body.style.display = 'flex';
+                        }
+                    }
+                });
+
+                // Generate KPI Charts
+                const kpiAuditCache = localStorage.getItem('kpiAudit_' + ticker);
+                if (kpiAuditCache) {
+                    try {
+                        const kpiData = JSON.parse(kpiAuditCache);
+                        if (kpiData && kpiData.kpis && kpiData.kpis.length > 0) {
+                            const kpiContainer = document.getElementById('pdf-kpi-container');
+                            kpiData.kpis.forEach((kpi, index) => {
+                                const chartDiv = document.createElement('div');
+                                chartDiv.style.cssText = cardStyle + ' padding: 25px; margin-bottom: 20px;';
+                                
+                                const descDiv = document.createElement('div');
+                                descDiv.style.marginBottom = '15px';
+                                descDiv.innerHTML = `<h4 style="color: var(--accent); margin: 0 0 5px 0; font-size: 1.1rem;">${kpi.name} <span style="color:#94a3b8; font-size:0.8rem; float:right;">(${index+1}/${kpiData.kpis.length})</span></h4><p style="color:#94a3b8; font-size: 0.85rem; margin:0;">${kpi.description}</p>`;
+                                chartDiv.appendChild(descDiv);
+                                
+                                const canvasWrapper = document.createElement('div');
+                                canvasWrapper.style.height = '200px';
+                                canvasWrapper.style.position = 'relative';
+                                
+                                const canvas = document.createElement('canvas');
+                                canvasWrapper.appendChild(canvas);
+                                chartDiv.appendChild(canvasWrapper);
+                                kpiContainer.appendChild(chartDiv);
+
+                                // Render chart
+                                const periods = kpi.historical_data.map(d => d.period);
+                                const values = kpi.historical_data.map(d => parseFloat(d.value) || 0);
+
+                                new Chart(canvas.getContext('2d'), {
+                                    type: 'bar',
+                                    data: {
+                                        labels: periods,
+                                        datasets: [{
+                                            label: kpi.name,
+                                            data: values,
+                                            backgroundColor: '#0ea5e9',
+                                            borderRadius: 4
+                                        }]
+                                    },
+                                    options: {
+                                        responsive: true,
+                                        maintainAspectRatio: false,
+                                        plugins: { legend: { display: false } },
+                                        scales: {
+                                            y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: 'rgba(255, 255, 255, 0.5)' } },
+                                            x: { grid: { display: false }, ticks: { color: 'rgba(255, 255, 255, 0.5)' } }
+                                        },
+                                        animation: false // Disable animation for immediate render
+                                    }
+                                });
+                            });
+                        }
+                    } catch (e) {
+                        console.error('Error rendering KPI charts for PDF:', e);
+                    }
+                } else {
+                    document.getElementById('pdf-kpi-container').style.display = 'none';
+                }
+
                 window.scrollTo(0, 0);
 
-                // Fix grid layouts and collapsed states inside the cloned container
-                const clonedContainer = document.getElementById('pdf-export-temp-container');
-                if (clonedContainer) {
-                    // Force the methods grid to layout cleanly
-                    const methodGrids = clonedContainer.querySelectorAll('.methods-grid');
-                    methodGrids.forEach(grid => {
-                        grid.style.display = 'grid';
-                        grid.style.gridTemplateColumns = 'repeat(2, 1fr)'; // 2x2 grid for export
-                        grid.style.gap = '20px';
-                        grid.style.width = '100%';
-                    });
+                // Wait for layout/charts to render
+                await new Promise(r => setTimeout(r, 800));
 
-                    // Force all method cards to be fully expanded
-                    const collapsedCards = clonedContainer.querySelectorAll('.method-card.collapsed');
-                    collapsedCards.forEach(card => {
-                        card.classList.remove('collapsed');
-                        card.style.height = '100%'; // Revert height back to full
-                    });
-
-                    // Ensure card bodies are visible
-                    const cardBodies = clonedContainer.querySelectorAll('.card-body-collapsible');
-                    cardBodies.forEach(body => {
-                        body.style.maxHeight = 'none';
-                        body.style.opacity = '1';
-                        body.style.display = 'flex'; // It's usually a flex layout
-                        body.style.flexDirection = 'column';
-                        body.style.pointerEvents = 'auto';
-                    });
-                }
-                await new Promise(r => setTimeout(r, 500));
-
-                // 2. Generate Canvas manually via html2canvas
                 const canvas = await html2canvas(container, {
-                    scale: 2, // High resolution
+                    scale: 2,
                     useCORS: true,
                     logging: false,
                     scrollY: 0,
                     scrollX: 0,
                     width: 1200,
                     windowWidth: 1200,
-                    backgroundColor: '#0b1320'
+                    backgroundColor: '#0f172a'
                 });
 
-                // 3. Generate PDF manually via jsPDF
                 const imgData = canvas.toDataURL('image/jpeg', 0.95);
                 const pdf = new jsPDF('p', 'mm', 'a4');
+                pdf.setFillColor(15, 23, 42); // match #0f172a
 
-                // Set default background color to match dark theme (#0b1320)
-                pdf.setFillColor(11, 19, 32);
-
-                // A4 dimensions (210x297mm)
                 const pdfWidth = 210;
                 const pdfHeight = 297;
-
-                // Calculate ratio to fit A4 width
                 const imgProps = pdf.getImageProperties(imgData);
                 const ratio = imgProps.width / pdfWidth;
                 const imgHeightInMm = imgProps.height / ratio;
@@ -234,12 +343,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 let heightLeft = imgHeightInMm;
                 let position = 0;
 
-                // Add first page background and image
                 pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
                 pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, imgHeightInMm);
                 heightLeft -= pdfHeight;
 
-                // Add subsequent pages if content overflows A4 height
                 while (heightLeft > 0) {
                     position -= pdfHeight;
                     pdf.addPage();
@@ -248,10 +355,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     heightLeft -= pdfHeight;
                 }
 
-                // Download
-                console.log("Saving PDF...");
                 pdf.save(`${ticker}_Fair_Value_Report.pdf`);
-                console.log("PDF saved!");
 
             } catch (e) {
                 console.error("PDF Export Error:", e);
