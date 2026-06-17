@@ -442,15 +442,24 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
                 }],
                 "generationConfig": {"temperature": 0.2}
             }
-            for model in models_to_try:
+            for idx, model in enumerate(models_to_try):
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={gemini_key}"
                 try:
                     resp = requests.post(url, headers=headers, json=payload, timeout=90)
                     if resp.status_code == 200:
                         data = resp.json()
-                        if "candidates" in data and data["candidates"]:
-                            result_content = data["candidates"][0]["content"]["parts"][0]["text"]
-                            break
+                        try:
+                            if "candidates" in data and data["candidates"]:
+                                result_content = data["candidates"][0]["content"]["parts"][0]["text"]
+                                break
+                        except (KeyError, IndexError):
+                            all_errors.append(f"Gemini {model} blocked or missing text parts")
+                    elif resp.status_code == 429:
+                        print(f"Gemini Fallback Rate Limit (429) hit for {model}. Retrying next model...")
+                        all_errors.append(f"Gemini {model}: 429 Rate Limit")
+                        if idx < len(models_to_try) - 1:
+                            import time
+                            time.sleep(2)
                     else:
                         error_msg = resp.text
                         try:

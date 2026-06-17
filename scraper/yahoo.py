@@ -1102,8 +1102,8 @@ def get_company_synthesis(ticker: str, info: dict, run_ai: bool = False) -> str:
             try:
                 transcript_text = get_fmp_transcripts(ticker_upper)
                 # truncate to ~60000 chars to avoid prompt blowing up and taking forever
-                if transcript_text and len(transcript_text) > 60000:
-                    transcript_text = transcript_text[:60000]
+                if transcript_text and len(transcript_text) > 30000:
+                    transcript_text = transcript_text[:30000]
             except Exception as e:
                 print(f"Error fetching transcripts for synthesis: {e}")
                 transcript_text = "No transcript data available."
@@ -1188,17 +1188,25 @@ Strictly adhere to these precise markdown headers (written exactly like this, in
                 }]
             }
             
-            for model_name in models_to_try:
+            for idx, model_name in enumerate(models_to_try):
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
                 try:
                     response = requests.post(url, json=payload, headers=headers, timeout=30)
                     if response.status_code == 200:
                         res_json = response.json()
-                        generated_text = res_json['candidates'][0]['content']['parts'][0]['text']
-                        if generated_text and ("**EXECUTIVE SUMMARY**" in generated_text or "**SINTEZĂ EXECUTIVĂ**" in generated_text):
-                            # Clean up triple backticks if model wraps markdown
-                            cleaned_text = generated_text.replace("```markdown", "").replace("```", "").strip()
-                            return cleaned_text
+                        try:
+                            generated_text = res_json['candidates'][0]['content']['parts'][0]['text']
+                            if generated_text and ("**EXECUTIVE SUMMARY**" in generated_text or "**SINTEZĂ EXECUTIVĂ**" in generated_text):
+                                # Clean up triple backticks if model wraps markdown
+                                cleaned_text = generated_text.replace("```markdown", "").replace("```", "").strip()
+                                return cleaned_text
+                        except (KeyError, IndexError) as e:
+                            print(f"Gemini API ({model_name}) blocked or returned unexpected format for {ticker_upper}: {res_json}")
+                    elif response.status_code == 429:
+                        print(f"Gemini API Rate Limit (429) hit for {model_name}. Retrying next model...")
+                        if idx < len(models_to_try) - 1:
+                            import time
+                            time.sleep(2)
                     else:
                         print(f"Gemini API ({model_name}) returned error code {response.status_code}: {response.text}")
                 except Exception as e:
