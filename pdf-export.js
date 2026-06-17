@@ -226,8 +226,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 `;
 
-                document.body.appendChild(container);
-
+                
                 const appendCloned = (selector, targetContainerId) => {
                     const el = document.querySelector(selector);
                     const target = document.getElementById(targetContainerId);
