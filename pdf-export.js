@@ -45,14 +45,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 let base64Logo = null;
                 if (logoUrl) {
                     try {
-                        const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(logoUrl)}`;
+                        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(logoUrl)}`;
                         const img = new Image();
                         img.crossOrigin = 'anonymous';
                         img.src = proxyUrl;
                         await new Promise((resolve, reject) => {
                             img.onload = resolve;
                             img.onerror = reject;
-                            setTimeout(reject, 2000); // timeout after 2s
+                            setTimeout(reject, 3000); // timeout after 3s
                         });
                         const canvas = document.createElement('canvas');
                         canvas.width = img.width;
@@ -446,8 +446,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                     kpiContainer.appendChild(chartDiv);
 
                                     // Render chart
-                                    const periods = kpi.historical_data.map(d => d.period);
-                                    const values = kpi.historical_data.map(d => parseFloat(d.value) || 0);
+                                    const periods = Object.keys(kpi.data).sort();
+                                    const values = periods.map(p => kpi.data[p]);
 
                                     new Chart(canvas.getContext('2d'), {
                                         type: 'bar',
