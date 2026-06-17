@@ -62,6 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         } catch (err) {
                             console.log('Direct logo fetch failed, trying proxies...', err);
                             const proxies = [
+                                `https://wsrv.nl/?url=${encodeURIComponent(url)}`,
                                 `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
                                 `https://corsproxy.io/?${encodeURIComponent(url)}`
                             ];
@@ -468,8 +469,53 @@ document.addEventListener('DOMContentLoaded', () => {
                                     kpiContainer.appendChild(chartDiv);
 
                                     // Render chart
-                                    const periods = Object.keys(kpi.data).sort();
-                                    const values = periods.map(p => kpi.data[p]);
+                                    const vals = kpi.values || kpi.history || kpi.data || {};
+                                    const periods = Object.keys(vals).sort();
+
+                                    const parseKpiValue = (val) => {
+                                        if (typeof val === 'number') return val;
+                                        if (!val || val === '--' || val === 'N/A') return null;
+
+                                        const valStr = String(val).replace(/,/g, '').trim();
+                                        const match = valStr.match(/^.*?(-?\d+(?:\.\d+)?)\s*(T|B|M|K|TRILLION|BILLION|MILLION|THOUSAND)?\b/i);
+                                        if (match) {
+                                            let num = parseFloat(match[1]);
+                                            const suffix = (match[2] || '').toUpperCase();
+                                            if (suffix === 'T' || suffix === 'TRILLION') num *= 1000000000000;
+                                            else if (suffix === 'B' || suffix === 'BILLION') num *= 1000000000;
+                                            else if (suffix === 'M' || suffix === 'MILLION') num *= 1000000;
+                                            else if (suffix === 'K' || suffix === 'THOUSAND') num *= 1000;
+
+                                            // Fallback logic for text string containing "No specific numerical values"
+                                            if (valStr.toLowerCase().includes("no specific numerical values") || valStr.toLowerCase().includes("not reported")) {
+                                                 return null;
+                                            }
+                                            return num;
+                                        }
+                                        return null;
+                                    };
+
+                                    const chartData = periods.map(p => parseKpiValue(vals[p]));
+                                    const formattedTooltips = periods.map(p => vals[p]);
+
+                                    // Check if we have valid plottable data
+                                    const hasValidData = chartData.some(v => v !== null && v !== undefined && !isNaN(v));
+
+                                    if (!hasValidData || periods.length === 0) {
+                                        canvasWrapper.style.display = 'none';
+                                        const noDataMsg = document.createElement('div');
+                                        noDataMsg.style.display = 'flex';
+                                        noDataMsg.style.flexDirection = 'column';
+                                        noDataMsg.style.alignItems = 'center';
+                                        noDataMsg.style.justifyContent = 'center';
+                                        noDataMsg.style.color = 'rgba(255,255,255,0.5)';
+                                        noDataMsg.style.textAlign = 'center';
+                                        noDataMsg.style.padding = '20px';
+                                        const firstMention = Object.values(vals)[0] || 'N/A';
+                                        noDataMsg.innerHTML = `<span style="font-size: 1.5rem; margin-bottom: 10px;">📉</span><i>Numerical history could not be plotted for this KPI.</i><br><span style="margin-top: 10px; font-size: 0.9rem;">Most recent mention: <strong style="color:var(--accent);">${firstMention}</strong></span>`;
+                                        chartDiv.appendChild(noDataMsg);
+                                        return;
+                                    }
 
                                     new Chart(canvas.getContext('2d'), {
                                         type: 'bar',
@@ -477,17 +523,41 @@ document.addEventListener('DOMContentLoaded', () => {
                                             labels: periods,
                                             datasets: [{
                                                 label: kpi.name,
-                                                data: values,
-                                                backgroundColor: '#0ea5e9',
+                                                data: chartData,
+                                                backgroundColor: 'rgba(0, 210, 255, 0.4)',
+                                                borderColor: 'rgba(0, 210, 255, 1)',
+                                                borderWidth: 1,
                                                 borderRadius: 4
                                             }]
                                         },
                                         options: {
                                             responsive: true,
                                             maintainAspectRatio: false,
-                                            plugins: { legend: { display: false } },
+                                            plugins: {
+                                                legend: { display: false },
+                                                tooltip: {
+                                                    callbacks: {
+                                                        label: function(context) {
+                                                            return ' ' + formattedTooltips[context.dataIndex];
+                                                        }
+                                                    }
+                                                }
+                                            },
                                             scales: {
-                                                y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: 'rgba(255, 255, 255, 0.5)' } },
+                                                y: {
+                                                    beginAtZero: true,
+                                                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                                                    ticks: {
+                                                        color: 'rgba(255, 255, 255, 0.5)',
+                                                        callback: function(value) {
+                                                            if (Math.abs(value) >= 1000000000000) return (value / 1000000000000).toFixed(1) + 'T';
+                                                            if (Math.abs(value) >= 1000000000) return (value / 1000000000).toFixed(1) + 'B';
+                                                            if (Math.abs(value) >= 1000000) return (value / 1000000).toFixed(1) + 'M';
+                                                            if (Math.abs(value) >= 1000) return (value / 1000).toFixed(1) + 'K';
+                                                            return value;
+                                                        }
+                                                    }
+                                                },
                                                 x: { grid: { display: false }, ticks: { color: 'rgba(255, 255, 255, 0.5)' } }
                                             },
                                             animation: false // Disable animation for immediate render
