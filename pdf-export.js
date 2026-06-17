@@ -258,9 +258,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 container2.innerHTML = `
                     <!-- Key Points -->
-                    <div style="${cardStyle} padding: 25px; margin-bottom: 20px;">
+                    <div style="${cardStyle} padding: 25px; margin-bottom: 40px;">
                         ${keyPointsHtml}
                     </div>
+                    
+                    <!-- AI Business Pulse Audit -->
+                    <div id="pdf-export-audit-section" style="display: none;">
+                        <h2 style="font-size: 1.8rem; font-weight: 800; color: #f8fafc; border-bottom: 2px solid rgba(255,255,255,0.1); padding-bottom: 10px; margin-bottom: 20px;">AI Business Pulse Audit</h2>
+                        <div id="pdf-export-kpi-container" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;"></div>
                     </div>
                 `;
 
@@ -418,58 +423,60 @@ document.addEventListener('DOMContentLoaded', () => {
                     try {
                         const kpiData = JSON.parse(kpiAuditCache);
                         if (kpiData && kpiData.kpis && kpiData.kpis.length > 0) {
-                            const kpiContainer = document.getElementById('pdf-kpi-container');
-                            kpiData.kpis.forEach((kpi, index) => {
-                                const chartDiv = document.createElement('div');
-                                chartDiv.style.cssText = cardStyle + ' padding: 25px; margin-bottom: 20px; page-break-inside: avoid;';
-                                
-                                const descDiv = document.createElement('div');
-                                descDiv.style.marginBottom = '15px';
-                                descDiv.innerHTML = `<h4 style="color: var(--accent); margin: 0 0 5px 0; font-size: 1.1rem;">${kpi.name} <span style="color:#94a3b8; font-size:0.8rem; float:right;">(${index+1}/${kpiData.kpis.length})</span></h4><p style="color:#94a3b8; font-size: 0.85rem; margin:0;">${kpi.description}</p>`;
-                                chartDiv.appendChild(descDiv);
-                                
-                                const canvasWrapper = document.createElement('div');
-                                canvasWrapper.style.height = '200px';
-                                canvasWrapper.style.position = 'relative';
-                                
-                                const canvas = document.createElement('canvas');
-                                canvasWrapper.appendChild(canvas);
-                                chartDiv.appendChild(canvasWrapper);
-                                kpiContainer.appendChild(chartDiv);
+                            const kpiContainer = container2.querySelector('#pdf-export-kpi-container');
+                            const auditSection = container2.querySelector('#pdf-export-audit-section');
+                            if (kpiContainer && auditSection) {
+                                auditSection.style.display = 'block';
+                                kpiData.kpis.forEach((kpi, index) => {
+                                    const chartDiv = document.createElement('div');
+                                    chartDiv.style.cssText = cardStyle + ' padding: 25px; page-break-inside: avoid; background: #1e293b;';
+                                    
+                                    const descDiv = document.createElement('div');
+                                    descDiv.style.marginBottom = '15px';
+                                    descDiv.innerHTML = `<h4 style="color: #3b82f6; margin: 0 0 5px 0; font-size: 1.1rem;">${kpi.name} <span style="color:#94a3b8; font-size:0.8rem; float:right;">(${index+1}/${kpiData.kpis.length})</span></h4><p style="color:#94a3b8; font-size: 0.85rem; margin:0;">${kpi.description}</p>`;
+                                    chartDiv.appendChild(descDiv);
+                                    
+                                    const canvasWrapper = document.createElement('div');
+                                    canvasWrapper.style.height = '200px';
+                                    canvasWrapper.style.position = 'relative';
+                                    
+                                    const canvas = document.createElement('canvas');
+                                    canvasWrapper.appendChild(canvas);
+                                    chartDiv.appendChild(canvasWrapper);
+                                    kpiContainer.appendChild(chartDiv);
 
-                                // Render chart
-                                const periods = kpi.historical_data.map(d => d.period);
-                                const values = kpi.historical_data.map(d => parseFloat(d.value) || 0);
+                                    // Render chart
+                                    const periods = kpi.historical_data.map(d => d.period);
+                                    const values = kpi.historical_data.map(d => parseFloat(d.value) || 0);
 
-                                new Chart(canvas.getContext('2d'), {
-                                    type: 'bar',
-                                    data: {
-                                        labels: periods,
-                                        datasets: [{
-                                            label: kpi.name,
-                                            data: values,
-                                            backgroundColor: '#0ea5e9',
-                                            borderRadius: 4
-                                        }]
-                                    },
-                                    options: {
-                                        responsive: true,
-                                        maintainAspectRatio: false,
-                                        plugins: { legend: { display: false } },
-                                        scales: {
-                                            y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: 'rgba(255, 255, 255, 0.5)' } },
-                                            x: { grid: { display: false }, ticks: { color: 'rgba(255, 255, 255, 0.5)' } }
+                                    new Chart(canvas.getContext('2d'), {
+                                        type: 'bar',
+                                        data: {
+                                            labels: periods,
+                                            datasets: [{
+                                                label: kpi.name,
+                                                data: values,
+                                                backgroundColor: '#0ea5e9',
+                                                borderRadius: 4
+                                            }]
                                         },
-                                        animation: false // Disable animation for immediate render
-                                    }
+                                        options: {
+                                            responsive: true,
+                                            maintainAspectRatio: false,
+                                            plugins: { legend: { display: false } },
+                                            scales: {
+                                                y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: 'rgba(255, 255, 255, 0.5)' } },
+                                                x: { grid: { display: false }, ticks: { color: 'rgba(255, 255, 255, 0.5)' } }
+                                            },
+                                            animation: false // Disable animation for immediate render
+                                        }
+                                    });
                                 });
-                            });
+                            }
                         }
                     } catch (e) {
                         console.error('Error rendering KPI charts for PDF:', e);
                     }
-                } else {
-                    document.getElementById('pdf-kpi-container').innerHTML = '<div style="color: #94a3b8; padding: 20px;"><em>AI Business Pulse Audit data not found. Please run the AI Audit in the interface before exporting the PDF to include it here.</em></div>';
                 }
 
                 window.scrollTo(0, 0);
