@@ -8285,7 +8285,7 @@ document.addEventListener('touchstart', (e) => {
 document.addEventListener('touchend', (e) => {
     let touchEndX = e.changedTouches[0].screenX;
     let touchEndY = e.changedTouches[0].screenY;
-    const swipeThreshold = 120; // Increased threshold for longer swipe gestures
+    const swipeThreshold = 75; // Balanced threshold for mobile swiping
     const verticalTolerance = 60;
     if (Math.abs(touchStartY - touchEndY) > verticalTolerance) return;
     const card = e.target.closest('.research-card');
@@ -8392,7 +8392,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         function handleSwipe(area, target, event) {
-            const threshold = 120; // Increased threshold for longer swipe gestures
+            const threshold = 75; // Balanced threshold for mobile swiping
             const verticalTolerance = 50; // Prevent swipe if vertical scroll is dominant
             const diffX = endX - startX;
             const diffY = Math.abs(endY - startY);
