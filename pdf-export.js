@@ -183,11 +183,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 // --- PAGE 2 CONTAINER ---
                 const container2 = document.createElement('div');
                 container2.id = 'pdf-export-temp-container-2';
-                container2.style.position = 'fixed';
-                container2.style.left = '0';
+                container2.style.position = 'absolute';
+                container2.style.left = '-9999px';
                 container2.style.top = '0';
                 container2.style.width = '1200px';
-                container2.style.zIndex = '-9999';
+                container2.style.zIndex = '-1';
                 container2.style.background = '#0f172a';
                 container2.style.color = '#f8fafc';
                 container2.style.fontFamily = "'Inter', sans-serif";
