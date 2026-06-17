@@ -8401,11 +8401,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (target.closest('.ai-audit-section') || target.closest('#kpi-carousel-wrapper')) {
                     const prevBtn = document.getElementById('kpi-prev-btn');
                     if (prevBtn) prevBtn.click();
-                } else if (card.id === 'historical-anchors-card') {
-                    const tabs = Array.from(card.querySelectorAll('.hist-tab'));
-                    let activeIdx = tabs.findIndex(t => t.classList.contains('active'));
-                    if (activeIdx > 0) tabs[activeIdx - 1].click();
-                    else if (tabs.length) tabs[tabs.length - 1].click();
+
                 } else if (card.classList.contains('company-profile-box') || card.id === 'company-desc-card') {
                     const tabs = Array.from(card.querySelectorAll('.brief-tab'));
                     let activeIdx = tabs.findIndex(t => t.classList.contains('active'));
@@ -8419,11 +8415,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (target.closest('.ai-audit-section') || target.closest('#kpi-carousel-wrapper')) {
                     const nextBtn = document.getElementById('kpi-next-btn');
                     if (nextBtn) nextBtn.click();
-                } else if (card.id === 'historical-anchors-card') {
-                    const tabs = Array.from(card.querySelectorAll('.hist-tab'));
-                    let activeIdx = tabs.findIndex(t => t.classList.contains('active'));
-                    if (activeIdx < tabs.length - 1) tabs[activeIdx + 1].click();
-                    else if (tabs.length) tabs[0].click();
+
                 } else if (card.classList.contains('company-profile-box') || card.id === 'company-desc-card') {
                     const tabs = Array.from(card.querySelectorAll('.brief-tab'));
                     let activeIdx = tabs.findIndex(t => t.classList.contains('active'));
@@ -8436,7 +8428,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    document.querySelectorAll('.analyst-content-area, .historical-carousel-viewport, #profile-body').forEach(area => {
+    document.querySelectorAll('.analyst-content-area, #profile-body').forEach(area => {
         window.attachSwipeSupport(area);
     });
 });
