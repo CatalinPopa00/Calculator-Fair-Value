@@ -286,6 +286,36 @@ def get_fmp_transcripts(ticker: str) -> str:
         yahoo_text = _get_yahoo_earnings_news(ticker)
         return sec_text + "\n\n" + yahoo_text
 
+def is_valid_audit_response(result_string: str) -> bool:
+    """Valideaza continutul raspunsului AI pentru a respinge scuze conversationale si a forta fallback-ul."""
+    if not result_string:
+        return False
+    try:
+        clean_str = result_string.strip()
+        if clean_str.startswith("```json"):
+            clean_str = clean_str[7:]
+        if clean_str.startswith("```"):
+            clean_str = clean_str[3:]
+        if clean_str.endswith("```"):
+            clean_str = clean_str[:-3]
+
+        data = json.loads(clean_str.strip())
+
+        kpis = data.get("kpis", [])
+        if not kpis:
+            return False
+
+        for kpi in kpis:
+            values = kpi.get("values", {})
+            for val in values.values():
+                val_str = str(val).strip()
+                # Daca o valoare nu e cifra si este un text lung de scuze (ex: "Nu s-au putut extrage...")
+                if len(val_str) > 30 and "N/A" not in val_str.upper() and not any(c.isdigit() for c in val_str):
+                    return False
+        return True
+    except Exception:
+        return False
+
 def run_ai_kpi_audit(ticker: str) -> Dict[str, Any]:
     ticker = ticker.upper()
     # if ticker in audit_cache:
@@ -342,7 +372,7 @@ ADDITIONALLY, for the CURRENT unfinished fiscal year, extract the available indi
 Format the keys EXACTLY as "FY [Year]" or "FY [Year] Q[X]". Ensure exact numbers are extracted if explicitly stated. Format numbers cleanly (e.g. "1.2 Billion", "34.5%", "450 Million"). 
 
 CRITICAL EXTRACTION RULE: You MUST extract the value for EVERY single year provided in the text. You are dealing with a massive text. Do NOT be lazy. Scan every single [Year ...] section carefully.
-CRITICAL FALLBACK FOR MISSING DATA: The provided text is heavily truncated and might miss historical or recent data. If a value for a specific period is absent from the provided text, YOU MUST ACTIVELY USE YOUR OWN INTERNAL KNOWLEDGE BASE to fill in the real numerical data for that KPI! Do NOT be lazy and do NOT use "N/A" or empty values unless you genuinely cannot find the data in your vast internal memory! You are a powerful AI with deep financial knowledge, act like one and fill in ALL missing historical and recent blanks to create a perfectly complete trend without any empty gaps!
+CRITICAL FALLBACK FOR MISSING DATA: The provided text is heavily truncated and might miss historical or recent data. If a value for a specific period is absent from the provided text, YOU MUST ACTIVELY USE YOUR GOOGLE SEARCH ABILITIES AND INTERNAL KNOWLEDGE BASE to find and fill in the real numerical data for that KPI! Do NOT be lazy and do NOT use "N/A" or empty values unless you genuinely cannot find the data! Proactively search the internet to fill in ALL missing historical and recent blanks to create a perfectly complete trend without any empty gaps!
 
 UNITY AND CONSISTENCY RULE (CRITICAL):
 To ensure the frontend table aligns perfectly, EVERY SINGLE KPI MUST HAVE THE EXACT SAME SET OF PERIOD KEYS in the 'values' object.
@@ -391,6 +421,9 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
                 if resp.status_code == 200:
                     data = resp.json()
                     result_content = data["choices"][0]["message"]["content"]
+                    if not is_valid_audit_response(result_content):
+                        all_errors.append("Groq returned invalid/conversational response.")
+                        result_content = None
                 else:
                     error_msg = resp.text
                     try:
@@ -420,6 +453,9 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
             if resp.status_code == 200:
                 data = resp.json()
                 result_content = data["choices"][0]["message"]["content"]
+                if not is_valid_audit_response(result_content):
+                    all_errors.append("OpenAI returned invalid/conversational response.")
+                    result_content = None
             else:
                 error_msg = resp.text
                 try:
@@ -440,7 +476,8 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
                 "contents": [{
                     "parts": [{"text": f"{system_prompt}\n\nAici sunt textele pentru {ticker}:\n\n{raw_text}"}]
                 }],
-                "generationConfig": {"temperature": 0.2}
+                "generationConfig": {"temperature": 0.2},
+                "tools": [{"googleSearch": {}}]
             }
             for idx, model in enumerate(models_to_try):
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={gemini_key}"
