@@ -397,34 +397,45 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
                 "response_format": {"type": "json_object"},
                 "temperature": 0.2
             }
-            for attempt in range(3):
-                if time_left() < 5:
+            groq_models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
+            for model_idx, groq_model in enumerate(groq_models):
+                if result_content:
                     break
-                try:
-                    resp = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=min(20, time_left() - 2))
-                    if resp.status_code == 200:
-                        data = resp.json()
-                        result_content = data["choices"][0]["message"]["content"]
+                payload["model"] = groq_model
+                for attempt in range(3):
+                    if time_left() < 5:
                         break
-                    elif resp.status_code == 429:
-                        print(f"Groq Rate Limit (429). Attempt {attempt+1}/3.")
-                        if attempt < 2 and time_left() > 10:
-                            time.sleep(min(3 * (2 ** attempt), time_left() - 5))
-                            continue
-                        else:
-                            all_errors.append(f"Groq: 429 Rate Limit Exhausted")
+                    try:
+                        resp = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=min(20, time_left() - 2))
+                        if resp.status_code == 200:
+                            data = resp.json()
+                            result_content = data["choices"][0]["message"]["content"]
                             break
-                    else:
-                        error_msg = resp.text
-                        try:
-                            error_msg = resp.json().get("error", {}).get("message", resp.text)
-                        except:
-                            pass
-                        all_errors.append(f"Groq Error: {error_msg}")
+                        elif resp.status_code == 429:
+                            # Log the actual error body for debugging
+                            error_detail = resp.text[:300]
+                            try:
+                                error_detail = resp.json().get("error", {}).get("message", resp.text[:300])
+                            except:
+                                pass
+                            print(f"Groq 429 for {groq_model}. Attempt {attempt+1}/3. Detail: {error_detail}")
+                            if attempt < 2 and time_left() > 10:
+                                time.sleep(min(3 * (2 ** attempt), time_left() - 5))
+                                continue
+                            else:
+                                all_errors.append(f"Groq {groq_model}: 429 - {error_detail[:100]}")
+                                break
+                        else:
+                            error_msg = resp.text
+                            try:
+                                error_msg = resp.json().get("error", {}).get("message", resp.text)
+                            except:
+                                pass
+                            all_errors.append(f"Groq Error: {error_msg}")
+                            break
+                    except Exception as e:
+                        all_errors.append(f"Groq Timeout/Error: {str(e)}")
                         break
-                except Exception as e:
-                    all_errors.append(f"Groq Timeout/Error: {str(e)}")
-                    break
 
         # Try OpenAI if Groq failed or wasn't configured
         if not result_content and openai_key and time_left() > 5:
