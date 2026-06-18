@@ -8070,7 +8070,8 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             }
 
             if (!data) {
-                const res = await fetch(`/api/ai-kpi-audit/${ticker}`, { method: 'POST' });
+                const url = forceNetwork ? `/api/ai-kpi-audit/${ticker}?force_refresh=true` : `/api/ai-kpi-audit/${ticker}`;
+                const res = await fetch(url, { method: 'POST' });
                 if (!res.ok) {
                     let errText = res.statusText;
                     try {
@@ -8087,6 +8088,14 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                         localStorage.setItem('kpiAuditCacheList', JSON.stringify(cachedList));
                     }
                     localStorage.setItem(cacheKey, JSON.stringify(data));
+                } else {
+                    // Cache busting for errors
+                    const index = cachedList.indexOf(ticker);
+                    if (index > -1) {
+                        cachedList.splice(index, 1);
+                        localStorage.setItem('kpiAuditCacheList', JSON.stringify(cachedList));
+                    }
+                    localStorage.removeItem(cacheKey);
                 }
             }
 

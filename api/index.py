@@ -512,6 +512,9 @@ def delete_override(ticker: str):
         raise HTTPException(status_code=500, detail="Internal server error")
 
 @app.post("/api/ai-kpi-audit/{ticker}")
+def kpi_audit(ticker: str, force_refresh: bool = False):
+    try:
+        result = run_ai_kpi_audit(ticker, force_refresh=force_refresh)
 def kpi_audit(ticker: str, response: Response):
     # Set Vercel Edge Cache headers for KPI Audit (Cache 1hr, stale up to 24hr)
     response.headers["Cache-Control"] = "public, s-maxage=3600, stale-while-revalidate=86400"
