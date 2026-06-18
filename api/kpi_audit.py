@@ -299,7 +299,7 @@ def run_ai_kpi_audit(ticker: str, force_refresh: bool = False) -> Dict[str, Any]
 
     openai_key = os.getenv("OPENAI_API_KEY")
     gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("gemini")
-    groq_key = os.getenv("GROQ_API_KEY")
+    groq_key = os.getenv("GROQ_API_KEY") or os.getenv("Groq")
 
     # Auto-detect if user accidentally put an OpenAI key in a Gemini variable
     if gemini_key and gemini_key.startswith("sk-"):
