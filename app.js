@@ -8120,6 +8120,13 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             }
 
             if (data.kpis && data.kpis.length > 0) {
+                const allPeriods = new Set();
+                data.kpis.forEach(k => {
+                    const vals = k.values || k.history || {};
+                    Object.keys(vals).forEach(p => allPeriods.add(p));
+                });
+                const globalPeriods = Array.from(allPeriods).sort();
+
                 let currentKpiIndex = 0;
                 let kpiChartInstance = null;
 
@@ -8134,7 +8141,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     if (!val || val === '--' || val === 'N/A') return null;
 
                     const valStr = String(val).replace(/,/g, '').trim();
-                    const match = valStr.match(/^.*?(-?\d+(?:\.\d+)?)\s*(T|B|M|K|TRILLION|BILLION|MILLION|THOUSAND)?\b/i);
+                    const match = valStr.match(/^.*?(-?\d+(?:\.\d+)?)(?:\s*(T|B|M|K|TRILLION|BILLION|MILLION|THOUSAND)(?=\b|[^a-zA-Z]))?/i);
                     if (match) {
                         let num = parseFloat(match[1]);
                         const suffix = (match[2] || '').toUpperCase();
@@ -8173,9 +8180,9 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     }
 
                     const vals = kpi.values || kpi.history || {};
-                    const periods = Object.keys(vals).sort();
-                    const chartData = periods.map(p => parseKpiValue(vals[p]));
-                    const formattedTooltips = periods.map(p => vals[p]);
+                    const periods = globalPeriods;
+                    const chartData = periods.map(p => parseKpiValue(vals[p] || null));
+                    const formattedTooltips = periods.map(p => vals[p] || 'N/A');
 
                     const chartCanvas = document.getElementById('kpi-chart');
                     const ctx = chartCanvas.getContext('2d');
