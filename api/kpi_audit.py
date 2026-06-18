@@ -515,6 +515,51 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
                     pass
                 all_errors.append(f"OpenAI Error: {error_msg}")
 
+        # Try Gemini if OpenAI failed or wasn't configured
+        if not result_content and gemini_key:
+            models_to_try = [
+                "gemini-2.0-flash",
+                "gemini-1.5-flash",
+                "gemini-1.5-pro"
+            ]
+            headers = {"Content-Type": "application/json"}
+            payload = {
+                "contents": [{
+                    "parts": [{"text": f"{system_prompt}\n\nAici sunt textele pentru {ticker}:\n\n{raw_text}"}]
+                }],
+                "generationConfig": {"temperature": 0.2},
+                "tools": [{"googleSearch": {}}]
+            }
+            for idx, model in enumerate(models_to_try):
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={gemini_key}"
+                try:
+                    resp = requests.post(url, headers=headers, json=payload, timeout=90)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        try:
+                            if "candidates" in data and data["candidates"]:
+                                result_content = data["candidates"][0]["content"]["parts"][0]["text"]
+                                break
+                        except (KeyError, IndexError):
+                            all_errors.append(f"Gemini {model} blocked or missing text parts")
+                    elif resp.status_code == 429:
+                        print(f"Gemini Fallback Rate Limit (429) hit for {model}. Retrying next model...")
+                        all_errors.append(f"Gemini {model}: 429 Rate Limit")
+                        if idx < len(models_to_try) - 1:
+                            import time
+                            time.sleep(2)
+                    else:
+                        error_msg = resp.text
+                        try:
+                            err_data = resp.json()
+                            if "error" in err_data and "message" in err_data["error"]:
+                                error_msg = err_data["error"]["message"]
+                        except:
+                            pass
+                        all_errors.append(f"Gemini {model}: {error_msg}")
+                except Exception as e:
+                    all_errors.append(f"Gemini {model} Timeout/Error: {str(e)}")
+
         if not result_content:
             return {"error": True, "detail": "AI API Error: " + " | ".join(all_errors)}
 
