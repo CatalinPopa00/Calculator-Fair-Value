@@ -424,8 +424,12 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
                         data = resp.json()
                         try:
                             if "candidates" in data and data["candidates"]:
-                                result_content = data["candidates"][0]["content"]["parts"][0]["text"]
-                                break
+                                temp_content = data["candidates"][0]["content"]["parts"][0]["text"]
+                                if is_valid_audit_response(temp_content):
+                                    result_content = temp_content
+                                    break
+                                else:
+                                    all_errors.append(f"Gemini {model} returned invalid/conversational response.")
                         except (KeyError, IndexError):
                             all_errors.append(f"Gemini {model} blocked or missing text parts")
                     elif resp.status_code == 429:
@@ -465,7 +469,11 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
                 resp = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=55)
                 if resp.status_code == 200:
                     data = resp.json()
-                    result_content = data["choices"][0]["message"]["content"]
+                    temp_content = data["choices"][0]["message"]["content"]
+                    if is_valid_audit_response(temp_content):
+                        result_content = temp_content
+                    else:
+                        all_errors.append("Groq returned invalid/conversational response.")
                 else:
                     error_msg = resp.text
                     try:
@@ -494,7 +502,11 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
             resp = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload, timeout=55)
             if resp.status_code == 200:
                 data = resp.json()
-                result_content = data["choices"][0]["message"]["content"]
+                temp_content = data["choices"][0]["message"]["content"]
+                if is_valid_audit_response(temp_content):
+                    result_content = temp_content
+                else:
+                    all_errors.append("OpenAI returned invalid/conversational response.")
             else:
                 error_msg = resp.text
                 try:
