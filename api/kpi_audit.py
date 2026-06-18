@@ -373,12 +373,17 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
 '''
 
     try:
+        import time
         result_content = None
         all_errors = []
+        start_time = time.time()
+        MAX_TOTAL_TIME = 55  # Leave 5s buffer before Vercel's 60s timeout
+
+        def time_left():
+            return MAX_TOTAL_TIME - (time.time() - start_time)
 
         # Try Groq First if available (Free and Fast)
-        if groq_key:
-            import time
+        if groq_key and time_left() > 5:
             headers = {
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {groq_key}"
@@ -392,19 +397,19 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
                 "response_format": {"type": "json_object"},
                 "temperature": 0.2
             }
-            max_retries = 5
-            for attempt in range(max_retries):
+            for attempt in range(3):
+                if time_left() < 5:
+                    break
                 try:
-                    resp = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=55)
+                    resp = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=min(20, time_left() - 2))
                     if resp.status_code == 200:
                         data = resp.json()
                         result_content = data["choices"][0]["message"]["content"]
                         break
                     elif resp.status_code == 429:
-                        print(f"Groq Rate Limit (429) hit in Audit. Attempt {attempt+1}/{max_retries}.")
-                        if attempt < max_retries - 1:
-                            wait_time = 3 * (2 ** attempt)  # 3s, 6s, 12s, 24s
-                            time.sleep(wait_time)
+                        print(f"Groq Rate Limit (429). Attempt {attempt+1}/3.")
+                        if attempt < 2 and time_left() > 10:
+                            time.sleep(min(3 * (2 ** attempt), time_left() - 5))
                             continue
                         else:
                             all_errors.append(f"Groq: 429 Rate Limit Exhausted")
@@ -422,7 +427,7 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
                     break
 
         # Try OpenAI if Groq failed or wasn't configured
-        if not result_content and openai_key:
+        if not result_content and openai_key and time_left() > 5:
             headers = {
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {openai_key}"
@@ -436,20 +441,23 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
                 "response_format": {"type": "json_object"},
                 "temperature": 0.2
             }
-            resp = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload, timeout=55)
-            if resp.status_code == 200:
-                data = resp.json()
-                result_content = data["choices"][0]["message"]["content"]
-            else:
-                error_msg = resp.text
-                try:
-                    error_msg = resp.json().get("error", {}).get("message", resp.text)
-                except:
-                    pass
-                all_errors.append(f"OpenAI Error: {error_msg}")
+            try:
+                resp = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload, timeout=min(25, time_left() - 2))
+                if resp.status_code == 200:
+                    data = resp.json()
+                    result_content = data["choices"][0]["message"]["content"]
+                else:
+                    error_msg = resp.text
+                    try:
+                        error_msg = resp.json().get("error", {}).get("message", resp.text)
+                    except:
+                        pass
+                    all_errors.append(f"OpenAI Error: {error_msg}")
+            except Exception as e:
+                all_errors.append(f"OpenAI Timeout/Error: {str(e)}")
 
-        # Try Gemini if OpenAI failed or wasn't configured
-        if not result_content and gemini_key:
+        # Try Gemini if all above failed
+        if not result_content and gemini_key and time_left() > 5:
             models_to_try = [
                 "gemini-2.5-flash",
                 "gemini-2.0-flash",
@@ -462,17 +470,16 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
                 }],
                 "generationConfig": {"temperature": 0.2}
             }
-            import time
             for idx, model in enumerate(models_to_try):
-                if result_content:
+                if result_content or time_left() < 5:
                     break
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={gemini_key}"
 
-                # Try up to 5 times per model for 429/503 rate limits with aggressive backoff
-                max_retries = 5
-                for attempt in range(max_retries):
+                for attempt in range(3):
+                    if time_left() < 5:
+                        break
                     try:
-                        resp = requests.post(url, headers=headers, json=payload, timeout=90)
+                        resp = requests.post(url, headers=headers, json=payload, timeout=min(20, time_left() - 2))
                         if resp.status_code == 200:
                             data = resp.json()
                             try:
@@ -481,18 +488,15 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
                                     break
                             except (KeyError, IndexError):
                                 all_errors.append(f"Gemini {model} blocked or missing text parts")
-                                break # Don't retry blocked content
+                                break
                         elif resp.status_code in (429, 503):
-                            # 429 = rate limit, 503 = "high demand" overload — both are retryable
-                            print(f"Gemini Rate Limit/Overload ({resp.status_code}) for {model}. Attempt {attempt+1}/{max_retries}.")
-                            if attempt < max_retries - 1:
-                                wait_time = 3 * (2 ** attempt)  # 3s, 6s, 12s, 24s
-                                time.sleep(wait_time)
+                            print(f"Gemini {resp.status_code} for {model}. Attempt {attempt+1}/3.")
+                            if attempt < 2 and time_left() > 8:
+                                time.sleep(min(3 * (2 ** attempt), time_left() - 5))
                                 continue
                             else:
                                 all_errors.append(f"Gemini {model}: {resp.status_code} Rate Limit")
-                                if idx < len(models_to_try) - 1:
-                                    time.sleep(5)
+                                break
                         else:
                             error_msg = resp.text
                             try:
@@ -502,10 +506,10 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
                             except:
                                 pass
                             all_errors.append(f"Gemini {model}: {error_msg}")
-                            break # Don't retry other HTTP errors
+                            break
                     except Exception as e:
                         all_errors.append(f"Gemini {model} Timeout/Error: {str(e)}")
-                        break # Don't retry timeout/connection errors
+                        break
 
         if not result_content:
             return {"error": True, "detail": "AI API Error: " + " | ".join(all_errors)}
