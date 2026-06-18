@@ -512,9 +512,9 @@ def delete_override(ticker: str):
         raise HTTPException(status_code=500, detail="Internal server error")
 
 @app.post("/api/ai-kpi-audit/{ticker}")
-def kpi_audit(ticker: str):
+def kpi_audit(ticker: str, force_refresh: bool = False):
     try:
-        result = run_ai_kpi_audit(ticker)
+        result = run_ai_kpi_audit(ticker, force_refresh=force_refresh)
         if result.get("error"):
             return JSONResponse(status_code=400, content=result)
         return result
