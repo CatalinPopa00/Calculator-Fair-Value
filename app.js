@@ -8198,8 +8198,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                             chartCanvas.parentElement.appendChild(noDataMsg);
                         }
                         noDataMsg.style.display = 'flex';
-                        const firstMention = Object.values(vals)[0] || 'N/A';
-                        noDataMsg.innerHTML = `<span style="font-size: 1.5rem; margin-bottom: 10px;">📉</span><i>Numerical history could not be plotted for this KPI.</i><br><span style="margin-top: 10px; font-size: 0.9rem;">Most recent mention: <strong style="color:var(--accent);">${firstMention}</strong></span>`;
+                        noDataMsg.innerHTML = `<span style="font-size: 1.5rem; margin-bottom: 10px;">📉</span><i>Nu există date numerice suficiente pentru a genera un grafic.</i>`;
                         return; // Skip rendering chart
                     } else {
                         chartCanvas.style.display = 'block';
