@@ -602,8 +602,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const pdf = new jsPDF('p', 'mm', 'a4');
                 pdf.setFillColor(15, 23, 42); // match #0f172a
-
                 const pdfWidth = 210;
+                const pdfHeight = 297;
                 let pdfHeight = 297;
                 let currentY = 0;
 
@@ -616,6 +616,66 @@ document.addEventListener('DOMContentLoaded', () => {
                 pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
                 pdf.addImage(imgData1, 'JPEG', 0, currentY, pdfWidth, imgHeightInMm1);
 
+                // --- Page 2 and beyond (Iterating through KPI charts to prevent cutting) ---
+
+                // Get the KPI container and title
+                const titleSection = container2.querySelector('#pdf-export-audit-section');
+                const kpiContainer = container2.querySelector('#pdf-export-kpi-container');
+
+                // Keep track of current height used on the current page
+                let currentHeightUsed = 0;
+
+                if (titleSection || (kpiContainer && kpiContainer.children.length > 0)) {
+                    pdf.addPage();
+                    pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
+
+                    if (titleSection) {
+                         const titleCanvas = await html2canvas(titleSection, {
+                            scale: 2,
+                            useCORS: true,
+                            logging: false,
+                            backgroundColor: '#0f172a'
+                         });
+                         let titleImg = titleCanvas.toDataURL('image/jpeg', 0.95);
+                         let titleProps = pdf.getImageProperties(titleImg);
+                         let titleRatio = titleProps.width / pdfWidth;
+                         let titleH = titleProps.height / titleRatio;
+
+                         pdf.addImage(titleImg, 'JPEG', 0, currentHeightUsed, pdfWidth, titleH);
+                         currentHeightUsed += titleH + 5; // 5mm gap
+                    }
+
+                    if (kpiContainer) {
+                        const charts = Array.from(kpiContainer.children);
+                        for (let i = 0; i < charts.length; i++) {
+                            const chartCard = charts[i];
+                            const chartCanvas = await html2canvas(chartCard, {
+                                scale: 2,
+                                useCORS: true,
+                                logging: false,
+                                backgroundColor: '#1e293b' // match card background
+                            });
+
+                            let chartImg = chartCanvas.toDataURL('image/jpeg', 0.95);
+                            let chartProps = pdf.getImageProperties(chartImg);
+                            let chartRatio = (chartProps.width + 40) / pdfWidth; // slightly pad the width ratio to leave margins
+                            let chartW = chartProps.width / chartRatio;
+                            let chartH = chartProps.height / chartRatio;
+
+                            // Center horizontally roughly by adding 10mm margin
+                            let marginX = (pdfWidth - chartW) / 2;
+
+                            // Check if adding this chart will overflow the page
+                            if (currentHeightUsed + chartH > pdfHeight - 10) { // 10mm bottom margin
+                                pdf.addPage();
+                                pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
+                                currentHeightUsed = 10; // Start with 10mm top margin on new page
+                            }
+
+                            pdf.addImage(chartImg, 'JPEG', marginX, currentHeightUsed, chartW, chartH);
+                            currentHeightUsed += chartH + 10; // 10mm gap between cards
+                        }
+                    }
                 // --- Subsequent Pages (Iterative) ---
                 pdf.addPage();
                 pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');

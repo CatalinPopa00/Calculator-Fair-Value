@@ -318,8 +318,8 @@ def is_valid_audit_response(result_string: str) -> bool:
 
 def run_ai_kpi_audit(ticker: str) -> Dict[str, Any]:
     ticker = ticker.upper()
-    # if ticker in audit_cache:
-    #     return audit_cache[ticker]
+    if ticker in audit_cache:
+        return audit_cache[ticker]
 
     try:
         from dotenv import load_dotenv
@@ -401,8 +401,57 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
         result_content = None
         all_errors = []
 
-        # Try Groq First if available (Free and Fast)
-        if groq_key:
+        # Try Gemini First
+        if gemini_key:
+            models_to_try = [
+                "gemini-2.0-flash",
+                "gemini-1.5-flash",
+                "gemini-1.5-pro"
+            ]
+            headers = {"Content-Type": "application/json"}
+            payload = {
+                "contents": [{
+                    "parts": [{"text": f"{system_prompt}\n\nAici sunt textele pentru {ticker}:\n\n{raw_text}"}]
+                }],
+                "generationConfig": {"temperature": 0.2},
+                "tools": [{"googleSearch": {}}]
+            }
+            for idx, model in enumerate(models_to_try):
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={gemini_key}"
+                try:
+                    resp = requests.post(url, headers=headers, json=payload, timeout=90)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        try:
+                            if "candidates" in data and data["candidates"]:
+                                temp_content = data["candidates"][0]["content"]["parts"][0]["text"]
+                                if is_valid_audit_response(temp_content):
+                                    result_content = temp_content
+                                    break
+                                else:
+                                    all_errors.append(f"Gemini {model} returned invalid/conversational response.")
+                        except (KeyError, IndexError):
+                            all_errors.append(f"Gemini {model} blocked or missing text parts")
+                    elif resp.status_code == 429:
+                        print(f"Gemini Fallback Rate Limit (429) hit for {model}. Retrying next model...")
+                        all_errors.append(f"Gemini {model}: 429 Rate Limit")
+                        if idx < len(models_to_try) - 1:
+                            import time
+                            time.sleep(2)
+                    else:
+                        error_msg = resp.text
+                        try:
+                            err_data = resp.json()
+                            if "error" in err_data and "message" in err_data["error"]:
+                                error_msg = err_data["error"]["message"]
+                        except:
+                            pass
+                        all_errors.append(f"Gemini {model}: {error_msg}")
+                except Exception as e:
+                    all_errors.append(f"Gemini {model} Timeout/Error: {str(e)}")
+
+        # Try Groq as fallback
+        if not result_content and groq_key:
             headers = {
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {groq_key}"
@@ -420,10 +469,11 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
                 resp = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=55)
                 if resp.status_code == 200:
                     data = resp.json()
-                    result_content = data["choices"][0]["message"]["content"]
-                    if not is_valid_audit_response(result_content):
+                    temp_content = data["choices"][0]["message"]["content"]
+                    if is_valid_audit_response(temp_content):
+                        result_content = temp_content
+                    else:
                         all_errors.append("Groq returned invalid/conversational response.")
-                        result_content = None
                 else:
                     error_msg = resp.text
                     try:
@@ -434,7 +484,7 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
             except Exception as e:
                 all_errors.append(f"Groq Timeout/Error: {str(e)}")
 
-        # Try OpenAI if Groq failed or wasn't configured
+        # Try OpenAI as final fallback
         if not result_content and openai_key:
             headers = {
                 "Content-Type": "application/json",
@@ -452,10 +502,11 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
             resp = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload, timeout=55)
             if resp.status_code == 200:
                 data = resp.json()
-                result_content = data["choices"][0]["message"]["content"]
-                if not is_valid_audit_response(result_content):
+                temp_content = data["choices"][0]["message"]["content"]
+                if is_valid_audit_response(temp_content):
+                    result_content = temp_content
+                else:
                     all_errors.append("OpenAI returned invalid/conversational response.")
-                    result_content = None
             else:
                 error_msg = resp.text
                 try:

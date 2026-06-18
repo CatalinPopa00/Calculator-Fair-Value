@@ -512,11 +512,27 @@ def delete_override(ticker: str):
         raise HTTPException(status_code=500, detail="Internal server error")
 
 @app.post("/api/ai-kpi-audit/{ticker}")
-def kpi_audit(ticker: str):
+def kpi_audit(ticker: str, response: Response):
+    # Set Vercel Edge Cache headers for KPI Audit (Cache 1hr, stale up to 24hr)
+    response.headers["Cache-Control"] = "public, s-maxage=3600, stale-while-revalidate=86400"
+    ticker_upper = ticker.upper()
     try:
-        result = run_ai_kpi_audit(ticker)
+        # Check KV Cache first
+        kv_key = f"kpi_audit_{CACHE_VERSION}_{ticker_upper}"
+        kv_cached = kv_get(kv_key)
+        if kv_cached and isinstance(kv_cached, dict) and not kv_cached.get("error"):
+            return kv_cached
+
+        result = run_ai_kpi_audit(ticker_upper)
         if result.get("error"):
             return JSONResponse(status_code=400, content=result)
+
+        # Cache to KV
+        try:
+            kv_set(kv_key, result, ex=86400 * 7) # 7 days
+        except Exception as e:
+            print(f"Failed to KV cache KPI Audit for {ticker}: {e}")
+
         return result
     except Exception as e:
         print(f"Error in KPI Audit for {ticker}: {e}")
