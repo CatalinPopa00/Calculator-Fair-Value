@@ -3029,7 +3029,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             } else {
                 pegStatusElem.textContent = "N/A";
                 pegStatusElem.style.color = "var(--text-muted)";
-                pegCompareElem.textContent = industryPeg == null ? "Sector data unavailable" : "PEG calculation data missing";
+                pegCompareElem.textContent = industryPegRaw == null ? "Sector data unavailable" : "PEG calculation data missing";
             }
         }
 
