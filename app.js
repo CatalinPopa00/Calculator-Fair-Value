@@ -8125,7 +8125,19 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     const vals = k.values || k.history || {};
                     Object.keys(vals).forEach(p => allPeriods.add(p));
                 });
-                const globalPeriods = Array.from(allPeriods).sort();
+                const globalPeriods = Array.from(allPeriods).sort((a, b) => {
+                    const parsePeriod = p => {
+                        const mYear = p.match(/\b(20\d{2})\b/);
+                        const mQ = p.match(/\bQ([1-4])\b/i);
+                        const year = mYear ? parseInt(mYear[1]) : 0;
+                        const q = mQ ? parseInt(mQ[1]) : 0;
+                        return year * 10 + q;
+                    };
+                    const vA = parsePeriod(a);
+                    const vB = parsePeriod(b);
+                    if (vA !== vB && vA !== 0 && vB !== 0) return vA - vB;
+                    return a.localeCompare(b);
+                });
 
                 let currentKpiIndex = 0;
                 let kpiChartInstance = null;
