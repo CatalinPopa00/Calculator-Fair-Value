@@ -3390,7 +3390,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             if (mc) mc.textContent = multipleLabel;
 
             // --- Populate custom weight inputs on the card ---
-            const LABEL = { PE: 'FWD P/E', PFCF: 'P/FCF', PS: 'FWD EV/Sales', PB: 'P/B', EV_EBITDA: 'FWD EV/EBITDA', P_FFO: 'FWD P/FFO', P_AFFO: 'FWD P/AFFO' };
+            const LABEL = { PE: 'P/E', PFCF: 'P/FCF', PS: 'EV/Sales', PB: 'P/B', EV_EBITDA: 'EV/EBITDA', P_FFO: 'P/FFO', P_AFFO: 'P/AFFO' };
             const activeKeys = Object.keys(weights).filter(k => weights[k] !== undefined);
             const cwPanel = document.getElementById('rel-custom-weights-card');
             if (cwPanel) {
@@ -7325,7 +7325,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             const activeKeys = Object.keys(weightsToUse).filter(k => (weightsToUse[k] || 0) > 0);
 
             // Label map
-            const LABEL = { PE: 'FWD P/E', PFCF: 'P/FCF', PS: 'FWD EV/Sales', PB: 'P/B', EV_EBITDA: 'FWD EV/EBITDA', P_FFO: 'FWD P/FFO', P_AFFO: 'FWD P/AFFO' };
+            const LABEL = { PE: 'P/E', PFCF: 'P/FCF', PS: 'EV/Sales', PB: 'P/B', EV_EBITDA: 'EV/EBITDA', P_FFO: 'P/FFO', P_AFFO: 'P/AFFO' };
             const peerKeyMap = { PE: 'forward_pe', PFCF: 'pfcf_ratio', PS: 'forward_ev_sales', PB: 'price_to_book', EV_EBITDA: 'forward_ev_ebitda', P_FFO: 'forward_pe', P_AFFO: 'pfcf_ratio' };
 
             // --- Competitor Table ---
@@ -7363,19 +7363,19 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             let peerTableHTML = '';
             if (peers.length > 0) {
                 peerTableHTML = `
-                    <h4 style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:10px;">Peer Benchmarks</h4>
+                    <h4 style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:8px;">Peer Benchmarks</h4>
                     <div style="overflow-x:auto; margin-bottom:1.5rem;">
-                    <table class="premium-data-table" style="font-size:0.75rem;">
+                    <table class="premium-data-table" style="font-size:0.65rem; table-layout:fixed; width:100%;">
                         <thead>
                             <tr style="border-bottom:1px solid rgba(255,255,255,0.15);">
-                                <th style="text-align:left; padding:4px 2px; color:white; white-space:nowrap;">Ticker</th>
-                                ${activeKeys.map(k => `<th style="text-align:right; padding:4px 2px; color:white; white-space:nowrap;">${LABEL[k] || k}</th>`).join('')}
+                                <th style="text-align:left; padding:2px; color:white; white-space:nowrap;">Ticker</th>
+                                ${activeKeys.map(k => `<th style="text-align:right; padding:2px; color:white; white-space:nowrap;">${LABEL[k] || k}</th>`).join('')}
                             </tr>
                         </thead>
                         <tbody>
                             <!-- Target Company Row -->
                             <tr style="border-bottom:1px solid rgba(255,255,255,0.1); background: rgba(40, 199, 111, 0.05);">
-                                <td style="padding:4px 2px; color:#28c76f; font-weight:700; white-space:nowrap;">${(globalData.ticker || 'TARGET').toUpperCase()}</td>
+                                <td style="padding:2px; color:#28c76f; font-weight:700; white-space:nowrap;">${(globalData.ticker || 'TARGET').toUpperCase()}</td>
                                 ${activeKeys.map(k => {
                     let val = null;
                     const dynEpsG = r.dynamic_eps_growth != null ? r.dynamic_eps_growth : ((globalData && globalData.computed_eps_growth != null) ? globalData.computed_eps_growth : (globalData.company_profile?.earnings_growth || 0));
@@ -7415,31 +7415,31 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                         val = pfcf_ttm > 0 ? pfcf_ttm / (1 + dynEpsG) : null;
                     }
 
-                    return `<td style="text-align:right; padding:4px 2px; color:#28c76f; font-weight:700; white-space:nowrap;">${val != null ? val.toFixed(1) + 'x' : '—'}</td>`;
+                    return `<td style="text-align:right; padding:2px; color:#28c76f; font-weight:700; white-space:nowrap;">${val != null ? val.toFixed(1) + 'x' : '—'}</td>`;
                 }).join('')}
                             </tr>
                             
                             <!-- Peers Rows -->
                             ${peers.map(p => `
                                 <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
-                                    <td style="padding:4px 2px; color:white; font-weight:600; white-space:nowrap;">${p.ticker}</td>
+                                    <td style="padding:2px; color:white; font-weight:600; white-space:nowrap;">${p.ticker}</td>
                                     ${activeKeys.map(k => {
                     const dk = peerKeyMap[k];
                     const val = dk ? p[dk] : null;
-                    return `<td style="text-align:right; padding:4px 2px; color:var(--text-main); white-space:nowrap;">${val != null && val !== 0 ? val.toFixed(1) + 'x' : '—'}</td>`;
+                    return `<td style="text-align:right; padding:2px; color:var(--text-main); white-space:nowrap;">${val != null && val !== 0 ? val.toFixed(1) + 'x' : '—'}</td>`;
                 }).join('')}
                                 </tr>
                             `).join('')}
                         </tbody>
                         <tfoot>
                             <tr style="border-top:1px solid rgba(255,255,255,0.15);">
-                                <td style="padding:4px 2px; color:white; font-weight:700; white-space:nowrap;">Median</td>
+                                <td style="padding:2px; color:white; font-weight:700; white-space:nowrap;">Median</td>
                                 ${activeKeys.map(k => {
                     let medKey = k;
                     if (k === 'P_FFO') medKey = 'PE';
                     if (k === 'P_AFFO') medKey = 'PFCF';
                     const v = dynamicMedians[medKey] ?? r['median_peer_' + medKey.toLowerCase()];
-                    return `<td style="text-align:right; padding:4px 2px; color:white; font-weight:700; white-space:nowrap;">${v != null ? v.toFixed(1) + 'x' : '—'}</td>`;
+                    return `<td style="text-align:right; padding:2px; color:white; font-weight:700; white-space:nowrap;">${v != null ? v.toFixed(1) + 'x' : '—'}</td>`;
                 }).join('')}
                             </tr>
                         </tfoot>
@@ -7522,10 +7522,10 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 const implColor = safeImpl > 0 ? 'white' : 'var(--text-muted)';
                 breakdownRows += `
                         <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
-                            <td style="padding:8px 4px; color:var(--text-muted); font-weight:500; font-size:0.85rem; white-space:nowrap;">${LABEL[k]}</td>
-                            <td style="text-align:right; padding:8px 4px; color:var(--text-main); font-family:var(--font-mono); font-weight:500; font-size:0.85rem; white-space:nowrap;">${(bench || 0).toFixed(1)}x</td>
-                            <td style="text-align:right; padding:8px 4px; color:${safeImpl > 0 ? 'var(--text-main)' : 'var(--text-muted)'}; font-family:var(--font-mono); font-weight:600; font-size:0.85rem; white-space:nowrap;">${safeImpl > 0 ? '$' + fmt(safeImpl) : 'N/A'}</td>
-                            <td style="text-align:right; padding:8px 4px; color:var(--accent); font-family:var(--font-mono); font-weight:700; font-size:0.85rem; white-space:nowrap;" class="rel-weight-cell" data-key="${k}">${(w * 100).toFixed(0)}%</td>
+                            <td style="padding:4px 2px; color:var(--text-muted); font-weight:500; font-size:0.7rem; white-space:nowrap;">${LABEL[k]}</td>
+                            <td style="text-align:right; padding:4px 2px; color:var(--text-main); font-family:var(--font-mono); font-weight:500; font-size:0.7rem; white-space:nowrap;">${(bench || 0).toFixed(1)}x</td>
+                            <td style="text-align:right; padding:4px 2px; color:${safeImpl > 0 ? 'var(--text-main)' : 'var(--text-muted)'}; font-family:var(--font-mono); font-weight:600; font-size:0.7rem; white-space:nowrap;">${safeImpl > 0 ? '$' + fmt(safeImpl) : 'N/A'}</td>
+                            <td style="text-align:right; padding:4px 2px; color:var(--accent); font-family:var(--font-mono); font-weight:700; font-size:0.7rem; white-space:nowrap;" class="rel-weight-cell" data-key="${k}">${(w * 100).toFixed(0)}%</td>
                         </tr>`;
             });
 
@@ -7543,7 +7543,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             html = `
                     ${peerTableHTML}
 
-                    <h4 style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:10px;">Implied Values & Weights</h4>
+                    <h4 style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:8px;">Implied Values & Weights</h4>
                     <div style="width:100%; margin-bottom:1rem;">
                         <table style="width:100%; border-collapse:collapse; font-size:0.65rem; table-layout:fixed;">
                             <thead>
@@ -7559,10 +7559,10 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     </div>
 
                     <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-top:1px solid rgba(255,255,255,0.1);">
-                        <span style="font-size:0.85rem; color:white; font-weight:600;">Weighted Fair Value</span>
-                        <span id="rel-modal-fv" style="font-size:1.2rem; font-weight:800; color:${modalFVColor};">$${fmt(modalFV)}</span>
+                        <span style="font-size:0.75rem; color:white; font-weight:600;">Weighted Fair Value</span>
+                        <span id="rel-modal-fv" style="font-size:1rem; font-weight:800; color:${modalFVColor};">$${fmt(modalFV)}</span>
                     </div>
-                    <p style="font-size:0.7rem; color:var(--text-muted); margin-top:8px; font-style:italic;">
+                    <p style="font-size:0.65rem; color:var(--text-muted); margin-top:6px; font-style:italic;">
                         Weights can be adjusted via the card's "Weights" selector on the main dashboard.
                     </p>
                 `;
@@ -8198,8 +8198,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                             chartCanvas.parentElement.appendChild(noDataMsg);
                         }
                         noDataMsg.style.display = 'flex';
-                        const firstMention = Object.values(vals)[0] || 'N/A';
-                        noDataMsg.innerHTML = `<span style="font-size: 1.5rem; margin-bottom: 10px;">📉</span><i>Numerical history could not be plotted for this KPI.</i><br><span style="margin-top: 10px; font-size: 0.9rem;">Most recent mention: <strong style="color:var(--accent);">${firstMention}</strong></span>`;
+                        noDataMsg.innerHTML = `<span style="font-size: 1.5rem; margin-bottom: 10px;">📉</span><i>Nu există date numerice suficiente pentru a genera un grafic.</i>`;
                         return; // Skip rendering chart
                     } else {
                         chartCanvas.style.display = 'block';
