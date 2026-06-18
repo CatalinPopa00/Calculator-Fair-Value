@@ -319,7 +319,6 @@ def is_valid_audit_response(result_string: str) -> bool:
 def run_ai_kpi_audit(ticker: str, force_refresh: bool = False) -> Dict[str, Any]:
     ticker = ticker.upper()
     if not force_refresh and ticker in audit_cache:
-    if ticker in audit_cache:
         return audit_cache[ticker]
 
     try:

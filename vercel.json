@@ -4,15 +4,5 @@
       "source": "/api/(.*)",
       "destination": "/api/index.py"
     }
-  ],
-  "builds": [
-    {
-      "src": "api/index.py",
-      "use": "@vercel/python"
-    },
-    {
-      "src": "index.html",
-      "use": "@vercel/static"
-    }
   ]
 }
