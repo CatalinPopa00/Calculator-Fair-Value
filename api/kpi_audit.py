@@ -288,8 +288,8 @@ def get_fmp_transcripts(ticker: str) -> str:
 
 def run_ai_kpi_audit(ticker: str) -> Dict[str, Any]:
     ticker = ticker.upper()
-    # if ticker in audit_cache:
-    #     return audit_cache[ticker]
+    if not force_refresh and ticker in audit_cache:
+        return audit_cache[ticker]
 
     try:
         from dotenv import load_dotenv

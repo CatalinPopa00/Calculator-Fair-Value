@@ -519,14 +519,12 @@ def kpi_audit(ticker: str, response: Response, force_refresh: bool = False):
     try:
         # Check KV Cache first
         kv_key = f"kpi_audit_{CACHE_VERSION}_{ticker_upper}"
-
         if not force_refresh:
             kv_cached = kv_get(kv_key)
             if kv_cached and isinstance(kv_cached, dict) and not kv_cached.get("error"):
                 return kv_cached
 
         result = run_ai_kpi_audit(ticker_upper, force_refresh=force_refresh)
-
         if result.get("error"):
             return JSONResponse(status_code=400, content=result)
 
