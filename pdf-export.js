@@ -604,7 +604,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 pdf.setFillColor(15, 23, 42); // match #0f172a
                 const pdfWidth = 210;
                 const pdfHeight = 297;
-                let pdfHeight = 297;
                 let currentY = 0;
 
                 // --- Page 1 ---
@@ -676,6 +675,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             currentHeightUsed += chartH + 10; // 10mm gap between cards
                         }
                     }
+                }
                 // --- Subsequent Pages (Iterative) ---
                 pdf.addPage();
                 pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
