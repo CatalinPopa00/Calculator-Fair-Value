@@ -316,10 +316,10 @@ def run_ai_kpi_audit(ticker: str, force_refresh: bool = False) -> Dict[str, Any]
     # 1. Obținem textele din rapoarte (Transcripts / Press Releases)
     raw_text = get_fmp_transcripts(ticker)
     
-    # Strictly limit raw_text to max 14,000 characters (~3,500 tokens)
+    # Strictly limit raw_text to max 9,500 characters
     # This prevents free-tier API daily limits (like Groq's 100k TPD limit) from being exhausted instantly
-    if raw_text and len(raw_text) > 14000:
-        raw_text = raw_text[:14000]
+    if raw_text and len(raw_text) > 9500:
+        raw_text = raw_text[:9500]
 
     if not raw_text or len(raw_text) < 500:
         return {
@@ -379,46 +379,52 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
         # Try Groq First if available (Free and Fast)
         if groq_key:
             import time
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {groq_key}"
-            }
-            payload = {
-                "model": "llama-3.3-70b-versatile",
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"Aici sunt textele pentru {ticker}:\n\n{raw_text}"}
-                ],
-                "response_format": {"type": "json_object"},
-                "temperature": 0.2
-            }
-            max_retries = 3
-            for attempt in range(max_retries):
-                try:
-                    resp = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=55)
-                    if resp.status_code == 200:
-                        data = resp.json()
-                        result_content = data["choices"][0]["message"]["content"]
-                        break
-                    elif resp.status_code == 429:
-                        print(f"Groq Rate Limit (429) hit in Audit. Attempt {attempt+1}/{max_retries}.")
-                        if attempt < max_retries - 1:
-                            time.sleep(2 ** attempt)
-                            continue
-                        else:
-                            all_errors.append(f"Groq: 429 Rate Limit Exhausted")
+            headers = {"Content-Type": "application/json", "Authorization": f"Bearer {groq_key}"}
+
+            groq_models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
+            for g_model in groq_models:
+                if result_content: break
+
+                payload = {
+                    "model": g_model,
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": f"Aici sunt textele pentru {ticker}:\n\n{raw_text}"}
+                    ],
+                    "temperature": 0.2,
+                    "response_format": {"type": "json_object"}
+                }
+                max_retries = 2
+                for attempt in range(max_retries):
+                    try:
+                        resp = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=55)
+                        if resp.status_code == 200:
+                            data = resp.json()
+                            result_content = data["choices"][0]["message"]["content"]
                             break
-                    else:
-                        error_msg = resp.text
-                        try:
-                            error_msg = resp.json().get("error", {}).get("message", resp.text)
-                        except:
-                            pass
-                        all_errors.append(f"Groq Error: {error_msg}")
+                        elif resp.status_code == 429:
+                            try:
+                                err_msg = resp.json().get("error", {}).get("message", "429 Rate Limit Exhausted")
+                            except:
+                                err_msg = "429 Rate Limit Exhausted"
+                            print(f"Groq Rate Limit (429) for {g_model}. Attempt {attempt+1}/{max_retries}.")
+                            if attempt < max_retries - 1:
+                                time.sleep(2 ** attempt)
+                                continue
+                            else:
+                                all_errors.append(f"Groq ({g_model}): {err_msg}")
+                                break
+                        else:
+                            error_msg = resp.text
+                            try:
+                                error_msg = resp.json().get("error", {}).get("message", resp.text)
+                            except:
+                                pass
+                            all_errors.append(f"Groq Error ({g_model}): {error_msg}")
+                            break
+                    except Exception as e:
+                        all_errors.append(f"Groq Timeout/Error ({g_model}): {str(e)}")
                         break
-                except Exception as e:
-                    all_errors.append(f"Groq Timeout/Error: {str(e)}")
-                    break
 
         # Try OpenAI if Groq failed or wasn't configured
         if not result_content and openai_key:
@@ -452,7 +458,7 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
             models_to_try = [
                 "gemini-2.0-flash",
                 "gemini-2.0-flash-lite-preview-02-05",
-                "gemini-1.5-flash"
+
             ]
             headers = {"Content-Type": "application/json"}
             payload = {
@@ -623,37 +629,42 @@ Această afirmație confirmă teza conform căreia...
     # MULTI-MODEL PIPELINE: Phase 2 (Groq Analyst)
     if groq_key:
         import time
-        max_retries = 3
-        for attempt in range(max_retries):
-            try:
-                resp = requests.post(
-                    "https://api.groq.com/openai/v1/chat/completions",
-                    headers={"Content-Type": "application/json", "Authorization": f"Bearer {groq_key}"},
-                    json={"model": "llama-3.3-70b-versatile", "messages": messages, "temperature": 0.5},
-                    timeout=30
-                )
-                if resp.status_code == 200:
-                    result_content = resp.json()["choices"][0]["message"]["content"]
-                    break
-                elif resp.status_code == 429:
-                    print(f"Groq Rate Limit (429) hit in Chat. Attempt {attempt+1}/{max_retries}.")
-                    if attempt < max_retries - 1:
-                        time.sleep(2 ** attempt)
-                        continue
-                    else:
-                        error_msg = "429 Rate Limit Exhausted"
-                        print(f"Groq Chat Error (status {resp.status_code}): {error_msg}")
-                        all_errors.append(f"Groq({resp.status_code}): {error_msg}")
+        groq_models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
+        for g_model in groq_models:
+            if result_content: break
+            max_retries = 2
+            for attempt in range(max_retries):
+                try:
+                    resp = requests.post(
+                        "https://api.groq.com/openai/v1/chat/completions",
+                        headers={"Content-Type": "application/json", "Authorization": f"Bearer {groq_key}"},
+                        json={"model": g_model, "messages": messages, "temperature": 0.5},
+                        timeout=30
+                    )
+                    if resp.status_code == 200:
+                        result_content = resp.json()["choices"][0]["message"]["content"]
                         break
-                else:
-                    error_msg = resp.text[:200]
-                    print(f"Groq Chat Error (status {resp.status_code}): {error_msg}")
-                    all_errors.append(f"Groq({resp.status_code}): {error_msg}")
+                    elif resp.status_code == 429:
+                        try:
+                            err_msg = resp.json().get("error", {}).get("message", "429 Rate Limit Exhausted")
+                        except:
+                            err_msg = "429 Rate Limit Exhausted"
+                        print(f"Groq Rate Limit (429) in Chat for {g_model}. Attempt {attempt+1}/{max_retries}.")
+                        if attempt < max_retries - 1:
+                            time.sleep(2 ** attempt)
+                            continue
+                        else:
+                            all_errors.append(f"Groq ({g_model}): {err_msg}")
+                            break
+                    else:
+                        error_msg = resp.text[:200]
+                        print(f"Groq Chat Error (status {resp.status_code}): {error_msg}")
+                        all_errors.append(f"Groq({resp.status_code}) {g_model}: {error_msg}")
+                        break
+                except Exception as e:
+                    print(f"Groq Chat Exception ({g_model}): {e}")
+                    all_errors.append(f"Groq {g_model}: {str(e)}")
                     break
-            except Exception as e:
-                print(f"Groq Chat Exception: {e}")
-                all_errors.append(f"Groq: {str(e)}")
-                break
 
     # Fallback: If pipeline failed (or Groq is missing), just use Gemini as a standard chat model
     if not result_content and gemini_key:
@@ -669,7 +680,7 @@ Această afirmație confirmă teza conform căreia...
             chat_models_to_try = [
                 "gemini-2.0-flash",
                 "gemini-2.0-flash-lite-preview-02-05",
-                "gemini-1.5-flash"
+
             ]
 
             import time
