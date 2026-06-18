@@ -392,7 +392,7 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
                 "response_format": {"type": "json_object"},
                 "temperature": 0.2
             }
-            max_retries = 3
+            max_retries = 5
             for attempt in range(max_retries):
                 try:
                     resp = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=55)
@@ -403,7 +403,8 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
                     elif resp.status_code == 429:
                         print(f"Groq Rate Limit (429) hit in Audit. Attempt {attempt+1}/{max_retries}.")
                         if attempt < max_retries - 1:
-                            time.sleep(2 ** attempt)
+                            wait_time = 3 * (2 ** attempt)  # 3s, 6s, 12s, 24s
+                            time.sleep(wait_time)
                             continue
                         else:
                             all_errors.append(f"Groq: 429 Rate Limit Exhausted")
@@ -467,8 +468,8 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
                     break
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={gemini_key}"
 
-                # Try up to 3 times per model for 429 rate limits
-                max_retries = 3
+                # Try up to 5 times per model for 429/503 rate limits with aggressive backoff
+                max_retries = 5
                 for attempt in range(max_retries):
                     try:
                         resp = requests.post(url, headers=headers, json=payload, timeout=90)
@@ -481,15 +482,17 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
                             except (KeyError, IndexError):
                                 all_errors.append(f"Gemini {model} blocked or missing text parts")
                                 break # Don't retry blocked content
-                        elif resp.status_code == 429:
-                            print(f"Gemini Fallback Rate Limit (429) hit for {model}. Attempt {attempt+1}/{max_retries}.")
+                        elif resp.status_code in (429, 503):
+                            # 429 = rate limit, 503 = "high demand" overload — both are retryable
+                            print(f"Gemini Rate Limit/Overload ({resp.status_code}) for {model}. Attempt {attempt+1}/{max_retries}.")
                             if attempt < max_retries - 1:
-                                time.sleep(2 ** attempt) # Exponential backoff: 1s, 2s, etc.
+                                wait_time = 3 * (2 ** attempt)  # 3s, 6s, 12s, 24s
+                                time.sleep(wait_time)
                                 continue
                             else:
-                                all_errors.append(f"Gemini {model}: 429 Rate Limit")
+                                all_errors.append(f"Gemini {model}: {resp.status_code} Rate Limit")
                                 if idx < len(models_to_try) - 1:
-                                    time.sleep(2)
+                                    time.sleep(5)
                         else:
                             error_msg = resp.text
                             try:
