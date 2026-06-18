@@ -450,9 +450,9 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
         # Try Gemini if OpenAI failed or wasn't configured
         if not result_content and gemini_key:
             models_to_try = [
+                "gemini-2.5-flash",
                 "gemini-2.0-flash",
-                "gemini-2.0-flash-lite-preview-02-05",
-                "gemini-1.5-flash"
+                "gemini-2.5-flash-lite"
             ]
             headers = {"Content-Type": "application/json"}
             payload = {
@@ -667,9 +667,9 @@ Această afirmație confirmă teza conform căreia...
             }
 
             chat_models_to_try = [
+                "gemini-2.5-flash",
                 "gemini-2.0-flash",
-                "gemini-2.0-flash-lite-preview-02-05",
-                "gemini-1.5-flash"
+                "gemini-2.5-flash-lite"
             ]
 
             import time
