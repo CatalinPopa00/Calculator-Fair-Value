@@ -286,41 +286,10 @@ def get_fmp_transcripts(ticker: str) -> str:
         yahoo_text = _get_yahoo_earnings_news(ticker)
         return sec_text + "\n\n" + yahoo_text
 
-def is_valid_audit_response(result_string: str) -> bool:
-    """Valideaza continutul raspunsului AI pentru a respinge scuze conversationale si a forta fallback-ul."""
-    if not result_string:
-        return False
-    try:
-        clean_str = result_string.strip()
-        if clean_str.startswith("```json"):
-            clean_str = clean_str[7:]
-        if clean_str.startswith("```"):
-            clean_str = clean_str[3:]
-        if clean_str.endswith("```"):
-            clean_str = clean_str[:-3]
-
-        data = json.loads(clean_str.strip())
-
-        kpis = data.get("kpis", [])
-        if not kpis:
-            return False
-
-        for kpi in kpis:
-            values = kpi.get("values", {})
-            for val in values.values():
-                val_str = str(val).strip()
-                # Daca o valoare nu e cifra si este un text lung de scuze (ex: "Nu s-au putut extrage...")
-                if len(val_str) > 30 and "N/A" not in val_str.upper() and not any(c.isdigit() for c in val_str):
-                    return False
-        return True
-    except Exception:
-        return False
-
-def run_ai_kpi_audit(ticker: str, force_refresh: bool = False) -> Dict[str, Any]:
+def run_ai_kpi_audit(ticker: str) -> Dict[str, Any]:
     ticker = ticker.upper()
-    if not force_refresh and ticker in audit_cache:
-    if ticker in audit_cache:
-        return audit_cache[ticker]
+    # if ticker in audit_cache:
+    #     return audit_cache[ticker]
 
     try:
         from dotenv import load_dotenv
@@ -373,7 +342,7 @@ ADDITIONALLY, for the CURRENT unfinished fiscal year, extract the available indi
 Format the keys EXACTLY as "FY [Year]" or "FY [Year] Q[X]". Ensure exact numbers are extracted if explicitly stated. Format numbers cleanly (e.g. "1.2 Billion", "34.5%", "450 Million"). 
 
 CRITICAL EXTRACTION RULE: You MUST extract the value for EVERY single year provided in the text. You are dealing with a massive text. Do NOT be lazy. Scan every single [Year ...] section carefully.
-CRITICAL FALLBACK FOR MISSING DATA: The provided text is heavily truncated and might miss historical or recent data. If a value for a specific period is absent from the provided text, YOU MUST ACTIVELY USE YOUR GOOGLE SEARCH ABILITIES AND INTERNAL KNOWLEDGE BASE to find and fill in the real numerical data for that KPI! Do NOT be lazy and do NOT use "N/A" or empty values unless you genuinely cannot find the data! Proactively search the internet to fill in ALL missing historical and recent blanks to create a perfectly complete trend without any empty gaps!
+CRITICAL FALLBACK FOR MISSING DATA: The provided text is heavily truncated and might miss historical or recent data. If a value for a specific period is absent from the provided text, YOU MUST ACTIVELY USE YOUR OWN INTERNAL KNOWLEDGE BASE to fill in the real numerical data for that KPI! Do NOT be lazy and do NOT use "N/A" or empty values unless you genuinely cannot find the data in your vast internal memory! You are a powerful AI with deep financial knowledge, act like one and fill in ALL missing historical and recent blanks to create a perfectly complete trend without any empty gaps!
 
 UNITY AND CONSISTENCY RULE (CRITICAL):
 To ensure the frontend table aligns perfectly, EVERY SINGLE KPI MUST HAVE THE EXACT SAME SET OF PERIOD KEYS in the 'values' object.
@@ -402,8 +371,65 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
         result_content = None
         all_errors = []
 
-        # Try Gemini First
-        if gemini_key:
+        # Try Groq First if available (Free and Fast)
+        if groq_key:
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {groq_key}"
+            }
+            payload = {
+                "model": "llama-3.3-70b-versatile",
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"Aici sunt textele pentru {ticker}:\n\n{raw_text}"}
+                ],
+                "response_format": {"type": "json_object"},
+                "temperature": 0.2
+            }
+            try:
+                resp = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=55)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    result_content = data["choices"][0]["message"]["content"]
+                else:
+                    error_msg = resp.text
+                    try:
+                        error_msg = resp.json().get("error", {}).get("message", resp.text)
+                    except:
+                        pass
+                    all_errors.append(f"Groq Error: {error_msg}")
+            except Exception as e:
+                all_errors.append(f"Groq Timeout/Error: {str(e)}")
+
+        # Try OpenAI if Groq failed or wasn't configured
+        if not result_content and openai_key:
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {openai_key}"
+            }
+            payload = {
+                "model": "gpt-4o-mini",
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"Aici sunt textele pentru {ticker}:\n\n{raw_text}"}
+                ],
+                "response_format": {"type": "json_object"},
+                "temperature": 0.2
+            }
+            resp = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload, timeout=55)
+            if resp.status_code == 200:
+                data = resp.json()
+                result_content = data["choices"][0]["message"]["content"]
+            else:
+                error_msg = resp.text
+                try:
+                    error_msg = resp.json().get("error", {}).get("message", resp.text)
+                except:
+                    pass
+                all_errors.append(f"OpenAI Error: {error_msg}")
+
+        # Try Gemini if OpenAI failed or wasn't configured
+        if not result_content and gemini_key:
             models_to_try = [
                 "gemini-2.0-flash",
                 "gemini-1.5-flash",
@@ -414,8 +440,7 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
                 "contents": [{
                     "parts": [{"text": f"{system_prompt}\n\nAici sunt textele pentru {ticker}:\n\n{raw_text}"}]
                 }],
-                "generationConfig": {"temperature": 0.2},
-                "tools": [{"googleSearch": {}}]
+                "generationConfig": {"temperature": 0.2}
             }
             for idx, model in enumerate(models_to_try):
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={gemini_key}"
@@ -425,12 +450,8 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
                         data = resp.json()
                         try:
                             if "candidates" in data and data["candidates"]:
-                                temp_content = data["candidates"][0]["content"]["parts"][0]["text"]
-                                if is_valid_audit_response(temp_content):
-                                    result_content = temp_content
-                                    break
-                                else:
-                                    all_errors.append(f"Gemini {model} returned invalid/conversational response.")
+                                result_content = data["candidates"][0]["content"]["parts"][0]["text"]
+                                break
                         except (KeyError, IndexError):
                             all_errors.append(f"Gemini {model} blocked or missing text parts")
                     elif resp.status_code == 429:
@@ -450,144 +471,6 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
                         all_errors.append(f"Gemini {model}: {error_msg}")
                 except Exception as e:
                     all_errors.append(f"Gemini {model} Timeout/Error: {str(e)}")
-
-        # Try Groq as fallback
-        if not result_content and groq_key:
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {groq_key}"
-            }
-            payload = {
-                "model": "llama-3.3-70b-versatile",
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"Aici sunt textele pentru {ticker}:\n\n{raw_text}"}
-                ],
-                "response_format": {"type": "json_object"},
-                "temperature": 0.2
-            }
-            try:
-                resp = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=55)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    temp_content = data["choices"][0]["message"]["content"]
-                    if is_valid_audit_response(temp_content):
-                        result_content = temp_content
-                    else:
-                        all_errors.append("Groq returned invalid/conversational response.")
-                else:
-                    error_msg = resp.text
-                    try:
-                        error_msg = resp.json().get("error", {}).get("message", resp.text)
-                    except:
-                        pass
-                    all_errors.append(f"Groq Error: {error_msg}")
-            except Exception as e:
-                all_errors.append(f"Groq Timeout/Error: {str(e)}")
-
-        # Try OpenAI as final fallback
-        if not result_content and openai_key:
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {openai_key}"
-            }
-            payload = {
-                "model": "gpt-4o-mini",
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"Aici sunt textele pentru {ticker}:\n\n{raw_text}"}
-                ],
-                "response_format": {"type": "json_object"},
-                "temperature": 0.2
-            }
-            resp = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload, timeout=55)
-            if resp.status_code == 200:
-                data = resp.json()
-                temp_content = data["choices"][0]["message"]["content"]
-                if is_valid_audit_response(temp_content):
-                    result_content = temp_content
-                else:
-                    all_errors.append("OpenAI returned invalid/conversational response.")
-            else:
-                error_msg = resp.text
-                try:
-                    error_msg = resp.json().get("error", {}).get("message", resp.text)
-                except:
-                    pass
-                all_errors.append(f"OpenAI Error: {error_msg}")
-
-        # Try Gemini if OpenAI failed or wasn't configured
-        if not result_content and gemini_key:
-            models_to_try = [
-                "gemini-2.0-flash",
-                "gemini-1.5-flash",
-                "gemini-1.5-pro"
-            ]
-            headers = {"Content-Type": "application/json"}
-            base_payload = {
-                "contents": [{
-                    "parts": [{"text": f"{system_prompt}\n\nAici sunt textele pentru {ticker}:\n\n{raw_text}"}]
-                }],
-                "generationConfig": {"temperature": 0.2}
-            }
-
-            for idx, model in enumerate(models_to_try):
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={gemini_key}"
-
-                # googleSearch tool is often only supported on 2.0 or 1.5-pro on certain tiers.
-                # If we fail, we'll try stripping the tool.
-                payload = dict(base_payload)
-                if "1.5" not in model:  # Only add googleSearch natively to 2.0 to avoid v1beta errors
-                    payload["tools"] = [{"googleSearch": {}}]
-
-                max_retries = 2
-                import time
-                for attempt in range(max_retries):
-                    try:
-                        resp = requests.post(url, headers=headers, json=payload, timeout=90)
-                        if resp.status_code == 200:
-                            data = resp.json()
-                            try:
-                                if "candidates" in data and data["candidates"]:
-                                    result_content = data["candidates"][0]["content"]["parts"][0]["text"]
-                                    break
-                            except (KeyError, IndexError):
-                                all_errors.append(f"Gemini {model} blocked or missing text parts")
-                                break
-
-                        elif resp.status_code == 429:
-                            print(f"Gemini Fallback Rate Limit (429) hit for {model}. Retrying...")
-                            time.sleep(2)
-                            if attempt == max_retries - 1:
-                                all_errors.append(f"Gemini {model}: 429 Rate Limit after retries")
-
-                        elif resp.status_code == 400 and "not supported" in resp.text:
-                            # If the model doesn't support the tools, retry without tools
-                            if "tools" in payload:
-                                payload.pop("tools")
-                                continue # retry without tools immediately
-                            else:
-                                error_msg = resp.json().get("error", {}).get("message", resp.text) if "error" in resp.text else resp.text
-                                all_errors.append(f"Gemini {model}: {error_msg}")
-                                break
-
-                        else:
-                            error_msg = resp.text
-                            try:
-                                err_data = resp.json()
-                                if "error" in err_data and "message" in err_data["error"]:
-                                    error_msg = err_data["error"]["message"]
-                            except:
-                                pass
-                            all_errors.append(f"Gemini {model}: {error_msg}")
-                            break # Move to next model if not 429
-
-                    except Exception as e:
-                        all_errors.append(f"Gemini {model} Timeout/Error: {str(e)}")
-                        break
-
-                if result_content:
-                    break
 
         if not result_content:
             return {"error": True, "detail": "AI API Error: " + " | ".join(all_errors)}
@@ -673,24 +556,18 @@ Această afirmație confirmă teza conform căreia...
     # MULTI-MODEL PIPELINE: Phase 1 (Gemini Researcher)
     if gemini_key and groq_key:
         try:
-            import time
             research_query = f"Search the web deeply for this query: '{message}' for the company {ticker}. If the user asks about earnings estimates, specifically search Nasdaq for multi-year EPS estimates. If they ask about SEC filings, 10-K, 10-Q, presentations, or earnings transcripts, extract exact numbers and management quotes. Return detailed bullet points with raw data, financial figures, and exact quotes."
             gemini_payload = {
                 "contents": [{"role": "user", "parts": [{"text": research_query}]}],
                 "generationConfig": {"temperature": 0.2, "maxOutputTokens": 1024},
                 "tools": [{"googleSearch": {}}]
             }
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}"
-            resp = requests.post(url, headers={"Content-Type": "application/json"}, json=gemini_payload, timeout=15)
-
-            if resp.status_code == 429:
-                time.sleep(2)
-                resp = requests.post(url, headers={"Content-Type": "application/json"}, json=gemini_payload, timeout=15)
-
-            if resp.status_code == 400 and "not supported" in resp.text:
-                gemini_payload.pop("tools")
-                resp = requests.post(url, headers={"Content-Type": "application/json"}, json=gemini_payload, timeout=15)
-
+            resp = requests.post(
+                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}",
+                headers={"Content-Type": "application/json"},
+                json=gemini_payload,
+                timeout=15
+            )
             if resp.status_code == 200:
                 live_research_data = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
             else:
@@ -733,7 +610,6 @@ Această afirmație confirmă teza conform căreia...
     # Fallback: If pipeline failed (or Groq is missing), just use Gemini as a standard chat model
     if not result_content and gemini_key:
         try:
-            import time
             gemini_messages = [{"role": "user" if m["role"] == "user" else "model", "parts": [{"text": m["content"]}]} for m in messages if m["role"] != "system"]
             gemini_payload = {
                 "contents": gemini_messages,
@@ -741,19 +617,12 @@ Această afirmație confirmă teza conform căreia...
                 "generationConfig": {"temperature": 0.5, "maxOutputTokens": 1024},
                 "tools": [{"googleSearch": {}}]
             }
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}"
-            resp = requests.post(url, headers={"Content-Type": "application/json"}, json=gemini_payload, timeout=30)
-
-            # Rate limit backoff for Chat Fallback
-            if resp.status_code == 429:
-                time.sleep(2)
-                resp = requests.post(url, headers={"Content-Type": "application/json"}, json=gemini_payload, timeout=30)
-
-            # If still fails due to tool not supported, strip tools
-            if resp.status_code == 400 and "not supported" in resp.text:
-                gemini_payload.pop("tools")
-                resp = requests.post(url, headers={"Content-Type": "application/json"}, json=gemini_payload, timeout=30)
-
+            resp = requests.post(
+                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}",
+                headers={"Content-Type": "application/json"},
+                json=gemini_payload,
+                timeout=30
+            )
             if resp.status_code == 200:
                 result_content = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
             else:
