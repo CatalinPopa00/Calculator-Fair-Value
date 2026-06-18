@@ -158,10 +158,10 @@ def _get_sec_10k_text(ticker: str) -> str:
                     # Find end boundary Item 8
                     matches_end = list(re.finditer(r'(?i)Item\s*8[\.\:]?\s*Financial', text))
                     valid_end = [m for m in matches_end if m.start() > idx]
-                    if valid_end and valid_end[0].start() - idx < 60000:
+                    if valid_end and valid_end[0].start() - idx < 15000:
                         report_text = text[idx:valid_end[0].start()]
                     else:
-                        report_text = text[idx:idx+60000]
+                        report_text = text[idx:idx+15000]
                         
                     combined_text += f"\n\n[Year {date_str} 10-K]\n" + report_text
                 else:
@@ -178,10 +178,10 @@ def _get_sec_10k_text(ticker: str) -> str:
                     # Find end boundary Item 3
                     matches_end = list(re.finditer(r'(?i)Item\s*3[\.\:]?\s*Quantitative', text))
                     valid_end = [m for m in matches_end if m.start() > idx]
-                    if valid_end and valid_end[0].start() - idx < 40000:
+                    if valid_end and valid_end[0].start() - idx < 10000:
                         report_text = text[idx:valid_end[0].start()]
                     else:
-                        report_text = text[idx:idx+40000]
+                        report_text = text[idx:idx+10000]
                         
                     combined_text += f"\n\n[Year {date_str} 10-Q]\n" + report_text
             except:
@@ -270,8 +270,8 @@ def get_fmp_transcripts(ticker: str) -> str:
             q = call.get('quarter')
             y = call.get('year')
             content = call.get('content', '')
-            # Scurtăm conținutul pentru a evita token limits (primele 15.000 caractere)
-            combined_transcripts += f"\n\n--- Earnings Call Q{q} {y} ---\n{content[:15000]}"
+            # Scurtăm conținutul agresiv pentru a evita token limits (primele 4.000 caractere, aprox 1k tokens)
+            combined_transcripts += f"\n\n--- Earnings Call Q{q} {y} ---\n{content[:4000]}"
             
         if not combined_transcripts.strip():
             sec_text = _get_sec_10k_text(ticker)
@@ -316,6 +316,11 @@ def run_ai_kpi_audit(ticker: str, force_refresh: bool = False) -> Dict[str, Any]
     # 1. Obținem textele din rapoarte (Transcripts / Press Releases)
     raw_text = get_fmp_transcripts(ticker)
     
+    # Strictly limit raw_text to max 45,000 characters (~11,000 tokens)
+    # This prevents free-tier API daily limits (like Groq's 100k TPD limit) from being exhausted instantly
+    if raw_text and len(raw_text) > 45000:
+        raw_text = raw_text[:45000]
+
     if not raw_text or len(raw_text) < 500:
         return {
             "error": True,
@@ -431,7 +436,9 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
         # Try Gemini if OpenAI failed or wasn't configured
         if not result_content and gemini_key:
             models_to_try = [
-                "gemini-2.0-flash"
+                "gemini-2.0-flash",
+                "gemini-2.0-flash-lite-preview-02-05",
+                "gemini-1.5-flash"
             ]
             headers = {"Content-Type": "application/json"}
             payload = {
@@ -440,35 +447,48 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
                 }],
                 "generationConfig": {"temperature": 0.2}
             }
+            import time
             for idx, model in enumerate(models_to_try):
+                if result_content:
+                    break
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={gemini_key}"
-                try:
-                    resp = requests.post(url, headers=headers, json=payload, timeout=90)
-                    if resp.status_code == 200:
-                        data = resp.json()
-                        try:
-                            if "candidates" in data and data["candidates"]:
-                                result_content = data["candidates"][0]["content"]["parts"][0]["text"]
-                                break
-                        except (KeyError, IndexError):
-                            all_errors.append(f"Gemini {model} blocked or missing text parts")
-                    elif resp.status_code == 429:
-                        print(f"Gemini Fallback Rate Limit (429) hit for {model}. Retrying next model...")
-                        all_errors.append(f"Gemini {model}: 429 Rate Limit")
-                        if idx < len(models_to_try) - 1:
-                            import time
-                            time.sleep(2)
-                    else:
-                        error_msg = resp.text
-                        try:
-                            err_data = resp.json()
-                            if "error" in err_data and "message" in err_data["error"]:
-                                error_msg = err_data["error"]["message"]
-                        except:
-                            pass
-                        all_errors.append(f"Gemini {model}: {error_msg}")
-                except Exception as e:
-                    all_errors.append(f"Gemini {model} Timeout/Error: {str(e)}")
+
+                # Try up to 3 times per model for 429 rate limits
+                max_retries = 3
+                for attempt in range(max_retries):
+                    try:
+                        resp = requests.post(url, headers=headers, json=payload, timeout=90)
+                        if resp.status_code == 200:
+                            data = resp.json()
+                            try:
+                                if "candidates" in data and data["candidates"]:
+                                    result_content = data["candidates"][0]["content"]["parts"][0]["text"]
+                                    break
+                            except (KeyError, IndexError):
+                                all_errors.append(f"Gemini {model} blocked or missing text parts")
+                                break # Don't retry blocked content
+                        elif resp.status_code == 429:
+                            print(f"Gemini Fallback Rate Limit (429) hit for {model}. Attempt {attempt+1}/{max_retries}.")
+                            if attempt < max_retries - 1:
+                                time.sleep(2 ** attempt) # Exponential backoff: 1s, 2s, etc.
+                                continue
+                            else:
+                                all_errors.append(f"Gemini {model}: 429 Rate Limit")
+                                if idx < len(models_to_try) - 1:
+                                    time.sleep(2)
+                        else:
+                            error_msg = resp.text
+                            try:
+                                err_data = resp.json()
+                                if "error" in err_data and "message" in err_data["error"]:
+                                    error_msg = err_data["error"]["message"]
+                            except:
+                                pass
+                            all_errors.append(f"Gemini {model}: {error_msg}")
+                            break # Don't retry other HTTP errors
+                    except Exception as e:
+                        all_errors.append(f"Gemini {model} Timeout/Error: {str(e)}")
+                        break # Don't retry timeout/connection errors
 
         if not result_content:
             return {"error": True, "detail": "AI API Error: " + " | ".join(all_errors)}
@@ -617,38 +637,52 @@ Această afirmație confirmă teza conform căreia...
             }
 
             chat_models_to_try = [
-                "gemini-2.0-flash"
+                "gemini-2.0-flash",
+                "gemini-2.0-flash-lite-preview-02-05",
+                "gemini-1.5-flash"
             ]
 
+            import time
             for idx, model in enumerate(chat_models_to_try):
+                if result_content:
+                    break
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={gemini_key}"
-                try:
-                    resp = requests.post(url, headers={"Content-Type": "application/json"}, json=gemini_payload, timeout=8.0)
 
-                    if resp.status_code == 400 and "tools" in gemini_payload:
-                        payload_no_tools = gemini_payload.copy()
-                        del payload_no_tools["tools"]
-                        resp = requests.post(url, headers={"Content-Type": "application/json"}, json=payload_no_tools, timeout=8.0)
+                max_retries = 3
+                for attempt in range(max_retries):
+                    try:
+                        resp = requests.post(url, headers={"Content-Type": "application/json"}, json=gemini_payload, timeout=8.0)
 
-                    if resp.status_code == 200:
-                        data = resp.json()
-                        try:
-                            result_content = data["candidates"][0]["content"]["parts"][0]["text"]
+                        if resp.status_code == 400 and "tools" in gemini_payload:
+                            payload_no_tools = gemini_payload.copy()
+                            del payload_no_tools["tools"]
+                            resp = requests.post(url, headers={"Content-Type": "application/json"}, json=payload_no_tools, timeout=8.0)
+
+                        if resp.status_code == 200:
+                            data = resp.json()
+                            try:
+                                result_content = data["candidates"][0]["content"]["parts"][0]["text"]
+                                break
+                            except (KeyError, IndexError):
+                                all_errors.append(f"Gemini {model} Chat missing text parts")
+                                break
+                        elif resp.status_code == 429:
+                            if attempt < max_retries - 1:
+                                time.sleep(2 ** attempt)
+                                continue
+                            else:
+                                all_errors.append(f"Gemini {model} Chat Rate Limit")
+                                if idx < len(chat_models_to_try) - 1:
+                                    time.sleep(2)
+                        else:
+                            error_msg = resp.text[:200]
+                            print(f"Gemini Chat Error ({model}): {error_msg}")
+                            all_errors.append(f"Gemini {model}({resp.status_code}): {error_msg}")
                             break
-                        except (KeyError, IndexError):
-                            all_errors.append(f"Gemini {model} Chat missing text parts")
-                    elif resp.status_code == 429:
-                        all_errors.append(f"Gemini {model} Chat Rate Limit")
-                        if idx < len(chat_models_to_try) - 1:
-                            import time
-                            time.sleep(2)
-                    else:
-                        error_msg = resp.text[:200]
-                        print(f"Gemini Chat Error ({model}): {error_msg}")
-                        all_errors.append(f"Gemini {model}({resp.status_code}): {error_msg}")
-                except Exception as e:
-                    print(f"Gemini Chat Exception ({model}): {e}")
-                    all_errors.append(f"Gemini {model}: {str(e)}")
+                    except Exception as e:
+                        print(f"Gemini Chat Exception ({model}): {e}")
+                        all_errors.append(f"Gemini {model}: {str(e)}")
+                        break
 
                 if result_content:
                     break
