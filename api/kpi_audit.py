@@ -286,7 +286,7 @@ def get_fmp_transcripts(ticker: str) -> str:
         yahoo_text = _get_yahoo_earnings_news(ticker)
         return sec_text + "\n\n" + yahoo_text
 
-def run_ai_kpi_audit(ticker: str) -> Dict[str, Any]:
+def run_ai_kpi_audit(ticker: str, force_refresh: bool = False) -> Dict[str, Any]:
     ticker = ticker.upper()
     if not force_refresh and ticker in audit_cache:
         return audit_cache[ticker]
