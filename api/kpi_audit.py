@@ -432,9 +432,8 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
         if not result_content and gemini_key:
             models_to_try = [
                 "gemini-2.0-flash",
-                "gemini-1.5-flash-8b",
-                "gemini-1.5-flash-latest",
-                "gemini-1.5-pro-latest"
+                "gemini-1.5-flash",
+                "gemini-1.5-pro"
             ]
             headers = {"Content-Type": "application/json"}
             payload = {
@@ -621,9 +620,8 @@ Această afirmație confirmă teza conform căreia...
 
             chat_models_to_try = [
                 "gemini-2.0-flash",
-                "gemini-1.5-flash-8b",
-                "gemini-1.5-flash-latest",
-                "gemini-1.5-pro-latest"
+                "gemini-1.5-flash",
+                "gemini-1.5-pro"
             ]
 
             for idx, model in enumerate(chat_models_to_try):
