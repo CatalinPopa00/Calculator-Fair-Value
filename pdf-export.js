@@ -286,9 +286,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     
                     <!-- AI Business Pulse Audit -->
-                    <div id="pdf-export-audit-section" style="display: none;">
-                        <h2 style="font-size: 1.8rem; font-weight: 800; color: #f8fafc; border-bottom: 2px solid rgba(255,255,255,0.1); padding-bottom: 10px; margin-bottom: 20px;">AI Business Pulse Audit</h2>
-                        <div id="pdf-export-kpi-container" style="display: flex; flex-direction: column; gap: 20px;"></div>
+                    <div id="pdf-export-audit-section" style="display: none; margin-top: 20px;">
+                        <h2 style="font-size: 1.5rem; font-weight: 800; color: #f8fafc; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 15px; margin-bottom: 0;">AI Business Pulse Audit</h2>
+                        <div id="pdf-export-kpi-container" style="display: flex; flex-direction: column; gap: 0;"></div>
                     </div>
                 `;
 
@@ -459,11 +459,12 @@ document.addEventListener('DOMContentLoaded', () => {
                                         currentRow.style.display = 'grid';
                                         currentRow.style.gridTemplateColumns = '1fr 1fr';
                                         currentRow.style.gap = '20px';
+                                        currentRow.style.paddingTop = '20px';
                                         kpiContainer.appendChild(currentRow);
                                     }
 
                                     const chartDiv = document.createElement('div');
-                                    chartDiv.style.cssText = cardStyle + ' padding: 25px; page-break-inside: avoid; background: #1e293b;';
+                                    chartDiv.style.cssText = cardStyle + ' padding: 25px; page-break-inside: avoid; background: rgba(255, 255, 255, 0.02); box-shadow: none; border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px;';
                                     
                                     const descDiv = document.createElement('div');
                                     descDiv.style.marginBottom = '15px';
@@ -630,16 +631,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const auditSection = container2.querySelector('#pdf-export-audit-section');
                 if (auditSection && auditSection.style.display !== 'none') {
-                    // Capture Header
-                    const header = auditSection.querySelector('h2');
-                    if (header) elementsToCapture.push(header);
+                    // Because we want a unified background for the entire Audit Section,
+                    // we capture the whole auditSection instead of iterating its children if it fits.
+                    // However, to prevent page break issues, we will actually just capture the auditSection as one chunk,
+                    // or if we must split, we apply the background to each chunk. Let's capture the audit section directly.
+                    // Wait, if it has many rows, capturing the entire section could cause it to exceed page height.
+                    // Let's capture the header and each row individually but give them all the same unified background.
 
-                    // Capture each KPI row
+                    const header = auditSection.querySelector('h2');
+                    if (header) {
+                        // Apply the unified background visually before capture
+                        header.style.backgroundColor = '#1e293b';
+                        header.style.padding = '20px 25px 0 25px';
+                        header.style.margin = '0';
+                        header.style.borderTopLeftRadius = '16px';
+                        header.style.borderTopRightRadius = '16px';
+                        elementsToCapture.push(header);
+                    }
+
                     const kpiRows = auditSection.querySelectorAll('.pdf-kpi-row');
-                    kpiRows.forEach(row => elementsToCapture.push(row));
+                    kpiRows.forEach((row, idx) => {
+                        row.style.backgroundColor = '#1e293b';
+                        row.style.padding = '0 25px 20px 25px';
+                        if (idx === kpiRows.length - 1) {
+                            row.style.borderBottomLeftRadius = '16px';
+                            row.style.borderBottomRightRadius = '16px';
+                        }
+                        elementsToCapture.push(row);
+                    });
                 }
 
                 for (const el of elementsToCapture) {
+                    // For audit sections and KPI rows, preserve the background color properly
+                    const isAuditRow = el.tagName.toLowerCase() === 'h2' || el.classList.contains('pdf-kpi-row');
+                    const elBgColor = isAuditRow ? '#1e293b' : '#0f172a';
                     const canvasEl = await html2canvas(el, {
                         scale: 2,
                         useCORS: true,
@@ -648,7 +673,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         scrollX: 0,
                         width: 1200,
                         windowWidth: 1200,
-                        backgroundColor: '#0f172a'
+                        backgroundColor: elBgColor
                     });
 
                     let imgData = canvasEl.toDataURL('image/jpeg', 0.95);
