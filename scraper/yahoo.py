@@ -1216,9 +1216,7 @@ You must structure your response EXACTLY according to the format below, using th
 Strictly adhere to these precise markdown headers (written exactly like this, in uppercase and between double asterisks). Do not use other custom headers or additional characters. Maintain a sober, analytical tone, worthy of an investment banking report.
 """
             models_to_try = [
-                "gemini-2.0-flash",
-                "gemini-1.5-flash",
-                "gemini-1.5-pro"
+                "gemini-2.0-flash"
             ]
             headers = {"Content-Type": "application/json"}
             payload = {
