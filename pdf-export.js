@@ -288,7 +288,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <!-- AI Business Pulse Audit -->
                     <div id="pdf-export-audit-section" style="display: none;">
                         <h2 style="font-size: 1.8rem; font-weight: 800; color: #f8fafc; border-bottom: 2px solid rgba(255,255,255,0.1); padding-bottom: 10px; margin-bottom: 20px;">AI Business Pulse Audit</h2>
-                        <div id="pdf-export-kpi-container" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;"></div>
+                        <div id="pdf-export-kpi-container" style="display: flex; flex-direction: column; gap: 20px;"></div>
                     </div>
                 `;
 
@@ -450,7 +450,18 @@ document.addEventListener('DOMContentLoaded', () => {
                             const auditSection = container2.querySelector('#pdf-export-audit-section');
                             if (kpiContainer && auditSection) {
                                 auditSection.style.display = 'block';
+
+                                let currentRow = null;
                                 kpiData.kpis.forEach((kpi, index) => {
+                                    if (index % 2 === 0) {
+                                        currentRow = document.createElement('div');
+                                        currentRow.className = 'pdf-kpi-row';
+                                        currentRow.style.display = 'grid';
+                                        currentRow.style.gridTemplateColumns = '1fr 1fr';
+                                        currentRow.style.gap = '20px';
+                                        kpiContainer.appendChild(currentRow);
+                                    }
+
                                     const chartDiv = document.createElement('div');
                                     chartDiv.style.cssText = cardStyle + ' padding: 25px; page-break-inside: avoid; background: #1e293b;';
                                     
@@ -466,7 +477,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     const canvas = document.createElement('canvas');
                                     canvasWrapper.appendChild(canvas);
                                     chartDiv.appendChild(canvasWrapper);
-                                    kpiContainer.appendChild(chartDiv);
+                                    currentRow.appendChild(chartDiv);
 
                                     // Render chart
                                     const vals = kpi.values || kpi.history || kpi.data || {};
@@ -589,24 +600,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     backgroundColor: '#0f172a'
                 });
 
-                const canvas2 = await html2canvas(container2, {
-                    scale: 1,
-                    useCORS: true,
-                    logging: false,
-                    scrollY: 0,
-                    scrollX: 0,
-                    width: 1200,
-                    windowWidth: 1200,
-                    height: container2.scrollHeight,
-                    windowHeight: container2.scrollHeight,
-                    backgroundColor: '#0f172a'
-                });
-
                 const pdf = new jsPDF('p', 'mm', 'a4');
                 pdf.setFillColor(15, 23, 42); // match #0f172a
 
                 const pdfWidth = 210;
                 let pdfHeight = 297;
+                let currentY = 0;
 
                 // --- Page 1 ---
                 let imgData1 = canvas1.toDataURL('image/jpeg', 0.95);
@@ -615,28 +614,57 @@ document.addEventListener('DOMContentLoaded', () => {
                 let imgHeightInMm1 = imgProps1.height / ratio1;
                 
                 pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
-                pdf.addImage(imgData1, 'JPEG', 0, 0, pdfWidth, imgHeightInMm1);
+                pdf.addImage(imgData1, 'JPEG', 0, currentY, pdfWidth, imgHeightInMm1);
 
-                // --- Page 2 ---
+                // --- Subsequent Pages (Iterative) ---
                 pdf.addPage();
-                let imgData2 = canvas2.toDataURL('image/jpeg', 0.95);
-                let imgProps2 = pdf.getImageProperties(imgData2);
-                let ratio2 = imgProps2.width / pdfWidth;
-                let imgHeightInMm2 = imgProps2.height / ratio2;
-
-                let heightLeft = imgHeightInMm2;
-                let position = 0;
-
                 pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
-                pdf.addImage(imgData2, 'JPEG', 0, position, pdfWidth, imgHeightInMm2);
-                heightLeft -= pdfHeight;
+                currentY = 10; // start with a small margin
 
-                while (heightLeft > 0) {
-                    position -= pdfHeight;
-                    pdf.addPage();
-                    pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
-                    pdf.addImage(imgData2, 'JPEG', 0, position, pdfWidth, imgHeightInMm2);
-                    heightLeft -= pdfHeight;
+                // Elements to iterate over: Key Points (child[0]), Audit Header (if visible), and each KPI Row
+                const elementsToCapture = [];
+
+                // Key Points is the first direct div in container2
+                const keyPoints = container2.children[0];
+                if (keyPoints) elementsToCapture.push(keyPoints);
+
+                const auditSection = container2.querySelector('#pdf-export-audit-section');
+                if (auditSection && auditSection.style.display !== 'none') {
+                    // Capture Header
+                    const header = auditSection.querySelector('h2');
+                    if (header) elementsToCapture.push(header);
+
+                    // Capture each KPI row
+                    const kpiRows = auditSection.querySelectorAll('.pdf-kpi-row');
+                    kpiRows.forEach(row => elementsToCapture.push(row));
+                }
+
+                for (const el of elementsToCapture) {
+                    const canvasEl = await html2canvas(el, {
+                        scale: 2,
+                        useCORS: true,
+                        logging: false,
+                        scrollY: 0,
+                        scrollX: 0,
+                        width: 1200,
+                        windowWidth: 1200,
+                        backgroundColor: '#0f172a'
+                    });
+
+                    let imgData = canvasEl.toDataURL('image/jpeg', 0.95);
+                    let imgProps = pdf.getImageProperties(imgData);
+                    let ratio = imgProps.width / pdfWidth;
+                    let imgHeightInMm = imgProps.height / ratio;
+
+                    // If it exceeds remaining page space, add a new page
+                    if (currentY + imgHeightInMm > pdfHeight - 10) {
+                        pdf.addPage();
+                        pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
+                        currentY = 10;
+                    }
+
+                    pdf.addImage(imgData, 'JPEG', 0, currentY, pdfWidth, imgHeightInMm);
+                    currentY += imgHeightInMm + 10; // add gap
                 }
 
                 pdf.save(`${ticker}_Fair_Value_Report.pdf`);
