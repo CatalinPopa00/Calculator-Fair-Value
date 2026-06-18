@@ -3390,7 +3390,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             if (mc) mc.textContent = multipleLabel;
 
             // --- Populate custom weight inputs on the card ---
-            const LABEL = { PE: 'FWD P/E', PFCF: 'P/FCF', PS: 'FWD EV/Sales', PB: 'P/B', EV_EBITDA: 'FWD EV/EBITDA', P_FFO: 'FWD P/FFO', P_AFFO: 'FWD P/AFFO' };
+            const LABEL = { PE: 'P/E', PFCF: 'P/FCF', PS: 'EV/Sales', PB: 'P/B', EV_EBITDA: 'EV/EBITDA', P_FFO: 'P/FFO', P_AFFO: 'P/AFFO' };
             const activeKeys = Object.keys(weights).filter(k => weights[k] !== undefined);
             const cwPanel = document.getElementById('rel-custom-weights-card');
             if (cwPanel) {
@@ -7325,7 +7325,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             const activeKeys = Object.keys(weightsToUse).filter(k => (weightsToUse[k] || 0) > 0);
 
             // Label map
-            const LABEL = { PE: 'FWD P/E', PFCF: 'P/FCF', PS: 'FWD EV/Sales', PB: 'P/B', EV_EBITDA: 'FWD EV/EBITDA', P_FFO: 'FWD P/FFO', P_AFFO: 'FWD P/AFFO' };
+            const LABEL = { PE: 'P/E', PFCF: 'P/FCF', PS: 'EV/Sales', PB: 'P/B', EV_EBITDA: 'EV/EBITDA', P_FFO: 'P/FFO', P_AFFO: 'P/AFFO' };
             const peerKeyMap = { PE: 'forward_pe', PFCF: 'pfcf_ratio', PS: 'forward_ev_sales', PB: 'price_to_book', EV_EBITDA: 'forward_ev_ebitda', P_FFO: 'forward_pe', P_AFFO: 'pfcf_ratio' };
 
             // --- Competitor Table ---
