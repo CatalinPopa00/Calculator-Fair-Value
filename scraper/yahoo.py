@@ -1118,6 +1118,9 @@ def load_openai_api_key() -> str:
 
 
 def get_company_synthesis(ticker: str, info: dict, run_ai: bool = False) -> str:
+    import time
+    start_time = time.time()
+
     """
     Returns a professional, structured analytical synthesis of the company in Romanian.
     Integrates Gemini AI insights for deep semantic extraction (pharma catalyst, segment analysis, M&A distortions)
@@ -1139,8 +1142,8 @@ def get_company_synthesis(ticker: str, info: dict, run_ai: bool = False) -> str:
             try:
                 transcript_text = get_fmp_transcripts(ticker_upper)
                 # truncate to ~60000 chars to avoid prompt blowing up and taking forever
-                if transcript_text and len(transcript_text) > 30000:
-                    transcript_text = transcript_text[:30000]
+                if transcript_text and len(transcript_text) > 15000:
+                    transcript_text = transcript_text[:15000]
             except Exception as e:
                 print(f"Error fetching transcripts for synthesis: {e}")
                 transcript_text = "No transcript data available."
@@ -1163,7 +1166,8 @@ def get_company_synthesis(ticker: str, info: dict, run_ai: bool = False) -> str:
             debt_equity = info.get('debtToEquity')
             de_str = f"{debt_equity:.1f}%" if isinstance(debt_equity, (int, float)) else "N/A"
             
-            prompt = f"""You are a senior financial analyst and top industry researcher.
+            import datetime
+            prompt = f"""You are a senior financial analyst and top industry researcher. Today's date is {datetime.date.today().strftime('%B %d, %Y')}.
 Analyze the following data for {name} ({ticker_upper}), which operates in the {sector} sector and {industry} industry.
 
 COMPANY DESCRIPTION:
@@ -1222,19 +1226,20 @@ Strictly adhere to these precise markdown headers (written exactly like this, in
                     "parts": [{
                         "text": prompt
                     }]
-                }]
+                }],
+                "tools": [{"googleSearch": {}}]
             }
             
             if api_key:
                 for idx, model_name in enumerate(models_to_try):
                     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
                     try:
-                        response = requests.post(url, json=payload, headers=headers, timeout=30)
+                        response = requests.post(url, json=payload, headers=headers, timeout=8.0)
                         if response.status_code == 200:
                             res_json = response.json()
                             try:
                                 generated_text = res_json['candidates'][0]['content']['parts'][0]['text']
-                                if generated_text and ("**EXECUTIVE SUMMARY**" in generated_text or "**SINTEZĂ EXECUTIVĂ**" in generated_text):
+                                if generated_text and len(generated_text) > 100:
                                     # Clean up triple backticks if model wraps markdown
                                     cleaned_text = generated_text.replace("```markdown", "").replace("```", "").strip()
                                     return cleaned_text
@@ -1250,8 +1255,13 @@ Strictly adhere to these precise markdown headers (written exactly like this, in
                     except Exception as e:
                         print(f"Error calling Gemini API ({model_name}) for {ticker_upper}: {e}")
 
+            timeout_reached = False
+            if time.time() - start_time > 8.0:
+                print(f"Approaching Vercel timeout ({time.time() - start_time:.1f}s) for {ticker_upper}. Yielding to heuristics.")
+                timeout_reached = True
+
             # Try Groq API as Fallback
-            if groq_key:
+            if not timeout_reached and groq_key:
                 print(f"Gemini failed or rate limited for {ticker_upper}, trying Groq Fallback...")
                 headers_groq = {
                     "Content-Type": "application/json",
@@ -1260,17 +1270,17 @@ Strictly adhere to these precise markdown headers (written exactly like this, in
                 payload_groq = {
                     "model": "llama-3.3-70b-versatile",
                     "messages": [
-                        {"role": "system", "content": "You are a senior financial analyst and top industry researcher."},
+                        {"role": "system", "content": f"You are a senior financial analyst and top industry researcher. Today's date is {datetime.date.today().strftime('%B %d, %Y')}."},
                         {"role": "user", "content": prompt}
                     ],
                     "temperature": 0.2
                 }
                 try:
-                    resp_groq = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers_groq, json=payload_groq, timeout=45)
+                    resp_groq = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers_groq, json=payload_groq, timeout=8.0)
                     if resp_groq.status_code == 200:
                         data = resp_groq.json()
                         generated_text = data["choices"][0]["message"]["content"]
-                        if generated_text and ("**EXECUTIVE SUMMARY**" in generated_text or "**SINTEZĂ EXECUTIVĂ**" in generated_text):
+                        if generated_text and len(generated_text) > 100:
                             cleaned_text = generated_text.replace("```markdown", "").replace("```", "").strip()
                             return cleaned_text
                     else:
@@ -1278,8 +1288,12 @@ Strictly adhere to these precise markdown headers (written exactly like this, in
                 except Exception as e:
                     print(f"Error calling Groq API for {ticker_upper}: {e}")
 
+            if not timeout_reached and time.time() - start_time > 8.0:
+                print(f"Approaching Vercel timeout ({time.time() - start_time:.1f}s) for {ticker_upper}. Yielding to heuristics.")
+                timeout_reached = True
+
             # Try OpenAI API as Fallback
-            if openai_key:
+            if not timeout_reached and openai_key:
                 print(f"Groq failed or rate limited for {ticker_upper}, trying OpenAI Fallback...")
                 headers_openai = {
                     "Content-Type": "application/json",
@@ -1288,17 +1302,17 @@ Strictly adhere to these precise markdown headers (written exactly like this, in
                 payload_openai = {
                     "model": "gpt-4o-mini",
                     "messages": [
-                        {"role": "system", "content": "You are a senior financial analyst and top industry researcher."},
+                        {"role": "system", "content": f"You are a senior financial analyst and top industry researcher. Today's date is {datetime.date.today().strftime('%B %d, %Y')}."},
                         {"role": "user", "content": prompt}
                     ],
                     "temperature": 0.2
                 }
                 try:
-                    resp_openai = requests.post("https://api.openai.com/v1/chat/completions", headers=headers_openai, json=payload_openai, timeout=45)
+                    resp_openai = requests.post("https://api.openai.com/v1/chat/completions", headers=headers_openai, json=payload_openai, timeout=8.0)
                     if resp_openai.status_code == 200:
                         data = resp_openai.json()
                         generated_text = data["choices"][0]["message"]["content"]
-                        if generated_text and ("**EXECUTIVE SUMMARY**" in generated_text or "**SINTEZĂ EXECUTIVĂ**" in generated_text):
+                        if generated_text and len(generated_text) > 100:
                             cleaned_text = generated_text.replace("```markdown", "").replace("```", "").strip()
                             return cleaned_text
                     else:
