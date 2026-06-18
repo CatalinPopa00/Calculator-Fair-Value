@@ -347,13 +347,14 @@ ADDITIONALLY, for the CURRENT unfinished fiscal year, extract the available indi
 Format the keys EXACTLY as "FY [Year]" or "FY [Year] Q[X]". Ensure exact numbers are extracted if explicitly stated. Format numbers cleanly (e.g. "1.2 Billion", "34.5%", "450 Million"). 
 
 CRITICAL EXTRACTION RULE: You MUST extract the value for EVERY single year provided in the text. You are dealing with a massive text. Do NOT be lazy. Scan every single [Year ...] section carefully.
-CRITICAL FALLBACK FOR MISSING DATA: The provided text is heavily truncated and might miss historical or recent data. If a value for a specific period is absent from the provided text, YOU MUST ACTIVELY USE YOUR OWN INTERNAL KNOWLEDGE BASE to fill in the real numerical data for that KPI! Do NOT be lazy and do NOT use "N/A" or empty values unless you genuinely cannot find the data in your vast internal memory! You are a powerful AI with deep financial knowledge, act like one and fill in ALL missing historical and recent blanks to create a perfectly complete trend without any empty gaps!
+CRITICAL FALLBACK FOR MISSING DATA: The provided text is heavily truncated. YOU MUST ACTIVELY USE YOUR OWN INTERNAL KNOWLEDGE BASE to fill in the real numerical data for that KPI! Do not use "N/A" if you can find the real data in your memory.
 
-UNITY AND CONSISTENCY RULE (CRITICAL):
-To ensure the frontend table aligns perfectly, EVERY SINGLE KPI MUST HAVE THE EXACT SAME SET OF PERIOD KEYS in the 'values' object.
-1. Determine the global master set of periods available across all data (e.g. "FY 2022", "FY 2023", "FY 2024", "FY 2025", "FY 2026 Q1", "FY 2026 Q2").
-2. Use this EXACT same set of keys for EVERY KPI.
-3. If a specific KPI is missing data for a period, you MUST still include the key and set its value to "N/A" or "-" (e.g. "FY 2026 Q2": "N/A"). Do NOT omit keys for any KPI. The number of keys and the names of the keys must be 100% identical across all KPIs.
+UNITY AND CONSISTENCY RULE (ABSOLUTELY CRITICAL - DO NOT FAIL THIS):
+You MUST enforce a STRICT, IDENTICAL timeline across ALL KPIs. You MUST construct exactly 5 full years (FY [Year]) and any available recent quarters (e.g., FY [Year] Q1) based on the current date.
+1. EVERY SINGLE KPI in the `kpis` array MUST have the EXACT same set of keys in its `values` object.
+2. Even if a specific KPI has NO data for a specific year, YOU MUST STILL OUTPUT THE JSON KEY for that year and set its value to "N/A" (e.g. `"FY 2023": "N/A"`).
+3. If one KPI has `"FY 2021"`, `"FY 2022"`, `"FY 2023"`, `"FY 2024"`, `"FY 2025"`, `"FY 2026 Q1"`, then ALL OTHER KPIs MUST ALSO HAVE exactly those 6 keys.
+4. DO NOT SKIP OR OMIT JSON KEYS under ANY circumstances. A missing key breaks the entire visualization system. "N/A" is mandatory for missing values!
 
 Return ONLY a valid JSON object, strictly following this EXACT structure:
 {
