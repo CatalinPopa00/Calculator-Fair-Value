@@ -1232,14 +1232,14 @@ Strictly adhere to these precise markdown headers (written exactly like this, in
             
             if api_key:
                 for idx, model_name in enumerate(models_to_try):
-                    if time.time() - start_time > 45:
+                    if time.time() - start_time > 35:
                         break
                     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
-                    for attempt in range(3):
-                        if time.time() - start_time > 45:
+                    for attempt in range(2):
+                        if time.time() - start_time > 35:
                             break
                         try:
-                            response = requests.post(url, json=payload, headers=headers, timeout=20.0)
+                            response = requests.post(url, json=payload, headers=headers, timeout=10.0)
                             if response.status_code == 200:
                                 res_json = response.json()
                                 try:
@@ -1248,27 +1248,27 @@ Strictly adhere to these precise markdown headers (written exactly like this, in
                                         cleaned_text = generated_text.replace("```markdown", "").replace("```", "").strip()
                                         return cleaned_text
                                 except (KeyError, IndexError) as e:
-                                    print(f"Gemini API ({model_name}) blocked or returned unexpected format for {ticker_upper}: {res_json}")
-                                    break  # Don't retry blocked content
+                                    print(f"Gemini API ({model_name}) blocked for {ticker_upper}")
+                                    break
                             elif response.status_code in (429, 503):
-                                print(f"Gemini API {response.status_code} for {model_name}. Attempt {attempt+1}/3.")
-                                if attempt < 2 and time.time() - start_time < 40:
-                                    time.sleep(min(3 * (2 ** attempt), 10))
+                                print(f"Gemini {response.status_code} for {model_name}. Attempt {attempt+1}/2.")
+                                if attempt < 1 and time.time() - start_time < 30:
+                                    time.sleep(2)
                                     continue
                                 else:
-                                    break  # Move to next model
+                                    break
                             else:
-                                print(f"Gemini API ({model_name}) returned error code {response.status_code}: {response.text[:200]}")
+                                print(f"Gemini ({model_name}) error {response.status_code}: {response.text[:200]}")
                                 break
                         except Exception as e:
-                            print(f"Error calling Gemini API ({model_name}) for {ticker_upper}: {e}")
+                            print(f"Gemini ({model_name}) exception for {ticker_upper}: {e}")
                             break
 
-            timeout_reached = time.time() - start_time > 45
+            timeout_reached = time.time() - start_time > 40
 
             # Try Groq API as Fallback (with model fallback)
             if not timeout_reached and groq_key:
-                print(f"Gemini failed or rate limited for {ticker_upper}, trying Groq Fallback...")
+                print(f"Trying Groq Fallback for {ticker_upper}...")
                 headers_groq = {
                     "Content-Type": "application/json",
                     "Authorization": f"Bearer {groq_key}"
@@ -1285,11 +1285,11 @@ Strictly adhere to these precise markdown headers (written exactly like this, in
                         ],
                         "temperature": 0.2
                     }
-                    for attempt in range(3):
+                    for attempt in range(2):
                         if time.time() - start_time > 50:
                             break
                         try:
-                            resp_groq = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers_groq, json=payload_groq, timeout=20.0)
+                            resp_groq = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers_groq, json=payload_groq, timeout=10.0)
                             if resp_groq.status_code == 200:
                                 data = resp_groq.json()
                                 generated_text = data["choices"][0]["message"]["content"]
@@ -1297,17 +1297,17 @@ Strictly adhere to these precise markdown headers (written exactly like this, in
                                     cleaned_text = generated_text.replace("```markdown", "").replace("```", "").strip()
                                     return cleaned_text
                             elif resp_groq.status_code == 429:
-                                print(f"Groq 429 for {groq_model}. Attempt {attempt+1}/3.")
-                                if attempt < 2 and time.time() - start_time < 45:
-                                    time.sleep(min(3 * (2 ** attempt), 8))
+                                print(f"Groq 429 for {groq_model}. Attempt {attempt+1}/2.")
+                                if attempt < 1 and time.time() - start_time < 45:
+                                    time.sleep(2)
                                     continue
                                 else:
-                                    break  # Move to next model
+                                    break
                             else:
-                                print(f"Groq API ({groq_model}) returned error code {resp_groq.status_code}: {resp_groq.text[:200]}")
+                                print(f"Groq ({groq_model}) error {resp_groq.status_code}: {resp_groq.text[:200]}")
                                 break
                         except Exception as e:
-                            print(f"Error calling Groq API ({groq_model}) for {ticker_upper}: {e}")
+                            print(f"Groq ({groq_model}) exception for {ticker_upper}: {e}")
                             break
 
             timeout_reached = time.time() - start_time > 50
@@ -1328,7 +1328,7 @@ Strictly adhere to these precise markdown headers (written exactly like this, in
                     "temperature": 0.2
                 }
                 try:
-                    resp_openai = requests.post("https://api.openai.com/v1/chat/completions", headers=headers_openai, json=payload_openai, timeout=20.0)
+                    resp_openai = requests.post("https://api.openai.com/v1/chat/completions", headers=headers_openai, json=payload_openai, timeout=10.0)
                     if resp_openai.status_code == 200:
                         data = resp_openai.json()
                         generated_text = data["choices"][0]["message"]["content"]
