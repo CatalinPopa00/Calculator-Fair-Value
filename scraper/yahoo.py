@@ -1319,13 +1319,27 @@ Strictly adhere to these precise markdown headers (written exactly like this, in
                     print(f"Error calling OpenAI API for {ticker_upper}: {e}")
 
     # 2. HEURISTIC FALLBACK (Rule-based local generation) - Used if run_ai=False or all AI APIs fail
-    presentation = f"{name} is a leading company operating in the {sector} sector, with a primary focus on the {industry} segment."
+    sector_display = sector if sector and str(sector).lower() not in ["n/a", "none", ""] else None
+    industry_display = industry if industry and str(industry).lower() not in ["n/a", "none", ""] else None
+
+    if sector_display and industry_display:
+        presentation = f"{name} is a leading company operating in the {sector_display} sector, with a primary focus on the {industry_display} segment."
+    elif sector_display:
+        presentation = f"{name} is a prominent player in the {sector_display} sector."
+    elif industry_display:
+        presentation = f"{name} is a leading company operating in the {industry_display} industry."
+    else:
+        presentation = f"{name} is a prominent publicly traded company."
+
     if summary:
         # Extract first 2-3 sentences for a professional description
         sentences = re.split(r'(?<=[.!?])\s+', summary)
         activity = " ".join(sentences[:3])
     else:
-        activity = f"The company operates globally, providing specialized solutions and integrated services in the {industry} domain."
+        if industry_display:
+            activity = f"The company operates globally, providing specialized solutions and integrated services in the {industry_display} domain."
+        else:
+            activity = "The company operates globally, providing specialized solutions and integrated services to its clients."
 
     strengths = []
     weaknesses = []
