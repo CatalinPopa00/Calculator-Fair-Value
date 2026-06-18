@@ -269,7 +269,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
 
                     <!-- SWOT Insights -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
                         <div style="${cardStyle} padding: 25px;">
                             ${strengthsHtml}
                         </div>
@@ -277,14 +277,14 @@ document.addEventListener('DOMContentLoaded', () => {
                             ${risksHtml}
                         </div>
                     </div>
-                `;
 
-                container2.innerHTML = `
                     <!-- Key Points -->
                     <div style="${cardStyle} padding: 25px; margin-bottom: 40px;">
                         ${keyPointsHtml}
                     </div>
-                    
+                `;
+
+                container2.innerHTML = `
                     <!-- AI Business Pulse Audit -->
                     <div id="pdf-export-audit-section" style="display: none;">
                         <h2 style="font-size: 1.8rem; font-weight: 800; color: #f8fafc; border-bottom: 2px solid rgba(255,255,255,0.1); padding-bottom: 10px; margin-bottom: 20px;">AI Business Pulse Audit</h2>
@@ -615,61 +615,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
                 pdf.addImage(imgData1, 'JPEG', 0, currentY, pdfWidth, imgHeightInMm1);
 
-                // --- Page 2 and beyond (Iterating to prevent cutting) ---
-                pdf.addPage();
-                pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
-                currentY = 10; // start with a 10mm top margin
+                // --- Page 2 and beyond (Iterating through KPI charts to prevent cutting) ---
 
-                const keyPoints = container2.children[0];
-                const auditSection = container2.querySelector('#pdf-export-audit-section');
+                // Get the KPI container and title
+                const titleSection = container2.querySelector('#pdf-export-audit-section');
                 const kpiContainer = container2.querySelector('#pdf-export-kpi-container');
 
-                if (keyPoints) {
-                    const canvasEl = await html2canvas(keyPoints, {
-                        scale: 2,
-                        useCORS: true,
-                        logging: false,
-                        scrollY: 0,
-                        scrollX: 0,
-                        width: 1200,
-                        windowWidth: 1200,
-                        backgroundColor: '#0f172a'
-                    });
-                    let imgData = canvasEl.toDataURL('image/jpeg', 0.95);
-                    let imgProps = pdf.getImageProperties(imgData);
-                    let ratio = imgProps.width / pdfWidth;
-                    let imgHeightInMm = imgProps.height / ratio;
+                // Keep track of current height used on the current page
+                let currentHeightUsed = 0;
 
-                    if (currentY + imgHeightInMm > pdfHeight - 10) {
-                        pdf.addPage();
-                        pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
-                        currentY = 10;
-                    }
-                    pdf.addImage(imgData, 'JPEG', 0, currentY, pdfWidth, imgHeightInMm);
-                    currentY += imgHeightInMm + 10;
-                }
+                if (titleSection || (kpiContainer && kpiContainer.children.length > 0)) {
+                    pdf.addPage();
+                    pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
 
-                if (auditSection && auditSection.style.display !== 'none') {
-                    const header = auditSection.querySelector('h2');
-                    if (header) {
-                        const canvasEl = await html2canvas(header, {
+                    if (titleSection) {
+                         const titleCanvas = await html2canvas(titleSection, {
                             scale: 2,
                             useCORS: true,
                             logging: false,
                             backgroundColor: '#0f172a'
-                        });
-                        let imgData = canvasEl.toDataURL('image/jpeg', 0.95);
-                        let imgProps = pdf.getImageProperties(imgData);
-                        let ratio = imgProps.width / pdfWidth;
-                        let imgHeightInMm = imgProps.height / ratio;
+                         });
+                         let titleImg = titleCanvas.toDataURL('image/jpeg', 0.95);
+                         let titleProps = pdf.getImageProperties(titleImg);
+                         let titleRatio = titleProps.width / pdfWidth;
+                         let titleH = titleProps.height / titleRatio;
 
-                        if (currentY + imgHeightInMm > pdfHeight - 10) {
-                            pdf.addPage();
-                            pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
-                            currentY = 10;
-                        }
-                        pdf.addImage(imgData, 'JPEG', 0, currentY, pdfWidth, imgHeightInMm);
-                        currentY += imgHeightInMm + 10;
+                         pdf.addImage(titleImg, 'JPEG', 0, currentHeightUsed, pdfWidth, titleH);
+                         currentHeightUsed += titleH + 5; // 5mm gap
                     }
 
                     if (kpiContainer) {
@@ -689,19 +661,26 @@ document.addEventListener('DOMContentLoaded', () => {
                             let chartW = chartProps.width / chartRatio;
                             let chartH = chartProps.height / chartRatio;
 
+                            // Center horizontally roughly by adding 10mm margin
                             let marginX = (pdfWidth - chartW) / 2;
 
-                            if (currentY + chartH > pdfHeight - 10) {
+                            // Check if adding this chart will overflow the page
+                            if (currentHeightUsed + chartH > pdfHeight - 10) { // 10mm bottom margin
                                 pdf.addPage();
                                 pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
-                                currentY = 10;
+                                currentHeightUsed = 10; // Start with 10mm top margin on new page
                             }
 
-                            pdf.addImage(chartImg, 'JPEG', marginX, currentY, chartW, chartH);
-                            currentY += chartH + 10;
+                            pdf.addImage(chartImg, 'JPEG', marginX, currentHeightUsed, chartW, chartH);
+                            currentHeightUsed += chartH + 10; // 10mm gap between cards
                         }
                     }
                 }
+
+                // --- Subsequent Pages (Iterative) ---
+                // We no longer need to manually iterate Key Points or audit sections because
+                // Key Points is in container1, and KPIs are handled by the block above.
+                // We keep the saving logic below.
 
                 pdf.save(`${ticker}_Fair_Value_Report.pdf`);
 
