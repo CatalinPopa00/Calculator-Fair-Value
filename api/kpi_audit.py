@@ -352,7 +352,7 @@ You will receive a set of texts extracted from the most recent Earnings Calls or
 These texts cover up to 5 years of financial history.
 
 YOUR MISSION:
-Identify up to 8 of the MOST CRITICAL, COMPANY-SPECIFIC, OPERATIONAL Key Performance Indicators (KPIs).
+Identify AT LEAST 5 and up to 8 of the MOST CRITICAL, COMPANY-SPECIFIC, OPERATIONAL Key Performance Indicators (KPIs). If you find fewer than 5 in the text, you MUST use your internal knowledge base to generate additional relevant operational KPIs for this specific company so you reach a minimum of 5 KPIs!
 
 CRITICAL KPI SELECTION RULES (STRICTLY ENFORCED):
 1. ONLY extract OPERATIONAL and BUSINESS-SPECIFIC qualitative metrics. Think like a hedge fund analyst.
