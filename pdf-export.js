@@ -151,20 +151,25 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }
 
+                    const formatBullet = (text) => {
+                        // Converts **"Title"**: description to a block bold title + description
+                        return text.replace(/\*\*(?:"|')?(.*?)(?:"|')?\*\*:?\s*/g, '<strong style="color: #ffffff; display: block; margin-bottom: 4px; font-size: 1.05rem;">$1</strong>');
+                    };
+
                     if (strengths.length > 0) {
-                        strengthsText = '<div style="display:flex; flex-direction:column; gap:12px; margin-top: 15px;">' + strengths.map(l => `<div style="line-height: 1.5; color: #f8fafc; font-size: 0.95rem;">- ${l}</div>`).join('') + '</div>';
+                        strengthsText = '<div style="display:flex; flex-direction:column; gap:12px; margin-top: 15px;">' + strengths.map(l => `<div style="line-height: 1.5; color: #cbd5e1; font-size: 0.95rem;">- ${formatBullet(l)}</div>`).join('') + '</div>';
                     }
                     if (risks.length > 0) {
-                        risksText = '<div style="display:flex; flex-direction:column; gap:12px; margin-top: 15px;">' + risks.map(l => `<div style="line-height: 1.5; color: #f8fafc; font-size: 0.95rem;">- ${l}</div>`).join('') + '</div>';
+                        risksText = '<div style="display:flex; flex-direction:column; gap:12px; margin-top: 15px;">' + risks.map(l => `<div style="line-height: 1.5; color: #cbd5e1; font-size: 0.95rem;">- ${formatBullet(l)}</div>`).join('') + '</div>';
                     }
                     if (watchouts.length > 0) {
-                        watchoutsText = '<div style="display:flex; flex-direction:column; gap:12px; margin-top: 15px;">' + watchouts.map(l => `<div style="line-height: 1.5; color: #f8fafc; font-size: 0.95rem;">- ${l}</div>`).join('') + '</div>';
+                        watchoutsText = '<div style="display:flex; flex-direction:column; gap:12px; margin-top: 15px;">' + watchouts.map(l => `<div style="line-height: 1.5; color: #cbd5e1; font-size: 0.95rem;">- ${formatBullet(l)}</div>`).join('') + '</div>';
                     }
                 }
                 
-                const strengthsHtml = `<h4 style="color: #10b981; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin-top: 0; margin-bottom: 15px; font-weight: 800;">Strategic Strengths</h4>${strengthsText}`;
-                const risksHtml = `<h4 style="color: #ef4444; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin-top: 0; margin-bottom: 15px; font-weight: 800;">Vulnerabilities & Risks</h4>${risksText}`;
-                const keyPointsHtml = `<h4 style="color: #fbbf24; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin-top: 0; margin-bottom: 15px; font-weight: 800;">Key Points from Latest Reports</h4>${watchoutsText}`;
+                const strengthsHtml = `<h4 style="color: #10b981; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin-top: 0; margin-bottom: 10px; font-weight: 800;">Strategic Strengths</h4>${strengthsText}`;
+                const risksHtml = `<h4 style="color: #ef4444; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin-top: 0; margin-bottom: 10px; font-weight: 800;">Vulnerabilities & Risks</h4>${risksText}`;
+                const keyPointsHtml = `<h4 style="color: #fbbf24; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin-top: 0; margin-bottom: 10px; font-weight: 800;">Key Points from Latest Reports</h4>${watchoutsText}`;
 
                 // --- PAGE 1 CONTAINER ---
                 const container1 = document.createElement('div');
@@ -221,27 +226,27 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
 
                     <!-- Price & Scenarios -->
-                    <div style="display: flex; gap: 20px; margin-bottom: 20px; align-items: stretch; justify-content: space-between;">
-                        <div style="${cardStyle} flex: 1; text-align: center; padding: 25px;">
+                    <div style="display: flex; gap: 15px; margin-bottom: 15px; align-items: stretch; justify-content: space-between;">
+                        <div style="${cardStyle} flex: 1; text-align: center; padding: 15px;">
                             <h3 style="margin: 0 0 10px 0; color: #ef4444; font-size: 1.2rem;">Bear</h3>
                             <div style="font-size: 2.2rem; font-weight: 800; color: #f8fafc;">${bearVal}</div>
                         </div>
-                        <div style="${cardStyle} flex: 1.2; text-align: center; padding: 25px; border: 2px solid #3b82f6;">
+                        <div style="${cardStyle} flex: 1.2; text-align: center; padding: 15px; border: 2px solid #3b82f6;">
                             <h3 style="margin: 0 0 10px 0; color: #3b82f6; font-size: 1.4rem;">Base</h3>
                             <div style="font-size: 2.6rem; font-weight: 800; color: #f8fafc;">${baseVal}</div>
                         </div>
-                        <div style="${cardStyle} flex: 1; text-align: center; padding: 25px;">
+                        <div style="${cardStyle} flex: 1; text-align: center; padding: 15px;">
                             <h3 style="margin: 0 0 10px 0; color: #10b981; font-size: 1.2rem;">Bull</h3>
                             <div style="font-size: 2.2rem; font-weight: 800; color: #f8fafc;">${bullVal}</div>
                         </div>
                     </div>
 
                     <!-- Middle Grid: Scores & Custom Scenarios -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
-                        <div id="pdf-scores-container" style="${cardStyle} padding: 25px;"></div>
-                        <div style="${cardStyle} padding: 25px;">
-                            <h3 style="margin: 0 0 20px 0; font-size: 1.2rem;">Custom Scenarios</h3>
-                            <table style="width: 100%; border-collapse: collapse; font-size: 0.95rem; text-align: center;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                        <div id="pdf-scores-container" style="${cardStyle} padding: 15px;"></div>
+                        <div style="${cardStyle} padding: 15px;">
+                            <h3 style="margin: 0 0 15px 0; font-size: 1.2rem;">Custom Scenarios</h3>
+                            <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; text-align: center;">
                                 <thead>
                                     <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); color: #94a3b8;">
                                         <th style="text-align: left; padding: 12px 0; font-weight: 500; text-transform: uppercase;">Parameter</th>
@@ -264,32 +269,32 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
 
                     <!-- Valuation Models -->
-                    <div style="display: flex; gap: 15px; margin-bottom: 20px; align-items: stretch;" id="pdf-methods-container">
+                    <div style="display: flex; gap: 15px; margin-bottom: 15px; align-items: stretch;" id="pdf-methods-container">
                         <!-- Clones go here -->
                     </div>
 
                     <!-- SWOT Insights -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
-                        <div style="${cardStyle} padding: 25px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                        <div style="${cardStyle} padding: 15px;">
                             ${strengthsHtml}
                         </div>
-                        <div style="${cardStyle} padding: 25px;">
+                        <div style="${cardStyle} padding: 15px;">
                             ${risksHtml}
                         </div>
                     </div>
 
                     <!-- Key Points -->
-                    <div style="${cardStyle} padding: 25px; margin-bottom: 40px;">
+                    <div style="${cardStyle} padding: 15px; margin-bottom: 10px;">
                         ${keyPointsHtml}
                     </div>
                 `;
 
                 container2.innerHTML = `
                     <!-- AI Business Pulse Audit -->
-                    <div id="pdf-export-audit-section" style="display: none;">
+                    <div id="pdf-export-audit-title" style="display: none;">
                         <h2 style="font-size: 1.8rem; font-weight: 800; color: #f8fafc; border-bottom: 2px solid rgba(255,255,255,0.1); padding-bottom: 10px; margin-bottom: 20px;">AI Business Pulse Audit</h2>
-                        <div id="pdf-export-kpi-container" style="display: flex; flex-direction: column; gap: 20px;"></div>
                     </div>
+                    <div id="pdf-export-kpi-container" style="display: none; flex-direction: column; gap: 20px;"></div>
                 `;
 
                 
@@ -447,9 +452,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         const kpiData = JSON.parse(kpiAuditCache);
                         if (kpiData && kpiData.kpis && kpiData.kpis.length > 0) {
                             const kpiContainer = container2.querySelector('#pdf-export-kpi-container');
-                            const auditSection = container2.querySelector('#pdf-export-audit-section');
-                            if (kpiContainer && auditSection) {
-                                auditSection.style.display = 'block';
+                            const auditTitle = container2.querySelector('#pdf-export-audit-title');
+                            if (kpiContainer && auditTitle) {
+                                auditTitle.style.display = 'block';
+                                kpiContainer.style.display = 'flex';
 
                                 let currentRow = null;
                                 kpiData.kpis.forEach((kpi, index) => {
@@ -618,7 +624,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // --- Page 2 and beyond (Iterating through KPI charts to prevent cutting) ---
 
                 // Get the KPI container and title
-                const titleSection = container2.querySelector('#pdf-export-audit-section');
+                const titleSection = container2.querySelector('#pdf-export-audit-title');
                 const kpiContainer = container2.querySelector('#pdf-export-kpi-container');
 
                 // Keep track of current height used on the current page
