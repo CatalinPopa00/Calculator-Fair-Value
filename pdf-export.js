@@ -291,10 +291,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 container2.innerHTML = `
                     <!-- AI Business Pulse Audit -->
-                    <div id="pdf-export-audit-title" style="display: none; text-align: center; margin-top: 30px; margin-bottom: 40px;">
-                        <h2 style="font-size: 2.6rem; font-weight: 800; color: #f8fafc; margin: 0; letter-spacing: 1px;">AI Business Pulse Audit</h2>
-                        <div style="width: 80px; height: 3px; background: linear-gradient(90deg, #3b82f6, #10b981); margin: 15px auto; border-radius: 2px;"></div>
-                        <p style="color: #94a3b8; font-size: 1.1rem; margin: 0; font-weight: 300;">In-depth analysis of strategic metrics and leading performance indicators</p>
+                    <div id="pdf-export-audit-title" style="display: none; padding: 25px 0 15px 0; width: 100%;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; margin-bottom: 15px;">
+                            <div style="text-align: left;">
+                                <h2 style="font-size: 1.8rem; font-weight: 500; color: #f8fafc; margin: 0; letter-spacing: -0.5px;">Performance <span style="font-weight: 800; color: #3b82f6;">Audit</span></h2>
+                                <p style="color: #94a3b8; font-size: 0.9rem; margin: 4px 0 0 0;">AI-driven synthesis of quarterly reports and financial health</p>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="display: inline-block; background: rgba(59,130,246,0.1); padding: 6px 12px; border-radius: 6px; border: 1px solid rgba(59,130,246,0.2);">
+                                    <span style="color: #60a5fa; font-weight: 700; font-size: 0.85rem; letter-spacing: 0.5px;">CONFIDENTIAL AI REPORT</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div id="pdf-export-kpi-container" style="display: none; flex-direction: row; flex-wrap: wrap; gap: 20px;"></div>
                 `;
@@ -462,29 +470,29 @@ document.addEventListener('DOMContentLoaded', () => {
                                 kpiData.kpis.forEach((kpi, index) => {
                                     const chartDiv = document.createElement('div');
                                     chartDiv.style.cssText = `
-                                        padding: 25px; 
+                                        padding: 15px 20px; 
                                         page-break-inside: avoid; 
                                         background: linear-gradient(145deg, rgba(30, 41, 59, 1) 0%, rgba(15, 23, 42, 1) 100%);
                                         border: 1px solid rgba(255,255,255,0.06);
-                                        border-radius: 16px;
+                                        border-radius: 12px;
                                         width: 550px; 
                                         box-sizing: border-box;
                                         box-shadow: 0 10px 30px rgba(0,0,0,0.3);
                                     `;
                                     
                                     const descDiv = document.createElement('div');
-                                    descDiv.style.marginBottom = '20px';
+                                    descDiv.style.marginBottom = '10px';
                                     descDiv.innerHTML = `
-                                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
-                                            <h4 style="color: #f8fafc; margin: 0; font-size: 1.15rem; font-weight: 600; letter-spacing: 0.5px; line-height: 1.3; padding-right: 15px;">${kpi.name}</h4>
-                                            <span style="color: #60a5fa; font-size: 0.75rem; font-weight: 700; background: rgba(59, 130, 246, 0.15); padding: 4px 10px; border-radius: 12px; white-space: nowrap;">${index+1} / ${kpiData.kpis.length}</span>
+                                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                                            <h4 style="color: #f8fafc; margin: 0; font-size: 1.05rem; font-weight: 600; letter-spacing: 0.5px; line-height: 1.3; padding-right: 15px;">${kpi.name}</h4>
+                                            <span style="color: #60a5fa; font-size: 0.7rem; font-weight: 700; background: rgba(59, 130, 246, 0.15); padding: 4px 8px; border-radius: 12px; white-space: nowrap;">${index+1} / ${kpiData.kpis.length}</span>
                                         </div>
-                                        <p style="color: #cbd5e1; font-size: 0.85rem; margin: 0; line-height: 1.6; font-weight: 300;">${kpi.description}</p>
+                                        <p style="color: #cbd5e1; font-size: 0.8rem; margin: 0; line-height: 1.5; font-weight: 300;">${kpi.description}</p>
                                     `;
                                     chartDiv.appendChild(descDiv);
                                     
                                     const canvasWrapper = document.createElement('div');
-                                    canvasWrapper.style.height = '180px';
+                                    canvasWrapper.style.height = '140px';
                                     canvasWrapper.style.position = 'relative';
                                     
                                     const canvas = document.createElement('canvas');
@@ -679,7 +687,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 scale: 2,
                                 useCORS: true,
                                 logging: false,
-                                backgroundColor: 'transparent'
+                                backgroundColor: '#0f172a'
                             });
                             let img = canvas.toDataURL('image/jpeg', 0.95);
                             let props = pdf.getImageProperties(img);
