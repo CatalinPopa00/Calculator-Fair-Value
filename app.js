@@ -2819,6 +2819,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         let pegMos = null;
         let usedGrowth = 0;
         let currentPegToDisplay = null;
+        let industryPegRaw = null;
 
         if (currentFormulaData.peg) {
             const pegSrcEl = document.getElementById('peg-eps-source');
@@ -2912,7 +2913,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             let medianPegCustom = recalcIndustryPeg(globalData.company_profile);
 
             // Prioritize dynamically calculated median from peers over cached global sector median
-            const industryPegRaw = medianPegCustom != null ? medianPegCustom : ((currentFormulaData.peg && currentFormulaData.peg.industry_peg != null)
+            industryPegRaw = medianPegCustom != null ? medianPegCustom : ((currentFormulaData.peg && currentFormulaData.peg.industry_peg != null)
                 ? currentFormulaData.peg.industry_peg
                 : (cachedSectorPeg ? parseFloat(cachedSectorPeg) : 1.0));
 
