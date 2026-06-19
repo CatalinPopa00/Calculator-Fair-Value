@@ -598,6 +598,7 @@ Here is the real-time context of the company you MUST use to answer their questi
 - Risk Red Flags: {context.get('redFlags', 'N/A')}
 - Business Summary: {context.get('businessSummary', 'N/A')}
 - Analyst Estimates & Targets: {context.get('estimates', 'N/A')}
+- Financial Data (EPS, Revenue, etc): {context.get('financials', 'N/A')}
 """
 
     instructions = """
