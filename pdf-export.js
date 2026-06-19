@@ -291,18 +291,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 container2.innerHTML = `
                     <!-- AI Business Pulse Audit -->
-                    <div id="pdf-export-audit-title" style="display: none; padding: 25px 0 15px 0; width: 100%;">
-                        <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; margin-bottom: 15px;">
-                            <div style="text-align: left;">
-                                <h2 style="font-size: 1.8rem; font-weight: 500; color: #f8fafc; margin: 0; letter-spacing: -0.5px;">Performance <span style="font-weight: 800; color: #3b82f6;">Audit</span></h2>
-                                <p style="color: #94a3b8; font-size: 0.9rem; margin: 4px 0 0 0;">AI-driven synthesis of quarterly reports and financial health</p>
-                            </div>
-                            <div style="text-align: right;">
-                                <div style="display: inline-block; background: rgba(59,130,246,0.1); padding: 6px 12px; border-radius: 6px; border: 1px solid rgba(59,130,246,0.2);">
-                                    <span style="color: #60a5fa; font-weight: 700; font-size: 0.85rem; letter-spacing: 0.5px;">CONFIDENTIAL AI REPORT</span>
-                                </div>
-                            </div>
-                        </div>
+                    <div id="pdf-export-audit-title" style="display: none; text-align: center; margin-top: 30px; margin-bottom: 30px;">
+                        <h2 style="font-size: 2rem; font-weight: 800; color: #f8fafc; margin: 0;">KPI Audit</h2>
                     </div>
                     <div id="pdf-export-kpi-container" style="display: none; flex-direction: row; flex-wrap: wrap; gap: 20px;"></div>
                 `;
