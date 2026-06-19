@@ -27,9 +27,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const q = d.quote || {};
 
                 const priceVal = d.current_price || q.price || p.price;
-                const price = priceVal ? priceVal.toFixed(2) : 'N/A';
+                const price = priceVal != null && !isNaN(Number(priceVal)) ? Number(priceVal).toFixed(2) : 'N/A';
                 const mktCapRaw = p.mktCap || q.marketCap || d.market_cap || p.marketCap || p.market_cap;
-                const mktCap = mktCapRaw ? (mktCapRaw / 1e9).toFixed(2) + 'B' : 'N/A';
+                const mktCap = mktCapRaw != null && !isNaN(Number(mktCapRaw)) ? (Number(mktCapRaw) / 1e9).toFixed(2) + 'B' : 'N/A';
                 const ind = p.industry || 'N/A';
                 const name = d.name || p.companyName || p.name || d.ticker || 'Company';
                 const ticker = d.ticker || 'N/A';
@@ -108,7 +108,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const formatFv = (val) => {
                     if (val == null) return 'N/A';
                     if (typeof val === 'number') return '$' + val.toFixed(2);
-                    if (val && typeof val === 'object' && val.value != null) return '$' + val.value.toFixed(2);
+                    if (val && typeof val === 'object' && val.value != null) {
+                        const num = Number(val.value);
+                        return !isNaN(num) ? '$' + num.toFixed(2) : 'N/A';
+                    }
                     if (typeof val === 'string') {
                         const parsed = parseFloat(val.replace(/[^0-9.-]+/g,""));
                         if (!isNaN(parsed)) return '$' + parsed.toFixed(2);
@@ -571,11 +574,13 @@ document.addEventListener('DOMContentLoaded', () => {
                                                     ticks: {
                                                         color: 'rgba(255, 255, 255, 0.5)',
                                                         callback: function(value) {
-                                                            if (Math.abs(value) >= 1000000000000) return (value / 1000000000000).toFixed(1) + 'T';
-                                                            if (Math.abs(value) >= 1000000000) return (value / 1000000000).toFixed(1) + 'B';
-                                                            if (Math.abs(value) >= 1000000) return (value / 1000000).toFixed(1) + 'M';
-                                                            if (Math.abs(value) >= 1000) return (value / 1000).toFixed(1) + 'K';
-                                                            return value;
+                                                            const numVal = Number(value);
+                                                            if (isNaN(numVal)) return value;
+                                                            if (Math.abs(numVal) >= 1000000000000) return (numVal / 1000000000000).toFixed(1) + 'T';
+                                                            if (Math.abs(numVal) >= 1000000000) return (numVal / 1000000000).toFixed(1) + 'B';
+                                                            if (Math.abs(numVal) >= 1000000) return (numVal / 1000000).toFixed(1) + 'M';
+                                                            if (Math.abs(numVal) >= 1000) return (numVal / 1000).toFixed(1) + 'K';
+                                                            return numVal;
                                                         }
                                                     }
                                                 },
