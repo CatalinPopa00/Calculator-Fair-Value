@@ -87,7 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
 
-                const logoHtml = base64Logo ? `<img src="${base64Logo}" style="width: 42px; height: 42px; border-radius: 50%; object-fit: contain; background: white; padding: 4px;">` : `<div style="width: 42px; height: 42px; border-radius: 50%; background: #3b82f6; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px; color: white;">${ticker.charAt(0)}</div>`;
+                const logoHtml = base64Logo ? `<img src="${base64Logo}" style="width: 42px; height: 42px; object-fit: contain;">` : `<div style="width: 42px; height: 42px; border-radius: 50%; background: #3b82f6; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px; color: white;">${ticker.charAt(0)}</div>`;
 
                 // Capture current widths of score bars before scenario switch resets them
                 const originalWidths = [];
@@ -291,10 +291,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 container2.innerHTML = `
                     <!-- AI Business Pulse Audit -->
-                    <div id="pdf-export-audit-title" style="display: none;">
-                        <h2 style="font-size: 1.8rem; font-weight: 800; color: #f8fafc; border-bottom: 2px solid rgba(255,255,255,0.1); padding-bottom: 10px; margin-bottom: 20px;">AI Business Pulse Audit</h2>
+                    <div id="pdf-export-audit-title" style="display: none; text-align: center; margin-top: 10px; margin-bottom: 30px;">
+                        <h2 style="font-size: 2.2rem; font-weight: 800; color: #3b82f6; margin: 0; text-transform: uppercase; letter-spacing: 2px;">AI Business Pulse Audit</h2>
+                        <div style="width: 50px; height: 4px; background: #10b981; margin: 15px auto; border-radius: 2px;"></div>
+                        <p style="color: #94a3b8; font-size: 1rem; margin: 0;">Comprehensive Analysis of Key Performance Indicators</p>
                     </div>
-                    <div id="pdf-export-kpi-container" style="display: none; flex-direction: column; gap: 20px;"></div>
+                    <div id="pdf-export-kpi-container" style="display: none; flex-direction: row; flex-wrap: wrap; gap: 20px;"></div>
                 `;
 
                 
@@ -457,19 +459,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                 auditTitle.style.display = 'block';
                                 kpiContainer.style.display = 'flex';
 
-                                let currentRow = null;
                                 kpiData.kpis.forEach((kpi, index) => {
-                                    if (index % 2 === 0) {
-                                        currentRow = document.createElement('div');
-                                        currentRow.className = 'pdf-kpi-row';
-                                        currentRow.style.display = 'grid';
-                                        currentRow.style.gridTemplateColumns = '1fr 1fr';
-                                        currentRow.style.gap = '20px';
-                                        kpiContainer.appendChild(currentRow);
-                                    }
-
                                     const chartDiv = document.createElement('div');
-                                    chartDiv.style.cssText = cardStyle + ' padding: 20px; page-break-inside: avoid; background: #1e293b;';
+                                    chartDiv.style.cssText = cardStyle + ' padding: 20px; page-break-inside: avoid; background: #1e293b; width: 550px; box-sizing: border-box;';
                                     
                                     const descDiv = document.createElement('div');
                                     descDiv.style.marginBottom = '10px';
@@ -483,7 +475,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     const canvas = document.createElement('canvas');
                                     canvasWrapper.appendChild(canvas);
                                     chartDiv.appendChild(canvasWrapper);
-                                    currentRow.appendChild(chartDiv);
+                                    kpiContainer.appendChild(chartDiv);
 
                                     // Render chart
                                     const vals = kpi.values || kpi.history || kpi.data || {};
@@ -660,35 +652,53 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (kpiContainer) {
                         const charts = Array.from(kpiContainer.children);
-                        for (let i = 0; i < charts.length; i++) {
-                            const chartCard = charts[i];
-                            const chartCanvas = await html2canvas(chartCard, {
+                        
+                        let marginX = 10;
+                        let gapX = 10;
+                        let availableWidth = pdfWidth - marginX * 2 - gapX;
+                        let chartW = availableWidth / 2;
+
+                        const getChartData = async (chartEl) => {
+                            if (!chartEl) return null;
+                            let canvas = await html2canvas(chartEl, {
                                 scale: 2,
                                 useCORS: true,
                                 logging: false,
-                                backgroundColor: '#1e293b' // match card background
+                                backgroundColor: '#1e293b'
                             });
+                            let img = canvas.toDataURL('image/jpeg', 0.95);
+                            let props = pdf.getImageProperties(img);
+                            let h = (props.height * chartW) / props.width;
+                            return { img, h };
+                        };
 
-                            let chartImg = chartCanvas.toDataURL('image/jpeg', 0.95);
-                            let chartProps = pdf.getImageProperties(chartImg);
-                            // Increase padding to make the charts slightly smaller so they fit better on one page
-                            let chartRatio = (chartProps.width + 120) / pdfWidth; 
-                            let chartW = chartProps.width / chartRatio;
-                            let chartH = chartProps.height / chartRatio;
+                        for (let i = 0; i < charts.length; i += 2) {
+                            let chart1 = charts[i];
+                            let chart2 = charts[i + 1];
 
-                            // Center horizontally roughly by adding margin
-                            let marginX = (pdfWidth - chartW) / 2;
+                            let c1 = await getChartData(chart1);
+                            let c2 = await getChartData(chart2);
 
-                            // Check if adding this chart will overflow the page
-                            if (currentHeightUsed + chartH > pdfHeight - 10) { // 10mm bottom margin
+                            let rowH = Math.max(c1.h, c2 ? c2.h : 0);
+
+                            // Check if adding this row will overflow the page
+                            if (currentHeightUsed + rowH > pdfHeight - 10) {
                                 pdf.addPage();
                                 pdf.setFillColor(15, 23, 42);
                                 pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
                                 currentHeightUsed = 10; // Start with 10mm top margin on new page
                             }
 
-                            pdf.addImage(chartImg, 'JPEG', marginX, currentHeightUsed, chartW, chartH);
-                            currentHeightUsed += chartH + 10; // 10mm gap between cards
+                            if (c2) {
+                                pdf.addImage(c1.img, 'JPEG', marginX, currentHeightUsed, chartW, c1.h);
+                                pdf.addImage(c2.img, 'JPEG', marginX + chartW + gapX, currentHeightUsed, chartW, c2.h);
+                            } else {
+                                // Centered for odd last item
+                                let centerX = (pdfWidth - chartW) / 2;
+                                pdf.addImage(c1.img, 'JPEG', centerX, currentHeightUsed, chartW, c1.h);
+                            }
+
+                            currentHeightUsed += rowH + 10; // 10mm gap between rows
                         }
                     }
                 }
