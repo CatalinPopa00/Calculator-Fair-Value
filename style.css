@@ -647,7 +647,7 @@ body {
 
 .chart-col { grid-area: chart; display: flex; align-items: center; }
 .center-col { grid-area: center; display: flex; align-items: center; justify-content: center; gap: 12px; margin: 0 10px; }
-.center-col .text-wrapper { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.center-col .text-wrapper { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; text-align: left; }
 .center-col .ticker { font-size: 1.6rem !important; font-weight: 800 !important; letter-spacing: 1px; margin: 0; line-height: 1.1; color: #fff; }
 .center-col h2 { font-size: 1.15rem !important; font-weight: 600; color: var(--text-muted); margin: 0; line-height: 1.1; margin-top: 4px; }
 .price-display { grid-area: price; display: flex; flex-direction: column; align-items: center; margin-top: 10px; justify-self: center; }
@@ -4463,8 +4463,8 @@ body.has-searched #install-app-btn {
         margin: 0;
     }
     .header-grid .center-col .text-wrapper {
-        align-items: center;
-        text-align: center;
+        align-items: flex-start;
+        text-align: left;
     }
     .header-grid .center-col h2 {
         white-space: nowrap;

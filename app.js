@@ -4200,13 +4200,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             }
             if (domain) {
                 elements.logo.onerror = () => { elements.logo.style.display = 'none'; };
-                elements.logo.src = `https://logo.uplead.com/${domain}`;
-                elements.logo.style.display = 'block';
-            } else if (data.ticker) {
-                // Fallback to ticker based domain for companies without explicit website in Yahoo (like RHM.DE)
-                let cleanTicker = data.ticker.split('.')[0].toLowerCase();
-                elements.logo.onerror = () => { elements.logo.style.display = 'none'; };
-                elements.logo.src = `https://logo.uplead.com/${cleanTicker}.com`;
+                elements.logo.src = `https://logo.clearbit.com/${domain}`;
                 elements.logo.style.display = 'block';
             } else {
                 elements.logo.style.display = 'none';
