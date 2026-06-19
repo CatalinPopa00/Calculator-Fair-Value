@@ -17,11 +17,11 @@ except ImportError:
 audit_cache = TTLCache(maxsize=200, ttl=86400 * 7)
 
 try:
-    from .redis_cache import get_cached_data, set_cached_data
+    from utils.kv import kv_get, kv_set
 except ImportError:
     import sys
     sys.path.append(os.path.dirname(__file__))
-    from redis_cache import get_cached_data, set_cached_data
+    import os; sys.path.append(os.path.dirname(os.path.dirname(__file__))); from utils.kv import kv_get, kv_set
 
 def _get_yahoo_earnings_news(ticker: str) -> str:
     """Fallback gratuit: Încearcă să ia știri recente despre 'Earnings' de pe Yahoo și să le parseze."""
@@ -301,7 +301,7 @@ def run_ai_kpi_audit(ticker: str, force_refresh: bool = False) -> Dict[str, Any]
         
     redis_key = f"audit:{ticker}"
     if not force_refresh:
-        cached_data = get_cached_data(redis_key)
+        cached_data = kv_get(redis_key)
         if cached_data:
             try:
                 data = json.loads(cached_data) if isinstance(cached_data, (str, bytes)) else cached_data
@@ -550,7 +550,7 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
 
         # Salvare în cache
         audit_cache[ticker] = parsed_result
-        set_cached_data(redis_key, json.dumps(parsed_result), ttl_seconds=2592000) # 30 days
+        kv_set(redis_key, json.dumps(parsed_result), ex=2592000) # 30 days
         return parsed_result
 
     except json.JSONDecodeError:
