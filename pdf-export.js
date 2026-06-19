@@ -143,11 +143,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         const content = parts[i + 1] ? parts[i + 1].trim() : "";
                         
                         if (title === "STRATEGIC STRENGTHS" || title === "PUNCTE FORTE STRATEGICE") {
-                            strengths = content.split('\n').map(line => line.replace(/^[-*]\s*/, '').trim()).filter(Boolean);
+                            strengths = content.split('\n').map(line => line.replace(/^[-*•.\s]+/, '').trim()).filter(Boolean);
                         } else if (title === "VULNERABILITIES & RISKS" || title === "VULNERABILITÄ‚ÈšI È˜I RISCURI") {
-                            risks = content.split('\n').map(line => line.replace(/^[-*]\s*/, '').trim()).filter(Boolean);
+                            risks = content.split('\n').map(line => line.replace(/^[-*•.\s]+/, '').trim()).filter(Boolean);
                         } else if (title === "EARNINGS WATCHOUTS") {
-                            watchouts = content.split('\n').map(line => line.replace(/^[-*]\s*/, '').trim()).filter(Boolean);
+                            watchouts = content.split('\n').map(line => line.replace(/^[-*•.\s]+/, '').trim()).filter(Boolean);
                         }
                     }
 
@@ -469,15 +469,15 @@ document.addEventListener('DOMContentLoaded', () => {
                                     }
 
                                     const chartDiv = document.createElement('div');
-                                    chartDiv.style.cssText = cardStyle + ' padding: 25px; page-break-inside: avoid; background: #1e293b;';
+                                    chartDiv.style.cssText = cardStyle + ' padding: 20px; page-break-inside: avoid; background: #1e293b;';
                                     
                                     const descDiv = document.createElement('div');
-                                    descDiv.style.marginBottom = '15px';
-                                    descDiv.innerHTML = `<h4 style="color: #3b82f6; margin: 0 0 5px 0; font-size: 1.1rem;">${kpi.name} <span style="color:#94a3b8; font-size:0.8rem; float:right;">(${index+1}/${kpiData.kpis.length})</span></h4><p style="color:#94a3b8; font-size: 0.85rem; margin:0;">${kpi.description}</p>`;
+                                    descDiv.style.marginBottom = '10px';
+                                    descDiv.innerHTML = `<h4 style="color: #3b82f6; margin: 0 0 5px 0; font-size: 1rem;">${kpi.name} <span style="color:#94a3b8; font-size:0.75rem; float:right;">(${index+1}/${kpiData.kpis.length})</span></h4><p style="color:#94a3b8; font-size: 0.8rem; margin:0;">${kpi.description}</p>`;
                                     chartDiv.appendChild(descDiv);
                                     
                                     const canvasWrapper = document.createElement('div');
-                                    canvasWrapper.style.height = '200px';
+                                    canvasWrapper.style.height = '160px';
                                     canvasWrapper.style.position = 'relative';
                                     
                                     const canvas = document.createElement('canvas');
@@ -610,20 +610,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 pdf.setFillColor(15, 23, 42); // match #0f172a
                 const pdfWidth = 210;
                 const pdfHeight = 297;
-                let currentY = 0;
-
+                
                 // --- Page 1 ---
                 let imgData1 = canvas1.toDataURL('image/jpeg', 0.95);
                 let imgProps1 = pdf.getImageProperties(imgData1);
                 let ratio1 = imgProps1.width / pdfWidth;
                 let imgHeightInMm1 = imgProps1.height / ratio1;
+                let imgWidthInMm1 = pdfWidth;
+                let offsetX = 0;
+
+                // Scale down if it exceeds page height to perfectly fit
+                if (imgHeightInMm1 > pdfHeight) {
+                    ratio1 = imgProps1.height / pdfHeight;
+                    imgHeightInMm1 = pdfHeight;
+                    imgWidthInMm1 = imgProps1.width / ratio1;
+                    offsetX = (pdfWidth - imgWidthInMm1) / 2; // Center horizontally
+                }
                 
                 pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
-                pdf.addImage(imgData1, 'JPEG', 0, currentY, pdfWidth, imgHeightInMm1);
+                pdf.addImage(imgData1, 'JPEG', offsetX, 0, imgWidthInMm1, imgHeightInMm1);
 
-                // --- Page 2 and beyond (Iterating through KPI charts to prevent cutting) ---
-
-                // Get the KPI container and title
+                // --- Page 2 and beyond ---
                 const titleSection = container2.querySelector('#pdf-export-audit-title');
                 const kpiContainer = container2.querySelector('#pdf-export-kpi-container');
 
@@ -663,11 +670,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
                             let chartImg = chartCanvas.toDataURL('image/jpeg', 0.95);
                             let chartProps = pdf.getImageProperties(chartImg);
-                            let chartRatio = (chartProps.width + 40) / pdfWidth; // slightly pad the width ratio to leave margins
+                            // Increase padding to make the charts slightly smaller so they fit better on one page
+                            let chartRatio = (chartProps.width + 120) / pdfWidth; 
                             let chartW = chartProps.width / chartRatio;
                             let chartH = chartProps.height / chartRatio;
 
-                            // Center horizontally roughly by adding 10mm margin
+                            // Center horizontally roughly by adding margin
                             let marginX = (pdfWidth - chartW) / 2;
 
                             // Check if adding this chart will overflow the page
