@@ -291,10 +291,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 container2.innerHTML = `
                     <!-- AI Business Pulse Audit -->
-                    <div id="pdf-export-audit-title" style="display: none; text-align: center; margin-top: 10px; margin-bottom: 30px;">
-                        <h2 style="font-size: 2.2rem; font-weight: 800; color: #3b82f6; margin: 0; text-transform: uppercase; letter-spacing: 2px;">AI Business Pulse Audit</h2>
-                        <div style="width: 50px; height: 4px; background: #10b981; margin: 15px auto; border-radius: 2px;"></div>
-                        <p style="color: #94a3b8; font-size: 1rem; margin: 0;">Comprehensive Analysis of Key Performance Indicators</p>
+                    <div id="pdf-export-audit-title" style="display: none; text-align: center; margin-top: 30px; margin-bottom: 40px;">
+                        <h2 style="font-size: 2.6rem; font-weight: 800; color: #f8fafc; margin: 0; letter-spacing: 1px;">AI Business Pulse Audit</h2>
+                        <div style="width: 80px; height: 3px; background: linear-gradient(90deg, #3b82f6, #10b981); margin: 15px auto; border-radius: 2px;"></div>
+                        <p style="color: #94a3b8; font-size: 1.1rem; margin: 0; font-weight: 300;">In-depth analysis of strategic metrics and leading performance indicators</p>
                     </div>
                     <div id="pdf-export-kpi-container" style="display: none; flex-direction: row; flex-wrap: wrap; gap: 20px;"></div>
                 `;
@@ -461,15 +461,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
                                 kpiData.kpis.forEach((kpi, index) => {
                                     const chartDiv = document.createElement('div');
-                                    chartDiv.style.cssText = cardStyle + ' padding: 20px; page-break-inside: avoid; background: #1e293b; width: 550px; box-sizing: border-box;';
+                                    chartDiv.style.cssText = `
+                                        padding: 25px; 
+                                        page-break-inside: avoid; 
+                                        background: linear-gradient(145deg, rgba(30, 41, 59, 1) 0%, rgba(15, 23, 42, 1) 100%);
+                                        border: 1px solid rgba(255,255,255,0.06);
+                                        border-radius: 16px;
+                                        width: 550px; 
+                                        box-sizing: border-box;
+                                        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+                                    `;
                                     
                                     const descDiv = document.createElement('div');
-                                    descDiv.style.marginBottom = '10px';
-                                    descDiv.innerHTML = `<h4 style="color: #3b82f6; margin: 0 0 5px 0; font-size: 1rem;">${kpi.name} <span style="color:#94a3b8; font-size:0.75rem; float:right;">(${index+1}/${kpiData.kpis.length})</span></h4><p style="color:#94a3b8; font-size: 0.8rem; margin:0;">${kpi.description}</p>`;
+                                    descDiv.style.marginBottom = '20px';
+                                    descDiv.innerHTML = `
+                                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+                                            <h4 style="color: #f8fafc; margin: 0; font-size: 1.15rem; font-weight: 600; letter-spacing: 0.5px; line-height: 1.3; padding-right: 15px;">${kpi.name}</h4>
+                                            <span style="color: #60a5fa; font-size: 0.75rem; font-weight: 700; background: rgba(59, 130, 246, 0.15); padding: 4px 10px; border-radius: 12px; white-space: nowrap;">${index+1} / ${kpiData.kpis.length}</span>
+                                        </div>
+                                        <p style="color: #cbd5e1; font-size: 0.85rem; margin: 0; line-height: 1.6; font-weight: 300;">${kpi.description}</p>
+                                    `;
                                     chartDiv.appendChild(descDiv);
                                     
                                     const canvasWrapper = document.createElement('div');
-                                    canvasWrapper.style.height = '160px';
+                                    canvasWrapper.style.height = '180px';
                                     canvasWrapper.style.position = 'relative';
                                     
                                     const canvas = document.createElement('canvas');
@@ -664,7 +679,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 scale: 2,
                                 useCORS: true,
                                 logging: false,
-                                backgroundColor: '#1e293b'
+                                backgroundColor: 'transparent'
                             });
                             let img = canvas.toDataURL('image/jpeg', 0.95);
                             let props = pdf.getImageProperties(img);
