@@ -7369,7 +7369,18 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                         <thead>
                             <tr style="border-bottom:1px solid rgba(255,255,255,0.15);">
                                 <th style="text-align:left; padding:2px; color:white; white-space:nowrap;">Ticker</th>
-                                ${activeKeys.map(k => `<th style="text-align:right; padding:2px; color:white; white-space:normal; line-height:1.2; vertical-align:bottom;">${LABEL[k] || k}</th>`).join('')}
+                                ${activeKeys.map(k => {
+                                    const lbl = LABEL[k] || k;
+                                    let formattedLabel = lbl;
+                                    if (lbl.startsWith('FWD ')) {
+                                        const metric = lbl.substring(4);
+                                        formattedLabel = `<div style="display:inline-block; text-align:right;">
+                                            <div style="width:100%; text-align:center; font-size:0.8em; margin-bottom:1px; opacity:0.9;">FWD</div>
+                                            <div style="text-align:right;">${metric}</div>
+                                        </div>`;
+                                    }
+                                    return `<th style="text-align:right; padding:2px; color:white; white-space:nowrap; vertical-align:bottom;">${formattedLabel}</th>`;
+                                }).join('')}
                             </tr>
                         </thead>
                         <tbody>
