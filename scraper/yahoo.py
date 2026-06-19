@@ -1138,6 +1138,21 @@ def get_company_synthesis(ticker: str, info: dict, run_ai: bool = False) -> str:
         groq_key = load_groq_api_key()
         openai_key = load_openai_api_key()
         if api_key or groq_key or openai_key:
+            redis_key = f"synthesis:{ticker_upper}"
+            try:
+                import sys
+                import os
+                sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+                from api.redis_cache import get_cached_data, set_cached_data
+                cached_data = get_cached_data(redis_key)
+                if cached_data:
+                    # Parse if it's stored as JSON string, but for text we can just return it
+                    if isinstance(cached_data, bytes):
+                        cached_data = cached_data.decode('utf-8')
+                    return cached_data
+            except Exception as e:
+                pass
+
             # Fetch transcripts
             try:
                 transcript_text = get_fmp_transcripts(ticker_upper)
@@ -1246,6 +1261,9 @@ Strictly adhere to these precise markdown headers (written exactly like this, in
                                     generated_text = res_json['candidates'][0]['content']['parts'][0]['text']
                                     if generated_text and len(generated_text) > 100:
                                         cleaned_text = generated_text.replace("```markdown", "").replace("```", "").strip()
+                                        try:
+                                            set_cached_data(redis_key, cleaned_text, ttl_seconds=604800) # 7 days
+                                        except: pass
                                         return cleaned_text
                                 except (KeyError, IndexError) as e:
                                     print(f"Gemini API ({model_name}) blocked for {ticker_upper}")
@@ -1295,6 +1313,9 @@ Strictly adhere to these precise markdown headers (written exactly like this, in
                                 generated_text = data["choices"][0]["message"]["content"]
                                 if generated_text and len(generated_text) > 100:
                                     cleaned_text = generated_text.replace("```markdown", "").replace("```", "").strip()
+                                    try:
+                                        set_cached_data(redis_key, cleaned_text, ttl_seconds=604800) # 7 days
+                                    except: pass
                                     return cleaned_text
                             elif resp_groq.status_code == 429:
                                 print(f"Groq 429 for {groq_model}. Attempt {attempt+1}/2.")
@@ -1334,6 +1355,9 @@ Strictly adhere to these precise markdown headers (written exactly like this, in
                         generated_text = data["choices"][0]["message"]["content"]
                         if generated_text and len(generated_text) > 100:
                             cleaned_text = generated_text.replace("```markdown", "").replace("```", "").strip()
+                            try:
+                                set_cached_data(redis_key, cleaned_text, ttl_seconds=604800) # 7 days
+                            except: pass
                             return cleaned_text
                     else:
                         print(f"OpenAI API returned error code {resp_openai.status_code}: {resp_openai.text[:200]}")

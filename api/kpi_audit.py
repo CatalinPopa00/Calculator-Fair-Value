@@ -16,6 +16,13 @@ except ImportError:
 # Cache rezultate audit (valabil 7 zile, se schimbă doar trimestrial)
 audit_cache = TTLCache(maxsize=200, ttl=86400 * 7)
 
+try:
+    from .redis_cache import get_cached_data, set_cached_data
+except ImportError:
+    import sys
+    sys.path.append(os.path.dirname(__file__))
+    from redis_cache import get_cached_data, set_cached_data
+
 def _get_yahoo_earnings_news(ticker: str) -> str:
     """Fallback gratuit: Încearcă să ia știri recente despre 'Earnings' de pe Yahoo și să le parseze."""
     import yfinance as yf
@@ -288,8 +295,20 @@ def get_fmp_transcripts(ticker: str) -> str:
 
 def run_ai_kpi_audit(ticker: str, force_refresh: bool = False) -> Dict[str, Any]:
     ticker = ticker.upper()
+    
     if not force_refresh and ticker in audit_cache:
         return audit_cache[ticker]
+        
+    redis_key = f"audit:{ticker}"
+    if not force_refresh:
+        cached_data = get_cached_data(redis_key)
+        if cached_data:
+            try:
+                data = json.loads(cached_data) if isinstance(cached_data, (str, bytes)) else cached_data
+                audit_cache[ticker] = data
+                return data
+            except:
+                pass
 
     try:
         from dotenv import load_dotenv
@@ -531,6 +550,7 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
 
         # Salvare în cache
         audit_cache[ticker] = parsed_result
+        set_cached_data(redis_key, json.dumps(parsed_result), ttl_seconds=2592000) # 30 days
         return parsed_result
 
     except json.JSONDecodeError:
