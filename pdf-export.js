@@ -291,7 +291,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 container2.innerHTML = `
                     <!-- AI Business Pulse Audit -->
-                    <div id="pdf-export-audit-title" style="display: none; text-align: center; margin-top: 30px; margin-bottom: 30px;">
+                    <div id="pdf-export-audit-title" style="display: none; text-align: center; margin-top: 60px; margin-bottom: 30px;">
                         <h2 style="font-size: 2rem; font-weight: 800; color: #f8fafc; margin: 0;">KPI Audit</h2>
                     </div>
                     <div id="pdf-export-kpi-container" style="display: none; flex-direction: row; flex-wrap: wrap; gap: 20px;"></div>
@@ -473,9 +473,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                     const descDiv = document.createElement('div');
                                     descDiv.style.marginBottom = '10px';
                                     descDiv.innerHTML = `
-                                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
-                                            <h4 style="color: #f8fafc; margin: 0; font-size: 1.05rem; font-weight: 600; letter-spacing: 0.5px; line-height: 1.3; padding-right: 15px;">${kpi.name}</h4>
-                                            <span style="color: #60a5fa; font-size: 0.7rem; font-weight: 700; background: rgba(59, 130, 246, 0.15); padding: 4px 8px; border-radius: 12px; white-space: nowrap;">${index+1} / ${kpiData.kpis.length}</span>
+                                        <div style="margin-bottom: 8px;">
+                                            <h4 style="color: #f8fafc; margin: 0; font-size: 1.05rem; font-weight: 600; letter-spacing: 0.5px; line-height: 1.3;">${kpi.name}</h4>
                                         </div>
                                         <p style="color: #cbd5e1; font-size: 0.8rem; margin: 0; line-height: 1.5; font-weight: 300;">${kpi.description}</p>
                                     `;
