@@ -639,6 +639,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (titleSection || (kpiContainer && kpiContainer.children.length > 0)) {
                     pdf.addPage();
+                    pdf.setFillColor(15, 23, 42);
                     pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
 
                     if (titleSection) {
@@ -681,6 +682,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             // Check if adding this chart will overflow the page
                             if (currentHeightUsed + chartH > pdfHeight - 10) { // 10mm bottom margin
                                 pdf.addPage();
+                                pdf.setFillColor(15, 23, 42);
                                 pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
                                 currentHeightUsed = 10; // Start with 10mm top margin on new page
                             }
