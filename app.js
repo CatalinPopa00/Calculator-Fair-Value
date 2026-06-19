@@ -7369,7 +7369,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                         <thead>
                             <tr style="border-bottom:1px solid rgba(255,255,255,0.15);">
                                 <th style="text-align:left; padding:2px; color:white; white-space:nowrap;">Ticker</th>
-                                ${activeKeys.map(k => `<th style="text-align:right; padding:2px; color:white; white-space:nowrap;">${LABEL[k] || k}</th>`).join('')}
+                                ${activeKeys.map(k => `<th style="text-align:right; padding:2px; color:white; white-space:normal; line-height:1.2; vertical-align:bottom;">${LABEL[k] || k}</th>`).join('')}
                             </tr>
                         </thead>
                         <tbody>
