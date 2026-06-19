@@ -4194,15 +4194,20 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         elements.ticker.textContent = data.ticker;
         
         if (elements.logo) {
+            let domain = "";
             if (data.website) {
-                let domain = data.website.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
-                if (domain) {
-                    elements.logo.onerror = () => { elements.logo.style.display = 'none'; };
-                    elements.logo.src = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
-                    elements.logo.style.display = 'block';
-                } else {
-                    elements.logo.style.display = 'none';
-                }
+                domain = data.website.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
+            }
+            if (domain) {
+                elements.logo.onerror = () => { elements.logo.style.display = 'none'; };
+                elements.logo.src = `https://logo.uplead.com/${domain}`;
+                elements.logo.style.display = 'block';
+            } else if (data.ticker) {
+                // Fallback to ticker based domain for companies without explicit website in Yahoo (like RHM.DE)
+                let cleanTicker = data.ticker.split('.')[0].toLowerCase();
+                elements.logo.onerror = () => { elements.logo.style.display = 'none'; };
+                elements.logo.src = `https://logo.uplead.com/${cleanTicker}.com`;
+                elements.logo.style.display = 'block';
             } else {
                 elements.logo.style.display = 'none';
             }
