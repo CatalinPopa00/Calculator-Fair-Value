@@ -248,14 +248,23 @@ Return ONLY a valid JSON matching this exact structure:
         return ""
 
 
+# Cache for raw transcripts (7 days)
+transcripts_cache = TTLCache(maxsize=100, ttl=86400 * 7)
+
 def get_fmp_transcripts(ticker: str) -> str:
     """Încearcă extragerea transcrierilor oficiale dacă există API Key FMP, altfel Fallback pe Yahoo News."""
+    ticker = ticker.upper()
+    if ticker in transcripts_cache:
+        return transcripts_cache[ticker]
+
     fmp_key = os.getenv("FMP_API_KEY")
     if not fmp_key:
         print("FMP_API_KEY missing, falling back to SEC 10-K Reports.")
         sec_text = _get_sec_10k_text(ticker)
         yahoo_text = _get_yahoo_earnings_news(ticker)
-        return sec_text + "\n\n" + yahoo_text
+        res = sec_text + "\n\n" + yahoo_text
+        transcripts_cache[ticker] = res
+        return res
         
     try:
         # Obține lista de transcrieri disponibile
@@ -267,7 +276,9 @@ def get_fmp_transcripts(ticker: str) -> str:
             print("No FMP transcripts found, falling back to SEC.")
             sec_text = _get_sec_10k_text(ticker)
             yahoo_text = _get_yahoo_earnings_news(ticker)
-            return sec_text + "\n\n" + yahoo_text
+            res = sec_text + "\n\n" + yahoo_text
+            transcripts_cache[ticker] = res
+            return res
             
         # Păstrăm cele mai recente 20 trimestre (aprox. 5 ani istoric)
         recent_calls = data[:20]
@@ -283,15 +294,20 @@ def get_fmp_transcripts(ticker: str) -> str:
         if not combined_transcripts.strip():
             sec_text = _get_sec_10k_text(ticker)
             yahoo_text = _get_yahoo_earnings_news(ticker)
-            return sec_text + "\n\n" + yahoo_text
+            res = sec_text + "\n\n" + yahoo_text
+            transcripts_cache[ticker] = res
+            return res
             
+        transcripts_cache[ticker] = combined_transcripts
         return combined_transcripts
         
     except Exception as e:
         print(f"Error fetching FMP transcripts for {ticker}: {e}")
         sec_text = _get_sec_10k_text(ticker)
         yahoo_text = _get_yahoo_earnings_news(ticker)
-        return sec_text + "\n\n" + yahoo_text
+        res = sec_text + "\n\n" + yahoo_text
+        transcripts_cache[ticker] = res
+        return res
 
 def run_ai_kpi_audit(ticker: str, force_refresh: bool = False) -> Dict[str, Any]:
     ticker = ticker.upper()
@@ -599,6 +615,8 @@ Here is the real-time context of the company you MUST use to answer their questi
 - Business Summary: {context.get('businessSummary', 'N/A')}
 - Analyst Estimates & Targets: {context.get('estimates', 'N/A')}
 - Financial Data (EPS, Revenue, etc): {context.get('financials', 'N/A')}
+- SEC Reports & Earnings Transcripts:
+{get_fmp_transcripts(ticker)[:16000]}
 """
 
     instructions = """
