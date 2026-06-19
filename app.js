@@ -8650,9 +8650,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     redFlags: typeof globalData !== 'undefined' && globalData?.red_flags ? globalData.red_flags.join(' | ') : 'N/A',
                     businessSummary: typeof globalData !== 'undefined' && globalData?.company_profile?.business_summary ? globalData.company_profile.business_summary : 'N/A',
                     estimates: typeof globalData !== 'undefined' && globalData?.analysis ? `Target Mean: ${globalData.analysis.target_mean || 'N/A'}, Forward EPS: ${globalData.analysis.eps?.['+1y']?.avg || 'N/A'}` : 'N/A',
-                    financials: typeof globalData !== 'undefined' && globalData?.company_profile ? 
-                        `Annual Income Statement: ${JSON.stringify(globalData.company_profile.income_statement || {})}. ` +
-                        `Quarterly Income Statement: ${JSON.stringify(globalData.company_profile.income_statement_quarterly || {})}. ` : 'N/A'
+                    financials: typeof globalData !== 'undefined' ? 
+                        `Annual Historical Data (EPS, Rev, FCF): ${JSON.stringify(globalData.historical_data || {})}. ` +
+                        `Quarterly EPS History: ${JSON.stringify(globalData.raw_quarterly_history || {})}. ` +
+                        `Quarterly EPS Trend (Current & Historic Quarters): ${JSON.stringify(globalData.analysis?.eps_trend || {})}. ` : 'N/A'
                 };
 
                 const _chatTicker = (document.getElementById('company-ticker')?.textContent || document.getElementById('ticker-input')?.value || 'UNKNOWN').trim().toUpperCase();
