@@ -640,8 +640,11 @@ Instructions:
     tavily_key = os.environ.get("TAVILY_API_KEY")
     brave_key = os.environ.get("BRAVE_API_KEY")
 
-    # The query for the search engines
-    research_query = f"Search the web deeply for this query: '{message}' for the company {ticker}. If the user asks about earnings estimates, specifically search Nasdaq for multi-year EPS estimates. If they ask about SEC filings, 10-K, 10-Q, presentations, or earnings transcripts, extract exact numbers and management quotes."
+    # The query for the raw search engines (Tavily, Brave, DDG) - needs to be concise!
+    search_engine_query = f"{ticker} stock {message}"
+
+    # The prompt for the LLM researcher (Gemini) - needs instructions!
+    llm_research_prompt = f"Search the web deeply for this query: '{message}' for the company {ticker}. If the user asks about earnings estimates, specifically search Nasdaq for multi-year EPS estimates. If they ask about SEC filings, 10-K, 10-Q, presentations, or earnings transcripts, extract exact numbers and management quotes."
 
     import time
     import urllib.parse
@@ -657,7 +660,7 @@ Instructions:
                 headers={"Content-Type": "application/json"},
                 json={
                     "api_key": tavily_key,
-                    "query": research_query,
+                    "query": search_engine_query,
                     "search_depth": "advanced",
                     "include_answer": True,
                     "max_results": 5
@@ -678,7 +681,7 @@ Instructions:
     if not search_success and brave_key:
         try:
             resp = requests.get(
-                f"https://api.search.brave.com/res/v1/web/search?q={urllib.parse.quote(research_query)}",
+                f"https://api.search.brave.com/res/v1/web/search?q={urllib.parse.quote(search_engine_query)}",
                 headers={
                     "Accept": "application/json",
                     "X-Subscription-Token": brave_key
@@ -702,7 +705,7 @@ Instructions:
         for attempt in range(max_retries):
             try:
                 gemini_payload = {
-                    "contents": [{"role": "user", "parts": [{"text": research_query}]}],
+                    "contents": [{"role": "user", "parts": [{"text": llm_research_prompt}]}],
                     "generationConfig": {"temperature": 0.2, "maxOutputTokens": 1024},
                     "tools": [{"google_search": {}}]
                 }
@@ -735,7 +738,7 @@ Instructions:
     if not search_success:
         try:
             from duckduckgo_search import DDGS
-            results = DDGS().text(research_query, max_results=4)
+            results = DDGS().text(search_engine_query, max_results=4)
             if results:
                 live_research_data = "DuckDuckGo Search Results:\n" + "\n".join([f"- {r.get('title')} ({r.get('href')}): {r.get('body')}" for r in results])
                 research_error = ""
