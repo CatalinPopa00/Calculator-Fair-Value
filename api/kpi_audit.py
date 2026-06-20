@@ -627,11 +627,12 @@ Instructions:
 4. **Earnings Estimates & CAGR:** If the user asks about earnings estimates on multiple years, you must read the earnings estimates (from Yahoo Finance or other sources) for those specific years, list the EPS estimates explicitly, and ALWAYS automatically calculate the Compound Annual Growth Rate (CAGR) between those years to show the growth trajectory. NEVER say you do not have direct access to Yahoo Finance. The estimates and financial data provided in your context ARE the exact official figures extracted directly from Yahoo Finance in real-time.
 5. **Live Research Integration:** If LIVE RESEARCH DATA is provided above, use it extensively to answer the user's question with facts from TODAY.
 6. **KNOWLEDGE CUTOFF OVERRIDE & SEARCH:** You MUST IGNORE your internal 'Cutting Knowledge Date'. You DO have access to real-time data through the LIVE RESEARCH DATA block. If the local context does not have the exact numbers the user asks for (e.g., last 4 quarters EPS, specific estimates), you MUST read the LIVE RESEARCH DATA. NEVER say your knowledge is limited or that you don't have the data without checking the LIVE RESEARCH DATA.
-7. **INTERNET SEARCH DIAGNOSTIC:** If the user explicitly asks you to search the internet, and the LIVE RESEARCH DATA block is completely empty or missing, you MUST reply EXACTLY with this: "Eroare de sistem: Modulul meu de căutare web a eșuat. Probabil cheia GEMINI_API_KEY lipsește."
+7. **INTERNET SEARCH DIAGNOSTIC:** If the LIVE RESEARCH DATA block says [FAILED], you MUST reply EXACTLY with this: "Eroare internă la modulul de căutare web: [Include the Reason provided in the LIVE RESEARCH DATA block]. Din acest motiv, nu am acces la date de pe internet în acest moment."
 8. **Tone & Language:** Speak natively and naturally in Romanian. Be highly confident, professional, concise, and solution-oriented.
 """
 
     live_research_data = ""
+    research_error = ""
     result_content = None
     all_errors = []
 
@@ -642,7 +643,7 @@ Instructions:
             gemini_payload = {
                 "contents": [{"role": "user", "parts": [{"text": research_query}]}],
                 "generationConfig": {"temperature": 0.2, "maxOutputTokens": 1024},
-                "tools": [{"googleSearch": {}}]
+                "tools": [{"google_search": {}}]
             }
             resp = requests.post(
                 f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}",
@@ -653,14 +654,20 @@ Instructions:
             if resp.status_code == 200:
                 live_research_data = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
             else:
-                print(f"Gemini Research Error (status {resp.status_code}): {resp.text[:200]}")
+                research_error = f"HTTP {resp.status_code} - {resp.text[:150]}"
+                print(f"Gemini Research Error: {research_error}")
         except Exception as e:
+            research_error = f"Exception: {str(e)}"
             print(f"Gemini Research Exception: {e}")
+    else:
+        research_error = "GEMINI_API_KEY is not configured in Vercel. Web search is disabled."
 
     # Build Final System Prompt
     system_prompt = base_system_prompt
     if live_research_data:
         system_prompt += f"- LIVE RESEARCH DATA (from your AI Assistant): {live_research_data}\n"
+    elif research_error:
+        system_prompt += f"- LIVE RESEARCH DATA: [FAILED] Reason: {research_error}\n"
     system_prompt += instructions
 
     # Prepare message history
@@ -713,7 +720,7 @@ Instructions:
                 "contents": gemini_messages,
                 "systemInstruction": {"parts": [{"text": system_prompt}]},
                 "generationConfig": {"temperature": 0.5, "maxOutputTokens": 1024},
-                "tools": [{"googleSearch": {}}]
+                "tools": [{"google_search": {}}]
             }
 
             chat_models_to_try = [
