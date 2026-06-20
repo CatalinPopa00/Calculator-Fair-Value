@@ -430,11 +430,8 @@ def get_watchlist():
         # Overrides should not be forced into the watchlist. Watchlist should remain exactly as saved by the user.
 
         if not data and os.path.exists(WATCHLIST_FILE):
-            try:
-                with open(WATCHLIST_FILE, "r") as f:
-                    data = json.load(f)
-            except:
-                pass
+            with open(WATCHLIST_FILE, "r") as f:
+                data = json.load(f)
         return list(set([t.upper() for t in data]))
     except Exception as e:
         # v37 Fix: If database errors, do NOT return []. Return 500.
