@@ -8813,11 +8813,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- MACRO DASHBOARD LOGIC ---
         const macroDash = document.getElementById('macro-dashboard');
         const loadingState = document.getElementById('loading-state');
+        const localWatchlistView = document.getElementById('watchlist-view');
 
-        if (macroDash && dashboard && loadingState && watchlistView) {
+        if (macroDash && dashboard && loadingState && localWatchlistView) {
             const observer = new MutationObserver(() => {
                 // Hide macro dashboard if dashboard, loading, or watchlist is visible
-                if (dashboard.style.display !== 'none' || loadingState.style.display !== 'none' || watchlistView.style.display !== 'none') {
+                if (dashboard.style.display !== 'none' || loadingState.style.display !== 'none' || localWatchlistView.style.display !== 'none') {
                     macroDash.style.display = 'none';
                 } else {
                     macroDash.style.display = 'block';
@@ -8825,7 +8826,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             observer.observe(dashboard, { attributes: true });
             observer.observe(loadingState, { attributes: true });
-            observer.observe(watchlistView, { attributes: true });
+            observer.observe(localWatchlistView, { attributes: true });
         }
 
         async function loadMacroDashboard() {
