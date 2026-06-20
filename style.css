@@ -2290,12 +2290,9 @@ body.banner-visible .modal-content {
     box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
 }
 
-/* Toggle Stylization */
+/* Toggle wrapper (positioning handled by inner label now) */
 .method-toggle {
-    position: absolute;
-    top: 1.2rem;
-    right: 1.2rem;
-    z-index: 5;
+    display: contents;
 }
 
 .valuation-toggle {
@@ -2614,12 +2611,7 @@ body.banner-visible .modal-content {
 
 /* Toggles within Method Cards */
 .method-toggle {
-    position: absolute;
-    top: 1rem;
-    right: 1.5rem;
-    display: flex;
-    align-items: center;
-    z-index: 10;
+    display: contents;
 }
 .table-responsive {
     width: 100%;

@@ -4194,8 +4194,9 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         elements.ticker.textContent = data.ticker;
         const loadAndAnalyzeLogo = (src, imgEl) => {
             imgEl.style.backgroundColor = 'rgba(255, 255, 255, 0.9)';
-            imgEl.style.borderRadius = '8px';
-            imgEl.style.padding = '2px';
+            imgEl.style.borderRadius = '10px';
+            imgEl.style.padding = '4px';
+            imgEl.style.boxShadow = '0 2px 8px rgba(0,0,0,0.4)';
             imgEl.style.display = 'block';
             imgEl.src = src;
 
