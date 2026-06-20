@@ -370,11 +370,11 @@ These texts cover up to 5 years of financial history.
 YOUR MISSION:
 Identify AT LEAST 5 and up to 8 of the MOST CRITICAL, COMPANY-SPECIFIC, OPERATIONAL Key Performance Indicators (KPIs). If you find fewer than 5 in the text, you MUST use your internal knowledge base to generate additional relevant operational KPIs for this specific company so you reach a minimum of 5 KPIs!
 
-CRITICAL KPI SELECTION RULES (STRICTLY ENFORCED):
-1. ONLY extract OPERATIONAL and BUSINESS-SPECIFIC qualitative metrics. Think like a hedge fund analyst.
+CRITICAL KPI SELECTION RULES (STRICTLY ENFORCED UNDER PENALTY OF FAILURE):
+1. ONLY extract OPERATIONAL, PRODUCT-SPECIFIC, and BUSINESS-SPECIFIC metrics (e.g. users, volume, segments, AI adoption). Think like a hedge fund operational analyst.
 2. EXAMPLES OF GOOD KPIs: ARR (Annual Recurring Revenue), AI Monetization Revenue, Cloud Segments, Subscriber counts, DAU/MAU, Room Nights, Gross Bookings, Segment Revenue splits, Engagement metrics, Same-Store Sales.
-3. ABSOLUTELY DO NOT extract generic accounting or balance sheet items! BANNED METRICS: Deferred Revenue, Common Stock, Operating Expenses, Cash Flow, Goodwill, Debt, Amortization, Total Assets, Revenue, Net Income, EPS, Profit, Gross Margin, R&D Expenses. (The user already has these in their financial statements tab!).
-4. Focus entirely on what drives the business conceptually and structurally.
+3. ABSOLUTE BAN ON FINANCIAL STATEMENT METRICS: You are STRICTLY FORBIDDEN from extracting generic accounting, income statement, or balance sheet items! BANNED METRICS: EBITDA, EBITDA Margin, Earnings Per Share, EPS, Net Income, Revenue, Gross Margin, Cash Flow, Operating Income, Profit, Debt, Assets, Opex, R&D Expenses, CapEx. If you output any of these banned metrics, you will have failed the mission. (The user already has all accounting data in their financials tab!).
+4. Focus entirely on what drives the business conceptually and structurally (usage, segments, adoption, pricing power, AI).
 
 VALUE EXTRACTION (5-YEAR HISTORY + RECENT QUARTERS):
 For each identified KPI, track their evolution over the last 5 full fiscal years (e.g., FY 2021, FY 2022, FY 2023, FY 2024, FY 2025).
