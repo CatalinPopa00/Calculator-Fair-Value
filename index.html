@@ -85,9 +85,15 @@
             📱 Install App
         </button>
 
+        <!-- Landing Page Tabs -->
+        <div class="landing-tabs-container" id="landing-tabs" style="display: flex;">
+            <button class="landing-tab active" id="tab-macro">Global Market Pulse</button>
+            <button class="landing-tab" id="tab-watchlist">My Watchlist</button>
+        </div>
+
         <!-- Macro Dashboard Content (Visible on landing, hidden when searching) -->
         <main class="macro-dashboard" id="macro-dashboard">
-            <h2 style="text-align: center; color: var(--text-main); margin-bottom: 2rem; font-size: 1.8rem;">Global Market Pulse</h2>
+            <h2 style="display: none;">Global Market Pulse</h2>
             
             <div class="macro-grid">
                 <!-- Row 1: Fear & Greed + Buffett + Economics -->
