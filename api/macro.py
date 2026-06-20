@@ -1,7 +1,6 @@
 from fastapi import APIRouter
 from cachetools import TTLCache
 from bs4 import BeautifulSoup
-from curl_cffi import requests as cffi_requests
 import requests
 import json
 import yfinance as yf
@@ -13,7 +12,8 @@ macro_cache = TTLCache(maxsize=10, ttl=86400)
 
 def get_fear_and_greed():
     try:
-        r = cffi_requests.get('https://production.dataviz.cnn.io/index/fearandgreed/graphdata', impersonate='chrome110', timeout=10)
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
+        r = requests.get('https://production.dataviz.cnn.io/index/fearandgreed/graphdata', headers=headers, timeout=10)
         data = r.json()
         score = data.get('fear_and_greed', {}).get('score', 50)
         rating = data.get('fear_and_greed', {}).get('rating', 'neutral')
@@ -24,7 +24,8 @@ def get_fear_and_greed():
 
 def get_index_weights(url):
     try:
-        r = cffi_requests.get(url, impersonate='chrome110', timeout=10)
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
+        r = requests.get(url, headers=headers, timeout=10)
         soup = BeautifulSoup(r.text, 'html.parser')
         table = soup.find('table', class_='table')
         if not table:
@@ -63,7 +64,8 @@ def get_buffett_indicator():
             gdp = 28750000000000 # Fallback 2024 approx
             
         ratio = 0
-        r = cffi_requests.get('https://www.currentmarketvaluation.com/models/buffett-indicator.php', impersonate='chrome110', timeout=10)
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
+        r = requests.get('https://www.currentmarketvaluation.com/models/buffett-indicator.php', headers=headers, timeout=10)
         from bs4 import BeautifulSoup
         import re
         soup = BeautifulSoup(r.text, 'html.parser')
