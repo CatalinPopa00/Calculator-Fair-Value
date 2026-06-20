@@ -616,7 +616,7 @@ Here is the real-time context of the company you MUST use to answer their questi
 - Yahoo Finance & Wall Street Analyst Estimates: {context.get('estimates', 'N/A')}
 - Yahoo Finance Data (EPS, Revenue, etc): {context.get('financials', 'N/A')}
 - SEC Reports & Earnings Transcripts:
-{get_fmp_transcripts(ticker)[:16000]}
+{get_fmp_transcripts(ticker)[:4000]}
 """
 
     instructions = """
@@ -775,7 +775,7 @@ Instructions:
                 resp = requests.post(
                     "https://api.groq.com/openai/v1/chat/completions",
                     headers={"Content-Type": "application/json", "Authorization": f"Bearer {groq_key}"},
-                    json={"model": "llama-3.3-70b-versatile", "messages": messages, "temperature": 0.5},
+                    json={"model": "llama-3.3-70b-versatile", "messages": messages, "temperature": 0.5, "max_tokens": 1024},
                     timeout=30
                 )
                 if resp.status_code == 200:
