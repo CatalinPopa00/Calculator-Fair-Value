@@ -636,13 +636,71 @@ Instructions:
     result_content = None
     all_errors = []
 
-    # MULTI-MODEL PIPELINE: Phase 1 (Gemini Researcher)
-    if gemini_key:
-        import time
-        max_retries = 3
+    # Get additional API Keys
+    tavily_key = os.environ.get("TAVILY_API_KEY")
+    brave_key = os.environ.get("BRAVE_API_KEY")
+
+    # The query for the search engines
+    research_query = f"Search the web deeply for this query: '{message}' for the company {ticker}. If the user asks about earnings estimates, specifically search Nasdaq for multi-year EPS estimates. If they ask about SEC filings, 10-K, 10-Q, presentations, or earnings transcripts, extract exact numbers and management quotes."
+
+    import time
+    import urllib.parse
+    
+    # MULTI-MODEL PIPELINE: Phase 1 (Web Search Fallback Chain)
+    search_success = False
+
+    # 1. TAVILY API (Priority 1)
+    if not search_success and tavily_key:
+        try:
+            resp = requests.post(
+                "https://api.tavily.com/search",
+                headers={"Content-Type": "application/json"},
+                json={
+                    "api_key": tavily_key,
+                    "query": research_query,
+                    "search_depth": "advanced",
+                    "include_answer": True,
+                    "max_results": 5
+                },
+                timeout=15
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                live_research_data = data.get("answer", "") + "\n\nSources:\n" + "\n".join([f"- {r.get('url')}: {r.get('content')}" for r in data.get("results", [])])
+                research_error = ""
+                search_success = True
+            else:
+                research_error += f"Tavily Error {resp.status_code}: {resp.text[:100]} | "
+        except Exception as e:
+            research_error += f"Tavily Exception: {str(e)} | "
+
+    # 2. BRAVE SEARCH API (Priority 2)
+    if not search_success and brave_key:
+        try:
+            resp = requests.get(
+                f"https://api.search.brave.com/res/v1/web/search?q={urllib.parse.quote(research_query)}",
+                headers={
+                    "Accept": "application/json",
+                    "X-Subscription-Token": brave_key
+                },
+                timeout=15
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                results = data.get("web", {}).get("results", [])
+                live_research_data = "Brave Search Results:\n" + "\n".join([f"- {r.get('title')}: {r.get('description')}" for r in results[:5]])
+                research_error = ""
+                search_success = True
+            else:
+                research_error += f"Brave Error {resp.status_code}: {resp.text[:100]} | "
+        except Exception as e:
+            research_error += f"Brave Exception: {str(e)} | "
+
+    # 3. GEMINI 2.0 FLASH (Priority 3)
+    if not search_success and gemini_key:
+        max_retries = 2
         for attempt in range(max_retries):
             try:
-                research_query = f"Search the web deeply for this query: '{message}' for the company {ticker}. If the user asks about earnings estimates, specifically search Nasdaq for multi-year EPS estimates. If they ask about SEC filings, 10-K, 10-Q, presentations, or earnings transcripts, extract exact numbers and management quotes. Return detailed bullet points with raw data, financial figures, and exact quotes."
                 gemini_payload = {
                     "contents": [{"role": "user", "parts": [{"text": research_query}]}],
                     "generationConfig": {"temperature": 0.2, "maxOutputTokens": 1024},
@@ -657,25 +715,38 @@ Instructions:
                 if resp.status_code == 200:
                     live_research_data = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
                     research_error = ""
+                    search_success = True
                     break
                 elif resp.status_code == 429:
-                    research_error = f"HTTP 429 (Rate Limit). Attempt {attempt+1}/{max_retries}."
-                    print(f"Gemini Research: {research_error}")
                     if attempt < max_retries - 1:
                         time.sleep(2 ** attempt)
                         continue
                     else:
+                        research_error += "Gemini Error: 429 Rate Limit | "
                         break
                 else:
-                    research_error = f"HTTP {resp.status_code} - {resp.text[:150]}"
-                    print(f"Gemini Research Error: {research_error}")
+                    research_error += f"Gemini Error {resp.status_code}: {resp.text[:100]} | "
                     break
             except Exception as e:
-                research_error = f"Exception: {str(e)}"
-                print(f"Gemini Research Exception: {e}")
+                research_error += f"Gemini Exception: {str(e)} | "
                 break
-    else:
-        research_error = "GEMINI_API_KEY is not configured in Vercel. Web search is disabled."
+
+    # 4. DUCKDUCKGO SEARCH (Priority 4 - Ultimate Free Fallback)
+    if not search_success:
+        try:
+            from duckduckgo_search import DDGS
+            results = DDGS().text(research_query, max_results=4)
+            if results:
+                live_research_data = "DuckDuckGo Search Results:\n" + "\n".join([f"- {r.get('title')} ({r.get('href')}): {r.get('body')}" for r in results])
+                research_error = ""
+                search_success = True
+            else:
+                research_error += "DuckDuckGo Error: No results found | "
+        except Exception as e:
+            research_error += f"DuckDuckGo Exception: {str(e)} | "
+
+    if not search_success:
+        print(f"All Search Providers Failed: {research_error}")
 
     # Build Final System Prompt
     system_prompt = base_system_prompt
