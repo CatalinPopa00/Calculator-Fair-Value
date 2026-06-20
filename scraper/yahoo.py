@@ -3492,12 +3492,22 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                     if target_date:
                         target_date = sorted(target_date)[-1]
                         
+                        _col_cache = {}
+                        _idx_cache = {}
                         def get_f_metric(df, keys, date):
-                            for k in keys:
-                                idx = find_idx(df, k)
-                                if idx:
-                                    c_idx = find_nearest_col(df, date)
-                                    if c_idx:
+                            df_id = id(df)
+                            col_key = (df_id, date)
+                            if col_key not in _col_cache:
+                                _col_cache[col_key] = find_nearest_col(df, date)
+                            c_idx = _col_cache[col_key]
+
+                            if c_idx:
+                                for k in keys:
+                                    idx_key = (df_id, k)
+                                    if idx_key not in _idx_cache:
+                                        _idx_cache[idx_key] = find_idx(df, k)
+                                    idx = _idx_cache[idx_key]
+                                    if idx:
                                         val = df.loc[idx, c_idx]
                                         if not _pd.isna(val): return float(val)
                             return 0
