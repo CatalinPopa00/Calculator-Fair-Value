@@ -759,9 +759,9 @@ Instructions:
         system_prompt += f"- LIVE RESEARCH DATA: [FAILED] Reason: {research_error}\n"
     system_prompt += instructions
 
-    # Prepare message history
+    # Prepare message history (limit to last 6 interactions to save tokens)
     messages = [{"role": "system", "content": system_prompt}]
-    for msg in history:
+    for msg in history[-6:]:
         api_role = "assistant" if msg["role"] == "ai" else "user"
         messages.append({"role": api_role, "content": msg["content"]})
     messages.append({"role": "user", "content": message})
@@ -779,7 +779,15 @@ Instructions:
                     timeout=30
                 )
                 if resp.status_code == 200:
-                    result_content = resp.json()["choices"][0]["message"]["content"]
+                    choice = resp.json().get("choices", [{}])[0]
+                    result_content = choice.get("message", {}).get("content", "")
+                    
+                    # If Groq hits the free tier TPM limit, it abruptly cuts the generation (finish_reason = 'length')
+                    if choice.get("finish_reason") == "length":
+                        print(f"Groq truncated message mid-sentence (hit TPM limits). Triggering Gemini fallback.")
+                        result_content = None
+                        all_errors.append("Groq truncated due to length/TPM limit")
+                        break
                     break
                 elif resp.status_code == 429:
                     print(f"Groq Rate Limit (429) hit in Chat. Attempt {attempt+1}/{max_retries}.")
