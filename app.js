@@ -6623,10 +6623,21 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 if (rev0 != null && rev3 != null && rev3 > 0) val3y = (Math.pow(rev0 / rev3, 1/3) - 1) * 100;
 
                 let fwdBase = null;
-                const rEsts = (globalData.rev_estimates || []).filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
-                const estRev = rEsts.length > 0 ? rEsts[0] : {};
-
-                if (rev0 > 0) {
+                const rEsts = (globalData.rev_estimates || []).filter(e => e && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
+                
+                if (rEsts.length >= 2) {
+                    const estFirst = rEsts[0];
+                    const estLast = rEsts.length > 2 ? rEsts[2] : rEsts[1];
+                    const yearsDiff = rEsts.length > 2 ? 2 : 1;
+                    
+                    const dBear = estFirst.low || estFirst.avg;
+                    const dBull = estFirst.high || estFirst.avg;
+                    
+                    if (id.includes('bear') && estLast.low != null && dBear > 0) valFwd = (Math.pow(estLast.low / dBear, 1/yearsDiff) - 1) * 100;
+                    else if (id.includes('bull') && estLast.high != null && dBull > 0) valFwd = (Math.pow(estLast.high / dBull, 1/yearsDiff) - 1) * 100;
+                    else if (estLast.avg != null && estFirst.avg > 0) valFwd = (Math.pow(estLast.avg / estFirst.avg, 1/yearsDiff) - 1) * 100;
+                } else if (rEsts.length === 1 && rev0 > 0) {
+                     const estRev = rEsts[0];
                      const rev0_abs = rev0 * 1e9;
                      if (id.includes('bear') && estRev.low != null) valFwd = ((estRev.low / rev0_abs) - 1) * 100;
                      else if (id.includes('bull') && estRev.high != null) valFwd = ((estRev.high / rev0_abs) - 1) * 100;
@@ -6672,7 +6683,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 if (eps0 != null && eps3 != null && eps3 > 0) val3y = (Math.pow(eps0 / eps3, 1/3) - 1) * 100;
 
                 let fwdBase = null;
-                const eEsts = (globalData.eps_estimates || []).filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
+                const eEsts = (globalData.eps_estimates || []).filter(e => e && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
                 
                 if (eEsts.length >= 2) {
                     const estFirst = eEsts[0];
