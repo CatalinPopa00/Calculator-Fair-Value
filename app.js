@@ -7097,16 +7097,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         document.body.classList.add('has-searched');
         dashboard.style.display = 'none';
         watchlistView.style.display = 'block';
-        
-        const tabMacro = document.getElementById('tab-macro');
-        const tabWatchlist = document.getElementById('tab-watchlist');
-        const macroDash = document.getElementById('macro-dashboard');
-        
-        if (tabMacro && tabWatchlist && macroDash) {
-            tabWatchlist.classList.add('active');
-            tabMacro.classList.remove('active');
-            macroDash.style.display = 'none';
-        }
 
         if (!cachedWatchlistData || cachedWatchlistData.length !== watchlist.length) {
             loadingState.style.display = 'flex';
@@ -8823,54 +8813,19 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- MACRO DASHBOARD LOGIC ---
         const macroDash = document.getElementById('macro-dashboard');
         const loadingState = document.getElementById('loading-state');
-        const landingTabs = document.getElementById('landing-tabs');
-        const tabMacro = document.getElementById('tab-macro');
-        const tabWatchlist = document.getElementById('tab-watchlist');
 
-        if (tabMacro && tabWatchlist) {
-            tabMacro.addEventListener('click', () => {
-                tabMacro.classList.add('active');
-                tabWatchlist.classList.remove('active');
-                macroDash.style.display = 'block';
-                watchlistView.style.display = 'none';
-            });
-            tabWatchlist.addEventListener('click', async () => {
-                tabWatchlist.classList.add('active');
-                tabMacro.classList.remove('active');
-                macroDash.style.display = 'none';
-                watchlistView.style.display = 'block';
-                // Trigger refresh if needed
-                if (!cachedWatchlistData || cachedWatchlistData.length !== watchlist.length) {
-                    loadingState.style.display = 'flex';
-                    watchlistView.style.display = 'none';
-                    await refreshWatchlistData();
-                    loadingState.style.display = 'none';
-                    watchlistView.style.display = 'block';
-                }
-            });
-        }
-
-        if (macroDash && dashboard && loadingState) {
+        if (macroDash && dashboard && loadingState && watchlistView) {
             const observer = new MutationObserver(() => {
-                // Hide tabs and macro if dashboard or loading is visible
-                if (dashboard.style.display !== 'none' || loadingState.style.display !== 'none') {
-                    if (landingTabs) landingTabs.style.display = 'none';
+                // Hide macro dashboard if dashboard, loading, or watchlist is visible
+                if (dashboard.style.display !== 'none' || loadingState.style.display !== 'none' || watchlistView.style.display !== 'none') {
                     macroDash.style.display = 'none';
-                    watchlistView.style.display = 'none';
                 } else {
-                    if (landingTabs) landingTabs.style.display = 'flex';
-                    // Restore active tab
-                    if (tabMacro && tabMacro.classList.contains('active')) {
-                        macroDash.style.display = 'block';
-                        watchlistView.style.display = 'none';
-                    } else if (tabWatchlist && tabWatchlist.classList.contains('active')) {
-                        macroDash.style.display = 'none';
-                        watchlistView.style.display = 'block';
-                    }
+                    macroDash.style.display = 'block';
                 }
             });
             observer.observe(dashboard, { attributes: true });
             observer.observe(loadingState, { attributes: true });
+            observer.observe(watchlistView, { attributes: true });
         }
 
         async function loadMacroDashboard() {
