@@ -2299,38 +2299,40 @@ body.banner-visible .modal-content {
 }
 
 .valuation-toggle {
-    display: none;
+    display: none !important;
 }
 
 .valuation-toggle+label {
-    display: block;
-    width: 40px;
-    height: 22px;
-    background: rgba(var(--invert-rgb), 0.1);
-    border-radius: 20px;
-    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: transparent;
+    border-radius: 50%;
     cursor: pointer;
     transition: all 0.3s;
+    opacity: 0.8;
 }
 
-.valuation-toggle+label::after {
+.valuation-toggle+label::before {
     content: '';
-    position: absolute;
-    top: 3px;
-    left: 3px;
-    width: 16px;
-    height: 16px;
-    background: white;
-    border-radius: 50%;
-    transition: all 0.3s;
+    display: block;
+    width: 18px;
+    height: 18px;
+    background-color: #ef4444; /* red when deactivated */
+    mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M18.36 6.64a9 9 0 1 1-12.73 0'%3E%3C/path%3E%3Cline x1='12' y1='2' x2='12' y2='12'%3E%3C/line%3E%3C/svg%3E") no-repeat center / contain;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M18.36 6.64a9 9 0 1 1-12.73 0'%3E%3C/path%3E%3Cline x1='12' y1='2' x2='12' y2='12'%3E%3C/line%3E%3C/svg%3E") no-repeat center / contain;
+    transition: background-color 0.3s;
 }
 
-.valuation-toggle:checked+label {
-    background: #10b981;
+.valuation-toggle:checked+label::before {
+    background-color: rgba(255, 255, 255, 0.4); /* grey when activated */
 }
 
-.valuation-toggle:checked+label::after {
-    left: 21px;
+.valuation-toggle+label:hover {
+    opacity: 1;
+    transform: scale(1.1);
 }
 
 .analyst-tab-btn:hover {
@@ -2604,32 +2606,6 @@ body.banner-visible .modal-content {
     align-items: center;
     z-index: 10;
 }
-
-.valuation-toggle {
-    appearance: none;
-    -webkit-appearance: none;
-    width: 32px;
-    height: 18px;
-    background: rgba(var(--invert-rgb), 0.2);
-    border-radius: 9px;
-    outline: none;
-    position: relative;
-    cursor: pointer;
-    transition: background 0.3s;
-}
-
-.valuation-toggle::after {
-    content: '';
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 14px;
-    height: 14px;
-    background: white;
-    border-radius: 50%;
-    transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
-}
-
 .table-responsive {
     width: 100%;
     overflow-x: auto;
@@ -2661,15 +2637,6 @@ body.banner-visible .modal-content {
     color: var(--text-main);
     white-space: nowrap;
 }
-
-.valuation-toggle:checked {
-    background: var(--accent);
-}
-
-.valuation-toggle:checked::after {
-    transform: translateX(14px);
-}
-
 /* --- NEW WATCHLIST DESIGN --- */
 .watchlist-container {
     display: flex;
