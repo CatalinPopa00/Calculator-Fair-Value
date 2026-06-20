@@ -60,20 +60,25 @@ def get_buffett_indicator():
         # Get US GDP from World Bank
         gdp = get_world_bank_data('NY.GDP.MKTP.CD')
         if not gdp:
-            gdp = 27360000000000 # Fallback 2023 approx
+            gdp = 28750000000000 # Fallback 2024 approx
             
-        # Get Wilshire 5000 Market Cap
-        w5000 = yf.Ticker('^W5000')
-        hist = w5000.history(period="1d")
-        if hist.empty:
-            return {"ratio": 0, "market_cap": 0, "gdp": gdp}
+        ratio = 0
+        r = cffi_requests.get('https://www.currentmarketvaluation.com/models/buffett-indicator.php', impersonate='chrome110', timeout=10)
+        from bs4 import BeautifulSoup
+        import re
+        soup = BeautifulSoup(r.text, 'html.parser')
         
-        index_val = hist['Close'].iloc[-1]
-        # The Wilshire 5000 index value represents market cap in billions.
-        # e.g. index value 50,000 means $50 Trillion market cap approx
-        market_cap = index_val * 1_000_000_000
+        # Look for "current Buffett Indicator value of 219%"
+        match = re.search(r'current Buffett Indicator value of ([\d\.]+)%', r.text, re.IGNORECASE)
+        if match:
+            ratio = float(match.group(1))
         
-        ratio = (market_cap / gdp) * 100
+        if ratio == 0:
+            # Fallback if text changes
+            return {"ratio": 0, "market_cap_trillions": 0, "gdp_trillions": round(gdp / 1_000_000_000_000, 2)}
+        
+        # Calculate implied Market Cap
+        market_cap = (ratio / 100) * gdp
         
         return {
             "ratio": round(ratio, 1),
