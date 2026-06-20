@@ -4192,18 +4192,54 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
         elements.name.textContent = data.name;
         elements.ticker.textContent = data.ticker;
+        const loadAndAnalyzeLogo = (src, imgEl) => {
+            imgEl.style.backgroundColor = 'rgba(255, 255, 255, 0.9)';
+            imgEl.style.borderRadius = '8px';
+            imgEl.style.padding = '2px';
+            imgEl.style.display = 'block';
+            imgEl.src = src;
+
+            const bgImg = new Image();
+            bgImg.crossOrigin = "Anonymous";
+            bgImg.onload = () => {
+                try {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = bgImg.width || 50;
+                    canvas.height = bgImg.height || 50;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(bgImg, 0, 0);
+                    
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const pData = imageData.data;
+                    let lightPixels = 0;
+                    let darkPixels = 0;
+                    
+                    for (let i = 0; i < pData.length; i += 4) {
+                        if (pData[i+3] < 50) continue; 
+                        const luminance = (0.299 * pData[i] + 0.587 * pData[i+1] + 0.114 * pData[i+2]);
+                        if (luminance > 200) lightPixels++;
+                        else darkPixels++;
+                    }
+                    
+                    const totalVisible = lightPixels + darkPixels;
+                    if (totalVisible > 0 && (lightPixels / totalVisible > 0.6)) {
+                        imgEl.style.backgroundColor = '#111827';
+                    }
+                } catch (e) {
+                    // Ignore CORS or canvas errors
+                }
+            };
+            bgImg.src = src;
+        };
         
         if (elements.logo) {
-            // Priority 1: High quality ticker-based logo from FMP
             elements.logo.onerror = () => {
-                // Priority 2: Google Favicon (high-res sz=128 fallback) if FMP logo fails
                 elements.logo.onerror = () => {
-                    // Priority 3: Clearbit (sometimes fails but good as last resort)
                     elements.logo.onerror = () => { elements.logo.style.display = 'none'; };
                     if (data.website) {
                         let domain = data.website.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
                         if (domain) {
-                            elements.logo.src = `https://logo.clearbit.com/${domain}`;
+                            loadAndAnalyzeLogo(`https://logo.clearbit.com/${domain}`, elements.logo);
                         } else {
                             elements.logo.style.display = 'none';
                         }
@@ -4214,9 +4250,8 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 if (data.website) {
                     let domain = data.website.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
                     if (domain) {
-                        elements.logo.src = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+                        loadAndAnalyzeLogo(`https://www.google.com/s2/favicons?domain=${domain}&sz=128`, elements.logo);
                     } else {
-                        // trigger next fallback manually
                         elements.logo.dispatchEvent(new Event("error"));
                     }
                 } else {
@@ -4224,16 +4259,12 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 }
             };
 
-            // Start with FMP which has great quality logos for public tickers
             if (data.ticker) {
-                // FMP logos are typically uppercase tickers
-                elements.logo.src = `https://financialmodelingprep.com/image-stock/${data.ticker.toUpperCase()}.png`;
-                elements.logo.style.display = 'block';
+                loadAndAnalyzeLogo(`https://financialmodelingprep.com/image-stock/${data.ticker.toUpperCase()}.png`, elements.logo);
             } else if (data.website) {
                 let domain = data.website.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
                 if (domain) {
-                    elements.logo.src = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
-                    elements.logo.style.display = 'block';
+                    loadAndAnalyzeLogo(`https://www.google.com/s2/favicons?domain=${domain}&sz=128`, elements.logo);
                 } else {
                     elements.logo.style.display = 'none';
                 }
