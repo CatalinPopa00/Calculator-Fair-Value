@@ -90,7 +90,14 @@ def get_usd_fx_rate(currency: str) -> float:
     return rate
 
 # 1. Initialize FastAPI App (Systemic Recovery Fix)
-app = FastAPI(title="Fair Value Calculator API")
+from api import kpi_audit
+from api import macro
+
+app = FastAPI(docs_url="/api/docs", openapi_url="/api/openapi.json")
+
+# Include sub-routers
+app.include_router(kpi_audit.router, prefix="/api", tags=["Audit"])
+app.include_router(macro.router, prefix="/api", tags=["Macro"])
 
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 

@@ -8809,5 +8809,79 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         }
+
+        // --- MACRO DASHBOARD LOGIC ---
+        const macroDash = document.getElementById('macro-dashboard');
+        if (macroDash && dashboard) {
+            const observer = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    if (mutation.attributeName === 'style') {
+                        macroDash.style.display = dashboard.style.display === 'none' ? 'block' : 'none';
+                    }
+                });
+            });
+            observer.observe(dashboard, { attributes: true });
+        }
+
+        async function loadMacroDashboard() {
+            try {
+                const res = await fetch('/api/macro');
+                const data = await res.json();
+                
+                // Fear & Greed
+                const fgScore = document.getElementById('macro-fg-score');
+                if (fgScore && data.fear_greed) {
+                    fgScore.textContent = data.fear_greed.score;
+                    document.getElementById('macro-fg-rating').textContent = data.fear_greed.rating;
+                    const s = data.fear_greed.score;
+                    if (s < 25) fgScore.style.color = '#ef4444';
+                    else if (s < 45) fgScore.style.color = '#f97316';
+                    else if (s <= 55) fgScore.style.color = '#eab308';
+                    else if (s <= 75) fgScore.style.color = '#84cc16';
+                    else fgScore.style.color = '#22c55e';
+                }
+                
+                // Buffett Indicator
+                const bRatio = document.getElementById('macro-buffett-ratio');
+                if (bRatio && data.buffett_indicator) {
+                    const b = data.buffett_indicator;
+                    bRatio.textContent = b.ratio + '%';
+                    document.getElementById('macro-buffett-mktcap').textContent = '$' + b.market_cap_trillions;
+                    document.getElementById('macro-buffett-gdp').textContent = '$' + b.gdp_trillions;
+                    const r = b.ratio;
+                    if (r > 150) bRatio.style.color = '#ef4444';
+                    else if (r > 115) bRatio.style.color = '#f97316';
+                    else if (r > 90) bRatio.style.color = '#eab308';
+                    else if (r > 70) bRatio.style.color = '#84cc16';
+                    else bRatio.style.color = '#22c55e';
+                }
+                
+                // US Economy
+                if (document.getElementById('macro-inflation') && data.inflation_pct) {
+                    document.getElementById('macro-inflation').textContent = data.inflation_pct + '%';
+                    document.getElementById('macro-unemployment').textContent = data.unemployment_pct + '%';
+                }
+                
+                // Tables
+                const renderTable = (id, items) => {
+                    const tbody = document.querySelector('#' + id + ' tbody');
+                    if (!tbody || !items || !items.length) return;
+                    tbody.innerHTML = '';
+                    items.forEach(item => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = '<td>' + item.company + '</td><td>' + item.ticker + '</td><td>' + item.weight + '</td>';
+                        tbody.appendChild(tr);
+                    });
+                };
+                renderTable('macro-sp500-table', data.sp500_top10);
+                renderTable('macro-nasdaq-table', data.nasdaq_top10);
+                
+            } catch (e) {
+                console.error("Error loading macro dashboard:", e);
+            }
+        }
+        
+        loadMacroDashboard();
+
 });
 

@@ -4448,3 +4448,76 @@ body.has-searched #install-app-btn {
     }
 }
 
+/* Macro Dashboard Styles */
+.macro-dashboard {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+.macro-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+}
+
+.macro-card {
+    padding: 1.5rem;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.macro-card h3 {
+    font-size: 1.1rem;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+    font-weight: 600;
+}
+
+.macro-value-large {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: var(--text-main);
+    margin-bottom: 0.5rem;
+}
+
+.macro-value-medium {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+.macro-label {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.macro-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.macro-table th, .macro-table td {
+    padding: 8px;
+    text-align: left;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.macro-table th {
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.macro-table td {
+    color: var(--text-main);
+}
+
+.macro-table tr:hover td {
+    background: rgba(255, 255, 255, 0.02);
+}
+

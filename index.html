@@ -85,6 +85,66 @@
             📱 Install App
         </button>
 
+        <!-- Macro Dashboard Content (Visible on landing, hidden when searching) -->
+        <main class="macro-dashboard" id="macro-dashboard">
+            <h2 style="text-align: center; color: var(--text-main); margin-bottom: 2rem; font-size: 1.8rem;">Global Market Pulse</h2>
+            
+            <div class="macro-grid">
+                <!-- Row 1: Fear & Greed + Buffett + Economics -->
+                <div class="macro-card glass-card">
+                    <h3>CNN Fear & Greed Index</h3>
+                    <div class="macro-value-large" id="macro-fg-score">--</div>
+                    <div class="macro-label" id="macro-fg-rating" style="text-transform: capitalize;">--</div>
+                </div>
+
+                <div class="macro-card glass-card">
+                    <h3>Buffett Indicator</h3>
+                    <div class="macro-value-large" id="macro-buffett-ratio">--%</div>
+                    <div class="macro-label">Total Market Cap / GDP</div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 5px;">
+                        Mkt Cap: <span id="macro-buffett-mktcap">--</span>T | GDP: <span id="macro-buffett-gdp">--</span>T
+                    </div>
+                </div>
+
+                <div class="macro-card glass-card">
+                    <h3>US Economy</h3>
+                    <div style="display: flex; justify-content: space-around; margin-top: 15px;">
+                        <div>
+                            <div class="macro-value-medium" id="macro-inflation">--%</div>
+                            <div class="macro-label">Inflation Rate</div>
+                        </div>
+                        <div>
+                            <div class="macro-value-medium" id="macro-unemployment">--%</div>
+                            <div class="macro-label">Unemployment</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Row 2: Index Weights -->
+            <div class="macro-grid" style="margin-top: 1.5rem; grid-template-columns: 1fr 1fr;">
+                <div class="macro-card glass-card" style="padding: 1.5rem;">
+                    <h3 style="margin-bottom: 1rem;">S&P 500 Top 10 Weights</h3>
+                    <div class="table-responsive">
+                        <table class="macro-table" id="macro-sp500-table">
+                            <thead><tr><th>Company</th><th>Ticker</th><th>Weight</th></tr></thead>
+                            <tbody><tr><td colspan="3" style="text-align: center;">Loading...</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div class="macro-card glass-card" style="padding: 1.5rem;">
+                    <h3 style="margin-bottom: 1rem;">Nasdaq 100 Top 10 Weights</h3>
+                    <div class="table-responsive">
+                        <table class="macro-table" id="macro-nasdaq-table">
+                            <thead><tr><th>Company</th><th>Ticker</th><th>Weight</th></tr></thead>
+                            <tbody><tr><td colspan="3" style="text-align: center;">Loading...</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+
         <!-- Main Dashboard Content (Hidden initially until search) -->
         <main class="dashboard" id="dashboard" style="display: none;">
 
