@@ -638,27 +638,42 @@ Instructions:
 
     # MULTI-MODEL PIPELINE: Phase 1 (Gemini Researcher)
     if gemini_key:
-        try:
-            research_query = f"Search the web deeply for this query: '{message}' for the company {ticker}. If the user asks about earnings estimates, specifically search Nasdaq for multi-year EPS estimates. If they ask about SEC filings, 10-K, 10-Q, presentations, or earnings transcripts, extract exact numbers and management quotes. Return detailed bullet points with raw data, financial figures, and exact quotes."
-            gemini_payload = {
-                "contents": [{"role": "user", "parts": [{"text": research_query}]}],
-                "generationConfig": {"temperature": 0.2, "maxOutputTokens": 1024},
-                "tools": [{"google_search": {}}]
-            }
-            resp = requests.post(
-                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}",
-                headers={"Content-Type": "application/json"},
-                json=gemini_payload,
-                timeout=15
-            )
-            if resp.status_code == 200:
-                live_research_data = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
-            else:
-                research_error = f"HTTP {resp.status_code} - {resp.text[:150]}"
-                print(f"Gemini Research Error: {research_error}")
-        except Exception as e:
-            research_error = f"Exception: {str(e)}"
-            print(f"Gemini Research Exception: {e}")
+        import time
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                research_query = f"Search the web deeply for this query: '{message}' for the company {ticker}. If the user asks about earnings estimates, specifically search Nasdaq for multi-year EPS estimates. If they ask about SEC filings, 10-K, 10-Q, presentations, or earnings transcripts, extract exact numbers and management quotes. Return detailed bullet points with raw data, financial figures, and exact quotes."
+                gemini_payload = {
+                    "contents": [{"role": "user", "parts": [{"text": research_query}]}],
+                    "generationConfig": {"temperature": 0.2, "maxOutputTokens": 1024},
+                    "tools": [{"google_search": {}}]
+                }
+                resp = requests.post(
+                    f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}",
+                    headers={"Content-Type": "application/json"},
+                    json=gemini_payload,
+                    timeout=15
+                )
+                if resp.status_code == 200:
+                    live_research_data = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+                    research_error = ""
+                    break
+                elif resp.status_code == 429:
+                    research_error = f"HTTP 429 (Rate Limit). Attempt {attempt+1}/{max_retries}."
+                    print(f"Gemini Research: {research_error}")
+                    if attempt < max_retries - 1:
+                        time.sleep(2 ** attempt)
+                        continue
+                    else:
+                        break
+                else:
+                    research_error = f"HTTP {resp.status_code} - {resp.text[:150]}"
+                    print(f"Gemini Research Error: {research_error}")
+                    break
+            except Exception as e:
+                research_error = f"Exception: {str(e)}"
+                print(f"Gemini Research Exception: {e}")
+                break
     else:
         research_error = "GEMINI_API_KEY is not configured in Vercel. Web search is disabled."
 
