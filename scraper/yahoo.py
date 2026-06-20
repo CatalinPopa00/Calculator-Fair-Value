@@ -2835,7 +2835,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
         now_dt = datetime.datetime.now()
         
         # FINAL PURGE of future/placeholder entries in Adjusted History (Ensures no data leakage)
-        adjusted_history = {y: v for y, v in adjusted_history.items() if (int(y) if str(y).isdigit() else 0) < now_dt.year}
+        adjusted_history = {y: v for y, v in adjusted_history.items() if (int(y) if str(y).isdigit() else 0) <= now_dt.year + 1}
         
         # v223: Unified Forensic Pass - We normalize BEFORE building Trends/Anchors
         if financials is not None and not (hasattr(financials, 'empty') and financials.empty) and not (isinstance(financials, dict) and not financials):
