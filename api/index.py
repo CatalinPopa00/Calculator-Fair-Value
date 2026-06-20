@@ -1093,7 +1093,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         target_market_cap = data.get("market_cap") or 0.0
 
         # v92 Fix: Define historical_anchors (missing variable causing 500)
-        historical_anchors = data.get("historical_anchors", [])
+        historical_anchors = data.get("historical_anchors") or []
 
         # Watchlist skips expensive peer fetching to save 80% loading time while retaining sync
         market_data = get_market_averages()
