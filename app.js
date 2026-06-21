@@ -8629,13 +8629,14 @@ document.addEventListener('click', function(e) {
     const card = btn.closest('.research-card') || btn.closest('.company-profile-box') || btn.closest('#company-desc-card');
     if (!card) return;
     
+    let tabs = Array.from(card.querySelectorAll('.analyst-tab-btn, .ownership-tab-btn'));
+    if (!tabs.length) tabs = Array.from(card.querySelectorAll('.brief-tab'));
+
+    const indicatorLines = card.querySelectorAll('.carousel-indicator-line');
+
     setTimeout(() => { 
-        let tabs = Array.from(card.querySelectorAll('.analyst-tab-btn, .ownership-tab-btn'));
-        if (!tabs.length) tabs = Array.from(card.querySelectorAll('.brief-tab'));
-        
         const activeIdx = tabs.findIndex(t => t.classList.contains('active'));
         
-        const indicatorLines = card.querySelectorAll('.carousel-indicator-line');
         indicatorLines.forEach((line, i) => {
             if (i === activeIdx) {
                 line.classList.add('active');
