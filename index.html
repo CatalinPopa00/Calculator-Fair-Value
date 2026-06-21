@@ -116,16 +116,20 @@
         <main class="macro-dashboard" id="macro-dashboard" style="display: none;">
             <h2 style="text-align: center; color: var(--text-main); margin-bottom: 2rem; font-size: 1.8rem;">Global Market Pulse</h2>
             
+            <!-- Section 1: Market Overview -->
+            <div class="macro-section-header">
+                <h3>Market Overview</h3>
+                <div class="macro-section-divider"></div>
+            </div>
             <div class="macro-grid">
-                <!-- Row 1: Fear & Greed + Buffett + Economics -->
                 <div class="macro-card glass-card">
-                    <h3>CNN Fear & Greed Index</h3>
+                    <h4>Fear & Greed Index</h4>
                     <div class="macro-value-large" id="macro-fg-score">--</div>
                     <div class="macro-label" id="macro-fg-rating" style="text-transform: capitalize;">--</div>
                 </div>
 
                 <div class="macro-card glass-card">
-                    <h3>Buffett Indicator</h3>
+                    <h4>Buffett Indicator</h4>
                     <div class="macro-value-large" id="macro-buffett-ratio">--%</div>
                     <div class="macro-label">Total Market Cap / GDP</div>
                     <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 5px;">
@@ -134,40 +138,111 @@
                 </div>
 
                 <div class="macro-card glass-card">
-                    <h3>US Economy</h3>
-                    <div style="display: flex; justify-content: space-around; margin-top: 15px;">
-                        <div>
-                            <div class="macro-value-medium" id="macro-inflation">--%</div>
-                            <div class="macro-label">Inflation Rate</div>
-                        </div>
-                        <div>
-                            <div class="macro-value-medium" id="macro-unemployment">--%</div>
-                            <div class="macro-label">Unemployment</div>
-                        </div>
+                    <h4>Volatility Index (VIX)</h4>
+                    <div class="macro-value-large" id="macro-vix">--</div>
+                    <div class="macro-label">Real-time Market Risk</div>
+                </div>
+            </div>
+
+            <!-- Section 2: US Economy -->
+            <div class="macro-section-header" style="margin-top: 3rem;">
+                <h3>US Economy</h3>
+                <div class="macro-section-divider"></div>
+            </div>
+            <div class="macro-grid" style="grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));">
+                <!-- GDP -->
+                <div class="macro-card glass-card" style="text-align: left;">
+                    <h4 style="text-align: center; margin-bottom: 1rem;">GDP Evolution</h4>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                        <span style="color: var(--text-muted);">Last Year (<span id="gdp-last-yr">--</span>)</span>
+                        <span style="font-weight: 600;" id="gdp-last-val">--</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                        <span style="color: var(--text-muted);">Est. This Year (<span id="gdp-this-yr">--</span>)</span>
+                        <span style="font-weight: 600; color: #fbbf24;" id="gdp-this-val">--</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span style="color: var(--text-muted);">Est. Next Year (<span id="gdp-next-yr">--</span>)</span>
+                        <span style="font-weight: 600; color: var(--accent);" id="gdp-next-val">--</span>
+                    </div>
+                </div>
+
+                <!-- Fed Rate -->
+                <div class="macro-card glass-card" style="text-align: left;">
+                    <h4 style="text-align: center; margin-bottom: 1rem;">Fed Rate</h4>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                        <span style="color: var(--text-muted);">Current Rate</span>
+                        <span style="font-weight: 600;" id="fed-current">--</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                        <span style="color: var(--text-muted);">Forecast</span>
+                        <span style="font-weight: 600; color: #fbbf24;" id="fed-forecast">--</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span style="color: var(--text-muted);">Cut Odds</span>
+                        <span style="font-weight: 600; color: var(--accent);" id="fed-cut-odds">--</span>
+                    </div>
+                </div>
+
+                <!-- Inflation Chart -->
+                <div class="macro-card glass-card" style="padding: 1rem; position: relative;">
+                    <h4 style="margin-bottom: 0.5rem; text-align: center;">Inflation Rate</h4>
+                    <div style="text-align: center; font-size: 1.5rem; font-weight: 700; color: var(--accent); margin-bottom: 10px;" id="inflation-latest">--%</div>
+                    <div style="width: 100%; height: 120px; position: relative;">
+                        <canvas id="inflation-chart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Unemployment Chart -->
+                <div class="macro-card glass-card" style="padding: 1rem; position: relative;">
+                    <h4 style="margin-bottom: 0.5rem; text-align: center;">Unemployment Rate</h4>
+                    <div style="text-align: center; font-size: 1.5rem; font-weight: 700; color: var(--danger); margin-bottom: 10px;" id="unemployment-latest">--%</div>
+                    <div style="width: 100%; height: 120px; position: relative;">
+                        <canvas id="unemployment-chart"></canvas>
                     </div>
                 </div>
             </div>
 
-            <!-- Row 2: Index Weights -->
-            <div class="macro-grid" style="margin-top: 1.5rem; grid-template-columns: 1fr;">
-                <div class="macro-card glass-card" style="padding: 1.5rem;">
-                    <h3 style="margin-bottom: 1rem;">S&P 500 Top 10 Weights</h3>
-                    <div class="table-responsive">
-                        <table class="macro-table" id="macro-sp500-table">
-                            <thead><tr><th>Company</th><th>Ticker</th><th>Weight</th></tr></thead>
-                            <tbody><tr><td colspan="3" style="text-align: center;">Loading...</td></tr></tbody>
-                        </table>
+            <!-- Section 3: ETFs -->
+            <div class="macro-section-header" style="margin-top: 3rem;">
+                <h3>ETFs Top 10 Holdings</h3>
+                <div class="macro-section-divider"></div>
+            </div>
+            <div class="etf-grid">
+                <!-- S&P 500 -->
+                <div class="macro-card glass-card etf-card">
+                    <div class="etf-header">
+                        <img src="https://logo.clearbit.com/spglobal.com" alt="S&P" class="etf-logo" onerror="this.src='https://ui-avatars.com/api/?name=SP&background=0f172a&color=fff'">
+                        <h4>S&P 500</h4>
                     </div>
+                    <div class="etf-list" id="etf-sp500-list">Loading...</div>
                 </div>
-                
-                <div class="macro-card glass-card" style="padding: 1.5rem;">
-                    <h3 style="margin-bottom: 1rem;">Nasdaq 100 Top 10 Weights</h3>
-                    <div class="table-responsive">
-                        <table class="macro-table" id="macro-nasdaq-table">
-                            <thead><tr><th>Company</th><th>Ticker</th><th>Weight</th></tr></thead>
-                            <tbody><tr><td colspan="3" style="text-align: center;">Loading...</td></tr></tbody>
-                        </table>
+
+                <!-- Nasdaq 100 -->
+                <div class="macro-card glass-card etf-card">
+                    <div class="etf-header">
+                        <img src="https://logo.clearbit.com/nasdaq.com" alt="Nasdaq" class="etf-logo" onerror="this.src='https://ui-avatars.com/api/?name=NQ&background=0f172a&color=fff'">
+                        <h4>Nasdaq 100</h4>
                     </div>
+                    <div class="etf-list" id="etf-nasdaq-list">Loading...</div>
+                </div>
+
+                <!-- Russell 2000 -->
+                <div class="macro-card glass-card etf-card">
+                    <div class="etf-header">
+                        <img src="https://logo.clearbit.com/ftserussell.com" alt="Russell" class="etf-logo" onerror="this.src='https://ui-avatars.com/api/?name=R2&background=0f172a&color=fff'">
+                        <h4>Russell 2000</h4>
+                    </div>
+                    <div class="etf-list" id="etf-russell-list">Loading...</div>
+                </div>
+
+                <!-- DAX -->
+                <div class="macro-card glass-card etf-card">
+                    <div class="etf-header">
+                        <img src="https://logo.clearbit.com/deutsche-boerse.com" alt="DAX" class="etf-logo" onerror="this.src='https://ui-avatars.com/api/?name=DX&background=0f172a&color=fff'">
+                        <h4>DAX</h4>
+                    </div>
+                    <div class="etf-list" id="etf-dax-list">Loading...</div>
                 </div>
             </div>
         </main>

@@ -8853,11 +8853,15 @@ document.addEventListener('DOMContentLoaded', () => {
         // Expose to window so click listeners can call it
         window.updateTabVisibility = updateTabVisibility;
 
+        let inflationChartInstance = null;
+        let unemploymentChartInstance = null;
+
         async function loadMacroDashboard() {
             try {
                 const res = await fetch('/api/macro');
                 const data = await res.json();
                 
+                // Section 1: Market Overview
                 // Fear & Greed
                 const fgScore = document.getElementById('macro-fg-score');
                 if (fgScore && data.fear_greed) {
@@ -8885,26 +8889,124 @@ document.addEventListener('DOMContentLoaded', () => {
                     else if (r > 70) bRatio.style.color = '#84cc16';
                     else bRatio.style.color = '#22c55e';
                 }
-                
-                // US Economy
-                if (document.getElementById('macro-inflation') && data.inflation_pct) {
-                    document.getElementById('macro-inflation').textContent = data.inflation_pct + '%';
-                    document.getElementById('macro-unemployment').textContent = data.unemployment_pct + '%';
+
+                // VIX
+                const vixElem = document.getElementById('macro-vix');
+                if (vixElem && data.vix) {
+                    vixElem.textContent = data.vix;
+                    if (data.vix > 30) vixElem.style.color = '#ef4444'; // high fear
+                    else if (data.vix > 20) vixElem.style.color = '#f97316';
+                    else vixElem.style.color = '#22c55e';
                 }
-                
-                // Tables
-                const renderTable = (id, items) => {
-                    const tbody = document.querySelector('#' + id + ' tbody');
-                    if (!tbody || !items || !items.length) return;
-                    tbody.innerHTML = '';
+
+                // Section 2: US Economy
+                // GDP Evolution
+                if (data.gdp_evolution) {
+                    const formatTrillions = (val) => '$' + (val / 1000000000000).toFixed(2) + 'T';
+                    document.getElementById('gdp-last-yr').textContent = data.gdp_evolution.last_year.year;
+                    document.getElementById('gdp-last-val').textContent = formatTrillions(data.gdp_evolution.last_year.value);
+                    document.getElementById('gdp-this-yr').textContent = data.gdp_evolution.this_year.year;
+                    document.getElementById('gdp-this-val').textContent = formatTrillions(data.gdp_evolution.this_year.value);
+                    document.getElementById('gdp-next-yr').textContent = data.gdp_evolution.next_year.year;
+                    document.getElementById('gdp-next-val').textContent = formatTrillions(data.gdp_evolution.next_year.value);
+                }
+
+                // Fed Rate
+                if (data.fed_rate) {
+                    document.getElementById('fed-current').textContent = data.fed_rate.current;
+                    document.getElementById('fed-forecast').textContent = data.fed_rate.forecast;
+                    document.getElementById('fed-cut-odds').textContent = data.fed_rate.cut_probability;
+                }
+
+                // Charts
+                if (data.inflation_history && data.inflation_history.length > 0 && typeof Chart !== 'undefined') {
+                    document.getElementById('inflation-latest').textContent = data.inflation_pct + '%';
+                    const labels = data.inflation_history.map(d => d.year);
+                    const values = data.inflation_history.map(d => d.value);
+                    const ctx = document.getElementById('inflation-chart').getContext('2d');
+                    if (inflationChartInstance) inflationChartInstance.destroy();
+                    inflationChartInstance = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: 'Inflation',
+                                data: values,
+                                borderColor: '#0ea5e9',
+                                backgroundColor: 'rgba(14, 165, 233, 0.1)',
+                                fill: true,
+                                tension: 0.4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                x: { display: false },
+                                y: { display: false, min: Math.min(...values) - 1, max: Math.max(...values) + 1 }
+                            }
+                        }
+                    });
+                }
+
+                if (data.unemployment_history && data.unemployment_history.length > 0 && typeof Chart !== 'undefined') {
+                    document.getElementById('unemployment-latest').textContent = data.unemployment_pct + '%';
+                    const labels = data.unemployment_history.map(d => d.year);
+                    const values = data.unemployment_history.map(d => d.value);
+                    const ctx = document.getElementById('unemployment-chart').getContext('2d');
+                    if (unemploymentChartInstance) unemploymentChartInstance.destroy();
+                    unemploymentChartInstance = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: 'Unemployment',
+                                data: values,
+                                borderColor: '#ef4444',
+                                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                fill: true,
+                                tension: 0.4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                x: { display: false },
+                                y: { display: false, min: Math.min(...values) - 1, max: Math.max(...values) + 1 }
+                            }
+                        }
+                    });
+                }
+
+                // Section 3: ETFs
+                const renderEtfList = (id, items) => {
+                    const container = document.getElementById(id);
+                    if (!container) return;
+                    if (!items || items.length === 0) {
+                        container.innerHTML = '<p style="color:var(--text-muted);text-align:center;">Data not available</p>';
+                        return;
+                    }
+                    container.innerHTML = '';
                     items.forEach(item => {
-                        const tr = document.createElement('tr');
-                        tr.innerHTML = '<td>' + item.company + '</td><td>' + item.ticker + '</td><td>' + item.weight + '</td>';
-                        tbody.appendChild(tr);
+                        container.innerHTML += `
+                            <div class="etf-row">
+                                <div class="etf-row-company">${item.company}</div>
+                                <div class="etf-row-ticker">${item.ticker}</div>
+                                <div class="etf-row-weight">${item.weight}</div>
+                            </div>
+                        `;
                     });
                 };
-                renderTable('macro-sp500-table', data.sp500_top10);
-                renderTable('macro-nasdaq-table', data.nasdaq_top10);
+                
+                if (data.etfs) {
+                    renderEtfList('etf-sp500-list', data.etfs.sp500);
+                    renderEtfList('etf-nasdaq-list', data.etfs.nasdaq);
+                    renderEtfList('etf-russell-list', data.etfs.russell);
+                    renderEtfList('etf-dax-list', data.etfs.dax);
+                }
                 
             } catch (e) {
                 console.error("Error loading macro dashboard:", e);

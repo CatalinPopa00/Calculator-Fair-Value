@@ -4498,6 +4498,94 @@ body.has-searched #install-app-btn {
     gap: 1.5rem;
 }
 
+.macro-section-header {
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.macro-section-header h3 {
+    color: var(--text-main);
+    font-size: 1.4rem;
+    margin: 0;
+    white-space: nowrap;
+}
+
+.macro-section-divider {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, rgba(255,255,255,0.2), transparent);
+}
+
+.etf-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+}
+
+.etf-card {
+    display: flex;
+    flex-direction: column;
+    padding: 1rem;
+    text-align: left;
+}
+
+.etf-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.etf-logo {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: white;
+    padding: 2px;
+}
+
+.etf-header h4 {
+    margin: 0;
+    color: var(--text-main);
+    font-size: 1.2rem;
+}
+
+.etf-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.8rem;
+    font-size: 0.9rem;
+}
+
+.etf-row-company {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-right: 10px;
+    color: var(--text-muted);
+}
+
+.etf-row-ticker {
+    font-weight: bold;
+    color: var(--text-main);
+    width: 60px;
+    text-align: left;
+}
+
+.etf-row-weight {
+    width: 50px;
+    text-align: right;
+    color: var(--accent);
+    font-weight: bold;
+}
+
 .macro-card {
     padding: 1.5rem;
     text-align: center;
