@@ -9005,7 +9005,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (bnavSearch) bnavSearch.addEventListener('click', () => {
             setBnavActive(bnavSearch);
             if (searchModal) {
-                searchModal.style.display = 'block';
+                searchModal.style.display = 'flex';
                 setTimeout(() => document.getElementById('ticker-input').focus(), 100);
             }
         });
