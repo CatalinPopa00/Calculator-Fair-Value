@@ -5002,30 +5002,34 @@ body.has-searched #install-app-btn {
 
 .search-glass-popup.loading-active {
     border-color: transparent !important;
-    overflow: visible;
+    overflow: hidden !important; /* Hide overflowing conic gradient */
 }
+
+/* The spinning border beam */
 .search-glass-popup.loading-active::before {
     content: '';
     position: absolute;
-    top: -2px; left: -2px; right: -2px; bottom: -2px;
-    border-radius: 18px;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
     background: conic-gradient(
-        from 0deg,
-        transparent 0deg,
-        var(--accent) 90deg,
-        var(--primary) 180deg,
-        transparent 270deg,
-        transparent 360deg
+        transparent,
+        transparent,
+        transparent,
+        var(--primary)
     );
-    animation: spinBorder 1.5s linear infinite;
-    z-index: -1;
+    animation: spinBorder 2s linear infinite;
+    z-index: -2;
 }
+
+/* The inner background to cover the center of the beam */
 .search-glass-popup.loading-active::after {
     content: '';
     position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    border-radius: 16px;
-    background: transparent;
+    inset: 3px; /* border thickness */
+    background: rgba(15, 23, 42, 1); /* match dark container bg, solid */
+    border-radius: 14px; /* Slightly less than parent 16px to fit inside inset */
     z-index: -1;
 }
 
