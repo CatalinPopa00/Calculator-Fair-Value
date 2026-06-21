@@ -4540,18 +4540,8 @@ body.has-searched #install-app-btn {
     border-bottom: 1px solid rgba(255,255,255,0.1);
 }
 
-.etf-header h4 {
-    margin: 0;
-    font-size: 1.2rem;
-    font-weight: 700;
-    display: flex;
-    flex-direction: column;
-}
-.etf-header h4 .live-price {
-    font-size: 0.85rem;
-    font-weight: 500;
-    margin-top: 2px;
-}
+.etf-header h4 { margin: 0; font-size: 1.1rem; font-weight: 700; display: flex; flex-direction: row; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.etf-header h4 .live-price { font-size: 0.9rem; font-weight: 500; margin-top: 0; }
 .price-up { color: #22c55e; }
 .price-down { color: #ef4444; }
 
