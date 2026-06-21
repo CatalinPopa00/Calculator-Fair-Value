@@ -8817,14 +8817,31 @@ document.addEventListener('DOMContentLoaded', () => {
         const localWatchlistView = document.getElementById('watchlist-view');
 
         if (macroDash && dashboard && loadingState && localWatchlistView) {
-            const observer = new MutationObserver(() => {
-                // Hide macro dashboard if dashboard, loading, or watchlist is visible
-                if (dashboard.style.display !== 'none' || loadingState.style.display !== 'none' || localWatchlistView.style.display !== 'none') {
+        const observer = new MutationObserver(() => {
+            // Check which nav button is active
+            const bnavHome = document.getElementById('bnav-home');
+            const bnavOverview = document.getElementById('bnav-overview');
+            const isHomeActive = bnavHome && bnavHome.classList.contains('active');
+            const isOverviewActive = bnavOverview && bnavOverview.classList.contains('active');
+            const newsDash = document.getElementById('news-dashboard');
+
+            if (dashboard.style.display !== 'none' || loadingState.style.display !== 'none' || localWatchlistView.style.display !== 'none') {
+                macroDash.style.display = 'none';
+                if (newsDash) newsDash.style.display = 'none';
+            } else {
+                if (isHomeActive) {
+                    if (newsDash) newsDash.style.display = 'block';
                     macroDash.style.display = 'none';
-                } else {
+                } else if (isOverviewActive) {
+                    if (newsDash) newsDash.style.display = 'none';
                     macroDash.style.display = 'block';
+                } else {
+                    // Fallback to Home
+                    if (newsDash) newsDash.style.display = 'block';
+                    macroDash.style.display = 'none';
                 }
-            });
+            }
+        });
             observer.observe(dashboard, { attributes: true });
             observer.observe(loadingState, { attributes: true });
             observer.observe(localWatchlistView, { attributes: true });
@@ -8889,6 +8906,102 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         loadMacroDashboard();
+
+        // --- LATEST NEWS LOGIC ---
+        async function loadNewsDashboard() {
+            const newsGrid = document.getElementById('news-grid');
+            const newsLoading = document.getElementById('news-loading');
+            if (!newsGrid || !newsLoading) return;
+            try {
+                const res = await fetch('/api/news');
+                const data = await res.json();
+                newsLoading.style.display = 'none';
+                newsGrid.style.display = 'grid';
+                if (!data.news || data.news.length === 0) {
+                    newsGrid.innerHTML = '<p style="text-align:center; grid-column: 1/-1;">No news available.</p>';
+                    return;
+                }
+                data.news.forEach(item => {
+                    const title = item.title || 'Market News';
+                    const publisher = item.publisher || 'Yahoo Finance';
+                    const link = item.link || item.clickThroughUrl?.url || '#';
+                    const imgUrl = item.thumbnail?.resolutions?.[0]?.url || null;
+                    const date = item.pubDate ? new Date(item.pubDate).toLocaleString() : '';
+                    
+                    const card = document.createElement('a');
+                    card.className = 'news-card';
+                    card.href = link;
+                    card.target = '_blank';
+                    
+                    let imgHtml = '';
+                    if (imgUrl) {
+                        imgHtml = `<img src="${imgUrl}" class="news-img" alt="News Image">`;
+                    } else {
+                        imgHtml = `<div class="news-img">📰</div>`;
+                    }
+                    
+                    card.innerHTML = `
+                        ${imgHtml}
+                        <div class="news-content">
+                            <div class="news-title">${title}</div>
+                            <div class="news-meta">
+                                <span class="news-publisher">${publisher}</span>
+                                <span>${date}</span>
+                            </div>
+                        </div>
+                    `;
+                    newsGrid.appendChild(card);
+                });
+            } catch (err) {
+                console.error("Error loading news:", err);
+                newsLoading.innerHTML = "Failed to load news.";
+            }
+        }
+        loadNewsDashboard();
+
+        // --- BOTTOM NAV LOGIC ---
+        const bnavHome = document.getElementById('bnav-home');
+        const bnavWatchlist = document.getElementById('bnav-watchlist');
+        const bnavSearch = document.getElementById('bnav-search');
+        const bnavOverview = document.getElementById('bnav-overview');
+        const bnavProfile = document.getElementById('bnav-profile');
+        
+        const bnavBtns = document.querySelectorAll('.bnav-btn');
+        function setBnavActive(btn) {
+            bnavBtns.forEach(b => b.classList.remove('active'));
+            if(btn) btn.classList.add('active');
+        }
+
+        if (bnavHome) bnavHome.addEventListener('click', () => {
+            setBnavActive(bnavHome);
+            document.body.classList.remove('has-searched');
+            dashboard.style.display = 'none';
+            document.getElementById('watchlist-view').style.display = 'none';
+            // MutationObserver will automatically show news-dashboard
+        });
+
+        if (bnavWatchlist) bnavWatchlist.addEventListener('click', () => {
+            setBnavActive(bnavWatchlist);
+            document.getElementById('nav-watchlist-btn').click();
+        });
+
+        if (bnavSearch) bnavSearch.addEventListener('click', () => {
+            setBnavActive(bnavSearch);
+            document.getElementById('ticker-input').focus();
+        });
+
+        if (bnavOverview) bnavOverview.addEventListener('click', () => {
+            setBnavActive(bnavOverview);
+            document.body.classList.remove('has-searched');
+            dashboard.style.display = 'none';
+            document.getElementById('watchlist-view').style.display = 'none';
+            // MutationObserver will automatically show macro-dashboard
+        });
+
+        if (bnavProfile) bnavProfile.addEventListener('click', () => {
+            setBnavActive(bnavProfile);
+            document.getElementById('login-btn').click();
+        });
 
 });
 

@@ -115,3 +115,16 @@ def get_macro_dashboard():
     
     macro_cache["macro_data"] = data
     return data
+
+@router.get("/news")
+def get_latest_news():
+    try:
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
+        r = requests.get('https://query2.finance.yahoo.com/v1/finance/search?q=stock+market+news&newsCount=15', headers=headers, timeout=10)
+        if r.status_code == 200:
+            data = r.json()
+            return {"news": data.get("news", [])}
+        return {"news": []}
+    except Exception as e:
+        print(f"Error fetching news: {e}")
+        return {"news": []}

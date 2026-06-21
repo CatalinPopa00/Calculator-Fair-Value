@@ -77,16 +77,37 @@
             </div>
         </header>
 
+        <!-- Bottom Navigation Bar -->
+        <nav class="bottom-nav">
+            <button id="bnav-home" class="bnav-btn active" title="Home - Latest News">🏠</button>
+            <button id="bnav-watchlist" class="bnav-btn" title="My Watchlist">⭐</button>
+            <button id="bnav-search" class="bnav-btn" title="Search Company">🔍</button>
+            <button id="bnav-overview" class="bnav-btn" title="Global Market Pulse">📊</button>
+            <button id="bnav-profile" class="bnav-btn" title="Profile">👤</button>
+        </nav>
+
         <!-- Floating action buttons -->
-        <button id="login-btn" class="floating-login-btn" title="Login to Sync">
+        <button id="login-btn" class="floating-login-btn" title="Login to Sync" style="display:none;">
             👤
         </button>
         <button id="install-app-btn" style="display: none; background: #fbbf24; color: #0f172a; border: none; padding: 8px 16px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 0.85rem; position: fixed; bottom: 175px; right: 20px; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
             📱 Install App
         </button>
 
-        <!-- Macro Dashboard Content (Visible on landing, hidden when searching) -->
-        <main class="macro-dashboard" id="macro-dashboard">
+        <!-- Latest News Dashboard (Home) -->
+        <main class="news-dashboard" id="news-dashboard">
+            <h2 style="text-align: center; color: var(--text-main); margin-bottom: 2rem; font-size: 1.8rem;">Latest Market News</h2>
+            <div id="news-loading" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                <div class="spinner" style="margin: 0 auto 1rem auto;"></div>
+                Fetching latest news from Yahoo Finance...
+            </div>
+            <div class="news-grid" id="news-grid" style="display: none;">
+                <!-- News cards will be injected here -->
+            </div>
+        </main>
+
+        <!-- Macro Dashboard Content (Visible on overview, hidden when searching) -->
+        <main class="macro-dashboard" id="macro-dashboard" style="display: none;">
             <h2 style="text-align: center; color: var(--text-main); margin-bottom: 2rem; font-size: 1.8rem;">Global Market Pulse</h2>
             
             <div class="macro-grid">
