@@ -131,7 +131,7 @@ def get_fed_rate():
                         if val:
                             return {
                                 "current": f"{val}%",
-                                "forecast": "2.75 - 3.00% (Dec 2026)",
+                                "forecast": "2.75 - 3.00% (Dec. '26)",
                                 "cut_probability": "65%",
                                 "hike_probability": "0%"
                             }
@@ -140,7 +140,7 @@ def get_fed_rate():
     
     return {
         "current": "5.25 - 5.50%",
-        "forecast": "2.75 - 3.00% (Dec 2026)",
+        "forecast": "2.75 - 3.00% (Dec. '26)",
         "cut_probability": "65%",
         "hike_probability": "0%"
     }
