@@ -3723,11 +3723,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
         # --- PHASE 3: QUARTERLY ANCHORS ---
         quarterly_anchors = []
         try:
-            if historical_anchors:
-                ttm_anchor = historical_anchors[0].copy()
-                ttm_anchor["year"] = "TTM"
-                quarterly_anchors.append(ttm_anchor)
-                
+            temp_q_anchors = []
             if q_financials is not None and not (hasattr(q_financials, 'empty') and q_financials.empty):
                 # Extract up to 4 quarters
                 cols = q_financials.columns[:4]
@@ -3763,6 +3759,12 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
 
                         r_raw = get_q_is_metric('Total Revenue', q_col) or 0
                         e_raw = get_q_is_metric('Diluted EPS', q_col) or get_q_is_metric('Basic EPS', q_col) or 0
+                        
+                        # Fetch Normalized EPS for Adjusted EPS
+                        e_adj_raw = get_q_is_metric('Normalized EPS', q_col)
+                        if e_adj_raw is None:
+                            e_adj_raw = e_raw
+
                         f_raw = get_q_cf_metric('Free Cash Flow', q_col) or 0
                         c_raw = get_q_bs_metric('Cash Cash Equivalents And Short Term Investments', q_col) or get_q_bs_metric('Cash And Cash Equivalents', q_col) or 0
                         
@@ -3789,11 +3791,11 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                             
                         roic_v = (ni_raw / (assets - liabs) * 100.0) if (assets and liabs and (assets - liabs) > 0) else None
 
-                        quarterly_anchors.append({
+                        temp_q_anchors.append({
                             "year": yr_label,
                             "revenue_b": round(r_raw / 1e9, 2),
                             "eps": round(e_raw, 2),
-                            "eps_adj": round(e_raw, 2),
+                            "eps_adj": round(e_adj_raw, 2),
                             "fcf_b": round(f_raw / 1e9, 2) if f_raw is not None else None,
                             "fcf_margin_pct": f"{fcf_margin_v:.1f}%" if fcf_margin_v is not None else "N/A",
                             "net_income_b": round(ni_raw / 1e9, 2),
@@ -3803,10 +3805,61 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                             "total_debt_b": round(d_raw / 1e9, 2),
                             "current_ratio": round(cr_v, 2) if cr_v is not None else None,
                             "shares_out_b": round(s_raw / 1e9, 3) if s_raw else None,
-                            "roic_pct": f"{roic_v:.1f}%" if roic_v is not None else "N/A"
+                            "roic_pct": f"{roic_v:.1f}%" if roic_v is not None else "N/A",
+                            "_raw": { 
+                                "r": r_raw, "e": e_raw, "eadj": e_adj_raw, "f": f_raw, "ni": ni_raw, 
+                                "c": c_raw, "d": d_raw, "s": s_raw, "ca": ca_hist, "cl": cl_hist, "assets": assets, "liabs": liabs
+                            }
                         })
                     except Exception as q_e:
                         print("Error extracting q_anchor:", q_e)
+            
+            if temp_q_anchors:
+                # Build TTM from temp_q_anchors
+                ttm = temp_q_anchors[0].copy()
+                ttm["year"] = "TTM"
+                
+                if len(temp_q_anchors) == 4:
+                    # We have 4 quarters, sum flows
+                    r_ttm = sum(q["_raw"]["r"] for q in temp_q_anchors)
+                    e_ttm = sum(q["_raw"]["e"] for q in temp_q_anchors)
+                    eadj_ttm = sum(q["_raw"]["eadj"] for q in temp_q_anchors)
+                    f_ttm = sum(q["_raw"]["f"] for q in temp_q_anchors)
+                    ni_ttm = sum(q["_raw"]["ni"] for q in temp_q_anchors)
+                    
+                    ttm["revenue_b"] = round(r_ttm / 1e9, 2)
+                    ttm["eps"] = round(e_ttm, 2)
+                    ttm["eps_adj"] = round(eadj_ttm, 2)
+                    ttm["fcf_b"] = round(f_ttm / 1e9, 2)
+                    ttm["net_income_b"] = round(ni_ttm / 1e9, 2)
+                    
+                    m_ttm = (ni_ttm / r_ttm * 100.0) if r_ttm > 0 else None
+                    fcf_m_ttm = (f_ttm / r_ttm * 100.0) if r_ttm > 0 else None
+                    
+                    ttm["net_margin_pct"] = f"{m_ttm:.1f}%" if m_ttm is not None else "N/A"
+                    ttm["gaap_net_margin_pct"] = f"{m_ttm:.1f}%" if m_ttm is not None else "N/A"
+                    ttm["fcf_margin_pct"] = f"{fcf_m_ttm:.1f}%" if fcf_m_ttm is not None else "N/A"
+                    
+                    ast = temp_q_anchors[0]["_raw"]["assets"]
+                    lbl = temp_q_anchors[0]["_raw"]["liabs"]
+                    roic_ttm = (ni_ttm / (ast - lbl) * 100.0) if (ast and lbl and (ast - lbl) > 0) else None
+                    ttm["roic_pct"] = f"{roic_ttm:.1f}%" if roic_ttm is not None else "N/A"
+                else:
+                    if historical_anchors:
+                        ttm = historical_anchors[0].copy()
+                        ttm["year"] = "TTM"
+                        
+                quarterly_anchors.append(ttm)
+                
+                # Remove _raw and append the rest
+                for q in temp_q_anchors:
+                    q.pop("_raw", None)
+                    quarterly_anchors.append(q)
+            elif historical_anchors:
+                ttm = historical_anchors[0].copy()
+                ttm["year"] = "TTM"
+                quarterly_anchors.append(ttm)
+                
         except Exception as e_q:
             print("Quarterly extraction error:", e_q)
 
