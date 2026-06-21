@@ -1228,21 +1228,34 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
         bPB = None
 
         # We need to compute median beforehand since we extracted the relative logic
-        def get_clean_median_local(key):
-            vals = []
-            if peers_data:
-                for p in peers_data:
-                    v = p.get(key)
-                    if v is not None and isinstance(v, (int, float)) and math.isfinite(v) and v > 0:
-                        vals.append(float(v))
-            if not vals:
-                return None
-            return statistics.median(vals)
+        vals_pe, vals_evs, vals_eve, vals_pb = [], [], [], []
+        if peers_data:
+            for p in peers_data:
+                v_pe = p.get('pe_ratio')
+                v_evs = p.get('forward_ev_sales')
+                v_eve = p.get('ev_to_ebitda')
+                v_pb = p.get('price_to_book')
 
-        bPE = get_clean_median_local('pe_ratio')
-        bEVSALES = get_clean_median_local('forward_ev_sales')
-        bEVEBITDA = get_clean_median_local('ev_to_ebitda')
-        bPB = get_clean_median_local('price_to_book')
+                if type(v_pe) is float:
+                    if v_pe > 0 and math.isfinite(v_pe): vals_pe.append(v_pe)
+                elif type(v_pe) is int and v_pe > 0: vals_pe.append(float(v_pe))
+
+                if type(v_evs) is float:
+                    if v_evs > 0 and math.isfinite(v_evs): vals_evs.append(v_evs)
+                elif type(v_evs) is int and v_evs > 0: vals_evs.append(float(v_evs))
+
+                if type(v_eve) is float:
+                    if v_eve > 0 and math.isfinite(v_eve): vals_eve.append(v_eve)
+                elif type(v_eve) is int and v_eve > 0: vals_eve.append(float(v_eve))
+
+                if type(v_pb) is float:
+                    if v_pb > 0 and math.isfinite(v_pb): vals_pb.append(v_pb)
+                elif type(v_pb) is int and v_pb > 0: vals_pb.append(float(v_pb))
+
+        bPE = statistics.median(vals_pe) if vals_pe else None
+        bEVSALES = statistics.median(vals_evs) if vals_evs else None
+        bEVEBITDA = statistics.median(vals_eve) if vals_eve else None
+        bPB = statistics.median(vals_pb) if vals_pb else None
 
         # 1. Forward P/E Fair Value
         fvPE = (targ_fwd_eps * bPE) if (targ_fwd_eps and bPE and targ_fwd_eps > 0) else None
