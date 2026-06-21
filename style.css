@@ -4540,6 +4540,21 @@ body.has-searched #install-app-btn {
     border-bottom: 1px solid rgba(255,255,255,0.1);
 }
 
+.etf-header h4 {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 700;
+    display: flex;
+    flex-direction: column;
+}
+.etf-header h4 .live-price {
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin-top: 2px;
+}
+.price-up { color: #22c55e; }
+.price-down { color: #ef4444; }
+
 .etf-logo {
     width: 32px;
     height: 32px;
@@ -4547,12 +4562,6 @@ body.has-searched #install-app-btn {
     object-fit: cover;
     background: white;
     padding: 2px;
-}
-
-.etf-header h4 {
-    margin: 0;
-    color: var(--text-main);
-    font-size: 1.2rem;
 }
 
 .etf-row {
@@ -4564,19 +4573,23 @@ body.has-searched #install-app-btn {
 }
 
 .etf-row-company {
-    flex: 1;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    margin-right: 10px;
+    flex: 2;
+    display: flex;
+    align-items: center;
+    gap: 10px;
     color: var(--text-muted);
 }
-
+.etf-row-company img.company-logo-small {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: white;
+}
 .etf-row-ticker {
-    font-weight: bold;
+    flex: 1;
+    font-weight: 600;
     color: var(--text-main);
-    width: 60px;
-    text-align: left;
 }
 
 .etf-row-weight {
@@ -4648,12 +4661,12 @@ body.has-searched #install-app-btn {
 /* Search Glass Popup */
 .search-glass-popup {
     position: fixed;
-    bottom: 100px; /* Just above the bottom nav */
+    top: 10vh;
     left: 50%;
-    transform: translateX(-50%) translateY(20px);
+    transform: translateX(-50%) translateY(-20px);
     width: 90%;
     max-width: 450px;
-    background: rgba(15, 23, 42, 0.7);
+    background: rgba(15, 23, 42, 0.75);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -4706,7 +4719,13 @@ body.has-searched #install-app-btn {
     gap: 15px;
     padding: 10px 20px;
     z-index: 10000;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s;
+}
+
+.bottom-nav.hidden {
+    transform: translateX(-50%) translateY(150px);
+    opacity: 0;
+    pointer-events: none;
 }
 .bnav-btn {
     background: transparent;

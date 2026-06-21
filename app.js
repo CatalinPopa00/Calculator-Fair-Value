@@ -8943,8 +8943,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             maintainAspectRatio: false,
                             plugins: { legend: { display: false } },
                             scales: {
-                                x: { display: false },
-                                y: { display: false, min: Math.min(...values) - 1, max: Math.max(...values) + 1 }
+                                x: { display: true, ticks: { maxRotation: 45, color: '#94a3b8', font: {size: 10} }, grid: { display: false } },
+                                y: { display: true, position: 'right', grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8', font: {size: 10} }, min: Math.min(...values) - 1, max: Math.max(...values) + 1 }
                             }
                         }
                     });
@@ -8974,8 +8974,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             maintainAspectRatio: false,
                             plugins: { legend: { display: false } },
                             scales: {
-                                x: { display: false },
-                                y: { display: false, min: Math.min(...values) - 1, max: Math.max(...values) + 1 }
+                                x: { display: true, ticks: { maxRotation: 45, color: '#94a3b8', font: {size: 10} }, grid: { display: false } },
+                                y: { display: true, position: 'right', grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8', font: {size: 10} }, min: Math.min(...values) - 1, max: Math.max(...values) + 1 }
                             }
                         }
                     });
@@ -8991,9 +8991,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     container.innerHTML = '';
                     items.forEach(item => {
+                        const domain = item.domain || 'example.com';
                         container.innerHTML += `
                             <div class="etf-row">
-                                <div class="etf-row-company">${item.company}</div>
+                                <div class="etf-row-company">
+                                    <img src="https://logo.clearbit.com/${domain}" class="company-logo-small" onerror="this.src='https://ui-avatars.com/api/?name=${item.ticker}&background=0f172a&color=fff'" alt="">
+                                    ${item.company}
+                                </div>
                                 <div class="etf-row-ticker">${item.ticker}</div>
                                 <div class="etf-row-weight">${item.weight}</div>
                             </div>
@@ -9006,6 +9010,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     renderEtfList('etf-nasdaq-list', data.etfs.nasdaq);
                     renderEtfList('etf-russell-list', data.etfs.russell);
                     renderEtfList('etf-dax-list', data.etfs.dax);
+                    renderEtfList('etf-dow-list', data.etfs.dow);
+                    renderEtfList('etf-stoxx-list', data.etfs.stoxx);
                 }
                 
             } catch (e) {
@@ -9014,6 +9020,51 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         loadMacroDashboard();
+
+        // Live Market Prices Logic
+        async function fetchLiveMarketData() {
+            try {
+                const res = await fetch('/api/market-live');
+                const data = await res.json();
+                
+                // Update VIX
+                const vixElem = document.getElementById('macro-vix');
+                if (vixElem && data.vix) {
+                    vixElem.textContent = data.vix;
+                    if (data.vix > 30) vixElem.style.color = '#ef4444';
+                    else if (data.vix > 20) vixElem.style.color = '#f97316';
+                    else vixElem.style.color = '#22c55e';
+                }
+                
+                // Update Indices
+                for (const [key, info] of Object.entries(data.indices || {})) {
+                    const priceElem = document.getElementById('live-' + key);
+                    if (priceElem) {
+                        const sign = info.change_pct >= 0 ? '+' : '';
+                        const colorClass = info.change_pct >= 0 ? 'price-up' : 'price-down';
+                        priceElem.innerHTML = `<span class="${colorClass}">${info.price.toFixed(2)} (${sign}${info.change_pct.toFixed(2)}%)</span>`;
+                    }
+                }
+            } catch(e) {
+                console.error("Error fetching live market data:", e);
+            }
+        }
+        
+        setInterval(fetchLiveMarketData, 15000);
+        setTimeout(fetchLiveMarketData, 1000); // initial fetch
+
+        // Mobile Bottom Nav Auto-Hide
+        let navTimeout;
+        window.addEventListener('scroll', () => {
+            const bottomNav = document.querySelector('.bottom-nav');
+            if (bottomNav) {
+                bottomNav.classList.remove('hidden');
+                clearTimeout(navTimeout);
+                navTimeout = setTimeout(() => {
+                    bottomNav.classList.add('hidden');
+                }, 3000);
+            }
+        });
 
         // --- LATEST NEWS LOGIC ---
         let latestNewsCache = [];
@@ -9215,14 +9266,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         window.addEventListener('click', (e) => {
             if (e.target === searchModal) {
-                searchModal.style.display = 'none';
+                searchModal.classList.remove('show');
             }
         });
 
         const searchBtn = document.getElementById('search-btn');
         if (searchBtn) {
             searchBtn.addEventListener('click', () => {
-                if (searchModal) searchModal.style.display = 'none';
+                if (searchModal) searchModal.classList.remove('show');
             });
         }
 
