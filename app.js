@@ -3791,9 +3791,8 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             if(aiLoading) aiLoading.style.display = 'none';
 
             dashboard.style.display = 'none';
-            loadingState.style.display = 'none';
-        document.getElementById('ticker-input')?.classList.remove('search-loading-active'); /* Bypassed */
-        document.getElementById('ticker-input')?.classList.add('search-loading-active');
+            loadingState.style.display = 'flex';
+            document.getElementById('ticker-input')?.classList.add('search-loading-active');
             if (elements.fairValue) elements.fairValue.textContent = '$0.00';
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
@@ -7192,9 +7191,8 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         watchlistView.style.display = 'block';
 
         if (!cachedWatchlistData || cachedWatchlistData.length !== watchlist.length) {
-            loadingState.style.display = 'none';
-        document.getElementById('ticker-input')?.classList.remove('search-loading-active'); /* Bypassed */
-        document.getElementById('ticker-input')?.classList.add('search-loading-active');
+            loadingState.style.display = 'flex';
+            document.getElementById('ticker-input')?.classList.add('search-loading-active');
             watchlistView.style.display = 'none';
             await refreshWatchlistData();
             loadingState.style.display = 'none';
@@ -9010,8 +9008,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Fed Rate
                 if (data.fed_rate) {
                     document.getElementById('fed-current').textContent = data.fed_rate.current;
-                    document.getElementById('fed-forecast').textContent = data.fed_rate.forecast;
-                    document.getElementById('fed-cut-odds').textContent = data.fed_rate.cut_probability;
                 }
 
                 // Charts
