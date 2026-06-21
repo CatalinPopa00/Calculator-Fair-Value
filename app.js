@@ -4314,7 +4314,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     if (data.website) {
                         let domain = data.website.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
                         if (domain) {
-                            loadAndAnalyzeLogo(`https://logo.clearbit.com/${domain}`, elements.logo);
+                            loadAndAnalyzeLogo(`https://www.google.com/s2/favicons?sz=64&domain=${domain}`, elements.logo);
                         } else {
                             elements.logo.style.display = 'none';
                         }
@@ -9069,7 +9069,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         container.innerHTML += `
                             <div class="etf-row">
                                 <div class="etf-row-company">
-                                    <img src="https://logo.clearbit.com/${domain}" class="company-logo-small" onerror="this.src='https://ui-avatars.com/api/?name=${item.ticker}&background=0f172a&color=fff'" alt="">
+                                    <img src="https://www.google.com/s2/favicons?sz=64&domain=${domain}" class="company-logo-small" onerror="this.src='https://ui-avatars.com/api/?name=${item.ticker}&background=0f172a&color=fff'" alt="">
                                     ${item.company}
                                 </div>
                                 <div class="etf-row-ticker">${item.ticker}</div>
@@ -9115,8 +9115,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     const priceElem = document.getElementById('live-' + key);
                     if (priceElem) {
                         const sign = info.change_pct >= 0 ? '+' : '';
+                        const arrow = info.change_pct >= 0 ? '▲' : '▼';
                         const colorClass = info.change_pct >= 0 ? 'price-up' : 'price-down';
-                        priceElem.innerHTML = `<span class="${colorClass}">${info.price.toFixed(2)} (${sign}${info.change_pct.toFixed(2)}%)</span>`;
+                        const fmtPrice = info.price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                        priceElem.innerHTML = `<span class="${colorClass}">${fmtPrice} (${sign}${info.change_pct.toFixed(2)}%) ${arrow}</span>`;
                     }
                 }
             } catch(e) {
