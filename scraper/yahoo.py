@@ -366,10 +366,37 @@ def _get_latest_fy(df, obj):
 def find_idx(df, target):
     """Case-insensitive index lookup for pandas DataFrames (supports list of strings)."""
     if df is None or (hasattr(df, "empty") and df.empty) or (isinstance(df, dict) and not df): return None
-    targets = [str(t).lower().strip() for t in (target if isinstance(target, list) else [target])]
-    for idx in df.index:
-        idx_lower = str(idx).lower().strip()
-        if idx_lower in targets: return idx
+
+    cache_key = "_find_idx_cache"
+    current_idx_id = id(df.index)
+
+    if cache_key in df.attrs:
+        cached_id, idx_map = df.attrs[cache_key]
+        if cached_id != current_idx_id:
+            idx_map = {}
+            for i, idx in enumerate(df.index):
+                idx_lower = str(idx).lower().strip()
+                if idx_lower not in idx_map:
+                    idx_map[idx_lower] = (i, idx)
+            df.attrs[cache_key] = (current_idx_id, idx_map)
+    else:
+        idx_map = {}
+        for i, idx in enumerate(df.index):
+            idx_lower = str(idx).lower().strip()
+            if idx_lower not in idx_map:
+                idx_map[idx_lower] = (i, idx)
+        df.attrs[cache_key] = (current_idx_id, idx_map)
+
+    targets_list = target if isinstance(target, list) else [target]
+
+    matches = []
+    for t in targets_list:
+        t_lower = str(t).lower().strip()
+        if t_lower in idx_map:
+            matches.append(idx_map[t_lower])
+
+    if matches:
+        return min(matches, key=lambda x: x[0])[1]
     return None
 
 def get_metric(df, field, target):
