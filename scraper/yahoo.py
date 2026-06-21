@@ -352,6 +352,17 @@ def normalize_growth(val):
     except:
         return None
 
+
+def _get_latest_fy(df, obj):
+    if not hasattr(obj, 'iloc'):
+        return float(obj)
+    col_idx = 0
+    while col_idx < len(df.columns) and str(df.columns[col_idx]).lower() == 'ttm':
+        col_idx += 1
+    if col_idx < len(df.columns):
+        return float(obj.iloc[col_idx])
+    return None
+
 def find_idx(df, target):
     """Case-insensitive index lookup for pandas DataFrames (supports list of strings)."""
     if df is None or (hasattr(df, "empty") and df.empty) or (isinstance(df, dict) and not df): return None
@@ -1926,7 +1937,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                 if idx:
                     try:
                         val_obj = financials.loc[idx]
-                        val = float(val_obj.iloc[0]) if hasattr(val_obj, 'iloc') else float(val_obj)
+                        val = _get_latest_fy(financials, val_obj)
+                        if val is None: val = float(val_obj.iloc[0]) if hasattr(val_obj, 'iloc') else float(val_obj)
                         if val > 0:
                             shares_outstanding = val
                             break
@@ -1951,12 +1963,9 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                     if ni_idx and shares_outstanding and shares_outstanding > 0:
                         ni_obj = financials.loc[ni_idx]
                         # Fix: Ensure we get the last completed FY, not TTM
-                        col_idx = 0
-                        while col_idx < len(financials.columns) and str(financials.columns[col_idx]).lower() == 'ttm':
-                            col_idx += 1
+                        net_inc = _get_latest_fy(financials, ni_obj)
                         
-                        if col_idx < len(financials.columns):
-                            net_inc = float(ni_obj.iloc[col_idx]) if hasattr(ni_obj, 'iloc') else float(ni_obj)
+                        if net_inc is not None:
                             # Recalibrate GAAP EPS using fx_rate since financials are now raw (local currency)
                             gaap_eps = (net_inc * fx_rate) / shares_outstanding
                             gaap_eps_fy = gaap_eps
@@ -2002,12 +2011,14 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                 fcf_idx = find_idx(cashflow, 'Free Cash Flow')
                 if fcf_idx:
                     fcf_obj = cashflow.loc[fcf_idx]
-                    fcf = float(fcf_obj.iloc[0]) if hasattr(fcf_obj, 'iloc') else float(fcf_obj)
+                    fcf = _get_latest_fy(cashflow, fcf_obj)
+                    if fcf is None: fcf = float(fcf_obj.iloc[0]) if hasattr(fcf_obj, 'iloc') else float(fcf_obj)
                 else:
                     ocf_idx = find_idx(cashflow, 'Operating Cash Flow')
                     if ocf_idx:
                         ocf_obj = cashflow.loc[ocf_idx]
-                        fcf = float(ocf_obj.iloc[0]) if hasattr(ocf_obj, 'iloc') else float(ocf_obj)
+                        fcf = _get_latest_fy(cashflow, ocf_obj)
+                        if fcf is None: fcf = float(ocf_obj.iloc[0]) if hasattr(ocf_obj, 'iloc') else float(ocf_obj)
         except: pass
         
         if fcf is None:
@@ -2093,7 +2104,7 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                 rev_idx = find_idx(financials, 'Total Revenue')
                 if rev_idx:
                     rev_obj = financials.loc[rev_idx]
-                    revenue = (float(rev_obj.iloc[0]) if hasattr(rev_obj, 'iloc') else float(rev_obj)) * fx_rate
+                    revenue = (_get_latest_fy(financials, rev_obj) if _get_latest_fy(financials, rev_obj) is not None else (float(rev_obj.iloc[0]) if hasattr(rev_obj, 'iloc') else float(rev_obj))) * fx_rate
         except: pass
         
         if revenue is None:
@@ -2424,7 +2435,8 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                 if ocf_idx:
                     # Get the most recent column (usually TTM or last FY)
                     ocf_obj = cashflow.loc[ocf_idx]
-                    operating_cashflow = float(ocf_obj.iloc[0]) if hasattr(ocf_obj, 'iloc') else float(ocf_obj)
+                    operating_cashflow = _get_latest_fy(cashflow, ocf_obj)
+                    if operating_cashflow is None: operating_cashflow = float(ocf_obj.iloc[0]) if hasattr(ocf_obj, 'iloc') else float(ocf_obj)
         except: pass
 
 
