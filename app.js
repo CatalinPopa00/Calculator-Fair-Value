@@ -3792,8 +3792,8 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
             dashboard.style.display = 'none';
             loadingState.style.display = 'none';
-        const tInp2 = document.getElementById('ticker-input'); if(tInp2) tInp2.classList.remove('search-loading-active'); /* Bypassed */
-        const tInp = document.getElementById('ticker-input'); if(tInp) tInp.classList.add('search-loading-active');
+        document.getElementById('ticker-input')?.classList.remove('search-loading-active'); /* Bypassed */
+        document.getElementById('ticker-input')?.classList.add('search-loading-active');
             if (elements.fairValue) elements.fairValue.textContent = '$0.00';
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
@@ -3811,7 +3811,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         let query = (queryParam && typeof queryParam === 'string') ? queryParam : tickerInput.value.trim();
         if (!query) {
             loadingState.style.display = 'none';
-        const tInp2 = document.getElementById('ticker-input'); if(tInp2) tInp2.classList.remove('search-loading-active');
+        document.getElementById('ticker-input')?.classList.remove('search-loading-active');
             return;
         }
 
@@ -3913,7 +3913,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             console.error('Error fetching valuation:', error);
             alert('Error: ' + error.message + '\nStack: ' + error.stack);
             loadingState.style.display = 'none';
-        const tInp2 = document.getElementById('ticker-input'); if(tInp2) tInp2.classList.remove('search-loading-active');
+        document.getElementById('ticker-input')?.classList.remove('search-loading-active');
         } finally {
             if (searchBtn) {
                 searchBtn.disabled = false;
@@ -3921,7 +3921,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             }
             if (!silent) {
                 loadingState.style.display = 'none';
-        const tInp2 = document.getElementById('ticker-input'); if(tInp2) tInp2.classList.remove('search-loading-active');
+        document.getElementById('ticker-input')?.classList.remove('search-loading-active');
                 dashboard.style.display = 'block';
             } else {
                 requestAnimationFrame(() => {
@@ -5285,7 +5285,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         window.renderAnchorsTable(); // Initial call
 
         loadingState.style.display = 'none';
-        const tInp2 = document.getElementById('ticker-input'); if(tInp2) tInp2.classList.remove('search-loading-active');
+        document.getElementById('ticker-input')?.classList.remove('search-loading-active');
         watchlistView.style.display = 'none';
         dashboard.style.display = 'block';
 
@@ -7193,12 +7193,12 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
         if (!cachedWatchlistData || cachedWatchlistData.length !== watchlist.length) {
             loadingState.style.display = 'none';
-        const tInp2 = document.getElementById('ticker-input'); if(tInp2) tInp2.classList.remove('search-loading-active'); /* Bypassed */
-        const tInp = document.getElementById('ticker-input'); if(tInp) tInp.classList.add('search-loading-active');
+        document.getElementById('ticker-input')?.classList.remove('search-loading-active'); /* Bypassed */
+        document.getElementById('ticker-input')?.classList.add('search-loading-active');
             watchlistView.style.display = 'none';
             await refreshWatchlistData();
             loadingState.style.display = 'none';
-        const tInp2 = document.getElementById('ticker-input'); if(tInp2) tInp2.classList.remove('search-loading-active');
+        document.getElementById('ticker-input')?.classList.remove('search-loading-active');
             watchlistView.style.display = 'block';
         }
 
