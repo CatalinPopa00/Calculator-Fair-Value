@@ -9066,6 +9066,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     bnavIndicator.style.transform = `translateX(${btn.offsetLeft}px)`;
                 }
             }
+            
+            // Close search modal if we clicked on anything else
+            const searchModal = document.getElementById('search-modal');
+            const bnavSearch = document.getElementById('bnav-search');
+            if (btn && btn !== bnavSearch && searchModal) {
+                searchModal.classList.remove('show');
+            }
         }
 
         // Initialize indicator position on load
@@ -9093,14 +9100,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (bnavSearch) bnavSearch.addEventListener('click', () => {
             setBnavActive(bnavSearch);
             if (searchModal) {
-                searchModal.style.display = 'flex';
+                searchModal.classList.add('show');
                 setTimeout(() => document.getElementById('ticker-input').focus(), 100);
             }
         });
 
         if (closeSearchModal) {
             closeSearchModal.addEventListener('click', () => {
-                searchModal.style.display = 'none';
+                searchModal.classList.remove('show');
             });
         }
 
