@@ -1,3 +1,39 @@
+// Helper: Robust Fetch that retries on background timeout or network drop
+async function robustFetch(url, options = {}, maxRetries = 2) {
+    let retryCount = 0;
+    while (retryCount <= maxRetries) {
+        try {
+            const res = await fetch(url, options);
+            if (!res.ok) {
+                if (res.status === 504 && document.visibilityState === 'hidden') {
+                    throw new Error('Timeout due to background');
+                }
+                return res; // let caller handle other HTTP errors
+            }
+            return res;
+        } catch (err) {
+            if (retryCount < maxRetries && (document.visibilityState === 'hidden' || err.message.includes('fetch') || err.message.includes('NetworkError') || err.message.includes('Timeout'))) {
+                console.warn('Network error or backgrounded in robustFetch. Retrying...', err);
+                retryCount++;
+                if (document.visibilityState === 'hidden') {
+                    await new Promise(resolve => {
+                        const onVis = () => {
+                            if (document.visibilityState === 'visible') {
+                                document.removeEventListener('visibilitychange', onVis);
+                                resolve();
+                            }
+                        };
+                        document.addEventListener('visibilitychange', onVis);
+                    });
+                }
+                await new Promise(r => setTimeout(r, 2000));
+                continue;
+            }
+            throw err;
+        }
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
 
 
@@ -3815,9 +3851,47 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 valUrl += `?t=${Date.now()}&force_refresh=true`;
             }
 
-            const valRes = await fetch(valUrl);
-
-            if (!valRes.ok) { let errMsg = 'Network response was not ok'; try { const errData = await valRes.json(); if (errData.detail) errMsg = errData.detail; } catch (e) {} throw new Error(errMsg); }
+            let valRes;
+            let retryCount = 0;
+            const maxRetries = 2;
+            
+            while (retryCount <= maxRetries) {
+                try {
+                    valRes = await fetch(valUrl);
+                    
+                    if (!valRes.ok) {
+                        if (valRes.status === 504 && document.visibilityState === 'hidden') {
+                            throw new Error('Timeout due to background');
+                        }
+                        let errMsg = 'Network response was not ok'; 
+                        try { 
+                            const errData = await valRes.json(); 
+                            if (errData.detail) errMsg = errData.detail; 
+                        } catch (e) {} 
+                        throw new Error(errMsg); 
+                    }
+                    break; // Success
+                } catch (err) {
+                    if (retryCount < maxRetries && (document.visibilityState === 'hidden' || err.message.includes('fetch') || err.message.includes('NetworkError') || err.message.includes('Timeout'))) {
+                        console.warn('Network error or backgrounded. Waiting for visibility and retrying...', err);
+                        retryCount++;
+                        if (document.visibilityState === 'hidden') {
+                            await new Promise(resolve => {
+                                const onVis = () => {
+                                    if (document.visibilityState === 'visible') {
+                                        document.removeEventListener('visibilitychange', onVis);
+                                        resolve();
+                                    }
+                                };
+                                document.addEventListener('visibilitychange', onVis);
+                            });
+                        }
+                        await new Promise(r => setTimeout(r, 2000)); // wait a bit before retry
+                        continue;
+                    }
+                    throw err;
+                }
+            }
 
             const data = await valRes.json();
 
@@ -5862,7 +5936,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         if (rBody) rBody.innerHTML = '';
 
         try {
-            const res = await fetch(`/api/analyst/${ticker}?t=${Date.now()}`);
+            const res = await robustFetch(`/api/analyst/${ticker}?t=${Date.now()}`);
             if (!res.ok) throw new Error('API Error');
             const data = await res.json();
             console.log("ANALYST API DATA RECEIVED:", data);
@@ -7036,7 +7110,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
         if (tickersToFetch.length > 0) {
             try {
-                const res = await fetch('/api/batch-valuation', {
+                const res = await robustFetch('/api/batch-valuation', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ tickers: tickersToFetch })
