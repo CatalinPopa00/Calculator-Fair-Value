@@ -8985,10 +8985,35 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('nav-watchlist-btn').click();
         });
 
+        const searchModal = document.getElementById('search-modal');
+        const closeSearchModal = document.getElementById('close-search-modal');
+
         if (bnavSearch) bnavSearch.addEventListener('click', () => {
             setBnavActive(bnavSearch);
-            document.getElementById('ticker-input').focus();
+            if (searchModal) {
+                searchModal.style.display = 'block';
+                setTimeout(() => document.getElementById('ticker-input').focus(), 100);
+            }
         });
+
+        if (closeSearchModal) {
+            closeSearchModal.addEventListener('click', () => {
+                searchModal.style.display = 'none';
+            });
+        }
+
+        window.addEventListener('click', (e) => {
+            if (e.target === searchModal) {
+                searchModal.style.display = 'none';
+            }
+        });
+
+        const searchBtn = document.getElementById('search-btn');
+        if (searchBtn) {
+            searchBtn.addEventListener('click', () => {
+                if (searchModal) searchModal.style.display = 'none';
+            });
+        }
 
         if (bnavOverview) bnavOverview.addEventListener('click', () => {
             setBnavActive(bnavOverview);
