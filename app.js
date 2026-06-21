@@ -9330,6 +9330,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const bnavSearch = document.getElementById('bnav-search');
             if (btn && btn !== bnavSearch && searchModal) {
                 searchModal.classList.remove('show');
+                const _ov = document.getElementById('search-modal-overlay');
+                if (_ov) _ov.classList.remove('show');
             }
         }
 
@@ -9359,19 +9361,32 @@ document.addEventListener('DOMContentLoaded', () => {
             setBnavActive(bnavSearch);
             if (searchModal) {
                 searchModal.classList.add('show');
-                // setTimeout(() => document.getElementById('ticker-input').focus(), 100);
+                const overlay = document.getElementById('search-modal-overlay');
+                if (overlay) overlay.classList.add('show');
+
+                // Focus the input when modal opens
+                setTimeout(() => {
+                    const input = document.getElementById('ticker-input');
+                    if (input) input.focus();
+                }, 100);
             }
         });
 
         if (closeSearchModal) {
             closeSearchModal.addEventListener('click', () => {
                 searchModal.classList.remove('show');
+                const _ov = document.getElementById('search-modal-overlay');
+                if (_ov) _ov.classList.remove('show');
             });
         }
 
         window.addEventListener('click', (e) => {
-            if (e.target === searchModal) {
+            const overlay = document.getElementById('search-modal-overlay');
+            if (e.target === searchModal || e.target === overlay) {
                 searchModal.classList.remove('show');
+                const _ov = document.getElementById('search-modal-overlay');
+                if (_ov) _ov.classList.remove('show');
+                if (overlay) overlay.classList.remove('show');
             }
         });
 
@@ -9380,6 +9395,8 @@ document.addEventListener('DOMContentLoaded', () => {
             searchBtn.addEventListener('click', () => {
                 // Don't close popup on Analyze - it stays open with loading animation
                 // if (searchModal) searchModal.classList.remove('show');
+                const _ov = document.getElementById('search-modal-overlay');
+                if (_ov) _ov.classList.remove('show');
             });
         }
 
