@@ -8908,20 +8908,48 @@ document.addEventListener('DOMContentLoaded', () => {
         loadMacroDashboard();
 
         // --- LATEST NEWS LOGIC ---
-        async function loadNewsDashboard() {
+        let latestNewsCache = [];
+        async function loadNewsDashboard(isSilent = false) {
             const newsGrid = document.getElementById('news-grid');
             const newsLoading = document.getElementById('news-loading');
             if (!newsGrid || !newsLoading) return;
             try {
+                if (!isSilent && latestNewsCache.length === 0) {
+                    newsLoading.style.display = 'block';
+                    newsGrid.style.display = 'none';
+                }
                 const res = await fetch('/api/news');
                 const data = await res.json();
-                newsLoading.style.display = 'none';
-                newsGrid.style.display = 'grid';
+                
                 if (!data.news || data.news.length === 0) {
-                    newsGrid.innerHTML = '<p style="text-align:center; grid-column: 1/-1;">No news available.</p>';
+                    if (latestNewsCache.length === 0) {
+                        newsLoading.style.display = 'none';
+                        newsGrid.style.display = 'grid';
+                        newsGrid.innerHTML = '<p style="text-align:center; grid-column: 1/-1;">No news available.</p>';
+                    }
                     return;
                 }
-                data.news.forEach(item => {
+
+                // Check if news are the same
+                const newFirstTitle = data.news[0]?.title;
+                const oldFirstTitle = latestNewsCache[0]?.title;
+                if (isSilent && newFirstTitle === oldFirstTitle) {
+                    return; // No updates needed
+                }
+                
+                latestNewsCache = data.news;
+                
+                newsLoading.style.display = 'none';
+                newsGrid.style.display = 'grid';
+                newsGrid.innerHTML = '';
+                
+                const mainCol = document.createElement('div');
+                mainCol.className = 'news-main-column';
+                const sidebarCol = document.createElement('div');
+                sidebarCol.className = 'news-sidebar';
+                
+                // Helper to create card
+                const createCard = (item, typeClass) => {
                     const title = item.title || 'Market News';
                     const publisher = item.publisher || 'Yahoo Finance';
                     const link = item.link || item.clickThroughUrl?.url || '#';
@@ -8929,7 +8957,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const date = item.pubDate ? new Date(item.pubDate).toLocaleString() : '';
                     
                     const card = document.createElement('a');
-                    card.className = 'news-card';
+                    card.className = `news-card ${typeClass}`;
                     card.href = link;
                     card.target = '_blank';
                     
@@ -8937,7 +8965,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (imgUrl) {
                         imgHtml = `<img src="${imgUrl}" class="news-img" alt="News Image">`;
                     } else {
-                        imgHtml = `<div class="news-img">📰</div>`;
+                        imgHtml = `<div class="news-img" style="font-size:3rem;">📰</div>`;
                     }
                     
                     card.innerHTML = `
@@ -8950,14 +8978,68 @@ document.addEventListener('DOMContentLoaded', () => {
                             </div>
                         </div>
                     `;
-                    newsGrid.appendChild(card);
-                });
+                    return card;
+                };
+
+                const news = data.news;
+                
+                // Hero Article (Index 0)
+                if (news[0]) mainCol.appendChild(createCard(news[0], 'news-hero'));
+                
+                // Section Title for Main Col
+                if (news.length > 5) {
+                    const secTitle = document.createElement('div');
+                    secTitle.className = 'news-section-title';
+                    secTitle.textContent = 'Recomandările Redacției';
+                    mainCol.appendChild(secTitle);
+                }
+                
+                // Main List Articles (Index 5 to 10)
+                for (let i = 5; i < Math.min(11, news.length); i++) {
+                    mainCol.appendChild(createCard(news[i], 'news-horizontal'));
+                }
+                
+                // Sidebar Title
+                const sideTitle = document.createElement('div');
+                sideTitle.className = 'news-section-title';
+                sideTitle.textContent = 'Urmărește-ne și pe piață';
+                sidebarCol.appendChild(sideTitle);
+                
+                // Sidebar Top (Index 1 to 4)
+                for (let i = 1; i < Math.min(5, news.length); i++) {
+                    sidebarCol.appendChild(createCard(news[i], 'news-stacked'));
+                }
+                
+                // Sidebar Bottom (Index 11+)
+                if (news.length > 11) {
+                    const sideTitle2 = document.createElement('div');
+                    sideTitle2.className = 'news-section-title';
+                    sideTitle2.style.marginTop = '20px';
+                    sideTitle2.textContent = 'Ultimele Noutăți';
+                    sidebarCol.appendChild(sideTitle2);
+                    
+                    for (let i = 11; i < news.length; i++) {
+                        sidebarCol.appendChild(createCard(news[i], 'news-stacked'));
+                    }
+                }
+                
+                newsGrid.appendChild(mainCol);
+                newsGrid.appendChild(sidebarCol);
+                
             } catch (err) {
                 console.error("Error loading news:", err);
-                newsLoading.innerHTML = "Failed to load news.";
+                if (latestNewsCache.length === 0) {
+                    newsLoading.innerHTML = "Failed to load news.";
+                }
             }
         }
         loadNewsDashboard();
+        
+        // Live updates every 60 seconds
+        setInterval(() => {
+            // Do a silent reload in the background
+            loadNewsDashboard(true);
+        }, 60000);
 
         // --- BOTTOM NAV LOGIC ---
         const bnavHome = document.getElementById('bnav-home');
