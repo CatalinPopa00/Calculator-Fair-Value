@@ -1,15 +1,42 @@
 from fastapi import APIRouter
-from cachetools import TTLCache
+from cachetools import TTLCache, cached
+from threading import Lock
 from bs4 import BeautifulSoup
 import requests
 import json
 import yfinance as yf
+from functools import wraps
 
 router = APIRouter()
 
 # Cache macro data for 24 hours
 macro_cache = TTLCache(maxsize=10, ttl=86400)
 
+def safe_cached(cache, fallback_value=None, lock=None):
+    """
+    Thread-safe caching decorator that avoids caching fallback values.
+    """
+    if lock is None:
+        lock = Lock()
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            key = str(args) + str(kwargs)
+            with lock:
+                if key in cache:
+                    return cache[key]
+
+            result = func(*args, **kwargs)
+
+            # Simple heuristic to check if result is a fallback
+            if result != fallback_value and result is not None:
+                with lock:
+                    cache[key] = result
+            return result
+        return wrapper
+    return decorator
+
+@safe_cached(cache=TTLCache(maxsize=1, ttl=86400), fallback_value={"score": 50, "rating": "neutral"})
 def get_fear_and_greed():
     try:
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'}
@@ -29,51 +56,51 @@ def get_static_etf_top10(index_name):
             {"company": "Apple", "ticker": "AAPL", "weight": "6.5%", "domain": "apple.com"},
             {"company": "NVIDIA", "ticker": "NVDA", "weight": "6.1%", "domain": "nvidia.com"},
             {"company": "Amazon", "ticker": "AMZN", "weight": "3.5%", "domain": "amazon.com"},
-            {"company": "Alphabet A", "ticker": "GOOGL", "weight": "2.2%", "domain": "abc.xyz"},
-            {"company": "Meta", "ticker": "META", "weight": "2.1%", "domain": "meta.com"},
-            {"company": "Alphabet C", "ticker": "GOOG", "weight": "1.9%", "domain": "abc.xyz"},
+            {"company": "Meta", "ticker": "META", "weight": "2.2%", "domain": "meta.com"},
+            {"company": "Alphabet (Class A)", "ticker": "GOOGL", "weight": "2.1%", "domain": "abc.xyz"},
+            {"company": "Alphabet (Class C)", "ticker": "GOOG", "weight": "1.8%", "domain": "abc.xyz"},
             {"company": "Berkshire Hathaway", "ticker": "BRK.B", "weight": "1.7%", "domain": "berkshirehathaway.com"},
-            {"company": "Eli Lilly", "ticker": "LLY", "weight": "1.5%", "domain": "lilly.com"},
-            {"company": "Broadcom", "ticker": "AVGO", "weight": "1.3%", "domain": "broadcom.com"}
+            {"company": "Broadcom", "ticker": "AVGO", "weight": "1.3%", "domain": "broadcom.com"},
+            {"company": "Eli Lilly", "ticker": "LLY", "weight": "1.3%", "domain": "lilly.com"}
         ]
     elif index_name == "nasdaq":
         return [
             {"company": "Microsoft", "ticker": "MSFT", "weight": "8.5%", "domain": "microsoft.com"},
-            {"company": "Apple", "ticker": "AAPL", "weight": "8.0%", "domain": "apple.com"},
-            {"company": "NVIDIA", "ticker": "NVDA", "weight": "7.5%", "domain": "nvidia.com"},
-            {"company": "Amazon", "ticker": "AMZN", "weight": "5.0%", "domain": "amazon.com"},
-            {"company": "Meta", "ticker": "META", "weight": "4.5%", "domain": "meta.com"},
-            {"company": "Broadcom", "ticker": "AVGO", "weight": "4.0%", "domain": "broadcom.com"},
-            {"company": "Alphabet A", "ticker": "GOOGL", "weight": "2.8%", "domain": "abc.xyz"},
-            {"company": "Alphabet C", "ticker": "GOOG", "weight": "2.8%", "domain": "abc.xyz"},
-            {"company": "Tesla", "ticker": "TSLA", "weight": "2.5%", "domain": "tesla.com"},
+            {"company": "Apple", "ticker": "AAPL", "weight": "8.2%", "domain": "apple.com"},
+            {"company": "NVIDIA", "ticker": "NVDA", "weight": "6.9%", "domain": "nvidia.com"},
+            {"company": "Amazon", "ticker": "AMZN", "weight": "4.9%", "domain": "amazon.com"},
+            {"company": "Meta", "ticker": "META", "weight": "4.2%", "domain": "meta.com"},
+            {"company": "Broadcom", "ticker": "AVGO", "weight": "4.1%", "domain": "broadcom.com"},
+            {"company": "Alphabet (Class A)", "ticker": "GOOGL", "weight": "2.6%", "domain": "abc.xyz"},
+            {"company": "Alphabet (Class C)", "ticker": "GOOG", "weight": "2.5%", "domain": "abc.xyz"},
+            {"company": "Tesla", "ticker": "TSLA", "weight": "2.4%", "domain": "tesla.com"},
             {"company": "Costco", "ticker": "COST", "weight": "2.1%", "domain": "costco.com"}
-        ]
-    elif index_name == "dax":
-        return [
-            {"company": "SAP SE", "ticker": "SAP", "weight": "11.5%", "domain": "sap.com"},
-            {"company": "Siemens AG", "ticker": "SIE.DE", "weight": "9.2%", "domain": "siemens.com"},
-            {"company": "Allianz SE", "ticker": "ALV.DE", "weight": "7.8%", "domain": "allianz.com"},
-            {"company": "Airbus SE", "ticker": "AIR.DE", "weight": "6.4%", "domain": "airbus.com"},
-            {"company": "Deutsche Telekom", "ticker": "DTE.DE", "weight": "5.9%", "domain": "telekom.com"},
-            {"company": "Münchener Rück", "ticker": "MUV2.DE", "weight": "4.5%", "domain": "munichre.com"},
-            {"company": "Mercedes-Benz", "ticker": "MBG.DE", "weight": "3.8%", "domain": "mercedes-benz.com"},
-            {"company": "BASF SE", "ticker": "BAS.DE", "weight": "3.2%", "domain": "basf.com"},
-            {"company": "DHL Group", "ticker": "DHL.DE", "weight": "3.0%", "domain": "dhl.com"},
-            {"company": "BMW AG", "ticker": "BMW.DE", "weight": "2.5%", "domain": "bmw.com"}
         ]
     elif index_name == "russell":
         return [
-            {"company": "Super Micro", "ticker": "SMCI", "weight": "1.2%", "domain": "supermicro.com"},
-            {"company": "MicroStrategy", "ticker": "MSTR", "weight": "0.9%", "domain": "microstrategy.com"},
-            {"company": "Comfort Systems", "ticker": "FIX", "weight": "0.5%", "domain": "comfortsystemsusa.com"},
-            {"company": "e.l.f. Beauty", "ticker": "ELF", "weight": "0.4%", "domain": "elfcosmetics.com"},
-            {"company": "Light & Wonder", "ticker": "LNW", "weight": "0.4%", "domain": "lnw.com"},
-            {"company": "Onto Innovation", "ticker": "ONTO", "weight": "0.4%", "domain": "ontoinnovation.com"},
-            {"company": "Kinsale Capital", "ticker": "KNSL", "weight": "0.3%", "domain": "kinsalecapitalgroup.com"},
-            {"company": "Simpson Mfg", "ticker": "SSD", "weight": "0.3%", "domain": "strongtie.com"},
-            {"company": "Weatherford", "ticker": "WFRD", "weight": "0.3%", "domain": "weatherford.com"},
-            {"company": "Rambus Inc", "ticker": "RMBS", "weight": "0.3%", "domain": "rambus.com"}
+            {"company": "Super Micro Computer", "ticker": "SMCI", "weight": "1.6%", "domain": "supermicro.com"},
+            {"company": "MicroStrategy", "ticker": "MSTR", "weight": "1.2%", "domain": "microstrategy.com"},
+            {"company": "Carvana", "ticker": "CVNA", "weight": "0.7%", "domain": "carvana.com"},
+            {"company": "Comfort Systems USA", "ticker": "FIX", "weight": "0.4%", "domain": "comfortsystemsusa.com"},
+            {"company": "Elf Beauty", "ticker": "ELF", "weight": "0.4%", "domain": "elfcosmetics.com"},
+            {"company": "Onto Innovation", "ticker": "ONTO", "weight": "0.3%", "domain": "ontoinnovation.com"},
+            {"company": "Light & Wonder", "ticker": "LNW", "weight": "0.3%", "domain": "lnw.com"},
+            {"company": "Simpson Manufacturing", "ticker": "SSD", "weight": "0.3%", "domain": "strongtie.com"},
+            {"company": "Modine Manufacturing", "ticker": "MOD", "weight": "0.3%", "domain": "modine.com"},
+            {"company": "Rambus", "ticker": "RMBS", "weight": "0.3%", "domain": "rambus.com"}
+        ]
+    elif index_name == "dax":
+        return [
+            {"company": "SAP SE", "ticker": "SAP.DE", "weight": "12.5%", "domain": "sap.com"},
+            {"company": "Siemens", "ticker": "SIE.DE", "weight": "9.8%", "domain": "siemens.com"},
+            {"company": "Allianz", "ticker": "ALV.DE", "weight": "8.2%", "domain": "allianz.com"},
+            {"company": "Airbus", "ticker": "AIR.DE", "weight": "6.8%", "domain": "airbus.com"},
+            {"company": "Deutsche Telekom", "ticker": "DTE.DE", "weight": "5.9%", "domain": "telekom.com"},
+            {"company": "Munich Re", "ticker": "MUV2.DE", "weight": "4.5%", "domain": "munichre.com"},
+            {"company": "Mercedes-Benz", "ticker": "MBG.DE", "weight": "4.2%", "domain": "mercedes-benz.com"},
+            {"company": "DHL Group", "ticker": "DHL.DE", "weight": "3.5%", "domain": "dpdhl.com"},
+            {"company": "BMW", "ticker": "BMW.DE", "weight": "3.2%", "domain": "bmwgroup.com"},
+            {"company": "Infineon", "ticker": "IFX.DE", "weight": "3.1%", "domain": "infineon.com"}
         ]
     elif index_name == "dow":
         return [
@@ -103,6 +130,7 @@ def get_static_etf_top10(index_name):
         ]
     return []
 
+@safe_cached(cache=TTLCache(maxsize=1, ttl=86400), fallback_value=15.0)
 def get_vix_current():
     try:
         tkr = yf.Ticker('^VIX')
@@ -113,6 +141,7 @@ def get_vix_current():
         print(f"Error fetching VIX: {e}")
     return 15.0 # Fallback
 
+@safe_cached(cache=TTLCache(maxsize=1, ttl=86400), fallback_value={"current": "5.25 - 5.50%", "forecast": "", "cut_probability": "", "hike_probability": ""})
 def get_fed_rate():
     try:
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'}
@@ -145,6 +174,7 @@ def get_fed_rate():
                                 "hike_probability": ""
     }
 
+@safe_cached(cache=TTLCache(maxsize=10, ttl=86400), fallback_value=[])
 def get_world_bank_data(indicator, history=False):
     try:
         url = f'http://api.worldbank.org/v2/country/US/indicator/{indicator}?format=json'
@@ -169,6 +199,7 @@ def get_world_bank_data(indicator, history=False):
         print(f"Error fetching World Bank {indicator}: {e}")
     return [] if history else None
 
+@safe_cached(cache=TTLCache(maxsize=1, ttl=86400), fallback_value={"ratio": 0, "market_cap_trillions": 0, "gdp_trillions": 0})
 def get_buffett_indicator():
     try:
         gdp = get_world_bank_data('NY.GDP.MKTP.CD')
@@ -259,6 +290,7 @@ def get_macro_dashboard():
     return data
 
 @router.get("/market-live")
+@safe_cached(cache=TTLCache(maxsize=1, ttl=60), fallback_value={"vix": 15.0, "indices": {}})
 def get_market_live():
     # Fetch real-time data for VIX and indices
     tickers = yf.Tickers('^VIX ^GSPC ^NDX ^RUT ^GDAXI ^DJI ^STOXX')
@@ -298,6 +330,7 @@ def get_market_live():
     return live_data
 
 @router.get("/news")
+@safe_cached(cache=TTLCache(maxsize=1, ttl=300), fallback_value={"news": []})
 def get_latest_news():
     try:
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'}
