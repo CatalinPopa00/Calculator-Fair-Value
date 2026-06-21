@@ -345,7 +345,7 @@ body {
     top: calc(100% + 8px);
     left: 0;
     right: 0;
-    background: rgba(var(--invert-rgb), 0.1);
+    background: rgba(15, 23, 42, 0.95);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     border: 1px solid rgba(var(--invert-rgb), 0.1);
