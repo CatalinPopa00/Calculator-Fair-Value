@@ -8967,10 +8967,24 @@ document.addEventListener('DOMContentLoaded', () => {
         const bnavProfile = document.getElementById('bnav-profile');
         
         const bnavBtns = document.querySelectorAll('.bnav-btn');
+        const bnavIndicator = document.getElementById('bnav-indicator');
+
         function setBnavActive(btn) {
             bnavBtns.forEach(b => b.classList.remove('active'));
-            if(btn) btn.classList.add('active');
+            if(btn) {
+                btn.classList.add('active');
+                if (bnavIndicator) {
+                    bnavIndicator.style.opacity = '1';
+                    bnavIndicator.style.transform = `translateX(${btn.offsetLeft}px)`;
+                }
+            }
         }
+
+        // Initialize indicator position on load
+        setTimeout(() => {
+            const activeBtn = document.querySelector('.bnav-btn.active');
+            if(activeBtn) setBnavActive(activeBtn);
+        }, 100);
 
         if (bnavHome) bnavHome.addEventListener('click', () => {
             setBnavActive(bnavHome);

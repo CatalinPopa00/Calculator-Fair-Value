@@ -4593,17 +4593,22 @@ body.has-searched #install-app-btn {
 }
 .bnav-btn.active {
     opacity: 1;
-    background: rgba(59, 130, 246, 0.2);
-    box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
+    /* Remove static background/shadow, handled by indicator now */
 }
-.bnav-btn.active::after {
-    content: '';
+
+/* Animated sliding indicator */
+.bnav-indicator {
     position: absolute;
-    bottom: 0px;
-    width: 20px;
-    height: 4px;
-    border-radius: 2px;
-    background: var(--accent);
+    width: 50px;
+    height: 50px;
+    background: rgba(59, 130, 246, 0.25);
+    border-radius: 50%;
+    z-index: 0; /* Behind buttons */
+    transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
+    left: 0;
+    top: 10px; /* matches padding top of nav */
+    opacity: 0; /* Hidden until positioned by JS */
 }
 
 /* News Dashboard Styling */
