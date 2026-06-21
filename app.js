@@ -3792,7 +3792,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
             dashboard.style.display = 'none';
             loadingState.style.display = 'flex';
-            document.getElementById('ticker-input')?.classList.add('search-loading-active');
+            // Show search popup with spinning border + dark overlay
+            const searchModalEl = document.getElementById('search-modal');
+            const loadingOverlay = document.getElementById('search-loading-overlay');
+            if (searchModalEl) { searchModalEl.classList.add('show', 'loading-active'); }
+            if (loadingOverlay) { loadingOverlay.classList.add('active'); }
             if (elements.fairValue) elements.fairValue.textContent = '$0.00';
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
@@ -3810,7 +3814,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         let query = (queryParam && typeof queryParam === 'string') ? queryParam : tickerInput.value.trim();
         if (!query) {
             loadingState.style.display = 'none';
-        document.getElementById('ticker-input')?.classList.remove('search-loading-active');
+        // search-loading-active removed
             return;
         }
 
@@ -3912,7 +3916,10 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             console.error('Error fetching valuation:', error);
             alert('Error: ' + error.message + '\nStack: ' + error.stack);
             loadingState.style.display = 'none';
-        document.getElementById('ticker-input')?.classList.remove('search-loading-active');
+            const searchModalErr = document.getElementById('search-modal');
+            const loadingOverlayErr = document.getElementById('search-loading-overlay');
+            if (searchModalErr) { searchModalErr.classList.remove('show', 'loading-active'); }
+            if (loadingOverlayErr) { loadingOverlayErr.classList.remove('active'); }
         } finally {
             if (searchBtn) {
                 searchBtn.disabled = false;
@@ -3920,8 +3927,12 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             }
             if (!silent) {
                 loadingState.style.display = 'none';
-        document.getElementById('ticker-input')?.classList.remove('search-loading-active');
                 dashboard.style.display = 'block';
+                // Close search popup and remove loading animation
+                const searchModalEl2 = document.getElementById('search-modal');
+                const loadingOverlay2 = document.getElementById('search-loading-overlay');
+                if (searchModalEl2) { searchModalEl2.classList.remove('show', 'loading-active'); }
+                if (loadingOverlay2) { loadingOverlay2.classList.remove('active'); }
             } else {
                 requestAnimationFrame(() => {
                     window.scrollTo(0, savedScrollY);
@@ -5284,7 +5295,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         window.renderAnchorsTable(); // Initial call
 
         loadingState.style.display = 'none';
-        document.getElementById('ticker-input')?.classList.remove('search-loading-active');
+        // search-loading-active removed
         watchlistView.style.display = 'none';
         dashboard.style.display = 'block';
 
@@ -7192,11 +7203,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
         if (!cachedWatchlistData || cachedWatchlistData.length !== watchlist.length) {
             loadingState.style.display = 'flex';
-            document.getElementById('ticker-input')?.classList.add('search-loading-active');
+            // search-loading-active removed
             watchlistView.style.display = 'none';
             await refreshWatchlistData();
             loadingState.style.display = 'none';
-        document.getElementById('ticker-input')?.classList.remove('search-loading-active');
+        // search-loading-active removed
             watchlistView.style.display = 'block';
         }
 
@@ -9367,7 +9378,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const searchBtn = document.getElementById('search-btn');
         if (searchBtn) {
             searchBtn.addEventListener('click', () => {
-                if (searchModal) searchModal.classList.remove('show');
+                // Don't close popup on Analyze - it stays open with loading animation
+                // if (searchModal) searchModal.classList.remove('show');
             });
         }
 

@@ -4937,14 +4937,54 @@ body.has-searched #install-app-btn {
     box-shadow: 0 2px 5px rgba(0,0,0,0.2);
 }
 
-@keyframes borderGlow {
-    0% { box-shadow: 0 0 5px var(--primary); border-color: var(--primary); }
-    50% { box-shadow: 0 0 20px var(--primary); border-color: var(--primary); }
-    100% { box-shadow: 0 0 5px var(--primary); border-color: var(--primary); }
+/* Rotating border animation for search popup while loading */
+@keyframes spinBorder {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
-.search-loading-active {
-    animation: borderGlow 1.5s infinite ease-in-out !important;
-    border-color: var(--primary) !important;
+
+.search-glass-popup.loading-active {
+    border-color: transparent !important;
+    overflow: visible;
+}
+.search-glass-popup.loading-active::before {
+    content: '';
+    position: absolute;
+    top: -2px; left: -2px; right: -2px; bottom: -2px;
+    border-radius: 18px;
+    background: conic-gradient(
+        from 0deg,
+        transparent 0deg,
+        var(--accent) 90deg,
+        var(--primary) 180deg,
+        transparent 270deg,
+        transparent 360deg
+    );
+    animation: spinBorder 1.5s linear infinite;
+    z-index: -1;
+}
+.search-glass-popup.loading-active::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    border-radius: 16px;
+    background: rgba(15, 23, 42, 0.95);
+    z-index: -1;
+}
+
+/* Blank overlay behind popup during loading */
+.search-loading-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(2, 6, 15, 0.92);
+    z-index: 9999;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+.search-loading-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
 }
 
 @media (max-width: 768px) {
