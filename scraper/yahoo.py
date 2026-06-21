@@ -28,6 +28,14 @@ http_session.mount('https://', adapter)
 _company_info_cache = {}
 
 from cachetools.keys import hashkey
+
+# Pre-compiled regex objects for high-performance scraping
+TABLE_RE = re.compile(r'<table.*?</table>', re.DOTALL)
+ROW_RE = re.compile(r'<tr.*?</tr>', re.DOTALL)
+CLEAN_RE = re.compile(r'<[^>]+>')
+CELL_0Y_RE = re.compile(r'data-testid-cell="0y".*?>\s*([^<]+)')
+CELL_1Y_RE = re.compile(r'data-testid-cell="\+1y".*?>\s*([^<]+)')
+
 @cached(cache=TTLCache(maxsize=500, ttl=300), key=lambda ticker, info=None: hashkey(ticker))
 def get_yahoo_analysis_normalized(ticker, info=None):
     """
@@ -68,15 +76,15 @@ def get_yahoo_analysis_normalized(ticker, info=None):
             html = response.text
 
             # v267: Direct HTML Table Parsing
-            tables = re.findall(r'<table.*?</table>', html, re.DOTALL)
+            tables = TABLE_RE.findall(html)
             for table in tables:
-                rows = re.findall(r'<tr.*?</tr>', table, re.DOTALL)
+                rows = ROW_RE.findall(table)
                 for row in rows:
-                    clean_row = re.sub(r'<[^>]+>', ' ', row).strip()
+                    clean_row = CLEAN_RE.sub(' ', row).strip()
 
                     if 'Avg. Estimate' in clean_row:
-                        m0 = re.search(r'data-testid-cell="0y".*?>\s*([^<]+)', row)
-                        m1 = re.search(r'data-testid-cell="\+1y".*?>\s*([^<]+)', row)
+                        m0 = CELL_0Y_RE.search(row)
+                        m1 = CELL_1Y_RE.search(row)
                         val0 = m0.group(1).strip() if m0 else None
                         val1 = m1.group(1).strip() if m1 else None
 
@@ -99,8 +107,8 @@ def get_yahoo_analysis_normalized(ticker, info=None):
                                 res['eps']['+1y']['avg'] = parse_n(val1)
 
                     elif 'Low Estimate' in clean_row:
-                        m0 = re.search(r'data-testid-cell="0y".*?>\s*([^<]+)', row)
-                        m1 = re.search(r'data-testid-cell="\+1y".*?>\s*([^<]+)', row)
+                        m0 = CELL_0Y_RE.search(row)
+                        m1 = CELL_1Y_RE.search(row)
                         val0 = m0.group(1).strip() if m0 else None
                         val1 = m1.group(1).strip() if m1 else None
 
@@ -122,8 +130,8 @@ def get_yahoo_analysis_normalized(ticker, info=None):
                                 res['eps']['+1y']['low'] = parse_n(val1)
 
                     elif 'High Estimate' in clean_row:
-                        m0 = re.search(r'data-testid-cell="0y".*?>\s*([^<]+)', row)
-                        m1 = re.search(r'data-testid-cell="\+1y".*?>\s*([^<]+)', row)
+                        m0 = CELL_0Y_RE.search(row)
+                        m1 = CELL_1Y_RE.search(row)
                         val0 = m0.group(1).strip() if m0 else None
                         val1 = m1.group(1).strip() if m1 else None
 
@@ -145,14 +153,14 @@ def get_yahoo_analysis_normalized(ticker, info=None):
                                 res['eps']['+1y']['high'] = parse_n(val1)
 
                     elif 'Year Ago EPS' in clean_row:
-                        m_ya = re.search(r'data-testid-cell="0y".*?>\s*([^<]+)', row)
+                        m_ya = CELL_0Y_RE.search(row)
                         if m_ya:
                             ya_val = parse_n(m_ya.group(1).strip())
                             if '0y' not in res['eps']: res['eps']['0y'] = {}
                             res['eps']['0y']['yearAgo'] = ya_val # Use 'yearAgo' to match engine expectation
 
                     elif 'Year Ago Sales' in clean_row:
-                        m_ya = re.search(r'data-testid-cell="0y".*?>\s*([^<]+)', row)
+                        m_ya = CELL_0Y_RE.search(row)
                         if m_ya:
                             ya_val = parse_n(m_ya.group(1).strip())
                             if '0y' not in res['rev']: res['rev']['0y'] = {}
