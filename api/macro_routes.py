@@ -226,17 +226,13 @@ def get_macro_dashboard():
     last_gdp = gdp_hist[-1]['value'] if gdp_hist else 27360000000000
     last_year = int(gdp_hist[-1]['year']) if gdp_hist else 2023
     
-        current_year = 2026
-    last_year = int(gdp_hist[-1]['year']) if gdp_hist else 2023
+    current_year = 2026
     projected_last_gdp = last_gdp * (1.025 ** max(0, current_year - 1 - last_year))
     
     gdp_evolution = {
         "last_year": {"year": current_year - 1, "value": projected_last_gdp},
         "this_year": {"year": current_year, "value": projected_last_gdp * 1.025},
         "next_year": {"year": current_year + 1, "value": projected_last_gdp * 1.050625}
-    },
-        "this_year": {"year": last_year + 1, "value": last_gdp * 1.025}, # Approx 2.5% nominal
-        "next_year": {"year": last_year + 2, "value": last_gdp * 1.050}
     }
     
     data = {
