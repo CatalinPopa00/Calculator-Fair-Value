@@ -8816,36 +8816,42 @@ document.addEventListener('DOMContentLoaded', () => {
         const loadingState = document.getElementById('loading-state');
         const localWatchlistView = document.getElementById('watchlist-view');
 
-        if (macroDash && dashboard && loadingState && localWatchlistView) {
-        const observer = new MutationObserver(() => {
-            // Check which nav button is active
+        function updateTabVisibility() {
             const bnavHome = document.getElementById('bnav-home');
             const bnavOverview = document.getElementById('bnav-overview');
             const isHomeActive = bnavHome && bnavHome.classList.contains('active');
             const isOverviewActive = bnavOverview && bnavOverview.classList.contains('active');
             const newsDash = document.getElementById('news-dashboard');
 
-            if (dashboard.style.display !== 'none' || loadingState.style.display !== 'none' || localWatchlistView.style.display !== 'none') {
-                macroDash.style.display = 'none';
+            if ((dashboard && dashboard.style.display !== 'none') || 
+                (loadingState && loadingState.style.display !== 'none') || 
+                (localWatchlistView && localWatchlistView.style.display !== 'none')) {
+                if (macroDash) macroDash.style.display = 'none';
                 if (newsDash) newsDash.style.display = 'none';
             } else {
                 if (isHomeActive) {
                     if (newsDash) newsDash.style.display = 'block';
-                    macroDash.style.display = 'none';
+                    if (macroDash) macroDash.style.display = 'none';
                 } else if (isOverviewActive) {
                     if (newsDash) newsDash.style.display = 'none';
-                    macroDash.style.display = 'block';
+                    if (macroDash) macroDash.style.display = 'block';
                 } else {
                     // Fallback to Home
                     if (newsDash) newsDash.style.display = 'block';
-                    macroDash.style.display = 'none';
+                    if (macroDash) macroDash.style.display = 'none';
                 }
             }
-        });
+        }
+
+        if (macroDash && dashboard && loadingState && localWatchlistView) {
+            const observer = new MutationObserver(updateTabVisibility);
             observer.observe(dashboard, { attributes: true });
             observer.observe(loadingState, { attributes: true });
             observer.observe(localWatchlistView, { attributes: true });
         }
+        
+        // Expose to window so click listeners can call it
+        window.updateTabVisibility = updateTabVisibility;
 
         async function loadMacroDashboard() {
             try {
@@ -9071,9 +9077,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (bnavHome) bnavHome.addEventListener('click', () => {
             setBnavActive(bnavHome);
             document.body.classList.remove('has-searched');
-            dashboard.style.display = 'none';
-            document.getElementById('watchlist-view').style.display = 'none';
-            // MutationObserver will automatically show news-dashboard
+            if (dashboard) dashboard.style.display = 'none';
+            if (document.getElementById('watchlist-view')) document.getElementById('watchlist-view').style.display = 'none';
+            if (window.updateTabVisibility) window.updateTabVisibility();
         });
 
         if (bnavWatchlist) bnavWatchlist.addEventListener('click', () => {
@@ -9114,9 +9120,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (bnavOverview) bnavOverview.addEventListener('click', () => {
             setBnavActive(bnavOverview);
             document.body.classList.remove('has-searched');
-            dashboard.style.display = 'none';
-            document.getElementById('watchlist-view').style.display = 'none';
-            // MutationObserver will automatically show macro-dashboard
+            if (dashboard) dashboard.style.display = 'none';
+            if (document.getElementById('watchlist-view')) document.getElementById('watchlist-view').style.display = 'none';
+            if (window.updateTabVisibility) window.updateTabVisibility();
         });
 
         if (bnavProfile) bnavProfile.addEventListener('click', () => {
