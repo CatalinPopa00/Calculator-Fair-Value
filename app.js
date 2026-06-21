@@ -3767,6 +3767,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     };
 
     const analyzeTicker = async (queryParam, forceRefresh = false, silent = false) => {
+        if (typeof autocompleteList !== 'undefined' && autocompleteList) autocompleteList.style.display = 'none';
         const savedScrollY = window.scrollY;
         document.body.classList.add('has-searched');
         if (_simulating && !silent) {
