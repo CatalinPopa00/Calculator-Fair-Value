@@ -2646,11 +2646,17 @@ body.banner-visible .modal-content {
 }
 /* --- NEW WATCHLIST DESIGN --- */
 .watchlist-container {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 1fr;
     gap: 1.5rem;
-    max-width: 600px;
+    max-width: 1000px;
     margin: 0 auto;
+}
+
+@media (min-width: 992px) {
+    .watchlist-container {
+        grid-template-columns: repeat(2, 1fr);
+    }
 }
 
 .watchlist-card-new {
@@ -4549,6 +4555,50 @@ body.has-searched #install-app-btn {
 
 .macro-table tr:hover td {
     background: rgba(255, 255, 255, 0.02);
+}
+
+/* Search Glass Popup */
+.search-glass-popup {
+    position: fixed;
+    bottom: 100px; /* Just above the bottom nav */
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    width: 90%;
+    max-width: 450px;
+    background: rgba(15, 23, 42, 0.7);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 25px;
+    z-index: 10000;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    text-align: center;
+}
+.search-glass-popup.show {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(-50%) translateY(0);
+}
+.search-glass-popup h2 {
+    margin-bottom: 1.5rem;
+    font-size: 1.3rem;
+    color: var(--text-main);
+}
+.search-glass-popup .close-search {
+    position: absolute;
+    right: 20px;
+    top: 15px;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--text-muted);
+    transition: 0.2s;
+}
+.search-glass-popup .close-search:hover {
+    color: var(--text-main);
 }
 
 /* Bottom Navigation Bar */

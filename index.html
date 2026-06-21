@@ -69,19 +69,16 @@
             </div>
         </header>
 
-        <!-- Search Pop-up Modal -->
-        <div id="search-modal" class="modal-overlay" style="display: none; z-index: 10001;">
-            <div class="modal-content glass-card" style="max-width: 500px; text-align: center; padding: 2rem;">
-                <span class="close-search" id="close-search-modal" style="position: absolute; right: 20px; top: 15px; font-size: 1.5rem; cursor: pointer;">&times;</span>
-                <h2 style="margin-bottom: 1.5rem;">Search for a Company</h2>
-                <div class="search-container" style="justify-content: center;">
-                    <div class="autocomplete-wrapper" style="width: 100%;">
-                        <input type="text" id="ticker-input" placeholder="Enter Ticker or Name"
-                            autocomplete="off" style="width: 100%;">
-                        <div id="autocomplete-list" class="autocomplete-dropdown"></div>
-                    </div>
-                    <button id="search-btn" style="margin-left: 10px;">Analyze</button>
+        <!-- Search Glass Pop-up -->
+        <div id="search-modal" class="search-glass-popup">
+            <span class="close-search" id="close-search-modal">&times;</span>
+            <h2>Search for a Company</h2>
+            <div class="search-container">
+                <div class="autocomplete-wrapper" style="width: 100%;">
+                    <input type="text" id="ticker-input" placeholder="Enter Ticker or Name" autocomplete="off">
+                    <div id="autocomplete-list" class="autocomplete-dropdown"></div>
                 </div>
+                <button id="search-btn">Analyze</button>
             </div>
         </div>
 
