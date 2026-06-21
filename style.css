@@ -4909,3 +4909,30 @@ body.has-searched #install-app-btn {
     }
 }
 
+
+
+/* Historical Anchors Toggle */
+.anchors-toggle-wrapper {
+    display: flex;
+    background: rgba(var(--invert-rgb), 0.05);
+    border-radius: 6px;
+    padding: 2px;
+    width: fit-content;
+}
+.anchors-toggle-btn {
+    padding: 4px 10px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+    background: transparent;
+}
+.anchors-toggle-btn.active {
+    background: var(--primary);
+    color: var(--text-main);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}

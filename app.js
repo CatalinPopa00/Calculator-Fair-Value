@@ -5199,11 +5199,16 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         }, 100);
 
         // --- ADDITIONAL SECTIONS ---
-        const trendsBody = document.getElementById('trends-body');
-        const anchors = data.historical_anchors;
+        window._currentAnchorData = data;
+        if (!window._currentAnchorView) window._currentAnchorView = 'year';
 
-        if (trendsBody) {
-            if (anchors && anchors.length > 0) {
+        window.renderAnchorsTable = function(viewType) {
+            if (viewType) window._currentAnchorView = viewType;
+            const trendsBody = document.getElementById('trends-body');
+            const anchors = window._currentAnchorView === 'quarter' ? window._currentAnchorData.quarterly_anchors : window._currentAnchorData.historical_anchors;
+
+            if (trendsBody) {
+                if (anchors && anchors.length > 0) {
                 // v44: Transposed Table with Sparklines
                 const config = [
                     { label: 'Year', key: 'year', isHeader: true },
@@ -5245,7 +5250,12 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     tableHtml += `
                         <td class="sticky-col" style="background: var(--card-bg); padding: 12px 16px; border-right: 1px solid rgba(255,255,255,0.05); min-width: 160px;">
                             <div style="display: flex; align-items: center; justify-content: space-between;">
-                                <span style="font-weight: 700; color: var(--text-muted); text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.5px;">${metric.label}</span>
+                                ${isYear ? `
+                                <div class="anchors-toggle-wrapper">
+                                    <button class="anchors-toggle-btn ${window._currentAnchorView === 'year' ? 'active' : ''}" onclick="window.renderAnchorsTable('year')">Year</button>
+                                    <button class="anchors-toggle-btn ${window._currentAnchorView === 'quarter' ? 'active' : ''}" onclick="window.renderAnchorsTable('quarter')">Quarter</button>
+                                </div>
+                                ` : `<span style="font-weight: 700; color: var(--text-muted); text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.5px;">${metric.label}</span>`}
                                 ${sparkHtml}
                             </div>
                         </td>`;
@@ -5265,6 +5275,9 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 trendsBody.innerHTML = '<tr><td style="text-align: center; color: var(--text-muted); padding: 2rem;">No historical anchors available.</td></tr>';
             }
         }
+        }; // end of window.renderAnchorsTable
+        
+        window.renderAnchorsTable(); // Initial call
 
         loadingState.style.display = 'none';
         watchlistView.style.display = 'none';

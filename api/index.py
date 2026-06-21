@@ -150,6 +150,7 @@ class ValuationResponse(BaseModel):
     company_profile: Optional[dict] = None
     historical_trends: Optional[list] = None
     historical_anchors: Optional[list] = None
+    quarterly_anchors: Optional[list] = None
     company_overview_synthesis: Optional[str] = None
     latest_news: Optional[list] = None
     formula_data: Dict[str, Any] = {}
@@ -2068,6 +2069,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             "dividend_rate": sanitize(data.get("dividend_rate")),
             "historical_trends": data.get("historical_trends"),
             "historical_anchors": historical_anchors,
+            "quarterly_anchors": data.get("quarterly_anchors") or [],
             "company_overview_synthesis": data.get("company_overview_synthesis"),
             "latest_news": data.get("latest_news"),
             "health_score_total": health_score_total,
