@@ -128,7 +128,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const weights = window.customWeights || { dcf: 25, relative: 25, lynch: 25, peg: 25 };
                 
-                const getVal = (id) => document.getElementById(id) ? document.getElementById(id).value : '';
+                const getVal = (id) => {
+                    const el = document.getElementById(id);
+                    return el ? el.value : '';
+                };
                 
                 // Extract SWOT from raw text to ensure it's captured even if the tab wasn't opened
                 let strengthsText = '<p style="color: rgba(255,255,255,0.5); font-size: 0.8rem; font-style:italic;">Not available.</p>';
@@ -309,6 +312,26 @@ document.addEventListener('DOMContentLoaded', () => {
                         clone.removeAttribute('id');
                         clone.querySelectorAll('[id]').forEach(child => child.removeAttribute('id'));
                         
+                        // Convert canvases to images
+                        const originalCanvases = el.querySelectorAll('canvas');
+                        const clonedCanvases = clone.querySelectorAll('canvas');
+
+                        originalCanvases.forEach((orig, idx) => {
+                            try {
+                                const dataUrl = orig.toDataURL('image/png');
+                                const img = document.createElement('img');
+                                img.src = dataUrl;
+                                img.style.width = orig.style.width || orig.offsetWidth + 'px';
+                                img.style.height = orig.style.height || orig.offsetHeight + 'px';
+                                const clonedCanvas = clonedCanvases[idx];
+                                if (clonedCanvas && clonedCanvas.parentNode) {
+                                    clonedCanvas.parentNode.replaceChild(img, clonedCanvas);
+                                }
+                            } catch(e) {
+                                console.error('Error converting canvas to image in pdf-export:', e);
+                            }
+                        });
+
                         // Strip hover effects or styles if needed
                         clone.style.margin = '0';
                         clone.style.width = '100%';
@@ -408,7 +431,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         c.style.justifyContent = 'flex-start';
 
                         // Remove input groups and unnecessary elements
-                        c.querySelectorAll('.card-inputs, .info-icon, .toggle-container, button').forEach(el => el.remove());
+                        c.querySelectorAll('.card-inputs, .info-icon, .toggle-container, button, .details-toggle-btn, .view-data-btn').forEach(el => el.remove());
                         
                         // Shrink fixed heights
                         c.querySelectorAll('.card-metrics').forEach(m => { 
@@ -420,11 +443,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (footer) {
                             footer.style.marginTop = '10px';
                         }
-                        
-                        const detailsBtn = c.querySelector('.details-toggle-btn');
-                        if (detailsBtn) detailsBtn.remove();
-                        const viewDataBtn = c.querySelector('.view-data-btn');
-                        if (viewDataBtn) viewDataBtn.remove();
 
                         const body = c.querySelector('.card-body-collapsible');
                         if (body) {
