@@ -3922,6 +3922,8 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             const loadingOverlayErr = document.getElementById('search-loading-overlay');
             if (searchModalErr) { searchModalErr.classList.remove('show', 'loading-active'); }
             if (loadingOverlayErr) { loadingOverlayErr.classList.remove('active'); }
+            const __ovErr = document.getElementById('search-modal-overlay');
+            if (__ovErr) { __ovErr.classList.remove('show'); }
         } finally {
             if (searchBtn) {
                 searchBtn.disabled = false;
@@ -3935,6 +3937,8 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 const loadingOverlay2 = document.getElementById('search-loading-overlay');
                 if (searchModalEl2) { searchModalEl2.classList.remove('show', 'loading-active'); }
                 if (loadingOverlay2) { loadingOverlay2.classList.remove('active'); }
+                const __ov = document.getElementById('search-modal-overlay');
+                if (__ov) { __ov.classList.remove('show'); }
             } else {
                 requestAnimationFrame(() => {
                     window.scrollTo(0, savedScrollY);
