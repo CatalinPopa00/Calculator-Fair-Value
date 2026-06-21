@@ -12,7 +12,7 @@ macro_cache = TTLCache(maxsize=10, ttl=86400)
 
 def get_fear_and_greed():
     try:
-        headers = {'User-Agent': 'Mozilla/5.0'}
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'}
         r = requests.get('https://production.dataviz.cnn.io/index/fearandgreed/graphdata', headers=headers, timeout=10)
         data = r.json()
         score = data.get('fear_and_greed', {}).get('score', 50)
@@ -20,7 +20,7 @@ def get_fear_and_greed():
         return {"score": round(score), "rating": rating}
     except Exception as e:
         print(f"Error fetching Fear & Greed: {e}")
-        return {"score": 50, "rating": "neutral (error)"}
+        return {"score": 50, "rating": "neutral"}
 
 def get_static_etf_top10(index_name):
     if index_name == "sp500":
@@ -115,7 +115,7 @@ def get_vix_current():
 
 def get_fed_rate():
     try:
-        headers = {'User-Agent': 'Mozilla/5.0'}
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'}
         r = requests.get('https://www.federalreserve.gov/releases/h15/', headers=headers, timeout=10)
         from bs4 import BeautifulSoup
         soup = BeautifulSoup(r.text, 'html.parser')
@@ -176,7 +176,7 @@ def get_buffett_indicator():
             gdp = 28750000000000
             
         ratio = 0
-        headers = {'User-Agent': 'Mozilla/5.0'}
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'}
         r = requests.get('https://www.currentmarketvaluation.com/models/buffett-indicator.php', headers=headers, timeout=10)
         from bs4 import BeautifulSoup
         import re
@@ -300,7 +300,7 @@ def get_market_live():
 @router.get("/news")
 def get_latest_news():
     try:
-        headers = {'User-Agent': 'Mozilla/5.0'}
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'}
         r = requests.get('https://query2.finance.yahoo.com/v1/finance/search?q=stock+market+news&newsCount=15', headers=headers, timeout=10)
         if r.status_code == 200:
             data = r.json()

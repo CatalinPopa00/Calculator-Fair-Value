@@ -72,13 +72,17 @@
                 <!-- Search Loading Overlay -->
         <div id="search-loading-overlay" class="search-loading-overlay"></div>
 
+        <!-- UI Backdrop overlay for Search -->
+        <div id="search-modal-overlay" class="search-modal-overlay"></div>
+
         <!-- Search Glass Pop-up -->
         <div id="search-modal" class="search-glass-popup">
             <span class="close-search" id="close-search-modal">&times;</span>
             <h2>Search for a Company</h2>
             <div class="search-container">
-                <div class="autocomplete-wrapper" style="width: 100%;">
-                    <input type="text" id="ticker-input" placeholder="Enter Ticker or Name" autocomplete="off">
+                <div class="autocomplete-wrapper" style="width: 100%; position: relative;">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="ticker-input" placeholder="Enter Ticker or Name" autocomplete="off" style="padding-left: 2.5rem;">
                     <div id="autocomplete-list" class="autocomplete-dropdown"></div>
                 </div>
                 <button id="search-btn">Analyze</button>
