@@ -2181,11 +2181,29 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
         except:
             dividend_yield = None
             
+        calculated_yield = None
+        if dividend_rate and current_price and current_price > 0:
+            calculated_yield = dividend_rate / current_price
+
+        if dividend_yield is not None and calculated_yield is not None and calculated_yield > 0:
+            if dividend_yield >= calculated_yield * 50 and dividend_yield <= calculated_yield * 150:
+                dividend_yield = dividend_yield / 100.0
+
         if dividend_yield is None or dividend_yield > 0.15:
-            if dividend_rate and current_price and current_price > 0:
-                dividend_yield = dividend_rate / current_price
+            if calculated_yield is not None:
+                if calculated_yield < 0.15 or (dividend_yield is not None and dividend_yield > calculated_yield * 1.5):
+                    dividend_yield = calculated_yield
             else:
-                dividend_yield = info.get('dividendYield')
+                alt_yield = info.get('dividendYield')
+                if alt_yield is not None:
+                    try:
+                        alt_yield = float(alt_yield)
+                        if alt_yield > 1.0: # Arbitrary threshold, if > 1 it's likely a percentage
+                            dividend_yield = alt_yield / 100.0
+                        else:
+                            dividend_yield = alt_yield
+                    except:
+                        pass
                 
         payout_ratio = info.get('payoutRatio')
 
