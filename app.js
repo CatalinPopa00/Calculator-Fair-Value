@@ -75,7 +75,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const stickyBanner = document.getElementById('sticky-top-banner');
     window.addEventListener('scroll', () => {
         if (!stickyBanner) return;
-        if (window.scrollY > 250 && typeof globalData !== 'undefined' && globalData && globalData.ticker) {
+        const dashboardIsVisible = dashboard && dashboard.style.display !== 'none';
+        if (window.scrollY > 250 && typeof globalData !== 'undefined' && globalData && globalData.ticker && dashboardIsVisible) {
             stickyBanner.classList.add('visible');
             document.body.classList.add('banner-visible');
         } else {
@@ -7088,7 +7089,9 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         watchlistView.style.display = 'none';
         dashboard.style.display = 'none';
         currentTicker = null;
+        globalData = null; // Clear globalData so search behaves properly next time
         tickerInput.value = '';
+        if (window.updateTabVisibility) window.updateTabVisibility();
     });
 
     const refreshWatchlistData = async () => {
@@ -8946,6 +8949,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (macroDash) macroDash.style.display = 'none';
                 }
             }
+            // Trigger a scroll event to update sticky banner visibility
+            window.dispatchEvent(new Event('scroll'));
         }
 
         if (macroDash && dashboard && loadingState && localWatchlistView) {
@@ -9359,16 +9364,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (bnavSearch) bnavSearch.addEventListener('click', () => {
             setBnavActive(bnavSearch);
-            if (searchModal) {
-                searchModal.classList.add('show');
-                const overlay = document.getElementById('search-modal-overlay');
-                if (overlay) overlay.classList.add('show');
 
-                // Focus the input when modal opens
-                setTimeout(() => {
-                    const input = document.getElementById('ticker-input');
-                    if (input) input.focus();
-                }, 100);
+            // If a company is already analyzed but the dashboard is hidden, restore the dashboard
+            if (typeof globalData !== 'undefined' && globalData && globalData.ticker && dashboard && dashboard.style.display === 'none') {
+                document.body.classList.add('has-searched');
+                dashboard.style.display = 'block';
+                const localWatchlistView = document.getElementById('watchlist-view');
+                if (localWatchlistView) localWatchlistView.style.display = 'none';
+                if (window.updateTabVisibility) window.updateTabVisibility();
+
+                // Trigger scroll event to ensure sticky banner updates
+                window.dispatchEvent(new Event('scroll'));
+            } else {
+                // Default behavior: open search modal
+                if (searchModal) {
+                    searchModal.classList.add('show');
+                    const overlay = document.getElementById('search-modal-overlay');
+                    if (overlay) overlay.classList.add('show');
+
+                    // Focus the input when modal opens
+                    setTimeout(() => {
+                        const input = document.getElementById('ticker-input');
+                        if (input) input.focus();
+                    }, 100);
+                }
             }
         });
 
