@@ -9149,7 +9149,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (news.length > 5) {
                     const secTitle = document.createElement('div');
                     secTitle.className = 'news-section-title';
-                    secTitle.textContent = 'Recomandările Redacției';
+                    secTitle.textContent = 'RECOMMENDED';
                     mainCol.appendChild(secTitle);
                 }
                 
@@ -9161,7 +9161,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Sidebar Title
                 const sideTitle = document.createElement('div');
                 sideTitle.className = 'news-section-title';
-                sideTitle.textContent = 'Urmărește-ne și pe piață';
+                sideTitle.textContent = 'ABOUT THE MARKET';
                 sidebarCol.appendChild(sideTitle);
                 
                 // Sidebar Top (Index 1 to 4)
