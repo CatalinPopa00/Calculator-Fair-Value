@@ -4171,9 +4171,7 @@ body.has-searched #install-app-btn {
    AI Chat Widget Styles
    ========================================================================== */
 
-#ai-chat-widget {
-    position: fixed;
-    bottom: 20px;
+#ai-chat-widget { position: fixed; bottom: 95px;
     right: 20px;
     z-index: 9999;
     display: flex;
@@ -4562,13 +4560,7 @@ body.has-searched #install-app-btn {
     font-size: 0.9rem;
 }
 
-.etf-row-company {
-    flex: 2;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    color: var(--text-muted);
-}
+.etf-row-company { flex: 2; display: flex; align-items: center; gap: 10px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .etf-row-company img.company-logo-small {
     width: 20px;
     height: 20px;
