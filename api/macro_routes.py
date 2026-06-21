@@ -131,18 +131,18 @@ def get_fed_rate():
                         if val:
                             return {
                                 "current": f"{val}%",
-                                "forecast": "2.75 - 3.00% (Dec. '26)",
-                                "cut_probability": "65%",
-                                "hike_probability": "0%"
+                                "forecast": "",
+                                "cut_probability": "",
+                                "hike_probability": ""
                             }
     except Exception as e:
         print(f"Error fetching Fed Rate: {e}")
     
     return {
         "current": "5.25 - 5.50%",
-        "forecast": "2.75 - 3.00% (Dec. '26)",
-        "cut_probability": "65%",
-        "hike_probability": "0%"
+        "forecast": "",
+                                "cut_probability": "",
+                                "hike_probability": ""
     }
 
 def get_world_bank_data(indicator, history=False):

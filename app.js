@@ -776,7 +776,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 label.style.display = 'block';
                 btn.classList.add('active');
                 btn.title = 'Reset to real price';
-                input.focus();
+                // input.focus();
                 input.select();
             } else {
                 // Deactivate: restore original price
@@ -3791,7 +3791,9 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             if(aiLoading) aiLoading.style.display = 'none';
 
             dashboard.style.display = 'none';
-            loadingState.style.display = 'flex';
+            loadingState.style.display = 'none';
+        const tInp2 = document.getElementById('ticker-input'); if(tInp2) tInp2.classList.remove('search-loading-active'); /* Bypassed */
+        const tInp = document.getElementById('ticker-input'); if(tInp) tInp.classList.add('search-loading-active');
             if (elements.fairValue) elements.fairValue.textContent = '$0.00';
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
@@ -3809,6 +3811,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         let query = (queryParam && typeof queryParam === 'string') ? queryParam : tickerInput.value.trim();
         if (!query) {
             loadingState.style.display = 'none';
+        const tInp2 = document.getElementById('ticker-input'); if(tInp2) tInp2.classList.remove('search-loading-active');
             return;
         }
 
@@ -3910,6 +3913,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             console.error('Error fetching valuation:', error);
             alert('Error: ' + error.message + '\nStack: ' + error.stack);
             loadingState.style.display = 'none';
+        const tInp2 = document.getElementById('ticker-input'); if(tInp2) tInp2.classList.remove('search-loading-active');
         } finally {
             if (searchBtn) {
                 searchBtn.disabled = false;
@@ -3917,6 +3921,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             }
             if (!silent) {
                 loadingState.style.display = 'none';
+        const tInp2 = document.getElementById('ticker-input'); if(tInp2) tInp2.classList.remove('search-loading-active');
                 dashboard.style.display = 'block';
             } else {
                 requestAnimationFrame(() => {
@@ -5244,7 +5249,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 let tableHtml = '';
                 config.forEach(metric => {
                     const isYear = metric.key === 'year';
-                    const sparkHtml = !isYear ? generateSparkline(anchors.map(a => a[metric.key]).reverse()) : '';
+                    const sparkHtml = !isYear ? generateSparkline(anchors.filter(a => a.year !== 'TTM').map(a => a[metric.key]).reverse()) : '';
 
                     tableHtml += `<tr>`;
                     tableHtml += `
@@ -5280,6 +5285,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         window.renderAnchorsTable(); // Initial call
 
         loadingState.style.display = 'none';
+        const tInp2 = document.getElementById('ticker-input'); if(tInp2) tInp2.classList.remove('search-loading-active');
         watchlistView.style.display = 'none';
         dashboard.style.display = 'block';
 
@@ -7186,10 +7192,13 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         watchlistView.style.display = 'block';
 
         if (!cachedWatchlistData || cachedWatchlistData.length !== watchlist.length) {
-            loadingState.style.display = 'flex';
+            loadingState.style.display = 'none';
+        const tInp2 = document.getElementById('ticker-input'); if(tInp2) tInp2.classList.remove('search-loading-active'); /* Bypassed */
+        const tInp = document.getElementById('ticker-input'); if(tInp) tInp.classList.add('search-loading-active');
             watchlistView.style.display = 'none';
             await refreshWatchlistData();
             loadingState.style.display = 'none';
+        const tInp2 = document.getElementById('ticker-input'); if(tInp2) tInp2.classList.remove('search-loading-active');
             watchlistView.style.display = 'block';
         }
 
@@ -8750,7 +8759,7 @@ document.addEventListener('DOMContentLoaded', () => {
         function toggleChat() {
             chatWindow.classList.toggle('open');
             if (chatWindow.classList.contains('open')) {
-                chatInput.focus();
+                // chatInput.focus();
             }
         }
 
@@ -8859,7 +8868,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     appendMessage('ai', 'Eroare server: (Verifică dacă ai repornit backend-ul). Serverul a returnat: ' + textData.substring(0, 50));
                     chatSendBtn.disabled = false;
                     chatInput.disabled = false;
-                    chatInput.focus();
+                    // chatInput.focus();
                     return;
                 }
 
@@ -8882,7 +8891,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } finally {
                 chatSendBtn.disabled = false;
                 chatInput.disabled = false;
-                chatInput.focus();
+                // chatInput.focus();
             }
         }
 
@@ -9343,7 +9352,7 @@ document.addEventListener('DOMContentLoaded', () => {
             setBnavActive(bnavSearch);
             if (searchModal) {
                 searchModal.classList.add('show');
-                setTimeout(() => document.getElementById('ticker-input').focus(), 100);
+                // setTimeout(() => document.getElementById('ticker-input').focus(), 100);
             }
         });
 

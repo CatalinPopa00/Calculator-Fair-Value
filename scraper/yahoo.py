@@ -3760,10 +3760,14 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
                         r_raw = get_q_is_metric('Total Revenue', q_col) or 0
                         e_raw = get_q_is_metric('Diluted EPS', q_col) or get_q_is_metric('Basic EPS', q_col) or 0
                         
-                        # Fetch Normalized EPS for Adjusted EPS
-                        e_adj_raw = get_q_is_metric('Normalized EPS', q_col)
-                        if e_adj_raw is None:
-                            e_adj_raw = e_raw
+                        # Fetch Normalized Income / Shares for Adjusted EPS
+                        norm_inc = get_q_is_metric('Normalized Income', q_col)
+                        if norm_inc is not None and s_raw and s_raw > 0:
+                            e_adj_raw = norm_inc / s_raw
+                        else:
+                            e_adj_raw = get_q_is_metric('Normalized EPS', q_col)
+                            if e_adj_raw is None:
+                                e_adj_raw = e_raw
 
                         f_raw = get_q_cf_metric('Free Cash Flow', q_col) or 0
                         c_raw = get_q_bs_metric('Cash Cash Equivalents And Short Term Investments', q_col) or get_q_bs_metric('Cash And Cash Equivalents', q_col) or 0

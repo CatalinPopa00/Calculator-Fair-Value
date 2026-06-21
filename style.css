@@ -4936,3 +4936,20 @@ body.has-searched #install-app-btn {
     color: var(--text-main);
     box-shadow: 0 2px 5px rgba(0,0,0,0.2);
 }
+
+@keyframes borderGlow {
+    0% { box-shadow: 0 0 5px var(--primary); border-color: var(--primary); }
+    50% { box-shadow: 0 0 20px var(--primary); border-color: var(--primary); }
+    100% { box-shadow: 0 0 5px var(--primary); border-color: var(--primary); }
+}
+.search-loading-active {
+    animation: borderGlow 1.5s infinite ease-in-out !important;
+    border-color: var(--primary) !important;
+}
+
+@media (max-width: 768px) {
+    .search-glass-popup .autocomplete-dropdown {
+        width: calc(100% + 115px + 0.5rem) !important;
+        max-width: none;
+    }
+}
