@@ -51,13 +51,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 bottomNav.classList.remove('force-hidden');
             }
         }
+
+        const searchModalOpen = document.getElementById('search-modal')?.classList.contains('show');
+        const aiChatWidget = document.getElementById('ai-chat-widget');
+        if (aiChatWidget) {
+            if (searchModalOpen) {
+                aiChatWidget.style.display = 'none';
+            } else {
+                aiChatWidget.style.display = 'flex';
+            }
+        }
     };
 
     const modalObserver = new MutationObserver(() => {
         updateBottomNavVisibility();
     });
 
-    ['data-modal', 'score-modal', 'rules-modal', 'ai-chat-window'].forEach(id => {
+    ['data-modal', 'score-modal', 'rules-modal', 'ai-chat-window', 'search-modal'].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
             modalObserver.observe(el, { attributes: true, attributeFilter: ['style', 'class'] });
