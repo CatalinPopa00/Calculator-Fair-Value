@@ -9394,6 +9394,12 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 setBnavActive(document.getElementById('bnav-home'));
             }
+
+            // Clear any lingering focus from the modal trigger buttons
+            const activeElement = document.activeElement;
+            if (activeElement && activeElement.classList.contains('bnav-btn')) {
+                activeElement.blur();
+            }
         };
 
         // Initialize indicator position on load
