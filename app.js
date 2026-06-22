@@ -325,6 +325,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (event.target == newsModal) {
             newsModal.style.display = 'none';
         }
+
+        const authModal = document.getElementById('auth-modal');
+        if (event.target == authModal) {
+            authModal.style.display = 'none';
+            if (window.restoreBnavActive) window.restoreBnavActive();
+        }
     });
 
     if (loginBtn) {
