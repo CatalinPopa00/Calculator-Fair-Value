@@ -343,6 +343,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (closeAuthBtn) {
         closeAuthBtn.addEventListener('click', () => {
             authModal.style.display = 'none';
+            if (window.restoreBnavActive) window.restoreBnavActive();
         });
     }
 
@@ -374,6 +375,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
                 authModal.style.display = 'none';
+                if (window.restoreBnavActive) window.restoreBnavActive();
                 authEmail.value = '';
                 authPass.value = '';
             } catch (err) {
@@ -404,6 +406,7 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 await firebase.auth().signInWithPopup(provider);
                 authModal.style.display = 'none';
+                if (window.restoreBnavActive) window.restoreBnavActive();
             } catch (err) {
                 console.error("Google auth error:", err);
                 if (authError && err.code !== 'auth/popup-closed-by-user') {
@@ -8959,9 +8962,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const loadingState = document.getElementById('loading-state');
         const localWatchlistView = document.getElementById('watchlist-view');
 
+
         function updateTabVisibility() {
             const bnavHome = document.getElementById('bnav-home');
             const bnavOverview = document.getElementById('bnav-overview');
+
             const isHomeActive = bnavHome && bnavHome.classList.contains('active');
             const isOverviewActive = bnavOverview && bnavOverview.classList.contains('active');
             const newsDash = document.getElementById('news-dashboard');
@@ -9358,14 +9363,18 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const bnavBtns = document.querySelectorAll('.bnav-btn');
         const bnavIndicator = document.getElementById('bnav-indicator');
+        let lastBackgroundBnavBtn = null;
 
-        function setBnavActive(btn) {
+        function setBnavActive(btn, isModal = false) {
             bnavBtns.forEach(b => b.classList.remove('active'));
             if(btn) {
                 btn.classList.add('active');
                 if (bnavIndicator) {
                     bnavIndicator.style.opacity = '1';
                     bnavIndicator.style.transform = `translateX(${btn.offsetLeft}px)`;
+                }
+                if (!isModal) {
+                    lastBackgroundBnavBtn = btn;
                 }
             }
             
@@ -9378,6 +9387,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (_ov) _ov.classList.remove('show');
             }
         }
+
+        window.restoreBnavActive = function() {
+            if (lastBackgroundBnavBtn) {
+                setBnavActive(lastBackgroundBnavBtn);
+            } else {
+                setBnavActive(document.getElementById('bnav-home'));
+            }
+        };
 
         // Initialize indicator position on load
         setTimeout(() => {
@@ -9402,7 +9419,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const closeSearchModal = document.getElementById('close-search-modal');
 
         if (bnavSearch) bnavSearch.addEventListener('click', () => {
-            setBnavActive(bnavSearch);
+            setBnavActive(bnavSearch, true);
 
             // If a company is already analyzed but the dashboard is hidden, restore the dashboard
             if (typeof globalData !== 'undefined' && globalData && globalData.ticker && dashboard && dashboard.style.display === 'none') {
@@ -9435,6 +9452,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 searchModal.classList.remove('show');
                 const _ov = document.getElementById('search-modal-overlay');
                 if (_ov) _ov.classList.remove('show');
+                if (window.restoreBnavActive) window.restoreBnavActive();
             });
         }
 
@@ -9445,6 +9463,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const _ov = document.getElementById('search-modal-overlay');
                 if (_ov) _ov.classList.remove('show');
                 if (overlay) overlay.classList.remove('show');
+                if (window.restoreBnavActive) window.restoreBnavActive();
             }
         });
 
@@ -9467,7 +9486,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         if (bnavProfile) bnavProfile.addEventListener('click', () => {
-            setBnavActive(bnavProfile);
+            setBnavActive(bnavProfile, true);
             document.getElementById('login-btn').click();
         });
 
