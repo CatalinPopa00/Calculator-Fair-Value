@@ -4782,11 +4782,15 @@ body.has-searched #install-app-btn {
     height: 50px;
     position: relative;
     opacity: 0.6;
+    -webkit-tap-highlight-color: transparent;
+    outline: none;
 }
-.bnav-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-    transform: translateY(-3px);
-    opacity: 0.9;
+@media (hover: hover) {
+    .bnav-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+        transform: translateY(-3px);
+        opacity: 0.9;
+    }
 }
 .bnav-btn.active {
     opacity: 1;
