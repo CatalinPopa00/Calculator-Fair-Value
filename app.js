@@ -9138,7 +9138,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         container.innerHTML += `
                             <div class="etf-row">
                                 <div class="etf-row-company">
-                                    <img src="https://www.google.com/s2/favicons?sz=64&domain=${domain}" class="company-logo-small" onerror="this.src='https://ui-avatars.com/api/?name=${item.ticker}&background=0f172a&color=fff'" alt="">
+                                    <img src="https://financialmodelingprep.com/image-stock/${item.ticker.toUpperCase()}.png" class="company-logo-small" onerror="this.onerror=null; this.src='https://www.google.com/s2/favicons?sz=64&domain=${domain}'; this.onerror=function(){this.onerror=null; this.src='https://logo.clearbit.com/${domain}'; this.onerror=function(){this.onerror=null; this.src='https://ui-avatars.com/api/?name=${item.ticker}&background=0f172a&color=fff'}};" alt="">
                                     ${item.company}
                                 </div>
                                 <div class="etf-row-ticker">${item.ticker}</div>
