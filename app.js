@@ -339,6 +339,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (confirm("Do you want to log out?")) {
                     firebase.auth().signOut();
                 }
+                if (window.restoreBnavActive) window.restoreBnavActive();
             } else {
                 authModal.style.display = 'flex';
                 authError.style.display = 'none';
