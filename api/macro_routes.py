@@ -10,7 +10,7 @@ from functools import wraps
 router = APIRouter()
 
 # Cache macro data for 24 hours
-macro_cache_v4 = TTLCache(maxsize=10, ttl=86400)
+macro_cache_v5 = TTLCache(maxsize=10, ttl=86400)
 
 def safe_cached(cache, fallback_value=None, lock=None):
     """
@@ -49,7 +49,48 @@ def get_fear_and_greed():
         print(f"Error fetching Fear & Greed: {e}")
         return {"score": 50, "rating": "neutral"}
 
+
+@safe_cached(cache=TTLCache(maxsize=20, ttl=86400), fallback_value=[])
+def get_etf_holdings(ticker_symbol):
+    try:
+        tkr = yf.Ticker(ticker_symbol)
+        holdings = tkr.funds_data.top_holdings
+        if holdings.empty:
+            return []
+
+        res = []
+        for sym, row in holdings.iterrows():
+            # Guessing domain as example.com as fallback isn't needed anymore if we can't guess
+            # Actually frontend has fallbacks if domain is example.com it tries clearbit then ui-avatars.
+            # We will use 'example.com' to trigger those fallbacks.
+            res.append({
+                "company": row['Name'],
+                "ticker": sym,
+                "weight": f"{row['Holding Percent'] * 100:.2f}%",
+                "domain": "example.com"
+            })
+        return res
+    except Exception as e:
+        print(f"Error fetching ETF holdings for {ticker_symbol}: {e}")
+        return []
+
 def get_static_etf_top10(index_name):
+    # Mapping for live fetching
+    ticker_map = {
+        "sp500": "SPY",
+        "nasdaq": "QQQ",
+        "russell": "IWM",
+        "dax": "EXS1.DE",
+        "dow": "DIA",
+        "stoxx": "FEZ"
+    }
+
+    if index_name in ticker_map:
+        live_data = get_etf_holdings(ticker_map[index_name])
+        if live_data:
+            return live_data
+
+    # Fallback to static data
     if index_name == "sp500":
         return [
             {"company": "Microsoft", "ticker": "MSFT", "weight": "7.1%", "domain": "microsoft.com"},
@@ -283,8 +324,8 @@ def get_buffett_indicator():
 
 @router.get("/macro")
 def get_macro_dashboard():
-    if "macro_data" in macro_cache_v4:
-        return macro_cache_v4["macro_data"]
+    if "macro_data" in macro_cache_v5:
+        return macro_cache_v5["macro_data"]
         
     fear_greed = get_fear_and_greed()
     sp500 = get_static_etf_top10("sp500")
@@ -335,7 +376,7 @@ def get_macro_dashboard():
         }
     }
     
-    macro_cache_v4["macro_data"] = data
+    macro_cache_v5["macro_data"] = data
     return data
 
 @router.get("/market-live")
