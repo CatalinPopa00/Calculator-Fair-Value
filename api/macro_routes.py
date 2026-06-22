@@ -10,7 +10,7 @@ from functools import wraps
 router = APIRouter()
 
 # Cache macro data for 24 hours
-macro_cache_v2 = TTLCache(maxsize=10, ttl=86400)
+macro_cache_v3 = TTLCache(maxsize=10, ttl=86400)
 
 def safe_cached(cache, fallback_value=None, lock=None):
     """
@@ -245,8 +245,8 @@ def get_buffett_indicator():
 
 @router.get("/macro")
 def get_macro_dashboard():
-    if "macro_data" in macro_cache_v2:
-        return macro_cache_v2["macro_data"]
+    if "macro_data" in macro_cache_v3:
+        return macro_cache_v3["macro_data"]
         
     fear_greed = get_fear_and_greed()
     sp500 = get_static_etf_top10("sp500")
@@ -266,16 +266,15 @@ def get_macro_dashboard():
     gdp_hist = get_world_bank_data('NY.GDP.MKTP.CD', history=True)
     
     # GDP Evolution (Last year, Est This Year, Est Next Year)
-    last_gdp = gdp_hist[-1]['value'] if gdp_hist else 27360000000000
-    last_year = int(gdp_hist[-1]['year']) if gdp_hist else 2023
-    
     current_year = 2026
-    projected_last_gdp = last_gdp * (1.025 ** max(0, current_year - 1 - last_year))
-    
+    current_gdp = buffett.get("gdp_trillions", 31.57) * 1_000_000_000_000
+    if current_gdp == 0:
+        current_gdp = 31570000000000
+
     gdp_evolution = {
-        "last_year": {"year": current_year - 1, "value": projected_last_gdp},
-        "this_year": {"year": current_year, "value": projected_last_gdp * 1.025},
-        "next_year": {"year": current_year + 1, "value": projected_last_gdp * 1.050625}
+        "last_year": {"year": current_year - 1, "value": current_gdp / 1.025},
+        "this_year": {"year": current_year, "value": current_gdp},
+        "next_year": {"year": current_year + 1, "value": current_gdp * 1.025}
     }
     
     data = {
@@ -298,7 +297,7 @@ def get_macro_dashboard():
         }
     }
     
-    macro_cache_v2["macro_data"] = data
+    macro_cache_v3["macro_data"] = data
     return data
 
 @router.get("/market-live")
