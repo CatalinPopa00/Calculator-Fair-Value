@@ -9396,7 +9396,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         window.restoreBnavActive = function() {
-            if (lastBackgroundBnavBtn) {
+            const localDashboard = document.getElementById('dashboard');
+            const isDashboardActive = localDashboard && localDashboard.style.display !== 'none' && document.body.classList.contains('has-searched');
+
+            if (isDashboardActive) {
+                setBnavActive(document.getElementById('bnav-search'));
+            } else if (lastBackgroundBnavBtn) {
                 setBnavActive(lastBackgroundBnavBtn);
             } else {
                 setBnavActive(document.getElementById('bnav-home'));
