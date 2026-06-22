@@ -202,20 +202,26 @@ def get_world_bank_data(indicator, history=False):
 @safe_cached(cache=TTLCache(maxsize=1, ttl=86400), fallback_value={"ratio": 0, "market_cap_trillions": 0, "gdp_trillions": 0})
 def get_buffett_indicator():
     try:
-        gdp = get_world_bank_data('NY.GDP.MKTP.CD')
-        if not gdp:
-            gdp = 28750000000000
-            
         ratio = 0
+        gdp = None
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'}
         r = requests.get('https://www.currentmarketvaluation.com/models/buffett-indicator.php', headers=headers, timeout=10)
         from bs4 import BeautifulSoup
         import re
         soup = BeautifulSoup(r.text, 'html.parser')
         
-        match = re.search(r'current Buffett Indicator value of ([\d\.]+)%', r.text, re.IGNORECASE)
-        if match:
-            ratio = float(match.group(1))
+        match_ratio = re.search(r'current Buffett Indicator value of ([\d\.]+)%', r.text, re.IGNORECASE)
+        if match_ratio:
+            ratio = float(match_ratio.group(1))
+
+        match_gdp = re.search(r'Annualized GDP = \$([\d\.]+)T', r.text, re.IGNORECASE)
+        if match_gdp:
+            gdp = float(match_gdp.group(1)) * 1_000_000_000_000
+
+        if not gdp:
+            gdp = get_world_bank_data('NY.GDP.MKTP.CD')
+        if not gdp:
+            gdp = 28750000000000
         
         if ratio == 0:
             return {"ratio": 0, "market_cap_trillions": 0, "gdp_trillions": round(gdp / 1_000_000_000_000, 2)}
