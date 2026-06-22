@@ -5054,3 +5054,10 @@ body.has-searched #install-app-btn {
         max-width: none;
     }
 }
+
+/* Hide bottom nav when modals are open */
+.bottom-nav.force-hidden {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transform: translateX(-50%) translateY(150px) !important;
+}

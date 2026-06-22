@@ -36,6 +36,36 @@ async function robustFetch(url, options = {}, maxRetries = 2) {
 
 document.addEventListener('DOMContentLoaded', () => {
 
+    // Hide bottom nav when specific modals or AI chat are open
+    const updateBottomNavVisibility = () => {
+        const dataModalOpen = document.getElementById('data-modal')?.style.display === 'flex';
+        const scoreModalOpen = document.getElementById('score-modal')?.style.display === 'flex';
+        const rulesModalOpen = document.getElementById('rules-modal')?.style.display === 'flex';
+        const aiChatOpen = document.getElementById('ai-chat-window')?.classList.contains('open');
+
+        const bottomNav = document.getElementById('bottom-nav');
+        if (bottomNav) {
+            if (dataModalOpen || scoreModalOpen || rulesModalOpen || aiChatOpen) {
+                bottomNav.classList.add('force-hidden');
+            } else {
+                bottomNav.classList.remove('force-hidden');
+            }
+        }
+    };
+
+    const modalObserver = new MutationObserver(() => {
+        updateBottomNavVisibility();
+    });
+
+    ['data-modal', 'score-modal', 'rules-modal', 'ai-chat-window'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            modalObserver.observe(el, { attributes: true, attributeFilter: ['style', 'class'] });
+        }
+    });
+
+
+
 
     const searchBtn = document.getElementById('search-btn');
     const tickerInput = document.getElementById('ticker-input');
