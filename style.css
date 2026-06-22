@@ -4965,6 +4965,11 @@ body.has-searched #install-app-btn {
         height: 45px;
         font-size: 1.3rem;
     }
+    .bnav-indicator {
+        width: 45px;
+        height: 45px;
+        top: 8px;
+    }
 }
 
 
