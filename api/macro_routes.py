@@ -10,7 +10,7 @@ from functools import wraps
 router = APIRouter()
 
 # Cache macro data for 24 hours
-macro_cache_v3 = TTLCache(maxsize=10, ttl=86400)
+macro_cache_v4 = TTLCache(maxsize=10, ttl=86400)
 
 def safe_cached(cache, fallback_value=None, lock=None):
     """
@@ -141,8 +141,15 @@ def get_vix_current():
         print(f"Error fetching VIX: {e}")
     return 15.0 # Fallback
 
-@safe_cached(cache=TTLCache(maxsize=1, ttl=86400), fallback_value={"current": "5.25 - 5.50%", "forecast": "", "cut_probability": "", "hike_probability": ""})
+@safe_cached(cache=TTLCache(maxsize=1, ttl=86400), fallback_value={"current": "5.25 - 5.50%", "forecast": "--", "cut_probability": "0%", "hike_probability": "0%", "hold_probability": "100%"})
 def get_fed_rate():
+    current_val = None
+    implied_rate = None
+    cut_prob = 0
+    hike_prob = 0
+    hold_prob = 100
+    forecast_str = "--"
+
     try:
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'}
         r = requests.get('https://www.federalreserve.gov/releases/h15/', headers=headers, timeout=10)
@@ -158,20 +165,51 @@ def get_fed_rate():
                     if len(cols) > 0:
                         val = cols[-1].text.strip()
                         if val:
-                            return {
-                                "current": f"{val}%",
-                                "forecast": "",
-                                "cut_probability": "",
-                                "hike_probability": ""
-                            }
+                            current_val = float(val)
+                            break
     except Exception as e:
         print(f"Error fetching Fed Rate: {e}")
+
+    if current_val is not None:
+        try:
+            import yfinance as yf
+            # ZQ=F: 30-Day Federal Funds futures. Price is 100 - average daily rate.
+            tkr = yf.Ticker('ZQ=F')
+            hist = tkr.history(period="1d")
+            if not hist.empty:
+                price = hist['Close'].iloc[-1]
+                implied_rate = 100 - price
+                forecast_str = f"{round(implied_rate, 2)}%"
+
+                diff = implied_rate - current_val
+
+                # Simple heuristic based on futures
+                if diff < -0.10: # More than 10bps cut priced in
+                    cut_prob = min(100, round(abs(diff / 0.25) * 100))
+                    hold_prob = max(0, 100 - cut_prob)
+                elif diff > 0.10: # More than 10bps hike priced in
+                    hike_prob = min(100, round(abs(diff / 0.25) * 100))
+                    hold_prob = max(0, 100 - hike_prob)
+                else:
+                    hold_prob = 100
+        except Exception as e:
+            print(f"Error fetching Fed Forecast: {e}")
+
+    if current_val is not None:
+        return {
+            "current": f"{current_val}%",
+            "forecast": forecast_str,
+            "cut_probability": f"{cut_prob}%",
+            "hike_probability": f"{hike_prob}%",
+            "hold_probability": f"{hold_prob}%"
+        }
     
     return {
         "current": "5.25 - 5.50%",
-        "forecast": "",
-                                "cut_probability": "",
-                                "hike_probability": ""
+        "forecast": "--",
+        "cut_probability": "0%",
+        "hike_probability": "0%",
+        "hold_probability": "100%"
     }
 
 @safe_cached(cache=TTLCache(maxsize=10, ttl=86400), fallback_value=[])
@@ -245,8 +283,8 @@ def get_buffett_indicator():
 
 @router.get("/macro")
 def get_macro_dashboard():
-    if "macro_data" in macro_cache_v3:
-        return macro_cache_v3["macro_data"]
+    if "macro_data" in macro_cache_v4:
+        return macro_cache_v4["macro_data"]
         
     fear_greed = get_fear_and_greed()
     sp500 = get_static_etf_top10("sp500")
@@ -297,7 +335,7 @@ def get_macro_dashboard():
         }
     }
     
-    macro_cache_v3["macro_data"] = data
+    macro_cache_v4["macro_data"] = data
     return data
 
 @router.get("/market-live")

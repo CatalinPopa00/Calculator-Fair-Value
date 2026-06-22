@@ -9058,7 +9058,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Fed Rate
                 if (data.fed_rate) {
-                    document.getElementById('fed-current').textContent = data.fed_rate.current;
+                    document.getElementById('fed-current').textContent = data.fed_rate.current || '--';
+                    if (document.getElementById('fed-forecast')) document.getElementById('fed-forecast').textContent = data.fed_rate.forecast || '--';
+                    if (document.getElementById('fed-cut-prob')) document.getElementById('fed-cut-prob').textContent = data.fed_rate.cut_probability || '--';
+                    if (document.getElementById('fed-hike-prob')) document.getElementById('fed-hike-prob').textContent = data.fed_rate.hike_probability || '--';
+                    if (document.getElementById('fed-hold-prob')) document.getElementById('fed-hold-prob').textContent = data.fed_rate.hold_probability || '--';
                 }
 
                 // Charts
