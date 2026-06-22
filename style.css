@@ -4588,9 +4588,10 @@ body.has-searched #install-app-btn {
 .etf-row-company img.company-logo-small {
     width: 20px;
     height: 20px;
-    border-radius: 50%;
-    object-fit: cover;
-    background: white;
+    border-radius: 4px;
+    object-fit: contain;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 2px;
 }
 .etf-row-ticker {
     flex: 1;
