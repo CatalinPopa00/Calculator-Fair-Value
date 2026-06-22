@@ -10,7 +10,7 @@ from functools import wraps
 router = APIRouter()
 
 # Cache macro data for 24 hours
-macro_cache = TTLCache(maxsize=10, ttl=86400)
+macro_cache_v2 = TTLCache(maxsize=10, ttl=86400)
 
 def safe_cached(cache, fallback_value=None, lock=None):
     """
@@ -199,20 +199,21 @@ def get_world_bank_data(indicator, history=False):
         print(f"Error fetching World Bank {indicator}: {e}")
     return [] if history else None
 
-@safe_cached(cache=TTLCache(maxsize=1, ttl=86400), fallback_value={"ratio": 0, "market_cap_trillions": 0, "gdp_trillions": 0})
+@safe_cached(cache=TTLCache(maxsize=1, ttl=86399), fallback_value={"ratio": 0, "market_cap_trillions": 0, "gdp_trillions": 0})
 def get_buffett_indicator():
     try:
         ratio = 0
         gdp = None
+        market_cap = None
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'}
         r = requests.get('https://www.currentmarketvaluation.com/models/buffett-indicator.php', headers=headers, timeout=10)
         from bs4 import BeautifulSoup
         import re
         soup = BeautifulSoup(r.text, 'html.parser')
         
-        match_ratio = re.search(r'current Buffett Indicator value of ([\d\.]+)%', r.text, re.IGNORECASE)
-        if match_ratio:
-            ratio = float(match_ratio.group(1))
+        match_mcap = re.search(r'Total US Stock Market Value = \$([\d\.]+)T', r.text, re.IGNORECASE)
+        if match_mcap:
+            market_cap = float(match_mcap.group(1)) * 1_000_000_000_000
 
         match_gdp = re.search(r'Annualized GDP = \$([\d\.]+)T', r.text, re.IGNORECASE)
         if match_gdp:
@@ -222,11 +223,16 @@ def get_buffett_indicator():
             gdp = get_world_bank_data('NY.GDP.MKTP.CD')
         if not gdp:
             gdp = 28750000000000
-        
-        if ratio == 0:
-            return {"ratio": 0, "market_cap_trillions": 0, "gdp_trillions": round(gdp / 1_000_000_000_000, 2)}
-        
-        market_cap = (ratio / 100) * gdp
+
+        if market_cap and gdp:
+            ratio = (market_cap / gdp) * 100
+        else:
+            match_ratio = re.search(r'current Buffett Indicator value of ([\d\.]+)%', r.text, re.IGNORECASE)
+            if match_ratio:
+                ratio = float(match_ratio.group(1))
+            if ratio == 0:
+                return {"ratio": 0, "market_cap_trillions": 0, "gdp_trillions": round(gdp / 1_000_000_000_000, 2)}
+            market_cap = (ratio / 100) * gdp
         
         return {
             "ratio": round(ratio, 1),
@@ -239,8 +245,8 @@ def get_buffett_indicator():
 
 @router.get("/macro")
 def get_macro_dashboard():
-    if "macro_data" in macro_cache:
-        return macro_cache["macro_data"]
+    if "macro_data" in macro_cache_v2:
+        return macro_cache_v2["macro_data"]
         
     fear_greed = get_fear_and_greed()
     sp500 = get_static_etf_top10("sp500")
@@ -292,7 +298,7 @@ def get_macro_dashboard():
         }
     }
     
-    macro_cache["macro_data"] = data
+    macro_cache_v2["macro_data"] = data
     return data
 
 @router.get("/market-live")
