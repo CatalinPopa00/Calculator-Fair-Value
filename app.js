@@ -36,22 +36,33 @@ async function robustFetch(url, options = {}, maxRetries = 2) {
 
 document.addEventListener('DOMContentLoaded', () => {
 
-    // Hide bottom nav when specific modals or AI chat are open
-    const updateBottomNavVisibility = () => {
+    // Hide bottom nav and AI chat button when specific modals are open
+    const updateGlobalUIVisibility = () => {
         const dataModalOpen = document.getElementById('data-modal')?.style.display === 'flex';
         const scoreModalOpen = document.getElementById('score-modal')?.style.display === 'flex';
         const rulesModalOpen = document.getElementById('rules-modal')?.style.display === 'flex';
         const aiChatOpen = document.getElementById('ai-chat-window')?.classList.contains('open');
+        const authModalOpen = document.getElementById('auth-modal')?.style.display === 'flex';
+        const searchModalOpen = document.getElementById('search-modal')?.classList.contains('show');
+
+        const isAnyModalOpen = dataModalOpen || scoreModalOpen || rulesModalOpen || aiChatOpen || authModalOpen || searchModalOpen;
+        const isAnyModalExceptChatOpen = dataModalOpen || scoreModalOpen || rulesModalOpen || authModalOpen || searchModalOpen;
 
         const bottomNav = document.getElementById('bottom-nav');
         if (bottomNav) {
-            if (dataModalOpen || scoreModalOpen || rulesModalOpen || aiChatOpen) {
+            if (isAnyModalOpen) {
                 bottomNav.classList.add('force-hidden');
             } else {
                 bottomNav.classList.remove('force-hidden');
             }
         }
 
+        const aiChatBtn = document.getElementById('ai-chat-btn');
+        if (aiChatBtn) {
+            if (isAnyModalExceptChatOpen) {
+                aiChatBtn.style.display = 'none';
+            } else {
+                aiChatBtn.style.display = 'flex';
         const searchModalOpen = document.getElementById('search-modal')?.classList.contains('show');
         const aiChatWidget = document.getElementById('ai-chat-widget');
         if (aiChatWidget) {
@@ -64,9 +75,10 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const modalObserver = new MutationObserver(() => {
-        updateBottomNavVisibility();
+        updateGlobalUIVisibility();
     });
 
+    ['data-modal', 'score-modal', 'rules-modal', 'ai-chat-window', 'auth-modal', 'search-modal'].forEach(id => {
     ['data-modal', 'score-modal', 'rules-modal', 'ai-chat-window', 'search-modal'].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
