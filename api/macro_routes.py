@@ -474,7 +474,7 @@ def read_article(url: str, title: str = ""):
     if not gemini_key:
         return {"error": "No Gemini API Key available to read article"}
         
-    prompt = f"I need to extract the full text of the following news article. Title: '{title}'. URL: {url}. Please search the web for this article title or content, and provide the FULL TEXT of the article. Do not include introductory text, just return the article content formatted with paragraphs."
+    prompt = f"Please search the web for the news article titled '{title}' (URL: {url}). Read it carefully and provide a highly detailed, comprehensive summary of the entire article. Act as an expert journalist: include all key facts, statistics, direct quotes, and the full narrative flow. Format the response beautifully using HTML <p> tags for paragraphs. Do not use markdown backticks, just output the HTML directly. Do not include introductory or concluding fluff."
     
     payload = {
         "contents": [{"role": "user", "parts": [{"text": prompt}]}],
@@ -488,7 +488,12 @@ def read_article(url: str, title: str = ""):
         data = resp.json()
         if "candidates" in data and len(data["candidates"]) > 0:
             content = data["candidates"][0]["content"]["parts"][0]["text"]
-            # Clean up the output if Gemini wraps it in markdown blockquotes or introduces it
+            
+            if content.startswith('```html'): content = content[7:]
+            if content.startswith('```'): content = content[3:]
+            if content.endswith('```'): content = content[:-3]
+            content = content.strip()
+
             return {"text": content}
         else:
             return {"error": "Could not extract article content. The paywall might be blocking the AI or the article was not found in public search."}
