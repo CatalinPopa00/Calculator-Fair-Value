@@ -5071,3 +5071,30 @@ body.has-searched #install-app-btn {
     pointer-events: none !important;
     transform: translateX(-50%) translateY(150px) !important;
 }
+
+
+/* News Tab Buttons */
+.news-tabs {
+    margin-top: 10px;
+}
+.news-tab-btn {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    padding: 10px 24px;
+    border-radius: 20px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+.news-tab-btn:hover {
+    color: var(--text-main);
+    border-color: var(--text-muted);
+}
+.news-tab-btn.active {
+    background: var(--primary-glow);
+    border-color: var(--primary);
+    color: var(--primary);
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.2);
+}

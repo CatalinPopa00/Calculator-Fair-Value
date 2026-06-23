@@ -109,13 +109,29 @@
 
         <!-- Latest News Dashboard (Home) -->
         <main class="news-dashboard" id="news-dashboard">
-            <h2 style="text-align: center; color: var(--text-main); margin-bottom: 2rem; font-size: 1.8rem;">Latest Market News</h2>
-            <div id="news-loading" style="text-align: center; padding: 2rem; color: var(--text-muted);">
-                <div class="spinner" style="margin: 0 auto 1rem auto;"></div>
-                Fetching latest news from Yahoo Finance...
+            <div class="news-tabs" style="display: flex; justify-content: center; gap: 1rem; margin-bottom: 2rem;">
+                <button class="news-tab-btn active" id="tab-market-news" onclick="switchNewsTab('market')">Latest Market News</button>
+                <button class="news-tab-btn" id="tab-wsj-news" onclick="switchNewsTab('wsj')">Wall Street Journal</button>
             </div>
-            <div class="news-magazine-layout" id="news-grid" style="display: none;">
-                <!-- News cards will be injected here -->
+            
+            <div id="market-news-content">
+                <div id="news-loading" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                    <div class="spinner" style="margin: 0 auto 1rem auto;"></div>
+                    Fetching latest news from Yahoo Finance...
+                </div>
+                <div class="news-magazine-layout" id="news-grid" style="display: none;">
+                    <!-- News cards will be injected here -->
+                </div>
+            </div>
+
+            <div id="wsj-news-content" style="display: none;">
+                <div id="wsj-news-loading" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                    <div class="spinner" style="margin: 0 auto 1rem auto;"></div>
+                    Fetching latest news from Wall Street Journal...
+                </div>
+                <div class="news-magazine-layout" id="wsj-news-grid" style="display: none;">
+                    <!-- WSJ cards will be injected here -->
+                </div>
             </div>
         </main>
 
