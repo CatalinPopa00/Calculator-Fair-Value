@@ -443,7 +443,7 @@ def get_wsj_news():
     try:
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'}
         # 'https://feeds.a.dj.com/rss/RSSMarketsMain.xml' or 'https://feeds.a.dj.com/rss/WSJcomUSBusiness.xml'
-        r = requests.get('https://feeds.a.dj.com/rss/RSSMarketsMain.xml', headers=headers, timeout=10)
+        r = requests.get('https://news.google.com/rss/search?q=site:wsj.com+when:7d', headers=headers, timeout=8)
         
         root = ET.fromstring(r.content)
         news_items = []
@@ -483,7 +483,7 @@ def read_article(url: str, title: str = ""):
     try:
         resp = requests.post(
             f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}",
-            json=payload, timeout=15
+            json=payload, timeout=8
         )
         data = resp.json()
         if "candidates" in data and len(data["candidates"]) > 0:

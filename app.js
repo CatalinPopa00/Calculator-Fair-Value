@@ -353,7 +353,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         summaryDiv.innerHTML = `<div style="padding: 15px; background: rgba(0,0,0,0.2); border-left: 3px solid #8b5cf6; border-radius: 4px;">${paragraphs}</div>`;
                         readInAppBtn.style.display = 'none';
                     } else {
-                        alert("Eroare la extragerea articolului: " + (data.error || "Unknown error"));
+                        
+                        let errMsg = data.error || data.detail || data.message || "Unknown error";
+                        if (typeof errMsg === 'object') errMsg = JSON.stringify(errMsg);
+                        if (errMsg === "Unknown error" && !data.error) errMsg = "Unknown error: " + JSON.stringify(data);
+                        alert("Eroare la extragerea articolului: " + errMsg);
+
                         readInAppBtn.innerHTML = '✨ Retry AI Extract';
                         readInAppBtn.style.pointerEvents = 'auto';
                     }
@@ -9658,7 +9663,7 @@ window.fetchWSJNews = async function(isSilent = false) {
 
             };
             
-            const imgHtml = `<div class="news-img wsj-img" style="font-size:2.5rem; background: radial-gradient(circle, #1e293b 0%, #0f172a 100%); color: rgba(255,255,255,0.8); display:flex; align-items:center; justify-content:center; border-bottom: 1px solid var(--border); font-family: serif; font-style: italic; font-weight: bold; letter-spacing: 2px;">WSJ.</div>`;
+            const imgHtml = ''; // Removed big block based on user feedback
             
             card.innerHTML = `
                 ${imgHtml}
