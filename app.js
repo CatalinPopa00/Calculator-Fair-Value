@@ -9697,4 +9697,4 @@ window.fetchWSJNews = async function(isSilent = false) {
     }
 };
 
-window.addEventListener('resize', updateActiveNavIndicator);
+// window.addEventListener('resize', updateActiveNavIndicator); // Removed undefined function

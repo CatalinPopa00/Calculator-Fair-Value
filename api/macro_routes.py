@@ -487,32 +487,43 @@ def read_article(url: str, title: str = ""):
         ]
     }
     try:
-        models_to_try = ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"]
+        models_to_try = ["gemini-1.5-flash", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"]
+        last_error = "Unknown Error"
         for idx, model in enumerate(models_to_try):
-            resp = requests.post(
-                f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={gemini_key}",
-                json=payload, timeout=8
-            )
-            data = resp.json()
-            
-            # If there's an error (e.g. 429 Quota, 503 Unavailable), try the next model
-            if "error" in data:
+            try:
+                resp = requests.post(
+                    f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={gemini_key}",
+                    json=payload, timeout=8.5
+                )
+                data = resp.json()
+                
+                if "error" in data:
+                    last_error = f"API Error: {data}"
+                    if idx < len(models_to_try) - 1:
+                        continue
+                
+                if "candidates" in data and len(data["candidates"]) > 0:
+                    content = data["candidates"][0]["content"]["parts"][0]["text"]
+                    
+                    if content.startswith('```html'): content = content[7:]
+                    if content.startswith('```'): content = content[3:]
+                    if content.endswith('```'): content = content[:-3]
+                    content = content.strip()
+
+                    return {"text": content}
+                
+                last_error = f"AI Blocked ({model}). Raw response: {data}"
                 if idx < len(models_to_try) - 1:
                     continue
-            
-            # If successful
-            if "candidates" in data and len(data["candidates"]) > 0:
-                content = data["candidates"][0]["content"]["parts"][0]["text"]
-                
-                if content.startswith('```html'): content = content[7:]
-                if content.startswith('```'): content = content[3:]
-                if content.endswith('```'): content = content[:-3]
-                content = content.strip()
-
-                return {"text": content}
-            
-            # If blocked for safety but not rate limited, just return the error immediately
-            return {"error": f"AI Blocked ({model}). Raw response: {data}"}
-            
+            except requests.exceptions.ReadTimeout as e:
+                last_error = f"Timeout ({model})"
+                if idx < len(models_to_try) - 1:
+                    continue
+            except Exception as e:
+                last_error = f"Exception ({model}): {str(e)}"
+                if idx < len(models_to_try) - 1:
+                    continue
+                    
+        return {"error": f"Toate modelele au esuat sau a expirat timpul. Ultimul motiv: {last_error}"}
     except Exception as e:
         return {"error": str(e)}
