@@ -932,6 +932,21 @@ body {
     }
 }
 
+.wsj-grid-layout {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px;
+    padding: 10px;
+    align-items: start;
+    padding-bottom: 80px;
+}
+@media (max-width: 600px) {
+    .wsj-grid-layout {
+        grid-template-columns: 1fr;
+        padding: 10px 0; /* Align perfectly on small screens */
+    }
+}
+
 .charts-flex-column {
     display: flex;
     flex-direction: column;

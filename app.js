@@ -9623,11 +9623,8 @@ window.fetchWSJNews = async function(isSilent = false) {
         latestWSJNewsCache = data.news;
         
         wsjLoading.style.display = 'none';
-        wsjGrid.style.display = 'grid';
-        wsjGrid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(320px, 1fr))';
-        wsjGrid.style.gap = '20px';
-        wsjGrid.style.padding = '10px';
-        wsjGrid.style.alignItems = 'start';
+        wsjGrid.style.display = '';
+        wsjGrid.className = 'wsj-grid-layout';
         wsjGrid.innerHTML = '';
         
         const createCard = (item) => {
@@ -9678,7 +9675,7 @@ window.fetchWSJNews = async function(isSilent = false) {
             card.innerHTML = `
                 <div class="news-content" style="display: flex; flex-direction: column; gap: 15px; height: 100%;">
                     <div class="news-title" style="font-weight: 600; font-size: 1.1rem; line-height: 1.4; color: #f8fafc; flex-grow: 1;">${title}</div>
-                    <div class="news-meta" style="display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; color: #94a3b8; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
+                    <div class="news-meta" style="display: flex; flex-direction: column; align-items: flex-start; gap: 6px; font-size: 0.85rem; color: #94a3b8; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
                         <span class="news-source" style="font-weight: 500; color: #38bdf8;">Wall Street Journal</span>
                         <span class="news-time">${date}</span>
                     </div>
