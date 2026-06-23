@@ -525,7 +525,7 @@ def read_article(url: str, title: str = ""):
                     continue
         
         # If all Gemini models fail, use Groq as ultimate fallback for a headline analysis
-        groq_key = os.getenv("GROQ_API_KEY")
+        groq_key = os.getenv("GROQ_API_KEY") or os.getenv("Groq")
         if groq_key:
             try:
                 groq_payload = {
