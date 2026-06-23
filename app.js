@@ -6721,11 +6721,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     // 1. Fereastra frozen: Hide tooltip when modal is scrolled
     const customScenariosModalContent = document.querySelector('#custom-scenarios-modal .modal-content');
     if (customScenariosModalContent) {
-        customScenariosModalContent.addEventListener('scroll', () => {
-            if (tipsTooltip.style.display === 'block') {
-                tipsTooltip.style.display = 'none';
-            }
-        });
+        // Tooltip scroll hide disabled to prevent glitching
     }
 
     const updateTooltipPosition = (e) => {
@@ -9240,18 +9236,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setInterval(fetchLiveMarketData, 15000);
         setTimeout(fetchLiveMarketData, 1000); // initial fetch
 
-        // Mobile Bottom Nav Auto-Hide
-        let navTimeout;
-        window.addEventListener('scroll', () => {
-            const bottomNav = document.querySelector('.bottom-nav');
-            if (bottomNav) {
-                bottomNav.classList.remove('hidden');
-                clearTimeout(navTimeout);
-                navTimeout = setTimeout(() => {
-                    bottomNav.classList.add('hidden');
-                }, 3000);
-            }
-        });
+        
 
         // --- LATEST NEWS LOGIC ---
         let latestNewsCache = [];
@@ -9611,11 +9596,11 @@ window.fetchWSJNews = async function(isSilent = false) {
             // Bypass WSJ hard-paywall using our api route
             card.onclick = (e) => {
                 e.preventDefault();
-                const bypassUrl = `/api/article-bypass?url=${encodeURIComponent(link)}`;
+                const bypassUrl = `https://www.removepaywall.com/search?url=${encodeURIComponent(link)}`;
                 window.open(bypassUrl, '_blank');
             };
             
-            const imgHtml = `<div class="news-img wsj-img" style="font-size:3rem; background: #0f172a; color: white; display:flex; align-items:center; justify-content:center; border-bottom: 1px solid var(--border);">WSJ</div>`;
+            const imgHtml = `<div class="news-img wsj-img" style="font-size:2.5rem; background: radial-gradient(circle, #1e293b 0%, #0f172a 100%); color: rgba(255,255,255,0.8); display:flex; align-items:center; justify-content:center; border-bottom: 1px solid var(--border); font-family: serif; font-style: italic; font-weight: bold; letter-spacing: 2px;">WSJ.</div>`;
             
             card.innerHTML = `
                 ${imgHtml}
@@ -9648,3 +9633,5 @@ window.fetchWSJNews = async function(isSilent = false) {
         }
     }
 };
+
+window.addEventListener('resize', updateActiveNavIndicator);
