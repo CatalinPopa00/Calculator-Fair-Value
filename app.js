@@ -9593,11 +9593,26 @@ window.fetchWSJNews = async function(isSilent = false) {
             card.className = `news-card ${typeClass}`;
             card.href = link;
             
-            // Bypass WSJ hard-paywall using our api route
             card.onclick = (e) => {
                 e.preventDefault();
-                const bypassUrl = `https://www.removepaywall.com/search?url=${encodeURIComponent(link)}`;
-                window.open(bypassUrl, '_blank');
+                
+                document.getElementById('news-modal-title').textContent = title;
+                document.getElementById('news-modal-publisher').textContent = 'Wall Street Journal';
+                
+                const dateEl = document.getElementById('news-modal-date');
+                if (dateEl) dateEl.textContent = date;
+                
+                // For WSJ RSS, summary is usually in description
+                const summaryHtml = item.description || 'No detailed summary available for this WSJ article. Click "Bypass Paywall" to read the full text.';
+                document.getElementById('news-modal-summary').innerHTML = summaryHtml;
+                
+                const bypassBtn = document.getElementById('news-modal-bypass-btn');
+                bypassBtn.href = `https://www.removepaywall.com/search?url=${encodeURIComponent(link)}`;
+                
+                const origBtn = document.getElementById('news-modal-original-btn');
+                origBtn.href = link;
+                
+                document.getElementById('news-modal').style.display = 'flex';
             };
             
             const imgHtml = `<div class="news-img wsj-img" style="font-size:2.5rem; background: radial-gradient(circle, #1e293b 0%, #0f172a 100%); color: rgba(255,255,255,0.8); display:flex; align-items:center; justify-content:center; border-bottom: 1px solid var(--border); font-family: serif; font-style: italic; font-weight: bold; letter-spacing: 2px;">WSJ.</div>`;
