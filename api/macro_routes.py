@@ -467,7 +467,7 @@ def get_wsj_news():
         return {"news": []}
 
 
-@router.get("/api/read-article")
+@router.get("/read-article")
 def read_article(url: str, title: str = ""):
     import os, requests
     gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("gemini")
