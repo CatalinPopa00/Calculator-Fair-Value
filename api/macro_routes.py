@@ -474,11 +474,17 @@ def read_article(url: str, title: str = ""):
     if not gemini_key:
         return {"error": "No Gemini API Key available to read article"}
         
-    prompt = f"Please search the web for the news article titled '{title}' (URL: {url}). Read it carefully and provide a highly detailed, comprehensive summary of the entire article. Act as an expert journalist: include all key facts, statistics, direct quotes, and the full narrative flow. Format the response beautifully using HTML <p> tags for paragraphs. Do not use markdown backticks, just output the HTML directly. Do not include introductory or concluding fluff."
+    prompt = f"Please search the web for the news article titled '{title}' (URL: {url}). Read it carefully and provide a highly detailed, comprehensive summary of the entire article. Act as an expert journalist: include all key facts, statistics, direct quotes, and the full narrative flow. If you cannot access the exact article due to paywalls, use your search tool to find other reliable news sources reporting on the EXACT SAME EVENT or topic '{title}', and write a comprehensive news report about it. Format the response beautifully using HTML <p> tags for paragraphs. Do not use markdown backticks, just output the HTML directly. Do not include introductory or concluding fluff."
     
     payload = {
         "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-        "tools": [{"google_search": {}}]
+        "tools": [{"google_search": {}}],
+        "safetySettings": [
+            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"}
+        ]
     }
     try:
         resp = requests.post(
@@ -496,6 +502,6 @@ def read_article(url: str, title: str = ""):
 
             return {"text": content}
         else:
-            return {"error": "Could not extract article content. The paywall might be blocking the AI or the article was not found in public search."}
+            return {"error": f"AI Blocked. Raw response: {data}"}
     except Exception as e:
         return {"error": str(e)}
