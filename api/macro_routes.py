@@ -461,7 +461,7 @@ def get_wsj_news():
                     "providerPublishTime": pub_date
                 })
         
-        return {"news": news_items[:15]}
+        return {"news": news_items[:50]}
     except Exception as e:
         print(f"Error fetching WSJ news: {e}")
         return {"news": []}
@@ -487,7 +487,7 @@ def read_article(url: str, title: str = ""):
         ]
     }
     try:
-        models_to_try = ["gemini-1.5-flash", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"]
+        models_to_try = ["gemini-1.5-flash", "gemini-1.5-flash-8b", "gemini-2.5-flash", "gemini-2.0-flash"]
         last_error = "Unknown Error"
         for idx, model in enumerate(models_to_try):
             try:
