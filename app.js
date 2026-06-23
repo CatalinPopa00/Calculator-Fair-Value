@@ -330,6 +330,41 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const closeNewsModalBtn = document.getElementById('close-news-modal');
+        // Read in App Logic
+        const readInAppBtn = document.getElementById('news-modal-read-in-app-btn');
+        if (readInAppBtn) {
+            readInAppBtn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                const title = document.getElementById('news-modal-title').textContent;
+                const url = document.getElementById('news-modal-original-btn').href;
+                
+                const summaryDiv = document.getElementById('news-modal-summary');
+                const origHtml = summaryDiv.innerHTML;
+                
+                readInAppBtn.style.pointerEvents = 'none';
+                readInAppBtn.innerHTML = '⏳ Extracting full article using AI... Please wait...';
+                
+                try {
+                    const response = await fetch(`/api/read-article?title=${encodeURIComponent(title)}&url=${encodeURIComponent(url)}`);
+                    const data = await response.json();
+                    
+                    if (data.text) {
+                        const paragraphs = data.text.split('\n').filter(p => p.trim() !== '').map(p => `<p style="margin-bottom: 12px;">${p}</p>`).join('');
+                        summaryDiv.innerHTML = `<div style="padding: 15px; background: rgba(0,0,0,0.2); border-left: 3px solid #8b5cf6; border-radius: 4px;">${paragraphs}</div>`;
+                        readInAppBtn.style.display = 'none';
+                    } else {
+                        alert("Eroare la extragerea articolului: " + (data.error || "Unknown error"));
+                        readInAppBtn.innerHTML = '✨ Retry AI Extract';
+                        readInAppBtn.style.pointerEvents = 'auto';
+                    }
+                } catch (err) {
+                    alert("Eroare de conexiune la AI.");
+                    readInAppBtn.innerHTML = '✨ Retry AI Extract';
+                    readInAppBtn.style.pointerEvents = 'auto';
+                }
+            });
+        }
+
     if (closeNewsModalBtn) {
         closeNewsModalBtn.addEventListener('click', () => {
             const modal = document.getElementById('news-modal');
@@ -4862,7 +4897,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                                         const origBtn = document.getElementById('news-modal-original-btn');
                                         origBtn.href = article.link;
                                         
+                                        
+                                        const rBtn = document.getElementById('news-modal-read-in-app-btn');
+                                        if(rBtn) { rBtn.style.display = 'flex'; rBtn.innerHTML = '✨ Read Full Article in App (AI Extract)'; rBtn.style.pointerEvents = 'auto'; }
                                         document.getElementById('news-modal').style.display = 'flex';
+
                                     });
                                 });
                             }, 50);
@@ -9612,7 +9651,11 @@ window.fetchWSJNews = async function(isSilent = false) {
                 const origBtn = document.getElementById('news-modal-original-btn');
                 origBtn.href = link;
                 
-                document.getElementById('news-modal').style.display = 'flex';
+                
+                                        const rBtn = document.getElementById('news-modal-read-in-app-btn');
+                                        if(rBtn) { rBtn.style.display = 'flex'; rBtn.innerHTML = '✨ Read Full Article in App (AI Extract)'; rBtn.style.pointerEvents = 'auto'; }
+                                        document.getElementById('news-modal').style.display = 'flex';
+
             };
             
             const imgHtml = `<div class="news-img wsj-img" style="font-size:2.5rem; background: radial-gradient(circle, #1e293b 0%, #0f172a 100%); color: rgba(255,255,255,0.8); display:flex; align-items:center; justify-content:center; border-bottom: 1px solid var(--border); font-family: serif; font-style: italic; font-weight: bold; letter-spacing: 2px;">WSJ.</div>`;
