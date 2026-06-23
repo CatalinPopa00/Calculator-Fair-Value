@@ -461,6 +461,16 @@ def get_wsj_news():
                     "providerPublishTime": pub_date
                 })
         
+        def parse_date(date_str):
+            try:
+                from email.utils import parsedate_to_datetime
+                return parsedate_to_datetime(date_str)
+            except:
+                from datetime import datetime
+                import pytz
+                return datetime.min.replace(tzinfo=pytz.UTC)
+
+        news_items.sort(key=lambda x: parse_date(x["providerPublishTime"]), reverse=True)
         return {"news": news_items[:50]}
     except Exception as e:
         print(f"Error fetching WSJ news: {e}")

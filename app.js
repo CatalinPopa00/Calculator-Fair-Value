@@ -9702,3 +9702,10 @@ window.fetchWSJNews = async function(isSilent = false) {
 };
 
 // window.addEventListener('resize', updateActiveNavIndicator); // Removed undefined function
+
+// Auto-refresh WSJ news every 5 minutes in the background
+setInterval(() => {
+    if (typeof window.fetchWSJNews === 'function') {
+        window.fetchWSJNews(true); // isSilent = true
+    }
+}, 300000);
