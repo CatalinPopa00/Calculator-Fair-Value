@@ -541,6 +541,10 @@ def read_article(url: str, title: str = ""):
             except Exception as ge:
                 last_error += f" | Groq fallback failed: {str(ge)}"
                 
-        return {"error": f"Toate modelele au esuat sau a expirat timpul. Ultimul motiv: {last_error}"}
+        if "429" in last_error or "Quota" in last_error:
+            friendly_err = "Ai atins limita gratuita de citiri (15/minut sau limita zilnica) a cheii Google Gemini! Te rugam sa astepti un minut si sa incerci din nou. Pentru a citi nelimitat, adauga si o cheie gratuita GROQ_API_KEY in panoul Vercel."
+            return {"error": friendly_err, "raw": last_error}
+            
+        return {"error": f"Extragerea a esuat (Eroare sau Timeout). Ultimul motiv: {last_error}"}
     except Exception as e:
         return {"error": str(e)}

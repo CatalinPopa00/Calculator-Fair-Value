@@ -345,7 +345,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 readInAppBtn.innerHTML = '⏳ Extracting full article using AI... Please wait...';
                 
                 try {
-                    const response = await fetch(`/api/read-article?title=${encodeURIComponent(title)}&url=${encodeURIComponent(url)}`);
+                    const response = await fetch(`/api/read-article?title=${encodeURIComponent(title)}&url=${encodeURIComponent(url)}&_t=${Date.now()}`);
                     const data = await response.json();
                     
                     if (data.text) {
@@ -353,17 +353,20 @@ document.addEventListener('DOMContentLoaded', () => {
                         summaryDiv.innerHTML = `<div style="padding: 15px; background: rgba(0,0,0,0.2); border-left: 3px solid #8b5cf6; border-radius: 4px;">${paragraphs}</div>`;
                         readInAppBtn.style.display = 'none';
                     } else {
-                        
                         let errMsg = data.error || data.detail || data.message || "Unknown error";
                         if (typeof errMsg === 'object') errMsg = JSON.stringify(errMsg);
-                        if (errMsg === "Unknown error" && !data.error) errMsg = "Unknown error: " + JSON.stringify(data);
-                        alert("Eroare la extragerea articolului: " + errMsg);
+                        
+                        summaryDiv.innerHTML = `<div style="padding: 15px; background: rgba(220,38,38,0.1); border-left: 3px solid #dc2626; border-radius: 4px; color: #fca5a5;">
+                            <b>Atenție:</b> ${errMsg}
+                        </div>`;
 
                         readInAppBtn.innerHTML = '✨ Retry AI Extract';
                         readInAppBtn.style.pointerEvents = 'auto';
                     }
                 } catch (err) {
-                    alert("Eroare de conexiune la AI.");
+                    summaryDiv.innerHTML = `<div style="padding: 15px; background: rgba(220,38,38,0.1); border-left: 3px solid #dc2626; border-radius: 4px; color: #fca5a5;">
+                        <b>Eroare de conexiune la AI:</b> Vă rugăm să verificați conexiunea la internet sau să încercați din nou mai târziu.
+                    </div>`;
                     readInAppBtn.innerHTML = '✨ Retry AI Extract';
                     readInAppBtn.style.pointerEvents = 'auto';
                 }
