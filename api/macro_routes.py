@@ -495,8 +495,8 @@ def read_article(url: str, title: str = ""):
             )
             data = resp.json()
             
-            # If rate limited (429) or quota exceeded, try the next model
-            if "error" in data and data["error"].get("code") == 429:
+            # If there's an error (e.g. 429 Quota, 503 Unavailable), try the next model
+            if "error" in data:
                 if idx < len(models_to_try) - 1:
                     continue
             
