@@ -523,7 +523,24 @@ def read_article(url: str, title: str = ""):
                 last_error = f"Exception ({model}): {str(e)}"
                 if idx < len(models_to_try) - 1:
                     continue
-                    
+        
+        # If all Gemini models fail, use Groq as ultimate fallback for a headline analysis
+        groq_key = os.getenv("GROQ_API_KEY")
+        if groq_key:
+            try:
+                groq_payload = {
+                    "model": "llama-3.3-70b-versatile",
+                    "messages": [{"role": "user", "content": f"You are a financial analyst. The user tried to read a paywalled Wall Street Journal article titled '{title}'. The AI could not bypass the paywall or search the web. Write a highly detailed, 3-paragraph market analysis or news extrapolation based purely on this headline: '{title}'. Format the response beautifully using HTML <p> tags. Start by saying '<p><i>Note: The full article text could not be extracted due to paywall blocks. Below is an AI-generated analysis based on the headline.</i></p>'."}],
+                    "temperature": 0.5,
+                    "max_tokens": 1024
+                }
+                g_resp = requests.post("https://api.groq.com/openai/v1/chat/completions", headers={"Authorization": f"Bearer {groq_key}"}, json=groq_payload, timeout=5)
+                g_data = g_resp.json()
+                if "choices" in g_data and len(g_data["choices"]) > 0:
+                    return {"text": g_data["choices"][0]["message"]["content"]}
+            except Exception as ge:
+                last_error += f" | Groq fallback failed: {str(ge)}"
+                
         return {"error": f"Toate modelele au esuat sau a expirat timpul. Ultimul motiv: {last_error}"}
     except Exception as e:
         return {"error": str(e)}
