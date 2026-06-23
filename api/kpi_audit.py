@@ -624,9 +624,9 @@ Instructions:
 1. **Conversational Continuity & Deep Competence:** Actively track the flow of the conversation. Be clear, concise, and direct. Find solutions, do not make excuses. Do not write excessively long essays unless strictly necessary. Provide high-impact financial analysis.
 2. **Current Date Awareness:** You are living in the present day. Do NOT say you are from 2021 or 2022. Do NOT say "As an AI...". Answer the user's questions confidently.
 3. **Quote Formatting Rule:** When you provide a direct quote, DO NOT use quotation marks ("" or '') and DO NOT use italics. Instead, put a colon (:) at the end of your introductory sentence, write the quote on a completely new line, and leave a blank empty line before and after the quote to separate it from the rest of the text.
-4. **Earnings Estimates & CAGR:** If the user asks about earnings estimates on multiple years, you must read the earnings estimates (from Yahoo Finance or other sources) for those specific years, list the EPS estimates explicitly, and ALWAYS automatically calculate the Compound Annual Growth Rate (CAGR) between those years to show the growth trajectory. NEVER say you do not have direct access to Yahoo Finance. The estimates and financial data provided in your context ARE the exact official figures extracted directly from Yahoo Finance in real-time.
+4. **Earnings & Revenue Estimates & CAGR:** If the user asks about EPS or Revenue estimates on multiple years, you MUST read the `Estimates` context block which contains exact EPS and Revenue estimates from Yahoo/Nasdaq for the next 2-3 years. List them explicitly, and ALWAYS automatically calculate the Compound Annual Growth Rate (CAGR) to show the growth trajectory. NEVER say you do not know the estimates without checking the `Estimates` context.
 5. **Live Research Integration:** If LIVE RESEARCH DATA is provided above, use it extensively to answer the user's question with facts from TODAY.
-6. **KNOWLEDGE CUTOFF OVERRIDE & SEARCH:** You MUST IGNORE your internal 'Cutting Knowledge Date'. You DO have access to real-time data through the LIVE RESEARCH DATA block. If the local context does not have the exact numbers the user asks for (e.g., last 4 quarters EPS, specific estimates), you MUST read the LIVE RESEARCH DATA. NEVER say your knowledge is limited or that you don't have the data without checking the LIVE RESEARCH DATA.
+6. **KNOWLEDGE CUTOFF OVERRIDE & SEC REPORTS SEARCH:** You MUST IGNORE your internal 'Cutting Knowledge Date'. If the user asks for data from a specific past year (e.g., 2023 SEC 10-K, 2023 Revenue) or specific historical earnings transcripts that are NOT in the local context, YOU MUST USE YOUR SEARCH TOOL (if available) to search the web (e.g. 'MSFT 2023 10-K' or 'MSFT Q3 2023 transcript') and extract the exact numbers! NEVER say you don't have access to past reports.
 7. **INTERNET SEARCH DIAGNOSTIC:** If the LIVE RESEARCH DATA block says [FAILED], you MUST reply EXACTLY with this: "Eroare internă la modulul de căutare web: [Include the Reason provided in the LIVE RESEARCH DATA block]. Din acest motiv, nu am acces la date de pe internet în acest moment."
 8. **Tone & Language:** Speak natively and naturally in Romanian. Be highly confident, professional, concise, and solution-oriented.
 """
@@ -766,57 +766,15 @@ Instructions:
         messages.append({"role": api_role, "content": msg["content"]})
     messages.append({"role": "user", "content": message})
 
-    # MULTI-MODEL PIPELINE: Phase 2 (Groq Analyst)
-    if groq_key:
-        import time
-        max_retries = 3
-        for attempt in range(max_retries):
-            try:
-                resp = requests.post(
-                    "https://api.groq.com/openai/v1/chat/completions",
-                    headers={"Content-Type": "application/json", "Authorization": f"Bearer {groq_key}"},
-                    json={"model": "llama-3.3-70b-versatile", "messages": messages, "temperature": 0.5, "max_tokens": 1024},
-                    timeout=30
-                )
-                if resp.status_code == 200:
-                    choice = resp.json().get("choices", [{}])[0]
-                    result_content = choice.get("message", {}).get("content", "")
-                    
-                    # If Groq hits the free tier TPM limit, it abruptly cuts the generation (finish_reason = 'length')
-                    if choice.get("finish_reason") == "length":
-                        print(f"Groq truncated message mid-sentence (hit TPM limits). Triggering Gemini fallback.")
-                        result_content = None
-                        all_errors.append("Groq truncated due to length/TPM limit")
-                        break
-                    break
-                elif resp.status_code == 429:
-                    print(f"Groq Rate Limit (429) hit in Chat. Attempt {attempt+1}/{max_retries}.")
-                    if attempt < max_retries - 1:
-                        time.sleep(2 ** attempt)
-                        continue
-                    else:
-                        error_msg = "429 Rate Limit Exhausted"
-                        print(f"Groq Chat Error (status {resp.status_code}): {error_msg}")
-                        all_errors.append(f"Groq({resp.status_code}): {error_msg}")
-                        break
-                else:
-                    error_msg = resp.text[:200]
-                    print(f"Groq Chat Error (status {resp.status_code}): {error_msg}")
-                    all_errors.append(f"Groq({resp.status_code}): {error_msg}")
-                    break
-            except Exception as e:
-                print(f"Groq Chat Exception: {e}")
-                all_errors.append(f"Groq: {str(e)}")
-                break
-
-    # Fallback: If pipeline failed (or Groq is missing), just use Gemini as a standard chat model
-    if not result_content and gemini_key:
+    # MULTI-MODEL PIPELINE: Phase 2 (Gemini Primary with Native Search)
+    # We prioritize Gemini because it has the google_search tool native, which solves the user's issue with "AI doesn't know how to search".
+    if gemini_key:
         try:
             gemini_messages = [{"role": "user" if m["role"] == "user" else "model", "parts": [{"text": m["content"]}]} for m in messages if m["role"] != "system"]
             gemini_payload = {
                 "contents": gemini_messages,
                 "systemInstruction": {"parts": [{"text": system_prompt}]},
-                "generationConfig": {"temperature": 0.5, "maxOutputTokens": 1024},
+                "generationConfig": {"temperature": 0.3, "maxOutputTokens": 2048},
                 "tools": [{"google_search": {}}]
             }
 
@@ -835,7 +793,7 @@ Instructions:
                 max_retries = 3
                 for attempt in range(max_retries):
                     try:
-                        resp = requests.post(url, headers={"Content-Type": "application/json"}, json=gemini_payload, timeout=8.0)
+                        resp = requests.post(url, headers={"Content-Type": "application/json"}, json=gemini_payload, timeout=12.0)
 
                         if resp.status_code == 400 and "tools" in gemini_payload:
                             payload_no_tools = gemini_payload.copy()
@@ -874,7 +832,46 @@ Instructions:
             print(f"Gemini Chat Main Exception: {e}")
             all_errors.append(f"Gemini: {str(e)}")
 
-    # Fallback: OpenAI
+    # Fallback 1: Groq Analyst
+    if not result_content and groq_key:
+        import time
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                resp = requests.post(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    headers={"Content-Type": "application/json", "Authorization": f"Bearer {groq_key}"},
+                    json={"model": "llama-3.3-70b-versatile", "messages": messages, "temperature": 0.5, "max_tokens": 1024},
+                    timeout=30
+                )
+                if resp.status_code == 200:
+                    choice = resp.json().get("choices", [{}])[0]
+                    result_content = choice.get("message", {}).get("content", "")
+                    
+                    if choice.get("finish_reason") == "length":
+                        print(f"Groq truncated message mid-sentence (hit TPM limits).")
+                    break
+                elif resp.status_code == 429:
+                    print(f"Groq Rate Limit (429) hit in Chat. Attempt {attempt+1}/{max_retries}.")
+                    if attempt < max_retries - 1:
+                        time.sleep(2 ** attempt)
+                        continue
+                    else:
+                        error_msg = "429 Rate Limit Exhausted"
+                        print(f"Groq Chat Error (status {resp.status_code}): {error_msg}")
+                        all_errors.append(f"Groq({resp.status_code}): {error_msg}")
+                        break
+                else:
+                    error_msg = resp.text[:200]
+                    print(f"Groq Chat Error (status {resp.status_code}): {error_msg}")
+                    all_errors.append(f"Groq({resp.status_code}): {error_msg}")
+                    break
+            except Exception as e:
+                print(f"Groq Chat Exception: {e}")
+                all_errors.append(f"Groq: {str(e)}")
+                break
+
+    # Fallback 2: OpenAI
     if not result_content and openai_key:
         try:
             resp = requests.post(

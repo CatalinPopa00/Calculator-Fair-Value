@@ -8915,7 +8915,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     news: typeof globalData !== 'undefined' && globalData?.latest_news ? globalData.latest_news.map(n => `${n.title} - ${n.publisher}`).join(' | ') : 'N/A',
                     redFlags: typeof globalData !== 'undefined' && globalData?.red_flags ? globalData.red_flags.join(' | ') : 'N/A',
                     businessSummary: typeof globalData !== 'undefined' && globalData?.company_profile?.business_summary ? globalData.company_profile.business_summary : 'N/A',
-                    estimates: typeof globalData !== 'undefined' && globalData?.analysis ? `Target Mean: ${globalData.analysis.target_mean || 'N/A'}, Forward EPS: ${globalData.analysis.eps?.['+1y']?.avg || 'N/A'}` : 'N/A',
+                    estimates: typeof globalData !== 'undefined' ? 
+                        `EPS Estimates: ${JSON.stringify(globalData.eps_estimates || [])}. ` + 
+                        `Rev Estimates: ${JSON.stringify(globalData.rev_estimates || [])}. ` + 
+                        `Target Mean: ${globalData.analysis?.target_mean || 'N/A'}` : 'N/A',
                     financials: typeof globalData !== 'undefined' ? 
                         `Annual Historical Data (EPS, Rev, FCF): ${JSON.stringify(globalData.historical_data || {})}. ` +
                         `Quarterly EPS History: ${JSON.stringify(globalData.raw_quarterly_history || {})}. ` +
