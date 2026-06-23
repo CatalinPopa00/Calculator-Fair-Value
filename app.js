@@ -63,7 +63,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 aiChatBtn.style.display = 'none';
             } else {
                 aiChatBtn.style.display = 'flex';
-        const searchModalOpen = document.getElementById('search-modal')?.classList.contains('show');
+            }
+        }
+        const searchModalOpen2 = document.getElementById('search-modal')?.classList.contains('show');
         const aiChatWidget = document.getElementById('ai-chat-widget');
         if (aiChatWidget) {
             if (searchModalOpen) {
@@ -79,7 +81,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     ['data-modal', 'score-modal', 'rules-modal', 'ai-chat-window', 'auth-modal', 'search-modal'].forEach(id => {
-    ['data-modal', 'score-modal', 'rules-modal', 'ai-chat-window', 'search-modal'].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
             modalObserver.observe(el, { attributes: true, attributeFilter: ['style', 'class'] });
