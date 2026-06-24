@@ -8556,33 +8556,57 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                             const valQ2 = parseKpiValue(vals[`${year} Q2`]);
                             const valQ3 = parseKpiValue(vals[`${year} Q3`]);
                             const valQ4 = parseKpiValue(vals[`${year} Q4`]);
-                            
-                            datasetBase.push(valQ1);
-                            datasetQ2.push(valQ2);
-                            datasetQ3.push(valQ3);
-                            datasetQ4.push(valQ4);
-                            
-                            formattedTooltipsBase.push(vals[`${year} Q1`] ? `Q1: ${vals[`${year} Q1`]}` : null);
-                            formattedTooltipsQ2.push(vals[`${year} Q2`] ? `Q2: ${vals[`${year} Q2`]}` : null);
-                            formattedTooltipsQ3.push(vals[`${year} Q3`] ? `Q3: ${vals[`${year} Q3`]}` : null);
-                            formattedTooltipsQ4.push(vals[`${year} Q4`] ? `Q4: ${vals[`${year} Q4`]}` : null);
 
-                            let sum = 0;
-                            let count = 0;
-                            if (valQ1 != null) { sum += valQ1; count++; }
-                            if (valQ2 != null) { sum += valQ2; count++; }
-                            if (valQ3 != null) { sum += valQ3; count++; }
-                            if (valQ4 != null) { sum += valQ4; count++; }
+                            const kpiNameLower = (kpi.name || "").toLowerCase();
+                            const isSnapshotMetric = /monthly|mau|dau|annual|arr|users|rate|margin|subscriber|backlog|booking|active|ratio|percentage|yield|employees/i.test(kpiNameLower);
 
-                            if (count > 0 && count < 4) {
-                                const avg = sum / count;
-                                const remainingQuarters = 4 - count;
-                                const extrapolatedVal = avg * remainingQuarters;
-                                datasetExtrapolated.push(extrapolatedVal);
-                                formattedTooltipsExt.push(`Estimated Run-Rate (Q${count+1}-Q4)`);
-                            } else {
+                            if (isSnapshotMetric) {
+                                let latestVal = null;
+                                let latestLabel = null;
+                                if (valQ4 != null) { latestVal = valQ4; latestLabel = 'Q4: ' + vals[`${year} Q4`]; }
+                                else if (valQ3 != null) { latestVal = valQ3; latestLabel = 'Q3: ' + vals[`${year} Q3`]; }
+                                else if (valQ2 != null) { latestVal = valQ2; latestLabel = 'Q2: ' + vals[`${year} Q2`]; }
+                                else if (valQ1 != null) { latestVal = valQ1; latestLabel = 'Q1: ' + vals[`${year} Q1`]; }
+
+                                datasetBase.push(latestVal);
+                                datasetQ2.push(null);
+                                datasetQ3.push(null);
+                                datasetQ4.push(null);
                                 datasetExtrapolated.push(null);
+
+                                formattedTooltipsBase.push(latestLabel);
+                                formattedTooltipsQ2.push(null);
+                                formattedTooltipsQ3.push(null);
+                                formattedTooltipsQ4.push(null);
                                 formattedTooltipsExt.push(null);
+                            } else {
+                                datasetBase.push(valQ1);
+                                datasetQ2.push(valQ2);
+                                datasetQ3.push(valQ3);
+                                datasetQ4.push(valQ4);
+
+                                formattedTooltipsBase.push(vals[`${year} Q1`] ? `Q1: ${vals[`${year} Q1`]}` : null);
+                                formattedTooltipsQ2.push(vals[`${year} Q2`] ? `Q2: ${vals[`${year} Q2`]}` : null);
+                                formattedTooltipsQ3.push(vals[`${year} Q3`] ? `Q3: ${vals[`${year} Q3`]}` : null);
+                                formattedTooltipsQ4.push(vals[`${year} Q4`] ? `Q4: ${vals[`${year} Q4`]}` : null);
+
+                                let sum = 0;
+                                let count = 0;
+                                if (valQ1 != null) { sum += valQ1; count++; }
+                                if (valQ2 != null) { sum += valQ2; count++; }
+                                if (valQ3 != null) { sum += valQ3; count++; }
+                                if (valQ4 != null) { sum += valQ4; count++; }
+
+                                if (count > 0 && count < 4) {
+                                    const avg = sum / count;
+                                    const remainingQuarters = 4 - count;
+                                    const extrapolatedVal = avg * remainingQuarters;
+                                    datasetExtrapolated.push(extrapolatedVal);
+                                    formattedTooltipsExt.push(`Estimated Run-Rate (Q${count+1}-Q4)`);
+                                } else {
+                                    datasetExtrapolated.push(null);
+                                    formattedTooltipsExt.push(null);
+                                }
                             }
                         }
                     });
