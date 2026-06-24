@@ -309,6 +309,121 @@ def get_fmp_transcripts(ticker: str) -> str:
         transcripts_cache[ticker] = res
         return res
 
+def _perform_web_search(search_engine_query: str, llm_research_prompt: str) -> tuple[str, str]:
+    import os
+    import requests
+    import urllib.parse
+    import time
+    
+    tavily_key = os.environ.get("TAVILY_API_KEY")
+    brave_key = os.environ.get("BRAVE_API_KEY")
+    gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("gemini")
+    
+    search_success = False
+    live_research_data = ""
+    research_error = ""
+
+    # 1. TAVILY API (Priority 1)
+    if not search_success and tavily_key:
+        try:
+            resp = requests.post(
+                "https://api.tavily.com/search",
+                headers={"Content-Type": "application/json"},
+                json={
+                    "api_key": tavily_key,
+                    "query": search_engine_query,
+                    "search_depth": "advanced",
+                    "include_answer": True,
+                    "max_results": 5
+                },
+                timeout=15
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                live_research_data = data.get("answer", "") + "\n\nSources:\n" + "\n".join([f"- {r.get('url')}: {r.get('content')}" for r in data.get("results", [])])
+                research_error = ""
+                search_success = True
+            else:
+                research_error += f"Tavily Error {resp.status_code}: {resp.text[:100]} | "
+        except Exception as e:
+            research_error += f"Tavily Exception: {str(e)} | "
+
+    # 2. BRAVE SEARCH API (Priority 2)
+    if not search_success and brave_key:
+        try:
+            resp = requests.get(
+                f"https://api.search.brave.com/res/v1/web/search?q={urllib.parse.quote(search_engine_query)}",
+                headers={
+                    "Accept": "application/json",
+                    "X-Subscription-Token": brave_key
+                },
+                timeout=15
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                results = data.get("web", {}).get("results", [])
+                live_research_data = "Brave Search Results:\n" + "\n".join([f"- {r.get('title')}: {r.get('description')}" for r in results[:5]])
+                research_error = ""
+                search_success = True
+            else:
+                research_error += f"Brave Error {resp.status_code}: {resp.text[:100]} | "
+        except Exception as e:
+            research_error += f"Brave Exception: {str(e)} | "
+
+    # 3. GEMINI 2.0 FLASH (Priority 3)
+    if not search_success and gemini_key:
+        max_retries = 2
+        for attempt in range(max_retries):
+            try:
+                gemini_payload = {
+                    "contents": [{"role": "user", "parts": [{"text": llm_research_prompt}]}],
+                    "generationConfig": {"temperature": 0.2, "maxOutputTokens": 1024},
+                    "tools": [{"google_search": {}}]
+                }
+                resp = requests.post(
+                    f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}",
+                    headers={"Content-Type": "application/json"},
+                    json=gemini_payload,
+                    timeout=15
+                )
+                if resp.status_code == 200:
+                    live_research_data = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+                    research_error = ""
+                    search_success = True
+                    break
+                elif resp.status_code == 429:
+                    if attempt < max_retries - 1:
+                        time.sleep(2 ** attempt)
+                        continue
+                    else:
+                        research_error += "Gemini Error: 429 Rate Limit | "
+                        break
+                else:
+                    research_error += f"Gemini Error {resp.status_code}: {resp.text[:100]} | "
+                    break
+            except Exception as e:
+                research_error += f"Gemini Exception: {str(e)} | "
+                break
+
+    # 4. DUCKDUCKGO SEARCH (Priority 4 - Ultimate Free Fallback)
+    if not search_success:
+        try:
+            from duckduckgo_search import DDGS
+            results = DDGS().text(search_engine_query, max_results=4)
+            if results:
+                live_research_data = "DuckDuckGo Search Results:\n" + "\n".join([f"- {r.get('title')} ({r.get('href')}): {r.get('body')}" for r in results])
+                research_error = ""
+                search_success = True
+            else:
+                research_error += "DuckDuckGo Error: No results found | "
+        except Exception as e:
+            research_error += f"DuckDuckGo Exception: {str(e)} | "
+
+    if not search_success:
+        print(f"All Search Providers Failed: {research_error}")
+        
+    return live_research_data, research_error
+
 def run_ai_kpi_audit(ticker: str, force_refresh: bool = False) -> Dict[str, Any]:
     ticker = ticker.upper()
     
@@ -356,10 +471,19 @@ def run_ai_kpi_audit(ticker: str, force_refresh: bool = False) -> Dict[str, Any]
     if raw_text and len(raw_text) > 14000:
         raw_text = raw_text[:14000]
 
+    # If the text is small (e.g. < 5000 chars, meaning SEC/FMP failed and we only got Yahoo News), trigger web search
+    if not raw_text or len(raw_text) < 5000:
+        search_query = f"{ticker} stock key performance indicators revenue by division order backlog FY2022 FY2023 FY2024"
+        llm_prompt = f"Perform a comprehensive web search to find the historical Key Performance Indicators (KPIs) for {ticker} from FY2022 to the present. Focus on order backlog, revenue by division/segment, and core operational metrics. Return the exact numerical values found for each year."
+        live_research_data, research_error = _perform_web_search(search_query, llm_prompt)
+        
+        if live_research_data:
+            raw_text = raw_text + f"\n\n--- Web Search Results for KPIs ---\n{live_research_data}"
+
     if not raw_text or len(raw_text) < 500:
         return {
             "error": True,
-            "detail": f"Could not find enough recent financial reports or press releases for {ticker}."
+            "detail": f"Could not find enough recent financial reports, press releases, or search results for {ticker}."
         }
 
     system_prompt = '''
@@ -630,127 +754,7 @@ Instructions:
 8. **Tone & Language:** Speak natively and naturally in Romanian. Be highly confident, professional, concise, and solution-oriented.
 """
 
-    live_research_data = ""
-    research_error = ""
-    result_content = None
-    all_errors = []
-
-    # Get additional API Keys
-    tavily_key = os.environ.get("TAVILY_API_KEY")
-    brave_key = os.environ.get("BRAVE_API_KEY")
-
-    # The query for the raw search engines (Tavily, Brave, DDG) - needs to be concise!
-    # Strip common conversational fluff that confuses search engines
-    clean_message = message.lower().replace('ce', '').replace('estimari', 'estimates').replace('avem', '').replace('pentru', '').replace('perioada', '').replace('in eps', 'eps').replace('?', '').strip()
-    search_engine_query = f"{ticker} stock {clean_message}"
-
-    # The prompt for the LLM researcher (Gemini) - needs instructions!
-    llm_research_prompt = f"Perform a comprehensive web search to answer the following query: '{message}' for the company {ticker}. If the user asks about earnings/EPS/Revenue estimates for specific years (e.g. 2026-2029), DO NOT restrict your search to Nasdaq. Search across all major financial aggregators (SeekingAlpha, WallStreetZen, MarketBeat, Yahoo Finance, etc.) to find the consensus estimates for EACH year requested. Return the exact numerical estimates found. Do not invent numbers. If they ask about SEC filings, extract exact quotes and numbers."
-
-    import time
-    import urllib.parse
-    
-    # MULTI-MODEL PIPELINE: Phase 1 (Web Search Fallback Chain)
-    search_success = False
-
-    # 1. TAVILY API (Priority 1)
-    if not search_success and tavily_key:
-        try:
-            resp = requests.post(
-                "https://api.tavily.com/search",
-                headers={"Content-Type": "application/json"},
-                json={
-                    "api_key": tavily_key,
-                    "query": search_engine_query,
-                    "search_depth": "advanced",
-                    "include_answer": True,
-                    "max_results": 5
-                },
-                timeout=15
-            )
-            if resp.status_code == 200:
-                data = resp.json()
-                live_research_data = data.get("answer", "") + "\n\nSources:\n" + "\n".join([f"- {r.get('url')}: {r.get('content')}" for r in data.get("results", [])])
-                research_error = ""
-                search_success = True
-            else:
-                research_error += f"Tavily Error {resp.status_code}: {resp.text[:100]} | "
-        except Exception as e:
-            research_error += f"Tavily Exception: {str(e)} | "
-
-    # 2. BRAVE SEARCH API (Priority 2)
-    if not search_success and brave_key:
-        try:
-            resp = requests.get(
-                f"https://api.search.brave.com/res/v1/web/search?q={urllib.parse.quote(search_engine_query)}",
-                headers={
-                    "Accept": "application/json",
-                    "X-Subscription-Token": brave_key
-                },
-                timeout=15
-            )
-            if resp.status_code == 200:
-                data = resp.json()
-                results = data.get("web", {}).get("results", [])
-                live_research_data = "Brave Search Results:\n" + "\n".join([f"- {r.get('title')}: {r.get('description')}" for r in results[:5]])
-                research_error = ""
-                search_success = True
-            else:
-                research_error += f"Brave Error {resp.status_code}: {resp.text[:100]} | "
-        except Exception as e:
-            research_error += f"Brave Exception: {str(e)} | "
-
-    # 3. GEMINI 2.0 FLASH (Priority 3)
-    if not search_success and gemini_key:
-        max_retries = 2
-        for attempt in range(max_retries):
-            try:
-                gemini_payload = {
-                    "contents": [{"role": "user", "parts": [{"text": llm_research_prompt}]}],
-                    "generationConfig": {"temperature": 0.2, "maxOutputTokens": 1024},
-                    "tools": [{"google_search": {}}]
-                }
-                resp = requests.post(
-                    f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}",
-                    headers={"Content-Type": "application/json"},
-                    json=gemini_payload,
-                    timeout=15
-                )
-                if resp.status_code == 200:
-                    live_research_data = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
-                    research_error = ""
-                    search_success = True
-                    break
-                elif resp.status_code == 429:
-                    if attempt < max_retries - 1:
-                        time.sleep(2 ** attempt)
-                        continue
-                    else:
-                        research_error += "Gemini Error: 429 Rate Limit | "
-                        break
-                else:
-                    research_error += f"Gemini Error {resp.status_code}: {resp.text[:100]} | "
-                    break
-            except Exception as e:
-                research_error += f"Gemini Exception: {str(e)} | "
-                break
-
-    # 4. DUCKDUCKGO SEARCH (Priority 4 - Ultimate Free Fallback)
-    if not search_success:
-        try:
-            from duckduckgo_search import DDGS
-            results = DDGS().text(search_engine_query, max_results=4)
-            if results:
-                live_research_data = "DuckDuckGo Search Results:\n" + "\n".join([f"- {r.get('title')} ({r.get('href')}): {r.get('body')}" for r in results])
-                research_error = ""
-                search_success = True
-            else:
-                research_error += "DuckDuckGo Error: No results found | "
-        except Exception as e:
-            research_error += f"DuckDuckGo Exception: {str(e)} | "
-
-    if not search_success:
-        print(f"All Search Providers Failed: {research_error}")
+    live_research_data, research_error = _perform_web_search(search_engine_query, llm_research_prompt)
 
     # Build Final System Prompt
     system_prompt = base_system_prompt
