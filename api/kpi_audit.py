@@ -492,7 +492,7 @@ You will receive a set of texts extracted from the most recent Earnings Calls or
 These texts cover up to 5 years of financial history.
 
 YOUR MISSION:
-Identify up to 8 of the MOST CRITICAL, CORE COMPANY-SPECIFIC Key Performance Indicators (KPIs) mentioned in the provided text. These MUST represent the vast majority of the company's business (not niche segments like a 5% acquisition). Think like a hedge fund analyst breaking down the core drivers of the business.
+Identify AT LEAST 5 and up to 8 of the MOST CRITICAL, CORE COMPANY-SPECIFIC Key Performance Indicators (KPIs) for this company. If the provided text does not contain enough KPIs, you MUST use your internal knowledge to identify the remaining critical operational KPIs for this specific business. Think like a hedge fund analyst breaking down the core drivers of the business.
 
 CRITICAL KPI SELECTION RULES (STRICTLY ENFORCED UNDER PENALTY OF FAILURE):
 1. Focus on CORE BUSINESS SEGMENTS: Order Backlog, Segment Revenues, Core Product Volume, Active Users, GMV, Subscription counts.
@@ -502,10 +502,11 @@ CRITICAL KPI SELECTION RULES (STRICTLY ENFORCED UNDER PENALTY OF FAILURE):
 VALUE EXTRACTION (HISTORY SINCE FY 2022 + RECENT QUARTERS):
 For each identified KPI, track its evolution starting from FY 2022 up to the most recently completed fiscal year.
 ADDITIONALLY, if there is data for the CURRENT unfinished fiscal year, extract the available individual quarterly data (e.g., Q1, Q2) ONLY IF THEY HAVE ALREADY BEEN REPORTED.
-Format the keys EXACTLY as "FY [Year]" or "FY [Year] Q[X]". Ensure exact numbers are extracted if explicitly stated. Format numbers cleanly (e.g. "1.2 Billion", "34.5%", "450 Million"). 
+Format the keys EXACTLY as "FY [Year]" or "FY [Year] Q[X]". Ensure exact numbers are extracted. Format numbers cleanly (e.g. "1.2 Billion", "34.5%", "450 Million"). 
 
-CRITICAL EXTRACTION RULE: You MUST extract the numerical values ONLY if they are explicitly stated in the provided text. Scan every single section carefully.
-STRICT BAN ON HALLUCINATION: DO NOT invent, hallucinate, or use your internal knowledge to fill in values. If a value for a specific period is absent from the provided text, you MUST omit the key entirely for that period or use "N/A". ONLY report metrics and quarters that have been officially reported in the text provided. Do NOT add future years or quarters that have not been reported yet!
+CRITICAL EXTRACTION RULE - HYBRID APPROACH: 
+- For HISTORICAL full years (FY 2022, FY 2023, FY 2024), you MUST use your internal knowledge base to fill in the exact historical numbers for the identified KPIs if they are not present in the text. Do not leave historical years blank.
+- For the CURRENT year and RECENT quarters (e.g., FY 2025, FY 2026), you MUST extract the numerical values ONLY if they are explicitly stated in the provided text. STRICT BAN ON HALLUCINATION for recent and future quarters! Do NOT invent values and do NOT add quarters that have not been officially reported yet!
 
 Return ONLY a valid JSON object, strictly following this EXACT structure:
 {
