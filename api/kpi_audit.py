@@ -495,18 +495,18 @@ YOUR MISSION:
 Identify AT LEAST 5 and up to 8 of the MOST CRITICAL, CORE COMPANY-SPECIFIC Key Performance Indicators (KPIs) for this company. You MUST use your internal knowledge to identify the remaining critical operational KPIs if the text does not contain enough. Think like a hedge fund analyst breaking down the core drivers of the business.
 
 CRITICAL KPI SELECTION RULES (STRICTLY ENFORCED UNDER PENALTY OF FAILURE):
-1. Focus on OFFICIAL REPORTING SEGMENTS & BACKLOG: You MUST include "Order Backlog" if applicable to the company. You MUST use the standard, official names for the company's reporting segments (e.g. for Adobe: "Digital Media Revenue", "Digital Experience Revenue"; for Rheinmetall: "Vehicle Systems", "Weapon and Ammunition"). Do NOT use hyper-specific phrasing from a single paragraph. Using standard names ensures you can retrieve historical data accurately.
+1. Focus on OFFICIAL REPORTING SEGMENTS, BACKLOG, & AI METRICS: You MUST include "Order Backlog" if applicable to the company. You MUST search for and include any AI-related KPIs (e.g. "AI Annualized Recurring Revenue", "AI Subscription Growth"). You MUST use the standard, official names for the company's reporting segments (e.g. for Adobe: "Digital Media Revenue", "Digital Experience Revenue"; for Rheinmetall: "Vehicle Systems", "Weapon and Ammunition"). Do NOT use hyper-specific phrasing from a single paragraph. Using standard names ensures you can retrieve historical data accurately.
 2. AVOID NICHE METRICS: Do NOT extract data about minor acquisitions, tiny side-businesses, or one-off costs. Focus on what drives the MAIN revenue streams.
 3. ABSOLUTE BAN ON GENERIC FINANCIAL METRICS: You are STRICTLY FORBIDDEN from extracting generic accounting or generic headcount items! BANNED METRICS: EBITDA, EBITDA Margin, Earnings Per Share, EPS, Net Income, Total Revenue, Gross Margin, Cash Flow, Operating Income, Profit, Debt, Assets, Opex, R&D Expenses, CapEx, Headcount/Number of employees. 
 
 VALUE EXTRACTION (HISTORY SINCE FY 2021 + RECENT QUARTERS):
 For each identified KPI, track its evolution starting from FY 2021 up to the most recently completed fiscal year.
-ADDITIONALLY, extract the available individual quarterly data (e.g., Q1, Q2) for the CURRENT unfinished fiscal year ONLY IF THEY HAVE ALREADY BEEN REPORTED.
+ADDITIONALLY, extract the available individual quarterly data (e.g., Q1, Q2) for the CURRENT unfinished fiscal year (such as FY 2025 or FY 2026) ONLY IF THEY HAVE ALREADY BEEN REPORTED.
 Format the keys EXACTLY as "FY [Year]" or "FY [Year] Q[X]". Format numbers cleanly (e.g. "1.2 Billion", "34.5%", "450 Million"). 
 
 CRITICAL EXTRACTION RULE - HYBRID APPROACH: 
-- For ALL PAST FULLY COMPLETED FISCAL YEARS (e.g., FY 2021 to the last completed year), you MUST use your internal knowledge base to fill in the exact historical numbers for the identified KPIs if they are not explicitly present in the text. You are REQUIRED to fill the history for FY 2021, FY 2022, FY 2023, and FY 2024. Do not leave historical years blank.
-- For the CURRENT ONGOING FISCAL YEAR and UNFINISHED QUARTERS (e.g., the current reporting year), you MUST extract the numerical values ONLY if they are explicitly stated in the provided text. STRICT BAN ON HALLUCINATION for recent and future quarters! Do NOT invent values and do NOT add quarters that have not been officially reported yet!
+- For ALL PAST FULLY COMPLETED FISCAL YEARS (e.g., FY 2021 to the last completed year), you MUST use your internal knowledge base to fill in the exact historical numbers for the identified KPIs if they are not explicitly present in the text. You are REQUIRED to fill the history for FY 2021, FY 2022, FY 2023, FY 2024, and FY 2025 (if available). Do not leave historical years blank.
+- For the CURRENT ONGOING FISCAL YEAR and UNFINISHED QUARTERS (e.g., the current reporting year, like FY 2025 or FY 2026), you MUST extract the numerical values ONLY if they are explicitly stated in the provided text. STRICT BAN ON HALLUCINATION for recent and future quarters! Do NOT invent values and do NOT add quarters that have not been officially reported yet!
 
 Return ONLY a valid JSON object, strictly following this EXACT structure:
 {
