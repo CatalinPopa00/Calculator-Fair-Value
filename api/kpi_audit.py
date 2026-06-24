@@ -368,21 +368,20 @@ You will receive a set of texts extracted from the most recent Earnings Calls or
 These texts cover up to 5 years of financial history.
 
 YOUR MISSION:
-Identify up to 8 of the MOST CRITICAL, COMPANY-SPECIFIC, OPERATIONAL Key Performance Indicators (KPIs) mentioned in the provided text. If you find fewer than 5 in the text, you may use your internal knowledge base ONLY to identify the names of additional relevant operational KPIs for this specific company, but YOU MUST NOT hallucinate the numerical values.
+Identify up to 8 of the MOST CRITICAL, CORE COMPANY-SPECIFIC Key Performance Indicators (KPIs) mentioned in the provided text. These MUST represent the vast majority of the company's business (not niche segments like a 5% acquisition). Think like a hedge fund analyst breaking down the core drivers of the business.
 
 CRITICAL KPI SELECTION RULES (STRICTLY ENFORCED UNDER PENALTY OF FAILURE):
-1. ONLY extract OPERATIONAL, PRODUCT-SPECIFIC, and BUSINESS-SPECIFIC metrics (e.g. users, volume, segments, AI adoption). Think like a hedge fund operational analyst.
-2. EXAMPLES OF GOOD KPIs: ARR (Annual Recurring Revenue), AI Monetization Revenue, Cloud Segments, Subscriber counts, DAU/MAU, Room Nights, Gross Bookings, Segment Revenue splits, Engagement metrics, Same-Store Sales.
-3. ABSOLUTE BAN ON FINANCIAL STATEMENT METRICS: You are STRICTLY FORBIDDEN from extracting generic accounting, income statement, or balance sheet items! BANNED METRICS: EBITDA, EBITDA Margin, Earnings Per Share, EPS, Net Income, Revenue, Gross Margin, Cash Flow, Operating Income, Profit, Debt, Assets, Opex, R&D Expenses, CapEx. If you output any of these banned metrics, you will have failed the mission. (The user already has all accounting data in their financials tab!).
-4. Focus entirely on what drives the business conceptually and structurally (usage, segments, adoption, pricing power, AI).
+1. Focus on CORE BUSINESS SEGMENTS: Order Backlog, Segment Revenues, Core Product Volume, Active Users, GMV, Subscription counts.
+2. AVOID NICHE METRICS: Do NOT extract data about minor acquisitions, tiny side-businesses, or one-off costs. Focus on what drives the MAIN revenue streams.
+3. ABSOLUTE BAN ON GENERIC FINANCIAL METRICS: You are STRICTLY FORBIDDEN from extracting generic accounting or generic headcount items! BANNED METRICS: EBITDA, EBITDA Margin, Earnings Per Share, EPS, Net Income, Total Revenue, Gross Margin, Cash Flow, Operating Income, Profit, Debt, Assets, Opex, R&D Expenses, CapEx, Headcount/Number of employees. 
 
-VALUE EXTRACTION (5-YEAR HISTORY + RECENT QUARTERS):
-For each identified KPI, track their evolution over the last 5 full fiscal years (e.g., FY 2021, FY 2022, FY 2023, FY 2024, FY 2025).
-ADDITIONALLY, for the CURRENT unfinished fiscal year, extract the available individual quarterly data (e.g., FY 2026 Q1).
+VALUE EXTRACTION (HISTORY SINCE FY 2022 + RECENT QUARTERS):
+For each identified KPI, track its evolution starting from FY 2022 up to the most recently completed fiscal year.
+ADDITIONALLY, if there is data for the CURRENT unfinished fiscal year, extract the available individual quarterly data (e.g., Q1, Q2) ONLY IF THEY HAVE ALREADY BEEN REPORTED.
 Format the keys EXACTLY as "FY [Year]" or "FY [Year] Q[X]". Ensure exact numbers are extracted if explicitly stated. Format numbers cleanly (e.g. "1.2 Billion", "34.5%", "450 Million"). 
 
-CRITICAL EXTRACTION RULE: You MUST extract the numerical values ONLY if they are explicitly stated in the provided text. Scan every single [Year ...] section carefully.
-STRICT BAN ON HALLUCINATION: If a value for a specific period (like a quarter or year) is absent from the provided text, DO NOT invent, hallucinate, or use your internal knowledge to fill it in! You MUST use "N/A" for that period or omit the key entirely. ONLY report metrics and quarters that have been officially reported in the text provided. Do NOT add future quarters (like Q2) if they haven't been reported yet.
+CRITICAL EXTRACTION RULE: You MUST extract the numerical values ONLY if they are explicitly stated in the provided text. Scan every single section carefully.
+STRICT BAN ON HALLUCINATION: DO NOT invent, hallucinate, or use your internal knowledge to fill in values. If a value for a specific period is absent from the provided text, you MUST omit the key entirely for that period or use "N/A". ONLY report metrics and quarters that have been officially reported in the text provided. Do NOT add future years or quarters that have not been reported yet!
 
 Return ONLY a valid JSON object, strictly following this EXACT structure:
 {
