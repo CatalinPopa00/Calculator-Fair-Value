@@ -8433,19 +8433,27 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     const vals = k.values || k.history || {};
                     Object.keys(vals).forEach(p => allPeriods.add(p));
                 });
-                const globalPeriods = Array.from(allPeriods).sort((a, b) => {
-                    const parsePeriod = p => {
-                        const mYear = p.match(/\b(20\d{2})\b/);
-                        const mQ = p.match(/\bQ([1-4])\b/i);
-                        const year = mYear ? parseInt(mYear[1]) : 0;
-                        const q = mQ ? parseInt(mQ[1]) : 0;
-                        return year * 10 + q;
-                    };
-                    const vA = parsePeriod(a);
-                    const vB = parsePeriod(b);
-                    if (vA !== vB && vA !== 0 && vB !== 0) return vA - vB;
-                    return a.localeCompare(b);
+                
+                const yearDataGlobal = {};
+                allPeriods.forEach(p => {
+                    let yearPart = p;
+                    let qPart = null;
+                    if (p.includes(' Q')) {
+                        const parts = p.split(' Q');
+                        yearPart = parts[0].trim();
+                        qPart = 'Q' + parts[1].trim();
+                    }
+
+                    if (!yearDataGlobal[yearPart]) {
+                        yearDataGlobal[yearPart] = { isQuarterly: false, quarters: new Set() };
+                    }
+                    if (qPart) {
+                        yearDataGlobal[yearPart].isQuarterly = true;
+                        yearDataGlobal[yearPart].quarters.add(qPart);
+                    }
                 });
+
+                const sortedYears = Object.keys(yearDataGlobal).sort(); 
 
                 let currentKpiIndex = 0;
                 let kpiChartInstance = null;
@@ -8470,7 +8478,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                         else if (suffix === 'M' || suffix === 'MILLION') num *= 1000000;
                         else if (suffix === 'K' || suffix === 'THOUSAND') num *= 1000;
 
-                        // Fallback logic for text string containing "No specific numerical values"
                         if (valStr.toLowerCase().includes("no specific numerical values") || valStr.toLowerCase().includes("not reported")) {
                              return null;
                         }
@@ -8478,6 +8485,23 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     }
                     return null;
                 };
+
+                const createHatchPattern = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 12;
+                    canvas.height = 12;
+                    const ctx = canvas.getContext('2d');
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+                    ctx.fillRect(0, 0, 12, 12);
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.moveTo(0, 12);
+                    ctx.lineTo(12, 0);
+                    ctx.stroke();
+                    return ctx.createPattern(canvas, 'repeat');
+                };
+                const hatchPattern = createHatchPattern();
 
                 const renderKpiPage = (index) => {
                     const kpi = data.kpis[index];
@@ -8491,7 +8515,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                         dot.className = 'carousel-indicator-line';
                         if (i === index) dot.classList.add('active');
                         
-                        // Allow clicking the dashes to jump to a specific KPI slide
                         dot.addEventListener('click', () => {
                             currentKpiIndex = i;
                             renderKpiPage(currentKpiIndex);
@@ -8500,9 +8523,69 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     }
 
                     const vals = kpi.values || kpi.history || {};
-                    const periods = globalPeriods;
-                    const chartData = periods.map(p => parseKpiValue(vals[p] || null));
-                    const formattedTooltips = periods.map(p => vals[p] || 'N/A');
+                    
+                    const datasetBase = []; 
+                    const datasetQ2 = [];
+                    const datasetQ3 = [];
+                    const datasetQ4 = [];
+                    const datasetExtrapolated = [];
+                    
+                    const formattedTooltipsBase = [];
+                    const formattedTooltipsQ2 = [];
+                    const formattedTooltipsQ3 = [];
+                    const formattedTooltipsQ4 = [];
+                    const formattedTooltipsExt = [];
+
+                    sortedYears.forEach(year => {
+                        const isQuarterly = yearDataGlobal[year].isQuarterly;
+                        if (!isQuarterly) {
+                            const val = parseKpiValue(vals[year]);
+                            datasetBase.push(val);
+                            datasetQ2.push(null);
+                            datasetQ3.push(null);
+                            datasetQ4.push(null);
+                            datasetExtrapolated.push(null);
+                            
+                            formattedTooltipsBase.push(vals[year] || 'N/A');
+                            formattedTooltipsQ2.push(null);
+                            formattedTooltipsQ3.push(null);
+                            formattedTooltipsQ4.push(null);
+                            formattedTooltipsExt.push(null);
+                        } else {
+                            const valQ1 = parseKpiValue(vals[`${year} Q1`]);
+                            const valQ2 = parseKpiValue(vals[`${year} Q2`]);
+                            const valQ3 = parseKpiValue(vals[`${year} Q3`]);
+                            const valQ4 = parseKpiValue(vals[`${year} Q4`]);
+                            
+                            datasetBase.push(valQ1);
+                            datasetQ2.push(valQ2);
+                            datasetQ3.push(valQ3);
+                            datasetQ4.push(valQ4);
+                            
+                            formattedTooltipsBase.push(vals[`${year} Q1`] ? `Q1: ${vals[`${year} Q1`]}` : null);
+                            formattedTooltipsQ2.push(vals[`${year} Q2`] ? `Q2: ${vals[`${year} Q2`]}` : null);
+                            formattedTooltipsQ3.push(vals[`${year} Q3`] ? `Q3: ${vals[`${year} Q3`]}` : null);
+                            formattedTooltipsQ4.push(vals[`${year} Q4`] ? `Q4: ${vals[`${year} Q4`]}` : null);
+
+                            let sum = 0;
+                            let count = 0;
+                            if (valQ1 != null) { sum += valQ1; count++; }
+                            if (valQ2 != null) { sum += valQ2; count++; }
+                            if (valQ3 != null) { sum += valQ3; count++; }
+                            if (valQ4 != null) { sum += valQ4; count++; }
+
+                            if (count > 0 && count < 4) {
+                                const avg = sum / count;
+                                const remainingQuarters = 4 - count;
+                                const extrapolatedVal = avg * remainingQuarters;
+                                datasetExtrapolated.push(extrapolatedVal);
+                                formattedTooltipsExt.push(`Estimated Run-Rate (Q${count+1}-Q4)`);
+                            } else {
+                                datasetExtrapolated.push(null);
+                                formattedTooltipsExt.push(null);
+                            }
+                        }
+                    });
 
                     const chartCanvas = document.getElementById('kpi-chart');
                     const ctx = chartCanvas.getContext('2d');
@@ -8510,10 +8593,9 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                         window.kpiChartInstance.destroy();
                     }
 
-                    // Check if we have valid plottable data
-                    const hasValidData = chartData.some(v => v !== null && v !== undefined && !isNaN(v));
+                    const hasValidData = datasetBase.some(v => v !== null && v !== undefined && !isNaN(v));
 
-                    if (!hasValidData || periods.length === 0) {
+                    if (!hasValidData || sortedYears.length === 0) {
                         chartCanvas.style.display = 'none';
                         let noDataMsg = document.getElementById('kpi-no-data-msg');
                         if (!noDataMsg) {
@@ -8535,7 +8617,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                         }
                         noDataMsg.style.display = 'flex';
                         noDataMsg.innerHTML = `<span style="font-size: 1.5rem; margin-bottom: 10px;">📉</span><i>Nu există date numerice suficiente pentru a genera un grafic.</i>`;
-                        return; // Skip rendering chart
+                        return;
                     } else {
                         chartCanvas.style.display = 'block';
                         const noDataMsg = document.getElementById('kpi-no-data-msg');
@@ -8545,15 +8627,50 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     window.kpiChartInstance = new Chart(ctx, {
                         type: 'bar',
                         data: {
-                            labels: periods,
-                            datasets: [{
-                                label: kpi.name,
-                                data: chartData,
-                                backgroundColor: 'rgba(0, 210, 255, 0.4)',
-                                borderColor: 'rgba(0, 210, 255, 1)',
-                                borderWidth: 1,
-                                borderRadius: 4
-                            }]
+                            labels: sortedYears,
+                            datasets: [
+                                {
+                                    label: 'Full / Q1',
+                                    data: datasetBase,
+                                    backgroundColor: 'rgba(0, 210, 255, 0.6)',
+                                    borderColor: 'rgba(0, 210, 255, 1)',
+                                    borderWidth: 1,
+                                    borderRadius: 4
+                                },
+                                {
+                                    label: 'Q2',
+                                    data: datasetQ2,
+                                    backgroundColor: 'rgba(56, 189, 248, 0.6)',
+                                    borderColor: 'rgba(56, 189, 248, 1)',
+                                    borderWidth: 1,
+                                    borderRadius: 4
+                                },
+                                {
+                                    label: 'Q3',
+                                    data: datasetQ3,
+                                    backgroundColor: 'rgba(125, 211, 252, 0.6)',
+                                    borderColor: 'rgba(125, 211, 252, 1)',
+                                    borderWidth: 1,
+                                    borderRadius: 4
+                                },
+                                {
+                                    label: 'Q4',
+                                    data: datasetQ4,
+                                    backgroundColor: 'rgba(186, 230, 253, 0.6)',
+                                    borderColor: 'rgba(186, 230, 253, 1)',
+                                    borderWidth: 1,
+                                    borderRadius: 4
+                                },
+                                {
+                                    label: 'Extrapolated',
+                                    data: datasetExtrapolated,
+                                    backgroundColor: hatchPattern,
+                                    borderColor: 'rgba(255, 255, 255, 0.3)',
+                                    borderWidth: 1,
+                                    borderDash: [4, 4],
+                                    borderRadius: 4
+                                }
+                            ]
                         },
                         options: {
                             responsive: true,
@@ -8563,13 +8680,29 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                                 tooltip: {
                                     callbacks: {
                                         label: function(context) {
-                                            return ' ' + formattedTooltips[context.dataIndex];
+                                            const dsIndex = context.datasetIndex;
+                                            const idx = context.dataIndex;
+                                            let valLabel = '';
+                                            if (dsIndex === 0) valLabel = formattedTooltipsBase[idx];
+                                            else if (dsIndex === 1) valLabel = formattedTooltipsQ2[idx];
+                                            else if (dsIndex === 2) valLabel = formattedTooltipsQ3[idx];
+                                            else if (dsIndex === 3) valLabel = formattedTooltipsQ4[idx];
+                                            else if (dsIndex === 4) valLabel = formattedTooltipsExt[idx];
+                                            
+                                            if (!valLabel) return null;
+                                            return ' ' + valLabel;
                                         }
                                     }
                                 }
                             },
                             scales: {
+                                x: {
+                                    stacked: true,
+                                    grid: { display: false },
+                                    ticks: { color: 'rgba(255,255,255,0.7)' }
+                                },
                                 y: {
+                                    stacked: true,
                                     beginAtZero: true,
                                     grid: { color: 'rgba(255,255,255,0.05)' },
                                     ticks: {
@@ -8582,10 +8715,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                                             return value;
                                         }
                                     }
-                                },
-                                x: {
-                                    grid: { display: false },
-                                    ticks: { color: 'rgba(255,255,255,0.7)' }
                                 }
                             }
                         }
