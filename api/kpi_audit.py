@@ -505,8 +505,8 @@ ADDITIONALLY, extract the available individual quarterly data (e.g., Q1, Q2) for
 Format the keys EXACTLY as "FY [Year]" or "FY [Year] Q[X]". Format numbers cleanly (e.g. "1.2 Billion", "34.5%", "450 Million"). 
 
 CRITICAL EXTRACTION RULE - HYBRID APPROACH: 
-- For ALL PAST FULLY COMPLETED FISCAL YEARS (e.g., FY 2021 to the last completed year), you MUST use your internal knowledge base to fill in the exact historical numbers for the identified KPIs if they are not explicitly present in the text. You are REQUIRED to fill the history for FY 2021, FY 2022, FY 2023, FY 2024, and FY 2025 (if available). Do not leave historical years blank.
-- For the CURRENT ONGOING FISCAL YEAR and UNFINISHED QUARTERS (e.g., the current reporting year, like FY 2025 or FY 2026), you MUST extract the numerical values ONLY if they are explicitly stated in the provided text. STRICT BAN ON HALLUCINATION for recent and future quarters! Do NOT invent values and do NOT add quarters that have not been officially reported yet!
+- For ALL PAST FULLY COMPLETED FISCAL YEARS (e.g., FY 2021 to the last completed year), you MUST use your internal knowledge base to fill in the exact historical numbers for the identified KPIs if they are not explicitly present in the text. You are REQUIRED to fill the history for FY 2021, FY 2022, FY 2023, FY 2024, and FY 2025. Do not leave historical years blank.
+- For the CURRENT ONGOING FISCAL YEAR and UNFINISHED QUARTERS (e.g., the current reporting year, like FY 2026), you MUST extract the numerical values ONLY if they are explicitly stated in the provided text. STRICT BAN ON HALLUCINATION for recent and future quarters! Do NOT invent values and do NOT add quarters that have not been officially reported yet!
 
 Return ONLY a valid JSON object, strictly following this EXACT structure:
 {
