@@ -368,7 +368,7 @@ You will receive a set of texts extracted from the most recent Earnings Calls or
 These texts cover up to 5 years of financial history.
 
 YOUR MISSION:
-Identify AT LEAST 5 and up to 8 of the MOST CRITICAL, COMPANY-SPECIFIC, OPERATIONAL Key Performance Indicators (KPIs). If you find fewer than 5 in the text, you MUST use your internal knowledge base to generate additional relevant operational KPIs for this specific company so you reach a minimum of 5 KPIs!
+Identify up to 8 of the MOST CRITICAL, COMPANY-SPECIFIC, OPERATIONAL Key Performance Indicators (KPIs) mentioned in the provided text. If you find fewer than 5 in the text, you may use your internal knowledge base ONLY to identify the names of additional relevant operational KPIs for this specific company, but YOU MUST NOT hallucinate the numerical values.
 
 CRITICAL KPI SELECTION RULES (STRICTLY ENFORCED UNDER PENALTY OF FAILURE):
 1. ONLY extract OPERATIONAL, PRODUCT-SPECIFIC, and BUSINESS-SPECIFIC metrics (e.g. users, volume, segments, AI adoption). Think like a hedge fund operational analyst.
@@ -378,11 +378,11 @@ CRITICAL KPI SELECTION RULES (STRICTLY ENFORCED UNDER PENALTY OF FAILURE):
 
 VALUE EXTRACTION (5-YEAR HISTORY + RECENT QUARTERS):
 For each identified KPI, track their evolution over the last 5 full fiscal years (e.g., FY 2021, FY 2022, FY 2023, FY 2024, FY 2025).
-ADDITIONALLY, for the CURRENT unfinished fiscal year, extract the available individual quarterly data (e.g., FY 2026 Q1, FY 2026 Q2).
+ADDITIONALLY, for the CURRENT unfinished fiscal year, extract the available individual quarterly data (e.g., FY 2026 Q1).
 Format the keys EXACTLY as "FY [Year]" or "FY [Year] Q[X]". Ensure exact numbers are extracted if explicitly stated. Format numbers cleanly (e.g. "1.2 Billion", "34.5%", "450 Million"). 
 
-CRITICAL EXTRACTION RULE: You MUST extract the value for EVERY single year provided in the text. You are dealing with a massive text. Do NOT be lazy. Scan every single [Year ...] section carefully.
-CRITICAL FALLBACK FOR MISSING DATA: The provided text is heavily truncated and might miss historical or recent data. If a value for a specific period is absent from the provided text, YOU MUST ACTIVELY USE YOUR OWN INTERNAL KNOWLEDGE BASE to fill in the real numerical data for that KPI! Do NOT be lazy and do NOT use "N/A" or empty values unless you genuinely cannot find the data in your vast internal memory! You are a powerful AI with deep financial knowledge, act like one and fill in ALL missing historical and recent blanks to create a perfectly complete trend without any empty gaps!
+CRITICAL EXTRACTION RULE: You MUST extract the numerical values ONLY if they are explicitly stated in the provided text. Scan every single [Year ...] section carefully.
+STRICT BAN ON HALLUCINATION: If a value for a specific period (like a quarter or year) is absent from the provided text, DO NOT invent, hallucinate, or use your internal knowledge to fill it in! You MUST use "N/A" for that period or omit the key entirely. ONLY report metrics and quarters that have been officially reported in the text provided. Do NOT add future quarters (like Q2) if they haven't been reported yet.
 
 Return ONLY a valid JSON object, strictly following this EXACT structure:
 {
