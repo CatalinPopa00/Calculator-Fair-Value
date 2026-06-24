@@ -756,7 +756,8 @@ Instructions:
 8. **Tone & Language:** Speak natively and naturally in Romanian. Be highly confident, professional, concise, and solution-oriented.
 """
 
-    live_research_data, research_error = _perform_web_search(search_engine_query, llm_research_prompt)
+    llm_research_prompt = f"Analyze the following query regarding {ticker} and provide a factual, concise response based on web search results. Query: {message}"
+    live_research_data, research_error = _perform_web_search(f"{ticker} {message}", llm_research_prompt)
 
     # Build Final System Prompt
     system_prompt = base_system_prompt
