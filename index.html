@@ -332,11 +332,11 @@
 
                         <div class="fair-value-box glass-card accent-card" style="flex: 1; position: relative;">
 
+                            <!-- Notification button positioned top-left mirroring the weights button top-right -->
+                            <button id="set-notification-btn" title="Set Notification Threshold" style="position:absolute; top:15px; left:15px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:4px; font-size:1.1rem; padding:4px 8px; cursor:pointer; transition:0.2s; display:block; z-index:50;">🔔</button>
+
                             <div id="view-fair-value" style="width: 100%; transition: opacity 0.3s ease-in-out; opacity: 1; display: flex; flex-direction: column; align-items: center;">
-                                <div style="display: flex; align-items: center; justify-content: center;">
-                                    <button id="set-notification-btn" class="scenario-btn" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); font-size: 0.8rem; margin-right: 8px; padding: 2px 6px;" title="Set Notification Threshold">🔔</button>
-                                    <span class="label" style="margin-bottom: 0;">Estimated Fair Value</span>
-                                </div>
+                                <span class="label">Estimated Fair Value</span>
                                 
                                 <div class="scenario-toggles" style="display: flex; justify-content: center; gap: 8px; margin: 10px 0;">
                                     <button class="scenario-btn bear-btn" data-scenario="bear">Bear</button>
