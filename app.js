@@ -1792,6 +1792,113 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         return (num * 100).toFixed(1) + '%';
     };
 
+    // INJECT NOTIFICATION THRESHOLD UI
+    const injectNotificationUI = () => {
+        if (document.getElementById('notification-modal')) return;
+        const modalHtml = `
+            <div id="notification-modal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; justify-content:center; align-items:center; backdrop-filter: blur(4px);">
+                <div class="glass-card" style="width:90%; max-width:350px; padding:20px; position:relative; display:flex; flex-direction:column; gap:15px; border: 1px solid rgba(255,255,255,0.1);">
+                    <h3 style="margin:0; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:10px; font-size:1.2rem; color:white;">Price Alert</h3>
+
+                    <div style="text-align: center; margin-top: 10px;">
+                        <span style="font-size: 0.9rem; color: var(--text-muted);">Notify me when price drops below</span>
+                        <div id="notification-target-price" style="font-size: 1.5rem; font-weight: bold; color: white; margin: 5px 0;">$0.00</div>
+                    </div>
+
+                    <div style="display:flex; flex-direction:column; gap:5px; margin-top: 10px;">
+                        <div style="display:flex; justify-content:space-between; color:var(--text-muted); font-size:0.8rem;">
+                            <span>-50%</span>
+                            <span>-25%</span>
+                            <span>0% (Fair Value)</span>
+                        </div>
+                        <input type="range" id="notification-threshold-slider" min="-50" max="0" step="1" value="-5" style="width:100%;">
+                        <div style="text-align:center; font-weight:bold; color:var(--accent); margin-top:5px;">
+                            <span id="notification-threshold-display">-5%</span>
+                        </div>
+                    </div>
+
+                    <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:15px;">
+                        <button id="clear-notification-btn" style="padding:8px; border-radius:6px; background:rgba(239, 68, 68, 0.2); border:1px solid #ef4444; color:#ef4444; cursor:pointer;">Clear</button>
+                        <button id="close-notification-btn" style="padding:8px 16px; border-radius:6px; background:transparent; border:1px solid rgba(255,255,255,0.2); color:white; cursor:pointer;">Cancel</button>
+                        <button id="save-notification-btn" style="padding:8px 16px; border-radius:6px; background:var(--accent); color:#000; border:none; font-weight:bold; cursor:pointer;">Set Alert</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        const slider = document.getElementById('notification-threshold-slider');
+        const display = document.getElementById('notification-threshold-display');
+        const targetPriceDisplay = document.getElementById('notification-target-price');
+
+        const updateTargetPrice = () => {
+            const threshold = parseFloat(slider.value);
+            display.textContent = threshold + '%';
+
+            // Get base fair value
+            let fv = 0;
+            if (globalData) {
+                fv = globalData.dynamic_fv || globalData.fair_value;
+            }
+            const target = fv * (1 + (threshold / 100));
+            targetPriceDisplay.textContent = '$' + target.toFixed(2);
+        };
+
+        slider.addEventListener('input', updateTargetPrice);
+
+        document.getElementById('set-notification-btn').addEventListener('click', () => {
+            if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+                Notification.requestPermission();
+            }
+
+            const thresholds = JSON.parse(localStorage.getItem('notificationThresholds') || '{}');
+            if (currentTicker && thresholds[currentTicker] !== undefined) {
+                slider.value = thresholds[currentTicker];
+            } else {
+                slider.value = -5;
+            }
+            updateTargetPrice();
+            document.getElementById('notification-modal').style.display = 'flex';
+        });
+
+        document.getElementById('close-notification-btn').addEventListener('click', () => {
+            document.getElementById('notification-modal').style.display = 'none';
+        });
+
+        document.getElementById('clear-notification-btn').addEventListener('click', () => {
+            if (!currentTicker) return;
+            const thresholds = JSON.parse(localStorage.getItem('notificationThresholds') || '{}');
+            delete thresholds[currentTicker];
+            localStorage.setItem('notificationThresholds', JSON.stringify(thresholds));
+
+            const sentAlerts = JSON.parse(localStorage.getItem('notificationSentAlerts') || '{}');
+            delete sentAlerts[currentTicker];
+            localStorage.setItem('notificationSentAlerts', JSON.stringify(sentAlerts));
+
+            document.getElementById('notification-modal').style.display = 'none';
+        });
+
+        document.getElementById('save-notification-btn').addEventListener('click', () => {
+            if (!currentTicker) return;
+
+            if (Notification.permission !== 'granted') {
+                Notification.requestPermission();
+            }
+
+            const thresholds = JSON.parse(localStorage.getItem('notificationThresholds') || '{}');
+            thresholds[currentTicker] = parseFloat(slider.value);
+            localStorage.setItem('notificationThresholds', JSON.stringify(thresholds));
+
+            // Clear sent alert flag when setting a new threshold
+            const sentAlerts = JSON.parse(localStorage.getItem('notificationSentAlerts') || '{}');
+            delete sentAlerts[currentTicker];
+            localStorage.setItem('notificationSentAlerts', JSON.stringify(sentAlerts));
+
+            document.getElementById('notification-modal').style.display = 'none';
+        });
+    };
+    injectNotificationUI();
+
     // INJECT CUSTOM WEIGHTS UI WITH SMART AI BTN
     const injectWeightsUI = () => {
         if (document.getElementById('weights-modal')) return;
@@ -3835,6 +3942,17 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     });
 
 
+    // --- BROWSER NOTIFICATIONS ---
+    const triggerPriceNotification = (ticker, price, targetPrice) => {
+        if (Notification.permission === 'granted') {
+            const options = {
+                body: `${ticker} has reached your target of $${targetPrice.toFixed(2)}. Current price is $${price.toFixed(2)}.`,
+                icon: '/icon.png' // Use the app's icon if available
+            };
+            new Notification(`${ticker} Price Alert!`, options);
+        }
+    };
+
     // --- LIVE PRICE POLLING ---
     let livePriceInterval = null;
 
@@ -3865,6 +3983,30 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     // Re-calculate everything with the new price
                     if (typeof recalcWithSimPrice === 'function') {
                         recalcWithSimPrice(data.price, true);
+                    }
+                }
+
+                // Check notification threshold
+                if (data.price && data.price > 0 && currentTicker) {
+                    const thresholds = JSON.parse(localStorage.getItem('notificationThresholds') || '{}');
+                    const threshold = thresholds[currentTicker];
+
+                    if (threshold !== undefined) {
+                        const sentAlerts = JSON.parse(localStorage.getItem('notificationSentAlerts') || '{}');
+
+                        if (!sentAlerts[currentTicker]) {
+                            const fv = globalData.dynamic_fv || globalData.fair_value;
+                            if (fv && fv > 0) {
+                                const targetPrice = fv * (1 + (threshold / 100));
+                                if (data.price <= targetPrice) {
+                                    triggerPriceNotification(currentTicker, data.price, targetPrice);
+
+                                    // Mark alert as sent
+                                    sentAlerts[currentTicker] = true;
+                                    localStorage.setItem('notificationSentAlerts', JSON.stringify(sentAlerts));
+                                }
+                            }
+                        }
                     }
                 }
             } catch (err) {
