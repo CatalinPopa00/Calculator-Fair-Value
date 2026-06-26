@@ -1941,7 +1941,10 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             delete sentAlerts[currentTicker];
             localStorage.setItem('notificationSentAlerts', JSON.stringify(sentAlerts));
 
-            document.getElementById('notification-modal').style.display = 'none';
+            // Reset UI back to default state instead of closing
+            slider.value = -5;
+            targetPriceDisplay.dataset.manualThreshold = '';
+            updateTargetPrice();
         });
 
         document.getElementById('save-notification-btn').addEventListener('click', () => {
