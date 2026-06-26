@@ -431,7 +431,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         c.style.justifyContent = 'flex-start';
 
                         // Remove input groups and unnecessary elements
-                        c.querySelectorAll('.card-inputs, .info-icon, .toggle-container, button, .details-toggle-btn, .view-data-btn').forEach(el => el.remove());
+                        c.querySelectorAll('.card-inputs, .info-icon, .toggle-container, .method-toggle, button, .details-toggle-btn, .view-data-btn').forEach(el => el.remove());
                         
                         // Shrink fixed heights
                         c.querySelectorAll('.card-metrics').forEach(m => { 
