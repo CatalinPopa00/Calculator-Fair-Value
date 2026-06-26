@@ -4197,16 +4197,17 @@ body.has-searched #install-app-btn {
     }
     
     .carousel-indicator-line {
-        width: 8px;
-        height: 8px;
+        flex: 1;
+        max-width: 40px;
+        height: 4px;
         background: rgba(var(--invert-rgb), 0.2);
-        border-radius: 4px;
-        transition: background 0.3s ease, width 0.3s ease;
+        border-radius: 2px;
+        transition: background 0.3s ease, transform 0.3s ease;
         cursor: pointer;
     }
     .carousel-indicator-line.active {
         background: var(--accent, #00d2ff);
-        width: 16px;
+        transform: scaleY(1.2);
     }
 
 /* Hide Historical toggle when collapsed */
@@ -4468,8 +4469,8 @@ body.has-searched #install-app-btn {
 @media (max-width: 768px) {
     .corporate-tabs-wrapper { 
         display: flex !important;
-        gap: 4px !important;
-        justify-content: space-between !important;
+        gap: 6px !important;
+        justify-content: center !important;
         width: 100% !important;
     }
     .corporate-tabs-wrapper .brief-tab {
