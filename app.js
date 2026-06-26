@@ -129,7 +129,7 @@ window.updateBadgeLabel = function(state) {
     const width = labelMeasure.getBoundingClientRect().width;
     window.badgeActiveAnimations.push(window.Motion.animate(labelContainer, { width }, window.BADGE_springConfig));
 
-    const newLabelHTML = `<div style="position: absolute; white-space: nowrap;">${text}</div>`;
+    const newLabelHTML = `<div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; white-space: nowrap;">${text}</div>`;
     const tempContainer = document.createElement("div");
     tempContainer.innerHTML = newLabelHTML;
     const newLabel = tempContainer.firstChild;
