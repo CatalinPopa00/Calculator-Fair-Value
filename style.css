@@ -4197,17 +4197,16 @@ body.has-searched #install-app-btn {
     }
     
     .carousel-indicator-line {
-        flex: 1;
-        max-width: 40px;
-        height: 4px;
+        width: 8px;
+        height: 8px;
         background: rgba(var(--invert-rgb), 0.2);
-        border-radius: 2px;
-        transition: background 0.3s ease, transform 0.3s ease;
+        border-radius: 4px;
+        transition: background 0.3s ease, width 0.3s ease;
         cursor: pointer;
     }
     .carousel-indicator-line.active {
         background: var(--accent, #00d2ff);
-        transform: scaleY(1.2);
+        width: 24px;
     }
 
 /* Hide Historical toggle when collapsed */
