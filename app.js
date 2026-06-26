@@ -1,3 +1,232 @@
+
+window.BADGE_STATES = {
+    idle: "Analyze",
+    processing: "Analyzing...",
+    success: "Success",
+    error: "Error",
+};
+
+window.BADGE_ICON_SIZE = 20;
+window.BADGE_STROKE_WIDTH = 1.5;
+window.BADGE_VIEW_BOX_SIZE = 24;
+
+window.BADGE_svgAttrs = `width="${window.BADGE_ICON_SIZE}" height="${window.BADGE_ICON_SIZE}" viewBox="0 0 ${window.BADGE_VIEW_BOX_SIZE} ${window.BADGE_VIEW_BOX_SIZE}" fill="none" stroke="currentColor" stroke-width="${window.BADGE_STROKE_WIDTH}" stroke-linecap="round" stroke-linejoin="round"`;
+
+window.BADGE_pathSpringConfig = {
+    type: "spring",
+    stiffness: 150,
+    damping: 20,
+};
+
+window.BADGE_springConfig = {
+    type: "spring",
+    stiffness: 600,
+    damping: 30,
+};
+
+window.badgeCurrentState = "idle";
+window.badgeActiveAnimations = [];
+
+window.badgeIconAnimations = {
+    processing: () => {
+        const iconContainer = document.querySelector(".icon-container");
+        if(!iconContainer) return;
+        const path = iconContainer.querySelector("path");
+        const container = iconContainer.querySelector("div");
+        if(path && container && window.Motion) {
+            window.badgeActiveAnimations.push(
+                window.Motion.animate(path, { pathLength: [0, 1] }, window.BADGE_pathSpringConfig),
+                window.Motion.animate(
+                    container,
+                    { rotate: 360 },
+                    { duration: 1, repeat: Infinity, ease: "linear" }
+                )
+            );
+        }
+    },
+    success: () => {
+        const iconContainer = document.querySelector(".icon-container");
+        if(!iconContainer) return;
+        const polyline = iconContainer.querySelector("polyline");
+        if(polyline && window.Motion) {
+            window.badgeActiveAnimations.push(
+                window.Motion.animate(polyline, { pathLength: [0, 1] }, window.BADGE_pathSpringConfig)
+            );
+        }
+    },
+    error: () => {
+        const iconContainer = document.querySelector(".icon-container");
+        if(!iconContainer) return;
+        const lines = iconContainer.querySelectorAll("line");
+        if(lines && lines.length >= 2 && window.Motion) {
+            window.badgeActiveAnimations.push(
+                window.Motion.animate(lines[0], { pathLength: [0, 1] }, window.BADGE_pathSpringConfig),
+                window.Motion.animate(
+                    lines[1],
+                    { pathLength: [0, 1] },
+                    { ...window.BADGE_pathSpringConfig, delay: 0.1 }
+                )
+            );
+        }
+    },
+};
+
+window.badgeIconHTML = {
+    processing: `
+        <div style="
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: ${window.BADGE_ICON_SIZE}px;
+            height: ${window.BADGE_ICON_SIZE}px;
+        ">
+            <svg ${window.BADGE_svgAttrs}>
+                <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+            </svg>
+        </div>
+    `,
+    success: `
+        <svg ${window.BADGE_svgAttrs}>
+            <polyline points="4 12 9 17 20 6" />
+        </svg>
+    `,
+    error: `
+        <svg ${window.BADGE_svgAttrs}>
+            <line x1="6" y1="6" x2="18" y2="18" />
+            <line x1="18" y1="6" x2="6" y2="18" />
+        </svg>
+    `,
+};
+
+window.updateBadgeIcon = function(state) {
+    const iconContainer = document.querySelector(".icon-container");
+    if(!iconContainer) return;
+    iconContainer.innerHTML = window.badgeIconHTML[state] || "";
+
+    if (window.badgeIconHTML[state] && window.Motion) {
+        window.badgeActiveAnimations.push(
+            window.Motion.animate(iconContainer, { width: window.BADGE_ICON_SIZE }, window.BADGE_springConfig)
+        );
+        if (window.badgeIconAnimations[state]) {
+            window.badgeIconAnimations[state]();
+        }
+    } else if (window.Motion) {
+        window.badgeActiveAnimations.push(
+            window.Motion.animate(iconContainer, { width: 0 }, window.BADGE_springConfig)
+        );
+    }
+}
+
+window.updateBadgeLabel = function(state) {
+    const labelContainer = document.querySelector(".label-container");
+    const labelMeasure = document.querySelector(".label-measure");
+    const label = document.querySelector(".label");
+    if(!labelContainer || !labelMeasure || !label || !window.Motion) return;
+
+    const text = window.BADGE_STATES[state];
+    labelMeasure.textContent = text;
+
+    const width = labelMeasure.getBoundingClientRect().width;
+    window.badgeActiveAnimations.push(window.Motion.animate(labelContainer, { width }, window.BADGE_springConfig));
+
+    const newLabelHTML = `<div style="position: absolute; white-space: nowrap;">${text}</div>`;
+    const tempContainer = document.createElement("div");
+    tempContainer.innerHTML = newLabelHTML;
+    const newLabel = tempContainer.firstChild;
+
+    window.badgeActiveAnimations.push(
+        window.Motion.animate(
+            newLabel,
+            {
+                y: [-20, 0],
+                opacity: [0, 1],
+                filter: ["blur(10px)", "blur(0px)"],
+            },
+            {
+                duration: 0.2,
+                ease: "easeInOut",
+            }
+        )
+    );
+    if (label.children.length) {
+        const animation = window.Motion.animate(
+            label.children[0],
+            {
+                y: [0, 20],
+                opacity: [1, 0],
+                filter: ["blur(0px)", "blur(10px)"],
+            },
+            {
+                duration: 0.2,
+                ease: "easeInOut",
+            }
+        );
+        window.badgeActiveAnimations.push(animation);
+
+        animation.then(() => {
+            if(label.children[0]) label.children[0].remove();
+        });
+    }
+
+    label.appendChild(newLabel);
+}
+
+window.updateBadgeContainer = function(state) {
+    const badge = document.querySelector(".badge");
+    if(!badge || !window.Motion) return;
+    badge.style.gap = state === "idle" ? "0px" : "8px";
+
+    if (state === "error") {
+        window.badgeActiveAnimations.push(
+            window.Motion.animate(
+                badge,
+                { x: [0, -6, 6, -6, 0] },
+                {
+                    duration: 0.3,
+                    ease: "easeInOut",
+                    times: [0, 0.25, 0.5, 0.75, 1],
+                    delay: 0.1,
+                }
+            )
+        );
+    } else if (state === "success") {
+        window.badgeActiveAnimations.push(
+            window.Motion.animate(
+                badge,
+                { scale: [1, 1.2, 1] },
+                {
+                    duration: 0.3,
+                    ease: "easeInOut",
+                    times: [0, 0.5, 1],
+                }
+            )
+        );
+    }
+}
+
+window.updateBadgeState = function(state) {
+    window.badgeActiveAnimations.forEach((animation) => {
+        if(animation.complete) animation.complete();
+    });
+    window.badgeActiveAnimations = [];
+    window.badgeCurrentState = state;
+    window.updateBadgeIcon(state);
+    window.updateBadgeLabel(state);
+    window.updateBadgeContainer(state);
+};
+
+document.addEventListener("DOMContentLoaded", () => {
+    // Retry initialization if Motion library is loading asynchronously
+    const initBadge = () => {
+        if (window.Motion) {
+            window.updateBadgeState("idle");
+        } else {
+            setTimeout(initBadge, 50);
+        }
+    };
+    initBadge();
+});
+
 // Helper: Robust Fetch that retries on background timeout or network drop
 async function robustFetch(url, options = {}, maxRetries = 2) {
     let retryCount = 0;
@@ -4155,7 +4384,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         }
         if (searchBtn) {
             searchBtn.disabled = true;
-            searchBtn.textContent = silent ? 'Updating...' : 'Analyzing...';
+            if (window.updateBadgeState) {
+                window.updateBadgeState("processing");
+            } else {
+                searchBtn.textContent = silent ? 'Updating...' : 'Analyzing...';
+            }
         }
 
         // Force flush any pending saves before clearing the DOM
@@ -4266,6 +4499,12 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 }
             }
         } catch (error) {
+            if (window.updateBadgeState) {
+                window.updateBadgeState("error");
+                setTimeout(() => {
+                    window.updateBadgeState("idle");
+                }, 2000);
+            }
             console.error('Error fetching valuation:', error);
             alert('Error: ' + error.message + '\nStack: ' + error.stack);
             loadingState.style.display = 'none';
@@ -4278,7 +4517,14 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         } finally {
             if (searchBtn) {
                 searchBtn.disabled = false;
-                searchBtn.textContent = 'Analyze';
+                if (window.updateBadgeState && window.badgeCurrentState !== "error") {
+                    window.updateBadgeState("success");
+                    setTimeout(() => {
+                        window.updateBadgeState("idle");
+                    }, 2000);
+                } else if (!window.updateBadgeState) {
+                    searchBtn.textContent = 'Analyze';
+                }
             }
             if (!silent) {
                 loadingState.style.display = 'none';
