@@ -4024,20 +4024,36 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 vibrate: [200, 100, 200]
             };
 
-            if (navigator.serviceWorker) {
-                navigator.serviceWorker.getRegistration().then(registration => {
-                    if (registration) {
-                        registration.showNotification(title, options);
-                    } else {
-                        new Notification(title, options);
-                    }
-                }).catch(err => {
-                    new Notification(title, options);
-                });
-            } else {
-                new Notification(title, options);
+            try {
+                // Since sw.js currently unregisters itself to bust cache,
+                // registration.showNotification will fail. Default to standard browser notifications.
+                const notification = new Notification(title, options);
+
+                // Keep the notification open until the user interacts with it
+                notification.requireInteraction = true;
+            } catch (err) {
+                console.error("Failed to trigger Notification:", err);
             }
+        } else if (Notification.permission !== 'denied') {
+            Notification.requestPermission();
         }
+
+        // Always show an in-app visual alert as a fallback, especially useful if app is open
+        const fallbackId = 'in-app-alert-' + Date.now();
+        const toastHtml = `
+            <div id="${fallbackId}" style="position:fixed; bottom:80px; left:50%; transform:translateX(-50%); background:var(--accent); color:#000; padding:15px 20px; border-radius:8px; font-weight:bold; z-index:10000; box-shadow:0 4px 15px rgba(0,0,0,0.5); display:flex; align-items:center; gap:10px; animation: slideUp 0.3s ease-out;">
+                <span>🔔</span>
+                <span>${ticker} just hit your target price of $${targetPrice.toFixed(2)}!</span>
+                <button onclick="document.getElementById('${fallbackId}').remove()" style="background:none; border:none; color:#000; font-size:1.2rem; cursor:pointer; margin-left:10px;">&times;</button>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', toastHtml);
+
+        // Auto remove in-app toast after 10 seconds
+        setTimeout(() => {
+            const el = document.getElementById(fallbackId);
+            if (el) el.remove();
+        }, 10000);
     };
 
     // --- LIVE PRICE POLLING ---
