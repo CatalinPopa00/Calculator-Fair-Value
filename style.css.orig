@@ -375,6 +375,10 @@ body {
     justify-content: center;
 }
 
+    /* Small adjustment to ensure "Analyzing..." fits beautifully */
+    .search-container {
+        grid-template-columns: 1fr 140px;
+    }
 
     #nav-watchlist-btn {
         width: auto;
@@ -1179,7 +1183,6 @@ body {
 
     .search-container {
         order: 2;
-        grid-template-columns: 1fr 100px;
         width: 100%;
         margin-top: 0.5rem;
     }
@@ -1742,7 +1745,7 @@ body {
         grid-template-columns: 1fr;
         gap: 1.5rem;
     }
-    
+
     .insights-column {
         padding: 1rem;
     }
@@ -4201,20 +4204,20 @@ body.has-searched #install-app-btn {
         width: 100%;
         box-sizing: border-box;
     }
-    
+
     @media (min-width: 769px) {
         .mobile-carousel-indicators,
         .carousel-nav-btn {
             display: none !important;
         }
-        
+
         .kpi-chart-container,
         .corp-summary-container {
             padding: 0 45px !important;
             box-sizing: border-box;
         }
     }
-    
+
     .carousel-indicator-line {
         flex: 1;
         max-width: 40px;
@@ -4486,7 +4489,7 @@ body.has-searched #install-app-btn {
 
 /* Show Corporate Summary tabs on mobile, fitted without scroll, and hide the dashes */
 @media (max-width: 768px) {
-    .corporate-tabs-wrapper { 
+    .corporate-tabs-wrapper {
         display: flex !important;
         gap: 4px !important;
         justify-content: space-between !important;
