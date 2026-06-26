@@ -388,8 +388,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             wrapper.style.flex = '1';
                         });
                         leftPanel.querySelectorAll('.score-row').forEach(row => {
-                            row.style.display = 'flex';
-                            row.style.flexDirection = 'column';
+                            row.style.display = 'block';
+                            row.style.marginBottom = '1.5rem';
                         });
                         leftPanel.querySelectorAll('.score-display').forEach(disp => {
                             disp.style.display = 'grid';
