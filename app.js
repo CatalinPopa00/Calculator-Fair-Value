@@ -799,18 +799,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
         if (!toggleBtn || !viewA || !viewB) return;
 
-        let buttonsDelayTimeout = null;
-
         toggleBtn.onclick = () => {
             _chartViewActive = !_chartViewActive;
 
             const openWeightsBtn = document.getElementById('open-weights-btn');
             const setNotificationBtn = document.getElementById('set-notification-btn');
-
-            if (buttonsDelayTimeout) {
-                clearTimeout(buttonsDelayTimeout);
-                buttonsDelayTimeout = null;
-            }
 
             if (_chartViewActive) {
                 // Switch to Chart View
@@ -851,14 +844,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 toggleBtn.style.borderColor = 'rgba(255,255,255,0.1)';
                 viewB.style.opacity = '0';
 
-                // Delay displaying the buttons for 1.5s
-                buttonsDelayTimeout = setTimeout(() => {
-                    if (!_chartViewActive) {
-                        if (openWeightsBtn) openWeightsBtn.style.display = 'block';
-                        if (setNotificationBtn) setNotificationBtn.style.display = 'block';
-                    }
-                }, 1500);
-
                 let viewBTransitionFired = false;
                 const viewBHandler = () => {
                     if (viewBTransitionFired) return;
@@ -867,6 +852,8 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     requestAnimationFrame(() => {
                         viewB.style.display = 'none';
                         viewA.style.display = 'flex';
+                        if (openWeightsBtn) openWeightsBtn.style.display = 'block';
+                        if (setNotificationBtn) setNotificationBtn.style.display = 'block';
                         const fvBox = viewA.closest('.fair-value-box');
                         if (fvBox) fvBox.style.minHeight = '';
                         // force reflow
@@ -4671,12 +4658,8 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 viewB.style.opacity = '0';
                 const openWeightsBtn = document.getElementById('open-weights-btn');
                 const setNotificationBtn = document.getElementById('set-notification-btn');
-                setTimeout(() => {
-                    if (!_chartViewActive) {
-                        if (openWeightsBtn) openWeightsBtn.style.display = 'block';
-                        if (setNotificationBtn) setNotificationBtn.style.display = 'block';
-                    }
-                }, 1500);
+                if (openWeightsBtn) openWeightsBtn.style.display = 'block';
+                if (setNotificationBtn) setNotificationBtn.style.display = 'block';
                 const fvBox = viewA.closest('.fair-value-box');
                 if (fvBox) fvBox.style.minHeight = '';
             }
