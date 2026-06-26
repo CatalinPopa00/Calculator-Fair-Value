@@ -1,3 +1,5 @@
+let currentSearchAbortController = null;
+
 
 window.BADGE_STATES = {
     idle: "Analyze",
@@ -474,14 +476,8 @@ document.addEventListener('DOMContentLoaded', () => {
             await docRef.set(payload);
 
         } catch (error) {
-            if (error.name === 'AbortError') {
-                console.log('Search aborted by user');
-            } else {
             console.error("Cloud Sync Error (Push):", error);
         } finally {
-            if (tickerInput) {
-                tickerInput.disabled = false;
-            }
             _syncInProgress = false;
         }
     }
@@ -540,14 +536,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
         } catch (error) {
-            if (error.name === 'AbortError') {
-                console.log('Search aborted by user');
-            } else {
             console.error("Cloud Sync Error (Pull):", error);
         } finally {
-            if (tickerInput) {
-                tickerInput.disabled = false;
-            }
             _syncInProgress = false;
         }
     }
@@ -696,9 +686,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 authError.textContent = err.message;
                 authError.style.display = 'block';
             } finally {
-            if (tickerInput) {
-                tickerInput.disabled = false;
-            }
                 authSubmit.disabled = false;
             }
         });
@@ -731,9 +718,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     authError.style.display = 'block';
                 }
             } finally {
-            if (tickerInput) {
-                tickerInput.disabled = false;
-            }
                 authGoogle.disabled = false;
                 authGoogle.style.opacity = '1';
                 authGoogle.innerHTML = originalText;
@@ -930,7 +914,6 @@ window._customScenariosData = null;
     let _simulating = false;
 
 // --- PRICE ANIMATION UTILITY ---
-let currentSearchAbortController = null;
 const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     const ti = document.getElementById('price-trend-icon');
     const pc = document.getElementById('price-change-percent');
@@ -2669,9 +2652,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     errSpan.textContent = e.message;
                     errSpan.style.display = 'inline';
                 } finally {
-            if (tickerInput) {
-                tickerInput.disabled = false;
-            }
                     window.isFetchingSectorPeers = false;
                     const btn = document.getElementById('sector-peers-btn');
                     if (btn) {
@@ -2774,9 +2754,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     errSpan.textContent = e.message;
                     errSpan.style.display = 'inline';
                 } finally {
-            if (tickerInput) {
-                tickerInput.disabled = false;
-            }
                     window.isFetchingPeer = false;
                     window.fetchingPeerTicker = '';
                     const currentAddBtn = document.getElementById('add-peer-btn');
@@ -4373,6 +4350,16 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     };
 
     const analyzeTicker = async (queryParam, forceRefresh = false, silent = false) => {
+        if (currentSearchAbortController) {
+            currentSearchAbortController.abort();
+        }
+        currentSearchAbortController = new AbortController();
+        const signal = currentSearchAbortController.signal;
+
+        const tickerInput = document.getElementById('ticker-input');
+        if (tickerInput) {
+            tickerInput.disabled = true;
+        }
         if (typeof autocompleteList !== 'undefined' && autocompleteList) autocompleteList.style.display = 'none';
         const savedScrollY = window.scrollY;
         document.body.classList.add('has-searched');
@@ -4398,7 +4385,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             if(aiLoading) aiLoading.style.display = 'none';
 
             dashboard.style.display = 'none';
-            loadingState.style.display = 'none'; // Replaced 'flex' with 'none'
+            // loadingState.style.display = 'flex'; (Removed: Keep background loading hidden)
             // Show search popup with spinning border + dark overlay
             const searchModalEl = document.getElementById('search-modal');
             const loadingOverlay = document.getElementById('search-loading-overlay');
@@ -4413,15 +4400,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 window.updateBadgeState("processing");
             } else {
                 searchBtn.textContent = silent ? 'Updating...' : 'Analyzing...';
-
-        if (tickerInput) {
-            tickerInput.disabled = true;
-        }
-
-        if (currentSearchAbortController) {
-            currentSearchAbortController.abort();
-        }
-        currentSearchAbortController = new AbortController();
             }
         }
 
@@ -4441,7 +4419,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         // Optimization: If it's a direct ticker from watchlist or autocomplete, SKIP server-side resolution
         if (!queryParam) {
             try {
-                const searchRes = await fetch(`/api/search/${encodeURIComponent(query)}`);
+                const searchRes = await fetch(`/api/search/${encodeURIComponent(query)}`, { signal });
                 if (searchRes.ok) {
                     const results = await searchRes.json();
                     if (results && results.length > 0) {
@@ -4483,7 +4461,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             
             while (retryCount <= maxRetries) {
                 try {
-                    valRes = await fetch(valUrl, { signal: currentSearchAbortController.signal });
+                    valRes = await fetch(valUrl, { signal });
                     
                     if (!valRes.ok) {
                         if (valRes.status === 504 && document.visibilityState === 'hidden') {
@@ -4533,9 +4511,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 }
             }
         } catch (error) {
-            if (error.name === 'AbortError') {
-                console.log('Search aborted by user');
-            } else {
             if (window.updateBadgeState) {
                 window.updateBadgeState("error");
                 setTimeout(() => {
@@ -4543,22 +4518,20 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 }, 2000);
             }
             console.error('Error fetching valuation:', error);
-            alert('Error: ' + error.message + '\nStack: ' + error.stack);
+            if (error.name === 'AbortError') {
+                console.log('Search aborted by user.');
+            } else {
+                alert('Error: ' + error.message + '\nStack: ' + error.stack);
+
+            }
             loadingState.style.display = 'none';
             const searchModalErr = document.getElementById('search-modal');
             const loadingOverlayErr = document.getElementById('search-loading-overlay');
             if (searchModalErr) { searchModalErr.classList.remove('show', 'loading-active'); }
-                if (loadingOverlayErr) { loadingOverlayErr.classList.remove('active'); }
-                const __ovErr = document.getElementById('search-modal-overlay');
-                if (__ovErr) { __ovErr.classList.remove('show'); }
-            }
             if (loadingOverlayErr) { loadingOverlayErr.classList.remove('active'); }
             const __ovErr = document.getElementById('search-modal-overlay');
             if (__ovErr) { __ovErr.classList.remove('show'); }
         } finally {
-            if (tickerInput) {
-                tickerInput.disabled = false;
-            }
             if (searchBtn) {
                 searchBtn.disabled = false;
                 if (window.updateBadgeState && window.badgeCurrentState !== "error") {
@@ -7818,9 +7791,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             } catch (e) {
                 console.error(`Batch fetch failed`, e);
             } finally {
-            if (tickerInput) {
-                tickerInput.disabled = false;
-            }
                 for (const tUpper of tickersToFetch) {
                     window._watchlistFetching.delete(tUpper);
                 }
@@ -7856,7 +7826,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         watchlistView.style.display = 'block';
 
         if (!cachedWatchlistData || cachedWatchlistData.length !== watchlist.length) {
-            loadingState.style.display = 'none'; // Replaced 'flex' with 'none'
+            loadingState.style.display = 'flex';
             // search-loading-active removed
             watchlistView.style.display = 'none';
             await refreshWatchlistData();
@@ -9316,9 +9286,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             errorEl.textContent = "Failed to run AI Audit: " + displayMsg;
             errorEl.style.display = 'block';
         } finally {
-            if (tickerInput) {
-                tickerInput.disabled = false;
-            }
             loadingEl.style.display = 'none';
             if (runKpiAuditBtn) {
                 runKpiAuditBtn.disabled = false;
@@ -9707,16 +9674,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     appendMessage('ai', 'Eroare: ' + (data.detail || 'Nu am putut comunica cu serverul.'));
                 }
             } catch (error) {
-            if (error.name === 'AbortError') {
-                console.log('Search aborted by user');
-            } else {
                 console.error('Chat Error:', error);
                 removeLoading();
                 appendMessage('ai', 'A apărut o eroare la conexiune: ' + error.message + '. (Asigură-te că serverul backend este pornit).');
             } finally {
-            if (tickerInput) {
-                tickerInput.disabled = false;
-            }
                 chatSendBtn.disabled = false;
                 chatInput.disabled = false;
                 // chatInput.focus();
@@ -10227,16 +10188,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (closeSearchModal) {
             closeSearchModal.addEventListener('click', () => {
-                searchModal.classList.remove('show');
-                const _ov = document.getElementById('search-modal-overlay');
-                if (_ov) _ov.classList.remove('show');
-                if (window.restoreBnavActive) window.restoreBnavActive();
+
+                if (currentSearchAbortController) {
+                    currentSearchAbortController.abort();
+                }
+
+                const tickerInputEl = document.getElementById('ticker-input');
+                if (tickerInputEl) {
+                    tickerInputEl.value = '';
+                    tickerInputEl.disabled = false;
+                }
+                const autocompleteList = document.getElementById('autocomplete-list');
+                if (autocompleteList) {
+                    autocompleteList.style.display = 'none';
+                    autocompleteList.innerHTML = '';
+                }
+
+                const searchModalEl = document.getElementById('search-modal');
+                const loadingOverlay = document.getElementById('search-loading-overlay');
+                if (searchModalEl) searchModalEl.classList.remove('loading-active');
+                if (loadingOverlay) loadingOverlay.classList.remove('active');
+
+                // Do NOT close the modal
             });
         }
 
         window.addEventListener('click', (e) => {
             const overlay = document.getElementById('search-modal-overlay');
-            if (e.target === searchModal || e.target === overlay) {
+            if ((e.target === searchModal || e.target === overlay) && !searchModal.classList.contains('loading-active')) {
                 searchModal.classList.remove('show');
                 const _ov = document.getElementById('search-modal-overlay');
                 if (_ov) _ov.classList.remove('show');
