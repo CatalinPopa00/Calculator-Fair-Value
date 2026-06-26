@@ -393,9 +393,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         });
                         leftPanel.querySelectorAll('.score-display').forEach(disp => {
                             disp.style.display = 'grid';
-                            disp.style.gridTemplateColumns = '5rem 1fr 3rem';
+                            disp.style.gridTemplateColumns = '3.8rem 1fr 2.5rem';
                             disp.style.alignItems = 'center';
-                            disp.style.gap = '15px';
+                            disp.style.gap = '0.8rem';
                             disp.style.width = '100%';
                         });
                         leftPanel.querySelectorAll('.score-circle').forEach(circle => {
