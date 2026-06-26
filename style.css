@@ -5059,11 +5059,24 @@ body.has-searched #install-app-btn {
 
 .search-glass-popup.loading-active {
     border-color: transparent !important;
-    overflow: hidden !important; /* Hide overflowing conic gradient */
+    /* overflow: hidden removed to allow autocomplete dropdown to show */
+}
+
+.search-glass-popup .loading-border {
+    position: absolute;
+    inset: 0;
+    border-radius: 16px;
+    overflow: hidden;
+    z-index: -2;
+    display: none;
+}
+
+.search-glass-popup.loading-active .loading-border {
+    display: block;
 }
 
 /* The spinning border beam */
-.search-glass-popup.loading-active::before {
+.search-glass-popup.loading-active .loading-border::before {
     content: '';
     position: absolute;
     top: -50%;
@@ -5081,7 +5094,7 @@ body.has-searched #install-app-btn {
 }
 
 /* The inner background to cover the center of the beam */
-.search-glass-popup.loading-active::after {
+.search-glass-popup.loading-active .loading-border::after {
     content: '';
     position: absolute;
     inset: 3px; /* border thickness */
