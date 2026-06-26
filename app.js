@@ -1902,11 +1902,28 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
             const thresholds = JSON.parse(localStorage.getItem('notificationThresholds') || '{}');
             if (currentTicker && thresholds[currentTicker] !== undefined) {
-                slider.value = thresholds[currentTicker];
+                const savedThreshold = thresholds[currentTicker];
+
+                // If it's not a round number or out of bounds, it's a manual entry.
+                if (savedThreshold % 1 !== 0 || savedThreshold < -50) {
+                    const fv = getBaseFV();
+                    const target = fv * (1 + (savedThreshold / 100));
+
+                    targetPriceDisplay.textContent = '$' + target.toFixed(2);
+                    targetPriceDisplay.dataset.manualThreshold = savedThreshold.toString();
+                    display.textContent = savedThreshold.toFixed(1) + '%';
+
+                    // Clamp slider visually
+                    slider.value = Math.max(-50, Math.min(0, Math.round(savedThreshold)));
+                } else {
+                    slider.value = savedThreshold;
+                    updateTargetPrice();
+                }
             } else {
                 slider.value = -5;
+                updateTargetPrice();
             }
-            updateTargetPrice();
+
             document.getElementById('notification-modal').style.display = 'flex';
         });
 
