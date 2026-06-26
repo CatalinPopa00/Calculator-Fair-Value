@@ -282,7 +282,7 @@ body {
         width: 100%;
         gap: 0.5rem;
         display: grid;
-        grid-template-columns: 1fr 100px;
+        grid-template-columns: 1fr 130px;
     }
 
     #ticker-input {
@@ -323,7 +323,7 @@ body {
     justify-content: center;
     overflow: hidden;
     will-change: transform, filter;
-    padding: 1rem 1.5rem;
+    padding: 0.8rem 1.2rem;
     background: linear-gradient(135deg, var(--primary), var(--accent));
     border-radius: 12px;
     color: white;
@@ -377,7 +377,7 @@ body {
 
     /* Small adjustment to ensure "Analyzing..." fits beautifully */
     .search-container {
-        grid-template-columns: 1fr auto;
+        grid-template-columns: 1fr 140px;
     }
 
     #nav-watchlist-btn {
@@ -1193,8 +1193,13 @@ body {
     }
 
     .badge {
-        padding: 0.7rem 1.2rem;
-        font-size: 0.95rem;
+        padding: 0.7rem 0.6rem;
+        font-size: 0.85rem;
+    }
+
+    .label-measure,
+    .badge .label {
+        font-size: 0.85rem;
     }
 
     /* Header Adjustments - Better Stacking */
