@@ -10243,99 +10243,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
         });
-const searchBtn = document.getElementById('search-btn');
-                const isSearching = searchBtn && searchBtn.disabled;
-
-                if (isSearching) {
-                    // Abort any ongoing search
-                    if (window.currentAbortController) {
-                        window.currentAbortController.abort();
-                        window.currentAbortController = null;
-                    }
-
-                    // Clear loading state animations but DO NOT close modal
-                    if (searchModal) searchModal.classList.remove('loading-active');
-                    const overlay = document.getElementById('search-loading-overlay');
-                    if (overlay) overlay.classList.remove('active');
-
-                    // Reset search input and autocomplete
-                    const tickerInput = document.getElementById('ticker-input');
-                    if (tickerInput) tickerInput.value = '';
-                    const autocompleteList = document.getElementById('autocomplete-list');
-                    if (autocompleteList) {
-                        autocompleteList.style.display = 'none';
-                        autocompleteList.innerHTML = '';
-                    }
-
-                    // Reset search button state
-                    if (searchBtn) {
-                        searchBtn.disabled = false;
-                        if (window.updateBadgeState) window.updateBadgeState('idle');
-                    }
-                } else {
-                    // Close the modal entirely
-                    if (searchModal) searchModal.classList.remove('show');
-                    const overlay = document.getElementById('search-modal-overlay');
-                    if (overlay) overlay.classList.remove('show');
-
-                    // Reset search input and autocomplete just in case
-                    const tickerInput = document.getElementById('ticker-input');
-                    if (tickerInput) tickerInput.value = '';
-                    const autocompleteList = document.getElementById('autocomplete-list');
-                    if (autocompleteList) {
-                        autocompleteList.style.display = 'none';
-                        autocompleteList.innerHTML = '';
-                    }
-                }
-            });
-        }
-const searchBtn = document.getElementById('search-btn');
-                const isSearching = searchBtn && searchBtn.disabled;
-
-                if (isSearching) {
-                    // Abort any ongoing search
-                    if (window.currentAbortController) {
-                        window.currentAbortController.abort();
-                        window.currentAbortController = null;
-                    }
-
-                    // Clear loading state animations but DO NOT close modal
-                    searchModal.classList.remove('loading-active');
-                    const overlay = document.getElementById('search-loading-overlay');
-                    if (overlay) overlay.classList.remove('active');
-
-                    // Reset search input and autocomplete
-                    const tickerInput = document.getElementById('ticker-input');
-                    if (tickerInput) tickerInput.value = '';
-                    const autocompleteList = document.getElementById('autocomplete-list');
-                    if (autocompleteList) {
-                        autocompleteList.style.display = 'none';
-                        autocompleteList.innerHTML = '';
-                    }
-
-                    // Reset search button state
-                    if (searchBtn) {
-                        searchBtn.disabled = false;
-                        if (window.updateBadgeState) window.updateBadgeState('idle');
-                    }
-                } else {
-                    // Close the modal entirely
-                    if (searchModal) searchModal.classList.remove('show');
-                    const overlay = document.getElementById('search-modal-overlay');
-                    if (overlay) overlay.classList.remove('show');
-
-                    // Reset search input and autocomplete just in case
-                    const tickerInput = document.getElementById('ticker-input');
-                    if (tickerInput) tickerInput.value = '';
-                    const autocompleteList = document.getElementById('autocomplete-list');
-                    if (autocompleteList) {
-                        autocompleteList.style.display = 'none';
-                        autocompleteList.innerHTML = '';
-                    }
-                }
-            });
-        }
-
         // Restore overlay click to close if not searching
         window.addEventListener('click', (e) => {
             const overlay = document.getElementById('search-modal-overlay');
@@ -10346,21 +10253,6 @@ const searchBtn = document.getElementById('search-btn');
                     if (searchModal) searchModal.classList.remove('show');
                     if (overlay) overlay.classList.remove('show');
                 }
-            }
-        });
-const searchBtn = document.getElementById('search-btn');
-                if (searchBtn) {
-                    searchBtn.disabled = false;
-                    if (window.updateBadgeState) window.updateBadgeState('idle');
-                }
-            });
-        }
-
-        window.addEventListener('click', (e) => {
-            const overlay = document.getElementById('search-modal-overlay');
-            if (e.target === searchModal || e.target === overlay) {
-                // Pop-up cannot be closed by clicking outside.
-                return;
             }
         });
 
