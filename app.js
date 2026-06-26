@@ -4348,6 +4348,12 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     };
 
     const analyzeTicker = async (queryParam, forceRefresh = false, silent = false) => {
+        if (window.currentAbortController) {
+            window.currentAbortController.abort();
+        }
+        window.currentAbortController = new AbortController();
+        const signal = window.currentAbortController.signal;
+
         if (typeof autocompleteList !== 'undefined' && autocompleteList) autocompleteList.style.display = 'none';
         const savedScrollY = window.scrollY;
         document.body.classList.add('has-searched');
@@ -4373,7 +4379,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             if(aiLoading) aiLoading.style.display = 'none';
 
             dashboard.style.display = 'none';
-            loadingState.style.display = 'flex';
             // Show search popup with spinning border + dark overlay
             const searchModalEl = document.getElementById('search-modal');
             const loadingOverlay = document.getElementById('search-loading-overlay');
@@ -4399,7 +4404,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
         let query = (queryParam && typeof queryParam === 'string') ? queryParam : tickerInput.value.trim();
         if (!query) {
-            loadingState.style.display = 'none';
         // search-loading-active removed
             return;
         }
@@ -4407,7 +4411,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         // Optimization: If it's a direct ticker from watchlist or autocomplete, SKIP server-side resolution
         if (!queryParam) {
             try {
-                const searchRes = await fetch(`/api/search/${encodeURIComponent(query)}`);
+                const searchRes = await fetch(`/api/search/${encodeURIComponent(query)}`, { signal });
                 if (searchRes.ok) {
                     const results = await searchRes.json();
                     if (results && results.length > 0) {
@@ -4438,9 +4442,9 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
         try {
             // v305: Parallel fetch for valuation AND fresh overrides to prevent cross-device drift
-            let valUrl = `/api/valuation/${encodeURIComponent(query)}`;
+            let valUrl = `/api/valuation/${encodeURIComponent(query)}?skip_peers=true`;
             if (forceRefresh) {
-                valUrl += `?t=${Date.now()}&force_refresh=true`;
+                valUrl += `&t=${Date.now()}&force_refresh=true`;
             }
 
             let valRes;
@@ -4449,7 +4453,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             
             while (retryCount <= maxRetries) {
                 try {
-                    valRes = await fetch(valUrl);
+                    valRes = await fetch(valUrl, { signal });
                     
                     if (!valRes.ok) {
                         if (valRes.status === 504 && document.visibilityState === 'hidden') {
@@ -4464,6 +4468,9 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     }
                     break; // Success
                 } catch (err) {
+                    if (err.name === 'AbortError') {
+                        throw err; // Re-throw abort to catch block
+                    }
                     if (retryCount < maxRetries && (document.visibilityState === 'hidden' || err.message.includes('fetch') || err.message.includes('NetworkError') || err.message.includes('Timeout'))) {
                         console.warn('Network error or backgrounded. Waiting for visibility and retrying...', err);
                         retryCount++;
@@ -4487,6 +4494,8 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
             const data = await valRes.json();
 
+            if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
+
             displayData(data, silent);
 
             // Auto-load sector peers if none exist
@@ -4499,6 +4508,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 }
             }
         } catch (error) {
+            if (error.name === 'AbortError') {
+                console.log('Search aborted');
+                dashboard.style.display = 'block'; // Restore dashboard
+                return;
+            }
             if (window.updateBadgeState) {
                 window.updateBadgeState("error");
                 setTimeout(() => {
@@ -4507,7 +4521,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             }
             console.error('Error fetching valuation:', error);
             alert('Error: ' + error.message + '\nStack: ' + error.stack);
-            loadingState.style.display = 'none';
             const searchModalErr = document.getElementById('search-modal');
             const loadingOverlayErr = document.getElementById('search-loading-overlay');
             if (searchModalErr) { searchModalErr.classList.remove('show', 'loading-active'); }
@@ -4527,7 +4540,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 }
             }
             if (!silent) {
-                loadingState.style.display = 'none';
                 dashboard.style.display = 'block';
                 // Close search popup and remove loading animation
                 const searchModalEl2 = document.getElementById('search-modal');
@@ -10171,21 +10183,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (closeSearchModal) {
             closeSearchModal.addEventListener('click', () => {
-                searchModal.classList.remove('show');
-                const _ov = document.getElementById('search-modal-overlay');
-                if (_ov) _ov.classList.remove('show');
-                if (window.restoreBnavActive) window.restoreBnavActive();
+                // Abort any ongoing search
+                if (window.currentAbortController) {
+                    window.currentAbortController.abort();
+                }
+
+                // Clear loading state animations but DO NOT close modal
+                searchModal.classList.remove('loading-active');
+                const overlay = document.getElementById('search-loading-overlay');
+                if (overlay) overlay.classList.remove('active');
+
+                // Reset search button state
+                const searchBtn = document.getElementById('search-btn');
+                if (searchBtn) {
+                    searchBtn.disabled = false;
+                    searchBtn.textContent = 'Analyze';
+                    if (window.updateBadgeState) window.updateBadgeState('idle');
+                }
             });
         }
 
         window.addEventListener('click', (e) => {
             const overlay = document.getElementById('search-modal-overlay');
             if (e.target === searchModal || e.target === overlay) {
-                searchModal.classList.remove('show');
-                const _ov = document.getElementById('search-modal-overlay');
-                if (_ov) _ov.classList.remove('show');
-                if (overlay) overlay.classList.remove('show');
-                if (window.restoreBnavActive) window.restoreBnavActive();
+                // Pop-up cannot be closed by clicking outside.
+                return;
             }
         });
 
