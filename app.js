@@ -1834,20 +1834,66 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         const display = document.getElementById('notification-threshold-display');
         const targetPriceDisplay = document.getElementById('notification-target-price');
 
+        // Helper to get current fair value
+        const getBaseFV = () => {
+            if (globalData) {
+                return globalData.dynamic_fv || globalData.fair_value || 0;
+            }
+            return 0;
+        };
+
         const updateTargetPrice = () => {
             const threshold = parseFloat(slider.value);
             display.textContent = threshold + '%';
 
-            // Get base fair value
-            let fv = 0;
-            if (globalData) {
-                fv = globalData.dynamic_fv || globalData.fair_value;
-            }
+            const fv = getBaseFV();
             const target = fv * (1 + (threshold / 100));
             targetPriceDisplay.textContent = '$' + target.toFixed(2);
+            targetPriceDisplay.dataset.manualThreshold = ''; // clear manual flag on slider use
         };
 
         slider.addEventListener('input', updateTargetPrice);
+
+        // Make target price editable
+        targetPriceDisplay.style.cursor = 'text';
+        targetPriceDisplay.title = 'Double-click to set exact price';
+        targetPriceDisplay.addEventListener('dblclick', () => {
+            const currentVal = targetPriceDisplay.textContent.replace('$', '');
+            targetPriceDisplay.innerHTML = `<input type="number" step="0.01" style="width:100px; text-align:center; font-size:1.5rem; font-weight:bold; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.3); color:white; border-radius:4px;" id="manual-target-input" value="${currentVal}">`;
+            const input = document.getElementById('manual-target-input');
+            input.focus();
+            input.select();
+
+            const applyManualPrice = () => {
+                const manualPrice = parseFloat(input.value);
+                if (!isNaN(manualPrice) && manualPrice > 0) {
+                    const fv = getBaseFV();
+                    if (fv > 0) {
+                        let pctDiff = ((manualPrice - fv) / fv) * 100;
+                        targetPriceDisplay.textContent = '$' + manualPrice.toFixed(2);
+                        targetPriceDisplay.dataset.manualThreshold = pctDiff.toString();
+
+                        // Update UI
+                        display.textContent = pctDiff.toFixed(1) + '%';
+
+                        // Clamp slider visually, but state will be saved from the manual dataset
+                        let visualSliderValue = Math.max(-50, Math.min(0, Math.round(pctDiff)));
+                        slider.value = visualSliderValue;
+                    } else {
+                        updateTargetPrice();
+                    }
+                } else {
+                    updateTargetPrice();
+                }
+            };
+
+            input.addEventListener('blur', applyManualPrice);
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    input.blur();
+                }
+            });
+        });
 
         document.getElementById('set-notification-btn').addEventListener('click', () => {
             if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
@@ -1889,7 +1935,13 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             }
 
             const thresholds = JSON.parse(localStorage.getItem('notificationThresholds') || '{}');
-            thresholds[currentTicker] = parseFloat(slider.value);
+
+            // If manual value was set and not overwritten by slider, use it. Otherwise use slider.
+            if (targetPriceDisplay.dataset.manualThreshold) {
+                thresholds[currentTicker] = parseFloat(targetPriceDisplay.dataset.manualThreshold);
+            } else {
+                thresholds[currentTicker] = parseFloat(slider.value);
+            }
             localStorage.setItem('notificationThresholds', JSON.stringify(thresholds));
 
             // Clear sent alert flag when setting a new threshold
