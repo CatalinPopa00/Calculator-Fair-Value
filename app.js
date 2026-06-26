@@ -683,6 +683,7 @@ window._customScenariosData = null;
     let _simulating = false;
 
 // --- PRICE ANIMATION UTILITY ---
+let currentSearchAbortController = null;
 const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     const ti = document.getElementById('price-trend-icon');
     const pc = document.getElementById('price-change-percent');
@@ -4144,7 +4145,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             if(aiLoading) aiLoading.style.display = 'none';
 
             dashboard.style.display = 'none';
-            loadingState.style.display = 'flex';
+            loadingState.style.display = 'none'; // Replaced 'flex' with 'none'
             // Show search popup with spinning border + dark overlay
             const searchModalEl = document.getElementById('search-modal');
             const loadingOverlay = document.getElementById('search-loading-overlay');
@@ -4157,6 +4158,15 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             searchBtn.disabled = true;
             searchBtn.textContent = silent ? 'Updating...' : 'Analyzing...';
         }
+
+        if (tickerInput) {
+            tickerInput.disabled = true;
+        }
+
+        if (currentSearchAbortController) {
+            currentSearchAbortController.abort();
+        }
+        currentSearchAbortController = new AbortController();
 
         // Force flush any pending saves before clearing the DOM
         if (overrideSaveTimer && pendingOverrideTicker) {
@@ -4216,7 +4226,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             
             while (retryCount <= maxRetries) {
                 try {
-                    valRes = await fetch(valUrl);
+                    valRes = await fetch(valUrl, { signal: currentSearchAbortController.signal });
                     
                     if (!valRes.ok) {
                         if (valRes.status === 504 && document.visibilityState === 'hidden') {
@@ -4266,16 +4276,23 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 }
             }
         } catch (error) {
-            console.error('Error fetching valuation:', error);
-            alert('Error: ' + error.message + '\nStack: ' + error.stack);
-            loadingState.style.display = 'none';
-            const searchModalErr = document.getElementById('search-modal');
-            const loadingOverlayErr = document.getElementById('search-loading-overlay');
-            if (searchModalErr) { searchModalErr.classList.remove('show', 'loading-active'); }
-            if (loadingOverlayErr) { loadingOverlayErr.classList.remove('active'); }
-            const __ovErr = document.getElementById('search-modal-overlay');
-            if (__ovErr) { __ovErr.classList.remove('show'); }
+            if (error.name === 'AbortError') {
+                console.log('Search aborted by user');
+            } else {
+                console.error('Error fetching valuation:', error);
+                alert('Error: ' + error.message + '\nStack: ' + error.stack);
+                loadingState.style.display = 'none';
+                const searchModalErr = document.getElementById('search-modal');
+                const loadingOverlayErr = document.getElementById('search-loading-overlay');
+                if (searchModalErr) { searchModalErr.classList.remove('show', 'loading-active'); }
+                if (loadingOverlayErr) { loadingOverlayErr.classList.remove('active'); }
+                const __ovErr = document.getElementById('search-modal-overlay');
+                if (__ovErr) { __ovErr.classList.remove('show'); }
+            }
         } finally {
+            if (tickerInput) {
+                tickerInput.disabled = false;
+            }
             if (searchBtn) {
                 searchBtn.disabled = false;
                 searchBtn.textContent = 'Analyze';
@@ -9925,21 +9942,44 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (closeSearchModal) {
             closeSearchModal.addEventListener('click', () => {
-                searchModal.classList.remove('show');
-                const _ov = document.getElementById('search-modal-overlay');
-                if (_ov) _ov.classList.remove('show');
-                if (window.restoreBnavActive) window.restoreBnavActive();
+                // If a search is running, abort it
+                if (searchBtn && searchBtn.disabled) {
+                    if (currentSearchAbortController) {
+                        currentSearchAbortController.abort();
+                        currentSearchAbortController = null;
+                    }
+                    if (searchModal) {
+                        searchModal.classList.remove('loading-active');
+                    }
+                    const loadingOverlay = document.getElementById('search-loading-overlay');
+                    if (loadingOverlay) {
+                        loadingOverlay.classList.remove('active');
+                    }
+                    searchBtn.disabled = false;
+                    searchBtn.textContent = 'Analyze';
+                    if (tickerInput) {
+                        tickerInput.disabled = false;
+                    }
+                }
+
+                // Clear the input and hide autocomplete
+                if (tickerInput) {
+                    tickerInput.value = '';
+                }
+                if (typeof autocompleteList !== 'undefined' && autocompleteList) {
+                    autocompleteList.style.display = 'none';
+                }
+
+                // We do NOT close the modal window.
             });
         }
 
         window.addEventListener('click', (e) => {
             const overlay = document.getElementById('search-modal-overlay');
             if (e.target === searchModal || e.target === overlay) {
-                searchModal.classList.remove('show');
-                const _ov = document.getElementById('search-modal-overlay');
-                if (_ov) _ov.classList.remove('show');
-                if (overlay) overlay.classList.remove('show');
-                if (window.restoreBnavActive) window.restoreBnavActive();
+                // Ignore clicks to keep the modal open, or let it close?
+                // The user requested: "Acest pop-up nu trebuie sa poata fi inchis"
+                // So we do not close the modal when clicking outside.
             }
         });
 
