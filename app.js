@@ -803,6 +803,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             _chartViewActive = !_chartViewActive;
 
             const openWeightsBtn = document.getElementById('open-weights-btn');
+            const setNotificationBtn = document.getElementById('set-notification-btn');
 
             if (_chartViewActive) {
                 // Switch to Chart View
@@ -810,6 +811,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 toggleBtn.style.borderColor = 'rgba(251, 191, 36, 0.5)';
                 viewA.style.opacity = '0';
                 if (openWeightsBtn) openWeightsBtn.style.display = 'none';
+                if (setNotificationBtn) setNotificationBtn.style.display = 'none';
 
                 let viewATransitionFired = false;
                 const viewAHandler = () => {
@@ -842,6 +844,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 toggleBtn.style.borderColor = 'rgba(255,255,255,0.1)';
                 viewB.style.opacity = '0';
                 if (openWeightsBtn) openWeightsBtn.style.display = 'block';
+                if (setNotificationBtn) setNotificationBtn.style.display = 'block';
 
                 let viewBTransitionFired = false;
                 const viewBHandler = () => {
@@ -3945,11 +3948,26 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     // --- BROWSER NOTIFICATIONS ---
     const triggerPriceNotification = (ticker, price, targetPrice) => {
         if (Notification.permission === 'granted') {
+            const title = `${ticker} Price Alert!`;
             const options = {
-                body: `${ticker} has reached your target of $${targetPrice.toFixed(2)}. Current price is $${price.toFixed(2)}.`,
-                icon: '/icon.png' // Use the app's icon if available
+                body: `${ticker} just hit your target price of $${targetPrice.toFixed(2)}!`,
+                icon: '/icon.png', // Use the app's icon if available
+                vibrate: [200, 100, 200]
             };
-            new Notification(`${ticker} Price Alert!`, options);
+
+            if (navigator.serviceWorker) {
+                navigator.serviceWorker.getRegistration().then(registration => {
+                    if (registration) {
+                        registration.showNotification(title, options);
+                    } else {
+                        new Notification(title, options);
+                    }
+                }).catch(err => {
+                    new Notification(title, options);
+                });
+            } else {
+                new Notification(title, options);
+            }
         }
     };
 
@@ -4639,7 +4657,9 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 viewB.style.display = 'none';
                 viewB.style.opacity = '0';
                 const openWeightsBtn = document.getElementById('open-weights-btn');
+                const setNotificationBtn = document.getElementById('set-notification-btn');
                 if (openWeightsBtn) openWeightsBtn.style.display = 'block';
+                if (setNotificationBtn) setNotificationBtn.style.display = 'block';
                 const fvBox = viewA.closest('.fair-value-box');
                 if (fvBox) fvBox.style.minHeight = '';
             }
