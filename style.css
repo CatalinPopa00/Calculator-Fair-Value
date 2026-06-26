@@ -305,30 +305,62 @@ body {
 }
 
     #search-btn {
-    padding: 1rem 1.5rem;
-    background: linear-gradient(135deg, var(--primary), var(--accent));
-    color: white;
-    border: none;
-    border-radius: 12px;
-    cursor: pointer;
-    font-weight: 600;
-    font-size: 1.05rem;
+    /* Styles delegated to .badge */
     transition: all 0.2s ease;
-    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
 }
 
 #search-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
 }
 
 #search-btn:active {
     transform: translateY(1px);
 }
 
+.badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    will-change: transform, filter;
+    padding: 1rem 1.5rem;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    border-radius: 12px;
+    color: white;
+    font-weight: 600;
+    font-size: 1.05rem;
+    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+}
+
+.icon-container {
+    height: 20px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 0;
+    overflow: hidden;
+}
+
+.label-container {
+    position: relative;
+    height: 20px;
+}
+
+.label-measure {
+    position: absolute;
+    visibility: hidden;
+    white-space: nowrap;
+}
+
+.label {
+    position: relative;
+    height: 100%;
+}
+
     /* Small adjustment to ensure "Analyzing..." fits beautifully */
     .search-container {
-        grid-template-columns: 1fr 115px;
+        grid-template-columns: 1fr auto;
     }
 
     #nav-watchlist-btn {
@@ -458,23 +490,7 @@ body {
 }
 
 #search-btn {
-    padding: 0.8rem 1.5rem;
-    border-radius: 8px;
-    border: none;
-    background: var(--primary);
-    color: var(--text-main);
-    font-weight: 600;
-    font-family: inherit;
-    cursor: pointer;
-    transition: background 0.3s, transform 0.1s;
-}
-
-#search-btn:hover {
-    background: var(--primary-hover);
-}
-
-#search-btn:active {
-    transform: scale(0.98);
+    /* Hover and active states */
 }
 
 .nav-btn {
@@ -1159,7 +1175,7 @@ body {
         font-size: 0.95rem;
     }
 
-    #search-btn {
+    .badge {
         padding: 0.7rem 1.2rem;
         font-size: 0.95rem;
     }
@@ -4453,8 +4469,8 @@ body.has-searched #install-app-btn {
 @media (max-width: 768px) {
     .corporate-tabs-wrapper { 
         display: flex !important;
-        gap: 4px !important;
-        justify-content: space-between !important;
+        gap: 6px !important;
+        justify-content: center !important;
         width: 100% !important;
     }
     .corporate-tabs-wrapper .brief-tab {

@@ -46,6 +46,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/motion@11.11.13/dist/motion.js"></script>
 
 </head>
 
@@ -85,7 +86,15 @@
                     <input type="text" id="ticker-input" placeholder="Enter Ticker or Name" autocomplete="off" style="padding-left: 2.5rem;">
                     <div id="autocomplete-list" class="autocomplete-dropdown"></div>
                 </div>
-                <button id="search-btn">Analyze</button>
+                <button id="search-btn" style="padding: 0; border: none; background: none; cursor: pointer;">
+                    <div class="badge">
+                        <div class="icon-container"></div>
+                        <div class="label-container">
+                            <div class="label-measure"></div>
+                            <div class="label"></div>
+                        </div>
+                    </div>
+                </button>
             </div>
         </div>
 
@@ -967,7 +976,7 @@
 
 
                                 
-                                <div class="corporate-tabs-wrapper" style="display: flex; justify-content: center; border-bottom: none; margin-bottom: 15px; gap: 8px; width: 100%; flex-wrap: wrap;">
+                                <div class="corporate-tabs-wrapper" style="display: flex; justify-content: center; border-bottom: none; margin-bottom: 15px; gap: 6px; width: 100%; flex-wrap: wrap;">
                                     <div class="carousel-indicator-line ownership-tab-btn active" data-tab="holders"></div>
                                     <div class="carousel-indicator-line ownership-tab-btn" data-tab="top-holders"></div>
                                     <div class="carousel-indicator-line ownership-tab-btn" data-tab="insiders"></div>
