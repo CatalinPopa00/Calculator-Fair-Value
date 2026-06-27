@@ -10187,7 +10187,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             if (typeof window.updateTabVisibility === 'function') window.updateTabVisibility();
-            }
 
             // Clear any lingering focus from the modal trigger buttons
             const activeElement = document.activeElement;
