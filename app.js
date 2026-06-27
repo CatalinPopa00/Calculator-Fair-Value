@@ -10123,6 +10123,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 60000);
 
         // --- BOTTOM NAV LOGIC ---
+        let lastBackgroundBnavBtn = null;
         const bnavHome = document.getElementById('bnav-home');
         const bnavWatchlist = document.getElementById('bnav-watchlist');
         const bnavSearch = document.getElementById('bnav-search');
@@ -10156,17 +10157,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         window.restoreBnavActive = function() {
-            const localDashboard = document.getElementById('dashboard');
-            const isDashboardActive = localDashboard && localDashboard.style.display !== 'none' && document.body.classList.contains('has-searched');
-            const localWatchlistView = document.getElementById('watchlist-view');
-            const isWatchlistActive = localWatchlistView && localWatchlistView.style.display !== 'none';
-
-            if (isWatchlistActive) {
-                setBnavActive(document.getElementById('bnav-watchlist'));
-            } else if (isDashboardActive) {
-                setBnavActive(document.getElementById('bnav-search'));
+            if (lastBackgroundBnavBtn) {
+                setBnavActive(lastBackgroundBnavBtn);
             } else {
-                setBnavActive(document.getElementById('bnav-home'));
+                // Fallback
+                const localDashboard = document.getElementById('dashboard');
+                const isDashboardActive = localDashboard && localDashboard.style.display !== 'none' && document.body.classList.contains('has-searched');
+                const localWatchlistView = document.getElementById('watchlist-view');
+                const isWatchlistActive = localWatchlistView && localWatchlistView.style.display !== 'none';
+
+                if (isWatchlistActive) {
+                    setBnavActive(document.getElementById('bnav-watchlist'));
+                } else if (isDashboardActive) {
+                    setBnavActive(document.getElementById('bnav-search'));
+                } else {
+                    setBnavActive(document.getElementById('bnav-home'));
+                }
             }
 
             // Clear any lingering focus from the modal trigger buttons
