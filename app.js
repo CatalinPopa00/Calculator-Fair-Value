@@ -4556,6 +4556,19 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     // We must restore it so we don't look at a blank screen behind the modal.
                     if (typeof globalData !== 'undefined' && globalData && globalData.ticker) {
                         dashboard.style.display = 'block';
+
+                        // Re-populate basic price headers wiped during loading
+                        if (elements.currentPrice && globalData.current_price) {
+                            elements.currentPrice.textContent = formatCurrency(globalData.current_price);
+                        }
+
+                        // Trigger recalculate to restore UI elements (fair value, margin of safety, charts)
+                        if (typeof window.triggerRecalculate === 'function') {
+                            window.triggerRecalculate();
+                        }
+                        if (typeof window._renderProfile === 'function') {
+                            window._renderProfile();
+                        }
                     }
                 } else {
                     dashboard.style.display = 'block';
