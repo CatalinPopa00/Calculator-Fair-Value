@@ -4550,26 +4550,35 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 const loadingOverlay2 = document.getElementById('search-loading-overlay');
 
                 if (wasAborted) {
-                    if (searchModalEl2) { searchModalEl2.classList.remove('loading-active', 'show'); }
+                    // DO NOT close the search modal here. Let the user close it via the 'X' button.
+                    if (searchModalEl2) { searchModalEl2.classList.remove('loading-active'); }
                     if (loadingOverlay2) { loadingOverlay2.classList.remove('active'); }
-                    const __ovErr = document.getElementById('search-modal-overlay');
-                    if (__ovErr) { __ovErr.classList.remove('show'); }
-                    // If we have globalData, it means we had a dashboard open before.
-                    // We must restore it so we don't look at a blank screen behind the modal.
-                    if (typeof lastBackgroundBnavBtn !== 'undefined' && lastBackgroundBnavBtn && lastBackgroundBnavBtn.id === 'bnav-watchlist') {
-                        const watchlistView = document.getElementById('watchlist-view');
-                        if (watchlistView) watchlistView.style.display = 'block';
-                        dashboard.style.display = 'none';
-                    } else if (typeof globalData !== 'undefined' && globalData && globalData.ticker) {
-                        dashboard.style.display = 'block';
-                        const watchlistView = document.getElementById('watchlist-view');
-                        if (watchlistView) watchlistView.style.display = 'none';
-                    } else {
-                        // Return to home if no dashboard data and not watchlist
-                        dashboard.style.display = 'none';
-                        const watchlistView = document.getElementById('watchlist-view');
-                        if (watchlistView) watchlistView.style.display = 'none';
+
+                    // Restore background based on lastBackgroundBnavBtn
+
+
+                    if (window.lastBackgroundBnavBtn) {
+                        if (window.lastBackgroundBnavBtn.id === 'bnav-watchlist') {
+                            const watchlistView = document.getElementById('watchlist-view');
+                            if (watchlistView) watchlistView.style.display = 'block';
+                            dashboard.style.display = 'none';
+                        } else if (window.lastBackgroundBnavBtn.id === 'bnav-search') {
+                            dashboard.style.display = 'block';
+                            const watchlistView = document.getElementById('watchlist-view');
+                            if (watchlistView) watchlistView.style.display = 'none';
+                        } else if (window.lastBackgroundBnavBtn.id === 'bnav-overview') {
+                            dashboard.style.display = 'none';
+                            const watchlistView = document.getElementById('watchlist-view');
+                            if (watchlistView) watchlistView.style.display = 'none';
+                            // Overview has its own macro-dashboard, handled by updateTabVisibility
+                        } else {
+                            dashboard.style.display = 'none';
+                            const watchlistView = document.getElementById('watchlist-view');
+                            if (watchlistView) watchlistView.style.display = 'none';
+                        }
                     }
+
+                    if (typeof window.updateTabVisibility === 'function') window.updateTabVisibility();
 
                     if (typeof globalData !== 'undefined' && globalData && globalData.ticker) {
 
@@ -4588,6 +4597,9 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     }
                 } else {
                     dashboard.style.display = 'block';
+                    if (window.lastBackgroundBnavBtn !== undefined) {
+                        window.lastBackgroundBnavBtn = document.getElementById('bnav-search');
+                    }
                     if (searchModalEl2) { searchModalEl2.classList.remove('show', 'loading-active'); }
                     if (loadingOverlay2) { loadingOverlay2.classList.remove('active'); }
                     const __ov = document.getElementById('search-modal-overlay');
@@ -10123,7 +10135,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 60000);
 
         // --- BOTTOM NAV LOGIC ---
-        let lastBackgroundBnavBtn = null;
+        window.lastBackgroundBnavBtn = null;
         const bnavHome = document.getElementById('bnav-home');
         const bnavWatchlist = document.getElementById('bnav-watchlist');
         const bnavSearch = document.getElementById('bnav-search');
@@ -10142,7 +10154,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     bnavIndicator.style.transform = `translateX(${btn.offsetLeft}px)`;
                 }
                 if (!isModal) {
-                    lastBackgroundBnavBtn = btn;
+                    window.lastBackgroundBnavBtn = btn;
                 }
             }
             
@@ -10157,12 +10169,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         window.restoreBnavActive = function() {
-            if (lastBackgroundBnavBtn) {
-                setBnavActive(lastBackgroundBnavBtn);
+            if (window.lastBackgroundBnavBtn) {
+                setBnavActive(window.lastBackgroundBnavBtn);
             } else {
                 // Fallback
                 const localDashboard = document.getElementById('dashboard');
-                const isDashboardActive = localDashboard && localDashboard.style.display !== 'none' && document.body.classList.contains('has-searched');
+                const isDashboardActive = localDashboard && localDashboard.style.display !== 'none';
                 const localWatchlistView = document.getElementById('watchlist-view');
                 const isWatchlistActive = localWatchlistView && localWatchlistView.style.display !== 'none';
 
@@ -10173,6 +10185,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     setBnavActive(document.getElementById('bnav-home'));
                 }
+            }
+            if (typeof window.updateTabVisibility === 'function') window.updateTabVisibility();
             }
 
             // Clear any lingering focus from the modal trigger buttons
