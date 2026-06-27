@@ -4550,12 +4550,28 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 const loadingOverlay2 = document.getElementById('search-loading-overlay');
 
                 if (wasAborted) {
-                    if (searchModalEl2) { searchModalEl2.classList.remove('loading-active'); }
+                    if (searchModalEl2) { searchModalEl2.classList.remove('loading-active', 'show'); }
                     if (loadingOverlay2) { loadingOverlay2.classList.remove('active'); }
+                    const __ovErr = document.getElementById('search-modal-overlay');
+                    if (__ovErr) { __ovErr.classList.remove('show'); }
                     // If we have globalData, it means we had a dashboard open before.
                     // We must restore it so we don't look at a blank screen behind the modal.
-                    if (typeof globalData !== 'undefined' && globalData && globalData.ticker) {
+                    if (typeof lastBackgroundBnavBtn !== 'undefined' && lastBackgroundBnavBtn && lastBackgroundBnavBtn.id === 'bnav-watchlist') {
+                        const watchlistView = document.getElementById('watchlist-view');
+                        if (watchlistView) watchlistView.style.display = 'block';
+                        dashboard.style.display = 'none';
+                    } else if (typeof globalData !== 'undefined' && globalData && globalData.ticker) {
                         dashboard.style.display = 'block';
+                        const watchlistView = document.getElementById('watchlist-view');
+                        if (watchlistView) watchlistView.style.display = 'none';
+                    } else {
+                        // Return to home if no dashboard data and not watchlist
+                        dashboard.style.display = 'none';
+                        const watchlistView = document.getElementById('watchlist-view');
+                        if (watchlistView) watchlistView.style.display = 'none';
+                    }
+
+                    if (typeof globalData !== 'undefined' && globalData && globalData.ticker) {
 
                         // Re-populate basic price headers wiped during loading
                         if (elements.currentPrice && globalData.current_price) {
@@ -10115,7 +10131,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const bnavBtns = document.querySelectorAll('.bnav-btn');
         const bnavIndicator = document.getElementById('bnav-indicator');
-        let lastBackgroundBnavBtn = null;
 
         function setBnavActive(btn, isModal = false) {
             bnavBtns.forEach(b => b.classList.remove('active'));
@@ -10146,12 +10161,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const localWatchlistView = document.getElementById('watchlist-view');
             const isWatchlistActive = localWatchlistView && localWatchlistView.style.display !== 'none';
 
-            if (isDashboardActive) {
-                setBnavActive(document.getElementById('bnav-search'));
-            } else if (isWatchlistActive) {
+            if (isWatchlistActive) {
                 setBnavActive(document.getElementById('bnav-watchlist'));
-            } else if (lastBackgroundBnavBtn) {
-                setBnavActive(lastBackgroundBnavBtn);
+            } else if (isDashboardActive) {
+                setBnavActive(document.getElementById('bnav-search'));
             } else {
                 setBnavActive(document.getElementById('bnav-home'));
             }
