@@ -10130,15 +10130,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             
-            // Close search modal if we clicked on anything else, ONLY if a company is loaded
+            // Close search modal if we clicked on anything else
             const searchModal = document.getElementById('search-modal');
             const bnavSearch = document.getElementById('bnav-search');
             if (btn && btn !== bnavSearch && searchModal) {
-                if (typeof globalData !== 'undefined' && globalData && globalData.ticker) {
-                    searchModal.classList.remove('show');
-                    const _ov = document.getElementById('search-modal-overlay');
-                    if (_ov) _ov.classList.remove('show');
-                }
+                searchModal.classList.remove('show');
+                const _ov = document.getElementById('search-modal-overlay');
+                if (_ov) _ov.classList.remove('show');
             }
         }
 
@@ -10259,11 +10257,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     const modalOverlay = document.getElementById('search-modal-overlay');
                     if (modalOverlay) modalOverlay.classList.remove('show');
 
-                    // Restore bottom navigation active state if a company is loaded
-                    if (typeof globalData !== 'undefined' && globalData && globalData.ticker) {
-                        if (window.restoreBnavActive) {
-                            window.restoreBnavActive();
-                        }
+                    // Restore bottom navigation active state
+                    if (window.restoreBnavActive) {
+                        window.restoreBnavActive();
                     }
                 }
             });
@@ -10281,10 +10277,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (searchModal) searchModal.classList.remove('show');
                     if (overlay) overlay.classList.remove('show');
 
-                    if (typeof globalData !== 'undefined' && globalData && globalData.ticker) {
-                        if (window.restoreBnavActive) {
-                            window.restoreBnavActive();
-                        }
+                    if (window.restoreBnavActive) {
+                        window.restoreBnavActive();
                     }
                 }
             }
