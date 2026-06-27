@@ -10254,20 +10254,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     // The user must click X a second time to close it.
                     return;
                 } else {
-                    // If we were NOT searching, check if a company is loaded
-                    if (typeof globalData !== 'undefined' && globalData && globalData.ticker) {
-                        // Close the modal and hide the overlay
-                        if (searchModal) searchModal.classList.remove('show');
-                        const modalOverlay = document.getElementById('search-modal-overlay');
-                        if (modalOverlay) modalOverlay.classList.remove('show');
+                    // Close the modal entirely
+                    if (searchModal) searchModal.classList.remove('show');
+                    const modalOverlay = document.getElementById('search-modal-overlay');
+                    if (modalOverlay) modalOverlay.classList.remove('show');
 
-                        // Restore bottom navigation active state
+                    // Restore bottom navigation active state if a company is loaded
+                    if (typeof globalData !== 'undefined' && globalData && globalData.ticker) {
                         if (window.restoreBnavActive) {
                             window.restoreBnavActive();
                         }
-                    } else {
-                        // Do not close the modal if no company is loaded (initial state)
-                        // The user must search for a company first
                     }
                 }
             });
@@ -10280,13 +10276,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 const searchBtn = document.getElementById('search-btn');
                 const isSearching = searchBtn && searchBtn.disabled;
 
-                // Only allow clicking outside to close if not searching AND a company is loaded
-                if (!isSearching && typeof globalData !== 'undefined' && globalData && globalData.ticker) {
+                // Only allow clicking outside to close if not searching
+                if (!isSearching) {
                     if (searchModal) searchModal.classList.remove('show');
                     if (overlay) overlay.classList.remove('show');
 
-                    if (window.restoreBnavActive) {
-                        window.restoreBnavActive();
+                    if (typeof globalData !== 'undefined' && globalData && globalData.ticker) {
+                        if (window.restoreBnavActive) {
+                            window.restoreBnavActive();
+                        }
                     }
                 }
             }
