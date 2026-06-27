@@ -10117,13 +10117,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             
-            // Close search modal if we clicked on anything else
+            // Close search modal if we clicked on anything else, ONLY if a company is loaded
             const searchModal = document.getElementById('search-modal');
             const bnavSearch = document.getElementById('bnav-search');
             if (btn && btn !== bnavSearch && searchModal) {
-                searchModal.classList.remove('show');
-                const _ov = document.getElementById('search-modal-overlay');
-                if (_ov) _ov.classList.remove('show');
+                if (typeof globalData !== 'undefined' && globalData && globalData.ticker) {
+                    searchModal.classList.remove('show');
+                    const _ov = document.getElementById('search-modal-overlay');
+                    if (_ov) _ov.classList.remove('show');
+                }
             }
         }
 
@@ -10204,6 +10206,10 @@ document.addEventListener('DOMContentLoaded', () => {
             closeSearchModal.addEventListener('click', (e) => {
                 e.stopPropagation();
 
+                // Check if a search was in progress BEFORE resetting it
+                const searchBtn = document.getElementById('search-btn');
+                const isSearching = searchBtn && searchBtn.disabled;
+
                 // Always clear input and stop search
                 if (window.currentAbortController) {
                     window.currentAbortController.abort();
@@ -10212,8 +10218,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Clear loading state
                 if (searchModal) searchModal.classList.remove('loading-active');
-                const overlay = document.getElementById('search-loading-overlay');
-                if (overlay) overlay.classList.remove('active');
+                const loadingOverlay = document.getElementById('search-loading-overlay');
+                if (loadingOverlay) loadingOverlay.classList.remove('active');
 
                 // Reset search input and autocomplete
                 const tickerInput = document.getElementById('ticker-input');
@@ -10225,33 +10231,50 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 // Reset search button state
-                const searchBtn = document.getElementById('search-btn');
                 if (searchBtn) {
                     searchBtn.disabled = false;
                     if (window.updateBadgeState) window.updateBadgeState('idle');
                 }
 
-                // IMPORTANT: NEVER close the modal.
+                if (isSearching) {
+                    // If we were searching, we just cancelled it. DO NOT close the modal yet.
+                    // The user must click X a second time to close it.
+                    return;
+                } else {
+                    // If we were NOT searching, check if a company is loaded
+                    if (typeof globalData !== 'undefined' && globalData && globalData.ticker) {
+                        // Close the modal and hide the overlay
+                        if (searchModal) searchModal.classList.remove('show');
+                        const modalOverlay = document.getElementById('search-modal-overlay');
+                        if (modalOverlay) modalOverlay.classList.remove('show');
+
+                        // Restore bottom navigation active state
+                        if (window.restoreBnavActive) {
+                            window.restoreBnavActive();
+                        }
+                    } else {
+                        // Do not close the modal if no company is loaded (initial state)
+                        // The user must search for a company first
+                    }
+                }
             });
         }
 
-        // Disable background click closing
-        window.addEventListener('click', (e) => {
-            const overlay = document.getElementById('search-modal-overlay');
-            if (e.target === searchModal || e.target === overlay) {
-                // Do nothing. Pop-up cannot be closed by clicking outside.
-                return;
-            }
-        });
-        // Restore overlay click to close if not searching
+        // Handle background click closing
         window.addEventListener('click', (e) => {
             const overlay = document.getElementById('search-modal-overlay');
             if (e.target === searchModal || e.target === overlay) {
                 const searchBtn = document.getElementById('search-btn');
                 const isSearching = searchBtn && searchBtn.disabled;
-                if (!isSearching) {
+
+                // Only allow clicking outside to close if not searching AND a company is loaded
+                if (!isSearching && typeof globalData !== 'undefined' && globalData && globalData.ticker) {
                     if (searchModal) searchModal.classList.remove('show');
                     if (overlay) overlay.classList.remove('show');
+
+                    if (window.restoreBnavActive) {
+                        window.restoreBnavActive();
+                    }
                 }
             }
         });
@@ -10260,9 +10283,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (searchBtn) {
             searchBtn.addEventListener('click', () => {
                 // Don't close popup on Analyze - it stays open with loading animation
-                // if (searchModal) searchModal.classList.remove('show');
-                const _ov = document.getElementById('search-modal-overlay');
-                if (_ov) _ov.classList.remove('show');
+                // ALSO do NOT remove the overlay here, as the background must remain blurred during search.
             });
         }
 
