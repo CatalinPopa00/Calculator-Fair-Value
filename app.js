@@ -1451,6 +1451,8 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                         newPts = (newMos > 15) ? 30 : ((newMos > 5) ? 30 * (14.9 / 25.0) : (newMos >= -5 ? 12 : 0));
                     }
                     item.value = formatPercent(newMos);
+                } else if (!_simulating) {
+                    return; // Skip recalculation of non-MoS metrics when not simulating
                 } else if (metric.includes('P/E Ratio')) {
                     let pts = 0;
                     const roicVal = cleanPercent(globalData.company_profile?.roic || 0);
@@ -1679,9 +1681,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     }
                 }
 
-                if (_simulating) {
-                    item.points_awarded = Math.min(newPts, item.max_points);
-                }
+                item.points_awarded = Math.min(newPts, item.max_points);
             });
         }
 
@@ -1691,11 +1691,9 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         }
 
         // --- 6. Refresh Score Dashboard ---
-        if (_simulating) {
-            const totalBuy = currentBuyBreakdown.reduce((sum, item) => sum + (item.points_awarded || 0), 0);
-            globalData.good_to_buy_total = Math.round(Math.min(Math.max(totalBuy, 0), 100));
-            updateScoreUI(globalData.good_to_buy_total, 'buy-score-circle', 'buy-score-fill');
-        }
+        const totalBuy = currentBuyBreakdown.reduce((sum, item) => sum + (item.points_awarded || 0), 0);
+        globalData.good_to_buy_total = Math.round(Math.min(Math.max(totalBuy, 0), 100));
+        updateScoreUI(globalData.good_to_buy_total, 'buy-score-circle', 'buy-score-fill');
 
         // --- 7. Update Open Modal (Real-time Simulation) ---
         const scoreModal = document.getElementById('score-modal');
@@ -8637,72 +8635,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             return;
         }
 
-        // v315: Synchronize Good To Buy Modal values with dynamic frontend calculations
-        if (!_simulating && title.includes('Good to Buy') && typeof globalData !== 'undefined' && globalData) {
-            let dynFwdEps = globalData.company_profile ? globalData.company_profile.fwd_eps : null;
-            if (globalData.eps_estimates) {
-                const eEsts = globalData.eps_estimates.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
-                if (eEsts.length >= 1) {
-                    if (window._currentScenario === 'bear') dynFwdEps = eEsts[0].low ?? eEsts[0].avg;
-                    else if (window._currentScenario === 'bull') dynFwdEps = eEsts[0].high ?? eEsts[0].avg;
-                    else dynFwdEps = eEsts[0].avg;
-                }
-            }
-            
-            let dynFwdRev = globalData.company_profile ? globalData.company_profile.forward_revenue : null;
-            if (globalData.rev_estimates) {
-                const rEsts = globalData.rev_estimates.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
-                if (rEsts.length >= 1) {
-                    if (window._currentScenario === 'bear') dynFwdRev = rEsts[0].low ?? rEsts[0].avg;
-                    else if (window._currentScenario === 'bull') dynFwdRev = rEsts[0].high ?? rEsts[0].avg;
-                    else dynFwdRev = rEsts[0].avg;
-                }
-            }
-            
-            const currentPrice = globalData.current_price || (globalData.company_profile ? globalData.company_profile.price : null);
-            const origPrice = globalData.company_profile ? (globalData.company_profile.price || globalData.company_profile.currentPrice || 1) : 1;
-            const priceRatio = currentPrice / origPrice;
-            
-            const dynFwdPe = (dynFwdEps && dynFwdEps > 0 && currentPrice) ? currentPrice / dynFwdEps : null;
-            
-            let mCap = currentPrice ? (currentPrice * (globalData.company_profile?.shares_outstanding || 1)) : (globalData.company_profile ? globalData.company_profile.market_cap : null);
-            const dynFwdPs = (dynFwdRev && dynFwdRev > 0 && mCap) ? (mCap / dynFwdRev) : null;
-            
-            let ev = mCap ? (mCap + (globalData.total_debt || 0) - (globalData.total_cash || 0)) : null;
-            let dynFwdEbitda = (globalData.ebitda || 0);
-            if ((globalData.revenue || 0) > 0 && dynFwdRev) {
-                dynFwdEbitda = dynFwdRev * ((globalData.ebitda || 0) / globalData.revenue);
-            }
-            const dynFwdEvEbitda = (ev && dynFwdEbitda > 0) ? ev / dynFwdEbitda : null;
 
-            const dynPb = (currentPrice && globalData.price_to_book) ? globalData.price_to_book * priceRatio : null;
-            const dynPaffo = (currentPrice && globalData.company_profile?.price_to_affo) ? globalData.company_profile.price_to_affo * priceRatio : null;
-            const dynPfcf = (currentPrice && globalData.company_profile?.pfcf_ratio) ? globalData.company_profile.pfcf_ratio * priceRatio : null;
-
-            breakdown.forEach(item => {
-                if (item.metric.includes('P/E Ratio') && item.metric.includes('Fwd') && dynFwdPe) {
-                    item.value = dynFwdPe.toFixed(2) + 'x';
-                } else if (item.metric.includes('PEG Ratio (Fwd)')) {
-                    if (typeof currentFormulaData !== 'undefined' && currentFormulaData && currentFormulaData.peg && currentFormulaData.peg.dynamic_peg) {
-                        item.value = currentFormulaData.peg.dynamic_peg.toFixed(2) + 'x';
-                    }
-                } else if (item.metric.includes('EPS Growth (Fwd)')) {
-                    if (globalData.computed_eps_growth != null && !isNaN(globalData.computed_eps_growth)) {
-                        item.value = (globalData.computed_eps_growth * 100).toFixed(1) + '%';
-                    }
-                } else if (item.metric.includes('P/S Ratio') && item.metric.includes('Fwd') && dynFwdPs) {
-                    item.value = dynFwdPs.toFixed(2) + 'x';
-                } else if ((item.metric.includes('EV/EBITDA') || item.metric.includes('EV / EBITDA')) && dynFwdEvEbitda) {
-                    item.value = dynFwdEvEbitda.toFixed(2) + 'x';
-                } else if (item.metric.includes('Price-to-Book') && dynPb) {
-                    item.value = dynPb.toFixed(2) + 'x';
-                } else if (item.metric.includes('P/AFFO') && dynPaffo) {
-                    item.value = dynPaffo.toFixed(2) + 'x';
-                } else if (item.metric.includes('P/FCF') && dynPfcf) {
-                    item.value = dynPfcf.toFixed(2) + 'x';
-                }
-            });
-        }
 
         let totalMax = 0;
         breakdown.forEach(item => totalMax += item.max_points || 0);
