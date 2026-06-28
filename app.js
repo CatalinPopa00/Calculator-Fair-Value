@@ -1605,23 +1605,21 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     else newPts = 0;
                     item.value = dyPct.toFixed(1) + '%';
                 } else if (metric.includes('PEG Ratio')) {
-                    let newPEG = (typeof currentFormulaData !== 'undefined' && currentFormulaData && currentFormulaData.peg && currentFormulaData.peg.dynamic_peg != null) 
-                        ? currentFormulaData.peg.dynamic_peg 
-                        : 0;
-
-                    if (newPEG <= 0) {
-                        if (backendVal <= 0) backendVal = globalData.company_profile?.peg_ratio || 0;
-                        if (backendVal > 0 && _realApiPrice > 0) {
-                            newPEG = backendVal * (simPrice / _realApiPrice);
-                        } else if (fwd_growth > 0 && activePE > 0) {
-                            newPEG = activePE / fwd_growth;
-                        }
+                    if (backendVal > 0 && _realApiPrice > 0) {
+                        newPEG = backendVal * (simPrice / _realApiPrice);
+                    } else {
+                        newPEG = backendVal;
                     }
+                    
                     if (isFintech) newPts = (newPEG > 0 && newPEG <= 1.2) ? 15 : ((newPEG > 0 && newPEG <= 2.0) ? 7.5 : 0);
                     else if (isPaymentNetwork) newPts = (newPEG > 0 && newPEG <= 1.6) ? 15 : ((newPEG > 0 && newPEG <= 2.2) ? 7.5 : 0);
                     else if (isDefensive) newPts = (newPEG > 0 && newPEG < 1.5) ? 20 : ((newPEG > 0 && newPEG <= 2.0) ? 10 : 0);
                     else if (isTech) newPts = (newPEG > 0 && newPEG < 1.5) ? 10 : ((newPEG > 0 && newPEG <= 2.0) ? 5 : 0);
                     else newPts = (newPEG > 0 && newPEG < 1.0) ? 10 : ((newPEG > 0 && newPEG <= 1.5) ? 5 : 0);
+                    
+                    if (newPts < (origItem.points_awarded || 0) && newPEG <= backendVal) {
+                        newPts = origItem.points_awarded;
+                    }
                     item.value = newPEG > 0 ? newPEG.toFixed(2) + 'x' : '0.00x';
                 } else if ((metric.includes('P/AFFO') || metric.includes('P/AFFO'))) {
                     let pts = 0;
@@ -1631,54 +1629,16 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     }
                     newPts = pts;
                     item.value = activePAFFO > 0 ? activePAFFO.toFixed(2) + 'x' : '0.00x';
-                } else if (metric.includes('Rule of 40')) {
-                    const currentScoring = globalData.scoring_results ? globalData.scoring_results[_currentScenario || 'base'] : null;
-                    const r40Data = (currentScoring && currentScoring.rule_of_40) ? currentScoring.rule_of_40 : globalData.rule_of_40;
-                    if (r40Data && r40Data.total !== undefined) {
-                        item.value = r40Data.total.toFixed(1) + '%';
-                        newPts = r40Data.total >= 40 ? 30 : (r40Data.total >= 30 ? 15 : 0);
-                    }
+                } else if (metric.includes('Rule of 40') || metric.includes('Piotroski') || metric.includes('Beneish')) {
+                    item.value = origItem.value;
+                    newPts = origItem.points_awarded;
                 } else if (metric.includes('Rev Growth') || metric.includes('EPS Growth') || metric.includes('AFFO Growth') || metric.includes('Revenue Growth')) {
-                    if (metric.includes('Revenue Growth')) {
-                        item.value = rev_fwd_growth > 0 ? rev_fwd_growth.toFixed(1) + '%' : '0.0%';
-                        if (isFintech) {
-                            if (rev_fwd_growth > 25) newPts = 20;
-                            else if (rev_fwd_growth >= 10) newPts = 10;
-                            else newPts = 0;
-                        } else if (isTech) {
-                            if (rev_fwd_growth > 15) newPts = 20;
-                            else if (rev_fwd_growth >= 8) newPts = 10;
-                            else newPts = 0;
-                        } else if (isDefensive) {
-                            if (rev_fwd_growth > 10) newPts = 20;
-                            else if (rev_fwd_growth >= 5) newPts = 10;
-                            else newPts = 0;
-                        }
-                    } else if (metric.includes('AFFO Growth')) {
-                        item.value = fwd_growth > 0 ? fwd_growth.toFixed(1) + '%' : '0.0%';
-                        if (fwd_growth > 8) newPts = 20;
-                        else if (fwd_growth >= 3) newPts = 10;
-                        else newPts = 0;
-                    } else { // EPS Growth
-                        item.value = fwd_growth > 0 ? fwd_growth.toFixed(1) + '%' : '0.0%';
-                        if (isFin && isBank) {
-                            if (fwd_growth > 7) newPts = 10;
-                            else if (fwd_growth >= 3) newPts = 5;
-                            else newPts = 0;
-                        } else if (isInsurance) {
-                            if (fwd_growth > 8) newPts = 10;
-                            else if (fwd_growth >= 4) newPts = 5;
-                            else newPts = 0;
-                        } else if (isTech || isDefensive) {
-                            if (fwd_growth > 15) newPts = 15;
-                            else if (fwd_growth >= 8) newPts = 7.5;
-                            else newPts = 0;
-                        } else {
-                            if (fwd_growth > 10) newPts = 10;
-                            else if (fwd_growth >= 5) newPts = 5;
-                            else newPts = 0;
-                        }
-                    }
+                    // DO NOT alter historical or future growth metrics on price simulation
+                    item.value = origItem.value;
+                    newPts = origItem.points_awarded;
+                } else if (metric.includes('Free Cash Flow') || metric.includes('FCF Growth')) {
+                    item.value = origItem.value;
+                    newPts = origItem.points_awarded;
                 }
 
                 item.points_awarded = Math.min(newPts, item.max_points);
