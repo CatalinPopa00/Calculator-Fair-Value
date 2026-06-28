@@ -8923,7 +8923,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
         try {
             let data = null;
-            const cacheKey = `kpiAudit_${ticker}`;
+            const cacheKey = `kpiAudit_v2_${ticker}`;
             let cachedList = [];
 
             try {
