@@ -4826,7 +4826,7 @@ body.has-searched #install-app-btn {
     cursor: pointer;
     padding: 10px;
     border-radius: 50%;
-    transition: all 0.3s ease;
+    transition: transform 0.3s ease, opacity 0.3s ease, color 0.3s ease, background-color 0.3s ease;
     display: flex;
     align-items: center;
     justify-content: center;

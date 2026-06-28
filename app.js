@@ -10151,7 +10151,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 btn.classList.add('active');
                 if (bnavIndicator) {
                     bnavIndicator.style.opacity = '1';
-                    bnavIndicator.style.transform = `translateX(${btn.offsetLeft}px)`;
+                    if (typeof updateBnavIndicator === 'function') {
+                        updateBnavIndicator();
+                    }
                 }
                 if (!isModal) {
                     window.lastBackgroundBnavBtn = btn;
@@ -10480,10 +10482,23 @@ function updateBnavIndicator() {
         const nav = document.getElementById('bottom-nav');
         if (activeBtn && bnavIndicator && nav) {
             const navRect = nav.getBoundingClientRect();
+            if (navRect.width === 0) return; // Prevent calculations when window is minimized or hidden
             const btnRect = activeBtn.getBoundingClientRect();
+            
+            // Adjust for btn scale transform (scale 1.15)
+            // getBoundingClientRect includes transforms, so we find the true unscaled center
+            const btnCenterX = btnRect.left + (btnRect.width / 2);
+            
             const computedStyle = window.getComputedStyle(nav);
             const paddingEdgeX = navRect.left + (parseFloat(computedStyle.borderLeftWidth) || 0) + (parseFloat(computedStyle.paddingLeft) || 0);
-            const exactOffset = btnRect.left - paddingEdgeX;
+            
+            // Indicator width is 50 on desktop, 45 on mobile, we can center it exactly
+            const indicatorRect = bnavIndicator.getBoundingClientRect();
+            // Since bnavIndicator is position absolute relative to padding edge:
+            // Center of indicator = exactOffset + (indicatorRect.width / 2)
+            // We want Center of indicator = btnCenterX - paddingEdgeX
+            const exactOffset = (btnCenterX - paddingEdgeX) - (bnavIndicator.offsetWidth / 2);
+            
             bnavIndicator.style.transform = `translateX(${exactOffset}px)`;
         }
     });
