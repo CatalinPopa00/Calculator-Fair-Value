@@ -5822,7 +5822,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                         let peNonGaap = prof.adjusted_eps && prof.adjusted_eps > 0 ? (p / prof.adjusted_eps) : null;
 
                         let ps = globalData.revenue && globalData.revenue > 0 ? (mCap / globalData.revenue) : prof.ps_ratio;
-                        let pfcf = globalData.fcf && globalData.fcf > 0 ? (mCap / globalData.fcf) : prof.pfcf_ratio;
+                        let pfcf = prof.fcf && prof.fcf > 0 ? (mCap / prof.fcf) : (prof.pfcf_ratio ? (mCap / prof.market_cap) * prof.pfcf_ratio : null);
 
                         return `
                                         ${metricRow('P/E TTM', peTtm ? peTtm.toFixed(2) + 'x' : 'N/A', '', simStyle)}

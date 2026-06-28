@@ -3736,15 +3736,46 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
             
         fcf_margin_custom = None
         tot_rev = info.get('totalRevenue') or info.get('revenue') or revenue
+
+        # Calculate robust TTM FCF from quarterly cashflow
+        fcf_ttm = None
+        try:
+            if (q_cashflow is None or (hasattr(q_cashflow, 'empty') and q_cashflow.empty)):
+                try:
+                    q_cashflow = getattr(stock, 'quarterly_cashflow', {})
+                except:
+                    pass
+
+            if q_cashflow is not None and not (hasattr(q_cashflow, 'empty') and q_cashflow.empty):
+                f_idx = find_idx(q_cashflow, 'Free Cash Flow')
+                if f_idx:
+                    s = q_cashflow.loc[f_idx].dropna()
+                    if len(s) >= 4:
+                        fcf_ttm = float(s.head(4).sum()) * fx_rate
+
+                if fcf_ttm is None:
+                    o_idx = find_idx(q_cashflow, 'Operating Cash Flow')
+                    c_idx = find_idx(q_cashflow, 'Capital Expenditure')
+                    if o_idx and c_idx:
+                        os_val = q_cashflow.loc[o_idx].dropna()
+                        cs_val = q_cashflow.loc[c_idx].dropna()
+                        if len(os_val) >= 4 and len(cs_val) >= 4:
+                            fcf_ttm = float(os_val.head(4).sum() + cs_val.head(4).sum()) * fx_rate
+        except Exception as e_fcf_ttm:
+            log(f"Error calculating FCF TTM: {e_fcf_ttm}")
+
         fcf_val_api = info.get('freeCashflow')
-        if fcf_val_api and tot_rev and tot_rev > 0:
-            fcf_margin_custom = fcf_val_api / tot_rev
-        elif fcf and tot_rev and tot_rev > 0:
-            fcf_margin_custom = fcf / tot_rev
+        if fcf_val_api is not None:
+            fcf_val_api *= fx_rate
+
+        best_fcf = fcf_ttm if fcf_ttm else (fcf_val_api if fcf_val_api else (fcf if fcf else None))
+
+        if best_fcf and tot_rev and tot_rev > 0:
+            fcf_margin_custom = best_fcf / tot_rev
             
         pfcf_ratio = None
-        if fcf_val_api and market_cap and market_cap > 0 and fcf_val_api > 0:
-            pfcf_ratio = market_cap / fcf_val_api
+        if best_fcf and market_cap and market_cap > 0 and best_fcf > 0:
+            pfcf_ratio = market_cap / best_fcf
             
         pfcf_forward_custom = None
         if fcf_margin_custom and fwd_rev_explicit and fwd_rev_explicit > 0:
@@ -3925,10 +3956,10 @@ def get_company_data(ticker_symbol: str, fast_mode: bool = False, force_refresh:
             "pfcf_ratio": pfcf_ratio,
             "fwd_ps": fwd_ps,
             "eps_growth": eps_growth,
-            "fcf": fcf,
+            "fcf": best_fcf,
             "fcf_history": fcf_history,
             "operating_cashflow": operating_cashflow,
-            "market_cap": market_cap,
+            "market_cap": market_cap if market_cap else (current_price * shares_outstanding if current_price and shares_outstanding else None),
             "shares_outstanding": shares_outstanding,
             "total_cash": total_cash,
             "total_debt": total_debt,
@@ -4315,12 +4346,36 @@ def get_competitors_data(target_ticker: str, limit: int = 4, custom_peers: list 
                     ttm_ps = inf.get('priceToSalesTrailing12Months') or inf.get('priceToSales')
                     ttm_ev = inf.get('enterpriseToEbitda')
                     
-                    fcf_val = inf.get('freeCashflow') or inf.get('operatingCashflow')
+                    peer_fx = get_fx_rate(inf)
+
+                    fcf_val = None
+                    try:
+                        q_cf = peer_stock.quarterly_cashflow
+                        if q_cf is not None and not (hasattr(q_cf, 'empty') and q_cf.empty):
+                            f_idx = find_idx(q_cf, 'Free Cash Flow')
+                            if f_idx:
+                                s = q_cf.loc[f_idx].dropna()
+                                if len(s) >= 4:
+                                    fcf_val = float(s.head(4).sum()) * peer_fx
+
+                            if fcf_val is None:
+                                o_idx = find_idx(q_cf, 'Operating Cash Flow')
+                                c_idx = find_idx(q_cf, 'Capital Expenditure')
+                                if o_idx and c_idx:
+                                    os_val = q_cf.loc[o_idx].dropna()
+                                    cs_val = q_cf.loc[c_idx].dropna()
+                                    if len(os_val) >= 4 and len(cs_val) >= 4:
+                                        fcf_val = float(os_val.head(4).sum() + cs_val.head(4).sum()) * peer_fx
+                    except Exception as e_peer_cf:
+                        pass
+
+                    if fcf_val is None:
+                        api_fcf = inf.get('freeCashflow') or inf.get('operatingCashflow')
+                        if api_fcf is not None:
+                            fcf_val = api_fcf * peer_fx
+
                     mcap = inf.get('marketCap')
                     ttm_pfcf = (mcap / fcf_val) if fcf_val and mcap else None
-                    
-                    # FX Rate for Peer (convert from financialCurrency to price currency)
-                    peer_fx = get_fx_rate(inf)
                     
                     fwd_pe_explicit = None
                     fwd_eps_explicit = None
@@ -4356,7 +4411,7 @@ def get_competitors_data(target_ticker: str, limit: int = 4, custom_peers: list 
                         "ps_ratio": fwd_ps,
                         "revenue": (inf.get('totalRevenue') or inf.get('revenue') or 0) * peer_fx,
                         "forward_revenue": fwd_rev_explicit,
-                        "fcf": (fcf_val or 0) * peer_fx if fcf_val else None,
+                        "fcf": fcf_val,
                         "pfcf_ratio": ttm_pfcf,
                         "price_to_book": inf.get('priceToBook') or (p_price / inf.get('bookValue') if inf.get('bookValue') and inf.get('bookValue') > 0 else None),
                         "ev_to_ebitda": ttm_ev,

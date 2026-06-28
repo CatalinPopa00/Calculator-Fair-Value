@@ -1997,6 +1997,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 "price_to_book": sanitize(data.get("price_to_book")),
                 "fwd_ps": sanitize(data.get("fwd_ps")),
                 "pfcf_ratio": sanitize(data.get("pfcf_ratio")),
+                "fcf": sanitize(data.get("fcf")),
                 "current_pe": sanitize(current_pe),
                 "gross_margins": sanitize(data.get("gross_margins")),
                 "quick_ratio": sanitize(data.get("quick_ratio")),
