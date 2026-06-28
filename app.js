@@ -8990,32 +8990,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
             }
 
             if (data.kpis && data.kpis.length > 0) {
-                const allPeriods = new Set();
-                data.kpis.forEach(k => {
-                    const vals = k.values || k.history || {};
-                    Object.keys(vals).forEach(p => allPeriods.add(p));
-                });
-                
-                const yearDataGlobal = {};
-                allPeriods.forEach(p => {
-                    let yearPart = p;
-                    let qPart = null;
-                    if (p.includes(' Q')) {
-                        const parts = p.split(' Q');
-                        yearPart = parts[0].trim();
-                        qPart = 'Q' + parts[1].trim();
-                    }
 
-                    if (!yearDataGlobal[yearPart]) {
-                        yearDataGlobal[yearPart] = { isQuarterly: false, quarters: new Set() };
-                    }
-                    if (qPart) {
-                        yearDataGlobal[yearPart].isQuarterly = true;
-                        yearDataGlobal[yearPart].quarters.add(qPart);
-                    }
-                });
-
-                const sortedYears = Object.keys(yearDataGlobal).sort(); 
 
                 let currentKpiIndex = 0;
                 let kpiChartInstance = null;
@@ -9086,6 +9061,29 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
                     const vals = kpi.values || kpi.history || {};
                     
+                    const localPeriods = new Set();
+                    Object.keys(vals).forEach(p => localPeriods.add(p));
+
+                    const yearDataLocal = {};
+                    localPeriods.forEach(p => {
+                        let yearPart = p;
+                        let qPart = null;
+                        if (p.includes(' Q')) {
+                            const parts = p.split(' Q');
+                            yearPart = parts[0].trim();
+                            qPart = 'Q' + parts[1].trim();
+                        }
+                        if (!yearDataLocal[yearPart]) {
+                            yearDataLocal[yearPart] = { isQuarterly: false, quarters: new Set() };
+                        }
+                        if (qPart) {
+                            yearDataLocal[yearPart].isQuarterly = true;
+                            yearDataLocal[yearPart].quarters.add(qPart);
+                        }
+                    });
+
+                    const sortedYears = Object.keys(yearDataLocal).sort();
+
                     const datasetBase = []; 
                     const datasetQ2 = [];
                     const datasetQ3 = [];
@@ -9099,7 +9097,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     const formattedTooltipsExt = [];
 
                     sortedYears.forEach(year => {
-                        const isQuarterly = yearDataGlobal[year].isQuarterly;
+                        const isQuarterly = yearDataLocal[year].isQuarterly;
                         if (!isQuarterly) {
                             const val = parseKpiValue(vals[year]);
                             datasetBase.push(val);
