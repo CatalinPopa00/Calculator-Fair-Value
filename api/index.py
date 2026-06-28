@@ -433,7 +433,9 @@ def get_watchlist():
         if not data and os.path.exists(WATCHLIST_FILE):
             with open(WATCHLIST_FILE, "r") as f:
                 data = json.load(f)
-        return list(set([t.upper() for t in data]))
+        
+        # v38 Fix: Preserve order using dict.fromkeys instead of set to avoid random shuffling
+        return list(dict.fromkeys([t.upper() for t in data]))
     except Exception as e:
         # v37 Fix: If database errors, do NOT return []. Return 500.
         print(f"Database error in get_watchlist: {e}")

@@ -681,103 +681,103 @@ def calculate_scoring_reform(valuation_data, metrics):
             return 5 if rev_fwd_g and rev_fwd_g > 20 and ps_val <= 5.0 else 0
         return 0
 
-        # 5. Standard Sector Buy Score Routing
-        if is_fintech:
-            add_b("Margin of Safety", mos, get_mos_points(mos, 30), 30, False)
-            add_b("Revenue Growth (Fwd)", rev_1y_g, get_growth_pts(rev_1y_g, 20), 20, False)
+    # 5. Standard Sector Buy Score Routing
+    if is_fintech:
+        add_b("Margin of Safety", mos, get_mos_points(mos, 30), 30, False)
+        add_b("Revenue Growth (Fwd)", rev_1y_g, get_growth_pts(rev_1y_g, 20), 20, False)
+        
+        fwd_pe_fintech = pe
+        add_b(pe_label, fwd_pe_fintech, 20 if fwd_pe_fintech > 0 and fwd_pe_fintech <= 25.0 else (10 if 25.0 < fwd_pe_fintech <= 40.0 else 0), 20, True)
+        
+        add_b("Price-to-Book", pb, 15 if pb > 0 and pb <= 3.5 else (7.5 if 3.5 < pb <= 6.0 else 0), 15, True)
+        add_b("PEG Ratio (Fwd)", peg_val, 15 if peg_val > 0 and peg_val <= 1.2 else (7.5 if 1.2 < peg_val <= 2.0 else 0), 15, True)
+
+    elif is_financial and is_bank:
+        add_b("Margin of Safety (DDM)", mos, get_mos_points(mos, 25), 25, False)
+        add_b("EPS Growth (Fwd)", eps_2y_g, 10 if eps_2y_g > 7.0 else (5 if eps_2y_g >= 3.0 else 0), 10, False)
+        add_b(pe_label, pe, get_pe_pts(pe, eps_2y_g, rev_2y_g), 20, True)
+        add_b("Price-to-Book", pb, get_pb_pts(pb), 20, True)
+        
+        div_y = clean_percent(metrics.get('fwd_dividend_yield') or metrics.get('dividend_yield'))
+        add_b("Dividend Yield (Fwd)", div_y, 15 if div_y > 3.0 else (7.5 if div_y >= 1.5 else 0), 15, False)
+
+        payout_r = clean_percent(metrics.get('payout_ratio'))
+        if payout_r <= 0 and pe > 0:
+            payout_r = (clean_percent(metrics.get('dividend_yield')) / pe) * 100
+        
+        payout_pts = 0
+        if 20.0 <= payout_r <= 40.0:
+            payout_pts = 10
+        elif 40.0 < payout_r <= 60.0 or 10.0 <= payout_r < 20.0:
+            payout_pts = 5
             
-            fwd_pe_fintech = pe
-            add_b(pe_label, fwd_pe_fintech, 20 if fwd_pe_fintech > 0 and fwd_pe_fintech <= 25.0 else (10 if 25.0 < fwd_pe_fintech <= 40.0 else 0), 20, True)
-            
-            add_b("Price-to-Book", pb, 15 if pb > 0 and pb <= 3.5 else (7.5 if 3.5 < pb <= 6.0 else 0), 15, True)
-            add_b("PEG Ratio (Fwd)", peg_val, 15 if peg_val > 0 and peg_val <= 1.2 else (7.5 if 1.2 < peg_val <= 2.0 else 0), 15, True)
+        add_b("Dividend Payout Ratio", payout_r, payout_pts, 10, False)
 
-        elif is_financial and is_bank:
-            add_b("Margin of Safety (DDM)", mos, get_mos_points(mos, 25), 25, False)
-            add_b("EPS Growth (Fwd)", eps_2y_g, 10 if eps_2y_g > 7.0 else (5 if eps_2y_g >= 3.0 else 0), 10, False)
-            add_b(pe_label, pe, get_pe_pts(pe, eps_2y_g, rev_2y_g), 20, True)
-            add_b("Price-to-Book", pb, get_pb_pts(pb), 20, True)
-            
-            div_y = clean_percent(metrics.get('fwd_dividend_yield') or metrics.get('dividend_yield'))
-            add_b("Dividend Yield (Fwd)", div_y, 15 if div_y > 3.0 else (7.5 if div_y >= 1.5 else 0), 15, False)
+    elif is_insurance:
+        add_b("Margin of Safety", mos, get_mos_points(mos, 30), 30, False)
+        add_b(pe_label, pe, get_pe_pts(pe, eps_2y_g, rev_2y_g), 20, True)
+        add_b("Price-to-Book", pb, get_pb_pts(pb), 25, True)
+        div_y = clean_percent(metrics.get('fwd_dividend_yield') or metrics.get('dividend_yield'))
+        add_b("Dividend Yield (Fwd)", div_y, 15 if div_y > 3 else (7.5 if div_y >= 1.5 else 0), 15, False)
+        add_b("EPS Growth (Fwd)", eps_2y_g, get_growth_pts(eps_2y_g, 10), 10, False)
 
-            payout_r = clean_percent(metrics.get('payout_ratio'))
-            if payout_r <= 0 and pe > 0:
-                payout_r = (clean_percent(metrics.get('dividend_yield')) / pe) * 100
-            
-            payout_pts = 0
-            if 20.0 <= payout_r <= 40.0:
-                payout_pts = 10
-            elif 40.0 < payout_r <= 60.0 or 10.0 <= payout_r < 20.0:
-                payout_pts = 5
-                
-            add_b("Dividend Payout Ratio", payout_r, payout_pts, 10, False)
-
-        elif is_insurance:
-            add_b("Margin of Safety", mos, get_mos_points(mos, 30), 30, False)
-            add_b(pe_label, pe, get_pe_pts(pe, eps_2y_g, rev_2y_g), 20, True)
-            add_b("Price-to-Book", pb, get_pb_pts(pb), 25, True)
-            div_y = clean_percent(metrics.get('fwd_dividend_yield') or metrics.get('dividend_yield'))
-            add_b("Dividend Yield (Fwd)", div_y, 15 if div_y > 3 else (7.5 if div_y >= 1.5 else 0), 15, False)
-            add_b("EPS Growth (Fwd)", eps_2y_g, get_growth_pts(eps_2y_g, 10), 10, False)
-
-        elif is_reit:
-            add_b("Margin of Safety (NAV)", mos, get_mos_points(mos, 30), 30, False)
-            affo_g = clean_percent(metrics.get('affo_growth') or eps_2y_g)
-            add_b("AFFO/EPS Growth (Fwd)", affo_g, get_growth_pts(affo_g, 20), 20, False)
-            
-            p_affo = clean_ratio(metrics.get('price_to_affo'))
-            p_ocf = clean_ratio(metrics.get('price_to_operating_cashflow'))
-            if p_affo > 0:
-                add_b("P/AFFO (Fwd)", p_affo, (20 if p_affo <= 15 else (10 if p_affo <= 18 else 0)), 20, True)
-            elif p_ocf > 0:
-                add_b("P/OCF (TTM)", p_ocf, (20 if p_ocf <= 15 else (10 if p_ocf <= 18 else 0)), 20, True)
-            else:
-                add_b("EV/EBITDA (1Y Fwd)", ev_ebitda, get_ev_ebitda_pts(ev_ebitda, pe, eps_2y_g, rev_2y_g), 20, True)
-            
-            affo_yield = clean_percent(metrics.get('affo_yield'))
-            if affo_yield <= 0: affo_yield = clean_percent(metrics.get('fcf_yield'))
-            add_b("AFFO/FCF Yield (Fwd)", affo_yield, 15 if affo_yield > 8 else (7.5 if affo_yield >= 5 else 0), 15, False)
-            
-            div_y = clean_percent(metrics.get('fwd_dividend_yield') or metrics.get('dividend_yield'))
-            add_b("Dividend Yield (Fwd)", div_y, 15 if div_y > 5 else (7.5 if div_y >= 3 else 0), 15, False)
-
-        elif is_energy:
-            add_b("Margin of Safety", mos, get_mos_points(mos, 30), 30, False)
-            add_b("Price-to-Book (TTM)", pb, get_pb_pts(pb), 30, True)
-            add_b("EV/EBITDA (1Y Fwd)", ev_ebitda, get_ev_ebitda_pts(ev_ebitda, pe, eps_2y_g, rev_2y_g), 20, True)
-            div_y = clean_percent(metrics.get('fwd_dividend_yield') or metrics.get('dividend_yield'))
-            add_b("Dividend Yield (Fwd)", div_y, 20 if div_y > 4 else (10 if div_y >= 2 else 0), 20, False)
-
-        elif is_utilities:
-            add_b("Margin of Safety", mos, get_mos_points(mos, 30), 30, False)
-            add_b("EPS Growth (Fwd)", eps_2y_g, get_growth_pts(eps_2y_g, 10), 10, False)
-            add_b(pe_label, pe, get_pe_pts(pe, eps_2y_g, rev_2y_g), 15, True)
-            add_b("EV/EBITDA (1Y Fwd)", ev_ebitda, get_ev_ebitda_pts(ev_ebitda, pe, eps_2y_g, rev_2y_g), 20, True)
-            div_y = clean_percent(metrics.get('fwd_dividend_yield') or metrics.get('dividend_yield'))
-            add_b("Dividend Yield (Fwd)", div_y, 25 if div_y > 4 else (12.5 if div_y >= 2.5 else 0), 25, False)
-
-        elif is_defensive:
-            add_b("Margin of Safety", mos, get_mos_points(mos, 30), 30, False)
-            add_b("EPS Growth (Fwd)", eps_2y_g, get_growth_pts(eps_2y_g, 15), 15, False)
-            add_b(pe_label, pe, get_pe_pts(pe, eps_2y_g, rev_2y_g), 20, True)
-            add_b("EV/EBITDA (1Y Fwd)", ev_ebitda, get_ev_ebitda_pts(ev_ebitda, pe, eps_2y_g, rev_2y_g), 15, True)
-            add_b("PEG Ratio (Fwd)", peg_val, get_peg_pts(peg_val, pe, eps_2y_g), 20, True)
-
-        elif is_tech:
-            add_b("Margin of Safety (DCF)", mos, get_mos_points(mos, 30), 30, False)
-            add_b("Revenue Growth (2y Avg Fwd)", rev_2y_g, get_growth_pts(rev_2y_g, 20), 20, False)
-            add_b(pe_label, pe, get_pe_pts(pe, eps_2y_g, rev_2y_g), 20, True)
-            add_b("EV/EBITDA (1Y Fwd)", ev_ebitda, get_ev_ebitda_pts(ev_ebitda, pe, eps_2y_g, rev_2y_g), 10, True)
-            add_b("PEG Ratio (Fwd)", peg_val, get_peg_pts(peg_val, pe, eps_2y_g), 10, True)
-            add_b("P/S Ratio (1Y Fwd)", ps, get_ps_pts(ps, rev_2y_g), 10, True)
-
+    elif is_reit:
+        add_b("Margin of Safety (NAV)", mos, get_mos_points(mos, 30), 30, False)
+        affo_g = clean_percent(metrics.get('affo_growth') or eps_2y_g)
+        add_b("AFFO/EPS Growth (Fwd)", affo_g, get_growth_pts(affo_g, 20), 20, False)
+        
+        p_affo = clean_ratio(metrics.get('price_to_affo'))
+        p_ocf = clean_ratio(metrics.get('price_to_operating_cashflow'))
+        if p_affo > 0:
+            add_b("P/AFFO (Fwd)", p_affo, (20 if p_affo <= 15 else (10 if p_affo <= 18 else 0)), 20, True)
+        elif p_ocf > 0:
+            add_b("P/OCF (TTM)", p_ocf, (20 if p_ocf <= 15 else (10 if p_ocf <= 18 else 0)), 20, True)
         else:
-            add_b("Margin of Safety", mos, get_mos_points(mos, 30), 30, False)
-            add_b("Revenue Growth (2y Avg Fwd)", rev_2y_g, get_growth_pts(rev_2y_g, 20), 20, False)
-            add_b(pe_label, pe, get_pe_pts(pe, eps_2y_g, rev_2y_g), 20, True)
-            add_b("EV/EBITDA (1Y Fwd)", ev_ebitda, get_ev_ebitda_pts(ev_ebitda, pe, eps_2y_g, rev_2y_g), 15, True)
-            add_b("PEG Ratio (Fwd)", peg_val, get_peg_pts(peg_val, pe, eps_2y_g), 15, True)
+            add_b("EV/EBITDA (1Y Fwd)", ev_ebitda, get_ev_ebitda_pts(ev_ebitda, pe, eps_2y_g, rev_2y_g), 20, True)
+        
+        affo_yield = clean_percent(metrics.get('affo_yield'))
+        if affo_yield <= 0: affo_yield = clean_percent(metrics.get('fcf_yield'))
+        add_b("AFFO/FCF Yield (Fwd)", affo_yield, 15 if affo_yield > 8 else (7.5 if affo_yield >= 5 else 0), 15, False)
+        
+        div_y = clean_percent(metrics.get('fwd_dividend_yield') or metrics.get('dividend_yield'))
+        add_b("Dividend Yield (Fwd)", div_y, 15 if div_y > 5 else (7.5 if div_y >= 3 else 0), 15, False)
+
+    elif is_energy:
+        add_b("Margin of Safety", mos, get_mos_points(mos, 30), 30, False)
+        add_b("Price-to-Book (TTM)", pb, get_pb_pts(pb), 30, True)
+        add_b("EV/EBITDA (1Y Fwd)", ev_ebitda, get_ev_ebitda_pts(ev_ebitda, pe, eps_2y_g, rev_2y_g), 20, True)
+        div_y = clean_percent(metrics.get('fwd_dividend_yield') or metrics.get('dividend_yield'))
+        add_b("Dividend Yield (Fwd)", div_y, 20 if div_y > 4 else (10 if div_y >= 2 else 0), 20, False)
+
+    elif is_utilities:
+        add_b("Margin of Safety", mos, get_mos_points(mos, 30), 30, False)
+        add_b("EPS Growth (Fwd)", eps_2y_g, get_growth_pts(eps_2y_g, 10), 10, False)
+        add_b(pe_label, pe, get_pe_pts(pe, eps_2y_g, rev_2y_g), 15, True)
+        add_b("EV/EBITDA (1Y Fwd)", ev_ebitda, get_ev_ebitda_pts(ev_ebitda, pe, eps_2y_g, rev_2y_g), 20, True)
+        div_y = clean_percent(metrics.get('fwd_dividend_yield') or metrics.get('dividend_yield'))
+        add_b("Dividend Yield (Fwd)", div_y, 25 if div_y > 4 else (12.5 if div_y >= 2.5 else 0), 25, False)
+
+    elif is_defensive:
+        add_b("Margin of Safety", mos, get_mos_points(mos, 30), 30, False)
+        add_b("EPS Growth (Fwd)", eps_2y_g, get_growth_pts(eps_2y_g, 15), 15, False)
+        add_b(pe_label, pe, get_pe_pts(pe, eps_2y_g, rev_2y_g), 20, True)
+        add_b("EV/EBITDA (1Y Fwd)", ev_ebitda, get_ev_ebitda_pts(ev_ebitda, pe, eps_2y_g, rev_2y_g), 15, True)
+        add_b("PEG Ratio (Fwd)", peg_val, get_peg_pts(peg_val, pe, eps_2y_g), 20, True)
+
+    elif is_tech:
+        add_b("Margin of Safety (DCF)", mos, get_mos_points(mos, 30), 30, False)
+        add_b("Revenue Growth (2y Avg Fwd)", rev_2y_g, get_growth_pts(rev_2y_g, 20), 20, False)
+        add_b(pe_label, pe, get_pe_pts(pe, eps_2y_g, rev_2y_g), 20, True)
+        add_b("EV/EBITDA (1Y Fwd)", ev_ebitda, get_ev_ebitda_pts(ev_ebitda, pe, eps_2y_g, rev_2y_g), 10, True)
+        add_b("PEG Ratio (Fwd)", peg_val, get_peg_pts(peg_val, pe, eps_2y_g), 10, True)
+        add_b("P/S Ratio (1Y Fwd)", ps, get_ps_pts(ps, rev_2y_g), 10, True)
+
+    else:
+        add_b("Margin of Safety", mos, get_mos_points(mos, 30), 30, False)
+        add_b("Revenue Growth (2y Avg Fwd)", rev_2y_g, get_growth_pts(rev_2y_g, 20), 20, False)
+        add_b(pe_label, pe, get_pe_pts(pe, eps_2y_g, rev_2y_g), 20, True)
+        add_b("EV/EBITDA (1Y Fwd)", ev_ebitda, get_ev_ebitda_pts(ev_ebitda, pe, eps_2y_g, rev_2y_g), 15, True)
+        add_b("PEG Ratio (Fwd)", peg_val, get_peg_pts(peg_val, pe, eps_2y_g), 15, True)
 
     return {
         "health_score_total": min(int(h_score), 100),
