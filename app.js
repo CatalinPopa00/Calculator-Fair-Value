@@ -7037,11 +7037,25 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
                     const displayFv = hasOverride ? globalOv.computed.fair_value : data.fair_value;
                     const displayMos = (displayFv != null && data.current_price) ? ((displayFv - data.current_price) / data.current_price) * 100 : data.margin_of_safety;
-                    const displayHealth = (globalOv && globalOv.computed && globalOv.computed.health_score_total != null) ? globalOv.computed.health_score_total : data.health_score_total;
+
+
 
                     // buy score sync logic
-                    const dynamicBuyScore = data.good_to_buy_total;
+                    let dynamicBuyScore = data.good_to_buy_total;
+                    let dynamicHealthScore = data.health_score_total;
+                    let dynamicPiotroski = data.piotroski?.score;
+
+
+                    // Fallback to scoring_results if top-level fields are missing or not updated
+                    if (data.scoring_results && data.scoring_results['base']) {
+                        if (data.scoring_results['base'].good_to_buy_total != null) dynamicBuyScore = data.scoring_results['base'].good_to_buy_total;
+                        if (data.scoring_results['base'].health_score_total != null) dynamicHealthScore = data.scoring_results['base'].health_score_total;
+                        if (data.scoring_results['base'].piotroski && data.scoring_results['base'].piotroski.score != null) dynamicPiotroski = data.scoring_results['base'].piotroski.score;
+                    }
+
+
                     let displayBuy = (globalOv && globalOv.computed && globalOv.computed.good_to_buy_total != null) ? globalOv.computed.good_to_buy_total : dynamicBuyScore;
+                    let displayHealth = (globalOv && globalOv.computed && globalOv.computed.health_score_total != null) ? globalOv.computed.health_score_total : dynamicHealthScore;
 
                     const fvStr = displayFv != null ? formatCurrency(displayFv) : 'N/A';
                     const mosStr = displayMos != null ? formatPercent(displayMos) : 'N/A';
@@ -7101,8 +7115,8 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                                     </div>
                                     <div style="display: flex; align-items: center; gap: 4px;" title="Piotroski F-Score">
                                         <span style="font-size: 0.85rem; font-weight: 600;">Piotroski:</span>
-                                        <span style="font-size: 0.85rem; font-weight: 600; color: ${(data.piotroski?.score >= 7) ? 'var(--accent)' : (data.piotroski?.score >= 4 ? '#fbbf24' : (data.piotroski?.score == null ? 'var(--text-muted)' : 'var(--danger)'))}">
-                                            ${data.piotroski?.score != null ? data.piotroski.score : '--'}
+                                        <span style="font-size: 0.85rem; font-weight: 600; color: ${(dynamicPiotroski >= 7) ? 'var(--accent)' : (dynamicPiotroski >= 4 ? '#fbbf24' : (dynamicPiotroski == null ? 'var(--text-muted)' : 'var(--danger)'))}">
+                                            ${dynamicPiotroski != null ? dynamicPiotroski : '--'}
                                         </span>
                                     </div>
                                 </div>
