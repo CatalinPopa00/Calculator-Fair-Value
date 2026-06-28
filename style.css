@@ -2147,7 +2147,12 @@ body.banner-visible .modal-content {
     max-height: 1200px;
     opacity: 1;
     overflow: hidden;
-    transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, margin-top 0.3s ease;
+    transform: scale(1) translateY(0);
+    transform-origin: top center;
+    transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1), 
+                opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
+                margin-top 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
     margin-top: 0.5rem;
 }
 
@@ -2155,7 +2160,12 @@ body.banner-visible .modal-content {
     max-height: 0 !important;
     opacity: 0 !important;
     margin-top: 0 !important;
+    transform: scale(0.85) translateY(-15px) !important;
     pointer-events: none;
+    transition: max-height 0.4s cubic-bezier(0.4, 0, 1, 1), 
+                opacity 0.3s cubic-bezier(0.4, 0, 1, 1), 
+                margin-top 0.4s cubic-bezier(0.4, 0, 1, 1),
+                transform 0.3s cubic-bezier(0.4, 0, 1, 1);
 }
 
 /* Premium Collapsible Accordeon Styles */
@@ -3916,19 +3926,45 @@ body.has-searched #install-app-btn {
     color: var(--text-main);
 }
 .scenario-btn.active.bear-btn {
-    background: rgba(239, 68, 68, 0.2);
-    border-color: var(--danger);
+    background: transparent;
+    border-color: transparent;
     color: var(--danger);
 }
 .scenario-btn.active.base-btn {
-    background: rgba(59, 130, 246, 0.2);
-    border-color: var(--accent);
+    background: transparent;
+    border-color: transparent;
     color: var(--accent);
 }
 .scenario-btn.active.bull-btn {
+    background: transparent;
+    border-color: transparent;
+    color: var(--success);
+}
+
+/* Sliding Pill Indicator */
+.scenario-slider {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    border-radius: 20px;
+    z-index: -1;
+    pointer-events: none;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s ease, border-color 0.3s ease;
+    border: 1px solid transparent;
+}
+.scenario-slider.bear-slider {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: var(--danger);
+}
+.scenario-slider.base-slider {
+    background: rgba(59, 130, 246, 0.2);
+    border-color: var(--accent);
+}
+.scenario-slider.bull-slider {
     background: rgba(16, 185, 129, 0.2);
     border-color: var(--success);
-    color: var(--success);}
+}
 
 /* Price update animations */
 @keyframes flash-green {

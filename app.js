@@ -5247,7 +5247,16 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                         .brief-tab.active {
                             opacity: 1;
                             color: #38bdf8 !important;
-                            border-bottom: 2px solid #38bdf8 !important;
+                            border-bottom-color: transparent !important;
+                        }
+                        .brief-tab-slider {
+                            position: absolute;
+                            bottom: -1px;
+                            left: 0;
+                            height: 2px;
+                            background: #38bdf8;
+                            z-index: 2;
+                            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                         }
                         .brief-news-item {
                             background: rgba(255,255,255,0.02);
@@ -5289,7 +5298,8 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                         <button class="carousel-nav-btn next" id="corp-next-btn" style="position: absolute; right: 0; top: 50%; transform: translateY(-50%); z-index: 10;">&#10095;</button>
 
                         <!-- Tabs Navigation -->
-                        <div class="corporate-tabs-wrapper" style="display: flex; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; gap: 10px; overflow-x: auto; scrollbar-width: none;">
+                        <div class="corporate-tabs-wrapper" style="position: relative; display: flex; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; gap: 10px; overflow-x: auto; scrollbar-width: none;">
+                            <div class="brief-tab-slider" id="brief-tab-slider"></div>
                             <button class="brief-tab ${activeTab === 'overview' ? 'active' : ''}" data-tab="overview"><span class="tab-icon">🏢</span> Overview</button>
                             <button class="brief-tab ${activeTab === 'swot' ? 'active' : ''}" data-tab="swot"><span class="tab-icon">⚖️</span> SWOT</button>
                             <button class="brief-tab ${activeTab === 'watchouts' ? 'active' : ''}" data-tab="watchouts"><span class="tab-icon">⚠️</span> Watchouts</button>
@@ -5482,14 +5492,35 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
                 // Setup Click Handlers for Tabs
                 const tabs = descCard.querySelectorAll('.brief-tab');
+                const briefSlider = document.getElementById('brief-tab-slider');
+                
+                const updateBriefSlider = (t) => {
+                    if (!briefSlider || !t) return;
+                    briefSlider.style.transform = `translateX(${t.offsetLeft}px)`;
+                    briefSlider.style.width = `${t.offsetWidth}px`;
+                };
+
                 tabs.forEach(t => {
                     t.onclick = () => {
                         tabs.forEach(btn => btn.classList.remove('active'));
                         t.classList.add('active');
                         activeTab = t.getAttribute('data-tab');
+                        updateBriefSlider(t);
                         renderActivePanel();
                         t.blur();
                     };
+                });
+                
+                // Init slider
+                const initActiveTab = descCard.querySelector('.brief-tab.active');
+                if (initActiveTab) {
+                    // Small delay to ensure layout is done
+                    setTimeout(() => updateBriefSlider(initActiveTab), 50);
+                }
+                
+                window.addEventListener('resize', () => {
+                    const t = descCard.querySelector('.brief-tab.active');
+                    if (t) updateBriefSlider(t);
                 });
 
                 // Copy brief handler
@@ -7677,11 +7708,47 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     // --- END CUSTOM SCENARIOS LOGIC ---
 
     const scenarioBtns = document.querySelectorAll('.scenario-btn:not(.custom-scenarios-btn)');
+    const scenarioContainer = document.querySelector('.scenario-toggles');
+    let scenarioSlider = document.getElementById('scenario-slider');
+    
+    if (scenarioContainer && !scenarioSlider) {
+        scenarioContainer.style.position = 'relative';
+        scenarioContainer.style.zIndex = '1';
+        scenarioSlider = document.createElement('div');
+        scenarioSlider.id = 'scenario-slider';
+        scenarioSlider.className = 'scenario-slider';
+        scenarioContainer.insertBefore(scenarioSlider, scenarioContainer.firstChild);
+    }
+    
+    const updateScenarioSlider = (btn) => {
+        if (!scenarioSlider || !btn || !scenarioContainer) return;
+        const left = btn.offsetLeft;
+        const width = btn.offsetWidth;
+        scenarioSlider.style.transform = `translateX(${left}px)`;
+        scenarioSlider.style.width = `${width}px`;
+        
+        scenarioSlider.className = 'scenario-slider';
+        if (btn.classList.contains('bear-btn')) scenarioSlider.classList.add('bear-slider');
+        else if (btn.classList.contains('base-btn')) scenarioSlider.classList.add('base-slider');
+        else if (btn.classList.contains('bull-btn')) scenarioSlider.classList.add('bull-slider');
+    };
+
+    if (scenarioBtns.length > 0) {
+        // Init slider
+        const initActive = document.querySelector('.scenario-btn.active:not(.custom-scenarios-btn)');
+        if (initActive) setTimeout(() => updateScenarioSlider(initActive), 50);
+        window.addEventListener('resize', () => {
+            const activeBtn = document.querySelector('.scenario-btn.active:not(.custom-scenarios-btn)');
+            if (activeBtn) updateScenarioSlider(activeBtn);
+        });
+    }
 
     scenarioBtns.forEach(btn => {
         btn.addEventListener('click', (e) => {
             scenarioBtns.forEach(b => b.classList.remove('active'));
             e.currentTarget.classList.add('active');
+            updateScenarioSlider(e.currentTarget);
+            
             const scenario = e.currentTarget.dataset.scenario || 'base';
             _currentScenario = scenario;
             if (globalData) {
