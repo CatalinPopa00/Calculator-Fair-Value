@@ -5496,6 +5496,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 
                 const updateBriefSlider = (t) => {
                     if (!briefSlider || !t) return;
+                    if (t.offsetWidth === 0) return; // Wait until layout is established
                     briefSlider.style.transform = `translateX(${t.offsetLeft}px)`;
                     briefSlider.style.width = `${t.offsetWidth}px`;
                 };
@@ -5511,17 +5512,17 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     };
                 });
                 
-                // Init slider
-                const initActiveTab = descCard.querySelector('.brief-tab.active');
-                if (initActiveTab) {
-                    // Small delay to ensure layout is done
-                    setTimeout(() => updateBriefSlider(initActiveTab), 50);
+                // Init slider using ResizeObserver for perfect layout timing
+                const headerWrapper = descCard.querySelector('.brief-tabs-header');
+                if (headerWrapper) {
+                    const resizeObserver = new ResizeObserver(() => {
+                        const initActiveTab = descCard.querySelector('.brief-tab.active');
+                        if (initActiveTab && initActiveTab.offsetWidth > 0) {
+                            updateBriefSlider(initActiveTab);
+                        }
+                    });
+                    resizeObserver.observe(headerWrapper);
                 }
-                
-                window.addEventListener('resize', () => {
-                    const t = descCard.querySelector('.brief-tab.active');
-                    if (t) updateBriefSlider(t);
-                });
 
                 // Copy brief handler
                 const copyBtn = document.getElementById('copy-brief-btn');
@@ -7724,6 +7725,8 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         if (!scenarioSlider || !btn || !scenarioContainer) return;
         const left = btn.offsetLeft;
         const width = btn.offsetWidth;
+        if (width === 0) return; // Wait until layout is established
+        
         scenarioSlider.style.transform = `translateX(${left}px)`;
         scenarioSlider.style.width = `${width}px`;
         
@@ -7734,13 +7737,16 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
     };
 
     if (scenarioBtns.length > 0) {
-        // Init slider
-        const initActive = document.querySelector('.scenario-btn.active:not(.custom-scenarios-btn)');
-        if (initActive) setTimeout(() => updateScenarioSlider(initActive), 50);
-        window.addEventListener('resize', () => {
+        // Init slider using ResizeObserver for perfect layout timing
+        const resizeObserver = new ResizeObserver(() => {
             const activeBtn = document.querySelector('.scenario-btn.active:not(.custom-scenarios-btn)');
-            if (activeBtn) updateScenarioSlider(activeBtn);
+            if (activeBtn && activeBtn.offsetWidth > 0) {
+                updateScenarioSlider(activeBtn);
+            }
         });
+        if (scenarioContainer) {
+            resizeObserver.observe(scenarioContainer);
+        }
     }
 
     scenarioBtns.forEach(btn => {
@@ -8632,7 +8638,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         }
 
         // v315: Synchronize Good To Buy Modal values with dynamic frontend calculations
-        if (title.includes('Good to Buy') && typeof globalData !== 'undefined' && globalData) {
+        if (!_simulating && title.includes('Good to Buy') && typeof globalData !== 'undefined' && globalData) {
             let dynFwdEps = globalData.company_profile ? globalData.company_profile.fwd_eps : null;
             if (globalData.eps_estimates) {
                 const eEsts = globalData.eps_estimates.filter(e => e && e.status !== 'reported' && e.period && (e.period.includes('Year') || e.period.includes('FY') || e.period.endsWith('y')));
