@@ -9005,7 +9005,17 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     if (typeof val === 'number') return val;
                     if (!val || val === '--' || val === 'N/A') return null;
 
-                    const valStr = String(val).replace(/,/g, '').trim();
+                    let valStr = String(val).replace(/,/g, '').trim();
+                    if (valStr.includes(':')) valStr = valStr.split(':').pop().trim();
+                    if (valStr.includes('=')) valStr = valStr.split('=').pop().trim();
+                    valStr = valStr.replace(/\bQ[1-4]\b/ig, '');
+                    valStr = valStr.replace(/\bFY\s*\d{2,4}\b/ig, '');
+                    valStr = valStr.replace(/\b20[1-3]\d\b/g, '');
+                    valStr = valStr.trim();
+                    if (valStr.startsWith('-') && !valStr.match(/^-\d/)) {
+                        valStr = valStr.replace(/^-[\s\D]*/, '');
+                    }
+
                     const match = valStr.match(/^.*?(-?\d+(?:\.\d+)?)(?:\s*(T|B|M|K|TRILLION|BILLION|MILLION|THOUSAND)(?=\b|[^a-zA-Z]))?/i);
                     if (match) {
                         let num = parseFloat(match[1]);
