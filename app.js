@@ -6047,8 +6047,8 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         return {
             fair_value: fv,
             margin_of_safety: mos,
-            health_score: hScore,
-            buy_score: bScore,
+            health_score_total: hScore,
+            good_to_buy_total: bScore,
             piotroski_score: pScore,
             sector_median_peg: globalData?.formula_data?.peg?.industry_peg || null
         };
