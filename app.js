@@ -5280,10 +5280,10 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
                         <!-- Tabs Navigation -->
                         <div class="corporate-tabs-wrapper" style="display: flex; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; gap: 10px; overflow-x: auto; scrollbar-width: none;">
-                            <button class="brief-tab ${activeTab === 'overview' ? 'active' : ''}" data-tab="overview">🏢 Overview</button>
-                            <button class="brief-tab ${activeTab === 'swot' ? 'active' : ''}" data-tab="swot">⚖️ SWOT</button>
-                            <button class="brief-tab ${activeTab === 'watchouts' ? 'active' : ''}" data-tab="watchouts">⚠️ Watchouts</button>
-                            <button class="brief-tab ${activeTab === 'news' ? 'active' : ''}" data-tab="news">📰 News</button>
+                            <button class="brief-tab ${activeTab === 'overview' ? 'active' : ''}" data-tab="overview"><span class="tab-icon">🏢</span> Overview</button>
+                            <button class="brief-tab ${activeTab === 'swot' ? 'active' : ''}" data-tab="swot"><span class="tab-icon">⚖️</span> SWOT</button>
+                            <button class="brief-tab ${activeTab === 'watchouts' ? 'active' : ''}" data-tab="watchouts"><span class="tab-icon">⚠️</span> Watchouts</button>
+                            <button class="brief-tab ${activeTab === 'news' ? 'active' : ''}" data-tab="news"><span class="tab-icon">📰</span> News</button>
                         </div>
 
                         <!-- Active Tab Content -->
@@ -5319,7 +5319,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                                 <div style="font-size: 0.85rem; font-weight: 700; margin-bottom: 8px; color: white; line-height: 1.3;">
                                     ${prof.name || 'The company'} is classified in the <span style="color:#38bdf8;">${prof.sector || 'N/A'}</span> sector, <span style="color:#38bdf8;">${prof.industry || 'N/A'}</span> industry.
                                 </div>
-                                <p style="margin: 0; color: rgba(255,255,255,0.8); line-height: 1.6; text-align: justify;">
+                                <p style="margin: 0; color: rgba(255,255,255,0.8); line-height: 1.6; text-align: justify; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis;">
                                     ${parsed.executiveSummary || prof.business_summary || 'No concise description available.'}
                                 </p>
                             `;
