@@ -1679,7 +1679,9 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     }
                 }
 
-                item.points_awarded = Math.min(newPts, item.max_points);
+                if (_simulating) {
+                    item.points_awarded = Math.min(newPts, item.max_points);
+                }
             });
         }
 
@@ -1689,9 +1691,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         }
 
         // --- 6. Refresh Score Dashboard ---
-        const totalBuy = currentBuyBreakdown.reduce((sum, item) => sum + (item.points_awarded || 0), 0);
-        globalData.good_to_buy_total = Math.round(Math.min(Math.max(totalBuy, 0), 100));
-        updateScoreUI(globalData.good_to_buy_total, 'buy-score-circle', 'buy-score-fill');
+        if (_simulating) {
+            const totalBuy = currentBuyBreakdown.reduce((sum, item) => sum + (item.points_awarded || 0), 0);
+            globalData.good_to_buy_total = Math.round(Math.min(Math.max(totalBuy, 0), 100));
+            updateScoreUI(globalData.good_to_buy_total, 'buy-score-circle', 'buy-score-fill');
+        }
 
         // --- 7. Update Open Modal (Real-time Simulation) ---
         const scoreModal = document.getElementById('score-modal');
