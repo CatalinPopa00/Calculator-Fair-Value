@@ -28,22 +28,6 @@ window.badgeCurrentState = "idle";
 window.badgeActiveAnimations = [];
 
 window.badgeIconAnimations = {
-    processing: () => {
-        const iconContainer = document.querySelector(".icon-container");
-        if(!iconContainer) return;
-        const path = iconContainer.querySelector("path");
-        const container = iconContainer.querySelector("div");
-        if(path && container && window.Motion) {
-            window.badgeActiveAnimations.push(
-                window.Motion.animate(path, { pathLength: [0, 1] }, window.BADGE_pathSpringConfig),
-                window.Motion.animate(
-                    container,
-                    { rotate: 360 },
-                    { duration: 1, repeat: Infinity, ease: "linear" }
-                )
-            );
-        }
-    },
     success: () => {
         const iconContainer = document.querySelector(".icon-container");
         if(!iconContainer) return;
@@ -72,19 +56,6 @@ window.badgeIconAnimations = {
 };
 
 window.badgeIconHTML = {
-    processing: `
-        <div style="
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: ${window.BADGE_ICON_SIZE}px;
-            height: ${window.BADGE_ICON_SIZE}px;
-        ">
-            <svg ${window.BADGE_svgAttrs}>
-                <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-            </svg>
-        </div>
-    `,
     success: `
         <svg ${window.BADGE_svgAttrs}>
             <polyline points="4 12 9 17 20 6" />
