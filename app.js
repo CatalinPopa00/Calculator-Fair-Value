@@ -9130,16 +9130,8 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                                 if (valQ3 != null) { sum += valQ3; count++; }
                                 if (valQ4 != null) { sum += valQ4; count++; }
 
-                                if (count > 0 && count < 4) {
-                                    const avg = sum / count;
-                                    const remainingQuarters = 4 - count;
-                                    const extrapolatedVal = avg * remainingQuarters;
-                                    datasetExtrapolated.push(extrapolatedVal);
-                                    formattedTooltipsExt.push(`Estimated Run-Rate (Q${count+1}-Q4)`);
-                                } else {
-                                    datasetExtrapolated.push(null);
-                                    formattedTooltipsExt.push(null);
-                                }
+                                datasetExtrapolated.push(null);
+                                formattedTooltipsExt.push(null);
                             }
                         }
                     });
