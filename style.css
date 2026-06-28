@@ -4516,6 +4516,14 @@ body.has-searched #install-app-btn {
         font-size: 0.8rem;
         margin-bottom: 2px;
     }
+    .corporate-classification {
+        display: -webkit-box !important;
+        -webkit-line-clamp: 2 !important;
+        -webkit-box-orient: vertical !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        font-size: 0.75rem !important;
+    }
 }
 
 

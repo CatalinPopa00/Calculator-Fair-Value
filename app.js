@@ -5304,7 +5304,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     if (activeTab === 'overview') {
                         if (isLoadingAI) {
                             panel.innerHTML = `
-                                <div style="font-size: 0.85rem; font-weight: 700; margin-bottom: 8px; color: white; line-height: 1.3;">
+                                <div class="corporate-classification" style="font-size: 0.85rem; font-weight: 700; margin-bottom: 8px; color: white; line-height: 1.3;">
                                     ${prof.name || 'The company'} is classified in the <span style="color:#38bdf8;">${prof.sector || 'N/A'}</span> sector, <span style="color:#38bdf8;">${prof.industry || 'N/A'}</span> industry.
                                 </div>
                                 <div style="margin-top: 10px;">
@@ -5316,10 +5316,10 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                             `;
                         } else {
                             panel.innerHTML = `
-                                <div style="font-size: 0.85rem; font-weight: 700; margin-bottom: 8px; color: white; line-height: 1.3;">
+                                <div class="corporate-classification" style="font-size: 0.85rem; font-weight: 700; margin-bottom: 8px; color: white; line-height: 1.3;">
                                     ${prof.name || 'The company'} is classified in the <span style="color:#38bdf8;">${prof.sector || 'N/A'}</span> sector, <span style="color:#38bdf8;">${prof.industry || 'N/A'}</span> industry.
                                 </div>
-                                <p style="margin: 0; color: rgba(255,255,255,0.8); line-height: 1.6; text-align: justify; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis;">
+                                <p style="margin: 0; color: rgba(255,255,255,0.8); line-height: 1.6; text-align: justify;">
                                     ${parsed.executiveSummary || prof.business_summary || 'No concise description available.'}
                                 </p>
                             `;
