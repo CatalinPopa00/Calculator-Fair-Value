@@ -7050,7 +7050,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     // buy score sync logic
                     let dynamicBuyScore = data.good_to_buy_total;
                     let dynamicHealthScore = data.health_score_total;
-                    let dynamicPiotroski = data.piotroski?.score;
+                    let dynamicPiotroski = data.piotroski?.score ?? data.piotroski_score;
 
 
                     // Fallback to scoring_results if top-level fields are missing or not updated
@@ -7118,11 +7118,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                                 <div style="display: flex; flex-direction: row; justify-content: center; gap: 1rem; width: 100%; flex-wrap: wrap;">
                                     <div style="display: flex; align-items: center; gap: 4px;">
                                         <div class="wl-dot ${hDotClass}"></div>
-                                        <span style="font-size: 0.85rem; font-weight: 600;">Health: ${displayHealth || 'N/A'}</span>
+                                        <span style="font-size: 0.85rem; font-weight: 600;">Health: ${displayHealth != null ? displayHealth : 'N/A'}</span>
                                     </div>
                                     <div style="display: flex; align-items: center; gap: 4px;">
                                         <div class="wl-dot ${dotClass}"></div>
-                                        <span style="font-size: 0.85rem; font-weight: 600;">Buy: ${displayBuy || 'N/A'}</span>
+                                        <span style="font-size: 0.85rem; font-weight: 600;">Buy: ${displayBuy != null ? displayBuy : 'N/A'}</span>
                                     </div>
                                     <div style="display: flex; align-items: center; gap: 4px;" title="Piotroski F-Score">
                                         <span style="font-size: 0.85rem; font-weight: 600;">Piotroski:</span>
