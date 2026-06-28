@@ -430,7 +430,7 @@ def run_ai_kpi_audit(ticker: str, force_refresh: bool = False) -> Dict[str, Any]
     if not force_refresh and ticker in audit_cache:
         return audit_cache[ticker]
         
-    redis_key = f"audit:{ticker}"
+    redis_key = f"audit_v2:{ticker}"
     if not force_refresh:
         cached_data = kv_get(redis_key)
         if cached_data:

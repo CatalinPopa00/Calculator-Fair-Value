@@ -9120,7 +9120,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                             const valQ4 = parseKpiValue(vals[`${year} Q4`]);
 
                             const kpiNameLower = (kpi.name || "").toLowerCase();
-                            const isSnapshotMetric = /monthly|mau|dau|annual|arr|users|rate|margin|subscriber|backlog|booking|active|ratio|percentage|yield|employees/i.test(kpiNameLower);
+                            const isSnapshotMetric = /monthly|mau|dau|arr|users|rate|margin|subscriber|backlog|active|ratio|percentage|yield|employees/i.test(kpiNameLower);
 
                             if (isSnapshotMetric) {
                                 let latestVal = null;
@@ -10477,8 +10477,14 @@ window.addEventListener('resize', () => {
     const activeBtn = document.querySelector('.bnav-btn.active');
     if (activeBtn) {
         const bnavIndicator = document.getElementById('bnav-indicator');
-        if (bnavIndicator) {
-            bnavIndicator.style.transform = `translateX(${activeBtn.offsetLeft}px)`;
+        const nav = document.getElementById('bottom-nav');
+        if (bnavIndicator && nav) {
+            const navRect = nav.getBoundingClientRect();
+            const btnRect = activeBtn.getBoundingClientRect();
+            const computedStyle = window.getComputedStyle(nav);
+            const paddingEdgeX = navRect.left + (parseFloat(computedStyle.borderLeftWidth) || 0) + (parseFloat(computedStyle.paddingLeft) || 0);
+            const exactOffset = btnRect.left - paddingEdgeX;
+            bnavIndicator.style.transform = `translateX(${exactOffset}px)`;
         }
     }
 });
