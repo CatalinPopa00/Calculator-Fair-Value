@@ -5079,9 +5079,9 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         }
 
         // SYNC WATCHLIST
-        if (watchlist.includes(data.ticker)) {
+        if (watchlist.some(t => t.toUpperCase() === data.ticker.toUpperCase())) {
             if (!cachedWatchlistData) cachedWatchlistData = [];
-            let idx = cachedWatchlistData.findIndex(d => d.ticker === data.ticker);
+            let idx = cachedWatchlistData.findIndex(d => d.ticker.toUpperCase() === data.ticker.toUpperCase());
             if (idx !== -1) {
                 cachedWatchlistData[idx] = { ...data };
             } else {
@@ -6198,7 +6198,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
     const updateWatchlistButtonState = () => {
         if (!currentTicker) return;
-        if (watchlist.includes(currentTicker)) {
+        if (watchlist.some(t => t.toUpperCase() === currentTicker.toUpperCase())) {
             addToWatchlistBtn.classList.add('added');
             addToWatchlistBtn.innerHTML = '★';
         } else {
@@ -6209,8 +6209,8 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
     const toggleWatchlist = () => {
         if (!currentTicker) return;
-        if (watchlist.includes(currentTicker)) {
-            watchlist = watchlist.filter(t => t !== currentTicker);
+        if (watchlist.some(t => t.toUpperCase() === currentTicker.toUpperCase())) {
+            watchlist = watchlist.filter(t => t.toUpperCase() !== currentTicker.toUpperCase());
         } else {
             watchlist.push(currentTicker);
             saveOverridesToServer(currentTicker);
@@ -7121,12 +7121,12 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
                     card.querySelector('.wl-close-btn').addEventListener('click', (e) => {
                         e.stopPropagation();
-                        watchlist = watchlist.filter(t => t !== data.ticker);
-                        cachedWatchlistData = cachedWatchlistData.filter(d => d.ticker !== data.ticker);
+                        watchlist = watchlist.filter(t => t.toUpperCase() !== data.ticker.toUpperCase());
+                        cachedWatchlistData = cachedWatchlistData.filter(d => d.ticker.toUpperCase() !== data.ticker.toUpperCase());
                         deleteOverrideFromServer(data.ticker);
                         saveWatchlist();
                         renderWatchlistUI();
-                        if (currentTicker === data.ticker) updateWatchlistButtonState();
+                        if (currentTicker && currentTicker.toUpperCase() === data.ticker.toUpperCase()) updateWatchlistButtonState();
                     });
 
                     watchlistGrid.appendChild(card);
