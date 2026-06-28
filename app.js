@@ -7061,8 +7061,12 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     }
 
 
-                    let displayBuy = (globalOv && globalOv.computed && globalOv.computed.good_to_buy_total != null) ? globalOv.computed.good_to_buy_total : dynamicBuyScore;
-                    let displayHealth = (globalOv && globalOv.computed && globalOv.computed.health_score_total != null) ? globalOv.computed.health_score_total : dynamicHealthScore;
+                    let displayBuy = dynamicBuyScore;
+                    let displayHealth = dynamicHealthScore;
+                    if (globalOv && globalOv.computed) {
+                        displayBuy = globalOv.computed.good_to_buy_total != null ? globalOv.computed.good_to_buy_total : (globalOv.computed.buy_score != null ? globalOv.computed.buy_score : dynamicBuyScore);
+                        displayHealth = globalOv.computed.health_score_total != null ? globalOv.computed.health_score_total : (globalOv.computed.health_score != null ? globalOv.computed.health_score : dynamicHealthScore);
+                    }
 
                     const fvStr = displayFv != null ? formatCurrency(displayFv) : 'N/A';
                     const mosStr = displayMos != null ? formatPercent(displayMos) : 'N/A';
