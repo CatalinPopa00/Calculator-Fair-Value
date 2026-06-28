@@ -10473,12 +10473,12 @@ window.fetchWSJNews = async function(isSilent = false) {
     }
 };
 
-window.addEventListener('resize', () => {
-    const activeBtn = document.querySelector('.bnav-btn.active');
-    if (activeBtn) {
+function updateBnavIndicator() {
+    requestAnimationFrame(() => {
+        const activeBtn = document.querySelector('.bnav-btn.active');
         const bnavIndicator = document.getElementById('bnav-indicator');
         const nav = document.getElementById('bottom-nav');
-        if (bnavIndicator && nav) {
+        if (activeBtn && bnavIndicator && nav) {
             const navRect = nav.getBoundingClientRect();
             const btnRect = activeBtn.getBoundingClientRect();
             const computedStyle = window.getComputedStyle(nav);
@@ -10486,8 +10486,16 @@ window.addEventListener('resize', () => {
             const exactOffset = btnRect.left - paddingEdgeX;
             bnavIndicator.style.transform = `translateX(${exactOffset}px)`;
         }
-    }
-});
+    });
+}
+
+window.addEventListener('resize', updateBnavIndicator);
+
+const navElement = document.getElementById('bottom-nav');
+if (navElement) {
+    const navObserver = new ResizeObserver(updateBnavIndicator);
+    navObserver.observe(navElement);
+}
 
 // Auto-refresh WSJ news every 5 minutes in the background
 setInterval(() => {
