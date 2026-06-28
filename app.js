@@ -9117,6 +9117,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     const formattedTooltipsQ3 = [];
                     const formattedTooltipsQ4 = [];
 
+                    let sortedYearsFiltered = [...sortedYears];
                     sortedYears.forEach(year => {
                         const isQuarterly = yearDataLocal[year].isQuarterly;
                         if (!isQuarterly) {
@@ -9181,15 +9182,34 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                         }
                     });
 
+                    // Filter out years that have absolutely no valid numerical data
+                    const validIndices = [];
+                    sortedYearsFiltered.forEach((year, i) => {
+                        const hasData = datasetBase[i] !== null || datasetQ2[i] !== null || datasetQ3[i] !== null || datasetQ4[i] !== null;
+                        if (hasData) {
+                            validIndices.push(i);
+                        }
+                    });
+
+                    sortedYearsFiltered = validIndices.map(i => sortedYearsFiltered[i]);
+                    const filteredDatasetBase = validIndices.map(i => datasetBase[i]);
+                    const filteredDatasetQ2 = validIndices.map(i => datasetQ2[i]);
+                    const filteredDatasetQ3 = validIndices.map(i => datasetQ3[i]);
+                    const filteredDatasetQ4 = validIndices.map(i => datasetQ4[i]);
+                    const filteredTooltipsBase = validIndices.map(i => formattedTooltipsBase[i]);
+                    const filteredTooltipsQ2 = validIndices.map(i => formattedTooltipsQ2[i]);
+                    const filteredTooltipsQ3 = validIndices.map(i => formattedTooltipsQ3[i]);
+                    const filteredTooltipsQ4 = validIndices.map(i => formattedTooltipsQ4[i]);
+
                     const chartCanvas = document.getElementById('kpi-chart');
                     const ctx = chartCanvas.getContext('2d');
                     if (window.kpiChartInstance) {
                         window.kpiChartInstance.destroy();
                     }
 
-                    const hasValidData = [...datasetBase, ...datasetQ2, ...datasetQ3, ...datasetQ4].some(v => v !== null && v !== undefined && !isNaN(v));
+                    const hasValidData = [...filteredDatasetBase, ...filteredDatasetQ2, ...filteredDatasetQ3, ...filteredDatasetQ4].some(v => v !== null && v !== undefined && !isNaN(v));
 
-                    if (!hasValidData || sortedYears.length === 0) {
+                    if (!hasValidData || sortedYearsFiltered.length === 0) {
                         chartCanvas.style.display = 'none';
                         let noDataMsg = document.getElementById('kpi-no-data-msg');
                         if (!noDataMsg) {
@@ -9221,11 +9241,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     window.kpiChartInstance = new Chart(ctx, {
                         type: 'bar',
                         data: {
-                            labels: sortedYears,
+                            labels: sortedYearsFiltered,
                             datasets: [
                                 {
                                     label: 'Full / Q1',
-                                    data: datasetBase,
+                                    data: filteredDatasetBase,
                                     backgroundColor: 'rgba(0, 210, 255, 0.6)',
                                     borderColor: 'rgba(0, 210, 255, 1)',
                                     borderWidth: 1,
@@ -9233,7 +9253,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                                 },
                                 {
                                     label: 'Q2',
-                                    data: datasetQ2,
+                                    data: filteredDatasetQ2,
                                     backgroundColor: 'rgba(56, 189, 248, 0.6)',
                                     borderColor: 'rgba(56, 189, 248, 1)',
                                     borderWidth: 1,
@@ -9241,7 +9261,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                                 },
                                 {
                                     label: 'Q3',
-                                    data: datasetQ3,
+                                    data: filteredDatasetQ3,
                                     backgroundColor: 'rgba(125, 211, 252, 0.6)',
                                     borderColor: 'rgba(125, 211, 252, 1)',
                                     borderWidth: 1,
@@ -9249,7 +9269,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                                 },
                                 {
                                     label: 'Q4',
-                                    data: datasetQ4,
+                                    data: filteredDatasetQ4,
                                     backgroundColor: 'rgba(186, 230, 253, 0.6)',
                                     borderColor: 'rgba(186, 230, 253, 1)',
                                     borderWidth: 1,
@@ -9268,10 +9288,10 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                                             const dsIndex = context.datasetIndex;
                                             const idx = context.dataIndex;
                                             let valLabel = '';
-                                            if (dsIndex === 0) valLabel = formattedTooltipsBase[idx];
-                                            else if (dsIndex === 1) valLabel = formattedTooltipsQ2[idx];
-                                            else if (dsIndex === 2) valLabel = formattedTooltipsQ3[idx];
-                                            else if (dsIndex === 3) valLabel = formattedTooltipsQ4[idx];
+                                            if (dsIndex === 0) valLabel = filteredTooltipsBase[idx];
+                                            else if (dsIndex === 1) valLabel = filteredTooltipsQ2[idx];
+                                            else if (dsIndex === 2) valLabel = filteredTooltipsQ3[idx];
+                                            else if (dsIndex === 3) valLabel = filteredTooltipsQ4[idx];
                                             
                                             if (!valLabel) return null;
                                             return ' ' + valLabel;
