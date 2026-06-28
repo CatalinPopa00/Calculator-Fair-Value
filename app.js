@@ -5231,10 +5231,14 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                             opacity: 0.7;
                             position: relative;
                             white-space: nowrap;
+                            -webkit-tap-highlight-color: transparent;
+                            outline: none;
                         }
-                        .brief-tab:hover {
-                            opacity: 1;
-                            color: #38bdf8 !important;
+                        @media (hover: hover) {
+                            .brief-tab:hover {
+                                opacity: 1;
+                                color: #38bdf8 !important;
+                            }
                         }
                         .brief-tab.active {
                             opacity: 1;
@@ -5249,10 +5253,12 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                             margin-bottom: 8px;
                             transition: all 0.2s ease;
                         }
-                        .brief-news-item:hover {
-                            background: rgba(255,255,255,0.05);
-                            border-color: rgba(56, 189, 248, 0.2);
-                            transform: translateY(-1px);
+                        @media (hover: hover) {
+                            .brief-news-item:hover {
+                                background: rgba(255,255,255,0.05);
+                                border-color: rgba(56, 189, 248, 0.2);
+                                transform: translateY(-1px);
+                            }
                         }
                         .skeleton-text {
                             height: 12px;
@@ -5478,6 +5484,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                         t.classList.add('active');
                         activeTab = t.getAttribute('data-tab');
                         renderActivePanel();
+                        t.blur();
                     };
                 });
 
@@ -9533,6 +9540,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     let activeIdx = tabs.findIndex(t => t.classList.contains('active'));
                     if (activeIdx > 0) tabs[activeIdx - 1].click();
                     else if (tabs.length) tabs[tabs.length - 1].click();
+
+                    if (target && target.blur) target.blur();
                 } else {
                     if (window.cycleMobileCarousel) window.cycleMobileCarousel({ closest: () => card }, -1, event);
                 }
@@ -9547,6 +9556,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     let activeIdx = tabs.findIndex(t => t.classList.contains('active'));
                     if (activeIdx < tabs.length - 1) tabs[activeIdx + 1].click();
                     else if (tabs.length) tabs[0].click();
+
+                    if (target && target.blur) target.blur();
                 } else {
                     if (window.cycleMobileCarousel) window.cycleMobileCarousel({ closest: () => card }, 1, event);
                 }
