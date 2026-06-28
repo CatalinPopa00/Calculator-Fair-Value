@@ -6037,19 +6037,9 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         const mosMatch = mosText.match(/([\-0-9.]+)%/);
         const mos = mosMatch ? parseFloat(mosMatch[1]) : null;
 
-        const hScoreEl = document.getElementById('health-score-circle');
-        const bScoreEl = document.getElementById('buy-score-circle');
-        const pScoreEl = document.getElementById('piotroski-score-circle');
-        const hScore = hScoreEl ? parseInt(hScoreEl.textContent) : null;
-        const bScore = bScoreEl ? parseInt(bScoreEl.textContent) : null;
-        const pScore = pScoreEl ? parseInt(pScoreEl.textContent) : null;
-
         return {
             fair_value: fv,
             margin_of_safety: mos,
-            health_score_total: hScore,
-            good_to_buy_total: bScore,
-            piotroski_score: pScore,
             sector_median_peg: globalData?.formula_data?.peg?.industry_peg || null
         };
     };
@@ -7063,10 +7053,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
                     let displayBuy = dynamicBuyScore;
                     let displayHealth = dynamicHealthScore;
-                    if (globalOv && globalOv.computed) {
-                        displayBuy = globalOv.computed.good_to_buy_total != null ? globalOv.computed.good_to_buy_total : (globalOv.computed.buy_score != null ? globalOv.computed.buy_score : dynamicBuyScore);
-                        displayHealth = globalOv.computed.health_score_total != null ? globalOv.computed.health_score_total : (globalOv.computed.health_score != null ? globalOv.computed.health_score : dynamicHealthScore);
-                    }
 
                     const fvStr = displayFv != null ? formatCurrency(displayFv) : 'N/A';
                     const mosStr = displayMos != null ? formatPercent(displayMos) : 'N/A';
