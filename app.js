@@ -10473,7 +10473,15 @@ window.fetchWSJNews = async function(isSilent = false) {
     }
 };
 
-// window.addEventListener('resize', updateActiveNavIndicator); // Removed undefined function
+window.addEventListener('resize', () => {
+    const activeBtn = document.querySelector('.bnav-btn.active');
+    if (activeBtn) {
+        const bnavIndicator = document.getElementById('bnav-indicator');
+        if (bnavIndicator) {
+            bnavIndicator.style.transform = `translateX(${activeBtn.offsetLeft}px)`;
+        }
+    }
+});
 
 // Auto-refresh WSJ news every 5 minutes in the background
 setInterval(() => {

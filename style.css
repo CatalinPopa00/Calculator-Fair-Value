@@ -321,6 +321,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
     overflow: hidden;
     will-change: transform, filter;
     padding: 0.8rem 1.2rem;
@@ -966,7 +967,7 @@ body {
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: 20px;
     padding: 10px;
-    align-items: start;
+    align-items: stretch;
     padding-bottom: 80px;
 }
 @media (max-width: 600px) {
