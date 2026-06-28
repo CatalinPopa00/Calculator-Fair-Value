@@ -368,8 +368,8 @@ body {
 .badge .label {
     font-family: inherit;
     text-transform: uppercase;
-    letter-spacing: 1px;
-    font-size: 1.05rem;
+    letter-spacing: 0.5px;
+    font-size: 0.95rem;
     font-weight: 600;
 }
 
@@ -1182,7 +1182,7 @@ body {
 
     .search-container {
         order: 2;
-        grid-template-columns: 1fr 100px;
+        grid-template-columns: 1fr 125px;
         width: 100%;
         margin-top: 0.5rem;
     }
@@ -1199,7 +1199,8 @@ body {
 
     .label-measure,
     .badge .label {
-        font-size: 0.85rem;
+        font-size: 0.75rem;
+        letter-spacing: 0.5px;
     }
 
     /* Header Adjustments - Better Stacking */
