@@ -430,7 +430,7 @@ def run_ai_kpi_audit(ticker: str, force_refresh: bool = False) -> Dict[str, Any]
     if not force_refresh and ticker in audit_cache:
         return audit_cache[ticker]
         
-    redis_key = f"audit_v5:{ticker}"
+    redis_key = f"audit_v6:{ticker}"
     if not force_refresh:
         cached_data = kv_get(redis_key)
         if cached_data:
@@ -497,7 +497,7 @@ Identify AT LEAST 5 and up to 8 of the MOST CRITICAL, CORE COMPANY-SPECIFIC Key 
 CRITICAL KPI SELECTION RULES (STRICTLY ENFORCED UNDER PENALTY OF FAILURE):
 1. Focus on OFFICIAL REPORTING SEGMENTS, BACKLOG, & AI METRICS: You MUST include "Order Backlog" if applicable to the company. You MUST search for and include any AI-related KPIs (e.g. "AI Annualized Recurring Revenue", "AI Subscription Growth"). You MUST use the standard, official names for the company's reporting segments (e.g. for Adobe: "Digital Media Revenue", "Digital Experience Revenue"; for Rheinmetall: "Vehicle Systems", "Weapon and Ammunition"). Do NOT use hyper-specific phrasing from a single paragraph. Using standard names ensures you can retrieve historical data accurately.
 2. AVOID NICHE METRICS: Do NOT extract data about minor acquisitions, tiny side-businesses, or one-off costs. Focus on what drives the MAIN revenue streams.
-3. ABSOLUTE BAN ON GENERIC FINANCIAL METRICS: You are STRICTLY FORBIDDEN from extracting generic accounting or generic headcount items! BANNED METRICS: EBITDA, EBITDA Margin, Earnings Per Share, EPS, Net Income, Total Revenue, Gross Margin, Cash Flow, Operating Income, Profit, Debt, Assets, Opex, R&D Expenses, CapEx, Headcount/Number of employees. 
+3. ABSOLUTE BAN ON GENERIC FINANCIAL METRICS: You are STRICTLY FORBIDDEN from extracting generic accounting or generic headcount items! BANNED METRICS: EBITDA, EBITDA Margin, Earnings Per Share, EPS, Net Income, Total Revenue, Gross Margin, Cash Flow, Operating Income, Profit, Debt, Assets, Opex, R&D Expenses, Headcount/Number of employees. 
 
 VALUE EXTRACTION (HISTORY SINCE FY 2021 + RECENT QUARTERS):
 For each identified KPI, track its evolution starting from FY 2021 up to the most recently completed fiscal year.
@@ -692,7 +692,7 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
         result = json.loads(result_content.strip())
 
         # --- Strict filtering of generic accounting metrics ---
-        banned_keywords = ["ebitda", "revenue", "net income", "eps", "earnings per share", "operating income", "cash flow", "gross margin", "profit", "opex", "capex", "debt", "headcount", "employees"]
+        banned_keywords = ["ebitda", "revenue", "net income", "eps", "earnings per share", "operating income", "cash flow", "gross margin", "profit", "opex", "debt", "headcount", "employees"]
         
         filtered_kpis = []
         for kpi in result.get('kpis', []):
