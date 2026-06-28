@@ -3781,9 +3781,15 @@ body.banner-visible .modal-content {
 
     /* Brief tabs: scrollable horizontally without pushing parent */
     #company-desc-card .brief-tab {
-        font-size: 0.75rem !important;
-        padding: 6px 8px !important;
+        font-size: 0.55rem !important;
+        padding: 6px 0 !important;
         white-space: nowrap;
+        flex: 1;
+        display: flex !important;
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
+        text-align: center;
     }
 
     /* KPI badges: ensure wrapping */
@@ -4490,17 +4496,25 @@ body.has-searched #install-app-btn {
 @media (max-width: 768px) {
     .corporate-tabs-wrapper { 
         display: flex !important;
-        gap: 6px !important;
-        justify-content: center !important;
+        gap: 2px !important;
+        justify-content: space-between !important;
         width: 100% !important;
     }
     .corporate-tabs-wrapper .brief-tab {
         flex: 1;
-        padding: 6px 2px !important;
-        font-size: 0.65rem !important;
+        display: flex !important;
+        padding: 6px 0 !important;
+        font-size: 0.55rem !important;
         justify-content: center;
+        align-items: center;
+        flex-direction: column;
         text-align: center;
         white-space: nowrap;
+    }
+    .corporate-tabs-wrapper .brief-tab .tab-icon {
+        display: inline !important;
+        font-size: 0.8rem;
+        margin-bottom: 2px;
     }
 }
 
