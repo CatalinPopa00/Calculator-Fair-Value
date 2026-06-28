@@ -5281,9 +5281,9 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                         <!-- Tabs Navigation -->
                         <div class="corporate-tabs-wrapper" style="display: flex; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; gap: 10px; overflow-x: auto; scrollbar-width: none;">
                             <button class="brief-tab ${activeTab === 'overview' ? 'active' : ''}" data-tab="overview">🏢 Overview</button>
-                            <button class="brief-tab ${activeTab === 'swot' ? 'active' : ''}" data-tab="swot">⚖️ SWOT Analysis</button>
+                            <button class="brief-tab ${activeTab === 'swot' ? 'active' : ''}" data-tab="swot">⚖️ SWOT</button>
                             <button class="brief-tab ${activeTab === 'watchouts' ? 'active' : ''}" data-tab="watchouts">⚠️ Watchouts</button>
-                            <button class="brief-tab ${activeTab === 'news' ? 'active' : ''}" data-tab="news">📰 Market News</button>
+                            <button class="brief-tab ${activeTab === 'news' ? 'active' : ''}" data-tab="news">📰 News</button>
                         </div>
 
                         <!-- Active Tab Content -->
@@ -5304,7 +5304,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     if (activeTab === 'overview') {
                         if (isLoadingAI) {
                             panel.innerHTML = `
-                                <div style="font-size: 0.95rem; font-weight: 700; margin-bottom: 8px; color: white;">
+                                <div style="font-size: 0.85rem; font-weight: 700; margin-bottom: 8px; color: white; line-height: 1.3;">
                                     ${prof.name || 'The company'} is classified in the <span style="color:#38bdf8;">${prof.sector || 'N/A'}</span> sector, <span style="color:#38bdf8;">${prof.industry || 'N/A'}</span> industry.
                                 </div>
                                 <div style="margin-top: 10px;">
@@ -5316,7 +5316,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                             `;
                         } else {
                             panel.innerHTML = `
-                                <div style="font-size: 0.95rem; font-weight: 700; margin-bottom: 8px; color: white;">
+                                <div style="font-size: 0.85rem; font-weight: 700; margin-bottom: 8px; color: white; line-height: 1.3;">
                                     ${prof.name || 'The company'} is classified in the <span style="color:#38bdf8;">${prof.sector || 'N/A'}</span> sector, <span style="color:#38bdf8;">${prof.industry || 'N/A'}</span> industry.
                                 </div>
                                 <p style="margin: 0; color: rgba(255,255,255,0.8); line-height: 1.6; text-align: justify;">
