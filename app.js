@@ -10490,7 +10490,9 @@ function updateBnavIndicator() {
             const btnCenterX = btnRect.left + (btnRect.width / 2);
             
             const computedStyle = window.getComputedStyle(nav);
-            const paddingEdgeX = navRect.left + (parseFloat(computedStyle.borderLeftWidth) || 0) + (parseFloat(computedStyle.paddingLeft) || 0);
+            // In CSS, position: absolute; left: 0 starts at the padding edge, NOT the content edge.
+            // So the true screen X coordinate of left: 0 is navRect.left + borderLeftWidth
+            const paddingEdgeX = navRect.left + (parseFloat(computedStyle.borderLeftWidth) || 0);
             
             // Indicator width is 50 on desktop, 45 on mobile, we can center it exactly
             const indicatorRect = bnavIndicator.getBoundingClientRect();
