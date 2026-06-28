@@ -430,7 +430,7 @@ def run_ai_kpi_audit(ticker: str, force_refresh: bool = False) -> Dict[str, Any]
     if not force_refresh and ticker in audit_cache:
         return audit_cache[ticker]
         
-    redis_key = f"audit_v6:{ticker}"
+    redis_key = f"audit_v7:{ticker}"
     if not force_refresh:
         cached_data = kv_get(redis_key)
         if cached_data:
@@ -692,8 +692,8 @@ Return ONLY a valid JSON object, strictly following this EXACT structure:
         result = json.loads(result_content.strip())
 
         # --- Strict filtering of generic accounting metrics ---
-        banned_contains = ["ebitda", "net income", "eps", "earnings per share", "operating income", "cash flow", "gross margin", "opex", "headcount", "employees"]
-        banned_exact = ["revenue", "total revenue", "net revenue", "profit", "gross profit", "net profit", "debt", "total debt", "assets", "total assets"]
+        banned_contains = ["ebitda", "net income", "eps", "earnings per share", "cash flow", "opex", "headcount", "employees"]
+        banned_exact = ["revenue", "total revenue", "net revenue", "profit", "gross profit", "net profit", "debt", "total debt", "assets", "total assets", "operating income", "gross margin", "margin"]
         
         filtered_kpis = []
         for kpi in result.get('kpis', []):

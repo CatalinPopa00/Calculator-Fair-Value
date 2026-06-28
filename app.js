@@ -9049,17 +9049,30 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     localPeriods.forEach(p => {
                         let yearPart = p;
                         let qPart = null;
-                        if (p.match(/ Q[1-4]$/i)) {
-                            const parts = p.split(/ Q/i);
-                            yearPart = parts[0].trim();
-                            qPart = 'Q' + parts[1].trim();
+
+                        const qMatch = p.match(/^(.*?)\s*Q([1-4])\b/i);
+                        if (qMatch) {
+                            yearPart = qMatch[1].trim();
+                            qPart = 'Q' + qMatch[2];
+                        } else if (p.match(/Q[1-4]/i)) {
+                            // Fallback for tight formatting like 2026Q1
+                            const qm = p.match(/^(.*?)(Q[1-4])(.*)$/i);
+                            if (qm) {
+                                yearPart = (qm[1].trim() || qm[3].trim());
+                                qPart = qm[2].toUpperCase();
+                            }
                         }
+
                         if (!yearDataLocal[yearPart]) {
-                            yearDataLocal[yearPart] = { isQuarterly: false, quarters: new Set() };
+                            yearDataLocal[yearPart] = { isQuarterly: false, quarters: new Set(), keys: {} };
                         }
+
                         if (qPart) {
                             yearDataLocal[yearPart].isQuarterly = true;
                             yearDataLocal[yearPart].quarters.add(qPart);
+                            yearDataLocal[yearPart].keys[qPart] = p;
+                        } else {
+                            yearDataLocal[yearPart].keys['annual'] = p;
                         }
                     });
 
@@ -9078,21 +9091,32 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     sortedYears.forEach(year => {
                         const isQuarterly = yearDataLocal[year].isQuarterly;
                         if (!isQuarterly) {
-                            const val = parseKpiValue(vals[year]);
+                            const originalKey = yearDataLocal[year].keys['annual'] || year;
+                            const val = parseKpiValue(vals[originalKey]);
                             datasetBase.push(val);
                             datasetQ2.push(null);
                             datasetQ3.push(null);
                             datasetQ4.push(null);
                             
-                            formattedTooltipsBase.push(vals[year] || 'N/A');
+                            formattedTooltipsBase.push(vals[originalKey] || 'N/A');
                             formattedTooltipsQ2.push(null);
                             formattedTooltipsQ3.push(null);
                             formattedTooltipsQ4.push(null);
                         } else {
-                            const valQ1 = parseKpiValue(vals[`${year} Q1`]);
-                            const valQ2 = parseKpiValue(vals[`${year} Q2`]);
-                            const valQ3 = parseKpiValue(vals[`${year} Q3`]);
-                            const valQ4 = parseKpiValue(vals[`${year} Q4`]);
+                            const keyQ1 = yearDataLocal[year].keys['Q1'];
+                            const keyQ2 = yearDataLocal[year].keys['Q2'];
+                            const keyQ3 = yearDataLocal[year].keys['Q3'];
+                            const keyQ4 = yearDataLocal[year].keys['Q4'];
+
+                            const valQ1 = keyQ1 ? parseKpiValue(vals[keyQ1]) : null;
+                            const valQ2 = keyQ2 ? parseKpiValue(vals[keyQ2]) : null;
+                            const valQ3 = keyQ3 ? parseKpiValue(vals[keyQ3]) : null;
+                            const valQ4 = keyQ4 ? parseKpiValue(vals[keyQ4]) : null;
+
+                            const rawQ1 = keyQ1 ? vals[keyQ1] : null;
+                            const rawQ2 = keyQ2 ? vals[keyQ2] : null;
+                            const rawQ3 = keyQ3 ? vals[keyQ3] : null;
+                            const rawQ4 = keyQ4 ? vals[keyQ4] : null;
 
                             const kpiNameLower = (kpi.name || "").toLowerCase();
                             const isSnapshotMetric = /monthly|mau|dau|arr|users|rate|margin|subscriber|backlog|active|ratio|percentage|yield|employees/i.test(kpiNameLower);
@@ -9100,10 +9124,10 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                             if (isSnapshotMetric) {
                                 let latestVal = null;
                                 let latestLabel = null;
-                                if (valQ4 != null) { latestVal = valQ4; latestLabel = 'Q4: ' + vals[`${year} Q4`]; }
-                                else if (valQ3 != null) { latestVal = valQ3; latestLabel = 'Q3: ' + vals[`${year} Q3`]; }
-                                else if (valQ2 != null) { latestVal = valQ2; latestLabel = 'Q2: ' + vals[`${year} Q2`]; }
-                                else if (valQ1 != null) { latestVal = valQ1; latestLabel = 'Q1: ' + vals[`${year} Q1`]; }
+                                if (valQ4 != null) { latestVal = valQ4; latestLabel = 'Q4: ' + rawQ4; }
+                                else if (valQ3 != null) { latestVal = valQ3; latestLabel = 'Q3: ' + rawQ3; }
+                                else if (valQ2 != null) { latestVal = valQ2; latestLabel = 'Q2: ' + rawQ2; }
+                                else if (valQ1 != null) { latestVal = valQ1; latestLabel = 'Q1: ' + rawQ1; }
 
                                 datasetBase.push(latestVal);
                                 datasetQ2.push(null);
@@ -9120,10 +9144,10 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                                 datasetQ3.push(valQ3);
                                 datasetQ4.push(valQ4);
 
-                                formattedTooltipsBase.push(vals[`${year} Q1`] ? `Q1: ${vals[`${year} Q1`]}` : null);
-                                formattedTooltipsQ2.push(vals[`${year} Q2`] ? `Q2: ${vals[`${year} Q2`]}` : null);
-                                formattedTooltipsQ3.push(vals[`${year} Q3`] ? `Q3: ${vals[`${year} Q3`]}` : null);
-                                formattedTooltipsQ4.push(vals[`${year} Q4`] ? `Q4: ${vals[`${year} Q4`]}` : null);
+                                formattedTooltipsBase.push(rawQ1 ? `Q1: ${rawQ1}` : null);
+                                formattedTooltipsQ2.push(rawQ2 ? `Q2: ${rawQ2}` : null);
+                                formattedTooltipsQ3.push(rawQ3 ? `Q3: ${rawQ3}` : null);
+                                formattedTooltipsQ4.push(rawQ4 ? `Q4: ${rawQ4}` : null);
                             }
                         }
                     });
