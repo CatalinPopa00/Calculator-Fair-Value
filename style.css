@@ -4203,7 +4203,7 @@ body.has-searched #install-app-btn {
 /* Carousel Page Indicators (All Devices) */
     .mobile-carousel-indicators {
         display: flex;
-        gap: 6px;
+        gap: 15px;
         margin-top: 15px;
         margin-bottom: 5px;
         padding: 0 15px;
@@ -4500,6 +4500,10 @@ body.has-searched #install-app-btn {
         gap: 2px !important;
         justify-content: space-between !important;
         width: 100% !important;
+    }
+    #ownership-card .corporate-tabs-wrapper {
+        justify-content: center !important;
+        gap: 15px !important;
     }
     .corporate-tabs-wrapper .brief-tab {
         flex: 1;
