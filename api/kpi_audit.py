@@ -430,7 +430,7 @@ def run_ai_kpi_audit(ticker: str, force_refresh: bool = False) -> Dict[str, Any]
     if not force_refresh and ticker in audit_cache:
         return audit_cache[ticker]
         
-    redis_key = f"audit_v3:{ticker}"
+    redis_key = f"audit_v5:{ticker}"
     if not force_refresh:
         cached_data = kv_get(redis_key)
         if cached_data:
@@ -505,7 +505,9 @@ ADDITIONALLY, extract the available individual quarterly data (e.g., Q1, Q2) for
 Format the keys EXACTLY as "FY [Year]" or "FY [Year] Q[X]". Format numbers cleanly (e.g. "1.2 Billion", "34.5%", "450 Million"). 
 
 CRITICAL EXTRACTION RULE - HYBRID APPROACH: 
-- For ALL PAST FULLY COMPLETED FISCAL YEARS (e.g., FY 2021 to the last completed year), you MUST provide the EXACT FULL-YEAR ANNUAL TOTAL (the sum of all 4 quarters) for flow metrics like Revenue, Trips, Volume, etc. Do NOT mistakenly report a single quarter's value (like Q4) as the full year value! You are STRICTLY REQUIRED to fill the history for FY 2021, FY 2022, FY 2023, FY 2024, and FY 2025. YOU MUST USE YOUR INTERNAL KNOWLEDGE BASE if these are not in the text. DO NOT LEAVE ANY PAST YEAR BLANK. If you cannot find the exact number, provide your best possible estimate for the 12-month period.
+- For ALL PAST FULLY COMPLETED FISCAL YEARS (e.g., FY 2021 to the last completed year), you MUST provide the EXACT FULL-YEAR ANNUAL TOTAL (the sum of all 4 quarters) for flow metrics like Revenue, Trips, Volume, Gross Bookings, etc. 
+CRITICAL AI WARNING: AI models constantly fail by mistakenly reporting the Q4 value or the "prior-year quarter" value as the full year value! Earnings transcripts often mention a "prior-year quarter" for YoY comparison (e.g., "53 Billion this quarter, compared to 42 Billion in the same quarter last year"). DO NOT extract that 42 Billion and report it as the full year! If your internal knowledge or the text only gives you a single quarter's value for a historical year, YOU MUST MULTIPLY IT BY 4 to estimate the full year! A full year flow metric MUST be ~4x the value of a single quarter. If you already have the official 12-month cumulative total, use that. 
+You are STRICTLY REQUIRED to fill the history for FY 2021, FY 2022, FY 2023, FY 2024, and FY 2025. YOU MUST USE YOUR INTERNAL KNOWLEDGE BASE. DO NOT LEAVE ANY PAST YEAR BLANK.
 - For the CURRENT ONGOING FISCAL YEAR and UNFINISHED QUARTERS (e.g., the current reporting year, like FY 2026), you MUST extract the numerical values ONLY if they are explicitly stated in the provided text. STRICT BAN ON HALLUCINATION for recent and future quarters! Do NOT invent values and do NOT add quarters that have not been officially reported yet! 
 - QUARTERLY PRECISION: If a quarter (like Q1, Q2) is reported for the CURRENT year, ensure you extract the discrete 3-month value for that specific quarter, NOT the cumulative (YTD) value. Do NOT duplicate the Q1 value into Q2. If a quarter is missing, do not include it.
 
