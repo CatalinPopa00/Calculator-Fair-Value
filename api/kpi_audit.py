@@ -774,6 +774,9 @@ Instructions:
         messages.append({"role": api_role, "content": msg["content"]})
     messages.append({"role": "user", "content": message})
 
+    all_errors = []
+    result_content = None
+
     # MULTI-MODEL PIPELINE: Phase 2 (Gemini Primary with Native Search)
     # We prioritize Gemini because it has the google_search tool native, which solves the user's issue with "AI doesn't know how to search".
     if gemini_key:
