@@ -40,7 +40,7 @@ search_cache = TTLCache(maxsize=500, ttl=30 * 60)
 # Valuation cache (1 hour TTL for active development/accuracy)
 valuation_cache = TTLCache(maxsize=1000, ttl=60 * 60)
 synthesis_cache = TTLCache(maxsize=500, ttl=86400 * 7)
-CACHE_VERSION = "v324"
+CACHE_VERSION = "v325"
 import threading
 in_flight_requests = {}
 in_flight_lock = threading.Lock()

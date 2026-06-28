@@ -5951,7 +5951,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
         // Auto-load AI KPI Audit if we have previously loaded it
         if (typeof window.displayAiKpiAudit === 'function' && currentTicker) {
             try {
-                let cachedList = JSON.parse(localStorage.getItem('kpiAuditCacheList') || '[]');
+                let cachedList = JSON.parse(localStorage.getItem('kpiAuditCacheList_v4') || '[]');
                 if (cachedList.includes(currentTicker)) {
                     // It was loaded before, load it again silently (without forcing network)
                     window.displayAiKpiAudit(currentTicker, false);
@@ -8894,11 +8894,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
         try {
             let data = null;
-            const cacheKey = `kpiAudit_v2_${ticker}`;
+            const cacheKey = `kpiAudit_v4_${ticker}`;
             let cachedList = [];
 
             try {
-                cachedList = JSON.parse(localStorage.getItem('kpiAuditCacheList') || '[]');
+                cachedList = JSON.parse(localStorage.getItem('kpiAuditCacheList_v4') || '[]');
             } catch(e) {}
 
             if (!forceNetwork && cachedList.includes(ticker)) {
@@ -8926,7 +8926,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                 if (!data.error) {
                     if (!cachedList.includes(ticker)) {
                         cachedList.push(ticker);
-                        localStorage.setItem('kpiAuditCacheList', JSON.stringify(cachedList));
+                        localStorage.setItem('kpiAuditCacheList_v4', JSON.stringify(cachedList));
                     }
                     localStorage.setItem(cacheKey, JSON.stringify(data));
                 } else {
@@ -8934,7 +8934,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     const index = cachedList.indexOf(ticker);
                     if (index > -1) {
                         cachedList.splice(index, 1);
-                        localStorage.setItem('kpiAuditCacheList', JSON.stringify(cachedList));
+                        localStorage.setItem('kpiAuditCacheList_v4', JSON.stringify(cachedList));
                     }
                     localStorage.removeItem(cacheKey);
                 }
@@ -9049,8 +9049,8 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     localPeriods.forEach(p => {
                         let yearPart = p;
                         let qPart = null;
-                        if (p.includes(' Q')) {
-                            const parts = p.split(' Q');
+                        if (p.match(/ Q[1-4]$/i)) {
+                            const parts = p.split(/ Q/i);
                             yearPart = parts[0].trim();
                             qPart = 'Q' + parts[1].trim();
                         }
@@ -9069,13 +9069,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                     const datasetQ2 = [];
                     const datasetQ3 = [];
                     const datasetQ4 = [];
-                    const datasetExtrapolated = [];
                     
                     const formattedTooltipsBase = [];
                     const formattedTooltipsQ2 = [];
                     const formattedTooltipsQ3 = [];
                     const formattedTooltipsQ4 = [];
-                    const formattedTooltipsExt = [];
 
                     sortedYears.forEach(year => {
                         const isQuarterly = yearDataLocal[year].isQuarterly;
@@ -9085,13 +9083,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                             datasetQ2.push(null);
                             datasetQ3.push(null);
                             datasetQ4.push(null);
-                            datasetExtrapolated.push(null);
                             
                             formattedTooltipsBase.push(vals[year] || 'N/A');
                             formattedTooltipsQ2.push(null);
                             formattedTooltipsQ3.push(null);
                             formattedTooltipsQ4.push(null);
-                            formattedTooltipsExt.push(null);
                         } else {
                             const valQ1 = parseKpiValue(vals[`${year} Q1`]);
                             const valQ2 = parseKpiValue(vals[`${year} Q2`]);
@@ -9113,13 +9109,11 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                                 datasetQ2.push(null);
                                 datasetQ3.push(null);
                                 datasetQ4.push(null);
-                                datasetExtrapolated.push(null);
 
                                 formattedTooltipsBase.push(latestLabel);
                                 formattedTooltipsQ2.push(null);
                                 formattedTooltipsQ3.push(null);
                                 formattedTooltipsQ4.push(null);
-                                formattedTooltipsExt.push(null);
                             } else {
                                 datasetBase.push(valQ1);
                                 datasetQ2.push(valQ2);
@@ -9130,16 +9124,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                                 formattedTooltipsQ2.push(vals[`${year} Q2`] ? `Q2: ${vals[`${year} Q2`]}` : null);
                                 formattedTooltipsQ3.push(vals[`${year} Q3`] ? `Q3: ${vals[`${year} Q3`]}` : null);
                                 formattedTooltipsQ4.push(vals[`${year} Q4`] ? `Q4: ${vals[`${year} Q4`]}` : null);
-
-                                let sum = 0;
-                                let count = 0;
-                                if (valQ1 != null) { sum += valQ1; count++; }
-                                if (valQ2 != null) { sum += valQ2; count++; }
-                                if (valQ3 != null) { sum += valQ3; count++; }
-                                if (valQ4 != null) { sum += valQ4; count++; }
-
-                                datasetExtrapolated.push(null);
-                                formattedTooltipsExt.push(null);
                             }
                         }
                     });
@@ -9150,7 +9134,7 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                         window.kpiChartInstance.destroy();
                     }
 
-                    const hasValidData = datasetBase.some(v => v !== null && v !== undefined && !isNaN(v));
+                    const hasValidData = [...datasetBase, ...datasetQ2, ...datasetQ3, ...datasetQ4].some(v => v !== null && v !== undefined && !isNaN(v));
 
                     if (!hasValidData || sortedYears.length === 0) {
                         chartCanvas.style.display = 'none';
@@ -9218,15 +9202,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                                     borderWidth: 1,
                                     borderRadius: 4
                                 },
-                                {
-                                    label: 'Extrapolated',
-                                    data: datasetExtrapolated,
-                                    backgroundColor: hatchPattern,
-                                    borderColor: 'rgba(255, 255, 255, 0.3)',
-                                    borderWidth: 1,
-                                    borderDash: [4, 4],
-                                    borderRadius: 4
-                                }
                             ]
                         },
                         options: {
@@ -9244,7 +9219,6 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
                                             else if (dsIndex === 1) valLabel = formattedTooltipsQ2[idx];
                                             else if (dsIndex === 2) valLabel = formattedTooltipsQ3[idx];
                                             else if (dsIndex === 3) valLabel = formattedTooltipsQ4[idx];
-                                            else if (dsIndex === 4) valLabel = formattedTooltipsExt[idx];
                                             
                                             if (!valLabel) return null;
                                             return ' ' + valLabel;
