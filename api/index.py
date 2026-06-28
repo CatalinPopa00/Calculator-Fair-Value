@@ -434,10 +434,10 @@ def get_watchlist():
             with open(WATCHLIST_FILE, "r") as f:
                 data = json.load(f)
         
-        # v38 Fix: Preserve order using dict.fromkeys instead of set to avoid random shuffling
+        # v39 Fix: Preserve order using dict.fromkeys instead of set to avoid random shuffling
         return list(dict.fromkeys([t.upper() for t in data]))
     except Exception as e:
-        # v37 Fix: If database errors, do NOT return []. Return 500.
+        # v39 Fix: If database errors, do NOT return []. Return 500.
         print(f"Database error in get_watchlist: {e}")
         raise HTTPException(
             status_code=500,
@@ -719,7 +719,7 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
     try:
         # Ensure wacc is normalized for the key
         norm_wacc = round(float(wacc), 2) if wacc is not None else "def"
-        # Synchronized v38: Always include skip_peers to prevent cache collision
+        # Synchronized v39: Always include skip_peers to prevent cache collision
         cache_key = f"valuation_{ticker.upper()}_{fast_mode}_{skip_peers}_{CACHE_VERSION}_{norm_wacc}"
 
         # 0. Cache Elevation: If we are in any limited mode (Watchlist/SkipPeers), 
@@ -730,12 +730,12 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
                 return valuation_cache[full_mode_key]
 
         # 1. Persistent Cache Check
-        persistent_cache_key = f"val_data_v38_{ticker.upper()}"
+        persistent_cache_key = f"val_data_v39_{ticker.upper()}"
         cached_data = kv_get(persistent_cache_key)
         if cached_data and not force_refresh:
             return cached_data
 
-        persistent_skip_key = f"val_data_v37_skip_{ticker.upper()}"
+        persistent_skip_key = f"val_data_v39_skip_{ticker.upper()}"
         if skip_peers:
             cached_skip = kv_get(persistent_skip_key)
             if cached_skip and not force_refresh:
@@ -2129,16 +2129,16 @@ def get_valuation(ticker: str, response: Response, wacc: float = None, fast_mode
             content={"error": True, "detail": "An internal error occurred during valuation."}
         )
 
-    # 3. Save to memory cache (v38: Fix for slowness and desync)
+    # 3. Save to memory cache (v39: Fix for slowness and desync)
     valuation_cache[cache_key] = response_data
 
     # 3.5 Save to persistent KV cache so that `get_competitors_data` can intercept and sync parity
     try:
         from utils.kv import kv_set
         if not skip_peers and not fast_mode:
-            kv_set(f"val_data_v37_{ticker_upper}", response_data, ex=86400)
+            kv_set(f"val_data_v39_{ticker_upper}", response_data, ex=86400)
         else:
-            kv_set(f"val_data_v37_skip_{ticker_upper}", response_data, ex=86400)
+            kv_set(f"val_data_v39_skip_{ticker_upper}", response_data, ex=86400)
     except Exception as e:
         print(f"Failed to cache main profile to KV for {ticker_upper}: {e}")
 
