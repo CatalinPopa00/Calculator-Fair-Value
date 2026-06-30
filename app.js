@@ -5951,13 +5951,14 @@ const animatePriceUI = (openPrice, newPrice, triggerFlash = true) => {
 
         // Auto-load AI KPI Audit if we have previously loaded it
         if (typeof window.displayAiKpiAudit === 'function' && currentTicker) {
-            try {
-                let cachedList = JSON.parse(localStorage.getItem('kpiAuditCacheList_v4') || '[]');
-                if (cachedList.includes(currentTicker)) {
-                    // It was loaded before, load it again silently (without forcing network)
-                    window.displayAiKpiAudit(currentTicker, false);
-                }
-            } catch(e) {}
+            fetch(`/api/ai-kpi-audit/check/${currentTicker}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.cached) {
+                        window.displayAiKpiAudit(currentTicker, false);
+                    }
+                })
+                .catch(e => console.error("Error checking KPI audit cache:", e));
         }
 
         // Show deep research section (hidden by default to prevent empty state on page load)
@@ -9406,7 +9407,11 @@ window.refreshCarousels = function() {
             indicatorWrapper.className = 'mobile-carousel-indicators';
             const contentArea = card.querySelector('.analyst-content-area') || card.querySelector('.card-body-collapsible');
             if (contentArea) {
-                contentArea.parentNode.insertBefore(indicatorWrapper, contentArea);
+                if (contentArea.nextSibling) {
+                    contentArea.parentNode.insertBefore(indicatorWrapper, contentArea.nextSibling);
+                } else {
+                    contentArea.parentNode.appendChild(indicatorWrapper);
+                }
             } else {
                 tabsWrapper.parentNode.insertBefore(indicatorWrapper, tabsWrapper.nextSibling);
             }

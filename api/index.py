@@ -514,6 +514,17 @@ def delete_override(ticker: str):
         print(f"Error deleting override: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
+@app.get("/api/ai-kpi-audit/check/{ticker}")
+def check_kpi_audit(ticker: str):
+    ticker_upper = ticker.upper()
+    kv_key = f"kpi_audit_{CACHE_VERSION}_{ticker_upper}"
+    if kv_get(kv_key):
+        return {"cached": True}
+    redis_key = f"audit_v8:{ticker_upper}"
+    if kv_get(redis_key):
+        return {"cached": True}
+    return {"cached": False}
+
 @app.post("/api/ai-kpi-audit/{ticker}")
 def kpi_audit(ticker: str, response: Response, force_refresh: bool = False):
     # Set Vercel Edge Cache headers for KPI Audit (Cache 1hr, stale up to 24hr)
