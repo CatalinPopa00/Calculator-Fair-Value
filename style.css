@@ -4239,7 +4239,7 @@ body.has-searched #install-app-btn {
 /* Carousel Page Indicators (All Devices) */
     .mobile-carousel-indicators {
         display: flex;
-        gap: 15px;
+        gap: 6px;
         margin-top: 15px;
         margin-bottom: 5px;
         padding: 0 15px;
@@ -4539,7 +4539,7 @@ body.has-searched #install-app-btn {
     }
     #ownership-card .corporate-tabs-wrapper {
         justify-content: center !important;
-        gap: 15px !important;
+        gap: 6px !important;
     }
     .corporate-tabs-wrapper .brief-tab {
         flex: 1;
